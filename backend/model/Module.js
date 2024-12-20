@@ -4,7 +4,7 @@ const questionSchema = new mongoose.Schema({
     questionText: { type: String, required: true }, // The question text
     options: [{ type: String, required: true }], // Array of multiple-choice options
     correctAnswer: { type: String, required: true }, // Correct answer text
-    pass: { type: Boolean, default: false }
+  
 
 });
 
@@ -14,7 +14,6 @@ const videoSchema = new mongoose.Schema({
     description: { type: String, required: true }, // Description of the video
     videoUri: { type: String, required: true }, // Video link or URI
     questions: [questionSchema],
-    pass: { type: Boolean, default: false }
     // Array of questions related to the video
 });
 

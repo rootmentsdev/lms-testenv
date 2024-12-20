@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 const assignedModuleSchema = new mongoose.Schema({
     moduleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Module', required: true }, // Reference to a module
     deadline: { type: Date, required: true }, // Deadline for the module
+    pass: { type: Boolean, default: false },
     status: { type: String, enum: ['Pending', 'In Progress', 'Completed'], default: 'Pending' } // Current status
 });
 
@@ -11,6 +12,8 @@ const assignedModuleSchema = new mongoose.Schema({
 const assignedAssessmentSchema = new mongoose.Schema({
     assessmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Assessment', required: true }, // Reference to an assessment
     deadline: { type: Date, required: true }, // Deadline for the assessment
+    pass: { type: Boolean, default: false },
+
     status: { type: String, enum: ['Pending', 'In Progress', 'Completed'], default: 'Pending' } // Current status
 });
 

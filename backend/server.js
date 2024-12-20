@@ -7,6 +7,7 @@ import connectMongoDB from './db/database.js';
 import ModuleRouter from './routes/ModuleRoute.js';
 import userrouter from './routes/AssessmentAndModule.js';
 import UserCreating from './routes/UserRoute.js';
+import UserRouters from './routes/UserConRoute.js';
 
 const app = express();
 const port = process.env.PORT || 7000;
@@ -24,8 +25,9 @@ app.get('/', (req, res) => {
 });
 
 app.use('/api', ModuleRouter)
-app.use('/api/user',userrouter)
-app.use('/api/usercreate',UserCreating)
+app.use('/api/user', userrouter)
+app.use('/api/usercreate', UserCreating)
+app.use('/pi/auth', UserRouters)
 
 
 app.listen(port, () => {
