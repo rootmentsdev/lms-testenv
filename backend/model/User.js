@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose, { trusted } from 'mongoose';
 
 // Define schema for assigned modules
 const assignedModuleSchema = new mongoose.Schema({
@@ -19,9 +19,10 @@ const assignedAssessmentSchema = new mongoose.Schema({
 
 // Define the user schema
 const userSchema = new mongoose.Schema({
-    username: { type: String, required: true, unique: true }, // User's username
-    password: { type: String, required: true }, // User's password (hashed)
-    email: { type: String, required: true, unique: true }, // User's email
+    username: { type: String, required: true, }, // User's username
+    // User's password (hashed)
+    email: { type: String, required: true, unique: true },
+    locCode: { type: String, required: true }, // User's email
     empID: { type: String, required: true, unique: true }, // Employee ID
     location: { type: String, required: true }, // User's location
     workingBranch: { type: String, required: true }, // User's working branch

@@ -53,19 +53,27 @@ const AssessmentsData = () => {
                     </div>
                 </div>
 
-                <div className="mt-10 ml-10 flex flex-wrap gap-3">
+                <div className="mt-10  ml-10 flex flex-wrap gap-3">
 
-                    <RoundProgressBarAssessment initialProgress='73' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 73%' />
-                    <RoundProgressBarAssessment initialProgress='74' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 74%' />
-                    <RoundProgressBarAssessment initialProgress='990' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 90%' />
-                    <RoundProgressBarAssessment initialProgress='100' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 100%' />
-                    <RoundProgressBarAssessment initialProgress='46' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 46%' />
-                    <RoundProgressBarAssessment initialProgress='26' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 26%' />
-                    <RoundProgressBarAssessment initialProgress='56' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 56%' />
+                    <div className="mt-5" >   <RoundProgressBarAssessment initialProgress='73' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 73%' /></div>
+                    <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='74' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 74%' /></div>
+                    <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='990' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 90%' /></div>
+                    <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='100' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 100%' /></div>
+                    <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='46' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 46%' /></div>
+                    <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='26' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 26%' /></div>
+                    <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='56' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 56%' /></div>
+
+                    <div className="mt-5" >   <RoundProgressBarAssessment initialProgress='73' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 73%' /></div>
+                    <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='74' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 74%' /></div>
+                    <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='990' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 90%' /></div>
+                    <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='100' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 100%' /></div>
+                    <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='46' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 46%' /></div>
+                    <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='26' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 26%' /></div>
 
                 </div>
             </div>
         </div>
+
     )
 }
 

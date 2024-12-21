@@ -1,28 +1,48 @@
+import { Link } from "react-router-dom"
+import RoundProgressBar from "../../components/RoundBar/RoundBar"
 import Header from "../../components/Header/Header"
 import { FaPlus } from "react-icons/fa";
 import { CiFilter } from "react-icons/ci";
 import { useState } from "react";
-import RoundProgressBar from "../../components/RoundBar/RoundBar";
 
 
-const TrainingData = () => {
+const AssignedTrainingsData = () => {
     const [isOpen, setIsOpen] = useState(false);
-
+    //  /
     const toggleDropdown = () => {
         setIsOpen(prev => !prev);
     };
     return (
         <div className="w-full h-full bg-white">
-            <div><Header name='All Training' /></div>
+            <div><Header name='Assigned Training' /></div>
             <div>
+                <Link to={'/Alltraining'}>
+                    <div className="flex justify-end mr-20">
+                        <div className="flex w-56 mt-5 border-2 justify-center items-center py-2 ml-10 cursor-pointer
+                                      ">
+
+                            <h4 className="text-black">Show All Training</h4>
+                        </div>
+                    </div>
+                </Link>
+                <div className="flex text-black ml-10 gap-5 text-xl w-full">
+                    <Link to='/training'>
+                        <h4 className="cursor-pointer">Mandatory Trainings</h4>
+                    </Link>
+
+                    <h4 className="border-b-[3px] border-green-600 text-green-600 " >Assigned Trainings</h4>
+
+                </div>
+                <hr className="mx-10 mt-[-1px] border-green-600 " />
+
 
                 <div className="flex mx-10 justify-between mt-10 ">
                     <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer
-                                        ">
+                                      ">
                         <div className="text-green-500">
                             <FaPlus />
                         </div>
-                        <h4 className="text-black">Assign new Training</h4>
+                        <h4 className="text-black">Create new Training</h4>
                     </div>
                     <div className="relative inline-block text-left w-36 mr-10">
                         <button
@@ -57,13 +77,9 @@ const TrainingData = () => {
                 <RoundProgressBar initialProgress='80' title='Training 2' Module='No. of Modules : 12' duration='Duration : 01 : 56 hr' complete='Completion Rate : 80%' />
                 <RoundProgressBar initialProgress='90' title='Training 3' Module='No. of Modules : 12' duration='Duration : 01 : 56 hr' complete='Completion Rate : 90%' />
                 <RoundProgressBar initialProgress='20' title='Training 4' Module='No. of Modules : 12' duration='Duration : 01 : 56 hr' complete='Completion Rate : 20%' />
-                <RoundProgressBar initialProgress='40' title='Training 5' Module='No. of Modules : 12' duration='Duration : 01 : 56 hr' complete='Completion Rate : 40%' />
-                <RoundProgressBar initialProgress='80' title='Training 6' Module='No. of Modules : 12' duration='Duration : 01 : 56 hr' complete='Completion Rate : 80%' />
-                <RoundProgressBar initialProgress='90' title='Training 7' Module='No. of Modules : 12' duration='Duration : 01 : 56 hr' complete='Completion Rate : 90%' />
             </div>
         </div>
-
     )
 }
 
-export default TrainingData
+export default AssignedTrainingsData

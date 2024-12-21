@@ -17,49 +17,34 @@ const RoundProgressBar = ({ initialProgress, title, Module, duration, complete }
     return (
 
 
-        <div className="card w-72 h-40 shadow-xl flex justify-center items-center cursor-pointer ">
-            <div className="flex justify-center items-center flex-col">
-                <div className="flex ">
-                    <div className="flex flex-row items-center space-y-4">
+        <div className="card w-72 h-40 shadow-lg rounded-lg flex justify-center items-center cursor-pointer border border-gray-200">
+            <div className="flex justify-center items-center flex-col p-4">
+                <div className="flex w-full justify-between items-center">
+                    {/* Text Content */}
+                    <div className="flex flex-col space-y-2">
+                        <h4 className="text-2xl text-black font-semibold">{title}</h4>
+                        <p className="text-gray-500">{Module}</p>
+                        <p className="text-gray-500">{duration}</p>
+                        <p className="text-gray-500">{complete}</p>
+                    </div>
 
-
-                        <div >
-                            <h4 className="text-2xl text-black">{title}</h4>
-                            <p>{Module}</p>
-                            <p>{duration}</p>
-                            <p>{complete}</p>
-
-                        </div>
-                        {/* Circular progress bar */}
-                        <div style={{ width: 80, height: 80 }}>
-                            <CircularProgressbar
-                                value={progress}
-                                text={`${progress}%`}
-                                styles={buildStyles({
-                                    pathColor: "green", // Green color for the path
-                                    textColor: "#333", // Text color
-                                    trailColor: "#e2e8f0", // Light gray for the trail
-                                    strokeWidth: 8, // Path thickness
-                                })}
-                            />
-                        </div>
-
+                    {/* Circular Progress Bar */}
+                    <div style={{ width: 80, height: 80 }}>
+                        <CircularProgressbar
+                            value={progress}
+                            text={`${progress}%`}
+                            styles={buildStyles({
+                                pathColor: "green", // Green progress path
+                                textColor: "#333", // Text color
+                                trailColor: "#e2e8f0", // Light gray trail
+                                strokeWidth: 8, // Path thickness
+                            })}
+                        />
                     </div>
                 </div>
-
             </div>
+        </div>
 
-            {/* Input to change progress */}
-            {/* <div className="flex space-x-2">
-                <input
-                    type="number"
-                    value={progress}
-                    onChange={handleInputChange}
-                    className="p-2 border rounded-md"
-                    placeholder="Enter Progress"
-                />
-            </div> */}
-        </div >
     );
 };
 
