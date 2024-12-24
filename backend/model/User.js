@@ -30,7 +30,7 @@ const userSchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true },
     locCode: { type: String, required: true }, // User's email
     empID: { type: String, required: true, unique: true }, // Employee ID
-    location: { type: String, required: true }, // User's location
+    designation: { type: String, required: true },
     workingBranch: { type: String, required: true }, // User's working branch
     assignedModules: [assignedModuleSchema], // Array of assigned modules
     assignedAssessments: [assignedAssessmentSchema],
@@ -48,4 +48,4 @@ const User = mongoose.model('User', userSchema);
 export default User;
 
 
-// designation: { type: String, required: true },//user designation
+// //user designation

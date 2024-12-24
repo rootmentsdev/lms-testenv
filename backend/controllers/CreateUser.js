@@ -2,6 +2,7 @@ import User from '../model/User.js';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import Branch from '../model/Branch.js';
+import TrainingProgress from '../model/Trainingprocessschema.js';
 dotenv.config()
 // Function to create a new user
 export const createUser = async (req, res) => {
@@ -11,6 +12,7 @@ export const createUser = async (req, res) => {
       email,
       empID,
       locCode,
+      designation,
       location,
       workingBranch,
     } = req.body;
@@ -30,6 +32,7 @@ export const createUser = async (req, res) => {
       empID,
       location,
       locCode,
+      designation,
       workingBranch,
     });
 
@@ -42,8 +45,6 @@ export const createUser = async (req, res) => {
 };
 
 
-
-// Login User
 
 
 export const loginUser = async (req, res) => {
@@ -98,8 +99,6 @@ export const loginUser = async (req, res) => {
 };
 
 
-
-
 export const GetAllUser = async (req, res) => {
   try {
 
@@ -123,7 +122,6 @@ export const GetAllUser = async (req, res) => {
   }
 }
 
-// Adjust the path as needed
 
 export const createBranch = async (req, res) => {
   const { locCode, workingBranch } = req.body;
@@ -151,6 +149,7 @@ export const createBranch = async (req, res) => {
   }
 };
 
+
 export const GetBranch = async (req, res) => {
 
 
@@ -170,3 +169,121 @@ export const GetBranch = async (req, res) => {
   }
 };
 
+
+export const GetuserTraining = async (req, res) => {
+  const { email } = req.body; // Extract request body
+
+  try {
+    // Find user based on email and populate training and modules separately
+    const user = await User.findOne({ email })
+      .populate({
+        path: 'training.trainingId', // Populate the training details
+        populate: {
+          path: 'modules', // Populate the modules array inside each training
+          model: 'Module' // Specify the 'Module' model for the population
+        }
+      });
+
+    // Check if user exists
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Return user data with populated training and modules
+    res.status(200).json({
+      message: "Data found",
+      data: user
+    });
+
+  } catch (error) {
+    console.error('Error finding user:', error.message);
+    res.status(500).json({ message: "Server error while finding user" });
+  }
+};
+
+
+export const GetuserTrainingprocess = async (req, res) => {
+  const { userId, trainingId } = req.body; // Extract request body
+
+  try {
+    const traingproess = await TrainingProgress.find({
+      userId,
+      trainingId
+
+    })
+    if (!traingproess) {
+      return res.status(404).json({ message: "No data" });
+    }
+
+    // Return user data with populated training and modules
+    res.status(200).json({
+      message: "Data found",
+      data: traingproess
+    });
+
+  } catch (error) {
+    console.error('Error finding user:', error.message);
+    res.status(500).json({ message: "Server error while finding user" });
+  }
+};
+
+
+
+export const UpdateuserTrainingprocess = async (req, res) => {
+  const { userId, trainingId, moduleId, videoId } = req.body; // Extract request body
+
+  try {
+    // Find the training progress by userId and trainingId
+    const trainingProgress = await TrainingProgress.findOne({ userId, trainingId });
+
+    if (!trainingProgress) {
+      return res.status(404).json({ message: "Training progress not found" });
+    }
+
+    // Find the module by moduleId in the training progress
+    const module = trainingProgress.modules.find(mod => mod.moduleId.toString() === moduleId);
+
+    if (!module) {
+      return res.status(404).json({ message: "Module not found" });
+    }
+
+    // Find the video by videoId inside the module's videos
+    const video = module.videos.find(v => v.videoId.toString() === videoId);
+
+    if (!video) {
+      return res.status(404).json({ message: "Video not found" });
+    }
+
+    // Update the pass field of the video to true
+    video.pass = true;
+
+    // Check if all videos in the module are passed
+    const allVideosPassed = module.videos.every(v => v.pass === true);
+
+    // If all videos are passed, update the module's pass field to true
+    if (allVideosPassed) {
+      module.pass = true;
+    }
+
+    // Check if all modules in the training are passed
+    const allModulesPassed = trainingProgress.modules.every(mod => mod.pass === true);
+
+    // If all modules are passed, update the training's pass field to true
+    if (allModulesPassed) {
+      trainingProgress.pass = true;
+    }
+
+    // Save the updated training progress
+    await trainingProgress.save();
+
+    // Return the updated training progress
+    res.status(200).json({
+      message: "Training progress updated successfully",
+      data: trainingProgress
+    });
+
+  } catch (error) {
+    console.error('Error updating training progress:', error.message);
+    res.status(500).json({ message: "Server error while updating training progress" });
+  }
+};
