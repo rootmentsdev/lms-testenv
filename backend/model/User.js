@@ -16,28 +16,36 @@ const assignedAssessmentSchema = new mongoose.Schema({
 
     status: { type: String, enum: ['Pending', 'In Progress', 'Completed'], default: 'Pending' } // Current status
 });
+const trainingSchema = new mongoose.Schema({
+    trainingId: { type: mongoose.Schema.Types.ObjectId, ref: 'Training', required: true }, // Reference to an assessment
+    deadline: { type: Date, required: true }, // Deadline for the assessment
+    pass: { type: Boolean, default: false },
 
-// Define the user schema
+    status: { type: String, enum: ['Pending', 'In Progress', 'Completed'], default: 'Pending' } // Current status
+});
+
+
 const userSchema = new mongoose.Schema({
     username: { type: String, required: true, }, // User's username
-    // User's password (hashed)
     email: { type: String, required: true, unique: true },
     locCode: { type: String, required: true }, // User's email
     empID: { type: String, required: true, unique: true }, // Employee ID
     location: { type: String, required: true }, // User's location
     workingBranch: { type: String, required: true }, // User's working branch
     assignedModules: [assignedModuleSchema], // Array of assigned modules
-    assignedAssessments: [assignedAssessmentSchema], // Array of assigned assessments
+    assignedAssessments: [assignedAssessmentSchema],
+    training: [trainingSchema],// Array of assigned assessments
     createdAt: { type: Date, default: Date.now }, // Timestamp when the user was created
     updatedAt: { type: Date, default: Date.now }, // Timestamp when the user was last updated
 });
 
-// Middleware to update the `updatedAt` field on save
 userSchema.pre('save', function (next) {
     this.updatedAt = Date.now();
     next();
 });
 
-// Export the model
 const User = mongoose.model('User', userSchema);
 export default User;
+
+
+// designation: { type: String, required: true },//user designation

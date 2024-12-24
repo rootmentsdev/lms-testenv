@@ -1,6 +1,7 @@
 import User from '../model/User.js';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
+import Branch from '../model/Branch.js';
 dotenv.config()
 // Function to create a new user
 export const createUser = async (req, res) => {
@@ -93,6 +94,79 @@ export const loginUser = async (req, res) => {
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+
+
+
+export const GetAllUser = async (req, res) => {
+  try {
+
+    const response = await User.find()
+
+    if (response) {
+      res.status(200).json({
+        message: "user found",
+        data: response
+      })
+    } else {
+      res.status(404).json({
+        message: "no user"
+      })
+    }
+
+  } catch (error) {
+    res.status(500).json({
+      message: 'internal server error'
+    })
+  }
+}
+
+// Adjust the path as needed
+
+export const createBranch = async (req, res) => {
+  const { locCode, workingBranch } = req.body;
+
+  const exit = await Branch.findOne({ locCode })
+  if (exit) {
+    return res.status(400).json({ message: "branch exit" })
+
+  }
+  const newBranch = new Branch({
+    locCode: locCode,
+    workingBranch: workingBranch,
+  });
+
+  try {
+    const savedBranch = await newBranch.save();
+    console.log('New branch created:', savedBranch);
+
+    if (savedBranch) {
+      return res.status(201).json({ message: "branch create", data: savedBranch })
+    }
+  } catch (error) {
+    console.error('Error creating branch:', error.message);
+    res.status(500).json({ message: "branch create error" })
+  }
+};
+
+export const GetBranch = async (req, res) => {
+
+
+  try {
+    const response = await Branch.find()
+
+    if (response) {
+      res.status(200).json({
+        message: "data find", data: response
+      })
+    }
+
+
+  } catch (error) {
+    console.error('Error find branch:', error.message);
+    res.status(500).json({ message: "branch finding error" })
   }
 };
 

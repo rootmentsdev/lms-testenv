@@ -12,13 +12,18 @@ import UserRouters from './routes/UserConRoute.js';
 const app = express();
 const port = process.env.PORT || 7000;
 
-
+//http://localhost:3000
 
 app.use(express.json());
 app.use(cookieParser());
 
 app.use(express.urlencoded({ extended: true }));
-app.use(cors());
+app.use(
+    cors({
+      origin: ['https://unicode-mu.vercel.app', 'http://localhost:3000'],
+      credentials: true,
+    })
+  );
 
 app.get('/', (req, res) => {
     res.send('App is running');

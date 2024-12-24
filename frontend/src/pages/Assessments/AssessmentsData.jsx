@@ -57,7 +57,7 @@ const AssessmentsData = () => {
 
                     <div className="mt-5" >   <RoundProgressBarAssessment initialProgress='73' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 73%' /></div>
                     <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='74' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 74%' /></div>
-                    <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='990' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 90%' /></div>
+                    <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='10' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 10%' /></div>
                     <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='100' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 100%' /></div>
                     <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='46' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 46%' /></div>
                     <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='26' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 26%' /></div>

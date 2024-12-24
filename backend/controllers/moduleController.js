@@ -4,6 +4,8 @@ import Module from '../model/Module.js'
 export const createModule = async (req, res) => {
     try {
         const moduleData = req.body;
+        console.log(moduleData.videos[0].questions);
+
 
         if (!moduleData.moduleName || !moduleData.videos || !Array.isArray(moduleData.videos)) {
             return res.status(400).json({ message: "Invalid module data. Ensure all required fields are present." });

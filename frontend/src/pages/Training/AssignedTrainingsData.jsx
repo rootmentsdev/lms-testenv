@@ -42,7 +42,10 @@ const AssignedTrainingsData = () => {
                         <div className="text-green-500">
                             <FaPlus />
                         </div>
-                        <h4 className="text-black">Create new Training</h4>
+                        <Link to={'/createnewtraining'}>
+                            <h4 className="text-black">Create new Training</h4>
+
+                        </Link>
                     </div>
                     <div className="relative inline-block text-left w-36 mr-10">
                         <button
@@ -73,7 +76,9 @@ const AssignedTrainingsData = () => {
             </div>
 
             <div className="mt-10 ml-10 flex flex-wrap gap-3">
-                <RoundProgressBar initialProgress='40' title='Training 1' Module='No. of Modules : 12' duration='Duration : 01 : 56 hr' complete='Completion Rate : 40%' />
+                <Link to={'/AssigTraing'}>
+                    <RoundProgressBar initialProgress='40' title='Training 1' Module='No. of Modules : 12' duration='Duration : 01 : 56 hr' complete='Completion Rate : 40%' />
+                </Link>
                 <RoundProgressBar initialProgress='80' title='Training 2' Module='No. of Modules : 12' duration='Duration : 01 : 56 hr' complete='Completion Rate : 80%' />
                 <RoundProgressBar initialProgress='90' title='Training 3' Module='No. of Modules : 12' duration='Duration : 01 : 56 hr' complete='Completion Rate : 90%' />
                 <RoundProgressBar initialProgress='20' title='Training 4' Module='No. of Modules : 12' duration='Duration : 01 : 56 hr' complete='Completion Rate : 20%' />

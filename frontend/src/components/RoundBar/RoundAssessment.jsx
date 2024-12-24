@@ -15,56 +15,37 @@ const RoundProgressBarAssessment = ({ initialProgress, title, Module, duration, 
     // };
 
     return (
+        //
 
+        <div className="card w-96 h-40 shadow-lg rounded-lg flex items-center border border-gray-300 hover:shadow-xl transition-shadow duration-300 relative p-4">
+            {/* Content Section */}
+            <div className="flex flex-col space-y-2">
+                <h4 className="text-2xl text-black font-semibold">{title}</h4>
+                <p className="text-sm text-gray-500">{Module}</p>
+                <p className="text-sm text-gray-500">{duration}</p>
+                <p className="text-sm text-gray-500">{complete}</p>
 
-        <div className="card w-96 h-40 shadow-xl flex justify-center items-center cursor-pointerrelative ">
-            <div className="flex justify-start items-center flex-col">
-                <div className="flex ">
-                    <div className="flex flex-row items-center space-y-4 ">
-
-
-                        <div >
-                            <h4 className="text-2xl text-black">{title}</h4>
-                            <p>{Module}</p>
-                            <p>{duration}</p>
-                            <p>{complete}</p>
-                            <div className="flex w-32 border-2 mt-4 border-green-600 justify-evenly items-center py-1 rounded-lg  cursor-pointer
-                                                     ">
-
-                                <h4 className="text-black text-sm">View Details</h4>
-                            </div>
-
-                        </div>
-                        {/* Circular progress bar */}
-                        <div style={{ width: 70, height: 70 }} className="absolute top-4 right-4">
-                            <CircularProgressbar
-                                value={progress}
-                                text={`${progress}%`}
-                                styles={buildStyles({
-                                    pathColor: "green", // Green color for the path
-                                    textColor: "#333", // Text color
-                                    trailColor: "#e2e8f0", // Light gray for the trail
-                                    strokeWidth: 8, // Path thickness
-                                })}
-                            />
-                        </div>
-
-                    </div>
+                {/* View Details Button */}
+                <div className="flex w-32 border-2 mt-4 border-green-600 justify-center items-center py-1 rounded-lg cursor-pointer hover:bg-green-100">
+                    <h4 className="text-black text-sm font-medium">View Details</h4>
                 </div>
-
             </div>
 
-            {/* Input to change progress */}
-            {/* <div className="flex space-x-2">
-                <input
-                    type="number"
+            {/* Circular Progress Bar */}
+            <div style={{ width: 70, height: 70 }} className="absolute top-4 right-4">
+                <CircularProgressbar
                     value={progress}
-                    onChange={handleInputChange}
-                    className="p-2 border rounded-md"
-                    placeholder="Enter Progress"
+                    text={`${progress}%`}
+                    styles={buildStyles({
+                        pathColor: "green",       // Green progress path
+                        textColor: "#333",        // Text color
+                        trailColor: "#e2e8f0",    // Light gray trail
+                        strokeWidth: 8,           // Path thickness
+                    })}
                 />
-            </div> */}
-        </div >
+            </div>
+        </div>
+
     );
 };
 

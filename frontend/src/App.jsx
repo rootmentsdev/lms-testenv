@@ -14,6 +14,9 @@ import "@fontsource/poppins"; // Defaults to weight 400
 import "@fontsource/poppins/500.css"; // Weight 500
 import "@fontsource/poppins/700.css"; // Weight 700
 import AssignedTrainings from './pages/Training/AssignedTrainings'
+import AssingOrdelete from './pages/Training/AssingOrdelete'
+import CreateModule from './pages/Modules/createmodule/CreateModule'
+import CreateTrainings from './pages/Training/createTraining/CreateTrainings'
 
 function App() {
 
@@ -31,6 +34,10 @@ function App() {
         <Route path={'/settings'} element={<Setting />} />
         <Route path={'/training'} element={<CreateTraining />} />
         <Route path={'/AssigData'} element={< AssignedTrainings />} />
+        <Route path={'/AssigTraing'} element={< AssingOrdelete />} />
+        <Route path={'/createModule'} element={< CreateModule />} />
+        <Route path={'/createnewtraining'} element={< CreateTrainings />} />
+        {/*  */}
       </Routes>
 
     </>
