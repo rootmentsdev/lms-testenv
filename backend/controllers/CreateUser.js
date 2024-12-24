@@ -209,16 +209,46 @@ export const GetuserTrainingprocess = async (req, res) => {
     const traingproess = await TrainingProgress.find({
       userId,
       trainingId
+    });
 
-    })
-    if (!traingproess) {
+    if (!traingproess || traingproess.length === 0) {
       return res.status(404).json({ message: "No data" });
     }
 
-    // Return user data with populated training and modules
+    // Calculate the percentage of completion
+    const trainingData = traingproess[0];
+    let totalModules = 0;
+    let completedModules = 0;
+    let totalVideos = 0;
+    let completedVideos = 0;
+
+    // Iterate through the modules and videos to calculate the percentage
+    trainingData.modules.forEach(module => {
+      totalModules++;
+      if (module.pass) {
+        completedModules++;
+      }
+
+      module.videos.forEach(video => {
+        totalVideos++;
+        if (video.pass) {
+          completedVideos++;
+        }
+      });
+    });
+
+    // Calculate the completion percentages
+    const moduleCompletionPercentage = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
+    const videoCompletionPercentage = totalVideos > 0 ? (completedVideos / totalVideos) * 100 : 0;
+
+    // Calculate overall percentage (average of module and video completion)
+    const overallCompletionPercentage = (moduleCompletionPercentage + videoCompletionPercentage) / 2;
+
+    // Return user data with populated training, modules, and percentage of completion
     res.status(200).json({
       message: "Data found",
-      data: traingproess
+      data: trainingData,
+      completionPercentage: overallCompletionPercentage.toFixed(2) // Rounded to 2 decimal places
     });
 
   } catch (error) {
@@ -226,7 +256,6 @@ export const GetuserTrainingprocess = async (req, res) => {
     res.status(500).json({ message: "Server error while finding user" });
   }
 };
-
 
 
 export const UpdateuserTrainingprocess = async (req, res) => {
