@@ -4,6 +4,10 @@ import { createBranch, createUser, GetAllUser, GetBranch, loginUser } from '../c
 const router = express.Router();
 
 // Route to create a user
-router.post('/create-user', createUser).post('/user-login', loginUser).get('/getAllUser', GetAllUser).post('/create/branch', createBranch).get('/getBranch', GetBranch);
+router.post('/create-user', createUser)
+router.post('/user-login', loginUser)
+router.get('/getAllUser', GetAllUser)
+router.post('/create/branch', createBranch)
+router.get('/getBranch', GetBranch);
 
 export default router;

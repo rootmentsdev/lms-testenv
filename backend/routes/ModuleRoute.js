@@ -1,9 +1,17 @@
 import express from 'express'
 const router = express.Router();
 import { createModule, getModules } from '../controllers/moduleController.js'; // Adjust the path to your controller
-import { createAssessment, createTraining, getAssessments } from '../controllers/AssessmentController.js';
+import { calculateProgress, createAssessment, createTraining, getAssessments, GetTrainingById } from '../controllers/AssessmentController.js';
+import { GetAllTrainingWithCompletion } from '../controllers/AssessmentAndModule.js';
 
 // Route to create a module
-router.post('/modules', createModule).post('/assessments', createAssessment).get('/modules/:id?', getModules).get('/assessments/:id?', getAssessments).post('/trainings', createTraining);
+router.post('/modules', createModule)
+router.post('/assessments', createAssessment)
+router.get('/modules/:id?', getModules)
+router.get('/assessments/:id?', getAssessments)
+router.post('/trainings', createTraining);
+router.get('/trainings/:id?', GetTrainingById)
+router.get('/get/allusertraining', GetAllTrainingWithCompletion)
+router.get('/get/progress', calculateProgress)
 
 export default router

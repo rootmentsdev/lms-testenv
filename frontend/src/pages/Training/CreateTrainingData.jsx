@@ -23,7 +23,7 @@ const CreateTrainingData = () => {
             </div>
           </div>
         </Link>
-        <div className="flex text-black ml-10 gap-5 text-xl w-full">
+        <div className="flex text-black ml-10 gap-5 text-xl w-auto">
           <h4 className="border-b-[3px] border-green-600 text-green-600 ">Mandatory Trainings</h4>
           <Link to={'/AssigData'}>
             <h4 className="cursor-pointer">Assigned Trainings</h4>
