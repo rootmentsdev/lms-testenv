@@ -31,7 +31,7 @@ const HomeData = () => {
             }
         };
 
-        fetchData(); // Call fetchData
+        fetchData(); 
 
     }, []);
 
