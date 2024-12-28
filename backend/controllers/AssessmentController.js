@@ -52,13 +52,13 @@ export const getAssessments = async (req, res) => {
 };
 
 export const createTraining = async (req, res) => {
-    const { trainingName, modules, days, workingBranch } = req.body;
-    console.log(trainingName, modules, days, workingBranch);
+    const { trainingName, modules, days, workingBranch, selectedOption } = req.body;
+    console.log(trainingName, modules, days, workingBranch, selectedOption);
 
     try {
         // Ensure that all required data is provided
-        if (!trainingName || !modules || !days || !workingBranch) {
-            return res.status(400).json({ message: "All fields are required" });
+        if (!trainingName || !modules || !days || !selectedOption) {
+            return res.status(400).json({ message: "Training name, modules, days, and selected option are required" });
         }
 
         // Fetch details of modules from Module collection
@@ -78,11 +78,30 @@ export const createTraining = async (req, res) => {
         // Save the training record
         await newTraining.save();
 
-        // Fetch all users belonging to the specified branch
-        const usersInBranch = await User.find({ locCode: workingBranch });
+        let usersInBranch = [];
+
+        // Logic based on the selectedOption
+        if (selectedOption === 'user') {
+            if (!workingBranch || workingBranch.length === 0) {
+                return res.status(400).json({ message: "User IDs are required when selectedOption is 'user'" });
+            }
+            usersInBranch = await User.find({ _id: { $in: workingBranch } });
+        } else if (selectedOption === 'designation') {
+            if (!workingBranch) {
+                return res.status(400).json({ message: "Designation is required when selectedOption is 'designation'" });
+            }
+            usersInBranch = await User.find({ designation: workingBranch });
+        } else if (selectedOption === 'branch') {
+            if (!workingBranch) {
+                return res.status(400).json({ message: "Working branch is required when selectedOption is 'branch'" });
+            }
+            usersInBranch = await User.find({ locCode: workingBranch });
+        } else {
+            return res.status(400).json({ message: "Invalid selected option" });
+        }
 
         if (usersInBranch.length === 0) {
-            return res.status(404).json({ message: "No users found in the specified branch" });
+            return res.status(404).json({ message: "No users found matching the criteria" });
         }
 
         // Assign training and progress to each user
@@ -123,6 +142,9 @@ export const createTraining = async (req, res) => {
         res.status(500).json({ message: "Server Error" });
     }
 };
+
+
+
 
 export const GetTrainingById = async (req, res) => {
     const { id } = req.params; // Extract the training ID from request params
@@ -236,6 +258,8 @@ export const GetTrainingById = async (req, res) => {
         res.status(500).json({ message: 'Server error while fetching training data' });
     }
 };
+
+
 
 export const calculateProgress = async (req, res) => {
     try {

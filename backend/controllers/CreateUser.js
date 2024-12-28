@@ -106,7 +106,7 @@ export const GetAllUser = async (req, res) => {
 
     if (response) {
       res.status(200).json({
-        message: "user found",
+        message: "user founds",
         data: response
       })
     } else {
