@@ -34,7 +34,7 @@ function App() {
         <Route path={'/settings'} element={<Setting />} />
         <Route path={'/training'} element={<CreateTraining />} />
         <Route path={'/AssigData'} element={< AssignedTrainings />} />
-        <Route path={'/AssigTraing'} element={< AssingOrdelete />} />
+        <Route path={'/AssigTraing/:id'} element={< AssingOrdelete />} />
         <Route path={'/createModule'} element={< CreateModule />} />
         <Route path={'/createnewtraining'} element={< CreateTrainings />} />
         {/*  */}
