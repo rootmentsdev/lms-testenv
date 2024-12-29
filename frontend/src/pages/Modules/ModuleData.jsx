@@ -56,7 +56,7 @@ const ModuleData = () => {
 
             </div>
 
-            <div className="mt-10 ml-10 flex mr-5 flex-wrap gap-1">
+            <div className="mt-10 ml-5 mx-auto flex mr-5 flex-wrap gap-1">
                 {Data?.length > 0 && Data.map((item) => {
                     const videoCount = item.videos ? item.videos.length : 0; // Handle undefined videos
                     const completionRate = item.overallCompletionPercentage || 0; // Handle undefined completion rate

@@ -38,7 +38,7 @@ const CreateTrainingData = () => {
             <div className="text-green-500">
               <FaPlus />
             </div>
-            <h4 className="text-black">Create new Training</h4>
+            <h4 className="text-black">Create Mandatory Training</h4>
           </div>
           <div className="relative inline-block text-left w-36 mr-10">
             <button

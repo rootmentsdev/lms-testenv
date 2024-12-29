@@ -143,4 +143,103 @@ export const GetAllTrainingWithCompletion = async (req, res) => {
   }
 };
 
+export const ReassignTraining = async (req, res) => {
+  try {
+    const { assignedTo, trainingId } = req.body; // Extract trainingId and assigned users from the request body
+
+    // Validate the data
+    if (!assignedTo || !trainingId || assignedTo.length === 0) {
+      return res.status(400).json({ message: "Missing assignedTo or trainingId in the request body" });
+    }
+    console.log(assignedTo, trainingId);
+
+    // Fetch the training using trainingId and populate the modules
+    const training = await Training.findById(trainingId).populate('modules');
+    if (!training) {
+      return res.status(404).json({ message: "Training not found" });
+    }
+
+    // Log the training object to see its structure
+    console.log(training);
+
+    // Check if modules exist
+    if (!training.modules || !Array.isArray(training.modules) || training.modules.length === 0) {
+      return res.status(400).json({ message: "No modules found for this training" });
+    }
+
+    // Fetch the users to assign the training to
+    const users = await User.find({ _id: { $in: assignedTo } });
+    if (users.length === 0) {
+      return res.status(404).json({ message: "No users found matching the provided IDs" });
+    }
+
+    const deadlineDate = new Date(Date.now() + training.deadline * 24 * 60 * 60 * 1000);
+
+    // Assign the training to each user
+    const updatedUsers = users.map(async (user) => {
+      // Check if the user already has the training assigned
+      if (!user.training.some(t => t.trainingId.toString() === trainingId)) {
+        user.training.push({
+          trainingId: training._id,
+          deadline: deadlineDate, // Existing deadline
+          pass: false,
+          status: 'Pending',
+        });
+
+        // Create TrainingProgress for the user
+        const trainingProgress = new TrainingProgress({
+          userId: user._id,
+          trainingId: training._id,
+          deadline: deadlineDate,
+          pass: false,
+          modules: training.modules.map(module => ({
+            moduleId: module._id,
+            pass: false,
+            videos: module.videos.map(video => ({
+              videoId: video._id,
+              pass: false,
+            })),
+          })),
+        });
+
+        await trainingProgress.save();
+        await user.save(); // Save the updated user
+      }
+    });
+
+    await Promise.all(updatedUsers); // Wait for all users to be updated
+
+    res.status(200).json({ message: "Training successfully reassigned to users" });
+  } catch (error) {
+    console.error("Error reassigning training:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+
+
+export const deleteTrainingController = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // 1. Delete the training from the Trainings collection
+    const deletedTraining = await Training.findByIdAndDelete(id);
+    if (!deletedTraining) {
+      return res.status(404).json({ message: 'Training not found' });
+    }
+
+    await TrainingProgress.deleteMany({ trainingId: id });
+
+    await User.updateMany(
+      { "training.trainingId": id }, // Match users who have this training assigned
+      { $pull: { training: { trainingId: id } } } // Pull the training from the user's assigned trainings
+    );
+
+    return res.status(200).json({ message: 'Training deleted successfully' });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
 
