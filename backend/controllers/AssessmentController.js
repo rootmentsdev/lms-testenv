@@ -56,7 +56,7 @@ export const createTraining = async (req, res) => {
     console.log(trainingName, modules, days, workingBranch, selectedOption);
 
     try {
-        // Ensure that all required data is provided
+        // Ensure all required data is provided
         if (!trainingName || !modules || !days || !selectedOption) {
             return res.status(400).json({ message: "Training name, modules, days, and selected option are required" });
         }
@@ -68,11 +68,14 @@ export const createTraining = async (req, res) => {
             return res.status(404).json({ message: "Modules not found" });
         }
 
-        // Create a new training record
+        // Calculate deadline in **Date format**
+        const deadlineDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+
+        // Create a new training record with deadline stored as a Date
         const newTraining = new Training({
             trainingName,
             modules,
-            deadline: Date.now() + (days * 24 * 60 * 60 * 1000), // Deadline based on the number of days
+            deadline: days, // Store deadline as a proper Date object
         });
 
         // Save the training record
@@ -109,7 +112,7 @@ export const createTraining = async (req, res) => {
             // Add training details to user
             user.training.push({
                 trainingId: newTraining._id,
-                deadline: newTraining.deadline,
+                deadline: deadlineDate, // Use the fixed deadline Date object
                 pass: false,
                 status: 'Pending',
             });
@@ -118,7 +121,7 @@ export const createTraining = async (req, res) => {
             const trainingProgress = new TrainingProgress({
                 userId: user._id,
                 trainingId: newTraining._id,
-                deadline: newTraining.deadline,
+                deadline: deadlineDate, // Use the fixed deadline Date object
                 pass: false,
                 modules: moduleDetails.map(module => ({
                     moduleId: module._id,

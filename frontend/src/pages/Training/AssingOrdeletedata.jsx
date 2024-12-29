@@ -45,7 +45,7 @@ const AssingOrdeletedata = () => {
                         <p>No. of Modules : {training?.data.numberOfModules}</p>
                         <p>No. of user  : {training?.users.length}</p>
                         <p>Created Date: {new Date(training?.data.createdDate).toLocaleString()}</p>
-                        <p>Deadline: {new Date(training?.data.deadline).toLocaleString()}</p>
+                        <p>Deadline: {String(training?.data.deadline).length === 2 ? training?.data.deadline : new Date(training?.data.deadline).toLocaleString()}</p>
 
 
 

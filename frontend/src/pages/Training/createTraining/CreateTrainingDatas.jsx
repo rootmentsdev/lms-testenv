@@ -27,11 +27,14 @@ const CreateTrainingDatas = () => {
                 }
 
                 const data = await response.json();
+                console.log(data);
+
                 // Map modules to options required by react-select
                 const options = data.map((module) => ({
-                    value: module._id,
+                    value: module.moduleId,
                     label: module.moduleName,
                 }));
+
                 setModules(options);
             } catch (error) {
                 console.error("Failed to fetch modules:", error.message);
@@ -104,14 +107,14 @@ const CreateTrainingDatas = () => {
         try {
             console.log(trainingData); // Log final data for submission
             alert("Form Submitted Successfully!");
-            // POST request(uncomment to use)
+            // POST request (uncomment to use)
             const response = await fetch(`${baseUrl.baseUrl}api/trainings`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(trainingData),
             });
-            const data = await response.json()
-            alert(data.message)
+            const data = await response.json();
+            alert(data.message);
         } catch (error) {
             console.error("Failed to submit training:", error.message);
             alert("Error submitting training.");
@@ -124,10 +127,7 @@ const CreateTrainingDatas = () => {
                 <Header name="Assign new Training" />
             </div>
             <div>
-                <form
-                    onSubmit={handleSubmit}
-                    className="text-black w-[800px] mt-10"
-                >
+                <form onSubmit={handleSubmit} className="text-black w-[800px] mt-10">
                     {/* Training Name */}
                     <div className="flex flex-col gap-5 mx-20 mt-5">
                         <div className="flex flex-col gap-5">
@@ -142,8 +142,9 @@ const CreateTrainingDatas = () => {
                             />
                         </div>
                     </div>
+
+                    {/* Days */}
                     <div className="flex flex-col gap-5 mx-20 mt-5">
-                        {/* Days */}
                         <div className="flex flex-col gap-5">
                             <p>Days</p>
                             <input
@@ -156,9 +157,6 @@ const CreateTrainingDatas = () => {
                             />
                         </div>
                     </div>
-
-                    {/* Radio Buttons */}
-
 
                     {/* Modules Dropdown */}
                     <div className="flex flex-col gap-5 mx-20 mt-5">

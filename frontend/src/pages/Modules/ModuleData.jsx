@@ -30,7 +30,7 @@ const ModuleData = () => {
 
         fetchModules(); // Invoke the function
 
-    }, []); 
+    }, []);
 
     useEffect(() => {
         console.log(Data);
@@ -57,15 +57,20 @@ const ModuleData = () => {
             </div>
 
             <div className="mt-10 ml-10 flex mr-5 flex-wrap gap-1">
-                {
-                    Data?.map((item) => {
-                        return (
-                            <RoundModule key={item._id} initialProgress='40' title={item.moduleName} Module={`no. of video ${item.videos.length}`} duration='Duration : 01 : 56 hr' complete='Completion Rate : 40%' />
-
-                        )
-                    })
-                }
-
+                {Data?.length > 0 && Data.map((item) => {
+                    const videoCount = item.videos ? item.videos.length : 0; // Handle undefined videos
+                    const completionRate = item.overallCompletionPercentage || 0; // Handle undefined completion rate
+                    return (
+                        <RoundModule
+                            key={item.moduleId}
+                            initialProgress={completionRate.toString()}
+                            title={item.moduleName}
+                            Module={`No. of videos: ${videoCount}`}
+                            duration='Duration: 01:56 hr'
+                            complete={`Completion Rate: ${completionRate}%`}
+                        />
+                    );
+                })}
             </div>
         </div>
     )

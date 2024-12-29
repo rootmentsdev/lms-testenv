@@ -5,7 +5,7 @@ const trainingSchema = new mongoose.Schema({
   description: { type: String },
   modules: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Module' }], // Reference to Module
   numberOfModules: { type: Number, default: 0 }, // Auto-calculated field
-  deadline: { type: Date }, // Deadline field as a Date
+  deadline: { type: Number }, // Deadline field as a Date
   createdDate: { type: Date, default: Date.now }, // Creation date
   editedDate: { type: Date, default: Date.now }, // Last edited date
 });
