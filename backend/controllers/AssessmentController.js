@@ -327,3 +327,85 @@ export const calculateProgress = async (req, res) => {
 };
 
 
+export const createMandatoryTraining = async (req, res) => {
+    const { trainingName, modules, days, workingBranch } = req.body;
+    console.log(trainingName, modules, days, workingBranch);
+
+    try {
+        // Validate required fields
+        if (!trainingName || !modules || !days || !workingBranch) {
+            return res.status(400).json({ message: "Training name, modules, days, and working branch are required" });
+        }
+
+        // Fetch module details from Module collection
+        const moduleDetails = await Module.find({ _id: { $in: modules } }).populate('videos');
+
+        if (moduleDetails.length === 0) {
+            return res.status(404).json({ message: "Modules not found" });
+        }
+
+        // Calculate deadline as a Date
+        const deadlineDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+
+        // Create new training with updated fields
+        const newTraining = new Training({
+            trainingName,
+            Trainingtype: "Mandatory", // Correct field for training type
+            modules,
+            Assignedfor: workingBranch, // Correct field for assigned branches
+            deadline: deadlineDate, // Store deadline as a proper Date
+        });
+
+        // Save the training record
+        await newTraining.save();
+
+        // Find users based on designation/branch
+        const usersInBranch = await User.find({ designation: { $in: workingBranch } });
+
+        if (usersInBranch.length === 0) {
+            return res.status(404).json({ message: "No users found matching the criteria" });
+        }
+
+        console.log(usersInBranch);
+
+        // Assign training and create progress for each user
+        const updatedUsers = usersInBranch.map(async (user) => {
+            user.training.push({
+                trainingId: newTraining._id,
+                deadline: deadlineDate,
+                pass: false,
+                status: 'Pending',
+            });
+
+            // Create training progress
+            const trainingProgress = new TrainingProgress({
+                userId: user._id,
+                trainingId: newTraining._id,
+                deadline: deadlineDate,
+                pass: false,
+                modules: moduleDetails.map(module => ({
+                    moduleId: module._id,
+                    pass: false,
+                    videos: module.videos.map(video => ({
+                        videoId: video._id,
+                        pass: false,
+                    })),
+                })),
+            });
+
+            await trainingProgress.save();
+            return user.save();
+        });
+
+        await Promise.all(updatedUsers); // Save all users asynchronously
+
+        res.status(201).json({
+            message: "Training created and assigned successfully",
+            training: newTraining,
+        });
+    } catch (error) {
+        console.error("Error creating training:", error);
+        res.status(500).json({ message: "Server Error", error: error.message });
+    }
+};
+

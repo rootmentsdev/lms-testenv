@@ -54,7 +54,7 @@ export const assignAssessmentToUser = async (req, res) => {
 export const GetAllTrainingWithCompletion = async (req, res) => {
   try {
     // Fetch all trainings
-    const trainings = await Training.find().populate('modules'); // Populate modules for reference
+    const trainings = await Training.find({ Trainingtype: 'Assigned' }).populate('modules'); // Populate modules for reference
 
     if (!trainings || trainings.length === 0) {
       return res.status(404).json({ message: "No training data found" });
@@ -215,8 +215,6 @@ export const ReassignTraining = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
-
 
 
 export const deleteTrainingController = async (req, res) => {

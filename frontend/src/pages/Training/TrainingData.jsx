@@ -1,28 +1,67 @@
+import { Link } from "react-router-dom"
+import RoundProgressBar from "../../components/RoundBar/RoundBar"
 import Header from "../../components/Header/Header"
 import { FaPlus } from "react-icons/fa";
 import { CiFilter } from "react-icons/ci";
-import { useState } from "react";
-import RoundProgressBar from "../../components/RoundBar/RoundBar";
-
+import { useEffect, useState } from "react";
+import baseUrl from "../../api/api";
 
 const TrainingData = () => {
     const [isOpen, setIsOpen] = useState(false);
-
+    //  /
     const toggleDropdown = () => {
         setIsOpen(prev => !prev);
     };
+    const [data, setData] = useState([]);
+
+    useEffect(() => {
+
+        const Fetchdata = async () => {
+            try {
+                const response = await fetch(`${baseUrl.baseUrl}api/get/allusertraining`);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch data');
+                }
+                const result = await response.json();
+                setData(result.data);
+
+            } catch (error) {
+                console.error('Error fetching data:', error);
+            }
+        };
+
+        Fetchdata();
+
+
+    }, []);
     return (
         <div className="w-full h-full bg-white">
             <div><Header name='All Training' /></div>
             <div>
 
+
                 <div className="flex mx-10 justify-between mt-10 ">
-                    <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer
-                                        ">
-                        <div className="text-green-500">
-                            <FaPlus />
+                    <div className="flex">
+                        <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer
+                                      ">
+                            <div className="text-green-500">
+                                <FaPlus />
+                            </div>
+                            <Link to={'/createnewtraining'}>
+                                <h4 className="text-black">Create new Training</h4>
+
+                            </Link>
                         </div>
-                        <h4 className="text-black">Assign new Training</h4>
+                        <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer
+                                      ">
+                            <div className="text-green-500">
+                                <FaPlus />
+                            </div>
+                            <Link to={'/create/Mandatorytraining'}>
+                                <h4 className="text-black">Create Mandatory Training</h4>
+
+                            </Link>
+                        </div>
                     </div>
                     <div className="relative inline-block text-left w-36 mr-10">
                         <button
@@ -53,16 +92,24 @@ const TrainingData = () => {
             </div>
 
             <div className="mt-10 ml-10 flex flex-wrap gap-3">
-                <RoundProgressBar initialProgress='40' title='Training 1' Module='No. of Modules : 12' duration='Duration : 01 : 56 hr' complete='Completion Rate : 40%' />
-                <RoundProgressBar initialProgress='80' title='Training 2' Module='No. of Modules : 12' duration='Duration : 01 : 56 hr' complete='Completion Rate : 80%' />
-                <RoundProgressBar initialProgress='90' title='Training 3' Module='No. of Modules : 12' duration='Duration : 01 : 56 hr' complete='Completion Rate : 90%' />
-                <RoundProgressBar initialProgress='20' title='Training 4' Module='No. of Modules : 12' duration='Duration : 01 : 56 hr' complete='Completion Rate : 20%' />
-                <RoundProgressBar initialProgress='40' title='Training 5' Module='No. of Modules : 12' duration='Duration : 01 : 56 hr' complete='Completion Rate : 40%' />
-                <RoundProgressBar initialProgress='80' title='Training 6' Module='No. of Modules : 12' duration='Duration : 01 : 56 hr' complete='Completion Rate : 80%' />
-                <RoundProgressBar initialProgress='90' title='Training 7' Module='No. of Modules : 12' duration='Duration : 01 : 56 hr' complete='Completion Rate : 90%' />
+                {
+                    data.map((item) => {
+                        return (
+                            <Link key={item._id} to={`/AssigTraing/${item?.trainingId}`}>
+                                <RoundProgressBar
+                                    initialProgress={item?.averageCompletionPercentage}
+                                    title={item?.trainingName}
+                                    Module={`No. of Modules : ${item?.numberOfModules}`}
+                                    duration={`No. of users: ${item?.totalUsers}`}
+                                    complete={`Completion Rate : ${item?.averageCompletionPercentage}%`}
+                                />
+                            </Link>
+                        )
+                    })
+                }
+
             </div>
         </div>
-
     )
 }
 

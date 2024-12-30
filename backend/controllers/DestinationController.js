@@ -3,24 +3,29 @@ import Designation from "../model/designation.js"; // Import the destination mod
 // Controller to create a new destination
 export const createDesignation = async (req, res) => {
     try {
-        // Check if the destination is provided in the request body
+        // Validate input
         const { designation } = req.body;
 
-        if (!designation) {
-            return res.status(400).json({ message: "Destination is required" });
+        if (!designation || designation.trim() === "") {
+            return res.status(400).json({ message: "Designation is required" });
         }
+        console.log(designation);
 
-        // Create a new destination document
-        const newDestination = new Designation({
-            designation
-        });
 
-        // Save the new designation to the database
-        const saveddesignation = await newDestination.save();
+        // Check for duplicates explicitly
+        const existingDesignation = await Designation.findOne({ designation });
+        if (existingDesignation) {
+            return res.status(400).json({ message: "Designation already exists" });
+        }
+        console.log(designation);
 
+        // Create and save the new designation
+        const newDesignation = new Designation({ designation });
+        const savedDesignation = await newDesignation.save();
+        console.log(designation);
         return res.status(201).json({
-            message: "designation created successfully",
-            data: saveddesignation,
+            message: "Designation created successfully",
+            data: savedDesignation,
         });
     } catch (error) {
         console.error("Error creating designation:", error);

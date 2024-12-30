@@ -64,9 +64,6 @@ export const createModule = async (req, res) => {
 };
 
 
-
-
-
 // Get all modules or a specific module by ID
 export const getModules = async (req, res) => {
     try {

@@ -40,8 +40,9 @@ const ModuleData = () => {
             <div><Header name='Module' /></div>
             <div>
 
-                <Link to={'/createModule'}>
-                    <div className="flex mx-10 justify-between mt-10 ">
+
+                <div className="flex mx-10 justify-between mt-10 ">
+                    <Link to={'/createModule'}>
                         <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer
                                     ">
                             <div className="text-green-500">
@@ -49,10 +50,10 @@ const ModuleData = () => {
                             </div>
                             <h4 className="text-black">Add New Module</h4>
                         </div>
+                    </Link>
+                </div>
 
-                    </div>
 
-                </Link>
 
             </div>
 

@@ -1,7 +1,8 @@
-import SideNav from "../../components/SideNav/SideNav";
-import ModuleData from "./ModuleData";
+import SideNav from "../../../components/SideNav/SideNav";
+import Mandatorytrainingdata from "./Mandatorytrainingdata";
 
-const Module = () => {
+
+const Mandatorytraining = () => {
     return (
         <>
             <div style={styles.container}>
@@ -11,7 +12,7 @@ const Module = () => {
 
 
                 <div style={styles.middle} className="lg:ml-[273px] ">
-                    <ModuleData />
+                    < Mandatorytrainingdata />
                 </div>
 
 
@@ -44,4 +45,4 @@ const styles = {
 
 
 };
-export default Module
+export default Mandatorytraining
