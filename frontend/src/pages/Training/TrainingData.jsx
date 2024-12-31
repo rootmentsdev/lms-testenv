@@ -18,7 +18,7 @@ const TrainingData = () => {
 
         const Fetchdata = async () => {
             try {
-                const response = await fetch(`${baseUrl.baseUrl}api/get/allusertraining`);
+                const response = await fetch(`${baseUrl.baseUrl}api/get/Full/allusertraining`);
                 if (!response.ok) {
                     throw new Error('Failed to fetch data');
                 }

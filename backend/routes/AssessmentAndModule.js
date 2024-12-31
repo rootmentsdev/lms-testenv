@@ -7,7 +7,7 @@ const router = express.Router();
 // Route to assign a module
 router.post('/assign-module', assignModuleToUser);
 router.post('/assign-assessment', assignAssessmentToUser);
-router.post('/getAll/training', GetuserTraining);
+router.get('/getAll/training', GetuserTraining);
 router.post('/getAll/trainingprocess', GetuserTrainingprocess)
 router.post('/update/trainingprocess', UpdateuserTrainingprocess)
 router.post('/reassign/training', ReassignTraining)

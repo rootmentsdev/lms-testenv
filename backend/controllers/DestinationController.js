@@ -1,6 +1,5 @@
 import Designation from "../model/designation.js"; // Import the destination model
 
-// Controller to create a new destination
 export const createDesignation = async (req, res) => {
     try {
         // Validate input
@@ -35,10 +34,6 @@ export const createDesignation = async (req, res) => {
         });
     }
 };
-
-
-
-// Controller to get all destinations
 export const getAllDesignation = async (req, res) => {
     try {
         // Fetch all destinations from the database

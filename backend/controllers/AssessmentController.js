@@ -7,7 +7,6 @@ import User from "../model/User.js";
 
 
 
-// Controller function to create an assessment
 export const createAssessment = async (req, res) => {
     try {
         const assessmentData = req.body;
@@ -27,7 +26,6 @@ export const createAssessment = async (req, res) => {
         res.status(500).json({ message: "An error occurred while creating the assessment.", error: error.message });
     }
 };
-
 
 export const getAssessments = async (req, res) => {
     try {
@@ -146,9 +144,6 @@ export const createTraining = async (req, res) => {
     }
 };
 
-
-
-
 export const GetTrainingById = async (req, res) => {
     const { id } = req.params; // Extract the training ID from request params
 
@@ -262,8 +257,6 @@ export const GetTrainingById = async (req, res) => {
     }
 };
 
-
-
 export const calculateProgress = async (req, res) => {
     try {
         // Count documents in collections
@@ -325,7 +318,6 @@ export const calculateProgress = async (req, res) => {
         });
     }
 };
-
 
 export const createMandatoryTraining = async (req, res) => {
     const { trainingName, modules, days, workingBranch } = req.body;

@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import Branch from '../model/Branch.js';
 import TrainingProgress from '../model/Trainingprocessschema.js';
 dotenv.config()
-// Function to create a new user
+
 export const createUser = async (req, res) => {
   try {
     const {
@@ -43,9 +43,6 @@ export const createUser = async (req, res) => {
     res.status(500).json({ message: 'An error occurred while creating the user.', error: error.message });
   }
 };
-
-
-
 
 export const loginUser = async (req, res) => {
   const { email, empID } = req.body;
@@ -98,7 +95,6 @@ export const loginUser = async (req, res) => {
   }
 };
 
-
 export const GetAllUser = async (req, res) => {
   try {
 
@@ -121,7 +117,6 @@ export const GetAllUser = async (req, res) => {
     })
   }
 }
-
 
 export const createBranch = async (req, res) => {
   const { locCode, workingBranch } = req.body;
@@ -149,7 +144,6 @@ export const createBranch = async (req, res) => {
   }
 };
 
-
 export const GetBranch = async (req, res) => {
 
 
@@ -169,9 +163,8 @@ export const GetBranch = async (req, res) => {
   }
 };
 
-
 export const GetuserTraining = async (req, res) => {
-  const { email } = req.body; // Extract request body
+  const { email } = req.query // Extract request body
 
   try {
     // Find user based on email and populate training and modules separately
@@ -200,7 +193,6 @@ export const GetuserTraining = async (req, res) => {
     res.status(500).json({ message: "Server error while finding user" });
   }
 };
-
 
 export const GetuserTrainingprocess = async (req, res) => {
   const { userId, trainingId } = req.body; // Extract request body
@@ -256,7 +248,6 @@ export const GetuserTrainingprocess = async (req, res) => {
     res.status(500).json({ message: "Server error while finding user" });
   }
 };
-
 
 export const UpdateuserTrainingprocess = async (req, res) => {
   const { userId, trainingId, moduleId, videoId } = req.body; // Extract request body
