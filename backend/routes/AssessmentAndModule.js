@@ -8,8 +8,8 @@ const router = express.Router();
 router.post('/assign-module', assignModuleToUser);
 router.post('/assign-assessment', assignAssessmentToUser);
 router.get('/getAll/training', GetuserTraining);
-router.post('/getAll/trainingprocess', GetuserTrainingprocess)
-router.post('/update/trainingprocess', UpdateuserTrainingprocess)
+router.get('/getAll/trainingprocess', GetuserTrainingprocess)
+router.get('/update/trainingprocess', UpdateuserTrainingprocess)
 router.post('/reassign/training', ReassignTraining)
 router.delete('/delete/training/:id', deleteTrainingController)
 

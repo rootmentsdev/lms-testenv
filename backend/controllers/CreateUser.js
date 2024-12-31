@@ -195,7 +195,7 @@ export const GetuserTraining = async (req, res) => {
 };
 
 export const GetuserTrainingprocess = async (req, res) => {
-  const { userId, trainingId } = req.body; // Extract request body
+  const { userId, trainingId } = req.query; // Extract request body
 
   try {
     const traingproess = await TrainingProgress.find({
@@ -250,7 +250,7 @@ export const GetuserTrainingprocess = async (req, res) => {
 };
 
 export const UpdateuserTrainingprocess = async (req, res) => {
-  const { userId, trainingId, moduleId, videoId } = req.body; // Extract request body
+  const { userId, trainingId, moduleId, videoId } = req.query; // Extract request body
 
   try {
     // Find the training progress by userId and trainingId
