@@ -12,7 +12,7 @@ export const createAssessment = async (req, res) => {
         const assessmentData = req.body;
 
         // Validate input
-        if (!assessmentData.title || !assessmentData.description || !Array.isArray(assessmentData.questions)) {
+        if (!assessmentData.title || !assessmentData.duration || !Array.isArray(assessmentData.questions)) {
             return res.status(400).json({ message: "Invalid assessment data. Ensure all required fields are present." });
         }
 
@@ -148,114 +148,97 @@ export const GetTrainingById = async (req, res) => {
     const { id } = req.params; // Extract the training ID from request params
 
     try {
-        // Find the training by ID and populate modules
+        // Fetch training data and populate modules
         const training = await Training.findById(id).populate({
             path: 'modules',
             model: 'Module',
         });
 
-        // Check if training exists
         if (!training) {
             return res.status(404).json({ message: 'Training not found' });
         }
 
-        // Fetch users associated with the training and their progress
-        const users = await User.find({ 'training.trainingId': id }).populate({
-            path: 'training.trainingId',
-            model: 'Training',
-        });
+        // Fetch all user progress records tied to this training
+        const progressRecords = await TrainingProgress.find({ trainingId: id });
 
-        const userProgress = await Promise.all(
-            users.map(async (user) => {
-                const trainingProgress = await TrainingProgress.findOne({
-                    userId: user._id,
-                    trainingId: id,
-                });
+        // Process user progress
+        const userProgress = progressRecords.map((record) => {
+            let totalVideos = 0;
+            let completedVideos = 0;
+            let completedModules = 0;
 
-                if (!trainingProgress) return null;
+            // Map each module's progress
+            const modulesProgress = record.modules.map((module) => {
+                const totalVideosInModule = module.videos.length;
+                const completedVideosInModule = module.videos.filter((v) => v.pass).length;
 
-                let totalModules = 0;
-                let totalVideos = 0;
-                let completedVideos = 0;
-                let completedModules = 0;
+                totalVideos += totalVideosInModule;
+                completedVideos += completedVideosInModule;
 
-                // Track overall completion per user for each module
-                const moduleCompletion = trainingProgress.modules.map((module) => {
-                    totalModules++;
+                // Check if the module is marked as passed
+                if (module.pass) completedModules++;
 
-                    let totalVideosInModule = module.videos.length;
-                    let completedVideosInModule = 0;
-
-                    // Count completed videos (those with pass: true)
-                    module.videos.forEach((video) => {
-                        totalVideos++;
-                        if (video.pass) {
-                            completedVideos++;
-                            completedVideosInModule++;
-                        }
-                    });
-
-                    // Calculate module completion percentage
-                    const moduleCompletionPercentage = totalVideosInModule > 0
-                        ? (completedVideosInModule / totalVideosInModule) * 100
-                        : 0;
-
-                    // Check if the module is marked as completed
-                    if (module.pass) {
-                        completedModules++;
-                    }
-
-                    return {
-                        moduleId: module.moduleId,
-                        pass: module.pass,
-                        videosCompleted: completedVideosInModule,
-                        totalVideos: totalVideosInModule,
-                        moduleCompletionPercentage: moduleCompletionPercentage.toFixed(2),
-                    };
-                });
-
-                // Calculate overall completion for the user based on video completion and module completion
-                const overallCompletionPercentage = totalVideos > 0
-                    ? (completedVideos / totalVideos) * 100
+                // Calculate module completion percentage
+                const moduleCompletionPercentage = totalVideosInModule > 0
+                    ? (completedVideosInModule / totalVideosInModule) * 100
                     : 0;
 
                 return {
-                    userId: user._id,
-                    username: user.username,
-                    email: user.email,
-                    modules: moduleCompletion,
-                    overallCompletionPercentage: overallCompletionPercentage.toFixed(2),
+                    moduleId: module.moduleId,
+                    pass: module.pass,
+                    videosCompleted: completedVideosInModule,
+                    totalVideos: totalVideosInModule,
+                    completionPercentage: moduleCompletionPercentage.toFixed(2),
                 };
-            })
-        );
+            });
 
-        // Combine the users into one array and filter out null progress
-        const combinedUserProgress = userProgress.filter((user) => user !== null);
+            // Calculate overall progress
+            const overallCompletionPercentage = totalVideos > 0
+                ? (completedVideos / totalVideos) * 100
+                : 0;
 
-        // Calculate average completion percentage across all users
-        let totalCompletionPercentage = 0;
-        let totalUsers = combinedUserProgress.length;
-
-        combinedUserProgress.forEach((user) => {
-            totalCompletionPercentage += parseFloat(user.overallCompletionPercentage);
+            return {
+                userId: record.userId,
+                pass: record.pass,
+                status: record.status,
+                modules: modulesProgress,
+                overallCompletionPercentage: overallCompletionPercentage.toFixed(2),
+            };
         });
 
-        const averageCompletionPercentage = totalUsers > 0
-            ? (totalCompletionPercentage / totalUsers).toFixed(2)
+        // Calculate average progress
+        const totalProgress = userProgress.reduce((sum, user) => sum + parseFloat(user.overallCompletionPercentage), 0);
+        const averageCompletionPercentage = userProgress.length > 0
+            ? (totalProgress / userProgress.length).toFixed(2)
             : 0;
 
-        // Return training data with populated modules, user progress, and overall completion
+        // Calculate average completed modules
+        const totalModuleCompletion = userProgress.reduce((sum, user) => {
+            return sum + user.modules.reduce((mSum, module) => mSum + parseFloat(module.completionPercentage), 0);
+        }, 0);
+
+        const averageCompletedModule = userProgress.length > 0
+            ? (totalModuleCompletion / (userProgress.length * training.modules.length)).toFixed(2)
+            : 0;
+
+        // Send response with data
         res.status(200).json({
-            message: 'Training data found',
-            data: training,
-            users: combinedUserProgress,
+            message: 'Training data retrieved successfully',
+            data: {
+                ...training._doc,
+                averageCompletedModule,
+            },
+            users: userProgress,
             averageCompletionPercentage,
         });
+        console.log(averageCompletionPercentage, averageCompletedModule);
+
     } catch (error) {
-        console.error('Error fetching training by ID:', error.message);
-        res.status(500).json({ message: 'Server error while fetching training data' });
+        console.error('Error fetching training by ID:', error);
+        res.status(500).json({ message: 'Server error while fetching training data', error: error.message });
     }
 };
+
 
 export const calculateProgress = async (req, res) => {
     try {

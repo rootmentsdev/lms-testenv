@@ -1,5 +1,5 @@
 import express from 'express';
-import { assignModuleToUser, assignAssessmentToUser, ReassignTraining, deleteTrainingController } from '../controllers/AssessmentAndModule.js';
+import { assignModuleToUser, assignAssessmentToUser, ReassignTraining, deleteTrainingController, GetAssessment } from '../controllers/AssessmentAndModule.js';
 import { GetuserTraining, GetuserTrainingprocess, UpdateuserTrainingprocess } from '../controllers/CreateUser.js';
 
 const router = express.Router();
@@ -12,5 +12,6 @@ router.get('/getAll/trainingprocess', GetuserTrainingprocess)
 router.get('/update/trainingprocess', UpdateuserTrainingprocess)
 router.post('/reassign/training', ReassignTraining)
 router.delete('/delete/training/:id', deleteTrainingController)
+router.get('/get/AllAssessment',GetAssessment)
 
 export default router;

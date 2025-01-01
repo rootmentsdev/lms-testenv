@@ -17,9 +17,9 @@ const RoundProgressBarAssessment = ({ initialProgress, title, Module, duration, 
     return (
         //
 
-        <div className="card w-96 h-40 shadow-lg rounded-lg flex items-center border border-gray-300 hover:shadow-xl transition-shadow duration-300 relative p-4">
+        <div className="card w-96 h-40 shadow-lg rounded-lg flex jus items-center border border-gray-300 hover:shadow-xl transition-shadow duration-300 relative p-4">
             {/* Content Section */}
-            <div className="flex flex-col space-y-2">
+            <div className="flex  flex-col space-y-2">
                 <h4 className="text-2xl text-black font-semibold">{title}</h4>
                 <p className="text-sm text-gray-500">{Module}</p>
                 <p className="text-sm text-gray-500">{duration}</p>

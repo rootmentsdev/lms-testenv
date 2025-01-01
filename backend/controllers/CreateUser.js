@@ -164,17 +164,14 @@ export const GetBranch = async (req, res) => {
 };
 
 export const GetuserTraining = async (req, res) => {
-  const { email } = req.query // Extract request body
+  const { email } = req.query; // Extract email from query
 
   try {
     // Find user based on email and populate training and modules separately
     const user = await User.findOne({ email })
       .populate({
         path: 'training.trainingId', // Populate the training details
-        populate: {
-          path: 'modules', // Populate the modules array inside each training
-          model: 'Module' // Specify the 'Module' model for the population
-        }
+
       });
 
     // Check if user exists
@@ -182,10 +179,60 @@ export const GetuserTraining = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Return user data with populated training and modules
+    // Fetch all training progress using user ID
+    const trainingProgress = await TrainingProgress.find({ userId: user._id });
+
+    // Process each training to calculate completion percentages
+    const trainingDetails = user.training.map(training => {
+      const progress = trainingProgress.find(p => p.trainingId.toString() === training.trainingId._id.toString());
+
+      if (!progress) {
+        return {
+          trainingId: training.trainingId._id,
+          name: training.trainingId.name,
+          completionPercentage: 0
+        };
+      }
+
+      let totalModules = 0;
+      let completedModules = 0;
+      let totalVideos = 0;
+      let completedVideos = 0;
+
+      // Iterate through modules and calculate completion
+      progress.modules.forEach(module => {
+        totalModules++;
+        if (module.pass) completedModules++;
+
+        module.videos.forEach(video => {
+          totalVideos++;
+          if (video.pass) completedVideos++;
+        });
+      });
+
+      const moduleCompletionPercentage = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
+      const videoCompletionPercentage = totalVideos > 0 ? (completedVideos / totalVideos) * 100 : 0;
+      const overallCompletionPercentage = (moduleCompletionPercentage + videoCompletionPercentage) / 2;
+
+      return {
+        trainingId: training.trainingId._id,
+        name: training.trainingId.name,
+        completionPercentage: overallCompletionPercentage.toFixed(2)
+      };
+    });
+
+    // Calculate the overall completion percentage for the user (average of all training completions)
+    const totalCompletionPercentage = trainingDetails.reduce((sum, training) => sum + parseFloat(training.completionPercentage), 0);
+    const userOverallCompletionPercentage = trainingDetails.length > 0 ? (totalCompletionPercentage / trainingDetails.length).toFixed(2) : 0;
+
+    // Return user data with training completion percentages and overall completion percentage
     res.status(200).json({
       message: "Data found",
-      data: user
+      data: {
+        user,
+        trainingProgress: trainingDetails,
+        userOverallCompletionPercentage // Include overall user completion percentage
+      }
     });
 
   } catch (error) {
@@ -193,6 +240,7 @@ export const GetuserTraining = async (req, res) => {
     res.status(500).json({ message: "Server error while finding user" });
   }
 };
+
 
 export const GetuserTrainingprocess = async (req, res) => {
   const { userId, trainingId } = req.query; // Extract request body

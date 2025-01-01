@@ -10,12 +10,14 @@ const assessmentQuestionSchema = new mongoose.Schema({
 // Define schema for assessment
 const assessmentSchema = new mongoose.Schema({
   title: { type: String, required: true }, // Title of the assessment
-  description: { type: String, required: true }, // Brief description of the assessment
+ // Br  // description: { type: Number, required: true },ief description of the assessment
   questions: [assessmentQuestionSchema], // Array of questions
-  state: { 
-    type: String, 
-    enum: ['Pending', 'Processing', 'Completed'], 
-    default: 'Pending' 
+  duration: { type: Number, require: true },
+  createBy: { type: String, default: "admin" },
+  state: {
+    type: String,
+    enum: ['Pending', 'Processing', 'Completed'],
+    default: 'Pending'
   }, // Current state of the assessment
   createdAt: { type: Date, default: Date.now }, // Timestamp when the assessment was created
   updatedAt: { type: Date, default: Date.now }, // Timestamp when the assessment was last updated

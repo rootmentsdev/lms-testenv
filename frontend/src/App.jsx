@@ -19,6 +19,7 @@ import CreateModule from './pages/Modules/createmodule/CreateModule'
 import CreateTrainings from './pages/Training/createTraining/CreateTrainings'
 import Reassign from './pages/Training/Reassign/Reassign'
 import Mandatorytraining from './pages/Training/Mandatorytraining/Mandatorytraining'
+import CreateAssessment from './pages/Assessments/CreateAssessment/CreateAssessment'
 
 function App() {
 
@@ -41,6 +42,7 @@ function App() {
         <Route path={'/createnewtraining'} element={< CreateTrainings />} />
         <Route path={'/Reassign/:id'} element={< Reassign />} />
         <Route path={'/create/Mandatorytraining'} element={< Mandatorytraining />} />
+        <Route path={'/create/Assessment'} element={< CreateAssessment />} />
         {/*  */}
       </Routes>
 

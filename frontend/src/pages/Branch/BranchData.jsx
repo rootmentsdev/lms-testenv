@@ -96,7 +96,7 @@ const BranchData = () => {
 
     return (
         <div>
-            <div><Header name='Employee' /></div>
+            <div><Header name='Branch ' /></div>
             <div>
                 <div className="flex justify-between mt-12">
                     <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer

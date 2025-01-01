@@ -1,80 +1,104 @@
-import Header from "../../components/Header/Header"
+import Header from "../../components/Header/Header";
 import { FaPlus } from "react-icons/fa";
 import { CiFilter } from "react-icons/ci";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import RoundProgressBarAssessment from "../../components/RoundBar/RoundAssessment";
+import { Link } from "react-router-dom";
+import baseUrl from "../../api/api";
 
 const AssessmentsData = () => {
     const [isOpen, setIsOpen] = useState(false);
+    const [data, setData] = useState([]);
+    const [error, setError] = useState(null); // Error handling
+    const [loading, setLoading] = useState(true); // Loading indicator
 
-    const toggleDropdown = () => {
-        setIsOpen(prev => !prev);
-    };
+    const toggleDropdown = () => setIsOpen(prev => !prev);
+
+    // Fetch Assessments Data
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const response = await fetch(`${baseUrl.baseUrl}api/user/get/AllAssessment`);
+                if (!response.ok) throw new Error('Failed to fetch data');
+
+                const result = await response.json();
+                setData(result.data);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                setError('Failed to load assessments'); // Set error state
+            } finally {
+                setLoading(false); // Stop loading indicator
+            }
+        };
+
+        fetchData();
+    }, []);
+
     return (
-        <div>
+        <div className="w-full h-full bg-white">
+            {/* Header */}
+            <Header name='Assessments' />
 
-            <div className="w-full h-full bg-white">
-                <div><Header name='Assessments' /></div>
-                <div>
-
-                    <div className="flex mx-10 justify-between mt-10 ">
-                        <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer
-                         ">
-                            <div className="text-green-500">
-                                <FaPlus />
-                            </div>
-                            <h4 className="text-black">Create New Assessment</h4>
-                        </div>
-                        <div className="relative inline-block text-left w-36 mr-10">
-                            <button
-                                type="button"
-                                className="flex justify-between items-center w-full border-2 py-2 px-4 bg-white text-black rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                                onClick={toggleDropdown}
-                            >
-                                <h4>Filter</h4>
-                                <CiFilter className="text-green-500" />
-                            </button>
-
-                            {/* Dropdown Menu */}
-                            {isOpen && (
-                                <div
-                                    className="origin-top-right absolute right-0 mt-2 w-full rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10"
-                                    role="menu"
-                                    aria-orientation="vertical"
-                                >
-                                    <div className="py-1">
-                                        <a href="#" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Option 1</a>
-                                        <a href="#" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Option 2</a>
-                                        <a href="#" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Option 3</a>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+            {/* Top Bar */}
+            <div className="flex mx-10 justify-between mt-10">
+                {/* Create Assessment */}
+                <Link to={'/create/Assessment'}>
+                    <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer">
+                        <div className="text-green-500"><FaPlus /></div>
+                        <h4 className="text-black">Create New Assessment</h4>
                     </div>
-                </div>
+                </Link>
 
-                <div className="mt-10  ml-10 flex flex-wrap gap-3">
+                {/* Filter Dropdown */}
+                <div className="relative inline-block text-left w-36 mr-10">
+                    <button
+                        type="button"
+                        className="flex justify-between items-center w-full border-2 py-2 px-4 bg-white text-black rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                        onClick={toggleDropdown}
+                    >
+                        <h4>Filter</h4>
+                        <CiFilter className="text-green-500" />
+                    </button>
 
-                    <div className="mt-5" >   <RoundProgressBarAssessment initialProgress='73' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 73%' /></div>
-                    <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='74' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 74%' /></div>
-                    <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='10' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 10%' /></div>
-                    <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='100' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 100%' /></div>
-                    <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='46' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 46%' /></div>
-                    <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='26' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 26%' /></div>
-                    <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='56' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 56%' /></div>
-
-                    <div className="mt-5" >   <RoundProgressBarAssessment initialProgress='73' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 73%' /></div>
-                    <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='74' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 74%' /></div>
-                    <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='990' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 90%' /></div>
-                    <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='100' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 100%' /></div>
-                    <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='46' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 46%' /></div>
-                    <div className="mt-5" >       <RoundProgressBarAssessment initialProgress='26' title='Assessment' Module='Completion Rate : 86%' complete='Average score achieved : 26%' /></div>
-
+                    {isOpen && (
+                        <div
+                            className="origin-top-right absolute right-0 mt-2 w-full rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10"
+                            role="menu"
+                            aria-orientation="vertical"
+                        >
+                            <div className="py-1">
+                                <button className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Pending</button>
+                                <button className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Completed</button>
+                                <button className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Failed</button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
+
+            {/* Assessment Cards */}
+            <div className="mt-10 ml-10 flex flex-wrap gap-3">
+                {loading ? (
+                    <div>Loading...</div>
+                ) : error ? (
+                    <div className="text-red-500">{error}</div>
+                ) : (
+                    data.map((item) => (
+                        <Link key={item._id} to={`/AssigTraing/${item?.trainingId}`}>
+                            <div className="mt-5">
+                                <RoundProgressBarAssessment
+                                    initialProgress={0}
+                                    Module={`Number of questins : ${item.questions.length}`}
+                                    title={`Title ${item?.title}`}
+
+                                />
+                            </div>
+                        </Link>
+                    ))
+                )}
+            </div>
         </div>
+    );
+};
 
-    )
-}
-
-export default AssessmentsData
+export default AssessmentsData;

@@ -1,4 +1,5 @@
 
+import Assessment from '../model/Assessment.js';
 import TrainingProgress from '../model/Trainingprocessschema.js';
 import { Training } from '../model/Traning.js';
 import User from '../model/User.js';
@@ -419,5 +420,16 @@ export const GetAllFullTrainingWithCompletion = async (req, res) => {
   } catch (error) {
     console.error('Error fetching training data:', error.message);
     res.status(500).json({ message: "Server error while fetching training data" });
+  }
+};
+
+export const GetAssessment = async (req, res) => {
+  try {
+    const Assessments = await Assessment.find()
+
+    res.status(200).json({ message: 'Assessment assigned successfully.', data: Assessments });
+  } catch (error) {
+    console.error('Error assigning assessment:', error);
+    res.status(500).json({ message: 'An error occurred while assigning the assessment.', error: error.message });
   }
 };

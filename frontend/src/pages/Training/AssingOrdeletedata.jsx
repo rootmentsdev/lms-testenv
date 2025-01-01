@@ -20,6 +20,8 @@ const AssingOrdeletedata = () => {
                 }
                 const result = await response.json();
                 setTraining(result);
+                console.log(result);
+
             } catch (err) {
                 console.error(err);
             }
@@ -89,7 +91,7 @@ const AssingOrdeletedata = () => {
                             <RoundModule
                                 key={item?._id}
                                 title={item?.moduleName}
-                                initialProgress={userModule?.moduleCompletionPercentage || "0.00"} // Fallback to 0 if no data
+                                initialProgress={userModule?.completionPercentage || "0.00"} // Fallback to 0 if no data
                                 Module={`No. of videos: ${item?.videos.length}`}
                                 duration={`Created at: ${new Date(item?.createdAt).toLocaleString()}`}
                                 complete={`Created by HR`}
