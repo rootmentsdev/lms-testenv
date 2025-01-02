@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import Branch from '../model/Branch.js';
 import TrainingProgress from '../model/Trainingprocessschema.js';
+import Module from '../model/Module.js';
 dotenv.config()
 
 export const createUser = async (req, res) => {
@@ -249,7 +250,16 @@ export const GetuserTrainingprocess = async (req, res) => {
     const traingproess = await TrainingProgress.find({
       userId,
       trainingId
-    });
+    }).populate({
+      path: 'trainingId', // Populate trainingId first
+      populate: {
+        path: 'modules', // Populate modules inside trainingId
+        populate: {
+          path: 'videos', // Populate videos inside modules
+        },
+      },
+    })
+      .exec();
 
     if (!traingproess || traingproess.length === 0) {
       return res.status(404).json({ message: "No data" });
@@ -353,5 +363,68 @@ export const UpdateuserTrainingprocess = async (req, res) => {
   } catch (error) {
     console.error('Error updating training progress:', error.message);
     res.status(500).json({ message: "Server error while updating training progress" });
+  }
+};
+
+
+export const GetuserTrainingprocessmodule = async (req, res) => {
+  const { userId, trainingId, moduleId } = req.query; // Extract request query
+
+  try {
+    // Find training progress and populate nested fields
+    const traingproess = await TrainingProgress.find({
+      userId,
+      trainingId
+    })
+      .populate({
+        path: 'trainingId', // Populate trainingId first
+        populate: {
+          path: 'modules', // Populate modules inside trainingId
+          populate: {
+            path: 'videos', // Populate videos inside modules
+          },
+        },
+      })
+      .exec();
+
+    // Check if data exists
+    if (!traingproess || traingproess.length === 0) {
+      return res.status(404).json({ message: "No data" });
+    }
+
+    // Extract the training data
+    const trainingData = traingproess[0];
+
+    // Filter the requested module by moduleId
+    const selectedModule = trainingData.modules.find(
+      (module) => module.moduleId.toString() === moduleId
+    );
+
+    // Check if module is found
+    if (!selectedModule) {
+      return res.status(404).json({ message: "Module not found" });
+    }
+
+    // Calculate completion percentages for the specific module
+    let totalVideos = selectedModule.videos.length;
+    let completedVideos = selectedModule.videos.filter((video) => video.pass).length;
+
+    // Calculate percentage completion
+    const videoCompletionPercentage = totalVideos > 0
+      ? (completedVideos / totalVideos) * 100
+      : 0;
+    const moduledata = await Module.findById(selectedModule.moduleId)
+
+    // Return response with module data and percentage completion
+    res.status(200).json({
+      message: "Module data found",
+      data: selectedModule,
+      moduledata: moduledata,
+      completionPercentage: videoCompletionPercentage.toFixed(2) // Rounded to 2 decimal places
+    });
+
+  } catch (error) {
+    console.error('Error finding module:', error.message);
+    res.status(500).json({ message: "Server error while finding module" });
   }
 };

@@ -130,7 +130,7 @@ const Mandatorytrainingdata = () => {
                         <div className="flex flex-col gap-5">
                             <p>Days</p>
                             <input
-                                type="text"
+                                type="number"
                                 placeholder="Number of days"
                                 className="bg-white w-full border p-1 rounded-lg border-black"
                                 value={days}

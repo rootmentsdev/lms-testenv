@@ -5,7 +5,7 @@ const trainingSchema = new mongoose.Schema({
   description: { type: String },
   modules: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Module' }], // Reference to Module
   numberOfModules: { type: Number, default: 0 }, // Auto-calculated field
-  deadline: { type: Number }, // Deadline field as a Date
+  deadline: { type: Number, required: true }, // Deadline field as a Date
   Trainingtype: { type: String, default: "Assigned" },
   Assignedfor: [{ type: String, default: 'Normal' }],
   createdBY: { type: String, default: 'admin' },

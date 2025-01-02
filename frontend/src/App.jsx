@@ -20,6 +20,8 @@ import CreateTrainings from './pages/Training/createTraining/CreateTrainings'
 import Reassign from './pages/Training/Reassign/Reassign'
 import Mandatorytraining from './pages/Training/Mandatorytraining/Mandatorytraining'
 import CreateAssessment from './pages/Assessments/CreateAssessment/CreateAssessment'
+import AssessmentsAssign from './pages/Assessments/AssessmentsAssign/AssessmentsAssign'
+import UserTrainingProgress from './pages/Training/UserTrainingProgress/UserTrainingProgress'
 
 function App() {
 
@@ -33,8 +35,9 @@ function App() {
         <Route path={'/branch'} element={<Branch />} />
         <Route path={'/employee'} element={<Employee />} />
         <Route path={'/module'} element={<Module />} />
-        <Route path={'/Alltraining'} element={<Training />} />
         <Route path={'/settings'} element={<Setting />} />
+
+        <Route path={'/Alltraining'} element={<Training />} />
         <Route path={'/training'} element={<CreateTraining />} />
         <Route path={'/AssigData'} element={< AssignedTrainings />} />
         <Route path={'/AssigTraing/:id'} element={< AssingOrdelete />} />
@@ -42,7 +45,11 @@ function App() {
         <Route path={'/createnewtraining'} element={< CreateTrainings />} />
         <Route path={'/Reassign/:id'} element={< Reassign />} />
         <Route path={'/create/Mandatorytraining'} element={< Mandatorytraining />} />
+        <Route path={'/Trainingdetails/:id'} element={< UserTrainingProgress />} />
+
         <Route path={'/create/Assessment'} element={< CreateAssessment />} />
+        <Route path={'/Assessment/Assign/:id'} element={< AssessmentsAssign />} />
+
         {/*  */}
       </Routes>
 

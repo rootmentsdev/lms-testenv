@@ -41,7 +41,7 @@ const AssingOrdeletedata = () => {
             }
 
             // Redirect to the 'AssigData' page after successful deletion
-            navigate('/AssigData');
+            navigate('/training');
         } catch (err) {
             console.error('Error deleting training:', err);
         }
@@ -49,7 +49,7 @@ const AssingOrdeletedata = () => {
 
     return (
         <div className="w-full h-full bg-white">
-            <div><Header name='Assign Training' /></div>
+            <div><Header name='Assign or Delete training' /></div>
 
             <Link to={''}>
                 <div className=" flex items-center gap-1 m-5 text-black cursor-pointer">
@@ -69,7 +69,9 @@ const AssingOrdeletedata = () => {
                 </div>
                 <div className="mt-32 mr-5">
                     <div className="flex gap-2">
-                        <button className="border p-2 rounded-md text-black">View More Details</button>
+                        <Link to={`/Assessment/Assign/${id}`}>
+                            <button className="border p-2 rounded-md text-black">View More Details</button>
+                        </Link>
                         <Link to={`/Reassign/${id}`}>
                             <button className="border p-2 text-white rounded-md bg-green-700">Reassign Training</button>
                         </Link>

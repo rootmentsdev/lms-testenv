@@ -84,16 +84,18 @@ const AssessmentsData = () => {
                     <div className="text-red-500">{error}</div>
                 ) : (
                     data.map((item) => (
-                        <Link key={item._id} to={`/AssigTraing/${item?.trainingId}`}>
+                        <><Link to={`/Assessment/Assign/${item._id}`}>
                             <div className="mt-5">
                                 <RoundProgressBarAssessment
                                     initialProgress={0}
                                     Module={`Number of questins : ${item.questions.length}`}
-                                    title={`Title ${item?.title}`}
+                                    title={` ${item?.title}`}
+                                    complete={" complete rate 0.00%"}
 
                                 />
                             </div>
-                        </Link>
+                        </Link></>
+
                     ))
                 )}
             </div>

@@ -328,7 +328,7 @@ export const createMandatoryTraining = async (req, res) => {
             Trainingtype: "Mandatory", // Correct field for training type
             modules,
             Assignedfor: workingBranch, // Correct field for assigned branches
-            deadline: deadlineDate, // Store deadline as a proper Date
+            deadline: days, // Store deadline as a proper Date
         });
 
         // Save the training record
