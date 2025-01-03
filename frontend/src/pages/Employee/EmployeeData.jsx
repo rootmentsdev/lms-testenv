@@ -1,92 +1,37 @@
 import Header from "../../components/Header/Header";
 import { FaPlus } from "react-icons/fa";
 import { CiFilter } from "react-icons/ci";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import baseUrl from "../../api/api";
 const EmployeeData = () => {
-    const employees = [
-        {
-            empId: "E001",
-            name: "John Doe",
-            role: "Software Engineer",
-            branch: "Kottayam",
-            training: "React, Node.js",
-            assessments: "Completed",
-            profile: "Profile1.jpg",
-        },
-        {
-            empId: "E002",
-            name: "Jane Smith",
-            role: "UI/UX Designer",
-            branch: "Chennai",
-            training: "Figma, Adobe XD",
-            assessments: "Completed",
-            profile: "Profile2.jpg",
-        },
-        {
-            empId: "E003",
-            name: "Mark Lee",
-            role: "Backend Developer",
-            branch: "Mumbai",
-            training: "Python, Django",
-            assessments: "Pending",
-            profile: "Profile3.jpg",
-        },
-        {
-            empId: "E004",
-            name: "Emily Davis",
-            role: "Product Manager",
-            branch: "Delhi",
-            training: "Agile, Scrum",
-            assessments: "Completed",
-            profile: "Profile4.jpg",
-        },
-        {
-            empId: "E005",
-            name: "Michael Brown",
-            role: "DevOps Engineer",
-            branch: "Bangalore",
-            training: "Docker, Kubernetes",
-            assessments: "Pending",
-            profile: "Profile5.jpg",
-        },
-        {
-            empId: "E005",
-            name: "Michael Brown",
-            role: "DevOps Engineer",
-            branch: "Bangalore",
-            training: "Docker, Kubernetes",
-            assessments: "Pending",
-            profile: "Profile5.jpg",
-        },
-        {
-            empId: "E005",
-            name: "Michael Brown",
-            role: "DevOps Engineer",
-            branch: "Bangalore",
-            training: "Docker, Kubernetes",
-            assessments: "Pending",
-            profile: "Profile5.jpg",
-        },
-        {
-            empId: "E005",
-            name: "Michael Brown",
-            role: "DevOps Engineer",
-            branch: "Bangalore",
-            training: "Docker, Kubernetes",
-            assessments: "Pending",
-            profile: "Profile5.jpg",
-        },
-        {
-            empId: "E005",
-            name: "Michael Brown",
-            role: "DevOps Engineer",
-            branch: "Bangalore",
-            training: "Docker, Kubernetes",
-            assessments: "Pending",
-            profile: "Profile5.jpg",
-        },
-    ];
 
+    const [Data, setData] = useState([]); // State to store fetched data
+
+    useEffect(() => {
+        const fetchModules = async () => {
+            try {
+                const response = await fetch(`${baseUrl.baseUrl}api/usercreate/getAllUser`, {
+                    method: "GET",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                });
+
+                if (!response.ok) { // Check for HTTP errors
+                    throw new Error(`Error: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                setData(data); // Update state with fetched data
+                // console.log(Data);
+                // alert(Data.data[0].email)
+            } catch (error) {
+                console.error("Failed to fetch modules:", error.message);
+            }
+        };
+
+        fetchModules(); // Invoke the function
+
+    }, []);
     const [isOpen, setIsOpen] = useState(false);
 
     const toggleDropdown = () => {
@@ -131,7 +76,7 @@ const EmployeeData = () => {
                         )}
                     </div>
                 </div>
-                <div className="overflow-x-auto mx-10 mt-5 flex justify-center">
+                <div className="overflow-x-auto mx-10 mt-5 flex justify-center text-black">
                     <table className="min-w-full border-2 border-gray-300">
                         <thead>
                             <tr className="bg-[#016E5B] text-white">
@@ -141,23 +86,29 @@ const EmployeeData = () => {
                                 <th className="px-3 py-1 border-2 border-gray-300">Branch</th>
                                 <th className="px-3 py-1 border-2 border-gray-300">Training</th>
                                 <th className="px-3 py-1 border-2 border-gray-300">Assessments</th>
-                                <th className="px-3 py-1 border-2 border-gray-300">Profile</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {employees.map((employee, index) => (
-                                <tr key={index} className="border-b hover:bg-gray-100">
-                                    <td className="px-3 py-1 border-2 border-gray-300">{employee.empId}</td>
-                                    <td className="px-3 py-1 border-2 border-gray-300">{employee.name}</td>
-                                    <td className="px-3 py-1 border-2 border-gray-300">{employee.role}</td>
-                                    <td className="px-3 py-1 border-2 border-gray-300">{employee.branch}</td>
-                                    <td className="px-3 py-1 border-2 border-gray-300">{employee.training}</td>
-                                    <td className="px-3 py-1 border-2 border-gray-300">{employee.assessments}</td>
-                                    <td className="px-3 py-1 border-2 border-gray-300">
-                                        {employee.profile}
-                                    </td>
+                            {Data?.data?.length > 0 ? (
+                                Data?.data?.map((employee, index) => {
+
+                                    return (
+                                        <tr key={index} className="border-b hover:bg-gray-100">
+                                            <td className="px-3 py-1 border-2 border-gray-300">#{employee.empID}</td>
+                                            <td className="px-3 py-1 border-2 border-gray-300">{employee.username}</td>
+                                            <td className="px-3 py-1 border-2 border-gray-300">{employee.designation}</td>
+                                            <td className="px-3 py-1 border-2 border-gray-300">{employee.workingBranch}</td>
+                                            <td className="px-3 py-1 border-2 border-gray-300">{employee.training.length}</td>
+                                            <td className="px-3 py-1 border-2 border-gray-300">{employee.assignedAssessments.length || 'N/A'}</td>
+
+                                        </tr>
+                                    );
+                                })
+                            ) : (
+                                <tr>
+                                    <td colSpan="7" className="text-center py-3">No data available</td>
                                 </tr>
-                            ))}
+                            )}
                         </tbody>
                     </table>
                 </div>

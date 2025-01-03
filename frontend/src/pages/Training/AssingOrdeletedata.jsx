@@ -74,7 +74,7 @@ const AssingOrdeletedata = () => {
                             <button className="border p-2 rounded-md text-black">View More Details</button>
                         </Link>
                         <Link to={`/Reassign/${id}`}>
-                            <button className="border p-2 text-white rounded-md bg-green-[#016E5B]">Reassign Training</button>
+                            <button className="border p-2 text-white rounded-md bg-[#016E5B]">Reassign Training</button>
                         </Link>
                     </div>
                 </div>

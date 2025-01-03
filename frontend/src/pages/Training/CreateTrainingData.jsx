@@ -5,15 +5,18 @@ import { FaPlus } from "react-icons/fa";
 import { CiFilter } from "react-icons/ci";
 import { useEffect, useState } from "react";
 import baseUrl from "../../api/api";
+import Card from "../../components/Skeleton/Card";
 const CreateTrainingData = () => {
   const [isOpen, setIsOpen] = useState(false);
   //  /
+  const [loading, setloading] = useState(false)
   const toggleDropdown = () => {
     setIsOpen(prev => !prev);
   };
   const [data, setData] = useState([]);
 
   useEffect(() => {
+    setloading(true)
 
     const Fetchdata = async () => {
       try {
@@ -23,7 +26,7 @@ const CreateTrainingData = () => {
         }
         const result = await response.json();
         setData(result.data);
-
+        setloading(false)
       } catch (error) {
         console.error('Error fetching data:', error);
       }
@@ -96,6 +99,13 @@ const CreateTrainingData = () => {
       </div>
 
       <div className="mt-10 ml-10 flex flex-wrap gap-3">
+
+        {loading && <>
+          <Card />
+          <Card />
+          <Card />
+          <Card />
+        </>}
         {
           data.map((item) => {
             return (

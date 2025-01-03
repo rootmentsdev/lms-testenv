@@ -5,6 +5,8 @@ import { IoIosLogOut } from "react-icons/io";
 import { FaRegIdCard } from "react-icons/fa";
 import { IoSettingsOutline } from "react-icons/io5";
 
+import image from '../../../public/Rootments.jpg'
+
 const SideNav = () => {
     const location = useLocation(); // Get the current route path
 
@@ -16,7 +18,7 @@ const SideNav = () => {
             {/* Header Section */}
             <div className="flex mt-10 ml-5 justify-evenly">
                 <div>
-                    <img src="./Rootments.jpg" alt="Logo" />
+                    <img src={image} alt="Logo" />
                 </div>
                 <div>
                     <div className="text-2xl text-green-700">

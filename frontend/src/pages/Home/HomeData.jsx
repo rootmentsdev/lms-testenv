@@ -5,6 +5,7 @@ import { HiOutlineBuildingOffice2 } from "react-icons/hi2";
 import { TiClipboard } from "react-icons/ti";
 import { useEffect, useState } from "react";
 import baseUrl from "../../api/api";
+import HomeSkeleton from "../../components/Skeleton/HomeSkeleton";
 
 const HomeData = () => {
 
@@ -53,6 +54,15 @@ const HomeData = () => {
                 </div>
                 <p>Your dashboard is ready, Let’s create a productive learning environment!</p>
             </div>
+            {loading && <div className="flex gap-2 justify-evenly mt-10">
+
+                <HomeSkeleton />
+                <HomeSkeleton />
+                <HomeSkeleton />
+                <HomeSkeleton />
+
+            </div>
+            }
             {!loading && <div className="flex gap-2 justify-evenly mt-10">
 
                 <div className="w-60 h-20 border-gray-300 border rounded-xl shadow-lg text-black flex justify-center items-center gap-3 cursor-pointer">
@@ -85,7 +95,7 @@ const HomeData = () => {
                     </div>
                     <div className="flex flex-col">
                         <h2 className="flex justify-self-center ml-8 text-2xl font-bold text-[#016E5B]">
-                            {data?.branchCount}+
+                            {data?.branchCount}
                         </h2>
                         <p>Total Branch</p>
                     </div>

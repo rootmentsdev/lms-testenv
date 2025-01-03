@@ -39,6 +39,9 @@ export const TrainingDetails = async (req, res) => {
         // Fetch all users assigned to this training by querying the `User` collection
         const users = await User.find({ 'training.trainingId': id }).populate('training.trainingId'); // Populate the user information
 
+        // Declare uniqueBranches set to store distinct branches
+        const uniqueBranches = new Set();
+        const uniquedesignation = new Set();
         // Fetch the progress details from the TrainingProgress collection
         const progressDetails = await Promise.all(
             users.map(async (user) => {
@@ -79,9 +82,18 @@ export const TrainingDetails = async (req, res) => {
                 // Calculate the overall completion percentage for the training
                 const completionPercentage = totalVideos > 0 ? Math.round((passedVideos / totalVideos) * 100) : 0;
                 const moduleCompletionPercentage = totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0;
-                const detaileduser = await User.findById(user._id)
+
+                // Fetch detailed user information
+                const detaileduser = await User.findById(user._id);
+
+                // Filter user training details by specific ID
+                const filteredTraining = detaileduser.training.filter(t => t.trainingId.toString() === id);
+
+                // Add unique working branches to the set
+                uniqueBranches.add(detaileduser.workingBranch);
+                uniquedesignation.add(detaileduser.designation)
                 return {
-                    user: detaileduser,
+                    user: { ...detaileduser._doc, training: filteredTraining },
                     userEmail: user.email, // Populated email field
                     progress: completionPercentage, // Overall progress based on videos
                     moduleCompletion: moduleCompletionPercentage, // Completion based on modules
@@ -93,6 +105,8 @@ export const TrainingDetails = async (req, res) => {
         return res.status(200).json({
             training, // The training details
             progressDetails, // User progress details
+            uniqueBranches: Array.from(uniqueBranches),
+            uniquedesignation: Array.from(uniquedesignation)// Convert set to array
         });
 
     } catch (error) {
