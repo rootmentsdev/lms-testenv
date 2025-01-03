@@ -90,9 +90,9 @@ const ReassignData = () => {
 
             <div className="text-xl mt-10  ">
                 <div className="flex justify-evenly">
-                    <p>Training Name: <span className="text-green-500">{training?.data.trainingName}</span></p>
-                    <p>Number of Modules : <span className="text-green-500">{training?.data.numberOfModules}</span></p>
-                    <p>Number of user : <span className="text-green-500">{training?.users.length}</span></p>
+                    <p>Training Name: <span className="text-[#016E5B]">{training?.data.trainingName}</span></p>
+                    <p>Number of Modules : <span className="text-[#016E5B]">{training?.data.numberOfModules}</span></p>
+                    <p>Number of user : <span className="text-[#016E5B]">{training?.users.length}</span></p>
                 </div>
             </div>
             <div className="flex mx-32 justify-between ">
@@ -102,7 +102,7 @@ const ReassignData = () => {
                             return (
                                 <div className="text-xl mt-5 " key={module._id}>
                                     Module {module.moduleName} has {module.videos.length} videos
-                                    <ul className="text-[16px] text-green-500">
+                                    <ul className="text-[16px] text-[#016E5B]">
                                         {module.videos.map((video) => {
                                             return (
                                                 <li key={video._id}>

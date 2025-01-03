@@ -51,29 +51,30 @@ const AssingOrdeletedata = () => {
         <div className="w-full h-full bg-white">
             <div><Header name='Assign or Delete training' /></div>
 
-            <Link to={''}>
+            <Link to={'/training'}>
                 <div className=" flex items-center gap-1 m-5 text-black cursor-pointer">
                     <IoIosArrowBack />
                     <p>Back</p>
                 </div>
             </Link>
-            <div className="w-auto h-48 border-2 rounded-xl shadow-lg mx-20 flex justify-between">
+            <div className="w-auto h-52 border-2 rounded-xl shadow-lg mx-20 flex justify-between">
                 <div className="text-black mt-6 ml-6">
                     <h2 className="font-semibold mb-3 ">Training Name : {training?.data.trainingName}</h2>
                     <div className="flex flex-col gap-1">
                         <p>No. of Modules : {training?.data.numberOfModules}</p>
                         <p>No. of user  : {training?.users.length}</p>
+                        <p>  Trainingtype : {training?.data.Trainingtype}</p>
                         <p>Created Date: {new Date(training?.data.createdDate).toLocaleString()}</p>
                         <p>Deadline: {String(training?.data.deadline).length === 2 ? training?.data.deadline : new Date(training?.data.deadline).toLocaleString()}</p>
                     </div>
                 </div>
                 <div className="mt-32 mr-5">
                     <div className="flex gap-2">
-                        <Link to={`/Assessment/Assign/${id}`}>
+                        <Link to={`/Trainingdetails/${id}`}>
                             <button className="border p-2 rounded-md text-black">View More Details</button>
                         </Link>
                         <Link to={`/Reassign/${id}`}>
-                            <button className="border p-2 text-white rounded-md bg-green-700">Reassign Training</button>
+                            <button className="border p-2 text-white rounded-md bg-green-[#016E5B]">Reassign Training</button>
                         </Link>
                     </div>
                 </div>

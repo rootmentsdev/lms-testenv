@@ -196,7 +196,7 @@ const Mandatorytrainingdata = () => {
                     <div className="mt-10 mx-20">
                         <button
                             type="submit"
-                            className="border border-black p-2 px-6 rounded-lg bg-green-500 hover:bg-green-600 text-white"
+                            className="border border-black p-2 px-6 rounded-lg bg-[#016E5B] hover:[#017E5B] text-white"
                         >
                             Assign Training
                         </button>

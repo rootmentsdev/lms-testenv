@@ -101,7 +101,7 @@ const BranchData = () => {
                 <div className="flex justify-between mt-12">
                     <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer
                     ">
-                        <div className="text-green-500">
+                        <div className="text-[#016E5B]">
                             <FaPlus />
                         </div>
                         <h4 className="text-black">Add New Employee</h4>
@@ -109,11 +109,11 @@ const BranchData = () => {
                     <div className="relative inline-block text-left w-36 mr-10">
                         <button
                             type="button"
-                            className="flex justify-between items-center w-full border-2 py-2 px-4 bg-white text-black rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                            className="flex justify-between items-center w-full border-2 py-2 px-4 bg-white text-black rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#016E5B]"
                             onClick={toggleDropdown}
                         >
                             <h4>Filter</h4>
-                            <CiFilter className="text-green-500" />
+                            <CiFilter className="text-[#016E5B]" />
                         </button>
 
                         {/* Dropdown Menu */}
@@ -135,7 +135,7 @@ const BranchData = () => {
                 <div className="overflow-x-auto mx-10 mt-5 flex justify-center">
                     <table className="min-w-full border-2 border-gray-300">
                         <thead>
-                            <tr className="bg-green-500 text-white">
+                            <tr className="bg-[#016E5B] text-white">
                                 <th className="px-3 py-1 border-2 border-gray-300">Emp Id</th>
                                 <th className="px-3 py-1 border-2 border-gray-300">Name</th>
                                 <th className="px-3 py-1 border-2 border-gray-300">No of emp</th>

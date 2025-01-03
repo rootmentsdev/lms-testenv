@@ -8,7 +8,6 @@ export const createDesignation = async (req, res) => {
         if (!designation || designation.trim() === "") {
             return res.status(400).json({ message: "Designation is required" });
         }
-        console.log(designation);
 
 
         // Check for duplicates explicitly
@@ -16,12 +15,10 @@ export const createDesignation = async (req, res) => {
         if (existingDesignation) {
             return res.status(400).json({ message: "Designation already exists" });
         }
-        console.log(designation);
 
         // Create and save the new designation
         const newDesignation = new Designation({ designation });
         const savedDesignation = await newDesignation.save();
-        console.log(designation);
         return res.status(201).json({
             message: "Designation created successfully",
             data: savedDesignation,

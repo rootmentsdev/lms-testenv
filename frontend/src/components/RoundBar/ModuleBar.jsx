@@ -27,7 +27,7 @@ const ModuleBar = ({ title, Module, duration, complete }) => {
                             <p className="text-gray-600">{complete}</p>
 
                             {/* View Details Button */}
-                            <div className="flex w-32 border mt-4 border-green-600 justify-evenly items-center py-1 rounded-lg cursor-pointer hover:bg-green-100 transition duration-200 ease-in-out">
+                            <div className="flex w-32 border mt-4 border-[#016E5B] justify-evenly items-center py-1 rounded-lg cursor-pointer hover:bg-green-100 transition duration-200 ease-in-out">
                                 <h4 className="text-black text-sm">View Details</h4>
                             </div>
                         </div>

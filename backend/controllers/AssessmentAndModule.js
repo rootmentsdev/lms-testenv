@@ -150,7 +150,7 @@ export const ReassignTraining = async (req, res) => {
     if (!assignedTo || !trainingId || assignedTo.length === 0) {
       return res.status(400).json({ message: "Missing assignedTo or trainingId in the request body" });
     }
-    console.log(assignedTo, trainingId);
+    
 
     // Fetch the training using trainingId and populate the modules
     const training = await Training.findById(trainingId).populate('modules');
@@ -159,7 +159,7 @@ export const ReassignTraining = async (req, res) => {
     }
 
     // Log the training object to see its structure
-    console.log(training);
+   
 
     // Check if modules exist
     if (!training.modules || !Array.isArray(training.modules) || training.modules.length === 0) {

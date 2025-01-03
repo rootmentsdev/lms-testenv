@@ -87,7 +87,7 @@ const CreateAssessmentData = () => {
             <div className="mx-10 w-auto flex justify-between space-x-10">
                 <div className="flex flex-col space-y-6">
                     <div>
-                        <p className="text-green-500 font-semibold mb-2">Module Title</p>
+                        <p className="text-[#016E5B] font-semibold mb-2">Module Title</p>
                         <input
                             placeholder="Enter module title"
                             type="text"
@@ -98,7 +98,7 @@ const CreateAssessmentData = () => {
                     </div>
 
                     <div>
-                        <p className="text-green-500 font-semibold mb-2">Duration</p>
+                        <p className="text-[#016E5B] font-semibold mb-2">Duration</p>
                         <input
                             placeholder="Add duration in minutes "
                             type="number"
@@ -148,7 +148,7 @@ const CreateAssessmentData = () => {
             </div>
 
             <div className="flex justify-center">
-                <button onClick={handleSaveModule} className="p-3 w-56 bg-green-500 text-white rounded-lg">
+                <button onClick={handleSaveModule} className="p-3 w-56 bg-[#016E5B] text-white rounded-lg">
                     Submit Module
                 </button>
             </div>

@@ -47,19 +47,19 @@ const CreateTrainingData = () => {
           </div>
         </Link>
         <div className="flex text-black ml-10 gap-5 text-xl w-auto">
-          <h4 className="border-b-[3px] border-green-600 text-green-600 ">Mandatory Trainings</h4>
+          <h4 className="border-b-[3px] border-[#016E5B] text-[#016E5B] ">Mandatory Trainings</h4>
           <Link to={'/AssigData'}>
             <h4 className="cursor-pointer">Assigned Trainings</h4>
           </Link>
         </div>
-        <hr className="mx-10 mt-[-1px] border-green-600 " />
+        <hr className="mx-10 mt-[-1px] border-[#016E5B] " />
 
 
 
         <div className="flex mx-10 justify-between mt-10 ">
           <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer
                                     ">
-            <div className="text-green-500">
+            <div className="text-[#016E5B]">
               <FaPlus />
             </div>
             <Link to={'/create/Mandatorytraining'}>
@@ -74,7 +74,7 @@ const CreateTrainingData = () => {
               onClick={toggleDropdown}
             >
               <h4>Filter</h4>
-              <CiFilter className="text-green-500" />
+              <CiFilter className="text-[#016E5B]" />
             </button>
 
             {/* Dropdown Menu */}
@@ -99,7 +99,7 @@ const CreateTrainingData = () => {
         {
           data.map((item) => {
             return (
-              <Link key={item._id} to={`/AssigTraing/${item?.trainingId}`}>
+              <Link key={item._id} to={`/AssigTraining/${item?.trainingId}`}>
                 <RoundProgressBar
                   initialProgress={item?.averageCompletionPercentage}
                   title={item?.trainingName}

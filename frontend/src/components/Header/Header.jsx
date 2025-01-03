@@ -24,7 +24,7 @@ const Header = ({
                             className=" border-[#C8C8C8]  border  p-2  bg-white  md:w-auto pl-10"
                         />
                     </div>
-                    <div className="text-2xl text-green-500">
+                    <div className="text-2xl text-[#016E5B]">
                         <GoBell />
                     </div>
 

@@ -5,7 +5,6 @@ import TrainingProgress from '../model/Trainingprocessschema.js';
 export const createModule = async (req, res) => {
     try {
         const moduleData = req.body;
-        console.log(moduleData.videos[0].questions);
 
         // Validation for the required fields in videos
         if (!moduleData.moduleName || !moduleData.videos || !Array.isArray(moduleData.videos)) {
@@ -80,7 +79,6 @@ export const getModules = async (req, res) => {
 
         // Fetch training progress
         const trainingProgress = await TrainingProgress.find();
-        console.log(trainingProgress);
 
         // Calculate completion percentage for each module
         const moduleProgress = modules.map((module) => {

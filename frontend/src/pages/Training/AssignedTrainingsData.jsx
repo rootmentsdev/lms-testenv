@@ -53,16 +53,16 @@ const AssignedTrainingsData = () => {
                         <h4 className="cursor-pointer">Mandatory Trainings</h4>
                     </Link>
 
-                    <h4 className="border-b-[3px] border-green-600 text-green-600 " >Assigned Trainings</h4>
+                    <h4 className="border-b-[3px] border-[#016E5B] text-[#016E5B] " >Assigned Trainings</h4>
 
                 </div>
-                <hr className="mx-10 mt-[-1px] border-green-600 " />
+                <hr className="mx-10 mt-[-1px] border-[#016E5B] " />
 
 
                 <div className="flex mx-10 justify-between mt-10 ">
                     <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer
                                       ">
-                        <div className="text-green-500">
+                        <div className="text-[#016E5B]">
                             <FaPlus />
                         </div>
                         <Link to={'/createnewtraining'}>
@@ -77,7 +77,7 @@ const AssignedTrainingsData = () => {
                             onClick={toggleDropdown}
                         >
                             <h4>Filter</h4>
-                            <CiFilter className="text-green-500" />
+                            <CiFilter className="text-[#016E5B]" />
                         </button>
 
                         {/* Dropdown Menu */}
@@ -102,10 +102,11 @@ const AssignedTrainingsData = () => {
                 {
                     data.map((item) => {
                         return (
-                            <Link key={item._id} to={`/AssigTraing/${item?.trainingId}`}>
+                            <Link key={item._id} to={`/AssigTraining/${item?.trainingId}`}>
                                 <RoundProgressBar
                                     initialProgress={item?.averageCompletionPercentage}
                                     title={item?.trainingName}
+
                                     Module={`No. of Modules : ${item?.numberOfModules}`}
                                     duration={`No. of users: ${item?.totalUsers}`}
                                     complete={`Completion Rate : ${item?.averageCompletionPercentage}%`}

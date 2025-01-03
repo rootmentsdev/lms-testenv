@@ -45,7 +45,7 @@ const ModuleData = () => {
                     <Link to={'/createModule'}>
                         <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer
                                     ">
-                            <div className="text-green-500">
+                            <div className="text-[#016E5B]">
                                 <FaPlus />
                             </div>
                             <h4 className="text-black">Add New Module</h4>

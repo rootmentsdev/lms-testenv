@@ -134,7 +134,7 @@ const EmployeeData = () => {
                 <div className="overflow-x-auto mx-10 mt-5 flex justify-center">
                     <table className="min-w-full border-2 border-gray-300">
                         <thead>
-                            <tr className="bg-green-500 text-white">
+                            <tr className="bg-[#016E5B] text-white">
                                 <th className="px-3 py-1 border-2 border-gray-300">Emp Id</th>
                                 <th className="px-3 py-1 border-2 border-gray-300">Name</th>
                                 <th className="px-3 py-1 border-2 border-gray-300">Role</th>

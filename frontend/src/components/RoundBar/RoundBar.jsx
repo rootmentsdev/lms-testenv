@@ -33,7 +33,7 @@ const RoundProgressBar = ({ initialProgress, title, Module, duration, complete }
                             value={progress}
                             text={`${progress}%`}
                             styles={buildStyles({
-                                pathColor: "green",        // Green progress path
+                                pathColor: "#016E5B",        // Green progress path
                                 textColor: "#333",         // Text color
                                 trailColor: "#e2e8f0",     // Light gray trail
                                 strokeWidth: 10,           // Path thickness

@@ -44,7 +44,7 @@ const AssessmentsData = () => {
                 {/* Create Assessment */}
                 <Link to={'/create/Assessment'}>
                     <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer">
-                        <div className="text-green-500"><FaPlus /></div>
+                        <div className="text-[#016E5B]"><FaPlus /></div>
                         <h4 className="text-black">Create New Assessment</h4>
                     </div>
                 </Link>
@@ -53,11 +53,11 @@ const AssessmentsData = () => {
                 <div className="relative inline-block text-left w-36 mr-10">
                     <button
                         type="button"
-                        className="flex justify-between items-center w-full border-2 py-2 px-4 bg-white text-black rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                        className="flex justify-between items-center w-full border-2 py-2 px-4 bg-white text-black rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#016E5B]"
                         onClick={toggleDropdown}
                     >
                         <h4>Filter</h4>
-                        <CiFilter className="text-green-500" />
+                        <CiFilter className="text-[#016E5B]" />
                     </button>
 
                     {isOpen && (

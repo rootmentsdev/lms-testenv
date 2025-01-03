@@ -5,8 +5,6 @@ import TrainingProgress from "../model/Trainingprocessschema.js";
 import { Training } from "../model/Traning.js";
 import User from "../model/User.js";
 
-
-
 export const createAssessment = async (req, res) => {
     try {
         const assessmentData = req.body;
@@ -51,7 +49,6 @@ export const getAssessments = async (req, res) => {
 
 export const createTraining = async (req, res) => {
     const { trainingName, modules, days, workingBranch, selectedOption } = req.body;
-    console.log(trainingName, modules, days, workingBranch, selectedOption);
 
     try {
         // Ensure all required data is provided
@@ -231,14 +228,12 @@ export const GetTrainingById = async (req, res) => {
             users: userProgress,
             averageCompletionPercentage,
         });
-        console.log(averageCompletionPercentage, averageCompletedModule);
 
     } catch (error) {
         console.error('Error fetching training by ID:', error);
         res.status(500).json({ message: 'Server error while fetching training data', error: error.message });
     }
 };
-
 
 export const calculateProgress = async (req, res) => {
     try {
@@ -304,7 +299,6 @@ export const calculateProgress = async (req, res) => {
 
 export const createMandatoryTraining = async (req, res) => {
     const { trainingName, modules, days, workingBranch } = req.body;
-    console.log(trainingName, modules, days, workingBranch);
 
     try {
         // Validate required fields
@@ -341,7 +335,6 @@ export const createMandatoryTraining = async (req, res) => {
             return res.status(404).json({ message: "No users found matching the criteria" });
         }
 
-        console.log(usersInBranch);
 
         // Assign training and create progress for each user
         const updatedUsers = usersInBranch.map(async (user) => {

@@ -1,60 +1,80 @@
-import { IoGrid } from "react-icons/io5";
-import { BsFillPersonVcardFill } from "react-icons/bs";
-import { HiOutlineArrowPathRoundedSquare } from "react-icons/hi2";
-import { MdOutlineAssessment } from "react-icons/md";
-import { VscFileSubmodule } from "react-icons/vsc";
-import { IoStorefrontSharp } from "react-icons/io5";
-import { IoIosSettings } from "react-icons/io";
+import { useLocation, Link } from "react-router-dom";
+// import { BsFillPersonVcardFill } from "react-icons/bs";
+import { MdModelTraining, MdOutlineStoreMallDirectory, MdOutlineTopic, MdOutlineAssessment } from "react-icons/md";
 import { IoIosLogOut } from "react-icons/io";
-import { Link } from "react-router-dom";
-
+import { FaRegIdCard } from "react-icons/fa";
+import { IoSettingsOutline } from "react-icons/io5";
 
 const SideNav = () => {
-    return (
-        <div className="w-[273px] h-full bg-[#F4F4F4] flex flex-col fixed top-0 left-0   ">
+    const location = useLocation(); // Get the current route path
 
-            <div className="flex mt-10 ml-5 justify-evenly ">
+    // Helper function to check if the link is active
+    const isActive = (path) => location.pathname === path;
+
+    return (
+        <div className="w-[273px] h-full bg-[#F4F4F4] flex flex-col fixed top-0 left-0">
+            {/* Header Section */}
+            <div className="flex mt-10 ml-5 justify-evenly">
                 <div>
-                    <img src="./Rootments.jpg" alt="" />
+                    <img src="./Rootments.jpg" alt="Logo" />
                 </div>
                 <div>
                     <div className="text-2xl text-green-700">
                         ROOTMENTS
                     </div>
                     <div className="flex justify-end text-sm">
-                        ENTERPRISEE
+                        ENTERPRISE
                     </div>
                 </div>
-
             </div>
+
+            {/* Navigation Links */}
             <div className="mt-10 flex flex-col text-md text-black ml-10 space-y-6">
                 {/* Dashboard Section */}
                 <Link to={'/'}>
-                    <div className="flex justify-start cursor-pointer items-center space-x-4 hover:bg-green-500 hover:text-white p-2 rounded-lg transition-all duration-200">
-                        <IoGrid className="text-xl" />
+                    <div className={`flex justify-start items-center space-x-4 p-2 rounded-lg transition-all duration-200 
+                        ${isActive('/') ? 'bg-[#016E5B] text-white' : ''}`}>
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                fill="none"
+                                stroke="currentColor"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M5 4h4a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1m0 12h4a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1m10-4h4a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1m0-8h4a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1"
+                            />
+                        </svg>
                         <div>Dashboard</div>
                     </div>
                 </Link>
 
                 {/* Employee Section */}
                 <Link to={'/employee'}>
-                    <div className="flex justify-start cursor-pointer items-center space-x-4 hover:bg-green-500 hover:text-white p-2 rounded-lg transition-all duration-200">
-                        <BsFillPersonVcardFill className="text-xl" />
+                    <div className={`flex justify-start items-center space-x-4 p-2 rounded-lg transition-all duration-200 
+                        ${isActive('/employee') ? 'bg-[#016E5B] text-white' : ''}`}>
+                        <FaRegIdCard className="text-xl" />
                         <div>Employee</div>
                     </div>
                 </Link>
 
-                {/* Employee Actions Section */}
+                {/* Trainings Section */}
                 <Link to={'/training'}>
-                    <div className="flex justify-start cursor-pointer items-center space-x-4 hover:bg-green-500 hover:text-white p-2 rounded-lg transition-all duration-200">
-                        <HiOutlineArrowPathRoundedSquare className="text-xl" />
+                    <div className={`flex justify-start items-center space-x-4 p-2 rounded-lg transition-all duration-200 
+                        ${isActive('/training') ? 'bg-[#016E5B] text-white' : ''}`}>
+                        <MdModelTraining className="text-2xl" />
                         <div>Trainings</div>
                     </div>
                 </Link>
 
                 {/* Assessments Section */}
                 <Link to={'/assessments'}>
-                    <div className="flex justify-start cursor-pointer items-center space-x-4 hover:bg-green-500 hover:text-white p-2 rounded-lg transition-all duration-200">
+                    <div className={`flex justify-start items-center space-x-4 p-2 rounded-lg transition-all duration-200 
+                        ${isActive('/assessments') ? 'bg-[#016E5B] text-white' : ''}`}>
                         <MdOutlineAssessment className="text-xl" />
                         <div>Assessments</div>
                     </div>
@@ -62,41 +82,39 @@ const SideNav = () => {
 
                 {/* Module Section */}
                 <Link to={'/module'}>
-                    <div className="flex justify-start cursor-pointer items-center space-x-4 hover:bg-green-500 hover:text-white p-2 rounded-lg transition-all duration-200">
-                        <VscFileSubmodule className="text-xl" />
+                    <div className={`flex justify-start items-center space-x-4 p-2 rounded-lg transition-all duration-200 
+                        ${isActive('/module') ? 'bg-[#016E5B] text-white' : ''}`}>
+                        <MdOutlineTopic className="text-xl" />
                         <div>Module</div>
                     </div>
                 </Link>
 
                 {/* Branch Section */}
                 <Link to={'/branch'}>
-                    <div className="flex justify-start cursor-pointer items-center space-x-4 hover:bg-green-500 hover:text-white p-2 rounded-lg transition-all duration-200">
-                        <IoStorefrontSharp className="text-xl" />
+                    <div className={`flex justify-start items-center space-x-4 p-2 rounded-lg transition-all duration-200 
+                        ${isActive('/branch') ? 'bg-[#016E5B] text-white' : ''}`}>
+                        <MdOutlineStoreMallDirectory className="text-xl" />
                         <div>Branch</div>
                     </div>
                 </Link>
 
                 {/* Settings Section */}
                 <Link to={'/settings'}>
-                    <div className="flex justify-start cursor-pointer items-center space-x-4 hover:bg-green-500 hover:text-white p-2 rounded-lg transition-all duration-200">
-                        <IoIosSettings className="text-xl" />
+                    <div className={`flex justify-start items-center space-x-4 p-2 rounded-lg transition-all duration-200 
+                        ${isActive('/settings') ? 'bg-[#016E5B] text-white' : ''}`}>
+                        <IoSettingsOutline className="text-xl" />
                         <div>Settings</div>
                     </div>
                 </Link>
 
                 {/* Logout Section */}
-                <div className="flex justify-start cursor-pointer items-center space-x-4 hover:bg-green-500 hover:text-white p-2 rounded-lg transition-all duration-200">
+                <div className="flex justify-start cursor-pointer items-center space-x-4 hover:bg-[#016E5B] hover:text-white p-2 rounded-lg transition-all duration-200">
                     <IoIosLogOut className="text-xl" />
                     <div>Logout</div>
                 </div>
-
             </div>
-
-
-
         </div>
+    );
+};
 
-    )
-}
-
-export default SideNav
+export default SideNav;

@@ -28,7 +28,7 @@ const RoundModule = ({ initialProgress, title, Module, duration, complete }) => 
                             <p className="text-gray-600">{complete}</p>
 
                             {/* View Details Button */}
-                            <div className="flex w-32 border mt-4 border-green-600 justify-evenly items-center py-1 rounded-lg cursor-pointer hover:bg-green-100 transition duration-200 ease-in-out">
+                            <div className="flex w-32 border mt-4 border-[#016E5B] justify-evenly items-center py-1 rounded-lg cursor-pointer hover:bg-green-100 transition duration-200 ease-in-out">
                                 <h4 className="text-black text-sm">View Details</h4>
                             </div>
                         </div>
@@ -39,7 +39,7 @@ const RoundModule = ({ initialProgress, title, Module, duration, complete }) => 
                                 value={progress}
                                 text={`${progress}%`}
                                 styles={buildStyles({
-                                    pathColor: "green",    // Green color for the path
+                                    pathColor: "#016E5B",    // Green color for the path
                                     textColor: "#333",     // Text color
                                     trailColor: "#e2e8f0", // Light gray for the trail
                                     strokeWidth: 8,        // Path thickness

@@ -40,7 +40,7 @@ function App() {
         <Route path={'/Alltraining'} element={<Training />} />
         <Route path={'/training'} element={<CreateTraining />} />
         <Route path={'/AssigData'} element={< AssignedTrainings />} />
-        <Route path={'/AssigTraing/:id'} element={< AssingOrdelete />} />
+        <Route path={'/AssigTraining/:id'} element={< AssingOrdelete />} />
         <Route path={'/createModule'} element={< CreateModule />} />
         <Route path={'/createnewtraining'} element={< CreateTrainings />} />
         <Route path={'/Reassign/:id'} element={< Reassign />} />

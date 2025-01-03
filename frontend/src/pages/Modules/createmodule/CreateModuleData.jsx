@@ -104,7 +104,7 @@ const CreateModuleData = () => {
             <div className="mx-10 w-auto flex justify-between space-x-10">
                 <div className="flex flex-col space-y-6">
                     <div>
-                        <p className="text-green-500 font-semibold mb-2">Module Title</p>
+                        <p className="text-[#016E5B] font-semibold mb-2">Module Title</p>
                         <input
                             placeholder="Enter module title"
                             type="text"
@@ -115,7 +115,7 @@ const CreateModuleData = () => {
                     </div>
 
                     <div>
-                        <p className="text-green-500 font-semibold mb-2">Description</p>
+                        <p className="text-[#016E5B] font-semibold mb-2">Description</p>
                         <textarea
                             placeholder="Add a description..."
                             className="w-[450px] h-[250px] border bg-white  p-4 rounded-lg"
@@ -127,7 +127,7 @@ const CreateModuleData = () => {
 
                 <div className="flex flex-col space-y-6">
                     <div>
-                        <p className="text-green-500 font-semibold mb-2">Video Title</p>
+                        <p className="text-[#016E5B] font-semibold mb-2">Video Title</p>
                         <input
                             type="text"
                             placeholder="Video Title"
@@ -138,7 +138,7 @@ const CreateModuleData = () => {
                     </div>
 
                     <div>
-                        <p className="text-green-500 font-semibold mb-2">Video URL</p>
+                        <p className="text-[#016E5B] font-semibold mb-2">Video URL</p>
                         <input
                             type="text"
                             placeholder="Video URL"
@@ -184,12 +184,12 @@ const CreateModuleData = () => {
                 </div>
             </div>
 
-            <button onClick={saveCurrentVideo} className="p-3 w-56 bg-green-500 text-white rounded-lg float-right mt-5 mb-32">
+            <button onClick={saveCurrentVideo} className="p-3 w-56 bg-[#016E5B] text-white rounded-lg float-right mt-5 mb-32">
                 Save video and questions
             </button>
 
             <div className="flex justify-center">
-                <button onClick={handleSaveModule} className="p-3 w-56 bg-green-500 text-white rounded-lg">
+                <button onClick={handleSaveModule} className="p-3 w-56 bg-[#016E5B] text-white rounded-lg">
                     Submit Module
                 </button>
             </div>

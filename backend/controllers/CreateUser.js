@@ -134,7 +134,6 @@ export const createBranch = async (req, res) => {
 
   try {
     const savedBranch = await newBranch.save();
-    console.log('New branch created:', savedBranch);
 
     if (savedBranch) {
       return res.status(201).json({ message: "branch create", data: savedBranch })
