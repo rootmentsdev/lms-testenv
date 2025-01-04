@@ -37,7 +37,7 @@ const CreateTrainingData = () => {
 
   }, []);
   return (
-    <div className="w-full h-full bg-white">
+    <div className="w-full  mb-[70px] h-full bg-white">
       <div><Header name='Mandatory Training' /></div>
       <div>
         <Link to={'/Alltraining'}>
@@ -59,18 +59,18 @@ const CreateTrainingData = () => {
 
 
 
-        <div className="flex mx-10 justify-between mt-10 ">
+        <div className="flex md:mx-10 md:justify-between mt-10 sm:justify-start">
           <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer
                                     ">
             <div className="text-[#016E5B]">
               <FaPlus />
             </div>
             <Link to={'/create/Mandatorytraining'}>
-              <h4 className="text-black">Create Mandatory Training</h4>
+              <h4 className="text-black sm:text-sm">Create Mandatory Training</h4>
 
             </Link>
           </div>
-          <div className="relative inline-block text-left w-36 mr-10">
+          <div className="relative hidden md:inline-block text-left w-36 mr-10">
             <button
               type="button"
               className="flex justify-between items-center w-full border-2 py-2 px-4 bg-white text-black rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"

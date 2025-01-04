@@ -38,7 +38,7 @@ const AssignedTrainingsData = () => {
 
     }, []);
     return (
-        <div className="w-full h-full bg-white">
+        <div className=" mb-[70px] w-full h-full bg-white">
             <div><Header name='Assigned Training' /></div>
             <div>
                 <Link to={'/Alltraining'}>
@@ -72,7 +72,7 @@ const AssignedTrainingsData = () => {
 
                         </Link>
                     </div>
-                    <div className="relative inline-block text-left w-36 mr-10">
+                    <div className="relative hidden md:inline-block text-left w-36 mr-10">
                         <button
                             type="button"
                             className="flex justify-between items-center w-full border-2 py-2 px-4 bg-white text-black rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"

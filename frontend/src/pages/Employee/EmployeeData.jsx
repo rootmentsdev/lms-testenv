@@ -39,13 +39,13 @@ const EmployeeData = () => {
     };
 
     return (
-        <div>
+        <div className="mb-[70px]">
             <div><Header name='Employee' /></div>
             <div>
                 <div className="flex justify-between mt-12">
                     <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer
                     ">
-                        <div className="text-green-500">
+                        <div className="text-[#016E5B]">
                             <FaPlus />
                         </div>
                         <h4 className="text-black">Add New Employee</h4>
@@ -57,7 +57,7 @@ const EmployeeData = () => {
                             onClick={toggleDropdown}
                         >
                             <h4>Filter</h4>
-                            <CiFilter className="text-green-500" />
+                            <CiFilter className="text-[#016E5B]" />
                         </button>
 
                         {/* Dropdown Menu */}
@@ -94,14 +94,14 @@ const EmployeeData = () => {
 
                                     return (
                                         <tr key={index} className="border-b hover:bg-gray-100">
-                                            <td className="px-3 py-1 border-2 border-gray-300">#{employee.empID}</td>
-                                            <td className="px-3 py-1 border-2 border-gray-300">{employee.username}</td>
-                                            <td className="px-3 py-1 border-2 border-gray-300">{employee.designation}</td>
-                                            <td className="px-3 py-1 border-2 border-gray-300">{employee.workingBranch}</td>
-                                            <td className="px-3 py-1 border-2 border-gray-300">{employee.training.length}</td>
-                                            <td className="px-3 py-1 border-2 border-gray-300">{employee.assignedAssessments.length || 'N/A'}</td>
-
+                                            <td className="px-3 py-1 h-[45px] border-2 border-gray-300 text-center">#{employee.empID}</td>
+                                            <td className="px-3 py-1 border-2 border-gray-300 text-center">{employee.username}</td>
+                                            <td className="px-3 py-1 border-2 border-gray-300 text-center">{employee.designation}</td>
+                                            <td className="px-3 py-1 border-2 border-gray-300 text-center">{employee.workingBranch}</td>
+                                            <td className="px-3 py-1 border-2 border-gray-300 text-center">{employee.training.length}</td>
+                                            <td className="px-3 py-1 border-2 border-gray-300 text-center">{employee.assignedAssessments.length || 'N/A'}</td>
                                         </tr>
+
                                     );
                                 })
                             ) : (

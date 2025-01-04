@@ -38,12 +38,12 @@ const HomeData = () => {
 
 
     return (
-        <div>
-            <div>
-                <Header name='dashboard' />
+        <div className=" md:mx-10 mx-0">
+            < div >
+                <Header name='Dashboard' />
 
-            </div>
-            <div className="ml-5 text-black">
+            </div >
+            <div className="ml-12 text-black">
                 <div className="flex items-center gap-1 mt-5 font-semibold ">
                     <p>Hello, </p>
                     <h5>
@@ -54,67 +54,79 @@ const HomeData = () => {
                 </div>
                 <p>Your dashboard is ready, Let’s create a productive learning environment!</p>
             </div>
-            {loading && <div className="flex gap-2 justify-evenly mt-10">
+            {
+                loading && <div className="flex mb-[70px] gap-3  mx-10 md:flex-wrap flex-wrap sm:w-full md:gap-9 md:mx-10 md:justify-start mt-10 font-semibold">
 
-                <HomeSkeleton />
-                <HomeSkeleton />
-                <HomeSkeleton />
-                <HomeSkeleton />
+                    <HomeSkeleton />
+                    <HomeSkeleton />
+                    <HomeSkeleton />
+                    <HomeSkeleton />
 
-            </div>
+                </div>
             }
-            {!loading && <div className="flex gap-2 justify-evenly mt-10">
+            {
+                !loading && <div className="">
+                    <div className="flex mb-[70px] gap-3  mx-10 md:flex-wrap flex-wrap sm:w-full md:gap-9 md:mx-10 md:justify-start mt-10 font-semibold">
+                        <div className="lg:w-60 w-48  md:w-52 h-28 border-gray-300 border rounded-xl shadow-lg text-black flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
+                            <div className="flex gap-3">
+                                <div className="text-3xl bg-slate-200 h-14 w-14 rounded-full flex items-center justify-center">
+                                    <MdGroups2 />
+                                </div>
+                                <div className="flex flex-col items-center justify-center">
+                                    <h2 className="md:text-3xl sm:text-lg font-bold text-[#016E5B]">
+                                        {data?.userCount}
+                                    </h2>
+                                    <p className="text-sm">Total employee</p>
+                                </div>
+                            </div>
+                        </div>
 
-                <div className="w-60 h-20 border-gray-300 border rounded-xl shadow-lg text-black flex justify-center items-center gap-3 cursor-pointer">
-                    <div className="text-3xl bg-slate-200 p-3 rounded-full">
-                        <MdGroups2 />
-                    </div>
-                    <div className="flex flex-col">
-                        <h2 className="flex justify-self-center ml-8 text-2xl font-bold text-[#016E5B]">
-                            {data?.userCount}
-                        </h2>
-                        <p>Total employee</p>
+                        <div className="lg:w-60 w-48 md:w-52 h-28 border-gray-300 border rounded-xl shadow-lg text-black flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
+                            <div className="flex gap-3">
+                                <div className="text-3xl bg-slate-200 h-14 w-14 rounded-full flex items-center justify-center">
+                                    <GiProgression />
+                                </div>
+                                <div className="flex flex-col items-center justify-center">
+                                    <h2 className="lg:text-3xl font-bold sm:text-lg text-[#016E5B]">
+                                        {data?.averageProgress}%
+                                    </h2>
+                                    <p className="text-sm">Training progress</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="lg:w-60 w-48 md:w-52 h-28 border-gray-300 border rounded-xl shadow-lg text-black flex flex-col justify-center items-center gap-2 cursor-pointer sm:mr-4">
+                            <div className="flex gap-3">
+                                <div className="text-3xl bg-slate-200 h-14 w-14 rounded-full flex items-center justify-center">
+                                    <HiOutlineBuildingOffice2 />
+                                </div>
+                                <div className="flex flex-col items-center justify-center">
+                                    <h2 className="md:text-3xl font-bold sm:text-lg text-[#016E5B]">
+                                        {data?.branchCount}+
+                                    </h2>
+                                    <p className="text-sm">Total Branch</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="lg:w-60 w-48 md:w-52 h-28 border-gray-300 border rounded-xl shadow-lg text-black flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
+                            <div className="flex gap-3">
+                                <div className="text-3xl bg-slate-200 h-14 w-14 rounded-full flex items-center justify-center">
+                                    <TiClipboard />
+                                </div>
+                                <div className="flex flex-col items-center justify-center">
+                                    <h2 className="lg:text-3xl font-bold sm:text-lg text-[#016E5B]">
+                                        {data?.assessmentCount}
+                                    </h2>
+                                    <p className="text-sm">Pending Assessment</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                 </div>
-                <div className="w-60 h-20 border-gray-300 border rounded-xl shadow-lg text-black flex justify-center items-center gap-3 cursor-pointer">
-                    <div className="text-3xl bg-slate-200 p-3 rounded-full">
-                        <GiProgression />
-                    </div>
-                    <div className="flex flex-col">
-                        <h2 className="flex justify-self-center ml-8 text-2xl font-bold text-[#016E5B]">
-                            {data?.averageProgress}%
-                        </h2>
-                        <p>Training progress</p>
-                    </div>
-
-                </div>
-                <div className="w-60 h-20 border-gray-300 border rounded-xl shadow-lg text-black flex justify-center items-center gap-3 cursor-pointer">
-                    <div className="text-3xl bg-slate-200 p-3 rounded-full">
-                        <HiOutlineBuildingOffice2 />
-                    </div>
-                    <div className="flex flex-col">
-                        <h2 className="flex justify-self-center ml-8 text-2xl font-bold text-[#016E5B]">
-                            {data?.branchCount}
-                        </h2>
-                        <p>Total Branch</p>
-                    </div>
-
-                </div>
-                <div className="w-60 h-20 border-gray-300 border rounded-xl shadow-lg text-black flex justify-center items-center gap-3 cursor-pointer">
-                    <div className="text-3xl bg-slate-200 p-3 rounded-full">
-                        <TiClipboard />
-                    </div>
-                    <div className="flex flex-col">
-                        <h2 className="flex justify-self-center ml-8 text-2xl font-bold text-[#016E5B]">
-                            {data?.assessmentCount}
-                        </h2>
-                        <p>pending Assessment</p>
-                    </div>
-
-                </div>
-            </div>}
-        </div>
+            }
+        </div >
     )
 }
 

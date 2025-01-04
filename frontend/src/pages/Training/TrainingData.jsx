@@ -38,13 +38,13 @@ const TrainingData = () => {
 
     }, []);
     return (
-        <div className="w-full h-full bg-white">
+        <div className="w-full h-full bg-white mb-[70px]">
             <div><Header name='All Training' /></div>
             <div>
 
 
                 <div className="flex mx-10 justify-between mt-10 ">
-                    <div className="flex">
+                    <div className="md:flex  hidden">
                         <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer
                                       ">
                             <div className="text-green-500">
@@ -69,7 +69,7 @@ const TrainingData = () => {
                     <div className="relative inline-block text-left w-36 mr-10">
                         <button
                             type="button"
-                            className="flex justify-between items-center w-full border-2 py-2 px-4 bg-white text-black rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                            className="md:flex justify-between sm:hidden block items-center w-full border-2 py-2 px-4 bg-white text-black rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                             onClick={toggleDropdown}
                         >
                             <h4>Filter</h4>
@@ -79,7 +79,7 @@ const TrainingData = () => {
                         {/* Dropdown Menu */}
                         {isOpen && (
                             <div
-                                className="origin-top-right absolute right-0 mt-2 w-full rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10"
+                                className="origin-top-right absolute right-0 mt-2 w-full sm:hidden block rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10"
                                 role="menu"
                                 aria-orientation="vertical"
                             >
@@ -105,7 +105,7 @@ const TrainingData = () => {
                 {
                     data.map((item) => {
                         return (
-                            <Link key={item._id} to={`/AssigTraing/${item?.trainingId}`}>
+                            <Link key={item._id} to={`/AssigTraining/${item?.trainingId}`}>
                                 <RoundProgressBar
                                     initialProgress={item?.averageCompletionPercentage}
                                     title={item?.trainingName}

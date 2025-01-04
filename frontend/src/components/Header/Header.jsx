@@ -11,17 +11,17 @@ const Header = ({
 
             <div className=" flex  justify-between border[#C8C8C8] border-b pb-6">
                 <div className="mt-4 flex items-center ml-4">
-                    <a className="text-black font-bold text-2xl">{name ? name : ''}</a>
+                    <a className="text-black text-xl  font-semibold lg:text-2xl">{name ? name : ''}</a>
                 </div>
-                <div className="flex gap-10 items-center mt-4">
-                    <div className="form-control relative w-96 ">
+                <div className="flex lg:gap-10 gap-3 items-center mt-4">
+                    <div className="form-control relative lg:w-96 hidden md:block  ">
                         <IoIosSearch className="absolute left-3 text-2xl top-1/2 transform -translate-y-1/2 text-black" />
                         <input
                             style={{ borderRadius: '10px' }}
 
                             type="text"
                             placeholder="Search by name, id, branch or role"
-                            className=" border-[#C8C8C8]  border  p-2  bg-white  md:w-auto pl-10"
+                            className=" border-[#C8C8C8]  border  p-2  bg-white  lg:w-auto w-[250px]  pl-10"
                         />
                     </div>
                     <div className="text-2xl text-[#016E5B]">

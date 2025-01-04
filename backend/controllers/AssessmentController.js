@@ -10,7 +10,7 @@ export const createAssessment = async (req, res) => {
         const assessmentData = req.body;
 
         // Validate input
-        if (!assessmentData.title || !assessmentData.duration || !Array.isArray(assessmentData.questions)) {
+        if (!assessmentData.title || !assessmentData.duration || !Array.isArray(assessmentData.questions)|| !assessmentData.deadline ) {
             return res.status(400).json({ message: "Invalid assessment data. Ensure all required fields are present." });
         }
 

@@ -95,7 +95,7 @@ const BranchData = () => {
 
 
     return (
-        <div>
+        <div className="mb-[70px]">
             <div><Header name='Branch ' /></div>
             <div>
                 <div className="flex justify-between mt-12">

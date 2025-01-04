@@ -88,6 +88,7 @@ const AssessmentsData = () => {
                             <div className="mt-5">
                                 <RoundProgressBarAssessment
                                     initialProgress={0}
+                                    deadline={`${item.deadline} days`}
                                     Module={`Number of questins : ${item.questions.length}`}
                                     title={` ${item?.title}`}
                                     complete={" complete rate 0.00%"}

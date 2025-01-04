@@ -7,6 +7,7 @@ import baseUrl from "../../../api/api";
 const CreateAssessmentData = () => {
     const [moduleTitle, setModuleTitle] = useState("");
     const [moduleDescription, setModuleDescription] = useState("");
+    const [moduleDescriptions, setModuleDescriptions] = useState("");
     const [questions, setQuestions] = useState([
         { questionText: "", options: ["", "", "", ""], correctAnswer: "" },
     ]);
@@ -51,6 +52,7 @@ const CreateAssessmentData = () => {
         const assessmentData = {
             title: moduleTitle,
             duration: moduleDescription,
+            deadline: moduleDescriptions,
             questions,
         };
 
@@ -107,7 +109,16 @@ const CreateAssessmentData = () => {
                             onChange={(e) => setModuleDescription(e.target.value)}
                         />
                     </div>
-
+                    <div>
+                        <p className="text-[#016E5B] font-semibold mb-2">No: of days to complete</p>
+                        <input
+                            placeholder="How many days take to complete the work"
+                            type="number"
+                            className=" bg-white w-[450px] border p-2 rounded-lg"
+                            value={moduleDescriptions}
+                            onChange={(e) => setModuleDescriptions(e.target.value)}
+                        />
+                    </div>
                 </div>
 
                 <div className="flex w-[450px] flex-col space-y-6">
