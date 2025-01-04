@@ -38,7 +38,7 @@ const HomeData = () => {
 
 
     return (
-        <div className=" md:mx-10 mx-0">
+        <div className=" mx-0">
             < div >
                 <Header name='Dashboard' />
 

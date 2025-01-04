@@ -74,7 +74,7 @@ const CreateAssessmentData = () => {
     };
 
     return (
-        <div className="w-full h-full bg-white text-black">
+        <div className="w-full mb-[70px] h-full bg-white text-black">
             <Header name="Create a new Assessments" />
 
             <div>
@@ -86,14 +86,14 @@ const CreateAssessmentData = () => {
                 </Link>
             </div>
 
-            <div className="mx-10 w-auto flex justify-between space-x-10">
+            <div className="mx-10 w-auto flex justify-between lg:flex-row  flex-col gap-5 space-x-10">
                 <div className="flex flex-col space-y-6">
                     <div>
                         <p className="text-[#016E5B] font-semibold mb-2">Module Title</p>
                         <input
                             placeholder="Enter module title"
                             type="text"
-                            className="bg-white w-[450px] border p-2 rounded-lg"
+                            className="bg-white lg:w-[450px] w-[300px] border p-2 rounded-lg"
                             value={moduleTitle}
                             onChange={(e) => setModuleTitle(e.target.value)}
                         />
@@ -104,7 +104,7 @@ const CreateAssessmentData = () => {
                         <input
                             placeholder="Add duration in minutes "
                             type="number"
-                            className=" bg-white w-[450px] border p-2 rounded-lg"
+                            className=" bg-white lg:w-[450px] w-[300px] border p-2 rounded-lg"
                             value={moduleDescription}
                             onChange={(e) => setModuleDescription(e.target.value)}
                         />
@@ -114,14 +114,14 @@ const CreateAssessmentData = () => {
                         <input
                             placeholder="How many days take to complete the work"
                             type="number"
-                            className=" bg-white w-[450px] border p-2 rounded-lg"
+                            className=" bg-white lg:w-[450px] w-[300px] border p-2 rounded-lg"
                             value={moduleDescriptions}
                             onChange={(e) => setModuleDescriptions(e.target.value)}
                         />
                     </div>
                 </div>
 
-                <div className="flex w-[450px] flex-col space-y-6">
+                <div className="flex lg:mb-0 mb-5 lg:w-[450px]  md:w-[400px]  flex-col space-y-6">
                     {questions.map((q, qIndex) => (
                         <div key={qIndex} className="space-y-4 p-4 border rounded-lg">
                             <input

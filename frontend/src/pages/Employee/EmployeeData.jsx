@@ -76,8 +76,8 @@ const EmployeeData = () => {
                         )}
                     </div>
                 </div>
-                <div className="overflow-x-auto mx-10 mt-5 flex justify-center text-black">
-                    <table className="min-w-full border-2 border-gray-300">
+                <div className="mx-10 overflow-x-auto text-black">
+                    <table className="w-full border-2 border-gray-300">
                         <thead>
                             <tr className="bg-[#016E5B] text-white">
                                 <th className="px-3 py-1 border-2 border-gray-300">Emp Id</th>
@@ -91,7 +91,6 @@ const EmployeeData = () => {
                         <tbody>
                             {Data?.data?.length > 0 ? (
                                 Data?.data?.map((employee, index) => {
-
                                     return (
                                         <tr key={index} className="border-b hover:bg-gray-100">
                                             <td className="px-3 py-1 h-[45px] border-2 border-gray-300 text-center">#{employee.empID}</td>
@@ -101,17 +100,18 @@ const EmployeeData = () => {
                                             <td className="px-3 py-1 border-2 border-gray-300 text-center">{employee.training.length}</td>
                                             <td className="px-3 py-1 border-2 border-gray-300 text-center">{employee.assignedAssessments.length || 'N/A'}</td>
                                         </tr>
-
                                     );
                                 })
                             ) : (
                                 <tr>
-                                    <td colSpan="7" className="text-center py-3">No data available</td>
+                                    <td colSpan="6" className="text-center py-3">No data available</td>
                                 </tr>
                             )}
                         </tbody>
                     </table>
                 </div>
+
+
             </div>
         </div>
     );
