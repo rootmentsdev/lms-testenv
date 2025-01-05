@@ -1,18 +1,18 @@
 import Header from "../../components/Header/Header";
 import { FaPlus } from "react-icons/fa";
-import { CiFilter } from "react-icons/ci";
+// import { CiFilter } from "react-icons/ci";
 import { useEffect, useState } from "react";
 import RoundProgressBarAssessment from "../../components/RoundBar/RoundAssessment";
 import { Link } from "react-router-dom";
 import baseUrl from "../../api/api";
 
 const AssessmentsData = () => {
-    const [isOpen, setIsOpen] = useState(false);
+    // const [isOpen, setIsOpen] = useState(false);
     const [data, setData] = useState([]);
     const [error, setError] = useState(null); // Error handling
     const [loading, setLoading] = useState(true); // Loading indicator
 
-    const toggleDropdown = () => setIsOpen(prev => !prev);
+    // const toggleDropdown = () => setIsOpen(prev => !prev);
 
     // Fetch Assessments Data
     useEffect(() => {
@@ -40,7 +40,7 @@ const AssessmentsData = () => {
             <Header name='Assessments' />
 
             {/* Top Bar */}
-            <div className="flex mx-10 justify-between mt-10">
+            <div className="flex md:mx-10 justify-between mt-10">
                 {/* Create Assessment */}
                 <Link to={'/create/Assessment'}>
                     <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer">
@@ -48,9 +48,16 @@ const AssessmentsData = () => {
                         <h4 className="text-black">Create New Assessment</h4>
                     </div>
                 </Link>
+                <Link to={'/assign/Assessment'}>
+                    <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer">
+                        <div className="text-[#016E5B]"><FaPlus /></div>
+                        <h4 className="text-black">Assign Assessment</h4>
+                    </div>
+                </Link>
+
 
                 {/* Filter Dropdown */}
-                <div className="relative inline-block text-left w-36 mr-10">
+                {/* <div className="relative inline-block text-left w-36 mr-10">
                     <button
                         type="button"
                         className="flex justify-between items-center w-full border-2 py-2 px-4 bg-white text-black rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#016E5B]"
@@ -73,7 +80,7 @@ const AssessmentsData = () => {
                             </div>
                         </div>
                     )}
-                </div>
+                </div> */}
             </div>
 
             {/* Assessment Cards */}

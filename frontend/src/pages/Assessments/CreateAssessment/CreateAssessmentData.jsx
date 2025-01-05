@@ -68,7 +68,7 @@ const CreateAssessmentData = () => {
             });
 
             const data = await response.json();
-            alert.success(data.message);
+            toast.success(data.message);
         } catch (error) {
             throw new Error(error);
         }

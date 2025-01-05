@@ -49,7 +49,7 @@ const ReassignData = () => {
 
                 const options = data.data.map((user) => ({
                     value: user._id,
-                    label: user.username,
+                    label: "EmpId : " + user.empID + " " + " Name :  " + user.username,
                 }));
                 setUsers(options);
 
@@ -105,8 +105,8 @@ const ReassignData = () => {
                                     <ul className="text-[16px] text-[#016E5B]">
                                         {module.videos.map((video) => {
                                             return (
-                                                <li key={video._id}>
-                                                    {video.title}
+                                                <li key={video._id} title={video.title}>
+                                                    {video.title.length < 20 ? video.title : video.title.slice(0, 20) + "..."}
                                                 </li>
                                             );
                                         })}
@@ -121,6 +121,7 @@ const ReassignData = () => {
                         <div className="mt-5 flex justify-start items-center">
                             <div className="w-96">
                                 <Select
+                                    placeholder="select or search"
                                     options={users}
                                     isMulti
                                     value={assignedTo}
