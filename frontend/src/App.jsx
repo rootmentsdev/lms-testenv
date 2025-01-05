@@ -22,7 +22,7 @@ import Mandatorytraining from './pages/Training/Mandatorytraining/Mandatorytrain
 import CreateAssessment from './pages/Assessments/CreateAssessment/CreateAssessment'
 import AssessmentsAssign from './pages/Assessments/AssessmentsAssign/AssessmentsAssign'
 import UserTrainingProgress from './pages/Training/UserTrainingProgress/UserTrainingProgress'
-
+import { ToastContainer } from 'react-toastify';
 function App() {
 
   return (
@@ -52,6 +52,7 @@ function App() {
 
         {/*  */}
       </Routes>
+      <ToastContainer />
 
     </>
   )

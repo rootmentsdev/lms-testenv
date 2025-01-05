@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Select from "react-select"; // Import react-select
 import baseUrl from "../../../api/api";
 import Header from "../../../components/Header/Header";
+import { toast } from "react-toastify";
 
 const Mandatorytrainingdata = () => {
     const [modules, setModules] = useState([]); // Module options
@@ -88,7 +89,7 @@ const Mandatorytrainingdata = () => {
         };
         try {
             console.log(trainingData); // Log final data for submission
-            alert("Form Submitted Successfully!");
+            toast("Form Submitted Successfully!");
             // POST request (uncomment to use)
             const response = await fetch(`${baseUrl.baseUrl}api/mandatorytrainings`, {
                 method: "POST",
@@ -96,10 +97,10 @@ const Mandatorytrainingdata = () => {
                 body: JSON.stringify(trainingData),
             });
             const data = await response.json();
-            alert(data.message);
+            toast.success(data.message);
         } catch (error) {
             console.error("Failed to submit training:", error.message);
-            alert("Error submitting training.");
+            toast.error("Error submitting training.");
         }
     };
 

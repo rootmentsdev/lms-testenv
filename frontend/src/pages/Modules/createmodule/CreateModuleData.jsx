@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import Header from "../../../components/Header/Header";
 import { IoIosArrowBack } from "react-icons/io";
 import baseUrl from "../../../api/api";
+import { toast } from "react-toastify";
 
 const CreateModuleData = () => {
     const [moduleTitle, setModuleTitle] = useState("");
@@ -62,7 +63,7 @@ const CreateModuleData = () => {
     // Submit Module
     const handleSaveModule = async () => {
         if (!videos || videos.length === 0) {
-            alert("Please add at least one video.");
+            toast.warning("Please add at least one video.");
             return;
         }
 
@@ -82,7 +83,7 @@ const CreateModuleData = () => {
             });
 
             const data = await response.json();
-            alert(data.message);
+            toast.success(data.message);
         } catch (error) {
             throw new Error(error);
         }

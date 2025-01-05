@@ -5,6 +5,7 @@ import RoundModule from "../../components/RoundBar/RoundModule";
 import { FaTrashAlt } from "react-icons/fa";
 import { useEffect, useState } from "react";
 import baseUrl from "../../api/api";
+import { toast } from "react-toastify";
 
 const AssingOrdeletedata = () => {
     const { id } = useParams(); // Get training ID from URL params
@@ -46,7 +47,11 @@ const AssingOrdeletedata = () => {
             console.error('Error deleting training:', err);
         }
     };
+    const handleReassign = () => {
 
+        toast.warning("Reassign only in computer screen or big screen like tab ,laptop ...")
+
+    }
     return (
         <div className="w-full h-full bg-white">
             <div><Header name='Assign or Delete training' /></div>
@@ -57,10 +62,10 @@ const AssingOrdeletedata = () => {
                     <p>Back</p>
                 </div>
             </Link>
-            <div className="w-auto h-52 border-2 rounded-xl shadow-lg mx-20 flex justify-between">
+            <div className="md:w-auto w-full md:h-52  border-2 rounded-xl shadow-lg md:mx-20 flex justify-between">
                 <div className="text-black mt-6 ml-6">
                     <h2 className="font-semibold mb-3 ">Training Name : {training?.data.trainingName}</h2>
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-1 md:text-md text-sm">
                         <p>No. of Modules : {training?.data.numberOfModules}</p>
                         <p>No. of user  : {training?.users.length}</p>
                         <p>  Trainingtype : {training?.data.Trainingtype}</p>
@@ -69,13 +74,16 @@ const AssingOrdeletedata = () => {
                     </div>
                 </div>
                 <div className="mt-32 mr-5">
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-col md:flex-row">
                         <Link to={`/Trainingdetails/${id}`}>
                             <button className="border p-2 rounded-md text-black">View More Details</button>
                         </Link>
-                        <Link to={`/Reassign/${id}`}>
+                        <Link className="hidden md:block" to={`/Reassign/${id}`}>
                             <button className="border p-2 text-white rounded-md bg-[#016E5B]">Reassign Training</button>
                         </Link>
+
+                        <button className="border p-2 block md:hidden text-white rounded-md bg-[#016E5B]" onClick={handleReassign}>Reassign Training</button>
+
                     </div>
                 </div>
             </div>
@@ -84,7 +92,7 @@ const AssingOrdeletedata = () => {
                 <h2>Modules</h2>
             </div>
 
-            <div className="mt-5 ml-10 flex flex-wrap gap-3">
+            <div className="mt-5 md:ml-10 mx-2 flex flex-wrap gap-3 ">
                 {
                     training?.data.modules.map((item) => {
                         // Find the user module progress based on module ID

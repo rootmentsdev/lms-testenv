@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import Header from "../../../components/Header/Header";
 import { IoIosArrowBack } from "react-icons/io";
 import baseUrl from "../../../api/api";
+import { toast } from "react-toastify";
 
 const CreateAssessmentData = () => {
     const [moduleTitle, setModuleTitle] = useState("");
@@ -45,7 +46,7 @@ const CreateAssessmentData = () => {
     // Submit Module
     const handleSaveModule = async () => {
         if (questions.some(q => !q.questionText || !q.correctAnswer)) {
-            alert("Please complete all questions.");
+            toast.warning("Please complete all questions.");
             return;
         }
 
@@ -67,7 +68,7 @@ const CreateAssessmentData = () => {
             });
 
             const data = await response.json();
-            alert(data.message);
+            alert.success(data.message);
         } catch (error) {
             throw new Error(error);
         }
