@@ -95,21 +95,36 @@ const AssingOrdeletedata = () => {
             <div className="mt-5 md:ml-10 mx-2 flex flex-wrap gap-3 ">
                 {
                     training?.data.modules.map((item) => {
-                        // Find the user module progress based on module ID
-                        const userModule = training.users[0]?.modules.find((mod) => mod.moduleId === item._id);
+                        // Ensure averageCompletedModule exists
+                        // const userModule = training?.data?.averageCompletedModule?.find((mod) => mod.moduleId === item._id);
+                        {
+                            console.log(training?.data?.averageCompletedModule.moduleId
+                            );
 
-                        return (
-                            <RoundModule
-                                key={item?._id}
-                                title={item?.moduleName}
-                                initialProgress={userModule?.completionPercentage || "0.00"} // Fallback to 0 if no data
-                                Module={`No. of videos: ${item?.videos.length}`}
-                                duration={`Created at: ${new Date(item?.createdAt).toLocaleString()}`}
-                                complete={`Created by HR`}
-                            />
-                        );
+                            const dataPre = training?.data?.averageCompletedModule.map((item) => {
+                                return {
+                                    completionPercentage: item.completionPercentage,
+                                    moduleId: item.moduleId
+                                };
+                            });
+
+                            console.log(dataPre);
+                            const userModules = dataPre?.find((mod) => mod.moduleId === item._id);
+
+                            return (
+                                <RoundModule
+                                    key={item?._id}
+                                    title={item?.moduleName}
+                                    initialProgress={userModules?.completionPercentage || "0.00"} // Fallback to 0 if no data
+                                    Module={`No. of videos: ${item?.videos.length}`}
+                                    duration={`Created at: ${new Date(item?.createdAt).toLocaleString()}`}
+                                    complete={`Created by HR`}
+                                />
+                            );
+                        }
                     })
                 }
+
             </div>
 
             <div onClick={() => document.getElementById('my_modal_1').showModal()} className=" ml-10 mt-10 text-md font-semibold mb-10 text-red-500 flex items-center gap-1 cursor-pointer">

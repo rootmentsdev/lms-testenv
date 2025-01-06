@@ -17,7 +17,7 @@ const RoundModule = ({ initialProgress, title, Module, duration, complete }) => 
     return (
 
 
-        <div className="card w-96 h-40 border border-gray-300 shadow-md flex justify-center items-center cursor-pointer mt-10 ml-2 rounded-lg">
+        <div className="card w-[360px] h-40 border border-gray-300 shadow-md flex justify-center items-center cursor-pointer mt-10 ml-2 rounded-lg">
             <div className="flex justify-center items-center flex-col">
                 <div className="flex">
                     <div className="flex flex-row mx-1 gap-10 items-center space-y-4">
