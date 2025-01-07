@@ -150,16 +150,12 @@ export const ReassignTraining = async (req, res) => {
     if (!assignedTo || !trainingId || assignedTo.length === 0) {
       return res.status(400).json({ message: "Missing assignedTo or trainingId in the request body" });
     }
-    
 
     // Fetch the training using trainingId and populate the modules
     const training = await Training.findById(trainingId).populate('modules');
     if (!training) {
       return res.status(404).json({ message: "Training not found" });
     }
-
-    // Log the training object to see its structure
-   
 
     // Check if modules exist
     if (!training.modules || !Array.isArray(training.modules) || training.modules.length === 0) {
@@ -177,33 +173,39 @@ export const ReassignTraining = async (req, res) => {
     // Assign the training to each user
     const updatedUsers = users.map(async (user) => {
       // Check if the user already has the training assigned
-      if (!user.training.some(t => t.trainingId.toString() === trainingId)) {
-        user.training.push({
-          trainingId: training._id,
-          deadline: deadlineDate, // Existing deadline
-          pass: false,
-          status: 'Pending',
-        });
-
-        // Create TrainingProgress for the user
-        const trainingProgress = new TrainingProgress({
-          userId: user._id,
-          trainingId: training._id,
-          deadline: deadlineDate,
-          pass: false,
-          modules: training.modules.map(module => ({
-            moduleId: module._id,
-            pass: false,
-            videos: module.videos.map(video => ({
-              videoId: video._id,
-              pass: false,
-            })),
-          })),
-        });
-
-        await trainingProgress.save();
-        await user.save(); // Save the updated user
+      const existingTrainingIndex = user.training.findIndex(t => t.trainingId.toString() === trainingId);
+      if (existingTrainingIndex !== -1) {
+        // Remove the existing training and progress
+        user.training.splice(existingTrainingIndex, 1);
+        await TrainingProgress.deleteOne({ userId: user._id, trainingId: training._id });
       }
+
+      // Reassign the training
+      user.training.push({
+        trainingId: training._id,
+        deadline: deadlineDate, // Existing deadline
+        pass: false,
+        status: 'Pending',
+      });
+
+      // Create TrainingProgress for the user
+      const trainingProgress = new TrainingProgress({
+        userId: user._id,
+        trainingId: training._id,
+        deadline: deadlineDate,
+        pass: false,
+        modules: training.modules.map(module => ({
+          moduleId: module._id,
+          pass: false,
+          videos: module.videos.map(video => ({
+            videoId: video._id,
+            pass: false,
+          })),
+        })),
+      });
+
+      await trainingProgress.save();
+      await user.save(); // Save the updated user
     });
 
     await Promise.all(updatedUsers); // Wait for all users to be updated
@@ -214,6 +216,7 @@ export const ReassignTraining = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 export const deleteTrainingController = async (req, res) => {
   const { id } = req.params;

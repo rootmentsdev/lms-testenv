@@ -16,7 +16,10 @@ const AssignAssessmentData = () => {
     const checkfuntion = () => {
 
         const Assessment = {
+            assignedTo: assignedTo.map((item) => item.value),
             assessment: selectedModules.map((item) => item.value),
+            selectedOption,
+            days
 
         }
 

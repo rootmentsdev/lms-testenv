@@ -18,25 +18,25 @@ const AssignedTrainingsData = () => {
     const [data, setData] = useState([]);
 
     useEffect(() => {
-        setloading(true)
         const Fetchdata = async () => {
+            setloading(true); // Start loading
             try {
                 const response = await fetch(`${baseUrl.baseUrl}api/get/allusertraining`);
                 if (!response.ok) {
                     throw new Error('Failed to fetch data');
                 }
                 const result = await response.json();
-                setData(result.data);
-                setloading(false)
+                setData(result.data); // Set data
             } catch (error) {
-                console.error('Error fetching data:', error);
+                console.error('Error fetching data:', error); // Log errors
+            } finally {
+                setloading(false); // Ensure loading is stopped in all cases
             }
         };
 
-        Fetchdata();
+        Fetchdata(); // Call the function to fetch data
+    }, []); // Dependency array ensures it runs only once
 
-
-    }, []);
     return (
         <div className=" mb-[70px] w-full h-full bg-white">
             <div><Header name='Assigned Training' /></div>
