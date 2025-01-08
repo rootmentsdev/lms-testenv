@@ -15,7 +15,7 @@ const Mandatorytraining = () => {
                 </div>
 
 
-                <div style={styles.middle} className="lg:ml-[273px] ">
+                <div style={styles.middle} className="">
                     < Mandatorytrainingdata />
                 </div>
 
