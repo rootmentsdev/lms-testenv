@@ -1,4 +1,4 @@
-import ModileNav from ".../../../components/SideNav/ModileNav";
+import ModileNav from "../../../components/SideNav/ModileNav";
 
 import AssessmentsAssignData from "./AssessmentsAssignData";
 
