@@ -256,7 +256,9 @@ export const MandatoryGetAllTrainingWithCompletion = async (req, res) => {
       trainings.map(async (training) => {
         const progressRecords = await TrainingProgress.find({
           trainingId: training._id
-        });
+        }).populate('userId');
+        console.log(progressRecords);
+
 
         let totalUsers = 0;
         let totalPercentage = 0;
@@ -318,7 +320,7 @@ export const MandatoryGetAllTrainingWithCompletion = async (req, res) => {
           numberOfModules: training.modules.length,
           totalUsers,
           averageCompletionPercentage, // The average completion percentage for all users
-          userProgress // Return the detailed user progress
+          userProgress, // Return the detailed user progress
         };
       })
     );
