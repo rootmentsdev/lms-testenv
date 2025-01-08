@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import RoundProgressBarAssessment from "../../components/RoundBar/RoundAssessment";
 import { Link } from "react-router-dom";
 import baseUrl from "../../api/api";
+import SideNav from "../../components/SideNav/SideNav";
 
 const AssessmentsData = () => {
     // const [isOpen, setIsOpen] = useState(false);
@@ -38,26 +39,27 @@ const AssessmentsData = () => {
         <div className="w-full h-full bg-white">
             {/* Header */}
             <Header name='Assessments' />
-
+            <SideNav />
             {/* Top Bar */}
-            <div className="flex md:mx-10 justify-between mt-10">
-                {/* Create Assessment */}
-                <Link to={'/create/Assessment'}>
-                    <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer">
-                        <div className="text-[#016E5B]"><FaPlus /></div>
-                        <h4 className="text-black">Create New Assessment</h4>
-                    </div>
-                </Link>
-                <Link to={'/assign/Assessment'}>
-                    <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer">
-                        <div className="text-[#016E5B]"><FaPlus /></div>
-                        <h4 className="text-black">Assign Assessment</h4>
-                    </div>
-                </Link>
+            <div className="md:ml-[100px] mt-[150px]">
+                <div className="flex md:mx-10 justify-between mt-10">
+                    {/* Create Assessment */}
+                    <Link to={'/create/Assessment'}>
+                        <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer">
+                            <div className="text-[#016E5B]"><FaPlus /></div>
+                            <h4 className="text-black">Create New Assessment</h4>
+                        </div>
+                    </Link>
+                    <Link to={'/assign/Assessment'}>
+                        <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer">
+                            <div className="text-[#016E5B]"><FaPlus /></div>
+                            <h4 className="text-black">Assign Assessment</h4>
+                        </div>
+                    </Link>
 
 
-                {/* Filter Dropdown */}
-                {/* <div className="relative inline-block text-left w-36 mr-10">
+                    {/* Filter Dropdown */}
+                    {/* <div className="relative inline-block text-left w-36 mr-10">
                     <button
                         type="button"
                         className="flex justify-between items-center w-full border-2 py-2 px-4 bg-white text-black rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#016E5B]"
@@ -81,31 +83,32 @@ const AssessmentsData = () => {
                         </div>
                     )}
                 </div> */}
-            </div>
+                </div>
 
-            {/* Assessment Cards */}
-            <div className="mt-10 ml-10 flex flex-wrap gap-3">
-                {loading ? (
-                    <div>Loading...</div>
-                ) : error ? (
-                    <div className="text-red-500">{error}</div>
-                ) : (
-                    data.map((item) => (
-                        <><Link to={`/Assessment/Assign/${item._id}`}>
-                            <div className="mt-5">
-                                <RoundProgressBarAssessment
-                                    initialProgress={0}
-                                    deadline={`${item.deadline} days`}
-                                    Module={`Number of questins : ${item.questions.length}`}
-                                    title={` ${item?.title}`}
-                                    complete={" complete rate 0.00%"}
+                {/* Assessment Cards */}
+                <div className="mt-10 ml-10 flex flex-wrap gap-3">
+                    {loading ? (
+                        <div>Loading...</div>
+                    ) : error ? (
+                        <div className="text-red-500">{error}</div>
+                    ) : (
+                        data.map((item) => (
+                            <><Link to={`/Assessment/Assign/${item._id}`}>
+                                <div className="mt-5">
+                                    <RoundProgressBarAssessment
+                                        initialProgress={0}
+                                        deadline={`${item.deadline} days`}
+                                        Module={`Number of questins : ${item.questions.length}`}
+                                        title={` ${item?.title}`}
+                                        complete={" complete rate 0.00%"}
 
-                                />
-                            </div>
-                        </Link></>
+                                    />
+                                </div>
+                            </Link></>
 
-                    ))
-                )}
+                        ))
+                    )}
+                </div>
             </div>
         </div>
     );

@@ -1,4 +1,3 @@
-import SideNav from "../../components/SideNav/SideNav";
 import TrainingData from "./TrainingData";
 import ModileNav from "../../components/SideNav/ModileNav";
 
@@ -7,14 +6,14 @@ const Training = () => {
     return (
         <>
             <div style={styles.container} className="bg-white">
-                <div style={styles.left} className="hidden md:block z-50">
+                {/* <div style={styles.left} className="hidden md:block z-50">
                     <SideNav />
-                </div>
+                </div> */}
                 <div className="md:hidden sm:block">
                     <ModileNav />
                 </div>
 
-                <div style={styles.middle} className="lg:ml-[273px] md:ml-[90px] ml-[0px]">
+                <div style={styles.middle} className="">
                     <TrainingData />
                 </div>
             </div>

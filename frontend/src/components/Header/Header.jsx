@@ -1,5 +1,6 @@
 import { IoIosSearch } from "react-icons/io";
 import { GoBell } from "react-icons/go";
+import image from '../../../public/Rootments.jpg'
 
 
 const Header = ({
@@ -7,12 +8,27 @@ const Header = ({
     name
 }) => {
     return (
-        <div >
+        <div className="w-full">
 
-            <div className=" flex  justify-between border[#C8C8C8] border-b pb-6">
-                <div className="mt-4 flex items-center ml-4">
-                    <a className="text-black text-xl  font-semibold lg:text-2xl">{name ? name : ''}</a>
+
+            <div className=" flex  justify-between border[#C8C8C8] bg-white fixed top-0 w-full z-10  border-b pb-6">
+                <div className="flex mt-6 lg:justify-evenly items-center ml-5">
+                    <div>
+                        <img src={image} alt="Logo" className="rounded-full" />
+                    </div>
+                    <div className="lg:block hidden md:block">
+                        <div className="text-2xl text-green-700">
+                            ROOTMENTS
+                        </div>
+                        <div className="flex justify-end text-sm">
+                            ENTERPRISE
+                        </div>
+                    </div>
+                    <div className="mt-4 flex items-center ml-10">
+                        <a className="text-black text-xl  font-semibold lg:text-2xl">{name ? name : ''}</a>
+                    </div>
                 </div>
+
                 <div className="flex lg:gap-10 gap-3 items-center mt-4">
                     <div className="form-control relative lg:w-full hidden md:block">
                         <IoIosSearch className="absolute left-3 text-2xl top-1/2 transform -translate-y-1/2 text-black" />

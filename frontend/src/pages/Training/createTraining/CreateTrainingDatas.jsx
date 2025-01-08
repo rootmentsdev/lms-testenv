@@ -3,6 +3,7 @@ import Select from "react-select"; // Import react-select
 import Header from "../../../components/Header/Header";
 import baseUrl from "../../../api/api";
 import { toast } from "react-toastify";
+import SideNav from "../../../components/SideNav/SideNav";
 
 const CreateTrainingDatas = () => {
     const [modules, setModules] = useState([]); // Module options
@@ -127,7 +128,9 @@ const CreateTrainingDatas = () => {
             <div className="w-full h-full bg-white">
                 <Header name="Assign new Training" />
             </div>
-            <div>
+            <SideNav />
+
+            <div className=" md:ml-[100px] mt-[150px]">
                 <form onSubmit={handleSubmit} className="text-black w-[800px] mt-10">
                     {/* Training Name */}
                     <div className="flex flex-col gap-5 mx-20 mt-5">

@@ -1,14 +1,18 @@
-import SideNav from '../../../components/SideNav/SideNav';
+// import SideNav from '../../../components/SideNav/SideNav';
 import ReassignData from './ReassignData';
+import ModileNav from '../../../components/SideNav/ModileNav';
+
 
 const Reassign = () => {
     return (
         <>
             <div style={styles.container}>
-                <div style={styles.left} className=" hidden lg:block z-50">
+                {/* <div style={styles.left} className=" hidden lg:block z-50">
                     <SideNav />
+                </div> */}
+                <div className="md:hidden sm:block">
+                    <ModileNav />
                 </div>
-
 
                 <div style={styles.middle} className="lg:ml-[273px] ">
                     <ReassignData />

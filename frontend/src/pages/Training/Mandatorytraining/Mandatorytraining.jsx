@@ -1,13 +1,17 @@
-import SideNav from "../../../components/SideNav/SideNav";
+// import SideNav from "../../../components/SideNav/SideNav";
 import Mandatorytrainingdata from "./Mandatorytrainingdata";
+import ModileNav from "../../../components/SideNav/ModileNav";
 
 
 const Mandatorytraining = () => {
     return (
         <>
             <div style={styles.container}>
-                <div style={styles.left} className=" hidden lg:block z-50">
+                {/* <div style={styles.left} className=" hidden lg:block z-50">
                     <SideNav />
+                </div> */}
+                <div className="md:hidden sm:block">
+                    <ModileNav />
                 </div>
 
 

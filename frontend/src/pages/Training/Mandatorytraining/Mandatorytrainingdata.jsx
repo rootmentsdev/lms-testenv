@@ -4,6 +4,7 @@ import Select from "react-select"; // Import react-select
 import baseUrl from "../../../api/api";
 import Header from "../../../components/Header/Header";
 import { toast } from "react-toastify";
+import SideNav from "../../../components/SideNav/SideNav";
 
 const Mandatorytrainingdata = () => {
     const [modules, setModules] = useState([]); // Module options
@@ -109,7 +110,8 @@ const Mandatorytrainingdata = () => {
             <div className="w-full h-full bg-white">
                 <Header name="Mandatory training" />
             </div>
-            <div>
+            <SideNav />
+            <div className="md:ml-[100px] mt-[100px]">
                 <form onSubmit={handleSubmit} className="text-black w-[800px] mt-10">
                     {/* Training Name */}
                     <div className="flex flex-col gap-5 mx-20 mt-5">

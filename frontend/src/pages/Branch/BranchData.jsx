@@ -2,6 +2,7 @@ import { useState } from "react";
 import Header from "../../components/Header/Header"
 import { FaPlus } from "react-icons/fa";
 import { CiFilter } from "react-icons/ci";
+import SideNav from "../../components/SideNav/SideNav";
 
 const BranchData = () => {
     const [isOpen, setIsOpen] = useState(false);
@@ -97,7 +98,8 @@ const BranchData = () => {
     return (
         <div className="mb-[70px]">
             <div><Header name='Branch ' /></div>
-            <div>
+            <SideNav />
+            <div className="md:ml-[90px] mt-[150px]">
                 <div className="flex justify-between mt-12">
                     <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer
                     ">

@@ -3,6 +3,7 @@ import baseUrl from "../../../api/api";
 import Select from "react-select";
 import { useParams } from "react-router-dom";
 import Header from "../../../components/Header/Header";
+import SideNav from '../../../components/SideNav/SideNav';
 // Users options
 
 const ReassignData = () => {
@@ -87,53 +88,56 @@ const ReassignData = () => {
     return (
         <div className="w-full h-full bg-white text-black">
             <div><Header name='Reassign Training' /></div>
+            <SideNav />
 
-            <div className="text-xl mt-10  ">
-                <div className="flex justify-evenly">
-                    <p>Training Name: <span className="text-[#016E5B]">{training?.data.trainingName}</span></p>
-                    <p>Number of Modules : <span className="text-[#016E5B]">{training?.data.numberOfModules}</span></p>
-                    <p>Number of user : <span className="text-[#016E5B]">{training?.users.length}</span></p>
+            <div className="md:ml-[100px] mt-[100px]">
+                <div className="text-xl mt-10  ">
+                    <div className="flex justify-evenly">
+                        <p>Training Name: <span className="text-[#016E5B]">{training?.data.trainingName}</span></p>
+                        <p>Number of Modules : <span className="text-[#016E5B]">{training?.data.numberOfModules}</span></p>
+                        <p>Number of user : <span className="text-[#016E5B]">{training?.users.length}</span></p>
+                    </div>
                 </div>
-            </div>
-            <div className="flex mx-32 justify-between ">
-                <div>
-                    {
-                        training?.data?.modules.map((module) => {
-                            return (
-                                <div className="text-xl mt-5 " key={module._id}>
-                                    Module {module.moduleName} has {module.videos.length} videos
-                                    <ul className="text-[16px] text-[#016E5B]">
-                                        {module.videos.map((video) => {
-                                            return (
-                                                <li key={video._id} title={video.title}>
-                                                    {video.title.length < 20 ? video.title : video.title.slice(0, 20) + "..."}
-                                                </li>
-                                            );
-                                        })}
-                                    </ul>
+                <div className="flex mx-32 justify-between ">
+                    <div>
+                        {
+                            training?.data?.modules.map((module) => {
+                                return (
+                                    <div className="text-xl mt-5 " key={module._id}>
+                                        Module {module.moduleName} has {module.videos.length} videos
+                                        <ul className="text-[16px] text-[#016E5B]">
+                                            {module.videos.map((video) => {
+                                                return (
+                                                    <li key={video._id} title={video.title}>
+                                                        {video.title.length < 20 ? video.title : video.title.slice(0, 20) + "..."}
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
+                                    </div>
+                                );
+                            })
+                        }
+                    </div>
+                    <div className="mt-5 flex justify-start items-center">
+                        <form action="" onSubmit={HandleSubmit} className="flex flex-col gap-5">
+                            <div className="mt-5 flex justify-start items-center">
+                                <div className="w-96">
+                                    <Select
+                                        placeholder="select or search"
+                                        options={users}
+                                        isMulti
+                                        value={assignedTo}
+                                        onChange={setAssignedTo} // Updates state
+                                        className="w-full "
+                                    />
                                 </div>
-                            );
-                        })
-                    }
-                </div>
-                <div className="mt-5 flex justify-start items-center">
-                    <form action="" onSubmit={HandleSubmit} className="flex flex-col gap-5">
-                        <div className="mt-5 flex justify-start items-center">
-                            <div className="w-96">
-                                <Select
-                                    placeholder="select or search"
-                                    options={users}
-                                    isMulti
-                                    value={assignedTo}
-                                    onChange={setAssignedTo} // Updates state
-                                    className="w-full "
-                                />
                             </div>
-                        </div>
-                        <button type="submit" className="btn btn-accent">
-                            Reassing
-                        </button>
-                    </form>
+                            <button type="submit" className="btn btn-accent">
+                                Reassing
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
 
