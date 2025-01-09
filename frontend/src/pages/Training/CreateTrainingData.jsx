@@ -117,7 +117,7 @@ const CreateTrainingData = () => {
                 <Link key={item._id} to={`/AssigTraining/${item?.trainingId}`}>
                   <RoundProgressBar
                     initialProgress={item?.averageCompletionPercentage}
-                    title={item?.trainingName}
+                    title={`${item?.trainingName} for ${item.uniqueItems.join(', ')}`}
                     Module={`No. of Modules : ${item?.numberOfModules}`}
                     duration={`No. of users: ${item?.totalUsers}`}
                     complete={`Completion Rate : ${item?.averageCompletionPercentage}%`}

@@ -13,7 +13,7 @@ const CreateAssessment = () => {
                     <ModileNav />
                 </div>
 
-                <div style={styles.middle} className="lg:ml-[273px] md:ml-[90px] ml-[0px]">
+                <div style={styles.middle} className="">
                     <CreateAssessmentData />
                 </div>
             </div>

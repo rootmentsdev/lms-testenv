@@ -79,9 +79,9 @@ const CreateAssessmentData = () => {
         <div className="w-full mb-[70px] h-full bg-white text-black">
             <Header name="Create a new Assessments" />
             <SideNav />
-            <div className="md:ml-[100px] mt-[100px]">
+            <div className="md:ml-[100px] mt-[150px]">
                 <div>
-                    <Link to={""}>
+                    <Link to={"/assessments"}>
                         <div className="flex items-center gap-1 m-5 text-black cursor-pointer">
                             <IoIosArrowBack />
                             <p>Back</p>

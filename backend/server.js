@@ -15,18 +15,19 @@ const port = process.env.PORT || 7000;
 //http://localhost:3000
 
 app.use(express.json());
+
 app.use(cookieParser());
 
 app.use(express.urlencoded({ extended: true }));
 app.use(
-    cors({
-      origin: ['https://unicode-mu.vercel.app', 'http://localhost:3000','https://lms-steel-kappa.vercel.app'],
-      credentials: true,
-    })
-  );
+  cors({
+    origin: ['https://unicode-mu.vercel.app', 'http://localhost:3000', 'https://lms-steel-kappa.vercel.app'],
+    credentials: true,
+  })
+);
 
 app.get('/', (req, res) => {
-    res.send('App is running');
+  res.send('App is running');
 });
 
 app.use('/api', ModuleRouter)
@@ -36,7 +37,7 @@ app.use('/pi/auth', UserRouters)
 
 
 app.listen(port, () => {
-    connectMongoDB()
-    console.log(`Server running on port ${port}`);
+  connectMongoDB()
+  console.log(`Server running on port ${port}`);
 });
 

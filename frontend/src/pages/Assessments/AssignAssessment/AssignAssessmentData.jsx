@@ -5,6 +5,7 @@ import { FaPlus } from "react-icons/fa";
 import { useEffect, useState } from "react";
 import baseUrl from "../../../api/api";
 import SideNav from "../../../components/SideNav/SideNav";
+import { toast } from "react-toastify";
 
 const AssignAssessmentData = () => {
     const [modules, setModules] = useState([]);
@@ -14,19 +15,46 @@ const AssignAssessmentData = () => {
     const [days, setDays] = useState(""); // Track input days
     const [selectedOption, setSelectedOption] = useState("user");
 
-    const checkfuntion = () => {
-
+    const checkfuntion = async () => {
         const Assessment = {
-            assignedTo: assignedTo.map((item) => item.value),
-            assessment: selectedModules.map((item) => item.value),
-            selectedOption,
-            days
+            assignedTo: assignedTo.map((item) => item.value), // Map assignedTo values
+            assessmentId: selectedModules.map((item) => item.value), // Map assessment values
+            selectedOption, // Ensure this is defined
+            days, // Ensure this is defined
+        };
 
+        console.log("Request Payload:", Assessment); // Debugging
+
+        try {
+            // Make sure `baseUrl.baseUrl` has the correct structure and trailing slash
+            const url = `${baseUrl.baseUrl}api/user/post/createAssessment`;
+
+            const RequestData = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(Assessment),
+            });
+
+            // Check if the response is okay (status 200-299)
+            if (!RequestData.ok) {
+                throw new Error(`HTTP error! status: ${RequestData.status}`);
+            }
+
+            const response = await RequestData.json(); // Parse JSON response
+            console.log("API Response:", response.message);
+            if (response.message === 'already Assigned') {
+                toast.error(response.message) // Log response message
+
+            } else {
+                toast.success(response.message) // Log response message
+
+            }
+        } catch (error) {
+            console.error("Error in checkfuntion:", error);
+            toast.error("Error in Assign Assessment")// Log the error
         }
+    };
 
-        console.log(Assessment);
-
-    }
     // Fetch modules (called once)
     useEffect(() => {
         const fetchModules = async () => {
@@ -90,10 +118,10 @@ const AssignAssessmentData = () => {
         <div className="w-full h-full bg-white text-[#016E5B]">
             <Header name="Assign Assessments" />
             <SideNav />
-            <div className="md:ml-[100px] mt-[100px]">
+            <div className="md:ml-[100px] mt-[150px]">
 
                 <div className="mt-20 mx-20">
-                    <div className="w-full flex  gap-10">
+                    <div className="w-full flex  gap-10 md:flex-row flex-col">
                         {/* Assessments Dropdown */}
                         <div className="flex flex-col w-full">
                             <label htmlFor="assessments" className="block text-gray-700 font-medium mb-2">
@@ -174,7 +202,7 @@ const AssignAssessmentData = () => {
                                     id="days"
                                     value={days}
                                     onChange={(e) => {
-                                        const value = e.target.value.replace(/[^1-9][0-9]*|^0+/g, "");
+                                        const value = e.target.value
                                         setDays(value);
                                     }}
                                     min="1"

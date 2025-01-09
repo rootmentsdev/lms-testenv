@@ -2,6 +2,6 @@
 
 
 const baseUrl = {
-    baseUrl: 'https://lms-ildn.onrender.com/'
+    baseUrl: 'http://localhost:7000/' //'https://lms-ildn.onrender.com/'
 }
 export default baseUrl

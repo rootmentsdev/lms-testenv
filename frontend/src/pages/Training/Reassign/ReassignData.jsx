@@ -90,7 +90,7 @@ const ReassignData = () => {
             <div><Header name='Reassign Training' /></div>
             <SideNav />
 
-            <div className="md:ml-[100px] mt-[100px]">
+            <div className="md:ml-[100px] mt-[150px]">
                 <div className="text-xl mt-10  ">
                     <div className="flex justify-evenly">
                         <p>Training Name: <span className="text-[#016E5B]">{training?.data.trainingName}</span></p>
@@ -133,8 +133,8 @@ const ReassignData = () => {
                                     />
                                 </div>
                             </div>
-                            <button type="submit" className="btn btn-accent">
-                                Reassing
+                            <button type="submit" className="btn text-white btn-accent">
+                                Reassign
                             </button>
                         </form>
                     </div>

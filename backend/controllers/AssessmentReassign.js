@@ -1,3 +1,6 @@
+import Assessment from "../model/Assessment.js";
+import AssessmentProcess from "../model/Assessmentprocessschema.js";
+import Designation from "../model/designation.js";
 import TrainingProgress from "../model/Trainingprocessschema.js";
 import { Training } from "../model/Traning.js";
 import User from "../model/User.js";
@@ -114,3 +117,261 @@ export const TrainingDetails = async (req, res) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 };
+
+
+export const AssessmentAssign = async (req, res) => {
+    try {
+        const { assessmentId, assignedTo, days, selectedOption } = req.body;
+
+        // Validate input
+        if (!assessmentId || !assignedTo || !Array.isArray(assignedTo) || assignedTo.length === 0 || !days) {
+            return res.status(400).json({ message: "All fields are required and 'assignedTo' must be a non-empty array." });
+        }
+
+        // Calculate deadline
+        const deadline = new Date();
+        deadline.setDate(deadline.getDate() + days);
+
+        const results = [];
+
+        // Process each user based on the selected option
+        // const processAssignment = async (userId) => {
+        //     const user = await User.findById(userId);
+
+        //     if (!user) {
+        //         return { userId, message: "User not found." };
+        //     }
+
+        //     // Add the assessment to the user's assigned assessments
+        //     user.assignedAssessments.push({
+        //         assessmentId,
+        //         deadline,
+        //         status: 'Pending',
+        //     });
+
+        //     await user.save();
+
+        //     // Fetch the assessment with populated questions
+        //     const assessment = await Assessment.findById(assessmentId);
+        //     console.log(assessment);
+
+        //     if (!assessment) {
+        //         return { userId, message: "Assessment not found." };
+        //     }
+
+        //     // Create the answers array for the user, initialized with empty answers for each question
+        //     const answers = assessment.questions.map(question => ({
+        //         questionId: question.questionId._id, // Correct population of question ID
+        //         correctAnswer: question.correctAnswer, // Assuming correctAnswer field exists in the question schema
+        //         isCorrect: false,    // Set to false until the user answers
+        //     }));
+
+        //     // Create a new assessment process record
+        //     const newAssessmentProcess = new AssessmentProcess({
+        //         userId,
+        //         assessmentId,
+        //         status: 'Pending',
+        //         answers: answers, // Adding the questions and answers
+        //     });
+
+        //     await newAssessmentProcess.save();
+
+        //     return {
+        //         userId,
+        //         message: "Assessment assigned successfully.",
+        //         user,
+        //         assessmentProcess: newAssessmentProcess,
+        //     };
+        // };
+
+        // Process each user
+        if (selectedOption === 'user') {
+            for (const userId of assignedTo) {
+                const user = await User.findById(userId);
+
+                if (!user) {
+                    results.push({ userId, message: "User not found." });
+                    continue;
+                }
+
+                // Check if assessmentId is an array, and process each assessment individually
+                const assessmentIds = Array.isArray(assessmentId) ? assessmentId : [assessmentId];
+
+                for (const id of assessmentIds) {
+                    const match = User.findOne({
+                        _id: user._id,
+                        assignedAssessments: {
+                            $elemMatch: { assessmentId: id }
+                        }
+                    })
+                    if (match) {
+                        return res.json({ message: "already Assigned" })
+                    }
+                    // Add the assessment to the user's assigned assessments
+                    user.assignedAssessments.push({
+                        assessmentId: id, // Ensure this is a valid ObjectId
+                        deadline,
+                        status: 'Pending',
+                    });
+                }
+
+                await user.save();
+
+                // Create a new assessment process record for each assessmentId
+                for (const id of assessmentIds) {
+                    const assessments = await Assessment.findById(id);
+                    console.log(assessments);
+
+                    const answers = assessments.questions.map(question => ({
+                        questionId: question._id, // Ensure correct questionId population
+                        correctAnswer: question.correctAnswer,
+                        isCorrect: false,   // Set to false until the user answers
+                    }));
+
+                    const newAssessmentProcess = new AssessmentProcess({
+                        userId,
+                        assessmentId: id,
+                        answers: answers, // Store answers array
+                        status: 'Pending',
+                    });
+
+                    await newAssessmentProcess.save();
+
+                    results.push({
+                        userId,
+                        message: "Assessment assigned successfully.",
+                        user,
+                        assessmentProcess: newAssessmentProcess,
+                    });
+                }
+            }
+        }
+
+        if (selectedOption === 'branch') {
+            // Handle branch-specific assignments
+            for (const locCode of assignedTo) {
+                console.log(locCode);
+
+                const users = await User.find({ locCode: locCode });
+                console.log(users);
+
+                if (users.length === 0) {
+                    results.push({ locCode, message: "No users found for this location." });
+                    continue;
+                }
+
+                // Check if assessmentId is an array, and process each assessment individually
+                const assessmentIds = Array.isArray(assessmentId) ? assessmentId : [assessmentId];
+
+                for (const user of users) {
+                    for (const id of assessmentIds) {
+                        user.assignedAssessments.push({
+                            assessmentId: id,
+                            deadline,
+                            status: 'Pending',
+                        });
+
+                        await user.save();
+
+                        const assessments = await Assessment.findById(id);
+                        console.log(assessments);
+
+                        const answers = assessments.questions.map(question => ({
+                            questionId: question._id,
+                            correctAnswer: question.correctAnswer,
+                            isCorrect: false,
+                        }));
+
+                        const newAssessmentProcess = new AssessmentProcess({
+                            userId: user._id,
+                            assessmentId: id,
+                            answers: answers,
+                            status: 'Pending',
+                        });
+
+                        await newAssessmentProcess.save();
+
+                        results.push({
+                            userId: user._id,
+                            message: "Assessment assigned successfully.",
+                            user,
+                            assessmentProcess: newAssessmentProcess,
+                        });
+                    }
+                }
+            }
+        }
+
+        if (selectedOption === 'designation') {
+            // Handle designation-specific assignments
+            for (const designationId of assignedTo) {
+                console.log(designationId);
+
+                const designation = await Designation.findById(designationId);
+                console.log(designation);
+
+                if (!designation) {
+                    results.push({ designationId, message: "Designation not found." });
+                    continue;
+                }
+
+                const users = await User.find({ designation: designation.designation });
+
+                if (users.length === 0) {
+                    results.push({ designationId, message: "No users found for this designation." });
+                    continue;
+                }
+
+                // Check if assessmentId is an array, and process each assessment individually
+                const assessmentIds = Array.isArray(assessmentId) ? assessmentId : [assessmentId];
+
+                for (const user of users) {
+                    for (const id of assessmentIds) {
+                        user.assignedAssessments.push({
+                            assessmentId: id,
+                            deadline,
+                            status: 'Pending',
+                        });
+
+                        await user.save();
+
+                        const assessments = await Assessment.findById(id);
+                        console.log(assessments);
+
+                        const answers = assessments.questions.map(question => ({
+                            questionId: question._id,
+                            correctAnswer: question.correctAnswer,
+                            isCorrect: false,
+                        }));
+
+                        const newAssessmentProcess = new AssessmentProcess({
+                            userId: user._id,
+                            assessmentId: id,
+                            answers: answers,
+                            status: 'Pending',
+                        });
+
+                        await newAssessmentProcess.save();
+
+                        results.push({
+                            userId: user._id,
+                            message: "Assessment assigned successfully.",
+                            user,
+                            assessmentProcess: newAssessmentProcess,
+                        });
+                    }
+                }
+            }
+        }
+
+        res.status(200).json({
+            message: "Assessment assignment process completed.",
+            results,
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal server error." });
+    }
+};
+
+
