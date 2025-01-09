@@ -198,15 +198,7 @@ export const AssessmentAssign = async (req, res) => {
                 const assessmentIds = Array.isArray(assessmentId) ? assessmentId : [assessmentId];
 
                 for (const id of assessmentIds) {
-                    const match = User.findOne({
-                        _id: user._id,
-                        assignedAssessments: {
-                            $elemMatch: { assessmentId: id }
-                        }
-                    })
-                    if (match) {
-                        return res.json({ message: "already Assigned" })
-                    }
+
                     // Add the assessment to the user's assigned assessments
                     user.assignedAssessments.push({
                         assessmentId: id, // Ensure this is a valid ObjectId
