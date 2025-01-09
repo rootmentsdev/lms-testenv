@@ -118,7 +118,6 @@ export const TrainingDetails = async (req, res) => {
     }
 };
 
-
 export const AssessmentAssign = async (req, res) => {
     try {
         const { assessmentId, assignedTo, days, selectedOption } = req.body;
@@ -134,57 +133,7 @@ export const AssessmentAssign = async (req, res) => {
 
         const results = [];
 
-        // Process each user based on the selected option
-        // const processAssignment = async (userId) => {
-        //     const user = await User.findById(userId);
-
-        //     if (!user) {
-        //         return { userId, message: "User not found." };
-        //     }
-
-        //     // Add the assessment to the user's assigned assessments
-        //     user.assignedAssessments.push({
-        //         assessmentId,
-        //         deadline,
-        //         status: 'Pending',
-        //     });
-
-        //     await user.save();
-
-        //     // Fetch the assessment with populated questions
-        //     const assessment = await Assessment.findById(assessmentId);
-        //     console.log(assessment);
-
-        //     if (!assessment) {
-        //         return { userId, message: "Assessment not found." };
-        //     }
-
-        //     // Create the answers array for the user, initialized with empty answers for each question
-        //     const answers = assessment.questions.map(question => ({
-        //         questionId: question.questionId._id, // Correct population of question ID
-        //         correctAnswer: question.correctAnswer, // Assuming correctAnswer field exists in the question schema
-        //         isCorrect: false,    // Set to false until the user answers
-        //     }));
-
-        //     // Create a new assessment process record
-        //     const newAssessmentProcess = new AssessmentProcess({
-        //         userId,
-        //         assessmentId,
-        //         status: 'Pending',
-        //         answers: answers, // Adding the questions and answers
-        //     });
-
-        //     await newAssessmentProcess.save();
-
-        //     return {
-        //         userId,
-        //         message: "Assessment assigned successfully.",
-        //         user,
-        //         assessmentProcess: newAssessmentProcess,
-        //     };
-        // };
-
-        // Process each user
+        // Process assignments based on the selected option
         if (selectedOption === 'user') {
             for (const userId of assignedTo) {
                 const user = await User.findById(userId);
@@ -194,36 +143,46 @@ export const AssessmentAssign = async (req, res) => {
                     continue;
                 }
 
-                // Check if assessmentId is an array, and process each assessment individually
                 const assessmentIds = Array.isArray(assessmentId) ? assessmentId : [assessmentId];
 
                 for (const id of assessmentIds) {
+                    const alreadyAssigned = user.assignedAssessments.some(
+                        (assessment) => assessment.assessmentId.toString() === id.toString()
+                    );
 
-                    // Add the assessment to the user's assigned assessments
+                    if (alreadyAssigned) {
+                        results.push({
+                            userId,
+                            assessmentId: id,
+                            message: "Assessment already assigned.",
+                        });
+                        continue;
+                    }
+
                     user.assignedAssessments.push({
-                        assessmentId: id, // Ensure this is a valid ObjectId
+                        assessmentId: id,
                         deadline,
                         status: 'Pending',
                     });
-                }
 
-                await user.save();
+                    await user.save();
 
-                // Create a new assessment process record for each assessmentId
-                for (const id of assessmentIds) {
-                    const assessments = await Assessment.findById(id);
-                    console.log(assessments);
+                    const assessment = await Assessment.findById(id);
+                    if (!assessment) {
+                        results.push({ userId, assessmentId: id, message: "Assessment not found." });
+                        continue;
+                    }
 
-                    const answers = assessments.questions.map(question => ({
-                        questionId: question._id, // Ensure correct questionId population
+                    const answers = assessment.questions.map((question) => ({
+                        questionId: question._id,
                         correctAnswer: question.correctAnswer,
-                        isCorrect: false,   // Set to false until the user answers
+                        isCorrect: false,
                     }));
 
                     const newAssessmentProcess = new AssessmentProcess({
                         userId,
                         assessmentId: id,
-                        answers: answers, // Store answers array
+                        answers,
                         status: 'Pending',
                     });
 
@@ -240,23 +199,30 @@ export const AssessmentAssign = async (req, res) => {
         }
 
         if (selectedOption === 'branch') {
-            // Handle branch-specific assignments
             for (const locCode of assignedTo) {
-                console.log(locCode);
-
-                const users = await User.find({ locCode: locCode });
-                console.log(users);
-
+                const users = await User.find({ locCode });
                 if (users.length === 0) {
                     results.push({ locCode, message: "No users found for this location." });
                     continue;
                 }
 
-                // Check if assessmentId is an array, and process each assessment individually
                 const assessmentIds = Array.isArray(assessmentId) ? assessmentId : [assessmentId];
 
                 for (const user of users) {
                     for (const id of assessmentIds) {
+                        const alreadyAssigned = user.assignedAssessments.some(
+                            (assessment) => assessment.assessmentId.toString() === id.toString()
+                        );
+
+                        if (alreadyAssigned) {
+                            results.push({
+                                userId: user._id,
+                                assessmentId: id,
+                                message: "Assessment already assigned.",
+                            });
+                            continue;
+                        }
+
                         user.assignedAssessments.push({
                             assessmentId: id,
                             deadline,
@@ -265,10 +231,13 @@ export const AssessmentAssign = async (req, res) => {
 
                         await user.save();
 
-                        const assessments = await Assessment.findById(id);
-                        console.log(assessments);
+                        const assessment = await Assessment.findById(id);
+                        if (!assessment) {
+                            results.push({ userId: user._id, assessmentId: id, message: "Assessment not found." });
+                            continue;
+                        }
 
-                        const answers = assessments.questions.map(question => ({
+                        const answers = assessment.questions.map((question) => ({
                             questionId: question._id,
                             correctAnswer: question.correctAnswer,
                             isCorrect: false,
@@ -277,7 +246,7 @@ export const AssessmentAssign = async (req, res) => {
                         const newAssessmentProcess = new AssessmentProcess({
                             userId: user._id,
                             assessmentId: id,
-                            answers: answers,
+                            answers,
                             status: 'Pending',
                         });
 
@@ -295,30 +264,36 @@ export const AssessmentAssign = async (req, res) => {
         }
 
         if (selectedOption === 'designation') {
-            // Handle designation-specific assignments
             for (const designationId of assignedTo) {
-                console.log(designationId);
-
                 const designation = await Designation.findById(designationId);
-                console.log(designation);
-
                 if (!designation) {
                     results.push({ designationId, message: "Designation not found." });
                     continue;
                 }
 
                 const users = await User.find({ designation: designation.designation });
-
                 if (users.length === 0) {
                     results.push({ designationId, message: "No users found for this designation." });
                     continue;
                 }
 
-                // Check if assessmentId is an array, and process each assessment individually
                 const assessmentIds = Array.isArray(assessmentId) ? assessmentId : [assessmentId];
 
                 for (const user of users) {
                     for (const id of assessmentIds) {
+                        const alreadyAssigned = user.assignedAssessments.some(
+                            (assessment) => assessment.assessmentId.toString() === id.toString()
+                        );
+
+                        if (alreadyAssigned) {
+                            results.push({
+                                userId: user._id,
+                                assessmentId: id,
+                                message: "Assessment already assigned.",
+                            });
+                            continue;
+                        }
+
                         user.assignedAssessments.push({
                             assessmentId: id,
                             deadline,
@@ -327,10 +302,13 @@ export const AssessmentAssign = async (req, res) => {
 
                         await user.save();
 
-                        const assessments = await Assessment.findById(id);
-                        console.log(assessments);
+                        const assessment = await Assessment.findById(id);
+                        if (!assessment) {
+                            results.push({ userId: user._id, assessmentId: id, message: "Assessment not found." });
+                            continue;
+                        }
 
-                        const answers = assessments.questions.map(question => ({
+                        const answers = assessment.questions.map((question) => ({
                             questionId: question._id,
                             correctAnswer: question.correctAnswer,
                             isCorrect: false,
@@ -339,7 +317,7 @@ export const AssessmentAssign = async (req, res) => {
                         const newAssessmentProcess = new AssessmentProcess({
                             userId: user._id,
                             assessmentId: id,
-                            answers: answers,
+                            answers,
                             status: 'Pending',
                         });
 
@@ -365,5 +343,6 @@ export const AssessmentAssign = async (req, res) => {
         res.status(500).json({ message: "Internal server error." });
     }
 };
+
 
 
