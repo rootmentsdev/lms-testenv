@@ -64,11 +64,13 @@ export const GetAllTrainingWithCompletion = async (req, res) => {
       trainings.map(async (training) => {
         const progressRecords = await TrainingProgress.find({
           trainingId: training._id
-        });
+        }).populate('userId', 'workingBranch designation username email'); // Populate user data
 
         let totalUsers = 0;
         let totalPercentage = 0;
         const userProgress = []; // Store user progress for each training
+        const uniqueBranches = new Set(); // To store unique branches
+        const uniqueDesignations = new Set(); // To store unique designations
 
         // Calculate completion percentage for each user's progress
         await Promise.all(progressRecords.map(async (record) => {
@@ -106,11 +108,18 @@ export const GetAllTrainingWithCompletion = async (req, res) => {
 
           totalPercentage += userPercentage;
 
+          // Add unique workingBranch and designation
+          const { workingBranch, designation, username, email } = record.userId || {};
+          if (workingBranch) uniqueBranches.add(workingBranch);
+          if (designation) uniqueDesignations.add(designation);
+
           // Store user progress for each user
           userProgress.push({
-            userId: record.userId,
-            username: record.username,
-            email: record.email,
+            userId: record.userId?._id,
+            username,
+            email,
+            workingBranch,
+            designation,
             modules: record.modules,
             overallCompletionPercentage: userPercentage.toFixed(2), // User's completion percentage
           });
@@ -126,12 +135,16 @@ export const GetAllTrainingWithCompletion = async (req, res) => {
           numberOfModules: training.modules.length,
           totalUsers,
           averageCompletionPercentage, // The average completion percentage for all users
+          uniqueBranches: Array.from(uniqueBranches), // Convert Set to Array
+          uniqueItems: Array.from(uniqueDesignations), // Convert Set to Array
           userProgress // Return the detailed user progress
         };
       })
     );
+    console.log(trainingData);
 
-    // Return training data with percentages
+
+    // Return training data with percentages and unique values
     res.status(200).json({
       message: "Training data fetched successfully",
       data: trainingData
@@ -141,6 +154,15 @@ export const GetAllTrainingWithCompletion = async (req, res) => {
     res.status(500).json({ message: "Server error while fetching training data" });
   }
 };
+
+
+
+
+
+
+
+
+
 
 export const ReassignTraining = async (req, res) => {
   try {

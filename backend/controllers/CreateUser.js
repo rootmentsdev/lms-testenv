@@ -145,23 +145,53 @@ export const createBranch = async (req, res) => {
 };
 
 export const GetBranch = async (req, res) => {
-
-
   try {
-    const response = await Branch.find()
+    // Fetch all branches
+    const branches = await Branch.find();
 
-    if (response) {
+    // If branches are found, fetch the user count and training count based on locCode for each branch
+    if (branches.length > 0) {
+      const branchesWithUserAndTrainingCount = await Promise.all(branches.map(async (branch) => {
+        // Count users based on locCode for each branch
+        const userCount = await User.countDocuments({ locCode: branch.locCode });
+
+        // Fetch all users for the current branch to count their training modules
+        const usersInBranch = await User.find({ locCode: branch.locCode });
+
+        // Count total training modules for each user
+        let totalTrainingCount = 0;
+        for (let user of usersInBranch) {
+          // Assuming 'trainingModules' is an array or reference to modules in the user schema
+          totalTrainingCount += user.training.length;
+        }
+        let totalAssessmentCount = 0;
+        for (let user of usersInBranch) {
+          totalAssessmentCount += user.assignedAssessments.length;
+        }
+
+        return {
+          ...branch.toObject(), // Include all branch data
+          userCount, // Add the user count based on locCode
+          totalTrainingCount, // Add the total training count for users in this branch
+          totalAssessmentCount
+        };
+      }));
+
       res.status(200).json({
-        message: "data find", data: response
-      })
+        message: "Data found",
+        data: branchesWithUserAndTrainingCount
+      });
+    } else {
+      res.status(404).json({ message: "No branches found" });
     }
 
-
   } catch (error) {
-    console.error('Error find branch:', error.message);
-    res.status(500).json({ message: "branch finding error" })
+    console.error('Error finding branch:', error.message);
+    res.status(500).json({ message: "Error finding branch" });
   }
 };
+
+
 
 export const GetuserTraining = async (req, res) => {
   const { email } = req.query; // Extract email from query

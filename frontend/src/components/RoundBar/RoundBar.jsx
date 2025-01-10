@@ -21,7 +21,7 @@ const RoundProgressBar = ({ initialProgress, title, Module, duration, complete }
                 <div className="flex w-full justify-between items-center">
                     {/* Text Content */}
                     <div className="flex flex-col space-y-2">
-                        <h4 className="text-xl text-black font-semibold">{title}</h4>
+                        <h4 className="text-xl text-black font-semibold">{title.length > 15 ? title.slice(0, 15) + "..." : title}</h4>
                         <p className="text-sm text-gray-500">{Module}</p>
                         <p className="text-sm text-gray-500">{duration}</p>
                         <p className="text-sm text-gray-500">{complete}</p>

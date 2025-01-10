@@ -14,13 +14,14 @@ const AssignAssessmentData = () => {
     const [assignedTo, setAssignedTo] = useState([]); // Fixed missing state
     const [days, setDays] = useState(""); // Track input days
     const [selectedOption, setSelectedOption] = useState("user");
-
+    const [Reassign, setReassign] = useState(true);
     const checkfuntion = async () => {
         const Assessment = {
             assignedTo: assignedTo.map((item) => item.value), // Map assignedTo values
             assessmentId: selectedModules.map((item) => item.value), // Map assessment values
             selectedOption, // Ensure this is defined
-            days, // Ensure this is defined
+            days,
+            Reassign // Ensure this is defined
         };
 
         console.log("Request Payload:", Assessment); // Debugging
@@ -210,13 +211,20 @@ const AssignAssessmentData = () => {
                                     placeholder="Enter the number of days"
                                 />
                             </div>
-                            <div className="flex justify-end mt-10">
+                            <div className="flex justify-end mt-10 gap-5">
+                                <div className="form-control">
+                                    <label className="label cursor-pointer flex gap-5">
+                                        <span className="label-text text-[#016E5B]">Reassign user</span>
+                                        <input type="checkbox" onClick={() => setReassign((prev) => !prev)} defaultChecked className="checkbox checkbox-success border  border-black" />
+                                    </label>
+                                </div>
                                 <button
                                     className="bg-[#016E5B] text-white py-2 px-6 rounded hover:bg-[#014d43] transition duration-300"
                                     onClick={checkfuntion} // Replace with your desired functionality
                                 >
                                     Assign Assessment
                                 </button>
+
                             </div>
 
                         </div>

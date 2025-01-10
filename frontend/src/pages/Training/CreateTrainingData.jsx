@@ -1,6 +1,6 @@
-import { Link } from "react-router-dom"
-import RoundProgressBar from "../../components/RoundBar/RoundBar"
-import Header from "../../components/Header/Header"
+import { Link } from "react-router-dom";
+import RoundProgressBar from "../../components/RoundBar/RoundBar";
+import Header from "../../components/Header/Header";
 import { FaPlus } from "react-icons/fa";
 import { CiFilter } from "react-icons/ci";
 import { useEffect, useState } from "react";
@@ -9,128 +9,178 @@ import Card from "../../components/Skeleton/Card";
 import SideNav from "../../components/SideNav/SideNav";
 
 const CreateTrainingData = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  //  /
-  const [loading, setloading] = useState(false)
-  const toggleDropdown = () => {
-    setIsOpen(prev => !prev);
-  };
+  const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
+  const [filteredData, setFilteredData] = useState([]);
+  const [filterRange, setFilterRange] = useState("");
+  const [selectedUniqueItem, setSelectedUniqueItem] = useState("");
+  const [dropdownStates, setDropdownStates] = useState({ range: false, role: false });
+  const [uniqueItems, setUniqueItems] = useState([]);
+  const toggleDropdown = (key) => {
+    setDropdownStates((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   useEffect(() => {
-    const Fetchdata = async () => {
-      setloading(true); // Set loading to true initially
+    const fetchData = async () => {
+      setLoading(true);
       try {
         const response = await fetch(`${baseUrl.baseUrl}api/get/mandatory/allusertraining`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch data');
-        }
+        if (!response.ok) throw new Error("Failed to fetch data");
         const result = await response.json();
-        setData(result.data); // Update data
-        console.log(data);
+        setData(result.data);
+        const items = new Set();
+        result.data.forEach((training) => {
+          training.uniqueItems.forEach((item) => items.add(item));
+        });
+
+        setUniqueItems([...items]);
+        console.log(":hi" + uniqueItems);
+
+        setFilteredData(result.data);
 
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error("Error fetching data:", error);
       } finally {
-        setloading(false); // Ensure loading is false after request completes
+        setLoading(false);
       }
     };
 
-    Fetchdata(); // Fetch data when component mounts
-  }, []); // Dependency array ensures this runs only once
+    fetchData();
+  }, []);
+
+  const applyFilters = (range, role) => {
+    let filtered = [...data];
+
+    if (range) {
+      const [min, max] = range.split("-").map(Number);
+      filtered = filtered.filter(
+        (item) => item.averageCompletionPercentage >= min && item.averageCompletionPercentage <= max
+      );
+    }
+
+    if (role) {
+      filtered = filtered.filter((item) => item?.uniqueItems.includes(role));
+    }
+
+    setFilteredData(filtered);
+  };
+
+  const handleFilterChange = (range) => {
+    setFilterRange(range);
+    toggleDropdown("range");
+    applyFilters(range, selectedUniqueItem);
+  };
+
+  const handleUniqueItemChange = (role) => {
+    setSelectedUniqueItem(role);
+    toggleDropdown("role");
+    applyFilters(filterRange, role);
+  };
 
   return (
-    <div className="w-full  mb-[70px] h-full bg-white">
-      <div><Header name='Mandatory Training' /></div>
+    <div className="w-full mb-[70px] h-full bg-white">
+      <Header name="Mandatory Training" />
       <SideNav />
       <div className="md:ml-[100px] mt-[100px]">
-        <div>
-          <Link to={'/Alltraining'}>
-            <div className="flex justify-end mr-20">
-              <div className="flex w-56 mt-5 border-2 justify-center items-center py-2 ml-10 cursor-pointer
-                                        ">
-
-                <h4 className="text-black">Show All Training</h4>
-              </div>
+        {/* Header Section */}
+        <div className="flex justify-end mr-20">
+          <Link to="/Alltraining">
+            <div className="flex w-56 mt-5 border-2 justify-center items-center py-2 ml-10 cursor-pointer">
+              <h4 className="text-black">Show All Training</h4>
             </div>
           </Link>
-          <div className="flex text-black ml-10 gap-5 text-xl w-auto">
-            <h4 className="border-b-[3px] border-[#016E5B] text-[#016E5B] ">Mandatory Trainings</h4>
-            <Link to={'/AssigData'}>
-              <h4 className="cursor-pointer">Assigned Trainings</h4>
+        </div>
+
+        {/* Filter Section */}
+        <div className="flex text-black ml-10 gap-5 text-xl w-auto">
+          <h4 className="border-b-[3px] border-[#016E5B] text-[#016E5B]">Mandatory Trainings</h4>
+          <Link to="/AssigData">
+            <h4 className="cursor-pointer">Assigned Trainings</h4>
+          </Link>
+        </div>
+        <hr className="mx-10 mt-[-1px] border-[#016E5B]" />
+
+        <div className="flex md:mx-10 md:justify-between mt-10 sm:justify-start">
+          <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer">
+            <FaPlus className="text-[#016E5B]" />
+            <Link to="/create/Mandatorytraining">
+              <h4 className="text-black sm:text-sm">Create Mandatory Training</h4>
             </Link>
           </div>
-          <hr className="mx-10 mt-[-1px] border-[#016E5B] " />
 
-
-
-          <div className="flex md:mx-10 md:justify-between mt-10 sm:justify-start">
-            <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer
-                                    ">
-              <div className="text-[#016E5B]">
-                <FaPlus />
-              </div>
-              <Link to={'/create/Mandatorytraining'}>
-                <h4 className="text-black sm:text-sm">Create Mandatory Training</h4>
-
-              </Link>
-            </div>
-            <div className="relative hidden md:inline-block text-left w-36 mr-10">
-              <button
-                type="button"
-                className="flex justify-between items-center w-full border-2 py-2 px-4 bg-white text-black rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                onClick={toggleDropdown}
-              >
-                <h4>Filter</h4>
-                <CiFilter className="text-[#016E5B]" />
-              </button>
-
-              {/* Dropdown Menu */}
-              {isOpen && (
-                <div
-                  className="origin-top-right absolute right-0 mt-2 w-full rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10"
-                  role="menu"
-                  aria-orientation="vertical"
+          {/* Dropdowns */}
+          <div>
+            {["range", "role"].map((key) => (
+              <div className="relative hidden md:inline-block text-left w-36 mr-10" key={key}>
+                <button
+                  type="button"
+                  className="flex justify-between items-center w-full border-2 py-2 px-4 bg-white text-black rounded-md hover:bg-gray-200 focus:outline-none"
+                  onClick={() => toggleDropdown(key)}
                 >
-                  <div className="py-1">
-                    <a href="#" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Option 1</a>
-                    <a href="#" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Option 2</a>
-                    <a href="#" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Option 3</a>
+                  <h4>
+                    {key === "range" ? (filterRange ? `${filterRange}%` : "Range") : selectedUniqueItem || "Role"}
+                  </h4>
+                  <CiFilter className="text-[#016E5B]" />
+                </button>
+                {dropdownStates[key] && (
+                  <div className="absolute right-0 mt-2 w-full rounded-md shadow-lg bg-white z-10">
+                    <div className="py-1">
+                      {key === "range"
+                        ? ["", "0-25", "26-51", "52-77", "78-100"].map((range) => (
+                          <a
+                            key={range}
+                            href="#"
+                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleFilterChange(range);
+                            }}
+                          >
+                            {range ? `${range}%` : "All"}
+                          </a>
+                        ))
+                        : uniqueItems?.map((role) => (
+                          <a
+                            key={role}
+                            href="#"
+                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleUniqueItemChange(role);
+                            }}
+                          >
+                            {role || "All"}
+                          </a>
+                        ))}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
 
+        {/* Training Cards */}
         <div className="mt-10 ml-10 flex flex-wrap gap-3">
-
-          {loading && <>
-            <Card />
-            <Card />
-            <Card />
-            <Card />
-          </>}
-          {
-            data.map((item) => {
-              return (
-                <Link key={item._id} to={`/AssigTraining/${item?.trainingId}`}>
-                  <RoundProgressBar
-                    initialProgress={item?.averageCompletionPercentage}
-                    title={`${item?.trainingName} for ${item.uniqueItems.join(', ')}`}
-                    Module={`No. of Modules : ${item?.numberOfModules}`}
-                    duration={`No. of users: ${item?.totalUsers}`}
-                    complete={`Completion Rate : ${item?.averageCompletionPercentage}%`}
-                  />
-                </Link>
-              )
-            })
-          }
-
+          {loading
+            ? Array(4)
+              .fill(null)
+              .map((_, i) => <Card key={i} />)
+            : filteredData.map((item) => (
+              <Link key={item._id} to={`/AssigTraining/${item?.trainingId}`}>
+                <RoundProgressBar
+                  initialProgress={item?.averageCompletionPercentage || 0}
+                  title={item?.trainingName}
+                  Module={`No. of Modules: ${item?.numberOfModules || 0}`}
+                  duration={`No. of users: ${item?.totalUsers || 0}`}
+                  complete={`Completion Rate: ${item?.averageCompletionPercentage || 0}%`}
+                />
+              </Link>
+            ))}
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default CreateTrainingData
+export default CreateTrainingData;

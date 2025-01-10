@@ -40,7 +40,7 @@ const UserTrainingProgressData = () => {
             <div><Header name='Training Details' /></div>
 
             <SideNav />
-            <div className="md:ml-[100px] mt-[100px]">
+            <div className="md:ml-[100px] mt-[150px]">
 
                 <div className="px-4 md:px-10 mt-10 text-2xl text-black">
                     <div className="text-2xl text-black flex gap-2 flex-col">
