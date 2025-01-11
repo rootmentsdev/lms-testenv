@@ -8,6 +8,7 @@ import ModuleRouter from './routes/ModuleRoute.js';
 import userrouter from './routes/AssessmentAndModule.js';
 import UserCreating from './routes/UserRoute.js';
 import UserRouters from './routes/UserConRoute.js';
+import AdminData from './routes/AdminRoute.js'
 
 const app = express();
 const port = process.env.PORT || 7000;
@@ -34,6 +35,7 @@ app.use('/api', ModuleRouter)
 app.use('/api/user', userrouter)
 app.use('/api/usercreate', UserCreating)
 app.use('/pi/auth', UserRouters)
+app.use('/api/admin', AdminData)
 
 
 app.listen(port, () => {

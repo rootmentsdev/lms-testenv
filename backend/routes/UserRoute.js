@@ -1,6 +1,6 @@
 import express from 'express';
 import { createBranch, createUser, GetAllUser, GetBranch, loginUser } from '../controllers/CreateUser.js';
-import { createDesignation, getAllDesignation, } from '../controllers/DestinationController.js';
+import { createDesignation, getAllDesignation,  } from '../controllers/DestinationController.js';
 
 const router = express.Router();
 
@@ -12,5 +12,6 @@ router.post('/create/branch', createBranch)
 router.get('/getBranch', GetBranch);
 router.post('/create/designation', createDesignation)
 router.get('/getAll/designation', getAllDesignation)
+
 
 export default router;

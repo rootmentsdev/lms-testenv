@@ -8,7 +8,8 @@ import {
     Tooltip,
     Legend,
 } from "chart.js";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import baseUrl from "../../api/api";
 
 // Register chart.js components
 ChartJS.register(
@@ -24,7 +25,7 @@ ChartJS.register(
 const HomeBar = () => {
 
     const [change, setChange] = useState(false)
-
+    const [AllData, setAllData] = useState([])
 
 
     const canvasCallback = (canvas) => {
@@ -47,65 +48,72 @@ const HomeBar = () => {
         data2.datasets[1].backgroundColor = pendingGradient;
     };
 
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const response = await fetch(`${baseUrl.baseUrl}api/admin/get/HomeProgressData`);
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.status} ${response.statusText}`);
+                }
+                const result = await response.json();
+                setAllData(result.data);
+                console.log(result.data);
+                console.log(AllData);
+
+            } catch (error) {
+                console.error("Failed to fetch data:", error.message);
+            }
+        };
+
+        fetchData();
+    }, []);
+    const names = AllData?.map(obj => obj.locCode);
+    const Assessment = AllData?.map(obj => obj.completeAssessment)
+    const PendingAssessment = AllData?.map(obj => obj.pendingAssessment)
+    const Training = AllData?.map(obj => obj.completeTraining)
+    const PendingTraining = AllData?.map(obj => obj.pendingTraining)
+    const Lable = AllData?.map(obj => obj.branchName + "  \n" + "Completed :" + Math.round(obj.completeTraining) + "%" + " and " + " pending :" + Math.round(obj.pendingTraining) + "%")
+    const Lable1 = AllData?.map(obj => obj.branchName + "  \n" + "Completed :" + Math.round(obj.completeAssessment) + "%" + " and " + " pending :" + Math.round(obj.pendingAssessment) + "%")
+
+    console.log(names);
+
     const data1 = {
-        labels: ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14"],
+        labels: names,
         datasets: [
             {
                 label: "Completed",
-                data: [62, 80, 76, 45, 54, 70, 63, 50, 80, 34, 84, 62, 48, 57],
+                data: Assessment,
                 borderWidth: 1,
                 borderRadius: 0,
-                customTooltipText: [
-                    "Completed on time", "Exceeds expectations", "Great progress",
-                    "Needs improvement", "Average performance", "Good teamwork",
-                    "Excellent", "On schedule", "Exemplary", "Falling behind",
-                    "Top performer", "Satisfactory", "Needs attention", "Steady progress"
-                ],
+                customTooltipText: Lable1,
             },
             {
                 label: "Pending",
-                data: [38, 20, 24, 55, 46, 30, 37, 50, 20, 66, 16, 38, 52, 43], // Example data
+                data: PendingAssessment, // Example data
                 borderWidth: 0,
                 borderRadius: 8,
-                customTooltipText: [
-                    "Pending work", "Delayed tasks", "Awaiting approval",
-                    "In review", "Pending feedback", "Delayed by team",
-                    "Awaiting next steps", "On hold", "Waiting for resources",
-                    "Missed deadlines", "Pending high-priority tasks",
-                    "Needs manager review", "On pause", "Rescheduled"
-                ],
+                customTooltipText: Lable1,
             },
         ],
     };
     const data2 = {
-        labels: ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14"],
+        labels: names,
         datasets: [
             {
                 label: "Completed",
-                data: [38, 20, 24, 55, 46, 30, 37, 50, 20, 66, 16, 38, 52, 43], // Example data
+                data: Training, // Example data
 
                 borderWidth: 1,
                 borderRadius: 0,
-                customTooltipText: [
-                    "Pending work", "Delayed tasks", "Awaiting approval",
-                    "In review", "Pending feedback", "Delayed by team",
-                    "Awaiting next steps", "On hold", "Waiting for resources",
-                    "Missed deadlines", "Pending high-priority tasks",
-                    "Needs manager review", "On pause", "Rescheduled"
-                ],
+                customTooltipText: Lable,
             },
             {
                 label: "Pending",
-                data: [62, 80, 76, 45, 54, 70, 63, 50, 80, 34, 84, 62, 48, 57],
+                data: PendingTraining,
 
                 borderWidth: 0,
                 borderRadius: 8,
-                customTooltipText: [
-                    "Completed on time", "Exceeds expectations", "Great progress",
-                    "Needs improvement", "Average performance", "Good teamwork",
-                    "Excellent", "On schedule", "Exemplary", "Falling behind",
-                    "Top performer", "Satisfactory", "Needs attention", "Steady progress"
-                ],
+                customTooltipText: Lable,
             },
         ],
     };
@@ -153,7 +161,7 @@ const HomeBar = () => {
                 stacked: true,
                 ticks: {
                     callback: (value) => `${value}%`, // Add percentage sign
-                    stepSize: 20, // Step size for y-axis
+                    stepSize: 10, // Step size for y-axis
                 },
                 grid: {
                     color: "rgba(0, 0, 0, 0.1)", // y-axis grid line color
