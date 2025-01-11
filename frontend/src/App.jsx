@@ -24,6 +24,7 @@ import AssessmentsAssign from './pages/Assessments/AssessmentsAssign/Assessments
 import UserTrainingProgress from './pages/Training/UserTrainingProgress/UserTrainingProgress'
 import { ToastContainer } from 'react-toastify';
 import AssignAssessment from './pages/Assessments/AssignAssessment/AssignAssessment'
+import Test from './components/test/Test'
 function App() {
 
   return (
@@ -51,6 +52,7 @@ function App() {
         <Route path={'/create/Assessment'} element={< CreateAssessment />} />
         <Route path={'/Assessment/Assign/:id'} element={< AssessmentsAssign />} />
         <Route path={'/assign/Assessment'} element={< AssignAssessment />} />
+        <Route path={'/test'} element={< Test />} />
 
         {/*  */}
       </Routes>
