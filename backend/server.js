@@ -22,7 +22,7 @@ app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
 app.use(
   cors({
-    origin: ['https://unicode-mu.vercel.app', 'http://localhost:3000', 'https://lms-steel-kappa.vercel.app'],
+    origin: ['https://unicode-mu.vercel.app', 'http://localhost:3000', 'https://lms-steel-kappa.vercel.app','https://lms-1-121p.onrender.com'],
     credentials: true,
   })
 );
