@@ -8,7 +8,7 @@ import baseUrl from "../../api/api";
 import HomeSkeleton from "../../components/Skeleton/HomeSkeleton";
 import SideNav from "../../components/SideNav/SideNav";
 import { Link } from "react-router-dom";
-// import HomeBar from "../../components/HomeBar/HomeBar";
+import HomeBar from "../../components/HomeBar/HomeBar";
 import TopEmployeeAndBranch from "../../components/TopEmployeeAndBranch/TopEmployeeAndBranch";
 
 const HomeData = () => {
@@ -138,7 +138,7 @@ const HomeData = () => {
             </div>
             <div className="flex gap-20">
                 <div>
-                    {/* <HomeBar /> */}
+                    <HomeBar />
                 </div>
                 <div className="h-[360px] w-[600px]  rounded-xl" >
                     <TopEmployeeAndBranch />
