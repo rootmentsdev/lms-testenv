@@ -22,33 +22,37 @@ ChartJS.register(
 );
 
 const HomeBar = () => {
-    const [change, setChange] = useState(false);
-    const [AllData, setAllData] = useState([]);
-    const canvasRef = useRef(null);
+    const [change, setChange] = useState(false); // Toggle between Assessment and Training
+    const [AllData, setAllData] = useState([]); // Data from API
+    const canvasRef = useRef(null); // Reference to the canvas element
 
+    // Function to apply gradients
     const canvasCallback = (canvas) => {
         if (canvas) {
             const ctx = canvas.getContext("2d");
+            console.log("Canvas dimensions:", canvas.width, canvas.height); // Debugging canvas dimensions
+
             if (ctx) {
-                // Gradient for Completed
+                // Create gradient for Completed bars
                 const completedGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
                 completedGradient.addColorStop(0, "#00A387"); // Start color (lighter green)
                 completedGradient.addColorStop(1, "#016E5B"); // End color (darker green)
 
-                // Gradient for Pending
+                // Create gradient for Pending bars
                 const pendingGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
                 pendingGradient.addColorStop(0, "#EBEBEB"); // Start color (light grey)
                 pendingGradient.addColorStop(1, "#a6a6a6"); // End color (dark grey)
 
-                // Update datasets
-                data1.datasets[0].backgroundColor = completedGradient;
-                data1.datasets[1].backgroundColor = pendingGradient;
-                data2.datasets[0].backgroundColor = completedGradient;
-                data2.datasets[1].backgroundColor = pendingGradient;
+                // Apply gradients to datasets
+                data1.datasets[0].backgroundColor = completedGradient || "#00A387"; // Fallback to solid color
+                data1.datasets[1].backgroundColor = pendingGradient || "#EBEBEB";
+                data2.datasets[0].backgroundColor = completedGradient || "#00A387";
+                data2.datasets[1].backgroundColor = pendingGradient || "#EBEBEB";
             }
         }
     };
 
+    // Fetch data from API
     useEffect(() => {
         const fetchData = async () => {
             try {
@@ -57,7 +61,7 @@ const HomeBar = () => {
                     throw new Error(`Error: ${response.status} ${response.statusText}`);
                 }
                 const result = await response.json();
-                setAllData(result.data);
+                setAllData(result.data); // Update state with fetched data
             } catch (error) {
                 console.error("Failed to fetch data:", error.message);
             }
@@ -66,26 +70,33 @@ const HomeBar = () => {
         fetchData();
     }, []);
 
+    // Reapply gradient when data or toggle changes
     useEffect(() => {
         if (canvasRef.current) {
             canvasCallback(canvasRef.current);
         }
-    }, [change, AllData]); // Update gradients when data or change state updates
+    }, [change, AllData]); // Trigger when data or toggle state changes
 
+    // Map data for the chart
     const names = AllData?.map((obj) => obj.locCode);
     const Assessment = AllData?.map((obj) => obj.completeAssessment);
     const PendingAssessment = AllData?.map((obj) => obj.pendingAssessment);
     const Training = AllData?.map((obj) => obj.completeTraining);
     const PendingTraining = AllData?.map((obj) => obj.pendingTraining);
-    const Lable = AllData?.map(
+    const LabelAssessment = AllData?.map(
         (obj) =>
-            `${obj.branchName}\nCompleted: ${Math.round(obj.completeTraining)}% and Pending: ${Math.round(obj.pendingTraining)}%`
+            `${obj.branchName}\nCompleted: ${Math.round(obj.completeAssessment)}% and Pending: ${Math.round(
+                obj.pendingAssessment
+            )}%`
     );
-    const Lable1 = AllData?.map(
+    const LabelTraining = AllData?.map(
         (obj) =>
-            `${obj.branchName}\nCompleted: ${Math.round(obj.completeAssessment)}% and Pending: ${Math.round(obj.pendingAssessment)}%`
+            `${obj.branchName}\nCompleted: ${Math.round(obj.completeTraining)}% and Pending: ${Math.round(
+                obj.pendingTraining
+            )}%`
     );
 
+    // Data for Assessment and Training charts
     const data1 = {
         labels: names,
         datasets: [
@@ -94,14 +105,14 @@ const HomeBar = () => {
                 data: Assessment,
                 borderWidth: 1,
                 borderRadius: 0,
-                customTooltipText: Lable1,
+                customTooltipText: LabelAssessment,
             },
             {
                 label: "Pending",
                 data: PendingAssessment,
                 borderWidth: 0,
                 borderRadius: 8,
-                customTooltipText: Lable1,
+                customTooltipText: LabelAssessment,
             },
         ],
     };
@@ -114,18 +125,19 @@ const HomeBar = () => {
                 data: Training,
                 borderWidth: 1,
                 borderRadius: 0,
-                customTooltipText: Lable,
+                customTooltipText: LabelTraining,
             },
             {
                 label: "Pending",
                 data: PendingTraining,
                 borderWidth: 0,
                 borderRadius: 8,
-                customTooltipText: Lable,
+                customTooltipText: LabelTraining,
             },
         ],
     };
 
+    // Chart options
     const options = {
         responsive: true,
         plugins: {
@@ -154,10 +166,10 @@ const HomeBar = () => {
             y: {
                 stacked: true,
                 ticks: {
-                    callback: (value) => `${value}%`,
+                    callback: (value) => `${value}%`, // Add percentage sign
                 },
                 grid: {
-                    color: "rgba(0, 0, 0, 0.1)",
+                    color: "rgba(0, 0, 0, 0.1)", // Grid line color
                 },
             },
         },
@@ -170,11 +182,17 @@ const HomeBar = () => {
                     <div className="flex justify-end mt-3 mx-3 text-[#016E5B]">
                         <div className="flex gap-2">
                             <label>Assessment</label>
-                            <input type="checkbox" className="toggle" onClick={() => setChange((prev) => !prev)} defaultChecked />
+                            <input
+                                type="checkbox"
+                                className="toggle"
+                                onClick={() => setChange((prev) => !prev)}
+                                defaultChecked
+                            />
                             <label>Training</label>
                         </div>
                     </div>
                     <Bar
+                        key={change} // Force re-render on toggle
                         className="w-full h-full"
                         data={change ? data1 : data2}
                         options={options}
