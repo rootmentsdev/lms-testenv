@@ -1,4 +1,4 @@
-import { Bar } from "react-chartjs-2"; // Removed Recharts import
+import { Bar } from "react-chartjs-2";
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -40,7 +40,7 @@ const HomeBar = () => {
                 pendingGradient.addColorStop(0, "#EBEBEB"); // Start color (light grey)
                 pendingGradient.addColorStop(1, "#a6a6a6"); // End color (dark grey)
 
-                // Apply gradients
+                // Update datasets
                 data1.datasets[0].backgroundColor = completedGradient;
                 data1.datasets[1].backgroundColor = pendingGradient;
                 data2.datasets[0].backgroundColor = completedGradient;
@@ -66,13 +66,25 @@ const HomeBar = () => {
         fetchData();
     }, []);
 
-    const names = AllData?.map(obj => obj.locCode);
-    const Assessment = AllData?.map(obj => obj.completeAssessment);
-    const PendingAssessment = AllData?.map(obj => obj.pendingAssessment);
-    const Training = AllData?.map(obj => obj.completeTraining);
-    const PendingTraining = AllData?.map(obj => obj.pendingTraining);
-    const Lable = AllData?.map(obj => `${obj.branchName}\nCompleted: ${Math.round(obj.completeTraining)}% and Pending: ${Math.round(obj.pendingTraining)}%`);
-    const Lable1 = AllData?.map(obj => `${obj.branchName}\nCompleted: ${Math.round(obj.completeAssessment)}% and Pending: ${Math.round(obj.pendingAssessment)}%`);
+    useEffect(() => {
+        if (canvasRef.current) {
+            canvasCallback(canvasRef.current);
+        }
+    }, [change, AllData]); // Update gradients when data or change state updates
+
+    const names = AllData?.map((obj) => obj.locCode);
+    const Assessment = AllData?.map((obj) => obj.completeAssessment);
+    const PendingAssessment = AllData?.map((obj) => obj.pendingAssessment);
+    const Training = AllData?.map((obj) => obj.completeTraining);
+    const PendingTraining = AllData?.map((obj) => obj.pendingTraining);
+    const Lable = AllData?.map(
+        (obj) =>
+            `${obj.branchName}\nCompleted: ${Math.round(obj.completeTraining)}% and Pending: ${Math.round(obj.pendingTraining)}%`
+    );
+    const Lable1 = AllData?.map(
+        (obj) =>
+            `${obj.branchName}\nCompleted: ${Math.round(obj.completeAssessment)}% and Pending: ${Math.round(obj.pendingAssessment)}%`
+    );
 
     const data1 = {
         labels: names,
@@ -131,18 +143,6 @@ const HomeBar = () => {
                     },
                 },
             },
-            datalabels: {
-                display: true,
-                align: "end",
-                anchor: "end",
-                borderRadius: 10,
-                formatter: (value) => `${value}%`,
-                font: {
-                    size: 12,
-                    weight: "bold",
-                },
-                color: "#000",
-            },
         },
         scales: {
             x: {
@@ -155,19 +155,10 @@ const HomeBar = () => {
                 stacked: true,
                 ticks: {
                     callback: (value) => `${value}%`,
-                    stepSize: 10,
                 },
                 grid: {
                     color: "rgba(0, 0, 0, 0.1)",
                 },
-            },
-        },
-        layout: {
-            padding: {
-                top: 30,
-                right: 10,
-                left: 0,
-                bottom: 0,
             },
         },
     };
