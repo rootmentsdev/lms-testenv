@@ -1,165 +1,25 @@
-import { Bar } from "react-chartjs-2";
-import {
-    Chart as ChartJS,
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    Title,
-    Tooltip,
-    Legend,
-} from "chart.js";
-import { useEffect, useState, useRef } from "react";
-import baseUrl from "../../api/api";
-
-ChartJS.register(
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    Title,
-    Tooltip,
-    Legend
-);
+import React, { useState } from "react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, ResponsiveContainer } from "recharts";
 
 const Test = () => {
     const [change, setChange] = useState(false); // Toggle between Assessment and Training
-    const [AllData, setAllData] = useState([]); // Data from API
-    const canvasRef = useRef(null); // Reference to the canvas element
 
-    const canvasCallback = (canvas) => {
-        if (canvas) {
-            const ctx = canvas.getContext("2d");
-
-            if (ctx) {
-                // Standardized colors for gradients
-                const completedGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-                completedGradient.addColorStop(0, "#4CAF50"); // Light green
-                completedGradient.addColorStop(1, "#2E7D32"); // Dark green
-
-                const pendingGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-                pendingGradient.addColorStop(0, "#E0E0E0"); // Light grey
-                pendingGradient.addColorStop(1, "#757575"); // Dark grey
-
-                // Apply gradients to datasets
-                data1.datasets[0].backgroundColor = completedGradient || "#4CAF50";
-                data1.datasets[1].backgroundColor = pendingGradient || "#E0E0E0";
-                data2.datasets[0].backgroundColor = completedGradient || "#4CAF50";
-                data2.datasets[1].backgroundColor = pendingGradient || "#E0E0E0";
-            }
-        }
-    };
-
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const response = await fetch(`${baseUrl.baseUrl}api/admin/get/HomeProgressData`);
-                if (!response.ok) {
-                    throw new Error(`Error: ${response.status} ${response.statusText}`);
-                }
-                const result = await response.json();
-                setAllData(result.data);
-            } catch (error) {
-                console.error("Failed to fetch data:", error.message);
-            }
-        };
-
-        fetchData();
-    }, []);
-
-    useEffect(() => {
-        if (canvasRef.current) {
-            canvasCallback(canvasRef.current);
-        }
-    }, [change, AllData]);
-
-    const names = AllData?.map((obj) => obj.locCode);
-    const Assessment = AllData?.map((obj) => obj.completeAssessment);
-    const PendingAssessment = AllData?.map((obj) => obj.pendingAssessment);
-    const Training = AllData?.map((obj) => obj.completeTraining);
-    const PendingTraining = AllData?.map((obj) => obj.pendingTraining);
-    const LabelAssessment = AllData?.map(
-        (obj) =>
-            `${obj.branchName}\nCompleted: ${Math.round(obj.completeAssessment)}% and Pending: ${Math.round(
-                obj.pendingAssessment
-            )}%`
-    );
-    const LabelTraining = AllData?.map(
-        (obj) =>
-            `${obj.branchName}\nCompleted: ${Math.round(obj.completeTraining)}% and Pending: ${Math.round(
-                obj.pendingTraining
-            )}%`
-    );
-
-    const data1 = {
-        labels: ['test','test'],
-        datasets: [
-            {
-                label: "Completed",
-                data: Assessment,
-                borderWidth: 1,
-                customTooltipText: LabelAssessment,
-            },
-            {
-                label: "Pending",
-                data: PendingAssessment,
-                borderWidth: 0,
-                customTooltipText: LabelAssessment,
-            },
-        ],
-    };
-
-    const data2 = {
-        labels: ['test','test'],
-        datasets: [
-            {
-                label: "Completed",
-                data: Training,
-                borderWidth: 1,
-                customTooltipText: LabelTraining,
-            },
-            {
-                label: "Pending",
-                data: PendingTraining,
-                borderWidth: 0,
-                customTooltipText: LabelTraining,
-            },
-        ],
-    };
-
-    const options = {
-        responsive: true,
-        plugins: {
-            legend: {
-                display: false,
-            },
-            tooltip: {
-                callbacks: {
-                    title: (tooltipItems) => tooltipItems[0].label,
-                    label: (tooltipItem) => {
-                        const dataset = tooltipItem.dataset;
-                        const index = tooltipItem.dataIndex;
-                        return dataset.customTooltipText[index];
-                    },
-                },
-            },
+    const staticData = [
+        {
+            name: "Branch 1",
+            CompletedAssessment: 80,
+            PendingAssessment: 20,
+            CompletedTraining: 70,
+            PendingTraining: 30,
         },
-        scales: {
-            x: {
-                stacked: true,
-                grid: {
-                    display: false,
-                },
-            },
-            y: {
-                stacked: true,
-                ticks: {
-                    callback: (value) => `${value}%`,
-                },
-                grid: {
-                    color: "rgba(0, 0, 0, 0.1)",
-                },
-            },
+        {
+            name: "Branch 2",
+            CompletedAssessment: 60,
+            PendingAssessment: 40,
+            CompletedTraining: 50,
+            PendingTraining: 50,
         },
-    };
+    ];
 
     return (
         <div>
@@ -177,18 +37,29 @@ const Test = () => {
                             <label>Training</label>
                         </div>
                     </div>
-                    <Bar
-                        key={change}
-                        className="w-full h-full"
-                        data={change ? data1 : data2}
-                        options={options}
-                        ref={(ref) => {
-                            if (ref) {
-                                canvasRef.current = ref.canvas;
-                                canvasCallback(ref.canvas);
-                            }
-                        }}
-                    />
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                            data={staticData}
+                            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                        >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis />
+                            <Tooltip />
+                            <Legend />
+                            {change ? (
+                                <>
+                                    <Bar dataKey="CompletedAssessment" stackId="a" fill="#4CAF50" />
+                                    <Bar dataKey="PendingAssessment" stackId="a" fill="#E0E0E0" />
+                                </>
+                            ) : (
+                                <>
+                                    <Bar dataKey="CompletedTraining" stackId="a" fill="#4CAF50" />
+                                    <Bar dataKey="PendingTraining" stackId="a" fill="#E0E0E0" />
+                                </>
+                            )}
+                        </BarChart>
+                    </ResponsiveContainer>
                 </div>
             </div>
         </div>
