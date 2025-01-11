@@ -1,6 +1,7 @@
 import { IoIosSearch } from "react-icons/io";
 import { GoBell } from "react-icons/go";
 import image from '../../../public/Rootments.jpg'
+import { Link } from "react-router-dom";
 
 
 const Header = ({
@@ -16,14 +17,18 @@ const Header = ({
                     <div>
                         <img src={image} alt="Logo" className="rounded-full" />
                     </div>
-                    <div className="lg:block hidden md:block">
-                        <div className="text-2xl text-green-700">
-                            ROOTMENTS
+                    <Link to={'/'}>
+
+
+                        <div className="lg:block hidden md:block cursor-pointer">
+                            <div className="text-2xl text-green-700">
+                                ROOTMENTS
+                            </div>
+                            <div className="flex justify-end text-sm">
+                                ENTERPRISE
+                            </div>
                         </div>
-                        <div className="flex justify-end text-sm">
-                            ENTERPRISE
-                        </div>
-                    </div>
+                    </Link>
                     <div className="mt-4 flex items-center ml-10">
                         <a className="text-black text-xl  font-semibold lg:text-2xl">{name ? name : ''}</a>
                     </div>

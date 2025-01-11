@@ -16,7 +16,6 @@ export const GetAssessmentdetailes = async (req, res) => {
     }
 }
 
-
 export const AssignToUserAssessment = async (req, res) => {
     try {
         const { id } = req.params;
@@ -27,7 +26,6 @@ export const AssignToUserAssessment = async (req, res) => {
         })
     }
 }
-
 
 export const TrainingDetails = async (req, res) => {
     try {
@@ -120,7 +118,7 @@ export const TrainingDetails = async (req, res) => {
 
 export const AssessmentAssign = async (req, res) => {
     try {
-        const { assessmentId, assignedTo, days, selectedOption } = req.body;
+        const { assessmentId, assignedTo, days, selectedOption, Reassign } = req.body;
 
         // Validate input
         if (!assessmentId || !assignedTo || !Array.isArray(assignedTo) || assignedTo.length === 0 || !days) {
@@ -128,8 +126,9 @@ export const AssessmentAssign = async (req, res) => {
         }
 
         // Calculate deadline
-        const deadline = new Date();
-        deadline.setDate(deadline.getDate() + days);
+        const deadline = new Date(Date.now() + (days * 24 * 60 * 60 * 1000));
+        console.log(deadline, new Date(Date.now()));
+
 
         const results = [];
 
@@ -146,24 +145,47 @@ export const AssessmentAssign = async (req, res) => {
                 const assessmentIds = Array.isArray(assessmentId) ? assessmentId : [assessmentId];
 
                 for (const id of assessmentIds) {
-                    const alreadyAssigned = user.assignedAssessments.some(
-                        (assessment) => assessment.assessmentId.toString() === id.toString()
+                    const userHave = await User.findOne(
+                        { _id: user._id, 'assignedAssessments.assessmentId': id }
                     );
 
-                    if (alreadyAssigned) {
-                        results.push({
-                            userId,
-                            assessmentId: id,
-                            message: "Assessment already assigned.",
-                        });
-                        continue;
-                    }
+                    if (Reassign) {
+                        if (userHave) {
+                            // Remove the old assessment from `assignedAssessments`
+                            user.assignedAssessments = user.assignedAssessments.filter(
+                                (assessment) => assessment.assessmentId.toString() !== id.toString()
+                            );
+                            await user.save();
 
-                    user.assignedAssessments.push({
-                        assessmentId: id,
-                        deadline,
-                        status: 'Pending',
-                    });
+                            // Remove the old assessment from `AssessmentProcess`
+                            await AssessmentProcess.deleteOne({ userId: user._id, assessmentId: id });
+
+                            results.push({
+                                userId,
+                                assessmentId: id,
+                                message: "Old assessment removed and reassigned.",
+                            });
+                        }
+
+                        const alreadyAssigned = user.assignedAssessments.some(
+                            (assessment) => assessment.assessmentId.toString() === id.toString()
+                        );
+
+                        if (alreadyAssigned) {
+                            results.push({
+                                userId,
+                                assessmentId: id,
+                                message: "Assessment already assigned.",
+                            });
+                            continue;
+                        }
+
+                        user.assignedAssessments.push({
+                            assessmentId: id,
+                            deadline,
+                            status: 'Pending',
+                        });
+                    }
 
                     await user.save();
 
@@ -197,7 +219,6 @@ export const AssessmentAssign = async (req, res) => {
                 }
             }
         }
-
         if (selectedOption === 'branch') {
             for (const locCode of assignedTo) {
                 const users = await User.find({ locCode });
@@ -210,6 +231,29 @@ export const AssessmentAssign = async (req, res) => {
 
                 for (const user of users) {
                     for (const id of assessmentIds) {
+                        if (Reassign) {
+                            const userHave = await User.findOne(
+                                { _id: user._id, 'assignedAssessments.assessmentId': id }
+                            );
+
+                            if (userHave) {
+                                // Remove the old assessment from `assignedAssessments`
+                                user.assignedAssessments = user.assignedAssessments.filter(
+                                    (assessment) => assessment.assessmentId.toString() !== id.toString()
+                                );
+                                await user.save();
+
+                                // Remove the old assessment from `AssessmentProcess`
+                                await AssessmentProcess.deleteOne({ userId: user._id, assessmentId: id });
+
+                                results.push({
+                                    userId: user._id,
+                                    assessmentId: id,
+                                    message: "Old assessment removed and reassigned.",
+                                });
+                            }
+                        }
+
                         const alreadyAssigned = user.assignedAssessments.some(
                             (assessment) => assessment.assessmentId.toString() === id.toString()
                         );
@@ -281,6 +325,29 @@ export const AssessmentAssign = async (req, res) => {
 
                 for (const user of users) {
                     for (const id of assessmentIds) {
+                        if (Reassign) {
+                            const userHave = await User.findOne(
+                                { _id: user._id, 'assignedAssessments.assessmentId': id }
+                            );
+
+                            if (userHave) {
+                                // Remove the old assessment from `assignedAssessments`
+                                user.assignedAssessments = user.assignedAssessments.filter(
+                                    (assessment) => assessment.assessmentId.toString() !== id.toString()
+                                );
+                                await user.save();
+
+                                // Remove the old assessment from `AssessmentProcess`
+                                await AssessmentProcess.deleteOne({ userId: user._id, assessmentId: id });
+
+                                results.push({
+                                    userId: user._id,
+                                    assessmentId: id,
+                                    message: "Old assessment removed and reassigned.",
+                                });
+                            }
+                        }
+
                         const alreadyAssigned = user.assignedAssessments.some(
                             (assessment) => assessment.assessmentId.toString() === id.toString()
                         );
