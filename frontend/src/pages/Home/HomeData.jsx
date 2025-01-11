@@ -135,9 +135,70 @@ const HomeData = () => {
                     )}
                 </div>
             </div>
-            <div>
+            <div className="flex gap-20">
                 <div>
                     <HomeBar />
+                </div>
+                <div className="h-[360px] w-[600px]  rounded-xl" >
+                    <div className="p-2 bg-white shadow-md rounded-md w-full h-full mx-auto">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-lg font-bold">Top Performance</h2>
+                            <select className="border border-gray-300 rounded-md p-1 bg-white">
+                                <option>November</option>
+                                <option>October</option>
+                                <option>September</option>
+                            </select>
+                        </div>
+                        <div className="mb-4">
+                            <button className="bg-green-600 text-white px-4 py-1 rounded-md text-sm">Employees</button>
+                        </div>
+                        <div className="space-y-4">
+
+                            <div className="flex items-center bg-gray-100 p-2 rounded-md">
+                                <div className="flex items-center justify-center w-12 h-12 bg-yellow-400 text-white font-bold text-lg rounded-full">
+                                    01
+                                </div>
+                                <div className="ml-4 flex-1">
+                                    <p className="font-medium">Employee Name</p>
+                                    <p className="text-gray-500 text-sm">Branch Name</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="font-bold text-green-600">95% <span className="text-gray-500">Training Completed</span></p>
+                                    <p className="font-bold text-green-600">90% <span className="text-gray-500">Assessment Score</span></p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center bg-gray-100 p-2 rounded-md">
+                                <div className="flex items-center justify-center w-12 h-12 bg-gray-400 text-white font-bold text-lg rounded-full">
+                                    02
+                                </div>
+                                <div className="ml-4 flex-1">
+                                    <p className="font-medium">Employee Name</p>
+                                    <p className="text-gray-500 text-sm">Branch Name</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="font-bold text-green-600">90% <span className="text-gray-500">Training Completed</span></p>
+                                    <p className="font-bold text-green-600">88% <span className="text-gray-500">Assessment Score</span></p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center bg-gray-100 p-2 rounded-md">
+                                <div className="flex items-center justify-center w-12 h-12 bg-yellow-700 text-white font-bold text-lg rounded-full">
+                                    03
+                                </div>
+                                <div className="ml-4 flex-1">
+                                    <p className="font-medium">Employee Name</p>
+                                    <p className="text-gray-500 text-sm">Branch Name</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="font-bold text-green-600">86% <span className="text-gray-500">Training Completed</span></p>
+                                    <p className="font-bold text-green-600">85% <span className="text-gray-500">Assessment Score</span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+
                 </div>
             </div>
 
