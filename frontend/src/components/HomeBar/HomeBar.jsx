@@ -33,18 +33,27 @@ const HomeBar = () => {
     }, []);
 
     // Process data for recharts
-    const chartData = allData.map((obj) => ({
-        name: obj.locCode,
-        Completed: change ? obj.completeAssessment : obj.completeTraining,
-        Pending: change ? obj.pendingAssessment : obj.pendingTraining,
-        customTooltipText: change
-            ? `Branch: ${obj.branchName}\nCompleted: ${Math.round(
-                obj.completeAssessment
-            )}%\nPending: ${Math.round(obj.pendingAssessment)}%`
-            : `Branch: ${obj.branchName}\nCompleted: ${Math.round(
-                obj.completeTraining
-            )}%\nPending: ${Math.round(obj.pendingTraining)}%`,
-    }));
+    const chartData = allData.map((obj) => {
+        const totalTraining = obj.completeTraining + obj.pendingTraining;
+        const totalAssessment = obj.completeAssessment + obj.pendingAssessment;
+
+        // Calculate percentages for Training (using total for Training only)
+        const completedTraining = totalTraining ? (obj.completeTraining / totalTraining) * 100 : 0;
+        const pendingTraining = totalTraining ? (obj.pendingTraining / totalTraining) * 100 : 0;
+
+        // Calculate percentages for Assessment (using total for Assessment only)
+        const completedAssessment = totalAssessment ? (obj.completeAssessment / totalAssessment) * 100 : 0;
+        const pendingAssessment = totalAssessment ? (obj.pendingAssessment / totalAssessment) * 100 : 0;
+
+        return {
+            name: obj.locCode,
+            Completed: change ? completedAssessment : completedTraining,
+            Pending: change ? pendingAssessment : pendingTraining,
+            customTooltipText: change
+                ? `Branch: ${obj.branchName}\nCompleted: ${completedAssessment.toFixed(2)}%\nPending: ${pendingAssessment.toFixed(2)}%`
+                : `Branch: ${obj.branchName}\nCompleted: ${completedTraining.toFixed(2)}%\nPending: ${pendingTraining.toFixed(2)}%`,
+        };
+    });
 
     // Tooltip Formatter
     const CustomTooltip = ({ active, payload }) => {
@@ -69,8 +78,10 @@ const HomeBar = () => {
 
                             <input
                                 type="checkbox"
-                                className="toggle border-blue-500 bg-[#016E5B] [--tglbg:white] hover:bg-[#287468]" onClick={() => setChange((prev) => !prev)}
-                                defaultChecked />
+                                className="toggle border-blue-500 bg-[#016E5B] [--tglbg:white] hover:bg-[#287468]"
+                                onClick={() => setChange((prev) => !prev)}
+                                defaultChecked
+                            />
                             <label>Training</label>
                         </div>
                     </div>

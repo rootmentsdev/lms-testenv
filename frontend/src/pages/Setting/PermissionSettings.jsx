@@ -3,18 +3,18 @@ import React, { useState } from "react";
 const PermissionSettings = () => {
   const [permissions, setPermissions] = useState({
     admin: {
-      training: [true, true, true, true],
-      assessment: [true, true],
+      training: [true, true, true,],
+      assessment: [true, true, true],
       // employee: [true],
     },
     clusterManager: {
-      training: [true, false, false, true],
-      assessment: [false, true],
+      training: [true, false, false,],
+      assessment: [false, true, true],
       // employee: [false],
     },
     storeManager: {
-      training: [true, true, false, true],
-      assessment: [false, true],
+      training: [true, true, false,],
+      assessment: [false, true, true],
       // employee: [false],
     },
   });
@@ -29,6 +29,10 @@ const PermissionSettings = () => {
         ),
       },
     }));
+  };
+
+  const handleSaveChanges = () => {
+    console.log("Permissions saved:", permissions);
   };
 
   return (
@@ -48,8 +52,8 @@ const PermissionSettings = () => {
             </thead>
             <tbody>
               {[
-                { category: "training", actions: ["Create/ Delete/ Training", "Assign New Training", "Reassign Training", "Create/ Module"] },
-                { category: "assessment", actions: ["Create/ Assessment", "Assign Assessment"] },
+                { category: "training", actions: ["Create Training", "Assign Training", "Delete Training"] },
+                { category: "assessment", actions: ["Create Assessment", "Assign Assessment", "Delete Assessment"] },
                 // { category: "employee", actions: ["Create/ Delete/ Edit Employee"] },
               ].map(({ category, actions }) => (
                 <React.Fragment key={category}>
@@ -72,7 +76,10 @@ const PermissionSettings = () => {
             </tbody>
           </table>
         </div>
-        <button className="mt-4 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+        <button
+          className="mt-4 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+          onClick={handleSaveChanges}
+        >
           Save Changes
         </button>
       </div>
