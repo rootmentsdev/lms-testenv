@@ -451,13 +451,59 @@ export const GetAllFullTrainingWithCompletion = async (req, res) => {
   }
 };
 
+
 export const GetAssessment = async (req, res) => {
   try {
-    const Assessments = await Assessment.find()
+    const assessments = await Assessment.find(); // Fetch all assessments
+    const users = await User.find(); // Fetch all users
 
-    res.status(200).json({ message: 'Assessment assigned successfully.', data: Assessments });
+    const results = [];
+
+    for (const assess of assessments) {
+      let totalAssigned = 0;
+      let totalPassed = 0;
+
+      for (const user of users) {
+        const assigned = user.assignedAssessments.find(
+          (assignment) => assignment.assessmentId.toString() === assess._id.toString()
+        );
+
+        if (assigned) {
+          totalAssigned++;
+
+          if (assigned.status === 'Passed') {
+            totalPassed++;
+          }
+        }
+      }
+
+      const completionPercentage = totalAssigned
+        ? ((totalPassed / totalAssigned) * 100).toFixed(2)
+        : 0;
+   
+
+      results.push({
+        assessmentId: assess._id,
+        assessmentName: assess.title,
+        assessment: assess.questions.length,
+        assessmentdeadline: assess.deadline,
+        assessmentduration: assess.duration,
+        totalAssigned,
+        totalPassed,
+        completionPercentage: completionPercentage,
+      });
+    }
+
+    res.status(200).json({
+      message: 'Assessments retrieved successfully.',
+      data: results,
+    });
   } catch (error) {
-    console.error('Error assigning assessment:', error);
-    res.status(500).json({ message: 'An error occurred while assigning the assessment.', error: error.message });
+    console.error('Error retrieving assessments:', error);
+    res.status(500).json({
+      message: 'An error occurred while retrieving the assessments.',
+      error: error.message,
+    });
   }
 };
+

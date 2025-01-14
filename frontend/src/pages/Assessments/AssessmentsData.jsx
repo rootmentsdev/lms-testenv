@@ -24,6 +24,8 @@ const AssessmentsData = () => {
 
                 const result = await response.json();
                 setData(result.data);
+                console.log(result.data);
+
             } catch (error) {
                 console.error('Error fetching data:', error);
                 setError('Failed to load assessments'); // Set error state
@@ -93,14 +95,16 @@ const AssessmentsData = () => {
                         <div className="text-red-500">{error}</div>
                     ) : (
                         data.map((item) => (
-                            <><Link to={`/Assessment/Assign/${item._id}`}>
+                            <><Link to={`/Assessment/Assign/${item?.assessmentId}`}>
                                 <div className="mt-5">
                                     <RoundProgressBarAssessment
-                                        initialProgress={0}
-                                        deadline={`${item.deadline} days`}
-                                        Module={`Number of questins : ${item.questions.length}`}
-                                        title={` ${item?.title}`}
-                                        complete={" complete rate 0.00%"}
+                                        initialProgress={item.completionPercentage}
+                                        deadline={`${item?.assessmentdeadline} days`}
+                                        user={item.totalAssigned}
+                                        duration={item.assessmentduration}
+                                        Module={`Number of questins : ${item?.assessment}`}
+                                        title={` ${item?.assessmentName}`}
+                                        complete={` complete rate ${item.completionPercentage}`}
 
                                     />
                                 </div>

@@ -1,5 +1,8 @@
+import AssessmentProcess from '../model/Assessmentprocessschema.js';
 import Module from '../model/Module.js'
 import TrainingProgress from '../model/Trainingprocessschema.js';
+import User from '../model/User.js';
+import Visibility from '../model/Visibility.js';
 
 
 export const createModule = async (req, res) => {
@@ -108,5 +111,115 @@ export const getModules = async (req, res) => {
     } catch (error) {
         console.error('Error fetching modules:', error);
         res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+
+export const GetAssessmentDetails = async (req, res) => {
+    try {
+        const { id } = req.params; // Extract assessment ID
+        console.log(`Assessment ID: ${id}`);
+
+        // Find all users assigned to the specified assessment
+        const userdata = await User.find({ 'assignedAssessments.assessmentId': id })
+            .select({
+                _id: 1,
+                username: 1,
+                email: 1,
+                empID: 1,
+                workingBranch: 1, designation: 1,
+                'assignedAssessments': { $elemMatch: { assessmentId: id } }, // Select only the matching assessment
+            });
+
+
+        // Extract user IDs from the userdata array
+        const userIds = userdata.map(user => user._id);
+
+        // Find assessment progress for the specified assessment and user IDs
+        // Populate user details for better response
+
+        console.log('User Data:', userdata);
+
+
+        res.status(200).json({
+            message: 'Assessment details fetched successfully',
+            data: {
+                users: userdata,
+
+            },
+        });
+    } catch (error) {
+        console.error('Error fetching assessment details:', error);
+        res.status(500).json({
+            message: 'Internal server error',
+        });
+    }
+};
+export const ChangeVisibility = async (req, res) => {
+    try {
+        const trainingData = req.body;
+        console.log(trainingData);
+
+
+        if (!Array.isArray(trainingData)) {
+            return res.status(400).json({ message: "Invalid data format" });
+        }
+
+        console.log("Received Data:", trainingData); // Debugging log
+
+        for (const section of trainingData) {
+            const { section: sectionName, role } = section;
+
+            for (const rol of role) {
+                // Use upsert to update if the role exists or insert if it doesn't
+                const updateQuery = {
+                    [`${sectionName}.role`]: rol.role,
+                };
+
+                const updateData = {
+                    $set: {
+                        [`${sectionName}.$.visibility`]: rol.visibility,
+                    },
+                };
+
+                // Push a new role if it doesn't exist
+                const pushData = {
+                    $push: {
+                        [sectionName]: {
+                            role: rol.role,
+                            visibility: rol.visibility,
+                        },
+                    },
+                };
+
+                const result = await Visibility.findOneAndUpdate(
+                    updateQuery,
+                    updateData,
+                    { new: true }
+                );
+
+                if (!result) {
+                    // If no match is found, insert a new role
+                    await Visibility.updateOne({}, pushData, { upsert: true });
+                }
+            }
+        }
+
+        res.status(200).json({ message: "Visibility settings updated successfully" });
+    } catch (error) {
+        console.error("Error updating visibility:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+
+export const getVisibility = async (req, res) => {
+    try {
+
+        const data = await Visibility.find()
+        res.status(200).json({ message: "Visibility settings updated successfully", Data: data });
+    } catch (error) {
+        console.error("Error updating visibility:", error);
+        res.status(500).json({ message: "Internal server error" });
     }
 };

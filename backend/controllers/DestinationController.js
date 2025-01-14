@@ -1,3 +1,5 @@
+import Admin from "../model/Admin.js";
+import Permission from "../model/AdminPermission.js";
 import Branch from "../model/Branch.js";
 import Designation from "../model/designation.js"; // Import the destination model
 import User from "../model/User.js";
@@ -169,5 +171,118 @@ export const getTopUsers = async (req, res) => {
     }
 };
 
+; // Adjust path to the branch model
+
+export const CreatingAdminUsers = async (req, res) => {
+    try {
+        const { name, email, EmpId, role, branches } = req.body;
+
+        console.log(name, email, EmpId, role);
+
+        // Validate required fields
+        if (!name || !email || !EmpId || !role) {
+            return res.status(400).json({
+                message: "All required fields (name, email, EmpId, role) must be provided.",
+            });
+        }
+
+        // Check if role is valid
+        const validRoles = ['super_admin', 'cluster_admin', 'store_admin'];
+        if (!validRoles.includes(role)) {
+            return res.status(400).json({
+                message: "Invalid role provided. Valid roles are: super_admin, cluster_admin, store_admin.",
+            });
+        }
+
+        // Fetch permissions for the role from the Permission collection
+        const rolePermissions = await Permission.findOne({ role });
+        if (!rolePermissions) {
+            return res.status(400).json({
+                message: `Permissions not found for the role: ${role}`,
+            });
+        }
+
+        // If no permissions are found, default to an empty object
+        const permissions = rolePermissions.permissions || {};
+
+        // Check if branches are provided, otherwise default to empty array
+        const finalBranches = branches || [];
+
+        // Create the admin user with the fetched permissions
+        const newAdmin = new Admin({
+            name,
+            email,
+            EmpId,
+            role,
+            permissions,
+            branches: finalBranches,
+        });
+
+        // Save the admin user
+        const savedAdmin = await newAdmin.save();
+
+        // Respond with success
+        res.status(201).json({
+            message: "Admin user created successfully.",
+            data: {
+                id: savedAdmin._id,
+                name: savedAdmin.name,
+                email: savedAdmin.email,
+                EmpId: savedAdmin.EmpId,
+                role: savedAdmin.role,
+                permissions: savedAdmin.permissions,
+                branches: savedAdmin.branches,
+            },
+        });
+    } catch (error) {
+        console.error('Error creating admin user:', error);
+        res.status(500).json({
+            message: "An error occurred while creating the admin user.",
+            error: error.message,
+        });
+    }
+};
 
 
+const upsertPermissions = async (role, permissions) => {
+    try {
+        // Check if the role already exists
+        const existingRole = await Permission.findOne({ role });
+
+        if (existingRole) {
+            // If the role exists, update the permissions
+            existingRole.permissions = { ...existingRole.permissions, ...permissions };
+            await existingRole.save();
+            console.log(`${role} permissions updated successfully.`);
+        } else {
+            // If the role doesn't exist, create a new permission document for the role
+            const newPermission = new Permission({
+                role,
+                permissions,
+            });
+            await newPermission.save();
+            console.log(`${role} permissions added successfully.`);
+        }
+    } catch (error) {
+        console.error('Error adding or updating permissions:', error);
+    }
+};
+
+// Express route or function
+export const handlePermissions = async (req, res) => {
+    try {
+        const { permissionsArray } = req.body; // Make sure to send the array in the body of the request
+        if (!permissionsArray || !Array.isArray(permissionsArray)) {
+            return res.status(400).json({ message: 'Permissions array is required' });
+        }
+
+        for (const item of permissionsArray) {
+            await upsertPermissions(item.role, item.permissions);
+        }
+
+        return res.status(200).json({ message: 'Permissions processed successfully' });
+    } catch (error) {
+        console.error('Error processing permissions:', error);
+        return res.status(500).json({ message: 'Internal Server Error' });
+    }
+};

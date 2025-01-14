@@ -1,7 +1,7 @@
 import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
 import "react-circular-progressbar/dist/styles.css"; // Import the styles
 
-const RoundProgressBarAssessment = ({ initialProgress, title, Module,deadline, duration, complete }) => {
+const RoundProgressBarAssessment = ({ initialProgress, title, Module, deadline, duration, complete, user }) => {
     // Initialize the progress state
     const progress = initialProgress
 
@@ -24,10 +24,11 @@ const RoundProgressBarAssessment = ({ initialProgress, title, Module,deadline, d
                 <div className="flex justify-center items-center flex-col p-4 w-full">
                     <div className="flex w-full justify-between items-center">
                         {/* Text Content */}
-                        <div className="flex flex-col space-y-2">
+                        <div className="flex flex-col space-y-1">
                             <h4 className="text-xl text-black font-semibold">Title : {title.length > 10 ? title.slice(0, 10) + "..." : title}</h4>
                             <p className="text-sm text-gray-500">{Module}</p>
-                            <p className="text-sm text-gray-500">{duration}</p>
+                            <p className="text-sm text-gray-500">{`number of user : ${user}`}</p>
+                            <p className="text-sm text-gray-500">{`Time : ${duration} Minutes`}</p>
                             <p className="text-sm text-gray-500">{deadline}</p>
                             <p className="text-sm text-gray-500">{complete}</p>
                         </div>

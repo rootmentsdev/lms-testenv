@@ -92,7 +92,7 @@ const CreateAssessmentData = () => {
                 <div className="mx-10 w-auto flex justify-between lg:flex-row  flex-col gap-5 space-x-10">
                     <div className="flex flex-col space-y-6">
                         <div>
-                            <p className="text-[#016E5B] font-semibold mb-2">Module Title</p>
+                            <p className="text-[#016E5B] font-semibold mb-2">Assessment Title</p>
                             <input
                                 placeholder="Enter module title"
                                 type="text"

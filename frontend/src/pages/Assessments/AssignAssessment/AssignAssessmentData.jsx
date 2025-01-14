@@ -71,9 +71,11 @@ const AssignAssessmentData = () => {
                 console.log(data);
 
 
-                const options = data.data.map((module) => ({
-                    value: module._id,
-                    label: module.title,
+                const options = data?.data.map((module) => ({
+                    value: module.assessmentId
+                    ,
+                    label: module.assessmentName
+                    ,
                 }));
                 setModules(options);
             } catch (error) {
