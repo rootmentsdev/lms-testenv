@@ -247,6 +247,7 @@ export const AdminLogin = async (req, res) => {
         const payload = {
             userId: user._id,
             username: user.userName,
+            role: user.role
         };
 
         // Sign the JWT token with secret key
