@@ -58,6 +58,8 @@ function App() {
           if (!response.ok) {
             navigate('/login');
           }
+          console.log(response);
+
         } catch (error) {
           console.error('Error verifying token:', error);
           navigate('/login');
