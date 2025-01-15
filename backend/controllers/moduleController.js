@@ -225,7 +225,6 @@ export const getVisibility = async (req, res) => {
     }
 };
 
-
 export const AdminLogin = async (req, res) => {
     const { EmpId, email } = req.body;
     console.log(EmpId, email);
