@@ -12,6 +12,3 @@ export const VerifyToken = async (req, res) => {
         res.json({ message: 'Token is valid', user: decoded });
     });
 };
-app.get('/protected', verifyJWT, (req, res) => {
-    res.json({ message: 'This is a protected route', user: req.user });
-});
