@@ -173,11 +173,12 @@ export const getTopUsers = async (req, res) => {
 
 ; // Adjust path to the branch model
 
+
 export const CreatingAdminUsers = async (req, res) => {
     try {
-        const { name, email, EmpId, role, branches } = req.body;
+        const { userName: name, email, userId: EmpId, userRole: role, Branch: branches } = req.body;
 
-        console.log(name, email, EmpId, role);
+        console.log(name, email, EmpId, role, branches);
 
         // Validate required fields
         if (!name || !email || !EmpId || !role) {
@@ -201,12 +202,26 @@ export const CreatingAdminUsers = async (req, res) => {
                 message: `Permissions not found for the role: ${role}`,
             });
         }
+        console.log('Role permissions:', rolePermissions._id);
 
-        // If no permissions are found, default to an empty object
-        const permissions = rolePermissions.permissions || {};
-
-        // Check if branches are provided, otherwise default to empty array
-        const finalBranches = branches || [];
+        // Determine branches for the admin
+        let finalBranches = [];
+        if (role === 'super_admin') {
+            const allBranches = await Branch.find();
+            if (allBranches.length === 0) {
+                return res.status(404).json({
+                    message: "No branches found to assign to the super admin.",
+                });
+            }
+            finalBranches = allBranches.map((branch) => branch._id);
+        } else {
+            if (!branches || branches.length === 0) {
+                return res.status(400).json({
+                    message: `Branches must be provided for the role: ${role}.`,
+                });
+            }
+            finalBranches = branches;
+        }
 
         // Create the admin user with the fetched permissions
         const newAdmin = new Admin({
@@ -214,7 +229,7 @@ export const CreatingAdminUsers = async (req, res) => {
             email,
             EmpId,
             role,
-            permissions,
+            permissions: rolePermissions._id, // Assuming permissions are stored as an ObjectId
             branches: finalBranches,
         });
 

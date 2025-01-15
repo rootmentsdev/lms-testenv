@@ -1,65 +1,110 @@
-
-import { Route, Routes } from 'react-router-dom'
-import './App.css'
-import Home from './pages/Home/Home'
-import Login from './pages/Login/Login'
-import Assessments from './pages/Assessments/Assessments'
-import Branch from './pages/Branch/Branch'
-import Employee from './pages/Employee/Employee'
-import Module from './pages/Modules/Module'
-import Training from './pages/Training/Training'
-import Setting from './pages/Setting/Setting'
-import CreateTraining from './pages/Training/CreateTraining'
+import { useEffect } from 'react';
+import { Route, Routes, useNavigate } from 'react-router-dom';
+import './App.css';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import "@fontsource/poppins"; // Defaults to weight 400
 import "@fontsource/poppins/500.css"; // Weight 500
 import "@fontsource/poppins/700.css"; // Weight 700
-import AssignedTrainings from './pages/Training/AssignedTrainings'
-import AssingOrdelete from './pages/Training/AssingOrdelete'
-import CreateModule from './pages/Modules/createmodule/CreateModule'
-import CreateTrainings from './pages/Training/createTraining/CreateTrainings'
-import Reassign from './pages/Training/Reassign/Reassign'
-import Mandatorytraining from './pages/Training/Mandatorytraining/Mandatorytraining'
-import CreateAssessment from './pages/Assessments/CreateAssessment/CreateAssessment'
-import AssessmentsAssign from './pages/Assessments/AssessmentsAssign/AssessmentsAssign'
-import UserTrainingProgress from './pages/Training/UserTrainingProgress/UserTrainingProgress'
-import { ToastContainer } from 'react-toastify';
-import AssignAssessment from './pages/Assessments/AssignAssessment/AssignAssessment'
-import Test from './components/test/Test'
+
+// Lazy loaded components
+import { lazy, Suspense } from 'react';
+const Home = lazy(() => import('./pages/Home/Home'));
+const Login = lazy(() => import('./pages/Login/Login'));
+const Assessments = lazy(() => import('./pages/Assessments/Assessments'));
+const Branch = lazy(() => import('./pages/Branch/Branch'));
+const Employee = lazy(() => import('./pages/Employee/Employee'));
+const Module = lazy(() => import('./pages/Modules/Module'));
+const Training = lazy(() => import('./pages/Training/Training'));
+const Setting = lazy(() => import('./pages/Setting/Setting'));
+const CreateTraining = lazy(() => import('./pages/Training/CreateTraining'));
+const AssignedTrainings = lazy(() => import('./pages/Training/AssignedTrainings'));
+const AssingOrdelete = lazy(() => import('./pages/Training/AssingOrdelete'));
+const CreateModule = lazy(() => import('./pages/Modules/createmodule/CreateModule'));
+const CreateTrainings = lazy(() => import('./pages/Training/createTraining/CreateTrainings'));
+const Reassign = lazy(() => import('./pages/Training/Reassign/Reassign'));
+const MandatoryTraining = lazy(() => import('./pages/Training/Mandatorytraining/Mandatorytraining'));
+const UserTrainingProgress = lazy(() => import('./pages/Training/UserTrainingProgress/UserTrainingProgress'));
+const CreateAssessment = lazy(() => import('./pages/Assessments/CreateAssessment/CreateAssessment'));
+const AssessmentsAssign = lazy(() => import('./pages/Assessments/AssessmentsAssign/AssessmentsAssign'));
+const AssignAssessment = lazy(() => import('./pages/Assessments/AssignAssessment/AssignAssessment'));
+const Test = lazy(() => import('./components/test/Test'));
+
+// Custom Components
+import ProtectedRoute from './components/ProtectedRoute';
+import PublicRoute from './components/PublicRoute';
+
+import baseUrl from './api/api'; // Use environment variable for baseUrl
+
 function App() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+    } else {
+      const verifyToken = async () => {
+        try {
+          const response = await fetch(`${baseUrl.baseUrl}api/admin/admin/verifyToken`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+
+          if (!response.ok) {
+            navigate('/login');
+          }
+        } catch (error) {
+          console.error('Error verifying token:', error);
+          navigate('/login');
+        }
+      };
+
+      verifyToken();
+    }
+  }, [navigate]);
 
   return (
     <>
+      <Suspense fallback={<div>Loading...</div>}>
+        <Routes>
+          {/* Public Route */}
+          <Route
+            path="/login"
+            element={
+              <PublicRoute>
+                <Login />
+              </PublicRoute>
+            }
+          />
 
-      <Routes>
-        <Route path={'/'} element={<Home />} />
-        <Route path={'/login'} element={<Login />} />
-        <Route path={'/assessments'} element={<Assessments />} />
-        <Route path={'/branch'} element={<Branch />} />
-        <Route path={'/employee'} element={<Employee />} />
-        <Route path={'/module'} element={<Module />} />
-        <Route path={'/settings'} element={<Setting />} />
-
-        <Route path={'/Alltraining'} element={<Training />} />
-        <Route path={'/training'} element={<CreateTraining />} />
-        <Route path={'/AssigData'} element={< AssignedTrainings />} />
-        <Route path={'/AssigTraining/:id'} element={< AssingOrdelete />} />
-        <Route path={'/createModule'} element={< CreateModule />} />
-        <Route path={'/createnewtraining'} element={< CreateTrainings />} />
-        <Route path={'/Reassign/:id'} element={< Reassign />} />
-        <Route path={'/create/Mandatorytraining'} element={< Mandatorytraining />} />
-        <Route path={'/Trainingdetails/:id'} element={< UserTrainingProgress />} />
-
-        <Route path={'/create/Assessment'} element={< CreateAssessment />} />
-        <Route path={'/Assessment/Assign/:id'} element={< AssessmentsAssign />} />
-        <Route path={'/assign/Assessment'} element={< AssignAssessment />} />
-        <Route path={'/test'} element={< Test />} />
-
-        {/*  */}
-      </Routes>
+          {/* Protected Routes */}
+          <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+          <Route path="/assessments" element={<ProtectedRoute><Assessments /></ProtectedRoute>} />
+          <Route path="/branch" element={<ProtectedRoute><Branch /></ProtectedRoute>} />
+          <Route path="/employee" element={<ProtectedRoute><Employee /></ProtectedRoute>} />
+          <Route path="/module" element={<ProtectedRoute><Module /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><Setting /></ProtectedRoute>} />
+          <Route path="/alltraining" element={<ProtectedRoute><Training /></ProtectedRoute>} />
+          <Route path="/training" element={<ProtectedRoute><CreateTraining /></ProtectedRoute>} />
+          <Route path="/assigdata" element={<ProtectedRoute><AssignedTrainings /></ProtectedRoute>} />
+          <Route path="/assigtraining/:id" element={<ProtectedRoute><AssingOrdelete /></ProtectedRoute>} />
+          <Route path="/createmodule" element={<ProtectedRoute><CreateModule /></ProtectedRoute>} />
+          <Route path="/createnewtraining" element={<ProtectedRoute><CreateTrainings /></ProtectedRoute>} />
+          <Route path="/reassign/:id" element={<ProtectedRoute><Reassign /></ProtectedRoute>} />
+          <Route path="/create/mandatorytraining" element={<ProtectedRoute><MandatoryTraining /></ProtectedRoute>} />
+          <Route path="/trainingdetails/:id" element={<ProtectedRoute><UserTrainingProgress /></ProtectedRoute>} />
+          <Route path="/create/assessment" element={<ProtectedRoute><CreateAssessment /></ProtectedRoute>} />
+          <Route path="/assessment/assign/:id" element={<ProtectedRoute><AssessmentsAssign /></ProtectedRoute>} />
+          <Route path="/assign/assessment" element={<ProtectedRoute><AssignAssessment /></ProtectedRoute>} />
+          <Route path="/test" element={<ProtectedRoute><Test /></ProtectedRoute>} />
+        </Routes>
+      </Suspense>
       <ToastContainer />
-
     </>
-  )
+  );
 }
 
-export default App
+export default App;

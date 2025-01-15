@@ -1,9 +1,10 @@
+import Admin from '../model/Admin.js';
 import AssessmentProcess from '../model/Assessmentprocessschema.js';
 import Module from '../model/Module.js'
 import TrainingProgress from '../model/Trainingprocessschema.js';
 import User from '../model/User.js';
 import Visibility from '../model/Visibility.js';
-
+import jwt from 'jsonwebtoken'
 
 export const createModule = async (req, res) => {
     try {
@@ -223,3 +224,38 @@ export const getVisibility = async (req, res) => {
         res.status(500).json({ message: "Internal server error" });
     }
 };
+
+
+export const AdminLogin = async (req, res) => {
+    const { EmpId, email } = req.body;
+    console.log(EmpId, email);
+
+    try {
+        // Find user by username
+        const user = await Admin.findOne({
+            EmpId: EmpId,  // assuming `EmpId` is a unique field
+            email: email   // assuming `email` is unique as well
+        });
+        if (!user) {
+            return res.status(400).json({ message: 'User not found' });
+        }
+
+        // Compare entered password with the stored hashed password
+
+
+        // Create payload for the JWT
+        const payload = {
+            userId: user._id,
+            username: user.userName,
+        };
+
+        // Sign the JWT token with secret key
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+        // Send the token in the response
+        res.json({ token });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+}

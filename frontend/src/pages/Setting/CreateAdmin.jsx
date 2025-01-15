@@ -1,18 +1,20 @@
 import { useEffect, useState } from "react";
 import baseUrl from "../../api/api";
 import Select from "react-select";
+import { toast } from "react-toastify";
 
 const CreateUser = () => {
   const [users, setUsers] = useState([]);
-  const [assignedTo, setAssignedTo] = useState([]); // Fixed missing state
+  const [assignedTo, setAssignedTo] = useState([]);
   const [selectedOption, setSelectedOption] = useState("user");
 
   const [form, setForm] = useState({
     userId: "",
     userName: "",
     email: "",
-    userRole: "clusterManager",
+    userRole: "",
     clusterBranch: "",
+    Branch: [],
   });
 
   const handleInputChange = (e) => {
@@ -20,40 +22,79 @@ const CreateUser = () => {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("User Form Data:", form);
-    console.log("Assigned To:", assignedTo);
-    // Add your form submission logic here
+
+    // Assign role based on selected option
+    const userRole =
+      selectedOption === "user" ? "super_admin" :
+        selectedOption === "designation" ? "cluster_admin" : "store_admin";
+    console.log(assignedTo);
+
+    const updatedForm = {
+      ...form,
+      userRole,
+      Branch: Array.isArray(assignedTo)
+        ? assignedTo.map((branch) => branch.value)
+        : [assignedTo?.value]
+      // Default to an empty array if not an array
+    };
+
+
+    if (!updatedForm.userId || !updatedForm.userName || !updatedForm.email) {
+      toast.warning("Please fill in all required fields.");
+      return;
+    }
+
+    console.log("User Form Data:", updatedForm);
+
+    try {
+      const response = await fetch(`${baseUrl.baseUrl}api/admin/admin/createadmin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedForm),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to save changes");
+      }
+
+      const result = await response.json();
+      toast.success("User created successfully!");
+      console.log("Response from backend:", result);
+    } catch (error) {
+      console.error("Error saving user:", error.message);
+      toast.error("An error occurred while saving the user. Please try again.");
+    }
   };
 
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const endpoint = "api/usercreate/getBranch";
-
-
-        const response = await fetch(`${baseUrl.baseUrl}${endpoint}`, {
+        const response = await fetch(`${baseUrl.baseUrl}api/usercreate/getBranch`, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
         });
 
-        if (!response.ok) throw new Error(`Error: ${response.statusText}`);
-        const data = await response.json();
+        if (!response.ok) throw new Error("Failed to fetch branch data");
 
-        const options = data.data.map((item) => ({
-          value: item.locCode,
-          label: item.workingBranch
-        }));
-        setUsers(options);
+        const data = await response.json();
+        setUsers(
+          data.data.map((item) => ({
+            value: item._id,
+            label: item.workingBranch,
+          }))
+        );
       } catch (error) {
-        console.error("Failed to fetch users:", error.message);
+        console.error("Error fetching branches:", error.message);
+        toast.error("Failed to fetch branch data.");
       }
     };
 
     fetchUsers();
-  }, [selectedOption]);
+  }, []); // Ensure this only runs on component mount
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen flex text-black justify-center items-center">
@@ -153,7 +194,6 @@ const CreateUser = () => {
                 className="w-full"
               />
             )}
-
           </div>
 
           {/* Save Button */}

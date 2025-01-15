@@ -3,9 +3,18 @@ import { MdModelTraining, MdOutlineStoreMallDirectory, MdOutlineTopic, MdOutline
 import { IoIosLogOut } from "react-icons/io";
 import { FaRegIdCard } from "react-icons/fa";
 import { IoSettingsOutline } from "react-icons/io5";
+import { useNavigate } from 'react-router-dom';
 
 
 const SideNav = () => {
+    const navigate = useNavigate();
+
+    const handleLogout = () => {
+        // Remove token from localStorage
+        localStorage.removeItem('token');
+        // Redirect to login page
+        navigate('/login');
+    };
     const location = useLocation(); // Get the current route path
 
     // Helper function to check if the link is active
@@ -93,7 +102,7 @@ const SideNav = () => {
                 </Link>
 
                 {/* Logout Section */}
-                <div className="flex justify-center lg:justify-start cursor-pointer items-center space-x-4 hover:bg-[#016E5B] hover:text-white p-2 rounded-lg transition-all duration-200">
+                <div className="flex justify-center lg:justify-start cursor-pointer items-center space-x-4 hover:bg-[#016E5B] hover:text-white p-2 rounded-lg transition-all duration-200 " onClick={handleLogout}>
                     <IoIosLogOut className="text-xl" />
                     <div className="hidden lg:group-hover:block">Logout</div>
                 </div>

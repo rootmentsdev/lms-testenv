@@ -1,12 +1,41 @@
 import { useState } from 'react';
+import baseUrl from '../../api/api';
+import { toast } from 'react-toastify';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
+
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [EmpId, setEmpId] = useState('');
+  const navigate = useNavigate(); // Initialize useNavigate
 
-  const handleSubmit = (e) => {
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     console.log({ email, EmpId });
+    try {
+      const response = await fetch(baseUrl.baseUrl + 'api/admin/admin/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, EmpId }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Store JWT in localStorage
+        localStorage.setItem('token', data.token);
+        toast.success('Login successful');
+        navigate('/'); // Redirect to the desired route
+
+      } else {
+        toast.error('Login failed:', data.message);
+      }
+    } catch (error) {
+      console.error('Error during login:', error);
+    }
   };
 
   return (
