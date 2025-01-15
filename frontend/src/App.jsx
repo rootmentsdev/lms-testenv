@@ -29,15 +29,19 @@ const CreateAssessment = lazy(() => import('./pages/Assessments/CreateAssessment
 const AssessmentsAssign = lazy(() => import('./pages/Assessments/AssessmentsAssign/AssessmentsAssign'));
 const AssignAssessment = lazy(() => import('./pages/Assessments/AssignAssessment/AssignAssessment'));
 const Test = lazy(() => import('./components/test/Test'));
+import { setUser } from './features/auth/authSlice.js';
 
 // Custom Components
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
 
 import baseUrl from './api/api'; // Use environment variable for baseUrl
+import { useDispatch } from 'react-redux';
+
 
 function App() {
   const navigate = useNavigate();
+  const dispatch = useDispatch(); // Initialize useDispatch
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -58,10 +62,20 @@ function App() {
           if (!response.ok) {
             navigate('/login');
           }
-          console.log(response);
+          console.log("hi");
+
+          const request = await response.json()
+          setUser(request.user)
+          console.log(request.user);
+
+          dispatch(setUser({
+            userId: request.user.userId, // Adjust based on the API response structure
+            role: request.user.role,     // Adjust based on the API response structure
+          }));
 
         } catch (error) {
           console.error('Error verifying token:', error);
+          localStorage.removeItem('token');
           navigate('/login');
         }
       };

@@ -253,7 +253,7 @@ export const AdminLogin = async (req, res) => {
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
 
         // Send the token in the response
-        res.json({ token });
+        res.json({ token: token, user: payload });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server error' });

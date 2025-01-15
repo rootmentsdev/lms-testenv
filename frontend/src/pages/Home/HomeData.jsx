@@ -11,7 +11,7 @@ import { Link } from "react-router-dom";
 import HomeBar from "../../components/HomeBar/HomeBar";
 import TopEmployeeAndBranch from "../../components/TopEmployeeAndBranch/TopEmployeeAndBranch";
 
-const HomeData = () => {
+const HomeData = ({ user }) => {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true); // Loading state
 
@@ -52,7 +52,7 @@ const HomeData = () => {
                             <p>Hello, </p>
                             <h5>
                                 <div className="text-xl text-[#016E5B]">
-                                    Admin
+                                    {user.role}
                                 </div>
                             </h5>
                         </div>

@@ -1,18 +1,23 @@
 import { useState } from 'react';
-import baseUrl from '../../api/api';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import baseUrl from '../../api/api';
+import { useDispatch } from 'react-redux';
+import { setUser } from '../../features/auth/authSlice';
 
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [EmpId, setEmpId] = useState('');
+  // const [user, setUsers] = useState([])
+  const dispatch = useDispatch(); // Initialize useDispatch
   const navigate = useNavigate(); // Initialize useNavigate
 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     console.log({ email, EmpId });
+
     try {
       const response = await fetch(baseUrl.baseUrl + 'api/admin/admin/login', {
         method: 'POST',
@@ -24,17 +29,33 @@ const Login = () => {
 
       const data = await response.json();
 
+      console.log("API Response:", data.user); // Debugging: Log the full response
+
       if (response.ok) {
+        // Assuming the response has `userId` and `role` at the root level
+        console.log("User Info from API:", data.user?.userId, data.user?.role);
+
+        // Dispatch the user info to Redux store
+        dispatch(setUser({
+          userId: data.user?.userId, // Adjust based on the API response structure
+          role: data.user?.role,     // Adjust based on the API response structure
+        }));
+
         // Store JWT in localStorage
         localStorage.setItem('token', data.token);
+
+        // Display success message and redirect
         toast.success('Login successful');
         navigate('/'); // Redirect to the desired route
-
       } else {
-        toast.error('Login failed:', data.message);
+        // Handle non-200 responses
+        console.error("Login failed:", data.message);
+        toast.error('Login failed: ' + (data.message || 'Unknown error'));
       }
     } catch (error) {
+      // Handle fetch or network errors
       console.error('Error during login:', error);
+      toast.error('An error occurred during login');
     }
   };
 
@@ -95,3 +116,6 @@ const Login = () => {
 };
 
 export default Login;
+
+
+
