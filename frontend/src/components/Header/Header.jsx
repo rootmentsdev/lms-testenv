@@ -8,6 +8,7 @@ const Header = ({
 
     name
 }) => {
+    const isActive = (path) => location.pathname === path;
     return (
         <div className="w-full">
 
@@ -45,9 +46,15 @@ const Header = ({
                             className=" border-[#C8C8C8]  border  p-2  bg-white  lg:w-[400px] w-[250px]  pl-10"
                         />
                     </div>
-                    <div className="text-2xl text-[#016E5B]">
-                        <GoBell />
-                    </div>
+                    <Link to={'/admin/Notification'}>
+                        <div
+                            className={`text-2xl text-[#016E5B] ${isActive('/admin/Notification') ? 'bg-[#016E5B] p-2 rounded-lg text-white' : ''
+                                }`}
+                        >
+                            <GoBell />
+                        </div>
+
+                    </Link>
 
 
                     <div className="dropdown dropdown-end mr-9">

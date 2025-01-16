@@ -3,11 +3,12 @@ import { Route, Routes, useNavigate } from 'react-router-dom';
 import './App.css';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import "@fontsource/poppins"; // Defaults to weight 400
-import "@fontsource/poppins/500.css"; // Weight 500
-import "@fontsource/poppins/700.css"; // Weight 700
+import "@fontsource/poppins"
+import "@fontsource/poppins/500.css"
+import "@fontsource/poppins/700.css"
+import HashLoader from "react-spinners/HashLoader";
 
-// Lazy loaded components
+
 import { lazy, Suspense } from 'react';
 const Home = lazy(() => import('./pages/Home/Home'));
 const Login = lazy(() => import('./pages/Login/Login'));
@@ -29,19 +30,20 @@ const CreateAssessment = lazy(() => import('./pages/Assessments/CreateAssessment
 const AssessmentsAssign = lazy(() => import('./pages/Assessments/AssessmentsAssign/AssessmentsAssign'));
 const AssignAssessment = lazy(() => import('./pages/Assessments/AssignAssessment/AssignAssessment'));
 const Test = lazy(() => import('./components/test/Test'));
+const Notifications=lazy(()=>import('./pages/Notification/Notifications.jsx'))
 import { setUser } from './features/auth/authSlice.js';
 
 // Custom Components
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
 
-import baseUrl from './api/api'; // Use environment variable for baseUrl
+import baseUrl from './api/api';
 import { useDispatch } from 'react-redux';
 
 
 function App() {
   const navigate = useNavigate();
-  const dispatch = useDispatch(); // Initialize useDispatch
+  const dispatch = useDispatch();
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -56,9 +58,6 @@ function App() {
               'Authorization': `Bearer ${token}`,
             },
           });
-
-
-
           if (!response.ok) {
             navigate('/login');
           }
@@ -69,24 +68,27 @@ function App() {
           console.log(request.user);
 
           dispatch(setUser({
-            userId: request.user.userId, // Adjust based on the API response structure
-            role: request.user.role,     // Adjust based on the API response structure
+            userId: request.user.userId,
+            role: request.user.role,
           }));
 
         } catch (error) {
           console.error('Error verifying token:', error);
           localStorage.removeItem('token');
+          window.location.reload();
           navigate('/login');
         }
       };
 
       verifyToken();
     }
-  }, [navigate]);
+  }, [dispatch, navigate]);
 
   return (
     <>
-      <Suspense fallback={<div>Loading...</div>}>
+      <Suspense fallback={<div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+        <HashLoader color="#016E5B" size={50} />
+      </div>}>
         <Routes>
           {/* Public Route */}
           <Route
@@ -118,6 +120,7 @@ function App() {
           <Route path="/assessment/assign/:id" element={<ProtectedRoute><AssessmentsAssign /></ProtectedRoute>} />
           <Route path="/assign/assessment" element={<ProtectedRoute><AssignAssessment /></ProtectedRoute>} />
           <Route path="/test" element={<ProtectedRoute><Test /></ProtectedRoute>} />
+          <Route path="/admin/Notification" element={<ProtectedRoute>< Notifications /></ProtectedRoute>} />
         </Routes>
       </Suspense>
       <ToastContainer />

@@ -1,6 +1,8 @@
+import Admin from "../model/Admin.js";
 import Assessment from "../model/Assessment.js";
 import Branch from "../model/Branch.js";
 import Module from "../model/Module.js";
+import Notification from "../model/Notification.js";
 import TrainingProgress from "../model/Trainingprocessschema.js";
 import { Training } from "../model/Traning.js";
 import User from "../model/User.js";
@@ -14,10 +16,19 @@ export const createAssessment = async (req, res) => {
             return res.status(400).json({ message: "Invalid assessment data. Ensure all required fields are present." });
         }
 
+        const admin = await Admin.findById(req?.admin?.userId)
+
+
         // Create and save the assessment
         const newAssessment = new Assessment(assessmentData);
         await newAssessment.save();
 
+        const newNotification = await Notification.create({
+            title: `New AssessmentData Created : ${assessmentData.title}`,
+            body: `${assessmentData.title} has been successfully created. Created by ${admin?.name}. Ready for user assignment`,
+            category: "Assessment",
+            useradmin: admin?.name, // Optional
+        });
         res.status(201).json({ message: "Assessment created successfully!", assessment: newAssessment });
     } catch (error) {
         console.error("Error creating assessment:", error);
@@ -49,6 +60,10 @@ export const getAssessments = async (req, res) => {
 
 export const createTraining = async (req, res) => {
     const { trainingName, modules, days, workingBranch, selectedOption } = req.body;
+
+    console.log(req.admin);
+    const admin = await Admin.findById(req?.admin?.userId)
+    console.log(admin);
 
     try {
         // Ensure all required data is provided
@@ -84,16 +99,19 @@ export const createTraining = async (req, res) => {
                 return res.status(400).json({ message: "User IDs are required when selectedOption is 'user'" });
             }
             usersInBranch = await User.find({ _id: { $in: workingBranch } });
+
         } else if (selectedOption === 'designation') {
             if (!workingBranch) {
                 return res.status(400).json({ message: "Designation is required when selectedOption is 'designation'" });
             }
             usersInBranch = await User.find({ designation: workingBranch });
+
         } else if (selectedOption === 'branch') {
             if (!workingBranch) {
                 return res.status(400).json({ message: "Working branch is required when selectedOption is 'branch'" });
             }
             usersInBranch = await User.find({ locCode: workingBranch });
+
         } else {
             return res.status(400).json({ message: "Invalid selected option" });
         }
@@ -133,6 +151,47 @@ export const createTraining = async (req, res) => {
         });
 
         await Promise.all(updatedUsers); // Save all users at once
+
+        if (selectedOption === 'user') {
+            if (!workingBranch || workingBranch.length === 0) {
+                return res.status(400).json({ message: "User IDs are required when selectedOption is 'user'" });
+            }
+
+            // Create notification for users
+            const newNotification = await Notification.create({
+                title: `New training Created : ${trainingName}`,
+                body: `${trainingName} has been successfully created. Created by ${admin?.name}. The training is scheduled to be completed in ${days} days.`,
+                user: workingBranch,  // Pass workingBranch array here
+                useradmin: admin?.name,  // Optional
+            });
+
+        } else if (selectedOption === 'designation') {
+            if (!workingBranch) {
+                return res.status(400).json({ message: "Designation is required when selectedOption is 'designation'" });
+            }
+
+            // Create notification for Role
+            const newNotification = await Notification.create({
+                title: `New training Created : ${trainingName}`,
+                body: `${trainingName} has been successfully created. Created by ${admin?.name}. The training is scheduled to be completed in ${days} days.`,
+                Role: workingBranch,  // Pass the designation here
+                useradmin: admin?.name,  // Optional
+            });
+
+        } else if (selectedOption === 'branch') {
+            if (!workingBranch) {
+                return res.status(400).json({ message: "Working branch is required when selectedOption is 'branch'" });
+            }
+
+            // Create notification for branch
+            const newNotification = await Notification.create({
+                title: `New training Created : ${trainingName}`,
+                body: `${trainingName} has been successfully created. Created by ${admin?.name}. The training is scheduled to be completed in ${days} days.`,
+                branch: workingBranch,  // Pass the branch here
+                useradmin: admin?.name,  // Optional
+            });
+        }
+
 
         res.status(201).json({ message: "Training created and assigned successfully", training: newTraining });
     } catch (error) {
@@ -320,6 +379,9 @@ export const calculateProgress = async (req, res) => {
 export const createMandatoryTraining = async (req, res) => {
     const { trainingName, modules, days, workingBranch } = req.body;
 
+    const admin = await Admin.findById(req?.admin?.userId)
+
+
     try {
         // Validate required fields
         if (!trainingName || !modules || !days || !workingBranch) {
@@ -390,6 +452,13 @@ export const createMandatoryTraining = async (req, res) => {
         res.status(201).json({
             message: "Training created and assigned successfully",
             training: newTraining,
+        });
+        const newNotification = await Notification.create({
+            title: `New training Created : ${trainingName}`,
+            body: `${trainingName} has been successfully created. Created by ${admin?.name}. The training is scheduled to be completed in ${days} days.`,
+            Role: workingBranch,
+            
+            useradmin: admin?.name, // Optional
         });
     } catch (error) {
         console.error("Error creating training:", error);

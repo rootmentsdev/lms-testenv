@@ -10,6 +10,8 @@ import SideNav from "../../components/SideNav/SideNav";
 import { Link } from "react-router-dom";
 import HomeBar from "../../components/HomeBar/HomeBar";
 import TopEmployeeAndBranch from "../../components/TopEmployeeAndBranch/TopEmployeeAndBranch";
+import Notification from "../../components/Notification/Notification";
+import Quick from "../../components/Quick/Quick";
 
 const HomeData = ({ user }) => {
     const [data, setData] = useState([]);
@@ -144,6 +146,14 @@ const HomeData = ({ user }) => {
                     <TopEmployeeAndBranch />
 
 
+                </div>
+            </div>
+            <div className="flex ml-[200px] gap-10 justify-between">
+                <div>
+                    <Quick />
+                </div>
+                <div>
+                    <Notification />
                 </div>
             </div>
 

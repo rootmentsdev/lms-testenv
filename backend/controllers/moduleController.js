@@ -1,6 +1,7 @@
 import Admin from '../model/Admin.js';
 import AssessmentProcess from '../model/Assessmentprocessschema.js';
 import Module from '../model/Module.js'
+import Notification from '../model/Notification.js';
 import TrainingProgress from '../model/Trainingprocessschema.js';
 import User from '../model/User.js';
 import Visibility from '../model/Visibility.js';
@@ -259,3 +260,43 @@ export const AdminLogin = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 }
+
+// Adjust the path according to your project structure
+
+// Fetch first three notifications
+export const getNotifications = async (req, res) => {
+    try {
+        // Fetch the first three notifications, sorted by createdAt in descending order (latest first)
+        const notifications = await Notification.find()
+            .sort({ createdAt: -1 })  // Sort by 'createdAt' field in descending order
+            .limit(3);  // Limit the result to 3 notifications
+
+        if (!notifications || notifications.length === 0) {
+            return res.status(404).json({ message: 'No notifications found' });
+        }
+
+        // Send the notifications as a response
+        res.status(200).json({ notifications });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+export const getAllNotifications = async (req, res) => {
+    try {
+        // Fetch the first three notifications, sorted by createdAt in descending order (latest first)
+        const notifications = await Notification.find()
+            .sort({ createdAt: -1 })  // Sort by 'createdAt' field in descending order
+        // Limit the result to 3 notifications
+
+        if (!notifications || notifications.length === 0) {
+            return res.status(404).json({ message: 'No notifications found' });
+        }
+
+        // Send the notifications as a response
+        res.status(200).json({ notifications });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};

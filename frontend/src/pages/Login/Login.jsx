@@ -9,12 +9,14 @@ import { setUser } from '../../features/auth/authSlice';
 const Login = () => {
   const [email, setEmail] = useState('');
   const [EmpId, setEmpId] = useState('');
+  const [loading, setLoading] = useState(true)
   // const [user, setUsers] = useState([])
   const dispatch = useDispatch(); // Initialize useDispatch
   const navigate = useNavigate(); // Initialize useNavigate
 
 
   const handleSubmit = async (e) => {
+    setLoading(false)
     e.preventDefault();
     console.log({ email, EmpId });
 
@@ -40,7 +42,7 @@ const Login = () => {
           userId: data.user?.userId, // Adjust based on the API response structure
           role: data.user?.role,     // Adjust based on the API response structure
         }));
-
+        setLoading(true)
         // Store JWT in localStorage
         localStorage.setItem('token', data.token);
 
@@ -48,11 +50,13 @@ const Login = () => {
         toast.success('Login successful');
         navigate('/'); // Redirect to the desired route
       } else {
+        setLoading(true)
         // Handle non-200 responses
         console.error("Login failed:", data.message);
         toast.error('Login failed: ' + (data.message || 'Unknown error'));
       }
     } catch (error) {
+      setLoading(true)
       // Handle fetch or network errors
       console.error('Error during login:', error);
       toast.error('An error occurred during login');
@@ -98,12 +102,18 @@ const Login = () => {
 
           {/* Submit Button */}
           <div className='flex justify-center items-center'>
-            <button
+            {loading ? <button
               type="submit"
               className="w-[50%] bg-[#016E5B] text-white py-2 rounded-lg hover:bg-[#014f42] mt-[50px]"
             >
               Login
-            </button>
+            </button> : <p
+              type="submit"
+              className="w-[50%] bg-[#016E5B] text-white text-center py-2 rounded-lg  mt-[50px]"
+            >
+              Loading
+            </p>}
+
           </div>
         </form>
       </div>

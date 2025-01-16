@@ -10,6 +10,7 @@ const CreateAssessmentData = () => {
     const [moduleTitle, setModuleTitle] = useState("");
     const [moduleDescription, setModuleDescription] = useState("");
     const [moduleDescriptions, setModuleDescriptions] = useState("");
+    const token = localStorage.getItem('token');
     const [questions, setQuestions] = useState([
         { questionText: "", options: ["", "", "", ""], correctAnswer: "" },
     ]);
@@ -63,7 +64,10 @@ const CreateAssessmentData = () => {
         try {
             const response = await fetch(`${baseUrl.baseUrl}api/assessments`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    'Authorization': `Bearer ${token}`,
+                },
                 credentials: "include",
                 body: JSON.stringify(assessmentData),
             });

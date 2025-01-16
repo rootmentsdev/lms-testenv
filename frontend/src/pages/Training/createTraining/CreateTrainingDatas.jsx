@@ -13,7 +13,7 @@ const CreateTrainingDatas = () => {
     const [selectedModules, setSelectedModules] = useState([]); // Multi-select values
     const [days, setDays] = useState("");
     const [selectedOption, setSelectedOption] = useState("user"); // Radio button state
-
+    const token = localStorage.getItem('token');
     // Fetch Modules
     useEffect(() => {
         const fetchModules = async () => {
@@ -112,7 +112,10 @@ const CreateTrainingDatas = () => {
             // POST request (uncomment to use)
             const response = await fetch(`${baseUrl.baseUrl}api/trainings`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
                 body: JSON.stringify(trainingData),
             });
             const data = await response.json();

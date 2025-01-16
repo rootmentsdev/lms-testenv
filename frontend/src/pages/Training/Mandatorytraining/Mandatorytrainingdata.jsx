@@ -13,6 +13,7 @@ const Mandatorytrainingdata = () => {
     const [assignedTo, setAssignedTo] = useState([]); // Multi-select values
     const [selectedModules, setSelectedModules] = useState([]); // Multi-select values
     const [days, setDays] = useState("");
+    const token = localStorage.getItem('token');
 
     // Fetch Modules
     useEffect(() => {
@@ -94,7 +95,9 @@ const Mandatorytrainingdata = () => {
             // POST request (uncomment to use)
             const response = await fetch(`${baseUrl.baseUrl}api/mandatorytrainings`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "Content-Type": "application/json" ,
+                    'Authorization': `Bearer ${token}`,
+                },
                 body: JSON.stringify(trainingData),
             });
             const data = await response.json();
