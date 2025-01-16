@@ -59,7 +59,7 @@ const SideNav = () => {
                 {/* Trainings Section */}
                 <Link to={'/training'}>
                     <div className={`flex justify-center lg:justify-start items-center space-x-4 p-2 rounded-lg transition-all duration-500
-                    ${isActive('/training') ? 'bg-[#016E5B] text-white' : ''}`}>
+                    ${isActive('/training') || isActive('/AssigData') || isActive('/Alltraining') || isActive('/createnewtraining') || isActive('/create/Mandatorytraining') ? 'bg-[#016E5B] text-white' : ''}`}>
                         <MdModelTraining className="text-2xl" />
                         <div className="hidden lg:group-hover:block">Trainings</div>
                     </div>
@@ -86,7 +86,7 @@ const SideNav = () => {
                 {/* Branch Section */}
                 <Link to={'/branch'}>
                     <div className={`flex justify-center lg:justify-start items-center space-x-4 p-2 rounded-lg transition-all duration-500
-                    ${isActive('/branch') ? 'bg-[#016E5B] text-white' : ''}`}>
+                    ${isActive('/branch') || isActive("/Addbranch") ? 'bg-[#016E5B] text-white' : ''}`}>
                         <MdOutlineStoreMallDirectory className="text-xl" />
                         <div className="hidden lg:group-hover:block">Branch</div>
                     </div>

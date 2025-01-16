@@ -4,6 +4,7 @@ import { FaPlus } from "react-icons/fa";
 // import { CiFilter } from "react-icons/ci";
 import SideNav from "../../components/SideNav/SideNav";
 import baseUrl from "../../api/api";
+import { Link } from "react-router-dom";
 
 const BranchData = () => {
     // const [isOpen, setIsOpen] = useState(false);
@@ -37,12 +38,12 @@ const BranchData = () => {
             <SideNav />
             <div className="md:ml-[90px] mt-[150px]">
                 <div className="flex justify-between mt-12">
-                    <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer">
+                    <Link to={'/Addbranch'} className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer">
                         <div className="text-[#016E5B]">
                             <FaPlus />
                         </div>
                         <h4 className="text-black">Add New Branch</h4>
-                    </div>
+                    </Link>
                     {/* <div className="relative inline-block text-left w-36 mr-10">
                         <button
                             type="button"

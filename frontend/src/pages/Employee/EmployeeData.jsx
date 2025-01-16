@@ -1,5 +1,5 @@
 import Header from "../../components/Header/Header";
-import { FaPlus } from "react-icons/fa";
+// import { FaPlus } from "react-icons/fa";
 import { CiFilter } from "react-icons/ci";
 import { useEffect, useState } from "react";
 import baseUrl from "../../api/api";
@@ -85,14 +85,14 @@ const EmployeeData = () => {
             <div><Header name='Employee' /></div>
             <SideNav />
             <div className="md:ml-[90px] mt-[150px]">
-                <div className="flex justify-between mt-12">
-                    <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 mb-5 cursor-pointer
+                <div className="flex justify-end mb-5 mt-12">
+                    {/* <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 mb-5 cursor-pointer
                     ">
                         <div className="text-[#016E5B]">
                             <FaPlus />
                         </div>
                         <h4 className="text-black">Add New Employee</h4>
-                    </div>
+                    </div> */}
                     <div className="flex gap-4">
                         <div className="relative inline-block text-left w-36">
                             <button

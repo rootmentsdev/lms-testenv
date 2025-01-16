@@ -30,7 +30,8 @@ const CreateAssessment = lazy(() => import('./pages/Assessments/CreateAssessment
 const AssessmentsAssign = lazy(() => import('./pages/Assessments/AssessmentsAssign/AssessmentsAssign'));
 const AssignAssessment = lazy(() => import('./pages/Assessments/AssignAssessment/AssignAssessment'));
 const Test = lazy(() => import('./components/test/Test'));
-const Notifications=lazy(()=>import('./pages/Notification/Notifications.jsx'))
+const Notifications = lazy(() => import('./pages/Notification/Notifications.jsx'))
+const AddBranch = lazy(() => import('./pages/Branch/AddBranch.jsx'))
 import { setUser } from './features/auth/authSlice.js';
 
 // Custom Components
@@ -39,6 +40,7 @@ import PublicRoute from './components/PublicRoute';
 
 import baseUrl from './api/api';
 import { useDispatch } from 'react-redux';
+
 
 
 function App() {
@@ -103,7 +105,10 @@ function App() {
           {/* Protected Routes */}
           <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
           <Route path="/assessments" element={<ProtectedRoute><Assessments /></ProtectedRoute>} />
+
           <Route path="/branch" element={<ProtectedRoute><Branch /></ProtectedRoute>} />
+          <Route path="/Addbranch" element={<ProtectedRoute><AddBranch /></ProtectedRoute>} />
+
           <Route path="/employee" element={<ProtectedRoute><Employee /></ProtectedRoute>} />
           <Route path="/module" element={<ProtectedRoute><Module /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Setting /></ProtectedRoute>} />

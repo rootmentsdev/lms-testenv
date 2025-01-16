@@ -35,7 +35,7 @@ const HomeData = ({ user }) => {
         };
 
         fetchData();
-    }, []);
+    }, [data]);
 
 
 
