@@ -9,6 +9,11 @@ const adminSchema = new mongoose.Schema({
         enum: ['super_admin', 'cluster_admin', 'store_admin'],
         required: true,
     },
+    subrole: {
+        type: String,
+        enum: ['TM', 'HR', 'MG', 'NR'],
+        required: true,
+    },
     permissions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Permission' }],
     branches: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Branch' }],
 }, { timestamps: true });

@@ -7,6 +7,7 @@ const CreateUser = () => {
   const [users, setUsers] = useState([]);
   const [assignedTo, setAssignedTo] = useState([]);
   const [selectedOption, setSelectedOption] = useState("user");
+  // const subrole={}
 
   const [form, setForm] = useState({
     userId: "",
@@ -183,6 +184,15 @@ const CreateUser = () => {
                 Store Manager
               </label>
             </div>
+            {selectedOption === 'user' && <Select
+              placeholder="Select the users"
+              id="assignToUsers"
+              options={users}
+              isMulti={selectedOption === "designation"} // Properly sets isMulti based on selectedOption
+              value={assignedTo}
+              onChange={setAssignedTo}
+              className="w-full"
+            />}
             {selectedOption === "user" ? null : (
               <Select
                 placeholder="Select the users"
