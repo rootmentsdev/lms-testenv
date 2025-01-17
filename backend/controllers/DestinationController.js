@@ -177,8 +177,11 @@ export const getTopUsers = async (req, res) => {
 export const CreatingAdminUsers = async (req, res) => {
     try {
         const { userName: name, email, userId: EmpId, userRole: role, Branch: branches } = req.body;
-
-        console.log(name, email, EmpId, role, branches);
+        let { subRole } = req.body
+        console.log(name, email, EmpId, role, branches, subRole);
+        if (role !== 'super_admin') {
+            subRole = "NR"
+        }
 
         // Validate required fields
         if (!name || !email || !EmpId || !role) {
@@ -228,6 +231,7 @@ export const CreatingAdminUsers = async (req, res) => {
             name,
             email,
             EmpId,
+            subRole,
             role,
             permissions: rolePermissions._id, // Assuming permissions are stored as an ObjectId
             branches: finalBranches,

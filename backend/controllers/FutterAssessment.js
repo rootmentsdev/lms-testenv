@@ -10,7 +10,7 @@ export const UserAssessmentGet = async (req, res) => {
             });
         }
 
-        const userAssessment = await User.findOne({ email }).populate('assignedAssessments.assessmentId');
+        const userAssessment = await User.findOne({ email }).populate('assignedAssessments.assessmentId').select('-training');
         
         if (!userAssessment) {
             return res.status(404).json({

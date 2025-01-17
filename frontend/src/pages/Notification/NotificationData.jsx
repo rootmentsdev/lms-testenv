@@ -49,7 +49,7 @@ const NotificationData = () => {
                 <div>
                     <SideNav />
                 </div>
-                <div className="flex justify-center items-center min-h-screen  mt-10">
+                <div className="flex justify-center items-center min-h-screen  mt-28">
                     <div className="bg-white w-full  shadow-lg rounded-lg p-6">
                         <h2 className="text-lg font-semibold mb-4 text-black">Notifications</h2>
                         <ul className="space-y-4">

@@ -37,7 +37,8 @@ const CreateUser = () => {
       userRole,
       Branch: Array.isArray(assignedTo)
         ? assignedTo.map((branch) => branch.value)
-        : [assignedTo?.value]
+        : [assignedTo?.value],
+      subRole: form.subRole || null,
       // Default to an empty array if not an array
     };
 
@@ -151,6 +152,7 @@ const CreateUser = () => {
           </div>
 
           {/* Assign To */}
+          {/* Assign To */}
           <div className="flex flex-col gap-4">
             <label htmlFor="assignToType" className="block text-gray-700 font-medium">
               Role
@@ -184,16 +186,28 @@ const CreateUser = () => {
                 Store Manager
               </label>
             </div>
-            {selectedOption === 'user' && <Select
-              placeholder="Select the users"
-              id="assignToUsers"
-              options={users}
-              isMulti={selectedOption === "designation"} // Properly sets isMulti based on selectedOption
-              value={assignedTo}
-              onChange={setAssignedTo}
-              className="w-full"
-            />}
-            {selectedOption === "user" ? null : (
+
+            {selectedOption === "user" && (
+              <div>
+                <label htmlFor="subRole" className="block text-sm font-semibold text-gray-700">
+                  Sub Role
+                </label>
+                <select
+                  id="subRole"
+                  name="subRole"
+                  value={form.subRole || ""}
+                  onChange={handleInputChange}
+                  className="mt-2 block w-full p-2 border bg-white border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+                >
+                  <option value="">Select Sub Role</option>
+                  <option value="TM">Training Manager</option>
+                  <option value="HR">HR</option>
+                  <option value="MG">management</option>
+                </select>
+              </div>
+            )}
+
+            {(selectedOption === "designation" || selectedOption === "branch") && (
               <Select
                 placeholder="Select the users"
                 id="assignToUsers"
@@ -205,6 +219,7 @@ const CreateUser = () => {
               />
             )}
           </div>
+
 
           {/* Save Button */}
           <div>

@@ -5,7 +5,6 @@ import { calculateProgress, createAssessment, createMandatoryTraining, createTra
 import { GetAllFullTrainingWithCompletion, GetAllTrainingWithCompletion, MandatoryGetAllTrainingWithCompletion } from '../controllers/AssessmentAndModule.js';
 import { MiddilWare } from '../lib/middilWare.js';
 
-// Route to create a module
 router.post('/modules', createModule)
 router.post('/assessments', MiddilWare, createAssessment)
 router.get('/modules/:id?', getModules)
