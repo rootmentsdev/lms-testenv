@@ -123,27 +123,38 @@ export const HomeBar = async (req, res) => {
 
 export const getTopUsers = async (req, res) => {
     try {
-        // Fetch users with populated training and assigned assessments
-        const users = await User.find().populate({
-            path: 'training.trainingId',
-        }).populate({
-            path: 'assignedAssessments.assessmentId',
-        });
+        // Fetch users with populated training, assessments, and modules
+        const users = await User.find()
+            .populate({
+                path: 'training.trainingId',
+            })
+            .populate({
+                path: 'assignedAssessments.assessmentId',
+            })
+            .populate({
+                path: 'assignedModules.moduleId',
+            });
 
         // Calculate progress for each user
         const scores = users.map((user) => {
-            // Calculate training progress percentage
+            // Training progress calculation
             const completedTrainings = user.training.filter(t => t.pass).length;
             const totalTrainings = user.training.length;
             const trainingProgress = totalTrainings > 0 ? (completedTrainings / totalTrainings) * 100 : 0;
 
-            // Calculate assessment progress percentage
+            // Assessment progress calculation (using `pass` and `complete`)
             const completedAssessments = user.assignedAssessments.filter(a => a.pass).length;
             const totalAssessments = user.assignedAssessments.length;
-            const assessmentProgress = totalAssessments > 0 ? (completedAssessments / totalAssessments) * 100 : 0;
+            const assessmentCompletion = user.assignedAssessments.reduce((sum, a) => sum + (a.complete || 0), 0);
+            const assessmentProgress = totalAssessments > 0 ? (assessmentCompletion / totalAssessments) : 0;
 
-            // Total score (just summing up completed training and assessments for ranking)
-            const totalScore = completedTrainings + completedAssessments;
+            // Module progress calculation (optional if you want to include modules)
+            const completedModules = user.assignedModules.filter(m => m.pass).length;
+            const totalModules = user.assignedModules.length;
+            const moduleProgress = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
+
+            // Total score based on training, assessments, and modules
+            const totalScore = completedTrainings + completedAssessments + completedModules;
 
             return {
                 username: user.username,
@@ -152,10 +163,13 @@ export const getTopUsers = async (req, res) => {
                 role: user.designation,
                 completedTrainings,
                 totalTrainings,
-                trainingProgress, // Percentage progress for training
+                trainingProgress,
                 completedAssessments,
                 totalAssessments,
-                assessmentProgress, // Percentage progress for assessments
+                assessmentProgress,
+                completedModules,
+                totalModules,
+                moduleProgress,
                 totalScore,
             };
         });
@@ -169,26 +183,58 @@ export const getTopUsers = async (req, res) => {
         // Get last 3 users (sorted by ascending score)
         const lastUsers = sortedScores.slice(-3);
 
-        // Group users by branch and calculate total score for each branch
+        // Group users by branch and calculate total score and progress for each branch
         const branchScores = users.reduce((acc, user) => {
             if (!acc[user.workingBranch]) {
                 acc[user.workingBranch] = {
                     totalScore: 0,
                     userCount: 0,
+                    totalTrainingProgress: 0,
+                    totalAssessmentProgress: 0,
+                    totalModuleProgress: 0,
                 };
             }
-            acc[user.workingBranch].totalScore += user.training.filter(t => t.pass).length;
-            acc[user.workingBranch].totalScore += user.assignedAssessments.filter(a => a.pass).length;
+
+            const completedTrainings = user.training.filter(t => t.pass).length;
+            const totalTrainings = user.training.length;
+            const trainingProgress = totalTrainings > 0 ? (completedTrainings / totalTrainings) * 100 : 0;
+
+            const completedAssessments = user.assignedAssessments.filter(a => a.pass).length;
+            const totalAssessments = user.assignedAssessments.length;
+            const assessmentCompletion = user.assignedAssessments.reduce((sum, a) => sum + (a.complete || 0), 0);
+            const assessmentProgress = totalAssessments > 0 ? (assessmentCompletion / totalAssessments) : 0;
+
+            const completedModules = user.assignedModules.filter(m => m.pass).length;
+            const totalModules = user.assignedModules.length;
+            const moduleProgress = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
+
+            acc[user.workingBranch].totalScore += completedTrainings + completedAssessments + completedModules;
             acc[user.workingBranch].userCount++;
+            acc[user.workingBranch].totalTrainingProgress += trainingProgress;
+            acc[user.workingBranch].totalAssessmentProgress += assessmentProgress;
+            acc[user.workingBranch].totalModuleProgress += moduleProgress;
+
             return acc;
         }, {});
 
-        // Convert branchScores to array and sort by total score
+        // Convert branchScores to array and calculate average percentages
         const sortedBranches = Object.keys(branchScores)
             .map(branch => ({
                 branch,
                 totalScore: branchScores[branch].totalScore,
                 userCount: branchScores[branch].userCount,
+                averageTrainingProgress:
+                    branchScores[branch].userCount > 0
+                        ? branchScores[branch].totalTrainingProgress / branchScores[branch].userCount
+                        : 0,
+                averageAssessmentProgress:
+                    branchScores[branch].userCount > 0
+                        ? branchScores[branch].totalAssessmentProgress / branchScores[branch].userCount
+                        : 0,
+                averageModuleProgress:
+                    branchScores[branch].userCount > 0
+                        ? branchScores[branch].totalModuleProgress / branchScores[branch].userCount
+                        : 0,
             }))
             .sort((a, b) => b.totalScore - a.totalScore);
 
@@ -213,6 +259,7 @@ export const getTopUsers = async (req, res) => {
         return res.status(500).json({ error: 'Error fetching users' });
     }
 };
+
 
 
 ; // Adjust path to the branch model

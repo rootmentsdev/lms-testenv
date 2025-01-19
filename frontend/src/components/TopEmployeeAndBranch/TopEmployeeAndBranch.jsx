@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import baseUrl from "../../api/api";
-import { FaSortAmountDownAlt } from "react-icons/fa";
-import { FaSortAmountUp } from "react-icons/fa";
+// import { FaSortAmountDownAlt } from "react-icons/fa";
+// import { FaSortAmountUp } from "react-icons/fa";
+import { BiSortAlt2 } from "react-icons/bi";
 
 
 const TopEmployeeAndBranch = () => {
@@ -20,6 +21,8 @@ const TopEmployeeAndBranch = () => {
                 }
                 const result = await response.json();
                 setAllData(result.data);
+                console.log(result.data);
+
                 setIsLoading(false); // Data is fetched, hide the loading state
             } catch (error) {
                 console.error("Failed to fetch data:", error.message);
@@ -79,8 +82,8 @@ const TopEmployeeAndBranch = () => {
                     <p className="font-medium">{branch.branch}</p>
                 </div>
                 <div className="text-right">
-                    <p className="font-bold text-green-600">{branch.totalScore} <span className="text-gray-500">Total Score</span></p>
-                    <p className="font-bold text-green-600">{branch.userCount} <span className="text-gray-500">Users</span></p>
+                    <p className="font-bold text-green-600">{Math.round(branch?.averageTrainingProgress) + " %"} <span className="text-gray-500">Total Training</span></p>
+                    <p className="font-bold text-green-600">{Math.round(branch.averageAssessmentProgress) + " %"} <span className="text-gray-500">Total Assessment</span></p>
                 </div>
             </div>
         ));
@@ -93,25 +96,44 @@ const TopEmployeeAndBranch = () => {
     return (
         <div className="p-2 bg-white shadow-md rounded-md w-full h-full mx-auto">
             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-bold">Top Performance</h2>
+                <h2 className="text-lg font-bold flex items-center text-black"> <BiSortAlt2 onClick={() => handleTopDataToggle(topData === "top" ? "last" : "top")} className="text-2xl text-green-500 cursor-pointer" /> {topData} Performance</h2>
             </div>
             <div className="flex items-center justify-between mx-10">
                 <div className="mb-4">
                     <button
-                        className={`bg-green-600 text-white px-4 py-1 rounded-md text-sm ${view === "employees" ? "bg-opacity-80" : ""}`}
+                        className={`bg-green-300 relative text-white  flex gap-0 rounded-md text-sm transition-all duration-300 focus:ring-2 focus:ring-green-500`}
                         onClick={() => handleViewToggle(view === "employees" ? "branches" : "employees")}
                     >
-                        {view}
+                        {/* Employees Section */}
+                        <span
+                            className={`flex-1 px-4 py-2 text-center rounded-l-md transition-colors duration-300 ${view === "employees" ? "bg-green-700 text-white" : "bg-green-600 text-white"
+                                }`}
+                            onClick={(e) => {
+                                e.stopPropagation(); // Prevent the parent button's click event
+                                handleViewToggle("employees");
+                            }}
+                        >
+                            employees
+                        </span>
+
+                        {/* Branches Section */}
+                        <span
+                            className={`flex-1 px-4 py-2 text-center rounded-r-md transition-colors duration-300 ${view === "branches" ? "bg-green-700 text-white" : "bg-green-600 text-white"
+                                }`}
+                            onClick={(e) => {
+                                e.stopPropagation(); // Prevent the parent button's click event
+                                handleViewToggle("branches");
+                            }}
+                        >
+                            branches
+                        </span>
                     </button>
+
+
 
                 </div>
                 <div className="mb-4">
-                    <button
-                        className={`bg-blue-600 text-white px-4 py-1 rounded-md text-sm ${topData === "top" ? "bg-opacity-80" : ""}`}
-                        onClick={() => handleTopDataToggle(topData === "top" ? "last" : "top")}
-                    >
-                        {topData === "top" ? <FaSortAmountDownAlt /> : <FaSortAmountUp />}
-                    </button>
+
 
                 </div>
             </div>
@@ -119,7 +141,7 @@ const TopEmployeeAndBranch = () => {
             <div className="space-y-4">
                 {view === "employees" ? renderEmployees() : renderBranches()}
             </div>
-        </div>
+        </div >
     );
 };
 
