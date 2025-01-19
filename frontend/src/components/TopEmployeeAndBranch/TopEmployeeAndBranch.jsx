@@ -96,7 +96,7 @@ const TopEmployeeAndBranch = () => {
     return (
         <div className="p-2 bg-white shadow-md rounded-md w-full h-full mx-auto">
             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-bold flex items-center text-black"> <BiSortAlt2 onClick={() => handleTopDataToggle(topData === "top" ? "last" : "top")} className="text-2xl text-green-500 cursor-pointer" /> {topData} Performance</h2>
+                <h2 className="text-lg font-bold flex items-center text-black"> <BiSortAlt2 onClick={() => handleTopDataToggle(topData === "top" ? "last" : "top")} className="text-2xl text-green-500 cursor-pointer" /> {topData === 'last' ? "low" : topData} Performance</h2>
             </div>
             <div className="flex items-center justify-between mx-10">
                 <div className="mb-4">
