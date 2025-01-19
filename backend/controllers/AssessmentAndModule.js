@@ -471,7 +471,7 @@ export const GetAssessment = async (req, res) => {
         if (assigned) {
           totalAssigned++;
 
-          if (assigned.status === 'Passed') {
+          if (assigned.pass) {
             totalPassed++;
           }
         }
@@ -480,7 +480,7 @@ export const GetAssessment = async (req, res) => {
       const completionPercentage = totalAssigned
         ? ((totalPassed / totalAssigned) * 100).toFixed(2)
         : 0;
-   
+
 
       results.push({
         assessmentId: assess._id,

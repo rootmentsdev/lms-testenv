@@ -4,10 +4,7 @@ import image from '../../../public/Rootments.jpg'
 import { Link } from "react-router-dom";
 
 
-const Header = ({
-
-    name
-}) => {
+const Header = () => {
     const isActive = (path) => location.pathname === path;
     return (
         <div className="w-full">
@@ -31,7 +28,7 @@ const Header = ({
                         </div>
                     </Link>
                     <div className="mt-4 flex items-center ml-10">
-                        <a className="text-black text-xl  font-semibold lg:text-2xl">{name ? name : ''}</a>
+                        {/* <a className="text-black text-xl  font-semibold lg:text-2xl">{name ? name : ''}</a> */}
                     </div>
                 </div>
 

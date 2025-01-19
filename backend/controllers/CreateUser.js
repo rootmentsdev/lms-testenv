@@ -98,26 +98,58 @@ export const loginUser = async (req, res) => {
 
 export const GetAllUser = async (req, res) => {
   try {
+    const response = await User.find();
 
-    const response = await User.find()
-
-    if (response) {
-      res.status(200).json({
-        message: "user founds",
-        data: response
-      })
-    } else {
-      res.status(404).json({
-        message: "no user"
-      })
+    // Check if no users were found
+    if (response.length === 0) {
+      return res.status(404).json({
+        message: "No users found",
+      });
     }
 
+    const TodayDate = new Date();
+
+    const usercount = response.map((item) => {
+      const trainingCount = item.training.length;
+      const assignedAssessmentsCount = item.assignedAssessments.length;
+
+      // Safely calculate counts for pass/fail, ensuring that the array exists
+      const passCountTraining = item.training?.filter(training => training.pass === true).length || 0;
+      const passCountAssessment = item.assignedAssessments?.filter(assessment => assessment.pass === true).length || 0;
+
+      const AssessmentDue = item.assignedAssessments?.filter(assessment => assessment.deadline < TodayDate).length || 0;
+      const Trainingdue = item.training?.filter(training => training.deadline < TodayDate).length || 0;
+
+      // Calculate pass percentages with rounding
+      const passCountAssessmentPercentage = assignedAssessmentsCount > 0 ? Math.round((passCountAssessment / assignedAssessmentsCount) * 100) : 0;
+      const passCountTrainingPercentage = trainingCount > 0 ? Math.round((passCountTraining / trainingCount) * 100) : 0;
+
+      return {
+        username: item.username,
+        workingBranch: item.workingBranch,
+        empID: item.empID,
+        trainingCount,
+        passCountAssessment: passCountAssessmentPercentage,
+        passCountTraining: passCountTrainingPercentage,
+        assignedAssessmentsCount,
+        AssessmentDue,
+        designation: item.designation,
+        Trainingdue
+      };
+    });
+
+    return res.status(200).json({
+      data: usercount
+    });
+
   } catch (error) {
-    res.status(500).json({
-      message: 'internal server error'
-    })
+    console.error(error); // Log the error for debugging
+    return res.status(500).json({
+      message: 'Internal server error',
+    });
   }
-}
+};
+
 
 export const createBranch = async (req, res) => {
   const { locCode, workingBranch } = req.body;

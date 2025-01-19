@@ -6,6 +6,7 @@ import TrainingProgress from '../model/Trainingprocessschema.js';
 import User from '../model/User.js';
 import Visibility from '../model/Visibility.js';
 import jwt from 'jsonwebtoken'
+import bcrypt from 'bcrypt'
 
 export const createModule = async (req, res) => {
     try {
@@ -228,38 +229,47 @@ export const getVisibility = async (req, res) => {
 
 export const AdminLogin = async (req, res) => {
     const { EmpId, email } = req.body;
-    console.log(EmpId, email);
+    console.log('Login Attempt:', { EmpId, email });
 
     try {
-        // Find user by username
-        const user = await Admin.findOne({
-            EmpId: EmpId,  // assuming `EmpId` is a unique field
-            email: email   // assuming `email` is unique as well
-        });
+        // Find user by email
+        const user = await Admin.findOne({ email });
         if (!user) {
             return res.status(400).json({ message: 'User not found' });
         }
 
-        // Compare entered password with the stored hashed password
+        console.log('User Found:', user);
 
+        // Compare entered EmpId (as password) with the stored hashed password
+        if (!user.password) {
+            return res.status(500).json({ message: 'User password is not set in the database.' });
+        }
+
+        const isPasswordValid = await bcrypt.compare(EmpId, user.password);
+        console.log('Password Validation:', isPasswordValid);
+
+        if (!isPasswordValid) {
+            return res.status(401).json({ message: 'Invalid credentials' });
+        }
 
         // Create payload for the JWT
         const payload = {
             userId: user._id,
-            username: user.userName,
-            role: user.role
+            username: user.name,
+            role: user.role,
         };
 
         // Sign the JWT token with secret key
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
 
         // Send the token in the response
-        res.json({ token: token, user: payload });
+        res.json({ token, user: payload });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Server error' });
+        console.error('Error during login:', err);
+        res.status(500).json({ message: 'Server error', error: err.message });
     }
-}
+};
+
 
 // Adjust the path according to your project structure
 

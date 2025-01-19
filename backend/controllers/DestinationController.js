@@ -3,6 +3,7 @@ import Permission from "../model/AdminPermission.js";
 import Branch from "../model/Branch.js";
 import Designation from "../model/designation.js"; // Import the destination model
 import User from "../model/User.js";
+import bcrypt from 'bcrypt'
 
 export const createDesignation = async (req, res) => {
     try {
@@ -159,11 +160,53 @@ export const getTopUsers = async (req, res) => {
             };
         });
 
-        // Sort users by total score and get the top 3
-        const topUsers = scores.sort((a, b) => b.totalScore - a.totalScore).slice(0, 3);
+        // Sort users by total score
+        const sortedScores = scores.sort((a, b) => b.totalScore - a.totalScore);
 
-        // Send the top 3 users with progress percentages in the response
-        return res.status(200).json({ data: topUsers });
+        // Get top 3 users
+        const topUsers = sortedScores.slice(0, 3);
+
+        // Get last 3 users (sorted by ascending score)
+        const lastUsers = sortedScores.slice(-3);
+
+        // Group users by branch and calculate total score for each branch
+        const branchScores = users.reduce((acc, user) => {
+            if (!acc[user.workingBranch]) {
+                acc[user.workingBranch] = {
+                    totalScore: 0,
+                    userCount: 0,
+                };
+            }
+            acc[user.workingBranch].totalScore += user.training.filter(t => t.pass).length;
+            acc[user.workingBranch].totalScore += user.assignedAssessments.filter(a => a.pass).length;
+            acc[user.workingBranch].userCount++;
+            return acc;
+        }, {});
+
+        // Convert branchScores to array and sort by total score
+        const sortedBranches = Object.keys(branchScores)
+            .map(branch => ({
+                branch,
+                totalScore: branchScores[branch].totalScore,
+                userCount: branchScores[branch].userCount,
+            }))
+            .sort((a, b) => b.totalScore - a.totalScore);
+
+        // Get top 3 branches
+        const topBranches = sortedBranches.slice(0, 3);
+
+        // Get last 3 branches (sorted by ascending total score)
+        const lastBranches = sortedBranches.slice(-3);
+
+        // Return response with top and last users and branches
+        return res.status(200).json({
+            data: {
+                topUsers,
+                lastUsers,
+                topBranches,
+                lastBranches,
+            },
+        });
 
     } catch (error) {
         console.error("Error fetching users:", error);
@@ -171,18 +214,20 @@ export const getTopUsers = async (req, res) => {
     }
 };
 
+
 ; // Adjust path to the branch model
 
 
 export const CreatingAdminUsers = async (req, res) => {
     try {
-        const { userName: name, email, userId: EmpId, userRole: role, Branch: branches } = req.body;
+        const { userName: name, email, userId: EmpId, userRole: role, Branch: branches, password
+        } = req.body;
         let { subRole } = req.body
         console.log(name, email, EmpId, role, branches, subRole);
         if (role !== 'super_admin') {
             subRole = "NR"
         }
-
+        const hashedPassword = await bcrypt.hash(password, 10);
         // Validate required fields
         if (!name || !email || !EmpId || !role) {
             return res.status(400).json({
@@ -232,6 +277,7 @@ export const CreatingAdminUsers = async (req, res) => {
             email,
             EmpId,
             subRole,
+            password: hashedPassword,
             role,
             permissions: rolePermissions._id, // Assuming permissions are stored as an ObjectId
             branches: finalBranches,

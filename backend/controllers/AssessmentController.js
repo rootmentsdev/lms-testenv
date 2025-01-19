@@ -356,6 +356,24 @@ export const calculateProgress = async (req, res) => {
                 ? progressArray.reduce((a, b) => a + b, 0) / progressArray.length
                 : 0;
 
+        // Calculate assessment progress
+        const users = await User.find();
+        let totalAssessments = 0;
+        let passedAssessments = 0;
+
+        users.forEach((user) => {
+            if (user.assignedAssessments && Array.isArray(user.assignedAssessments)) {
+                totalAssessments += user.assignedAssessments.length;
+
+                passedAssessments += user.assignedAssessments.filter(
+                    (assessment) => assessment.pass
+                ).length;
+            }
+        });
+
+        const assessmentProgress =
+            totalAssessments > 0 ? (passedAssessments / totalAssessments) * 100 : 0;
+
         // Return results
         res.status(200).json({
             success: true,
@@ -364,6 +382,7 @@ export const calculateProgress = async (req, res) => {
                 branchCount,
                 userCount,
                 averageProgress: averageProgress.toFixed(2), // Percentage
+                assessmentProgress: assessmentProgress.toFixed(2), // Percentage
             },
         });
     } catch (error) {
@@ -375,6 +394,7 @@ export const calculateProgress = async (req, res) => {
         });
     }
 };
+
 
 export const createMandatoryTraining = async (req, res) => {
     const { trainingName, modules, days, workingBranch } = req.body;

@@ -116,19 +116,28 @@ const CreateTrainingData = () => {
                   type="button"
                   className="flex justify-between items-center w-full border-2 py-2 px-4 bg-white text-black rounded-md hover:bg-gray-200 focus:outline-none"
                   onClick={() => toggleDropdown(key)}
+                  aria-expanded={dropdownStates[key] ? "true" : "false"}
+                  aria-controls={`${key}-dropdown`}
                 >
                   <h4>
-                    {key === "range" ? (filterRange ? `${filterRange}%` : "Range") : selectedUniqueItem || "Role"}
+                    {key === "range"
+                      ? filterRange
+                        ? `${filterRange}%`
+                        : "Range"
+                      : selectedUniqueItem || "Role"}
                   </h4>
                   <CiFilter className="text-[#016E5B]" />
                 </button>
                 {dropdownStates[key] && (
-                  <div className="absolute right-0 mt-2 w-full rounded-md shadow-lg bg-white z-10">
+                  <div
+                    id={`${key}-dropdown`}
+                    className="absolute right-0 mt-2 w-full rounded-md shadow-lg bg-white z-10"
+                  >
                     <div className="py-1">
                       {key === "range"
-                        ? ["", "0-25", "26-51", "52-77", "78-100"].map((range) => (
+                        ? ["", "0-25", "26-51", "52-77", "78-100"].map((range, index) => (
                           <a
-                            key={range}
+                            key={index}
                             href="#"
                             className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                             onClick={(e) => {
@@ -139,24 +148,38 @@ const CreateTrainingData = () => {
                             {range ? `${range}%` : "All"}
                           </a>
                         ))
-                        : uniqueItems?.map((role) => (
+                        : [
                           <a
-                            key={role}
+                            key="all-roles"
                             href="#"
                             className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                             onClick={(e) => {
                               e.preventDefault();
-                              handleUniqueItemChange(role);
+                              handleUniqueItemChange("");
                             }}
                           >
-                            {role || "All"}
-                          </a>
-                        ))}
+                            All
+                          </a>,
+                          ...uniqueItems.map((role, index) => (
+                            <a
+                              key={index}
+                              href="#"
+                              className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleUniqueItemChange(role);
+                              }}
+                            >
+                              {role}
+                            </a>
+                          )),
+                        ]}
                     </div>
                   </div>
                 )}
               </div>
             ))}
+
           </div>
         </div>
 

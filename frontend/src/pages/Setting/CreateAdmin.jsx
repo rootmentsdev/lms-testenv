@@ -2,11 +2,15 @@ import { useEffect, useState } from "react";
 import baseUrl from "../../api/api";
 import Select from "react-select";
 import { toast } from "react-toastify";
+import { FaEye } from "react-icons/fa";
+import { FaEyeSlash } from "react-icons/fa";
+
 
 const CreateUser = () => {
   const [users, setUsers] = useState([]);
   const [assignedTo, setAssignedTo] = useState([]);
   const [selectedOption, setSelectedOption] = useState("user");
+  const [Open, setOpen] = useState(false)
   // const subrole={}
 
   const [form, setForm] = useState({
@@ -15,6 +19,7 @@ const CreateUser = () => {
     email: "",
     userRole: "",
     clusterBranch: "",
+    password: "",
     Branch: [],
   });
 
@@ -150,6 +155,25 @@ const CreateUser = () => {
               className="mt-2 block w-full p-2 border bg-white border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
             />
           </div>
+          <div className="relative">
+            <div className="absolute top-10 right-5 cursor-pointer">
+              {!Open ? <FaEye onClick={() => setOpen((prev) => !prev)} /> : <FaEyeSlash onClick={() => setOpen((prev) => !prev)} />}
+            </div>
+
+            <label htmlFor="password" className="block text-sm font-semibold text-gray-700">
+              Password
+            </label>
+            <input
+              type={!Open ? "password" : "text"}
+              id="password"
+              name="password"
+              value={form.password}
+              onChange={handleInputChange}
+              placeholder="Enter Password"
+              className="mt-2 block w-full p-2 border bg-white border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+            />
+          </div>
+
 
           {/* Assign To */}
           {/* Assign To */}

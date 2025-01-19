@@ -110,7 +110,7 @@ const HomeData = ({ user }) => {
                                             </div>
                                             <div className="flex flex-col items-center justify-center">
                                                 <h2 className="md:text-3xl font-bold sm:text-lg text-[#016E5B]">
-                                                    {data?.branchCount}+
+                                                    {data?.branchCount}
                                                 </h2>
                                                 <p className="text-sm">Total Branch</p>
                                             </div>
@@ -126,7 +126,7 @@ const HomeData = ({ user }) => {
                                             </div>
                                             <div className="flex flex-col items-center justify-center">
                                                 <h2 className="lg:text-3xl font-bold sm:text-lg text-[#016E5B]">
-                                                    {data?.assessmentCount}
+                                                    {data?.assessmentProgress}%
                                                 </h2>
                                                 <p className="text-sm">Pending Assessment</p>
                                             </div>

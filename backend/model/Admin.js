@@ -15,6 +15,7 @@ const adminSchema = new mongoose.Schema({
         default: 'NR',
         required: true,
     },
+    password: { type: String, min: 6, },
     permissions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Permission' }],
     branches: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Branch' }],
 }, { timestamps: true });

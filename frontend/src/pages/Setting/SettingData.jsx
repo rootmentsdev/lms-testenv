@@ -2,24 +2,24 @@ import { useState } from "react";
 import Header from "../../components/Header/Header";
 import SideNav from "../../components/SideNav/SideNav";
 import PermissionSettings from "./PermissionSettings";
-import Visibility from "./Visibility";
-import NotificationSettings from "./Notificaton";
+// import Visibility from "./Visibility";
+// import NotificationSettings from "./Notificaton";
 import CreateCustomNotification from "./CreateNotification";
 import CreateUser from "./CreateAdmin";
 
 const SettingData = () => {
     // State to manage active menu
-    const [activeTab, setActiveTab] = useState("visibility");
+    const [activeTab, setActiveTab] = useState("permission");
 
     // Function to render the active component
     const renderActiveComponent = () => {
         switch (activeTab) {
-            case "visibility":
-                return <Visibility />;
+            // case "visibility":
+            //     return <Visibility />;
             case "permission":
                 return <PermissionSettings />;
-            case "notification":
-                return <NotificationSettings />;
+            // case "notification":
+            //     return <NotificationSettings />;
             case "createNotification":
                 return <CreateCustomNotification />;
             case "createUser":
@@ -42,14 +42,7 @@ const SettingData = () => {
                     <div className="w-64 bg-white shadow p-4 text-black fixed h-full md:left-28">
                         <h2 className="text-xl font-bold mb-6">Settings</h2>
                         <ul className="space-y-4">
-                            <li>
-                                <button
-                                    className={`text-gray-600 hover:text-black ${activeTab === "visibility" ? "text-green-600 font-medium" : ""}`}
-                                    onClick={() => setActiveTab("visibility")}
-                                >
-                                    Visibility Settings
-                                </button>
-                            </li>
+
                             <li>
                                 <button
                                     className={`text-gray-600 hover:text-black ${activeTab === "permission" ? "text-green-600 font-medium" : ""}`}
@@ -58,14 +51,14 @@ const SettingData = () => {
                                     Permission
                                 </button>
                             </li>
-                            <li>
+                            {/* <li>
                                 <button
                                     className={`text-gray-600 hover:text-black ${activeTab === "notification" ? "text-green-600 font-medium" : ""}`}
                                     onClick={() => setActiveTab("notification")}
                                 >
                                     Notification Settings
                                 </button>
-                            </li>
+                            </li> */}
                             <li className="pl-4">
                                 <button
                                     className={`text-gray-600 hover:text-black ${activeTab === "createNotification" ? "text-green-600 font-medium" : ""}`}

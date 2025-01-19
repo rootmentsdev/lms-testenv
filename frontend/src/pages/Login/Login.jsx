@@ -4,11 +4,13 @@ import { toast } from 'react-toastify';
 import baseUrl from '../../api/api';
 import { useDispatch } from 'react-redux';
 import { setUser } from '../../features/auth/authSlice';
-
+import { FaEye } from "react-icons/fa";
+import { FaEyeSlash } from "react-icons/fa";
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [EmpId, setEmpId] = useState('');
+  const [Open, setOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   // const [user, setUsers] = useState([])
   const dispatch = useDispatch(); // Initialize useDispatch
@@ -74,16 +76,7 @@ const Login = () => {
         >
           <h2 className="text-2xl font-semibold text-center mb-6 text-[#016E5B]">Login</h2>
 
-          <label className="input  input-bordered flex items-center gap-2 mb-4 border-gray-300 bg-white">
-            <input
-              type="text"
-              className="grow text-[#016E5B] font-semibold"
-              placeholder="Employee ID "
-              value={EmpId}
-              onChange={(e) => setEmpId(e.target.value)}
-              required
-            />
-          </label>
+
 
           {/* Email Field */}
           <label className="input  input-bordered flex items-center border-gray-300 gap-2 mb-4 bg-white">
@@ -93,6 +86,19 @@ const Login = () => {
               placeholder="Email Address"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </label>
+          <label className="input  input-bordered flex items-center gap-2 mb-4 border-gray-300 bg-white relative">
+            <div className="absolute text-[#016E5B] text-2xl right-5 cursor-pointer">
+              {!Open ? <FaEye onClick={() => setOpen((prev) => !prev)} /> : <FaEyeSlash onClick={() => setOpen((prev) => !prev)} />}
+            </div>
+            <input
+              type={!Open ? "password" : "text"}
+              className="grow text-[#016E5B] font-semibold"
+              placeholder="Employee ID "
+              value={EmpId}
+              onChange={(e) => setEmpId(e.target.value)}
               required
             />
           </label>

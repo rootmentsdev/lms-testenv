@@ -70,7 +70,7 @@ const ModuleData = () => {
                                 initialProgress={completionRate.toString()}
                                 title={item.moduleName}
                                 Module={`No. of videos: ${videoCount}`}
-                                duration='Duration: 01:56 hr'
+                               
                                 complete={`Completion Rate: ${completionRate}%`}
                             />
                         );
