@@ -96,7 +96,7 @@ const Login = () => {
             <input
               type={!Open ? "password" : "text"}
               className="grow text-[#016E5B] font-semibold"
-              placeholder="Employee ID "
+              placeholder="Admin Password "
               value={EmpId}
               onChange={(e) => setEmpId(e.target.value)}
               required
