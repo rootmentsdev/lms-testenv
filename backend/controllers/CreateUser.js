@@ -126,6 +126,7 @@ export const GetAllUser = async (req, res) => {
 
       return {
         username: item.username,
+        _id:item._id,
         workingBranch: item.workingBranch,
         empID: item.empID,
         trainingCount,

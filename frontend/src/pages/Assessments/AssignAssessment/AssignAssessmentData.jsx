@@ -101,6 +101,8 @@ const AssignAssessmentData = () => {
                     headers: { "Content-Type": "application/json" },
                     credentials: "include",
                 });
+                console.log(response);
+
 
                 if (!response.ok) throw new Error(`Error: ${response.statusText}`);
                 const data = await response.json();

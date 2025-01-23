@@ -6,6 +6,7 @@ import PermissionSettings from "./PermissionSettings";
 // import NotificationSettings from "./Notificaton";
 import CreateCustomNotification from "./CreateNotification";
 import CreateUser from "./CreateAdmin";
+import SubroleCreation from "./SubroleCreation";
 
 const SettingData = () => {
     // State to manage active menu
@@ -24,6 +25,8 @@ const SettingData = () => {
                 return <CreateCustomNotification />;
             case "createUser":
                 return <CreateUser />;
+            case "subrole":
+                return <SubroleCreation />
             default:
                 return null;
         }
@@ -74,6 +77,19 @@ const SettingData = () => {
                                 >
                                     + Create User
                                 </button>
+
+                            </li>
+
+
+
+                            <li className="pl-4">
+                                <button
+                                    className={`text-gray-600 hover:text-black ${activeTab === "subrole" ? "text-green-600 font-medium" : ""}`}
+                                    onClick={() => setActiveTab("subrole")}
+                                >
+                                    + Add subrole
+                                </button>
+
                             </li>
                         </ul>
                     </div>

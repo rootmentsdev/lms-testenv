@@ -47,9 +47,18 @@ const TopEmployeeAndBranch = () => {
     const renderEmployees = () => {
         // Check if the data is available before rendering
         const users = topData === "top" ? allData.topUsers : allData.lastUsers;
+
         if (!users || users.length === 0) return <p>No data available</p>;
 
-        return users.map((user, index) => (
+        // Sort users by Training Completed first, then by Assessment Score
+        const sortedUsers = [...users].sort((a, b) => {
+            if (b.trainingProgress === a.trainingProgress) {
+                return b.assessmentProgress - a.assessmentProgress; // Secondary sort by Assessment Score
+            }
+            return b.trainingProgress - a.trainingProgress; // Primary sort by Training Completed
+        });
+
+        return sortedUsers.map((user, index) => (
             <div key={index} className="flex items-center bg-gray-100 p-2 rounded-md">
                 <div className={`flex items-center justify-center w-12 h-12 ${index + 1 === 1 ? 'bg-green-400' : index + 1 === 2 ? 'bg-yellow-400' : 'bg-red-400'} text-white font-bold text-lg rounded-full`}>
                     {index + 1}
@@ -65,6 +74,7 @@ const TopEmployeeAndBranch = () => {
             </div>
         ));
     };
+
 
     // Render branches
     const renderBranches = () => {

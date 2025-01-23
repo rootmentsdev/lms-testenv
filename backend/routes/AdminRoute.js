@@ -1,6 +1,6 @@
 import express from 'express';
 import { handlePermissions, CreatingAdminUsers, getTopUsers, HomeBar, } from '../controllers/DestinationController.js';
-import { AdminLogin, ChangeVisibility, getAllNotifications, getNotifications, getVisibility } from '../controllers/moduleController.js';
+import { AdminLogin, ChangeVisibility, getAllNotifications, getNotifications, GetSubroles, getVisibility, Subroles } from '../controllers/moduleController.js';
 import { VerifyToken } from '../lib/VerifyJwt.js';
 
 const router = express.Router();
@@ -17,4 +17,6 @@ router.post('/admin/login', AdminLogin)
 router.post('/admin/verifyToken', VerifyToken)
 router.get('/home/notification', getNotifications)
 router.get('/home/AllNotification', getAllNotifications)
+router.post('/subroles', Subroles)
+router.get('/getSubrole', GetSubroles)
 export default router;

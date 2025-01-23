@@ -11,6 +11,7 @@ const CreateUser = () => {
   const [assignedTo, setAssignedTo] = useState([]);
   const [selectedOption, setSelectedOption] = useState("user");
   const [Open, setOpen] = useState(false)
+  const [Subrole, GetSubRole] = useState([]);
   // const subrole={}
 
   const [form, setForm] = useState({
@@ -100,7 +101,23 @@ const CreateUser = () => {
       }
     };
 
+    const FetchSubrole = async () => {
+      try {
+        const response = await fetch(`${baseUrl.baseUrl}api/admin/getSubrole`)
+        if (response.ok) {
+          console.log("subrole find")
+        }
+        const data = await response.json()
+        GetSubRole(data.subrole)
+        console.log(Subrole);
+
+      } catch (error) {
+        throw new Error(error)
+      }
+    }
+
     fetchUsers();
+    FetchSubrole();
   }, []); // Ensure this only runs on component mount
 
   return (
@@ -224,9 +241,13 @@ const CreateUser = () => {
                   className="mt-2 block w-full p-2 border bg-white border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
                 >
                   <option value="">Select Sub Role</option>
-                  <option value="TM">Training Manager</option>
+                  {Subrole?.map((item) => {
+                    return <option key={item._id} value={item.roleCode
+                    }>{item.subrole}</option>
+                  })}
+                  {/* <option value="TM">Training Manager</option>
                   <option value="HR">HR</option>
-                  <option value="MG">management</option>
+                  <option value="MG">management</option> */}
                 </select>
               </div>
             )}

@@ -7,6 +7,7 @@ import User from '../model/User.js';
 import Visibility from '../model/Visibility.js';
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcrypt'
+import Subrole from '../model/Subrole.js';
 
 export const createModule = async (req, res) => {
     try {
@@ -308,5 +309,47 @@ export const getAllNotifications = async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+
+
+
+
+export const Subroles = async (req, res) => {
+    try {
+        const { subrole, roleCode, level } = req.body;
+
+        // Validation (Optional)
+        if (!subrole || !roleCode || !level) {
+            return res.status(400).json({ message: 'All fields are required.' });
+        }
+
+        const newSubrole = new Subrole({ subrole, roleCode, level });
+        await newSubrole.save();
+
+        res.status(201).json({ message: 'Subrole added successfully.', subrole: newSubrole });
+    } catch (error) {
+        console.error('Error creating subrole:', error);
+        res.status(500).json({ message: 'Server error.' });
+    }
+};
+
+export const GetSubroles = async (req, res) => {
+    try {
+
+
+        const newSubrole = await Subrole.find()
+        if (!newSubrole) {
+            return res.status(404).json({
+                message: "Subrole not found"
+            })
+        }
+
+
+        res.status(201).json({ message: 'Subrole added successfully.', subrole: newSubrole });
+    } catch (error) {
+        console.error('Error creating subrole:', error);
+        res.status(500).json({ message: 'Server error.' });
     }
 };

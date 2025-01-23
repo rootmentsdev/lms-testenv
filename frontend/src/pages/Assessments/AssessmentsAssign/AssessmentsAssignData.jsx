@@ -45,13 +45,13 @@ const AssessmentsAssignData = () => {
   }, [id]);
 
   const handleFilterChange = (role) => {
-    setIsOpen(prev => !prev)
+    setIsOpen(prev => !prev);
     setFilterRole(role);
     filterData(role, filterBranch); // Apply the filter with the current role and branch
   };
 
   const handleBranchFilterChange = (branch) => {
-    setIsBranchOpen(prev => !prev)
+    setIsBranchOpen(prev => !prev);
     setFilterBranch(branch);
     filterData(filterRole, branch); // Apply the filter with the current role and branch
   };
@@ -72,6 +72,13 @@ const AssessmentsAssignData = () => {
 
   const toggleDropdown = () => setIsOpen(!isOpen);
   const toggleBranchDropdown = () => setIsBranchOpen(!isBranchOpen);
+
+  // Sort filteredData by score in ascending order (high scores last)
+  const sortedData = [...filteredData].sort((a, b) => {
+    const scoreA = a.assignedAssessments?.[0]?.complete || 0;
+    const scoreB = b.assignedAssessments?.[0]?.complete || 0;
+    return scoreA - scoreB; // Ascending order
+  });
 
   return (
     <div className="w-full h-full bg-white text-[#016E5B]">
@@ -135,11 +142,11 @@ const AssessmentsAssignData = () => {
           </div>
         </div>
 
-        {/* Table displaying filtered data */}
+        {/* Table displaying filtered and sorted data */}
         <div className="overflow-x-auto md:mx-10 mt-5 flex justify-center">
           {error ? (
             <p className="text-red-500 text-center">{error}</p>
-          ) : filteredData.length === 0 ? (
+          ) : sortedData.length === 0 ? (
             <p className="text-gray-500 text-center">No data available.</p>
           ) : (
             <div className="overflow-x-auto max-w-full mx-2 mt-5">
@@ -156,7 +163,7 @@ const AssessmentsAssignData = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredData.map((user, index) => {
+                  {sortedData.map((user, index) => {
                     const assignment = user.assignedAssessments?.[0];
                     return (
                       <tr key={index} className="border-b hover:bg-gray-100 text-black">
@@ -171,7 +178,7 @@ const AssessmentsAssignData = () => {
                           {assignment ? assignment.status : "pending"}
                         </td>
                         <td className="px-3 py-1 border-2 border-gray-300 text-center">
-                          {assignment ? assignment.complete : "N/A"}
+                          {assignment ? Math.round(assignment.complete) : "N/A"}
                         </td>
                       </tr>
                     );

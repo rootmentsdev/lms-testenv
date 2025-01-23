@@ -11,7 +11,6 @@ const adminSchema = new mongoose.Schema({
     },
     subRole: {
         type: String,
-        enum: ['TM', 'HR', 'MG', 'NR'],
         default: 'NR',
         required: true,
     },
