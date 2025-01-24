@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import Escalation from "../model/Escalation.js"; // Import your Escalation model
 import User from "../model/User.js"; // Import your User model
 import Admin from "../model/Admin.js"; // Import your Admin model
+import EscalationLevel from '../model/EscalationLevel.js';
 
 // Get today's date normalized to midnight
 // const now = new Date();
@@ -174,6 +175,9 @@ import Admin from "../model/Admin.js"; // Import your Admin model
 const now = new Date();
 const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
+
+
+
 // Utility function to compare dates by day, month, and year
 const isSameDate = (date1, date2) => {
     return (
@@ -194,6 +198,21 @@ const processDeadlines = async (user, items, escalationContext) => {
     const TrManagers = await Admin.find({ subRole: "Level 1" });
     const HRManagers = await Admin.find({ subRole: "Level 2" });
     const MgmtManagers = await Admin.find({ subRole: "Level 3" });
+    const escalation = await EscalationLevel.find();
+
+    // Use .find() for a single match or access the first item from .filter()
+    const BFoneDay = escalation.find((item) => item.id === 1);
+    const AFoneDay = escalation.find((item) => item.id === 3);
+    const leveltwo = escalation.find((item) => item.id === 4);
+    const levelthree = escalation.find((item) => item.id === 5);
+
+    // Safely access numberOfDays with optional chaining
+    console.log(
+        BFoneDay?.numberOfDays,
+        AFoneDay?.numberOfDays,
+        leveltwo?.numberOfDays,
+        levelthree?.numberOfDays
+    );
 
     for (const item of items) {
         if (!item.deadline || !(item.deadline instanceof Date)) {
@@ -221,10 +240,10 @@ const processDeadlines = async (user, items, escalationContext) => {
 
         // Normalize the deadline
         const deadlineDate = new Date(item.deadline.getFullYear(), item.deadline.getMonth(), item.deadline.getDate());
-        const oneDayBefore = new Date(deadlineDate.getTime() - 24 * 60 * 60 * 1000);
-        const oneDayAfter = new Date(deadlineDate.getTime() + 24 * 60 * 60 * 1000);
-        const threeDaysAfter = new Date(deadlineDate.getTime() + 3 * 24 * 60 * 60 * 1000);
-        const fiveDaysAfter = new Date(deadlineDate.getTime() + 5 * 24 * 60 * 60 * 1000);
+        const oneDayBefore = new Date(deadlineDate.getTime() - BFoneDay?.numberOfDays * (24 * 60 * 60 * 1000));
+        const oneDayAfter = new Date(deadlineDate.getTime() + AFoneDay?.numberOfDays * 24 * 60 * 60 * 1000);
+        const threeDaysAfter = new Date(deadlineDate.getTime() + leveltwo?.numberOfDays * 24 * 60 * 60 * 1000);
+        const fiveDaysAfter = new Date(deadlineDate.getTime() + levelthree?.numberOfDays * 24 * 60 * 60 * 1000);
 
         // Escalation logic
         if (isSameDate(today, oneDayBefore)) {

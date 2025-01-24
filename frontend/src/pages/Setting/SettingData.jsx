@@ -7,6 +7,7 @@ import PermissionSettings from "./PermissionSettings";
 import CreateCustomNotification from "./CreateNotification";
 import CreateUser from "./CreateAdmin";
 import SubroleCreation from "./SubroleCreation";
+import Escalation from "./Escalation";
 
 const SettingData = () => {
     // State to manage active menu
@@ -27,6 +28,8 @@ const SettingData = () => {
                 return <CreateUser />;
             case "subrole":
                 return <SubroleCreation />
+            case "Escalation":
+                return <Escalation />
             default:
                 return null;
         }
@@ -88,6 +91,16 @@ const SettingData = () => {
                                     onClick={() => setActiveTab("subrole")}
                                 >
                                     + Add subrole
+                                </button>
+
+                            </li>
+
+                            <li className="pl-4">
+                                <button
+                                    className={`text-gray-600 hover:text-black ${activeTab === "subrole" ? "text-green-600 font-medium" : ""}`}
+                                    onClick={() => setActiveTab("Escalation")}
+                                >
+                                    + Escalation
                                 </button>
 
                             </li>

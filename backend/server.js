@@ -71,6 +71,8 @@ cron.schedule("0 0 * * *", async () => {
 // AlertNotification();
 
 
+
+
 app.listen(port, () => {
   connectMongoDB()
   console.log(`Server running on port ${port}`);

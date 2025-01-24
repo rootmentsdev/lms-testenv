@@ -8,6 +8,7 @@ import Visibility from '../model/Visibility.js';
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcrypt'
 import Subrole from '../model/Subrole.js';
+import EscalationLevel from '../model/EscalationLevel.js';
 
 export const createModule = async (req, res) => {
     try {
@@ -351,5 +352,55 @@ export const GetSubroles = async (req, res) => {
     } catch (error) {
         console.error('Error creating subrole:', error);
         res.status(500).json({ message: 'Server error.' });
+    }
+};
+
+
+export const upsertEscalationLevel = async (req, res) => {
+    const { tableData } = req.body; // Extract tableData from the request body
+
+    if (!Array.isArray(tableData)) {
+        return res.status(400).json({ message: "Invalid input: tableData must be an array" });
+    }
+
+    try {
+        const results = await Promise.all(
+            tableData.map(async (item) => {
+                const { id, level, context, numberOfDays } = item;
+
+                // Find and update or create if not found
+                let escalationLevel = await EscalationLevel.findOneAndUpdate(
+                    { id }, // Query by ID
+                    { level, context, numberOfDays }, // Fields to update
+                    { new: true, upsert: true, runValidators: true } // Create if not exists, return updated document
+                );
+
+                return escalationLevel;
+            })
+        );
+
+        // Respond with all updated or created documents
+        res.status(200).json({ message: "Successfully processed escalation levels", results });
+    } catch (error) {
+        // Handle errors
+        res.status(500).json({ message: "Failed to process escalation levels", error: error.message });
+    }
+};
+
+export const getEscalationLevel = async (req, res) => {
+
+
+    try {
+        const results = await EscalationLevel.find()
+        if (!results) {
+            res.status(404).json({ message: "no data processed escalation levels" });
+
+        }
+
+        // Respond with all updated or created documents
+        res.status(200).json({ message: "Successfully processed escalation levels", data: results });
+    } catch (error) {
+        // Handle errors
+        res.status(500).json({ message: "Failed to process escalation levels", error: error.message });
     }
 };
