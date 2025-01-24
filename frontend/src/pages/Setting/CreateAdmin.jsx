@@ -242,7 +242,7 @@ const CreateUser = () => {
                 >
                   <option value="">Select Sub Role</option>
                   {Subrole?.map((item) => {
-                    return <option key={item._id} value={item.roleCode
+                    return <option key={item._id} value={item.level
                     }>{item.subrole}</option>
                   })}
                   {/* <option value="TM">Training Manager</option>

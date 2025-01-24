@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import cron from "node-cron";
 dotenv.config();
 import cors from 'cors';
 import express from 'express';
@@ -10,8 +11,8 @@ import UserCreating from './routes/UserRoute.js';
 import UserRouters from './routes/UserConRoute.js';
 import AdminData from './routes/AdminRoute.js'
 import FutterAssessment from './routes/FutterAssessment.js'
-import User from './model/User.js';
-import Admin from './model/Admin.js';
+
+import { AlertNotification } from './lib/CornJob.js';
 const app = express();
 const port = process.env.PORT || 7000;
 
@@ -43,50 +44,31 @@ app.use('/api/user/assessment', FutterAssessment)
 
 
 
-const now = new Date();
 
 
-const AlertNotification = async () => {
+
+cron.schedule("0 0 * * *", async () => {
+  console.log("Running AlertNotification at midnight...");
   try {
-    // Fetch all users
-    const users = await User.find();
-
-    // Fetch all store managers with their branches populated
-    const storeManagers = await Admin.find({ role: "store_admin" }).populate("branches");
-
-    // Uncomment this block if you want to log branches for each store manager
-    // storeManagers.forEach((storeManager) => {
-    //   console.log(storeManager.branches);
-    // });
-
-    // Iterate through users and log deadlines
-    users.forEach((user) => {
-      const training = user.training; // Ensure the training field exists in the schema
-      training.map((item) => {
-
-
-
-
-
-        if (now >= new Date(deadline.getTime() - 24 * 60 * 60 * 1000)) {
-          // Level 1: Notify 1 day before, on, and after the deadline
-          const beforeDeadline = new Date(deadline.getTime() - 24 * 60 * 60 * 1000);
-          const afterDeadline = new Date(deadline.getTime() + 24 * 60 * 60 * 1000);
-
-
-
-        }
-      })
-
-    });
+    await AlertNotification();
+    console.log("AlertNotification executed successfully.");
   } catch (error) {
-    console.error("Error in AlertNotification:", error);
+    console.error("Error executing AlertNotification:", error);
   }
-};
+});
+
+// cron.schedule("* * * * *", async () => {
+//   console.log("Running AlertNotification every minute for testing...");
+//   try {
+//     await AlertNotification();
+//   } catch (error) {
+//     console.error("Error executing AlertNotification:", error);
+//   }
+// });
+
+
 
 // AlertNotification();
-
-
 
 
 app.listen(port, () => {
