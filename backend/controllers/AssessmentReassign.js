@@ -379,5 +379,52 @@ export const AssessmentAssign = async (req, res) => {
 };
 
 
+export const FindOverDueAssessment = async (req, res) => {
+    try {
+        const day = new Date(); // Get current date
 
+        // Find users with overdue assessments
+        const DueAssessment = await User.find({
+            assignedAssessments: {
+                $elemMatch: {
+                    pass: false, // Condition 1: pass is false
+                    deadline: { $lt: day } // Condition 2: deadline is less than the current date
+                }
+            }
+        }).populate("assignedAssessments.assessmentId");
+
+        if (!DueAssessment || DueAssessment.length === 0) {
+            return res.status(400).json({
+                message: "No due assessments found"
+            });
+        }
+
+        // Filter overdue assessments for each user
+        const filterData = DueAssessment.map((user) => ({
+            userId: user._id,
+            userName: user.username, // Include user's name or any relevant field
+            role: user.designation,
+            overdueAssessments: user.assignedAssessments.filter(
+                (item) => item.pass === false && item.deadline < day
+            )
+        })).filter((user) => user.overdueAssessments.length > 0); // Remove users with no overdue assessments
+
+        if (filterData.length === 0) {
+            return res.status(400).json({
+                message: "No overdue assessments found"
+            });
+        }
+
+        res.status(200).json({
+            message: "Overdue assessments found",
+            data: filterData
+        });
+
+    } catch (error) {
+        console.error("Error finding overdue assessments:", error);
+        res.status(500).json({
+            message: "Internal server error"
+        });
+    }
+};
 

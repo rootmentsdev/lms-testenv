@@ -362,28 +362,28 @@ export const calculateProgress = async (req, res) => {
 
         // Calculate assessment progress
         const users = await User.find();
-let totalAssessments = 0;
-let passedAssessments = 0;
-let trainingpend = 0;
+        let totalAssessments = 0;
+        let passedAssessments = 0;
+        let trainingpend = 0;
 
-// Assuming `day` is already defined and holds the current date
-users.forEach((user) => {
-    if (user.assignedAssessments && Array.isArray(user.assignedAssessments)) {
-        totalAssessments += user.assignedAssessments.length;
+        // Assuming `day` is already defined and holds the current date
+        users.forEach((user) => {
+            if (user.assignedAssessments && Array.isArray(user.assignedAssessments)) {
+                totalAssessments += user.assignedAssessments.length;
 
-        user.assignedAssessments.forEach((item) => {
-            if (day > item.deadline && item.pass === false) {
-                passedAssessments += 1; // Increment by 1
+                user.assignedAssessments.forEach((item) => {
+                    if (day > item.deadline && item.pass === false) {
+                        passedAssessments += 1; // Increment by 1
+                    }
+                });
+
+                user.training.forEach((item) => {
+                    if (day > item.deadline && item.pass === false) {
+                        trainingpend += 1; // Increment by 1
+                    }
+                });
             }
         });
-
-        user.training.forEach((item) => {
-            if (day < item.deadline && item.pass === false) {
-                trainingpend += 1; // Increment by 1
-            }
-        });
-    }
-});
 
         console.log("hi" + passedAssessments, trainingpend);
 

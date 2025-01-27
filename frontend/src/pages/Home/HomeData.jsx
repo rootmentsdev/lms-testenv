@@ -137,7 +137,7 @@ const HomeData = ({ user }) => {
                                                 <MdOutlinePendingActions />
                                             </div>
                                             <div className="flex flex-col absolute top-5 left-2 w-10">
-                                                <p className="text-sm text-black">Overdue Trainings</p>
+                                                <p className="text-sm text-black">Overdue Assessment </p>
                                                 <h2 className="md:text-2xl sm:text-lg font-bold ">
                                                     {data?.assessmentProgress}
                                                 </h2>
@@ -159,7 +159,7 @@ const HomeData = ({ user }) => {
                                                 <MdOutlinePendingActions />
                                             </div>
                                             <div className="flex flex-col absolute top-5 left-2 w-10">
-                                                <p className="text-sm text-black">Overdue Assessment</p>
+                                                <p className="text-sm text-black">Overdue Trainings</p>
                                                 <h2 className="md:text-2xl sm:text-lg font-bold ">
                                                     {data?.trainingpend}
                                                 </h2>

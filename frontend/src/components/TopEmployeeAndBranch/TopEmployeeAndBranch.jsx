@@ -123,7 +123,7 @@ const TopEmployeeAndBranch = () => {
                                 handleViewToggle("employees");
                             }}
                         >
-                            employees
+                            Employees
                         </span>
 
                         {/* Branches Section */}
@@ -135,7 +135,7 @@ const TopEmployeeAndBranch = () => {
                                 handleViewToggle("branches");
                             }}
                         >
-                            branches
+                            Branches
                         </span>
                     </button>
 
