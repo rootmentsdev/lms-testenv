@@ -32,6 +32,9 @@ const AssignAssessment = lazy(() => import('./pages/Assessments/AssignAssessment
 const Test = lazy(() => import('./components/test/Test'));
 const Notifications = lazy(() => import('./pages/Notification/Notifications.jsx'))
 const AddBranch = lazy(() => import('./pages/Branch/AddBranch.jsx'))
+const AssessmentOverDuedata = lazy(() => import('./pages/OverDue/AssessmentOverDuedata.jsx'))
+const TraningOverDuedata = lazy(() => import('./pages/OverDue/TraningOverDuedata.jsx'))
+
 import { setUser } from './features/auth/authSlice.js';
 
 // Custom Components
@@ -40,6 +43,7 @@ import PublicRoute from './components/PublicRoute';
 
 import baseUrl from './api/api';
 import { useDispatch } from 'react-redux';
+
 
 
 
@@ -126,6 +130,10 @@ function App() {
           <Route path="/assign/assessment" element={<ProtectedRoute><AssignAssessment /></ProtectedRoute>} />
           <Route path="/test" element={<ProtectedRoute><Test /></ProtectedRoute>} />
           <Route path="/admin/Notification" element={<ProtectedRoute>< Notifications /></ProtectedRoute>} />
+
+          <Route path="/admin/overdue/assessment" element={<ProtectedRoute>< AssessmentOverDuedata /></ProtectedRoute>} />
+          <Route path="/admin/overdue/training" element={<ProtectedRoute>< TraningOverDuedata /></ProtectedRoute>} />
+
         </Routes>
       </Suspense>
       <ToastContainer />

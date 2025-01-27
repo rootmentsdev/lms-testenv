@@ -50,8 +50,8 @@ const Notification = () => {
                                     <FaRegBell className="text-green-600" />
                                 </div>
                                 <div>
-                                    <p className="text-sm font-medium text-gray-800">{notification.title}</p>
-                                    <p className="text-sm text-gray-600">{notification.body}</p>
+                                    <p className="text-sm font-medium text-gray-800">{notification.title.length < 20 ? notification.title : notification.title.slice(0, 20)}</p>
+                                    <p className="text-sm text-gray-600">{notification.body.length < 40 ? notification.body : notification.body.slice(0, 40) + "..."}</p>
                                 </div>
                             </div>
                             <p className="text-sm text-gray-400 self-start">

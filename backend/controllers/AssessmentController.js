@@ -315,7 +315,11 @@ export const GetTrainingById = async (req, res) => {
 
 
 export const calculateProgress = async (req, res) => {
+
     try {
+        const day = new Date()
+        console.log(day);
+
         // Count documents in collections
         const assessmentCount = await Assessment.countDocuments();
         const branchCount = await Branch.countDocuments();
@@ -358,21 +362,32 @@ export const calculateProgress = async (req, res) => {
 
         // Calculate assessment progress
         const users = await User.find();
-        let totalAssessments = 0;
-        let passedAssessments = 0;
+let totalAssessments = 0;
+let passedAssessments = 0;
+let trainingpend = 0;
 
-        users.forEach((user) => {
-            if (user.assignedAssessments && Array.isArray(user.assignedAssessments)) {
-                totalAssessments += user.assignedAssessments.length;
+// Assuming `day` is already defined and holds the current date
+users.forEach((user) => {
+    if (user.assignedAssessments && Array.isArray(user.assignedAssessments)) {
+        totalAssessments += user.assignedAssessments.length;
 
-                passedAssessments += user.assignedAssessments.filter(
-                    (assessment) => assessment.pass
-                ).length;
+        user.assignedAssessments.forEach((item) => {
+            if (day > item.deadline && item.pass === false) {
+                passedAssessments += 1; // Increment by 1
             }
         });
 
-        const assessmentProgress =
-            totalAssessments > 0 ? (passedAssessments / totalAssessments) * 100 : 0;
+        user.training.forEach((item) => {
+            if (day < item.deadline && item.pass === false) {
+                trainingpend += 1; // Increment by 1
+            }
+        });
+    }
+});
+
+        console.log("hi" + passedAssessments, trainingpend);
+
+
 
         // Return results
         res.status(200).json({
@@ -382,7 +397,8 @@ export const calculateProgress = async (req, res) => {
                 branchCount,
                 userCount,
                 averageProgress: averageProgress.toFixed(2), // Percentage
-                assessmentProgress: assessmentProgress.toFixed(2), // Percentage
+                assessmentProgress: passedAssessments,
+                trainingpend// Percentage
             },
         });
     } catch (error) {
@@ -477,7 +493,7 @@ export const createMandatoryTraining = async (req, res) => {
             title: `New training Created : ${trainingName}`,
             body: `${trainingName} has been successfully created. Created by ${admin?.name}. The training is scheduled to be completed in ${days} days.`,
             Role: workingBranch,
-            
+
             useradmin: admin?.name, // Optional
         });
     } catch (error) {

@@ -92,8 +92,8 @@ const TopEmployeeAndBranch = () => {
                     <p className="font-medium">{branch.branch}</p>
                 </div>
                 <div className="text-right">
-                    <p className="font-bold text-green-600">{Math.round(branch?.averageTrainingProgress) + " %"} <span className="text-gray-500">Total Training</span></p>
-                    <p className="font-bold text-green-600">{Math.round(branch.averageAssessmentProgress) + " %"} <span className="text-gray-500">Total Assessment</span></p>
+                    <p className="font-bold text-green-600">{Math.round(branch?.averageTrainingProgress) + " %"} <span className="text-gray-500">Completed Training</span></p>
+                    <p className="font-bold text-green-600">{Math.round(branch.averageAssessmentProgress) + " %"} <span className="text-gray-500">Completed Assessment</span></p>
                 </div>
             </div>
         ));
@@ -106,17 +106,17 @@ const TopEmployeeAndBranch = () => {
     return (
         <div className="p-2 bg-white shadow-md rounded-md w-full h-full mx-auto">
             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-bold flex items-center text-black"> <BiSortAlt2 onClick={() => handleTopDataToggle(topData === "top" ? "last" : "top")} className="text-2xl text-green-500 cursor-pointer" /> {topData === 'last' ? "low" : topData} Performance</h2>
+                <h2 className="text-lg font-bold flex items-center text-black"> <BiSortAlt2 onClick={() => handleTopDataToggle(topData === "top" ? "last" : "top")} className="text-2xl text-green-500 cursor-pointer" /> {topData === 'last' ? "Low" : " Top"} Performance</h2>
             </div>
-            <div className="flex items-center justify-between mx-10">
+            <div className="flex items-center justify-between ">
                 <div className="mb-4">
                     <button
-                        className={`bg-green-300 relative text-white  flex gap-0 rounded-md text-sm transition-all duration-300 focus:ring-2 focus:ring-green-500`}
+                        className={`bg-green-300 relative text-white  flex gap-0 rounded-md text-sm transition-all duration-300 `}
                         onClick={() => handleViewToggle(view === "employees" ? "branches" : "employees")}
                     >
                         {/* Employees Section */}
                         <span
-                            className={`flex-1 px-4 py-2 text-center rounded-l-md transition-colors duration-300 ${view === "employees" ? "bg-green-700 text-white" : "bg-green-600 text-white"
+                            className={`flex-1 px-4 py-2 text-center rounded-l-md transition-colors duration-300 ${view === "employees" ? "bg-green-700 text-white rounded-lg" : "bg-gray-200 text-black "
                                 }`}
                             onClick={(e) => {
                                 e.stopPropagation(); // Prevent the parent button's click event
@@ -128,7 +128,7 @@ const TopEmployeeAndBranch = () => {
 
                         {/* Branches Section */}
                         <span
-                            className={`flex-1 px-4 py-2 text-center rounded-r-md transition-colors duration-300 ${view === "branches" ? "bg-green-700 text-white" : "bg-green-600 text-white"
+                            className={`flex-1 px-4 py-2 text-center rounded-r-md transition-colors duration-300 ${view === "branches" ? "bg-green-700 text-white rounded-lg" : "bg-gray-200 text-black "
                                 }`}
                             onClick={(e) => {
                                 e.stopPropagation(); // Prevent the parent button's click event

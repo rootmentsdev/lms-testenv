@@ -47,8 +47,8 @@ app.use('/api/user/assessment', FutterAssessment)
 
 
 
-cron.schedule("0 0 * * *", async () => {
-  console.log("Running AlertNotification at midnight...");
+cron.schedule("30 18 * * *", async () => {
+  console.log("Running AlertNotification at midnight IST...");
   try {
     await AlertNotification();
     console.log("AlertNotification executed successfully.");
@@ -56,6 +56,7 @@ cron.schedule("0 0 * * *", async () => {
     console.error("Error executing AlertNotification:", error);
   }
 });
+
 
 // cron.schedule("* * * * *", async () => {
 //   console.log("Running AlertNotification every minute for testing...");

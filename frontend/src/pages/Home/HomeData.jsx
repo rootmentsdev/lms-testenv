@@ -1,8 +1,8 @@
 import Header from "../../components/Header/Header";
-import { MdGroups2 } from "react-icons/md";
+// import { MdGroups2 } from "react-icons/md";
 import { GiProgression } from "react-icons/gi";
 import { HiOutlineBuildingOffice2 } from "react-icons/hi2";
-import { TiClipboard } from "react-icons/ti";
+import { MdOutlinePendingActions } from "react-icons/md";
 import { useEffect, useState } from "react";
 import baseUrl from "../../api/api";
 import HomeSkeleton from "../../components/Skeleton/HomeSkeleton";
@@ -12,6 +12,8 @@ import HomeBar from "../../components/HomeBar/HomeBar";
 import TopEmployeeAndBranch from "../../components/TopEmployeeAndBranch/TopEmployeeAndBranch";
 import Notification from "../../components/Notification/Notification";
 import Quick from "../../components/Quick/Quick";
+import { RiIdCardLine } from "react-icons/ri";
+
 
 const HomeData = ({ user }) => {
     const [data, setData] = useState([]);
@@ -66,69 +68,102 @@ const HomeData = ({ user }) => {
                             <HomeSkeleton />
                             <HomeSkeleton />
                             <HomeSkeleton />
+                            <HomeSkeleton />
                         </div>
                     )}
                     {!loading && (
                         <div className="">
                             <div className="flex mb-[70px] gap-3 lg:gap-6 mx-10 lg:mx-15 md:flex-wrap flex-wrap sm:w-full md:gap-9  md:mx-10 md:justify-start mt-10 font-semibold">
                                 <Link to={'/employee'}>
-                                    <div className="lg:w-72 w-48 md:w-52 h-28 border-gray-300 border rounded-xl shadow-lg text-black flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
+                                    <div className="lg:w-56 w-48 md:w-52 h-28 relative border-gray-300 border rounded-xl shadow-lg text-black flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
                                         <div className="flex gap-3">
-                                            <div className="text-3xl bg-slate-200 h-14 w-14 rounded-full flex items-center justify-center">
-                                                <MdGroups2 />
+                                            <div className="text-xl absolute top-2 right-2 bg-slate-200 h-10 w-10 rounded-full flex items-center justify-center">
+                                                <RiIdCardLine />
                                             </div>
-                                            <div className="flex flex-col items-center justify-center">
-                                                <h2 className="md:text-3xl sm:text-lg font-bold text-[#016E5B]">
+                                            <div className="flex flex-col absolute top-5 left-2 w-10">
+                                                <p className="text-sm">Total employee</p>
+                                                <h2 className="md:text-2xl sm:text-lg font-bold text-[#016E5B]">
                                                     {data?.userCount}
                                                 </h2>
-                                                <p className="text-sm">Total employee</p>
+
                                             </div>
                                         </div>
                                     </div>
                                 </Link>
                                 <Link to={'/training'}>
-                                    <div className="lg:w-72 w-48 md:w-52 h-28 border-gray-300 border rounded-xl shadow-lg text-black flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
+
+
+                                    <div className="lg:w-56 w-48 md:w-52 h-28 relative border-gray-300 border rounded-xl shadow-lg text-black flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
                                         <div className="flex gap-3">
-                                            <div className="text-3xl bg-slate-200 h-14 w-14 rounded-full flex items-center justify-center">
+                                            <div className="text-xl absolute top-2 right-2 bg-slate-200 h-10 w-10 rounded-full flex items-center justify-center">
                                                 <GiProgression />
                                             </div>
-                                            <div className="flex flex-col items-center justify-center">
-                                                <h2 className="lg:text-3xl font-bold sm:text-lg text-[#016E5B]">
-                                                    {data?.averageProgress}%
-                                                </h2>
+                                            <div className="flex flex-col absolute top-5 left-2 w-10">
                                                 <p className="text-sm">Training progress</p>
+                                                <h2 className="md:text-2xl sm:text-lg font-bold text-[#016E5B]">
+                                                    {Math.round(data?.averageProgress)}%
+                                                </h2>
+
                                             </div>
                                         </div>
                                     </div>
                                 </Link>
 
                                 <Link to={'/branch'}>
-                                    <div className="lg:w-72 w-48 md:w-52 h-28 border-gray-300 border rounded-xl shadow-lg text-black flex flex-col justify-center items-center gap-2 cursor-pointer sm:mr-4">
+
+                                    <div className="lg:w-56 w-48 md:w-52 h-28 relative border-gray-300 border rounded-xl shadow-lg text-black flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
                                         <div className="flex gap-3">
-                                            <div className="text-3xl bg-slate-200 h-14 w-14 rounded-full flex items-center justify-center">
+                                            <div className="text-xl absolute top-2 right-2 bg-slate-200 h-10 w-10 rounded-full flex items-center justify-center">
                                                 <HiOutlineBuildingOffice2 />
                                             </div>
-                                            <div className="flex flex-col items-center justify-center">
-                                                <h2 className="md:text-3xl font-bold sm:text-lg text-[#016E5B]">
+                                            <div className="flex flex-col absolute top-5 left-2 w-10">
+                                                <p className="text-sm">Total
+                                                    Branches</p>
+                                                <h2 className="md:text-2xl sm:text-lg font-bold text-[#016E5B]">
                                                     {data?.branchCount}
                                                 </h2>
-                                                <p className="text-sm">Total Branch</p>
+
                                             </div>
                                         </div>
                                     </div>
                                 </Link>
 
-                                <Link to={'/assessments'}>
-                                    <div className="lg:w-72 w-48 md:w-52 h-28 border-gray-300 border rounded-xl shadow-lg text-black flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
+                                <Link to={'/admin/overdue/assessment'}>
+
+
+                                    <div className="lg:w-56 w-48  text-red-600 md:w-52 h-28 relative border-red-600 border-2 rounded-xl shadow-lg flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
                                         <div className="flex gap-3">
-                                            <div className="text-3xl bg-slate-200 h-14 w-14 rounded-full flex items-center justify-center">
-                                                <TiClipboard />
+                                            <div className="text-xl absolute top-2 right-2 bg-slate-200 h-10 w-10 rounded-full flex items-center justify-center">
+                                                <MdOutlinePendingActions />
                                             </div>
-                                            <div className="flex flex-col items-center justify-center">
-                                                <h2 className="lg:text-3xl font-bold sm:text-lg text-[#016E5B]">
-                                                    {data?.assessmentProgress}%
+                                            <div className="flex flex-col absolute top-5 left-2 w-10">
+                                                <p className="text-sm text-black">Overdue Trainings</p>
+                                                <h2 className="md:text-2xl sm:text-lg font-bold ">
+                                                    {data?.assessmentProgress}
                                                 </h2>
-                                                <p className="text-sm">Pending Assessment</p>
+
+                                            </div>
+                                        </div>
+                                    </div>
+
+
+ 
+                                </Link>
+                                <Link to={'/admin/overdue/training'}>
+
+
+
+                                    <div className="lg:w-56 w-48  text-red-600 md:w-52 h-28 relative border-red-600 border-2 rounded-xl shadow-lg flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
+                                        <div className="flex gap-3">
+                                            <div className="text-xl absolute top-2 right-2 bg-slate-200 h-10 w-10 rounded-full flex items-center justify-center">
+                                                <MdOutlinePendingActions />
+                                            </div>
+                                            <div className="flex flex-col absolute top-5 left-2 w-10">
+                                                <p className="text-sm text-black">Overdue Assessment</p>
+                                                <h2 className="md:text-2xl sm:text-lg font-bold ">
+                                                    {data?.trainingpend}
+                                                </h2>
+
                                             </div>
                                         </div>
                                     </div>
