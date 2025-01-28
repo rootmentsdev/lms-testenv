@@ -12,13 +12,13 @@ const TraningOverDue = () => {
         <>
             <div style={styles.container} className="bg-white">
                 {/* Mobile Navigation */}
-                <div className="md:hidden sm:block">
+                <div className="md:hidden block z-10">
                     <ModileNav />
                 </div>
 
                 {/* Main Content */}
                 <div style={styles.middle}>
-                    <TraningOverDuedata /> 
+                    <TraningOverDuedata />
                 </div>
             </div>
         </>

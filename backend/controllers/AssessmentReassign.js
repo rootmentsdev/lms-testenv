@@ -1,6 +1,7 @@
 import Assessment from "../model/Assessment.js";
 import AssessmentProcess from "../model/Assessmentprocessschema.js";
 import Designation from "../model/designation.js";
+import Notification from "../model/Notification.js";
 import TrainingProgress from "../model/Trainingprocessschema.js";
 import { Training } from "../model/Traning.js";
 import User from "../model/User.js";
@@ -402,8 +403,10 @@ export const FindOverDueAssessment = async (req, res) => {
         // Filter overdue assessments for each user
         const filterData = DueAssessment.map((user) => ({
             userId: user._id,
+            empID: user.empID,
             userName: user.username, // Include user's name or any relevant field
             role: user.designation,
+            workingBranch: user.workingBranch,
             overdueAssessments: user.assignedAssessments.filter(
                 (item) => item.pass === false && item.deadline < day
             )
@@ -428,3 +431,239 @@ export const FindOverDueAssessment = async (req, res) => {
     }
 };
 
+export const FindOverDueTraining = async (req, res) => {
+    try {
+        const day = new Date(); // Get current date
+
+        // Find users with overdue assessments
+        const DueAssessment = await User.find({
+            training: {
+                $elemMatch: {
+                    pass: false, // Condition 1: pass is false
+                    deadline: { $lt: day } // Condition 2: deadline is less than the current date
+                }
+            }
+        }).populate("training.trainingId");
+
+        if (!DueAssessment || DueAssessment.length === 0) {
+            return res.status(400).json({
+                message: "No due assessments found"
+            });
+        }
+
+
+        // Filter overdue assessments for each user
+        const filterData = DueAssessment.map((user) => ({
+            userId: user._id,
+            empID: user.empID,
+            userName: user.username, // Include user's name or any relevant field
+            role: user.designation,
+            workingBranch: user.workingBranch,
+            overdueAssessments: user.training.filter(
+                (item) => item.pass === false && item.deadline < day
+            )
+        })).filter((user) => user.overdueAssessments.length > 0); // Remove users with no overdue assessments
+
+        if (filterData.length === 0) {
+            return res.status(400).json({
+                message: "No overdue assessments found"
+            });
+        }
+        console.log();
+
+
+        res.status(200).json({
+            message: "Overdue assessments found",
+            data: filterData
+        });
+    } catch (error) {
+        console.error("Error finding overdue assessments:", error);
+        res.status(500).json({
+            message: "Internal server error"
+        });
+    }
+};
+export const SendNotification = async (req, res) => {
+    try {
+        const { empId } = req.params;
+        console.log("Employee ID:", empId);
+
+        const admin = req.admin;
+        console.log("Admin:", admin);
+
+        const day = new Date(); // Current date
+
+        // Find the user with overdue assessments
+        const DueAssessment = await User.findOne({
+            empID: empId,
+            training: {
+                $elemMatch: {
+                    pass: false, // Condition: pass is false
+                    deadline: { $lt: day }, // Condition: deadline is in the past
+                },
+            },
+        }).populate("training.trainingId");
+
+        if (!DueAssessment) {
+            return res.status(400).json({
+                message: "No due assessments found for this employee.",
+            });
+        }
+
+        // Filter overdue assessments
+        const overdueAssessments = DueAssessment.training.filter(
+            (item) => item.pass === false && item.deadline < day
+        );
+
+        if (overdueAssessments.length === 0) {
+            return res.status(400).json({
+                message: "No overdue assessments found for this employee.",
+            });
+        }
+
+        // Extract training names
+        const trainingNames = overdueAssessments.map(
+            (assessment) => assessment.trainingId?.trainingName || "Unnamed Training"
+        );
+
+        // Create a notification
+        await Notification.create({
+            title: `${DueAssessment.username} has overdue training tasks`,
+            body: `You need to complete ${trainingNames.length} training tasks: ${trainingNames.join(
+                ", "
+            )}. Notification sent by ${admin.username}.`,
+            user: DueAssessment._id,
+            useradmin: admin.username,
+        });
+
+        // Response
+        res.status(200).json({
+            message: `Notification sent successfully to ${DueAssessment.username}`,
+            overdueTrainings: trainingNames,
+        });
+    } catch (error) {
+        console.error("Error finding overdue assessments:", error);
+        res.status(500).json({
+            message: "Internal server error",
+        });
+    }
+};
+
+export const SendNotificationAssessment = async (req, res) => {
+    try {
+        const { empId } = req.params;
+        console.log("Employee ID:", empId);
+
+        const admin = req.admin;
+        console.log("Admin:", admin);
+
+        const day = new Date(); // Current date
+
+        // Find the user with overdue assessments
+        const DueAssessment = await User.findOne({
+            empID: empId,
+            assignedAssessments: {
+                $elemMatch: {
+                    pass: false, // Condition: pass is false
+                    deadline: { $lt: day }, // Condition: deadline is in the past
+                },
+            },
+        }).populate("assignedAssessments.assessmentId");
+
+        if (!DueAssessment) {
+            return res.status(400).json({
+                message: "No due assessments found for this employee.",
+            });
+        }
+
+        // Filter overdue assessments
+        const overdueAssessments = DueAssessment.assignedAssessments.filter(
+            (item) => item.pass === false && item.deadline < day
+        );
+
+        if (overdueAssessments.length === 0) {
+            return res.status(400).json({
+                message: "No overdue assessments found for this employee.",
+            });
+        }
+
+        // Extract training names
+        const trainingNames = overdueAssessments.map(
+            (assessment) => assessment.assessmentId?.title || "Unnamed Training"
+        );
+
+        // Create a notification
+        await Notification.create({
+            title: `${DueAssessment.username} has overdue Assessment tasks`,
+            body: `You need to complete ${trainingNames.length} Assessment tasks: ${trainingNames.join(
+                ", "
+            )}. Notification sent by ${admin.username}.`,
+            user: DueAssessment._id,
+            useradmin: admin.username,
+            category: "Assessment"
+        });
+
+        // Response
+        res.status(200).json({
+            message: `Notification sent successfully to ${DueAssessment.username}`,
+            overdueTrainings: trainingNames,
+        });
+    } catch (error) {
+        console.error("Error finding overdue assessments:", error);
+        res.status(500).json({
+            message: "Internal server error",
+        });
+    }
+};
+
+
+export const CreateNotification = async (req, res) => {
+    try {
+        const { deliveryMethod, message, recipient, role, title } = req.body;
+
+        // Log the received data for debugging
+        console.log({ deliveryMethod, message, recipient, role, title });
+
+        // Validate required fields
+        if (!deliveryMethod || !message || !recipient || !role || !title) {
+            return res.status(400).json({
+                message: "All fields are required.",
+            });
+        }
+
+        // Define admin (example: fetching admin from req.user)
+        const admin = req.user || { username: "Admin" };
+
+        // Prepare the base notification object
+        const notificationData = {
+            title: title,
+            body: message,
+            useradmin: admin.username,
+            category: "Created",
+        };
+
+        // Dynamically assign the correct field based on the role
+        if (role === "branch") {
+            notificationData.branch = recipient; // Assign to branch
+        } else if (role === "user") {
+            notificationData.user = recipient; // Assign to user
+        } else {
+            notificationData.Role = recipient; // Assign to custom role
+        }
+
+        // Create the notification
+        const notification = await Notification.create(notificationData);
+
+        // Respond with success
+        return res.status(201).json({
+            message: "Notification created successfully.",
+            notification,
+        });
+    } catch (error) {
+        console.error("Error creating notification:", error.message);
+        return res.status(500).json({
+            message: "Internal server error.",
+            error: error.message,
+        });
+    }
+};

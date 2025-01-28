@@ -1,22 +1,20 @@
 import { useEffect, useState } from "react";
 import Select from "react-select";
 import baseUrl from "../../api/api";
+import { toast } from "react-toastify";
 
 const CreateCustomNotification = () => {
-
-
-  // const [modules, setModules] = useState([]);
   const [users, setUsers] = useState([]);
-  // const [selectedModules, setSelectedModules] = useState([]);
-  const [assignedTo, setAssignedTo] = useState([]); // Fixed missing state
-  // const [days, setDays] = useState(""); // Track input days
-  const [selectedOption, setSelectedOption] = useState("user");
-  // const [Reassign, setReassign] = useState(true);
+  const [assignedTo, setAssignedTo] = useState([]);
+  const [selectedOption, setSelectedOption] = useState("");
+  // const [role,setRole]=useState("user")
+  const token = localStorage.getItem("token");
+
   const [form, setForm] = useState({
     title: "",
     message: "",
-    recipient: "specificRole",
-    role: "",
+    recipient: [],
+    role: selectedOption,
     deliveryMethod: "email",
   });
 
@@ -24,7 +22,19 @@ const CreateCustomNotification = () => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
+
+  const handleAssignedToChange = (selectedOptions) => {
+    setAssignedTo(selectedOptions);
+    setForm((prev) => ({
+      ...prev,
+      recipient: selectedOptions.map((option) => option.value),
+
+    }));
+  };
+
   useEffect(() => {
+    if (!selectedOption) return;
+
     const fetchUsers = async () => {
       try {
         const endpoint =
@@ -44,22 +54,58 @@ const CreateCustomNotification = () => {
         const data = await response.json();
 
         const options = data.data.map((item) => ({
-          value: selectedOption === "branch" ? item.locCode : item._id || item.designation,
-          label: selectedOption === "branch" ? item.workingBranch : item.username || item.designation,
+          value:
+            selectedOption === "branch"
+              ? item.locCode
+              : selectedOption === "user"
+                ? item._id
+                : item.designation, // For "designation" case
+          label:
+            selectedOption === "branch"
+              ? item.workingBranch
+              : selectedOption === "user"
+                ? item.username
+                : item.designation, // For "designation" case
         }));
+
         setUsers(options);
       } catch (error) {
         console.error("Failed to fetch users:", error.message);
       }
     };
+
     fetchUsers();
+    setAssignedTo([]); // Clear assigned users when selectedOption changes
+    setForm((prev) => ({ ...prev, recipient: [], role: selectedOption }));
   }, [selectedOption]);
 
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     console.log("Notification Form Data:", form);
-    // Add your form submission logic here
+    try {
+      const response = await fetch(`${baseUrl.baseUrl}api/admin/notification/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(form),
+      });
+      const req = await response.json()
+
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        toast.warning(response.message)
+        throw new Error(errorData.message || "Failed to send notification.");
+      }
+      toast.success(req.message)
+
+
+    } catch (error) {
+      console.error("Failed to send notification:", error.message);
+
+    }
   };
 
   return (
@@ -105,9 +151,7 @@ const CreateCustomNotification = () => {
             ></textarea>
           </div>
 
-
           {/* Recipient Selection */}
-
           <div className="flex flex-col gap-4">
             <label htmlFor="assignToType" className="block text-gray-700 font-medium">
               Assign To
@@ -147,10 +191,11 @@ const CreateCustomNotification = () => {
               options={users}
               isMulti
               value={assignedTo}
-              onChange={setAssignedTo}
+              onChange={handleAssignedToChange}
               className="w-full"
             />
           </div>
+
           {/* Delivery Methods */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">

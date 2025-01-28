@@ -2,7 +2,8 @@ import express from 'express';
 import { handlePermissions, CreatingAdminUsers, getTopUsers, HomeBar, } from '../controllers/DestinationController.js';
 import { AdminLogin, ChangeVisibility, getAllNotifications, getEscalationLevel, getNotifications, GetSubroles, getVisibility, Subroles, upsertEscalationLevel } from '../controllers/moduleController.js';
 import { VerifyToken } from '../lib/VerifyJwt.js';
-import { FindOverDueAssessment } from '../controllers/AssessmentReassign.js';
+import { CreateNotification, FindOverDueAssessment, FindOverDueTraining, SendNotification, SendNotificationAssessment } from '../controllers/AssessmentReassign.js';
+import { MiddilWare } from '../lib/middilWare.js';
 
 const router = express.Router();
 
@@ -23,4 +24,8 @@ router.get('/getSubrole', GetSubroles)
 router.post('/escalation/level', upsertEscalationLevel)
 router.get('/escalation/level/get', getEscalationLevel)
 router.get('/overdue/Assessment', FindOverDueAssessment)
+router.get('/overdue/Training', FindOverDueTraining)
+router.get('/overdue/Training/send/:empId', MiddilWare, SendNotification)
+router.get('/overdue/assessment/send/:empId', MiddilWare, SendNotificationAssessment)
+router.post('/notification/create', CreateNotification)
 export default router;

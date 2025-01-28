@@ -85,14 +85,11 @@ const HomeData = ({ user }) => {
                                                 <h2 className="md:text-2xl sm:text-lg font-bold text-[#016E5B]">
                                                     {data?.userCount}
                                                 </h2>
-
                                             </div>
                                         </div>
                                     </div>
                                 </Link>
                                 <Link to={'/training'}>
-
-
                                     <div className="lg:w-56 w-48 md:w-52 h-28 relative border-gray-300 border rounded-xl shadow-lg text-black flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
                                         <div className="flex gap-3">
                                             <div className="text-xl absolute top-2 right-2 bg-slate-200 h-10 w-10 rounded-full flex items-center justify-center">
@@ -103,14 +100,11 @@ const HomeData = ({ user }) => {
                                                 <h2 className="md:text-2xl sm:text-lg font-bold text-[#016E5B]">
                                                     {Math.round(data?.averageProgress)}%
                                                 </h2>
-
                                             </div>
                                         </div>
                                     </div>
                                 </Link>
-
                                 <Link to={'/branch'}>
-
                                     <div className="lg:w-56 w-48 md:w-52 h-28 relative border-gray-300 border rounded-xl shadow-lg text-black flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
                                         <div className="flex gap-3">
                                             <div className="text-xl absolute top-2 right-2 bg-slate-200 h-10 w-10 rounded-full flex items-center justify-center">
@@ -127,10 +121,7 @@ const HomeData = ({ user }) => {
                                         </div>
                                     </div>
                                 </Link>
-
                                 <Link to={'/admin/overdue/assessment'}>
-
-
                                     <div className="lg:w-56 w-48  text-red-600 md:w-52 h-28 relative border-red-600 border-2 rounded-xl shadow-lg flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
                                         <div className="flex gap-3">
                                             <div className="text-xl absolute top-2 right-2 bg-slate-200 h-10 w-10 rounded-full flex items-center justify-center">
@@ -141,25 +132,18 @@ const HomeData = ({ user }) => {
                                                 <h2 className="md:text-2xl sm:text-lg font-bold ">
                                                     {data?.assessmentProgress}
                                                 </h2>
-
                                             </div>
                                         </div>
                                     </div>
-
-
- 
                                 </Link>
                                 <Link to={'/admin/overdue/training'}>
-
-
-
                                     <div className="lg:w-56 w-48  text-red-600 md:w-52 h-28 relative border-red-600 border-2 rounded-xl shadow-lg flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
                                         <div className="flex gap-3">
                                             <div className="text-xl absolute top-2 right-2 bg-slate-200 h-10 w-10 rounded-full flex items-center justify-center">
                                                 <MdOutlinePendingActions />
                                             </div>
                                             <div className="flex flex-col absolute top-5 left-2 w-10">
-                                                <p className="text-sm text-black">Overdue Trainings</p>
+                                                <p className="text-sm text-black">Overdue Training</p>
                                                 <h2 className="md:text-2xl sm:text-lg font-bold ">
                                                     {data?.trainingpend}
                                                 </h2>

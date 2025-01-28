@@ -1,44 +1,42 @@
-
 import ModileNav from "../../components/SideNav/ModileNav";
-import AssessmentOverDuedata from "./AssessmentOverDuedata";
-
+import AssessmentOverDuedata from "./AssessmentOverDuedata"
 
 const AssessmentOverDue = () => {
-
-
-    // Debugging: Inspect user data
-
     return (
         <>
             <div style={styles.container} className="bg-white">
-                {/* Mobile Navigation */}
+                {/* <div style={styles.left} className="hidden md:block z-50">
+                    <SideNav />
+                </div> */}
                 <div className="md:hidden sm:block">
                     <ModileNav />
                 </div>
 
-                {/* Main Content */}
-                <div style={styles.middle}>
-                    <AssessmentOverDuedata />
+                <div style={styles.middle} className="">
+                    <AssessmentOverDuedata
+                    />
                 </div>
             </div>
         </>
     );
-};
+}
 
 const styles = {
     container: {
         display: "flex",
         width: "100%",
-        minHeight: "100vh",
-        backgroundColor: "white",
-        overflowX: "hidden",
+        minHeight: "100vh", // Ensure it takes the full height of the viewport
+        backgroundColor: "white", // Set background color to white for the entire container
+        overflowX: "hidden", // Prevent horizontal scrolling
+    },
+    left: {
+        // Adjust size as needed for the sidebar
     },
     middle: {
         flex: 1,
-        width: "100%",
-        minHeight: "100vh",
+        width: "100%", // Ensure it takes the full width of the remaining space
+        minHeight: "100vh", // Ensure it stretches vertically
     },
 };
 
-export default AssessmentOverDue;
-
+export default AssessmentOverDue

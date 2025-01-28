@@ -138,7 +138,7 @@ const UserTrainingProgressData = () => {
                                                 <td className="px-3 py-2 border-2 border-gray-300">{employee.user.username}</td>
                                                 <td className="px-3 py-2 border-2 border-gray-300">{employee.user.designation}</td>
                                                 <td className="px-3 py-2 border-2 border-gray-300">{employee.user.workingBranch}</td>
-                                                <td className="px-3 py-2 border-2 border-gray-300">{daysLeft}</td>
+                                                <td className="px-3 py-2 border-2 border-gray-300">{employee.progress === 'Completed' && daysLeft > 0 ? 'complete' : daysLeft}</td>
                                                 <td className="px-3 py-2 border-2 border-gray-300">{training?.status || 'N/A'}</td>
                                                 <td className="px-3 py-2 border-2 border-gray-300">{employee.progress || 0}%</td>
                                             </tr>

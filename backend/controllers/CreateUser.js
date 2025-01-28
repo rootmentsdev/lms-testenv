@@ -4,7 +4,10 @@ import jwt from 'jsonwebtoken';
 import Branch from '../model/Branch.js';
 import TrainingProgress from '../model/Trainingprocessschema.js';
 import Module from '../model/Module.js';
+import { Training } from '../model/Traning.js';
 dotenv.config()
+
+// Adjust the path to your TrainingProgress model
 
 export const createUser = async (req, res) => {
   try {
@@ -24,8 +27,6 @@ export const createUser = async (req, res) => {
       return res.status(400).json({ message: 'Username or email already exists.' });
     }
 
-    // Hash the password before saving
-
     // Create a new user
     const newUser = new User({
       username,
@@ -37,13 +38,68 @@ export const createUser = async (req, res) => {
       workingBranch,
     });
 
+
+    // Fetch all mandatory training based on the user role (designation)
+    const mandatoryTraining = await Training.find({
+      Trainingtype: 'Mandatory',
+      Assignedfor: { $in: [designation] }, // Match the role in the `Assignedfor` array
+    }).populate('modules');
+    console.log(mandatoryTraining);
+
+    if (!mandatoryTraining || mandatoryTraining.length === 0) {
+      return res.status(400).json({ message: 'No mandatory training found for the user role.' });
+    }
+
+    const deadlineDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // Default 30-day deadline
+
+    // Assign each mandatory training to the user and create progress entries
+    const trainingAssignments = mandatoryTraining.map(async (training) => {
+      // Assign training to the user
+      newUser.training.push({
+        trainingId: training._id,
+        deadline: deadlineDate,
+        pass: false,
+        status: 'Pending',
+      });
+
+      // Create TrainingProgress for the user
+      const trainingProgress = new TrainingProgress({
+        userId: newUser._id,
+        trainingId: training._id,
+        deadline: deadlineDate,
+        pass: false,
+        modules: training.modules.map(module => ({
+          moduleId: module._id,
+          pass: false,
+          videos: module.videos.map(video => ({
+            videoId: video._id,
+            pass: false,
+          })),
+        })),
+      });
+
+      await trainingProgress.save();
+    });
+
+    // Wait for all training assignments to complete
+    await Promise.all(trainingAssignments);
+
+    // Save the new user
     await newUser.save();
-    res.status(201).json({ message: 'User created successfully.', user: newUser });
+
+    res.status(201).json({
+      message: 'User created successfully, and mandatory training assigned.',
+      user: newUser,
+    });
   } catch (error) {
     console.error('Error creating user:', error);
-    res.status(500).json({ message: 'An error occurred while creating the user.', error: error.message });
+    res.status(500).json({
+      message: 'An error occurred while creating the user.',
+      error: error.message,
+    });
   }
 };
+
 
 export const loginUser = async (req, res) => {
   const { email, empID } = req.body;
@@ -126,7 +182,7 @@ export const GetAllUser = async (req, res) => {
 
       return {
         username: item.username,
-        _id:item._id,
+        _id: item._id,
         workingBranch: item.workingBranch,
         empID: item.empID,
         trainingCount,

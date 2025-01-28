@@ -13,7 +13,6 @@ const assignedAssessmentSchema = new mongoose.Schema({
     assessmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Assessment', required: true }, // Reference to an assessment
     deadline: { type: Date, required: true }, // Deadline for the assessment
     pass: { type: Boolean, default: false },
-
     status: { type: String, enum: ['Pending', 'In Progress', 'Completed'], default: 'Pending' },
     complete: { type: Number, default: 0 }// Current status
 });
