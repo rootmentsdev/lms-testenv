@@ -1,3 +1,4 @@
+import Admin from "../model/Admin.js";
 import Assessment from "../model/Assessment.js";
 import AssessmentProcess from "../model/Assessmentprocessschema.js";
 import Designation from "../model/designation.js";
@@ -382,40 +383,50 @@ export const AssessmentAssign = async (req, res) => {
 
 export const FindOverDueAssessment = async (req, res) => {
     try {
-        const day = new Date(); // Get current date
-
-        // Find users with overdue assessments
-        const DueAssessment = await User.find({
-            assignedAssessments: {
-                $elemMatch: {
-                    pass: false, // Condition 1: pass is false
-                    deadline: { $lt: day } // Condition 2: deadline is less than the current date
-                }
-            }
-        }).populate("assignedAssessments.assessmentId");
-
-        if (!DueAssessment || DueAssessment.length === 0) {
-            return res.status(400).json({
-                message: "No due assessments found"
-            });
+        const AdminId = req.admin?.userId;
+        if (!AdminId) {
+            return res.status(400).json({ message: "Admin ID not found" });
         }
 
-        // Filter overdue assessments for each user
-        const filterData = DueAssessment.map((user) => ({
+        const AdminBranch = await Admin.findById(AdminId).populate('branches').lean();
+        if (!AdminBranch || !AdminBranch.branches) {
+            return res.status(404).json({ message: "Admin branches not found" });
+        }
+
+        const allowedLocCodes = AdminBranch.branches.map(branch => branch.locCode);
+        const currentDate = new Date(); // Standardized for comparison
+
+        const DueAssessment = await User.find({
+            locCode: { $in: allowedLocCodes },
+            assignedAssessments: {
+                $elemMatch: {
+                    pass: false,
+                    deadline: { $lt: currentDate } // Proper date comparison
+                }
+            }
+        })
+            .populate("assignedAssessments.assessmentId")
+            .select("name email empID username designation workingBranch assignedAssessments")
+            .lean(); // Improve performance
+
+        if (!DueAssessment || DueAssessment.length === 0) {
+            return res.status(204).json({ message: "No overdue assessments found" });
+        }
+
+        // Filter overdue assessments
+        const filterData = DueAssessment.map(user => ({
             userId: user._id,
-            empID: user.empID,
-            userName: user.username, // Include user's name or any relevant field
-            role: user.designation,
-            workingBranch: user.workingBranch,
+            empID: user.empID || "N/A",
+            userName: user.username || user.name || "Unknown", // Fallback name
+            role: user.designation || "Not Specified",
+            workingBranch: user.workingBranch || "N/A",
             overdueAssessments: user.assignedAssessments.filter(
-                (item) => item.pass === false && item.deadline < day
+                (item) => item.pass === false && new Date(item.deadline) < currentDate
             )
-        })).filter((user) => user.overdueAssessments.length > 0); // Remove users with no overdue assessments
+        })).filter(user => user.overdueAssessments.length > 0);
 
         if (filterData.length === 0) {
-            return res.status(400).json({
-                message: "No overdue assessments found"
-            });
+            return res.status(204).json({ message: "No overdue assessments found" });
         }
 
         res.status(200).json({
@@ -425,64 +436,82 @@ export const FindOverDueAssessment = async (req, res) => {
 
     } catch (error) {
         console.error("Error finding overdue assessments:", error);
-        res.status(500).json({
-            message: "Internal server error"
-        });
+        res.status(500).json({ message: "Internal server error" });
     }
 };
+
 
 export const FindOverDueTraining = async (req, res) => {
     try {
-        const day = new Date(); // Get current date
+        const AdminId = req.admin?.userId;
+        if (!AdminId) {
+            return res.status(400).json({ message: "Admin ID not found" });
+        }
+        console.log("ADMIN ID ID " + AdminId);
 
-        // Find users with overdue assessments
+
+        // Find admin and get branches
+        const AdminBranch = await Admin.findById(AdminId).populate('branches').lean();
+        if (!AdminBranch || !AdminBranch.branches) {
+            return res.status(404).json({ message: "Admin branches not found" });
+        }
+        console.log(AdminBranch);
+
+
+        const allowedLocCodes = AdminBranch.branches.map(branch => branch.locCode);
+        const currentDate = new Date(); // Get current date
+
+        // Find users with overdue training assessments
         const DueAssessment = await User.find({
+            locCode: { $in: allowedLocCodes },
             training: {
                 $elemMatch: {
-                    pass: false, // Condition 1: pass is false
-                    deadline: { $lt: day } // Condition 2: deadline is less than the current date
+                    pass: false,
+                    deadline: { $lt: currentDate } // Deadline is in the past
                 }
             }
-        }).populate("training.trainingId");
+        }).populate("training.trainingId").lean();
 
         if (!DueAssessment || DueAssessment.length === 0) {
-            return res.status(400).json({
-                message: "No due assessments found"
+            return res.status(200).json({
+                message: "No overdue assessments found",
+                data: []
             });
         }
-
 
         // Filter overdue assessments for each user
         const filterData = DueAssessment.map((user) => ({
             userId: user._id,
             empID: user.empID,
-            userName: user.username, // Include user's name or any relevant field
+            userName: user.username,
             role: user.designation,
             workingBranch: user.workingBranch,
             overdueAssessments: user.training.filter(
-                (item) => item.pass === false && item.deadline < day
+                (item) => item.pass === false && item.deadline < currentDate
             )
-        })).filter((user) => user.overdueAssessments.length > 0); // Remove users with no overdue assessments
+        })).filter(user => user.overdueAssessments.length > 0);
 
         if (filterData.length === 0) {
-            return res.status(400).json({
-                message: "No overdue assessments found"
+            return res.status(200).json({
+                message: "No overdue assessments found",
+                data: []
             });
         }
-        console.log();
 
-
-        res.status(200).json({
+        return res.status(200).json({
             message: "Overdue assessments found",
             data: filterData
         });
+
     } catch (error) {
         console.error("Error finding overdue assessments:", error);
-        res.status(500).json({
-            message: "Internal server error"
+        return res.status(500).json({
+            message: "Internal server error",
+            error: error.message
         });
     }
 };
+
 export const SendNotification = async (req, res) => {
     try {
         const { empId } = req.params;

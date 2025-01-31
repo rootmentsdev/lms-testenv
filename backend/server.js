@@ -37,25 +37,29 @@ app.get('/', (req, res) => {
 app.use('/api', ModuleRouter)
 app.use('/api/user', userrouter)
 app.use('/api/usercreate', UserCreating)
-app.use('/pi/auth', UserRouters)
+app.use('/api/auth', UserRouters)
 app.use('/api/admin', AdminData)
 app.use('/api/user/assessment', FutterAssessment)
 
 
 
+console.log(new Date());
 
 
 
 
 cron.schedule("30 18 * * *", async () => {
-  console.log("Running AlertNotification at midnight IST...");
+  console.log("Running AlertNotification at 18:30 IST...");
   try {
     await AlertNotification();
     console.log("AlertNotification executed successfully.");
   } catch (error) {
     console.error("Error executing AlertNotification:", error);
   }
+}, {
+  timezone: "Asia/Kolkata"  // ✅ Set timezone explicitly
 });
+
 
 
 // cron.schedule("* * * * *", async () => {

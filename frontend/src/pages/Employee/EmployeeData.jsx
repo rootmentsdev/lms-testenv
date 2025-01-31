@@ -3,6 +3,7 @@ import Header from "../../components/Header/Header";
 import SideNav from "../../components/SideNav/SideNav";
 import { CiFilter } from "react-icons/ci";
 import baseUrl from "../../api/api";
+import { Link } from "react-router-dom";
 
 const EmployeeData = () => {
     const [data, setData] = useState([]); // All employee data
@@ -12,6 +13,8 @@ const EmployeeData = () => {
     const [isRoleOpen, setIsRoleOpen] = useState(false); // Role dropdown state
     const [isBranchOpen, setIsBranchOpen] = useState(false); // Branch dropdown state
     const [error, setError] = useState(""); // Error state
+    const token = localStorage.getItem('token');
+
 
     // Fetch employee data on component mount
     useEffect(() => {
@@ -19,7 +22,10 @@ const EmployeeData = () => {
             try {
                 const response = await fetch(`${baseUrl.baseUrl}api/usercreate/getAllUser`, {
                     method: "GET",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        'Authorization': `Bearer ${token}`,
+                    },
                     credentials: "include",
                 });
 
@@ -142,6 +148,7 @@ const EmployeeData = () => {
                                 <th className="px-3 py-1 border-2 border-gray-300">Assessments</th>
                                 <th className="px-3 py-1 border-2 border-gray-300">Assmt. Comp</th>
                                 <th className="px-3 py-1 border-2 border-gray-300">Assmt. Overdue</th>
+                                <th className="px-3 py-1 border-2 border-gray-300">View</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -158,7 +165,8 @@ const EmployeeData = () => {
                                         <td className="px-3 py-1 border-2 border-gray-300 text-center">{employee.assignedAssessmentsCount}</td>
                                         <td className="px-3 py-1 border-2 border-gray-300 text-center">{employee.passCountAssessment}%</td>
                                         <td className="px-3 py-1 border-2 border-gray-300 text-center">{employee.AssessmentDue}</td>
-
+                                        <Link to={`/detailed/${employee.empID}`}>                                        <td className="px-3 py-1 border-2 border-gray-300 text-center">View</td>
+                                        </Link>
                                     </tr>
                                 ))
                             ) : (

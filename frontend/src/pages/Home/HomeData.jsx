@@ -18,11 +18,18 @@ import { RiIdCardLine } from "react-icons/ri";
 const HomeData = ({ user }) => {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true); // Loading state
+    const token = localStorage.getItem('token');
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await fetch(baseUrl.baseUrl + 'api/get/progress');
+                const response = await fetch(baseUrl.baseUrl + 'api/get/progress',{
+                    method: "GET",
+                    headers: { "Content-Type": "application/json" ,
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    credentials: "include",
+                });
                 if (!response.ok) {
                     throw new Error('Failed to fetch data');
                 }
@@ -145,7 +152,7 @@ const HomeData = ({ user }) => {
                                             <div className="flex flex-col absolute top-5 left-2 w-10">
                                                 <p className="text-sm text-black">Overdue Training</p>
                                                 <h2 className="md:text-2xl sm:text-lg font-bold ">
-                                                    {data?.trainingpend}
+                                                    {data?.trainingPending}
                                                 </h2>
 
                                             </div>

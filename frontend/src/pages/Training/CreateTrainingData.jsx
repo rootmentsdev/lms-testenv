@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import baseUrl from "../../api/api";
 import Card from "../../components/Skeleton/Card";
 import SideNav from "../../components/SideNav/SideNav";
+import { useSelector } from "react-redux";
 
 const CreateTrainingData = () => {
   const [loading, setLoading] = useState(false);
@@ -15,6 +16,8 @@ const CreateTrainingData = () => {
   const [filterRange, setFilterRange] = useState("");
   const [selectedUniqueItem, setSelectedUniqueItem] = useState("");
   const [dropdownStates, setDropdownStates] = useState({ range: false, role: false });
+  const user = useSelector((state) => state.auth.user);
+
   const [uniqueItems, setUniqueItems] = useState([]);
   const toggleDropdown = (key) => {
     setDropdownStates((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -101,12 +104,13 @@ const CreateTrainingData = () => {
         <hr className="mx-10 mt-[-1px] border-[#016E5B]" />
 
         <div className="flex md:mx-10 md:justify-between mt-10 sm:justify-start">
-          <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer">
+          {user?.role === 'super_admin' ? <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer">
             <FaPlus className="text-[#016E5B]" />
             <Link to="/create/Mandatorytraining">
               <h4 className="text-black sm:text-sm">Create Mandatory Training</h4>
             </Link>
-          </div>
+          </div> : null}
+
 
           {/* Dropdowns */}
           <div>

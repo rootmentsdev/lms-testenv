@@ -315,78 +315,63 @@ export const GetTrainingById = async (req, res) => {
 
 
 export const calculateProgress = async (req, res) => {
-
     try {
-        const day = new Date()
-        console.log(day);
+        const AdminID = req.admin.userId;
+        const AdminData = await Admin.findById(AdminID).populate('branches');
+        const allowedLocCodes = AdminData.branches.map(branch => branch.locCode);
+        const day = new Date();
 
-        // Count documents in collections
+        // Count documents
         const assessmentCount = await Assessment.countDocuments();
-        const branchCount = await Branch.countDocuments();
-        const userCount = await User.countDocuments();
+        const userCount = await User.find({ locCode: { $in: allowedLocCodes } });
+        console.log(allowedLocCodes);
+
+        // Fetch users once instead of multiple times
+        const users = await User.find({ locCode: { $in: allowedLocCodes } });
+        const userID = users.map(id => id._id)
 
         // Fetch all trainings
-        const trainings = await TrainingProgress.find();
+        const trainings = await TrainingProgress.find({ userId: { $in: userID } });
 
         // Calculate completion percentage for each training
         const progressArray = trainings.map((training) => {
-            // Validate if 'modules' exists and is an array
-            if (!training.modules || !Array.isArray(training.modules)) {
-                return 0; // Skip invalid training entries
-            }
+            if (!training.modules || !Array.isArray(training.modules)) return 0;
 
             const totalModules = training.modules.length;
-            let completedModules = 0;
+            const completedModules = training.modules.reduce((count, module) => {
+                const totalVideos = module.videos?.length || 0;
+                const completedVideos = module.videos?.filter(video => video.pass).length || 0;
+                return count + (module.pass && completedVideos === totalVideos ? 1 : 0);
+            }, 0);
 
-            training.modules.forEach((module) => {
-                // Validate 'videos' array inside each module
-                const totalVideos = module.videos && Array.isArray(module.videos) ? module.videos.length : 0;
-                const completedVideos =
-                    module.videos?.filter((video) => video.pass).length || 0;
-
-                // Mark module as complete only if all videos are completed
-                if (module.pass && completedVideos === totalVideos) {
-                    completedModules++;
-                }
-            });
-
-            // Calculate module completion percentage
             return totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
         });
 
         // Calculate overall average progress
-        const averageProgress =
-            progressArray.length > 0
-                ? progressArray.reduce((a, b) => a + b, 0) / progressArray.length
-                : 0;
+        const averageProgress = progressArray.length
+            ? (progressArray.reduce((a, b) => a + b, 0) / progressArray.length).toFixed(2)
+            : "0.00";
 
         // Calculate assessment progress
-        const users = await User.find();
         let totalAssessments = 0;
         let passedAssessments = 0;
         let trainingpend = 0;
 
-        // Assuming `day` is already defined and holds the current date
-        users.forEach((user) => {
-            if (user.assignedAssessments && Array.isArray(user.assignedAssessments)) {
+        users.forEach(user => {
+            if (Array.isArray(user.assignedAssessments)) {
                 totalAssessments += user.assignedAssessments.length;
+                passedAssessments += user.assignedAssessments.filter(
+                    item => day > item.deadline && item.pass === false
+                ).length;
+            }
 
-                user.assignedAssessments.forEach((item) => {
-                    if (day > item.deadline && item.pass === false) {
-                        passedAssessments += 1; // Increment by 1
-                    }
-                });
-
-                user.training.forEach((item) => {
-                    if (day > item.deadline && item.pass === false) {
-                        trainingpend += 1; // Increment by 1
-                    }
-                });
+            if (Array.isArray(user.training)) {
+                trainingpend += user.training.filter(
+                    item => day > item.deadline && item.pass === false
+                ).length;
             }
         });
-
-        console.log("hi" + passedAssessments, trainingpend);
-
+      
 
 
         // Return results
@@ -394,11 +379,11 @@ export const calculateProgress = async (req, res) => {
             success: true,
             data: {
                 assessmentCount,
-                branchCount,
-                userCount,
-                averageProgress: averageProgress.toFixed(2), // Percentage
+                branchCount: AdminData.branches.length,
+                userCount: userCount.length,
+                averageProgress,
                 assessmentProgress: passedAssessments,
-                trainingpend// Percentage
+                trainingPending: trainingpend
             },
         });
     } catch (error) {
@@ -410,6 +395,7 @@ export const calculateProgress = async (req, res) => {
         });
     }
 };
+
 
 
 export const createMandatoryTraining = async (req, res) => {

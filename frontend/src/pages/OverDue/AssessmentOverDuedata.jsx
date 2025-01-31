@@ -30,7 +30,11 @@ const AssessmentOverDuedata = () => {
       try {
         const response = await fetch(`${baseUrl.baseUrl}api/admin/overdue/Assessment`, {
           method: "GET",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            'Authorization': `Bearer ${token}`,
+
+          },
           credentials: "include",
         });
 

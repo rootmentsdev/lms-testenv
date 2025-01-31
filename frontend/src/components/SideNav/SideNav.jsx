@@ -4,11 +4,12 @@ import { IoIosLogOut } from "react-icons/io";
 import { FaRegIdCard } from "react-icons/fa";
 import { IoSettingsOutline } from "react-icons/io5";
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from "react-redux";
 
 
 const SideNav = () => {
     const navigate = useNavigate();
-
+    const user = useSelector((state) => state.auth.user);
     const handleLogout = () => {
         // Remove token from localStorage
         localStorage.removeItem('token');
@@ -93,13 +94,14 @@ const SideNav = () => {
                 </Link>
 
                 {/* Settings Section */}
-                <Link to={'/settings'}>
+                {user?.role === 'super_admin' ? <Link to={'/settings'}>
                     <div className={`flex justify-center lg:justify-start items-center space-x-4 p-2 rounded-lg transition-all duration-500
                     ${isActive('/settings') ? 'bg-[#016E5B] text-white' : ''}`}>
                         <IoSettingsOutline className="text-xl" />
                         <div className="hidden lg:group-hover:block">Settings</div>
                     </div>
-                </Link>
+                </Link> : null}
+
 
                 {/* Logout Section */}
                 <div className="flex justify-center lg:justify-start cursor-pointer items-center space-x-4 hover:bg-[#016E5B] hover:text-white p-2 rounded-lg transition-all duration-200 " onClick={handleLogout}>

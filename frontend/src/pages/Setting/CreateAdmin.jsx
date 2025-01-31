@@ -12,6 +12,8 @@ const CreateUser = () => {
   const [selectedOption, setSelectedOption] = useState("user");
   const [Open, setOpen] = useState(false)
   const [Subrole, GetSubRole] = useState([]);
+  const token = localStorage.getItem('token');
+
   // const subrole={}
 
   const [form, setForm] = useState({
@@ -82,7 +84,9 @@ const CreateUser = () => {
       try {
         const response = await fetch(`${baseUrl.baseUrl}api/usercreate/getBranch`, {
           method: "GET",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json",
+            'Authorization': `Bearer ${token}`,
+           },
           credentials: "include",
         });
 

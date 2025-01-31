@@ -7,13 +7,14 @@ import { useEffect, useState } from "react";
 import baseUrl from "../../api/api";
 import SideNav from "../../components/SideNav/SideNav";
 import Card from "../../components/Skeleton/Card";
+import { useSelector } from "react-redux";
 
 const TrainingData = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setloading] = useState(false);
     const [data, setData] = useState([]);
     const [filter, setFilter] = useState(""); // Added filter state
-
+    const user = useSelector((state) => state.auth.user); 
     const toggleDropdown = () => {
         setIsOpen(prev => !prev);
     };
@@ -74,14 +75,15 @@ const TrainingData = () => {
                                     <h4 className="text-black">Create new Training</h4>
                                 </Link>
                             </div>
-                            <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer">
+                            {user?.role === 'super_admin' ?<div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer">
                                 <div className="text-green-500">
                                     <FaPlus />
                                 </div>
                                 <Link to={'/create/Mandatorytraining'}>
                                     <h4 className="text-black">Create Mandatory Training</h4>
                                 </Link>
-                            </div>
+                            </div>:null}
+                            
                         </div>
                         <div className="relative hidden md:inline-block text-left w-36 mr-10">
                             <button

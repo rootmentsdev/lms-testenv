@@ -3,10 +3,11 @@ import { MdModelTraining, MdOutlineStoreMallDirectory, MdOutlineAssessment } fro
 // import { IoIosLogOut } from "react-icons/io";
 import { FaRegIdCard } from "react-icons/fa";
 import { IoSettingsOutline } from "react-icons/io5";
+import { useSelector } from "react-redux";
 
 const SideNav = () => {
     const location = useLocation(); // Get the current route path
-
+    const user = useSelector((state) => state.auth.user);
     // Helper function to check if the link is active
     const isActive = (path) => location.pathname === path;
 
@@ -71,14 +72,15 @@ const SideNav = () => {
 
                     </div>
                 </Link>
-
-                {/* Settings Section */}
-                <Link to={'/settings'}>
+                {user?.role === 'super_admin' ? <Link to={'/settings'}>
                     <div className={`flex flex-col items-center space-y-1 transition-all duration-200 
                         ${isActive('/settings') ? 'text-[#016E5B]' : ''}`}>
                         <IoSettingsOutline className="text-xl" />
                     </div>
-                </Link>
+                </Link> : null}
+
+                {/* Settings Section */}
+
 
                 {/* Logout Section */}
 

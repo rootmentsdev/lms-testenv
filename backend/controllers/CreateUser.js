@@ -5,6 +5,7 @@ import Branch from '../model/Branch.js';
 import TrainingProgress from '../model/Trainingprocessschema.js';
 import Module from '../model/Module.js';
 import { Training } from '../model/Traning.js';
+import Admin from '../model/Admin.js';
 dotenv.config()
 
 // Adjust the path to your TrainingProgress model
@@ -154,7 +155,13 @@ export const loginUser = async (req, res) => {
 
 export const GetAllUser = async (req, res) => {
   try {
-    const response = await User.find();
+    const AdminId = req.admin.userId
+    const AdminBranch = await Admin.findById(AdminId).populate('branches')
+    // Fetch users with populated training, assessments, and modules
+
+    console.log(AdminBranch);
+    const allowedLocCodes = AdminBranch.branches.map(branch => branch.locCode);
+    const response = await User.find({ locCode: { $in: allowedLocCodes } });
 
     // Check if no users were found
     if (response.length === 0) {
@@ -235,8 +242,25 @@ export const createBranch = async (req, res) => {
 
 export const GetBranch = async (req, res) => {
   try {
+    const AdminId = req.admin?.userId;
+    if (!AdminId) {
+      return res.status(400).json({ message: "Admin ID not found" });
+    }
+    console.log("ADMIN ID ID " + AdminId);
+
+
+    // Find admin and get branches
+    const AdminBranch = await Admin.findById(AdminId).populate('branches').lean();
+    if (!AdminBranch || !AdminBranch.branches) {
+      return res.status(404).json({ message: "Admin branches not found" });
+    }
+    console.log(AdminBranch);
+
+
+    const allowedLocCodes = AdminBranch.branches.map(branch => branch.locCode);
+
     // Fetch all branches
-    const branches = await Branch.find();
+    const branches = await Branch.find({ locCode: { $in: allowedLocCodes } });
 
     // If branches are found, fetch the user count and training count based on locCode for each branch
     if (branches.length > 0) {

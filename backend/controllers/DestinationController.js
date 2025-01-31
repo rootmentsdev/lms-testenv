@@ -65,8 +65,14 @@ export const getAllDesignation = async (req, res) => {
 
 export const HomeBar = async (req, res) => {
     try {
+        const Admin1 = req.admin.userId;
+
+        const AdminData = await Admin.findById(Admin1)
+
+
+
         // Fetch all branches and users
-        const branches = await Branch.find();
+        const branches = await Branch.find({ _id: { $in: AdminData.branches } });
         const users = await User.find();
 
         // Create a map of locCode to users for quick lookup
@@ -123,8 +129,15 @@ export const HomeBar = async (req, res) => {
 
 export const getTopUsers = async (req, res) => {
     try {
+        const AdminId = req.admin.userId
+        const AdminBranch = await Admin.findById(AdminId).populate('branches')
         // Fetch users with populated training, assessments, and modules
-        const users = await User.find()
+
+        console.log(AdminBranch);
+        const allowedLocCodes = AdminBranch.branches.map(branch => branch.locCode);
+
+        const users = await User.find({ locCode: { $in: allowedLocCodes } })
+
             .populate({
                 path: 'training.trainingId',
             })

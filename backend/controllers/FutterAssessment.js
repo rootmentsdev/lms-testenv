@@ -160,3 +160,74 @@ export const userAssessmentUpdate = async (req, res) => {
         });
     }
 };
+
+export const GetAllUserDetailes = async (req, res) => {
+    console.log();
+
+    try {
+        const { id } = req.params;
+        const empID = id;
+        const userData = await User.findOne({ empID })
+            .populate('training.trainingId') // Populate training details
+            .populate('assignedAssessments.assessmentId');
+        if (!userData) {
+            return res.status(404).json({
+                message: "user not found"
+            })
+        }
+        res.status(200).json({
+            message: "Data found",
+            data: userData
+
+
+        })
+
+
+    } catch (error) {
+        res.status(500).json({
+            message: "internal server error"
+        })
+    }
+}
+
+
+export const UpdateOneUserDetailes = async (req, res) => {
+    try {
+        const { id } = req.params; // Extract empID from URL params
+        const { designation, email, empID, locCode, phoneNumber, username, workingBranch } = req.body;
+
+        console.log("Received Data:", { designation, email, empID, locCode, phoneNumber, username, workingBranch });
+
+        // Ensure empID in params and body match to prevent unauthorized changes
+        if (id !== empID) {
+            return res.status(400).json({
+                message: "EmpID cannot be changed",
+            });
+        }
+
+        // Find and update the user details
+        const updatedUser = await User.findOneAndUpdate(
+            { empID }, // Find user by empID
+            { designation, email, locCode, phoneNumber, username, workingBranch }, // Update fields
+            { new: true, runValidators: true } // Return updated document & validate fields
+        );
+
+        if (!updatedUser) {
+            return res.status(404).json({
+                message: "User not found",
+            });
+        }
+
+        res.status(200).json({
+            message: "User details updated successfully",
+            data: updatedUser,
+        });
+
+    } catch (error) {
+        console.error("Error updating user:", error);
+        res.status(500).json({
+            message: "Internal server error",
+            error: error.message,
+        });
+    }
+};

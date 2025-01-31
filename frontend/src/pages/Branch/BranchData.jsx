@@ -9,6 +9,7 @@ import { Link } from "react-router-dom";
 const BranchData = () => {
     // const [isOpen, setIsOpen] = useState(false);
     const [branch, setBranch] = useState([]);
+    const token = localStorage.getItem('token');
 
     // const toggleDropdown = () => {
     //     setIsOpen(prev => !prev);
@@ -17,7 +18,14 @@ const BranchData = () => {
     useEffect(() => {
         const FetchUser = async () => {
             try {
-                const request = await fetch(baseUrl.baseUrl + 'api/usercreate/getBranch');
+                const request = await fetch(baseUrl.baseUrl + 'api/usercreate/getBranch', {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    credentials: "include",
+                });
                 const response = await request.json(); // Await the JSON response
 
                 if (response.data) {

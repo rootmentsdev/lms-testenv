@@ -266,8 +266,10 @@ export const deleteTrainingController = async (req, res) => {
 
 export const MandatoryGetAllTrainingWithCompletion = async (req, res) => {
   try {
-    // Fetch all trainings
-    const trainings = await Training.find({ Trainingtype: 'Mandatory' }).populate('modules'); // Populate modules for reference
+    console.log("Entered");
+
+    // Fetch all mandatory trainings
+    const trainings = await Training.find({ Trainingtype: "Mandatory" }).populate("modules");
 
     if (!trainings || trainings.length === 0) {
       return res.status(404).json({ message: "No training data found" });
@@ -277,15 +279,20 @@ export const MandatoryGetAllTrainingWithCompletion = async (req, res) => {
     const trainingData = await Promise.all(
       trainings.map(async (training) => {
         const progressRecords = await TrainingProgress.find({
-          trainingId: training._id
-        }).populate('userId', 'designation'); // Only populate the 'designation' field of 'userId'
+          trainingId: training._id,
+        }).populate("userId", "designation"); // Populate only 'designation' of 'userId'
 
         let totalUsers = 0;
         let totalPercentage = 0;
         const userProgress = []; // Store user progress for each training
 
         // Calculate completion percentage for each user's progress
-        await Promise.all(progressRecords.map(async (record) => {
+        for (const record of progressRecords) {
+          if (!record.userId) {
+            console.warn(`TrainingProgress record with null userId for trainingId: ${training._id}`);
+            continue; // Skip this record if userId is null
+          }
+
           totalUsers++;
 
           let totalModules = 0;
@@ -303,7 +310,7 @@ export const MandatoryGetAllTrainingWithCompletion = async (req, res) => {
             module.videos.forEach((video) => {
               totalVideos++;
 
-              // Track the video completion by video ID, ensuring each video is only counted once
+              // Track video completion by video ID
               if (video.pass && !videoCompletionMap.has(video._id.toString())) {
                 completedVideos++;
                 videoCompletionMap.set(video._id.toString(), true);
@@ -311,26 +318,31 @@ export const MandatoryGetAllTrainingWithCompletion = async (req, res) => {
             });
           });
 
-          // Calculate the completion percentages based on module and video completion
+          // Calculate completion percentages
           const moduleCompletion = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
           const videoCompletion = totalVideos > 0 ? (completedVideos / totalVideos) * 100 : 0;
 
-          // The user's overall completion percentage is weighted (40% for modules, 60% for videos)
-          const userPercentage = (moduleCompletion * 0.4) + (videoCompletion * 0.6);
+          // Weighted completion percentage (40% modules, 60% videos)
+          const userPercentage = moduleCompletion * 0.4 + videoCompletion * 0.6;
 
           totalPercentage += userPercentage;
 
-          // Store user progress for each user
+          // Store user progress
           userProgress.push({
-            userId: record.userId,
+            userId: record.userId._id,
             designation: record.userId.designation, // Only include 'designation'
             overallCompletionPercentage: userPercentage.toFixed(2), // User's completion percentage
           });
-        }));
+        }
 
-        // Calculate average completion percentage for the training based on all users
-        const averageCompletionPercentage = totalUsers > 0 ? (totalPercentage / totalUsers).toFixed(2) : 0;
-        const uniqueItems = [...new Set(progressRecords.map(record => record.userId.designation))];
+        // Calculate average completion percentage for the training
+        const averageCompletionPercentage =
+          totalUsers > 0 ? (totalPercentage / totalUsers).toFixed(2) : 0;
+
+        const uniqueItems = [
+          ...new Set(progressRecords.map((record) => record.userId?.designation || null)),
+        ];
+
         return {
           trainingId: training._id,
           trainingName: training.trainingName,
@@ -339,7 +351,7 @@ export const MandatoryGetAllTrainingWithCompletion = async (req, res) => {
           totalUsers,
           averageCompletionPercentage, // The average completion percentage for all users
           userProgress,
-          uniqueItems: uniqueItems  // Return the unique designations
+          uniqueItems, // Unique designations
         };
       })
     );
@@ -349,15 +361,15 @@ export const MandatoryGetAllTrainingWithCompletion = async (req, res) => {
     // Return training data with percentages
     res.status(200).json({
       message: "Training data fetched successfully",
-      data: trainingData
+      data: trainingData,
     });
-
   } catch (error) {
-    console.error('Error fetching training data:', error.message);
-    res.status(500).json({ message: "Server error while fetching training data" });
+    console.error("Error fetching training data:", error.message);
+    res
+      .status(500)
+      .json({ message: "Server error while fetching training data", error: error.message });
   }
 };
-
 
 export const GetAllFullTrainingWithCompletion = async (req, res) => {
   try {

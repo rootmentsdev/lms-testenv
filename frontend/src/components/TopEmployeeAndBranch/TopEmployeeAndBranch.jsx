@@ -10,12 +10,20 @@ const TopEmployeeAndBranch = () => {
     const [view, setView] = useState("employees"); // "employees" or "branches"
     const [topData, setTopData] = useState("top"); // "top" or "last"
     const [isLoading, setIsLoading] = useState(true); // For loading state
+    const token = localStorage.getItem('token');
 
     // Fetch data on component mount
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await fetch(`${baseUrl.baseUrl}api/admin/get/bestThreeUser`);
+                const response = await fetch(`${baseUrl.baseUrl}api/admin/get/bestThreeUser`, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    credentials: "include",
+                });
                 if (!response.ok) {
                     throw new Error(`Error: ${response.status} ${response.statusText}`);
                 }
@@ -31,7 +39,7 @@ const TopEmployeeAndBranch = () => {
         };
 
         fetchData();
-    }, []);
+    }, [token]);
 
     // Function to handle toggling between 'top' and 'last' data
     const handleTopDataToggle = (type) => {
@@ -104,7 +112,7 @@ const TopEmployeeAndBranch = () => {
     }
 
     return (
-        <div className="p-2 bg-white shadow-md rounded-md w-full h-full mx-auto">
+        <div className="p-2 bg-white  w-full h-[400px] border border-gray-300 rounded-xl shadow-lg mx-auto">
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-bold flex items-center text-black"> <BiSortAlt2 onClick={() => handleTopDataToggle(topData === "top" ? "last" : "top")} className="text-2xl text-green-500 cursor-pointer" /> {topData === 'last' ? "Low" : " Top"} Performance</h2>
             </div>

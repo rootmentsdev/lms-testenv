@@ -14,7 +14,7 @@ router.get('/trainings/:id?', GetTrainingById)
 router.get('/get/allusertraining', GetAllTrainingWithCompletion)
 router.get('/get/mandatory/allusertraining', MandatoryGetAllTrainingWithCompletion)
 router.get('/get/Full/allusertraining', GetAllFullTrainingWithCompletion)
-router.get('/get/progress', calculateProgress)
+router.get('/get/progress',MiddilWare, calculateProgress)
 router.post('/mandatorytrainings', MiddilWare, createMandatoryTraining)
 
 export default router
