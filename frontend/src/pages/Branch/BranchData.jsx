@@ -87,6 +87,7 @@ const BranchData = () => {
                                 <th className="px-3 py-1 border-2 border-gray-300">No of emp</th>
                                 <th className="px-3 py-1 border-2 border-gray-300">No of Training </th>
                                 <th className="px-3 py-1 border-2 border-gray-300">No of Assessment</th>
+                                <th className="px-3 py-1 border-2 border-gray-300">Details</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -97,6 +98,9 @@ const BranchData = () => {
                                     <td className="px-3 py-1 border-2 border-gray-300 text-center">{branch.userCount}</td>
                                     <td className="px-3 py-1 border-2 border-gray-300 text-center">{branch.totalTrainingCount}</td>
                                     <td className="px-3 py-1 border-2 border-gray-300 text-center">{branch.totalAssessmentCount}</td>
+                                    <td className="px-3 py-1 border-2 border-gray-300 text-center">                                    <Link to={`/branch/detailed/${branch?.locCode}`} >
+                                        view                                     </Link>
+                                    </td>
                                 </tr>
 
                             ))}

@@ -35,6 +35,8 @@ const AddBranch = lazy(() => import('./pages/Branch/AddBranch.jsx'))
 const AssessmentOverDuedata = lazy(() => import('./pages/OverDue/AssessmentOverDuedata.jsx'))
 const TraningOverDuedata = lazy(() => import('./pages/OverDue/TraningOverDuedata.jsx'))
 const EmployeeDetaile = lazy(() => import('./pages/Employee/EmployeeDetaile/EmployeeDetaile.jsx'))
+const BranchDetails = lazy(() => import('./pages/Branch/BranchDetails/BranchDetails.jsx'))
+
 import { setUser } from './features/auth/authSlice.js';
 
 // Custom Components
@@ -134,6 +136,8 @@ function App() {
           <Route path="/admin/overdue/assessment" element={<ProtectedRoute>< AssessmentOverDuedata /></ProtectedRoute>} />
           <Route path="/admin/overdue/training" element={<ProtectedRoute>< TraningOverDuedata /></ProtectedRoute>} />
           <Route path="/detailed/:id" element={<ProtectedRoute>< EmployeeDetaile /></ProtectedRoute>} />
+
+          <Route path="/branch/detailed/:id" element={<ProtectedRoute>< BranchDetails /></ProtectedRoute>} />
 
         </Routes>
       </Suspense>

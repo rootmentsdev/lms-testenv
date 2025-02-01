@@ -1,4 +1,5 @@
 import AssessmentProcess from "../model/Assessmentprocessschema.js";
+import Branch from "../model/Branch.js";
 import User from "../model/User.js";
 
 export const UserAssessmentGet = async (req, res) => {
@@ -231,3 +232,26 @@ export const UpdateOneUserDetailes = async (req, res) => {
         });
     }
 };
+
+
+export const GetBranchDetailes = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userdata = await User.find({ locCode: id }).select('-training').select('-assignedAssessments')
+        const branchData = await Branch.findOne({ locCode: id })
+        if (!branchData) {
+            return res.status(404).json({
+                message: "Branch Not found"
+            })
+        }
+        res.status(200).json({
+            message: "Data found",
+            user: userdata,
+            branch: branchData
+        })
+    } catch (error) {
+        res.status(500).json({
+            message: "Internal server error"
+        })
+    }
+}
