@@ -215,30 +215,51 @@ export const GetAllUser = async (req, res) => {
 };
 
 
+
+
 export const createBranch = async (req, res) => {
-  const { locCode, workingBranch } = req.body;
-
-  const exit = await Branch.findOne({ locCode })
-  if (exit) {
-    return res.status(400).json({ message: "branch exit" })
-
-  }
-  const newBranch = new Branch({
-    locCode: locCode,
-    workingBranch: workingBranch,
-  });
+  const { address, locCode, location, manager, phoneNumber, workingBranch } = req.body;
+  console.log(address, locCode, location, manager, phoneNumber, workingBranch);
 
   try {
+    // Check if branch already exists
+    const existingBranch = await Branch.findOne({ locCode });
+    if (existingBranch) {
+      return res.status(400).json({ message: "Branch already exists" });
+    }
+
+    // Create a new branch
+    const newBranch = new Branch({
+      address,
+      locCode,
+      location,
+      manager,
+      phoneNumber,
+      workingBranch,
+    });
+
     const savedBranch = await newBranch.save();
 
     if (savedBranch) {
-      return res.status(201).json({ message: "branch create", data: savedBranch })
+      // Fetch all super_admins from Admin collection
+      const superAdmins = await Admin.find({ role: "super_admin" });
+
+      // Update each super_admin by adding the new branch _id to their branches array
+      await Promise.all(
+        superAdmins.map(async (admin) => {
+          admin.branches.push(savedBranch._id);
+          await admin.save();
+        })
+      );
+
+      return res.status(201).json({ message: "Branch created successfully", data: savedBranch });
     }
   } catch (error) {
-    console.error('Error creating branch:', error.message);
-    res.status(500).json({ message: "branch create error" })
+    console.error("Error creating branch:", error.message);
+    res.status(500).json({ message: "Branch creation failed", error: error.message });
   }
 };
+
 
 export const GetBranch = async (req, res) => {
   try {

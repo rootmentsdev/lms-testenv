@@ -1,3 +1,4 @@
+import Admin from "../model/Admin.js";
 import AssessmentProcess from "../model/Assessmentprocessschema.js";
 import Branch from "../model/Branch.js";
 import User from "../model/User.js";
@@ -255,3 +256,93 @@ export const GetBranchDetailes = async (req, res) => {
         })
     }
 }
+export const UpdateBranchDetails = async (req, res) => {
+    try {
+        const { id } = req.params
+
+        const { address, locCode, location, manager, phoneNumber, workingBranch } = req.body;
+        console.log(address, locCode, location, manager, phoneNumber, workingBranch);
+        if (locCode !== id) {
+            return res.status(304).json({
+                message: 'cannot change the locCode'
+            })
+        }
+
+
+        const BranchDetails = await Branch.findOneAndUpdate(
+            { locCode }, // Find user by empID
+            { address, location, manager, phoneNumber, workingBranch }, // Update fields
+            { new: true, runValidators: true } // Return updated document & validate fields
+        );
+
+        if (!BranchDetails) {
+            return res.status(404).json({
+                message: "No branch not found",
+            });
+        }
+
+        res.status(200).json({
+            message: "branch details updated successfully",
+            data: BranchDetails,
+        });
+    } catch (error) {
+        res.status(500).json({
+            message: "internal server error"
+        })
+    }
+}
+
+
+export const GetCurrentAdmin = async (req, res) => {
+    try {
+
+
+        const AdminId = req.admin.userId
+        console.log(AdminId);
+        const AdminData = await Admin.findById(AdminId)
+        if (!AdminData) {
+            res.status(404).json({
+                message: "NO Admin found"
+            })
+        }
+        res.status(200).json({
+            message: "OK",
+            data: AdminData
+        })
+    } catch (error) {
+        res.status(500).json({
+            message: "Internal server error"
+        })
+    }
+}
+
+export const UpdateAdminDetaile = async (req, res) => {
+    try {
+        const AdminId = req.admin.userId; // Extracting admin ID
+
+        const { name, email, phoneNumber } = req.body;
+        console.log(name, email, phoneNumber);
+
+        // Find admin and update details
+        const AdminData = await Admin.findByIdAndUpdate(
+            AdminId, // Pass the ID directly
+            { name, email, phoneNumber },
+            { new: true, runValidators: true }
+        );
+
+        if (!AdminData) {
+            return res.status(404).json({ message: "Admin not found" });
+        }
+
+        res.status(200).json({
+            message: "Admin details updated successfully",
+            data: AdminData
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            message: "Internal server error"
+        });
+    }
+};

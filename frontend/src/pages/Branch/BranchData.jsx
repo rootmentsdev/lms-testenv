@@ -99,7 +99,7 @@ const BranchData = () => {
                                     <td className="px-3 py-1 border-2 border-gray-300 text-center">{branch.totalTrainingCount}</td>
                                     <td className="px-3 py-1 border-2 border-gray-300 text-center">{branch.totalAssessmentCount}</td>
                                     <td className="px-3 py-1 border-2 border-gray-300 text-center">                                    <Link to={`/branch/detailed/${branch?.locCode}`} >
-                                        view                                     </Link>
+                                        Edit                                   </Link>
                                     </td>
                                 </tr>
 

@@ -36,6 +36,7 @@ const AssessmentOverDuedata = lazy(() => import('./pages/OverDue/AssessmentOverD
 const TraningOverDuedata = lazy(() => import('./pages/OverDue/TraningOverDuedata.jsx'))
 const EmployeeDetaile = lazy(() => import('./pages/Employee/EmployeeDetaile/EmployeeDetaile.jsx'))
 const BranchDetails = lazy(() => import('./pages/Branch/BranchDetails/BranchDetails.jsx'))
+const Profile = lazy(() => import('./pages/profile/Profile.jsx'))
 
 import { setUser } from './features/auth/authSlice.js';
 
@@ -138,6 +139,7 @@ function App() {
           <Route path="/detailed/:id" element={<ProtectedRoute>< EmployeeDetaile /></ProtectedRoute>} />
 
           <Route path="/branch/detailed/:id" element={<ProtectedRoute>< BranchDetails /></ProtectedRoute>} />
+          <Route path="/admin/profile" element={<ProtectedRoute>< Profile /></ProtectedRoute>} />
 
         </Routes>
       </Suspense>

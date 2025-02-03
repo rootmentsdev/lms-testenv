@@ -1,11 +1,18 @@
 import { IoIosSearch } from "react-icons/io";
 import { GoBell } from "react-icons/go";
 import image from '../../../public/Rootments.jpg'
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 
 const Header = () => {
     const isActive = (path) => location.pathname === path;
+    const navigate = useNavigate();
+    const handleLogout = () => {
+        // Remove token from localStorage
+        localStorage.removeItem('token');
+        // Redirect to login page
+        navigate('/login');
+    };
     return (
         <div className="w-full">
 
@@ -65,15 +72,15 @@ const Header = () => {
                         </div>
                         <ul
                             tabIndex={0}
-                            className="menu menu-sm dropdown-content  rounded-box z-[1] mt-3 w-52 p-2 shadow">
+                            className="menu menu-sm dropdown-content  rounded-box  mt-3 w-52 p-2 shadow z-10 text-[#016E5B] bg-white">
                             <li>
-                                <a className="justify-between">
-                                    Profile
-                                    <span className="badge">New</span>
-                                </a>
+                                <Link to={'/admin/profile'}>Profile</Link>
+
+
+
                             </li>
-                            <li><a>Settings</a></li>
-                            <li><a>Logout</a></li>
+                            <li><Link to={'/settings'}>Settings</Link></li>
+                            <li><a onClick={handleLogout}>Logout</a> </li>
                         </ul>
                     </div>
 

@@ -13,6 +13,7 @@ import AdminData from './routes/AdminRoute.js'
 import FutterAssessment from './routes/FutterAssessment.js'
 
 import { AlertNotification } from './lib/CornJob.js';
+import { sendWhatsAppMessage } from './lib/WhatsAppMessage.js';
 const app = express();
 const port = process.env.PORT || 7000;
 
@@ -75,6 +76,7 @@ cron.schedule("30 18 * * *", async () => {
 
 // AlertNotification();
 
+// sendWhatsAppMessage('918590302743', 'Running AlertNotification every minute for testing...')
 
 
 

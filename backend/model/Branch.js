@@ -11,6 +11,25 @@ const branchSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
+    phoneNumber: {
+        type: String,
+        default: "",
+        required: true,
+    },
+    location: {
+        type: String,
+        default: "",
+        required: true,
+    }, address: {
+        type: String,
+        default: "",
+        required: true
+    },
+    manager: {
+        type: String,
+        default: "",
+        required: true
+    }
 }, {
     timestamps: true,
 });

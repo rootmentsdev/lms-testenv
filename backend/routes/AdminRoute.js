@@ -4,7 +4,7 @@ import { AdminLogin, ChangeVisibility, getAllNotifications, getEscalationLevel, 
 import { VerifyToken } from '../lib/VerifyJwt.js';
 import { CreateNotification, FindOverDueAssessment, FindOverDueTraining, SendNotification, SendNotificationAssessment } from '../controllers/AssessmentReassign.js';
 import { MiddilWare } from '../lib/middilWare.js';
-import { GetAllUserDetailes, GetBranchDetailes, UpdateOneUserDetailes } from '../controllers/FutterAssessment.js';
+import { GetAllUserDetailes, GetBranchDetailes, GetCurrentAdmin, UpdateAdminDetaile, UpdateBranchDetails, UpdateOneUserDetailes } from '../controllers/FutterAssessment.js';
 
 const router = express.Router();
 
@@ -31,5 +31,9 @@ router.get('/overdue/assessment/send/:empId', MiddilWare, SendNotificationAssess
 router.post('/notification/create', CreateNotification);
 router.get('/user/detailed/info/:id', MiddilWare, GetAllUserDetailes);
 router.put('/user/update/:id', MiddilWare, UpdateOneUserDetailes);
-router.get('/get/update/branch/:id', GetBranchDetailes);
+router.get('/get/update/branch/:id', MiddilWare, GetBranchDetailes);
+router.put('/put/update/branch/:id', MiddilWare, UpdateBranchDetails);
+router.get('/get/current/admin', MiddilWare, GetCurrentAdmin);
+router.post('/update/admin/detaile', MiddilWare, UpdateAdminDetaile)
+
 export default router;

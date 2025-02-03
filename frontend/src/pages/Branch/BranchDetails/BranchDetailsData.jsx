@@ -4,7 +4,8 @@ import SideNav from "../../../components/SideNav/SideNav";
 import { useParams } from "react-router-dom";
 import baseUrl from "../../../api/api";
 import { GoPencil } from "react-icons/go";
-import { FaRegTrashCan } from "react-icons/fa6";
+import { toast } from "react-toastify";
+// import { FaRegTrashCan } from "react-icons/fa6";
 
 const BranchDetailsData = () => {
     const token = localStorage.getItem('token');
@@ -32,9 +33,9 @@ const BranchDetailsData = () => {
                 workingBranch: branchdata.branch.workingBranch || "",
                 locCode: branchdata.branch.locCode || "",
                 phoneNumber: branchdata.branch.phoneNumber || "",
-                location: branchdata.branch.Location || "",
+                location: branchdata.branch.location || "",
                 address: branchdata.branch.address || "",
-                manager: branchdata.branch.Manager || ""
+                manager: branchdata.branch.manager || ""
             };
             setData(selectedData);
         } catch (error) {
@@ -50,9 +51,34 @@ const BranchDetailsData = () => {
         setData({ ...data, [e.target.id]: e.target.value });
     };
 
-    const handleSave = () => {
-        console.log("Updated Data:", data);
-        setIsEditing(false);
+    const handleSave = async () => {
+        try {
+            console.log(data);
+
+            const response = await fetch(`${baseUrl.baseUrl}api/admin/put/update/branch/${id}`, {
+                method: 'PUT',
+                headers: {
+                    "Content-Type": "application/json",
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify(data),
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                toast.error(result.message || 'Failed to update data');
+                return;
+            }
+
+            toast.success(result.message);
+            FetchUserData();
+            setIsEditing(false);
+
+        } catch (error) {
+            console.error("Error updating data:", error);
+            toast.error("An error occurred while updating");
+        }
     };
 
     return (
@@ -99,11 +125,11 @@ const BranchDetailsData = () => {
                                     setIsEditing(!isEditing);
                                 }}
                             >
-                                <GoPencil /> {isEditing ? "Save" : "Edit Profile"}
+                                <GoPencil /> {isEditing ? "Save" : "Edit "}
                             </button>
-                            <p className="px-4 py-2 flex items-center gap-3 text-red-500 rounded-lg">
+                            {/* <p className="px-4 py-2 flex items-center gap-3 text-red-500 rounded-lg">
                                 <FaRegTrashCan /> Delete Profile
-                            </p>
+                            </p> */}
                         </div>
                     </div>
                 </div>
