@@ -15,7 +15,7 @@ const CreateCustomNotification = () => {
     message: "",
     recipient: [],
     role: selectedOption,
-    deliveryMethod: "email",
+    deliveryMethod: "inApp",
   });
 
   const handleInputChange = (e) => {
@@ -46,7 +46,10 @@ const CreateCustomNotification = () => {
 
         const response = await fetch(`${baseUrl.baseUrl}${endpoint}`, {
           method: "GET",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
           credentials: "include",
         });
 
@@ -202,7 +205,7 @@ const CreateCustomNotification = () => {
               Delivery Methods
             </label>
             <div className="flex items-center space-x-4">
-              <label className="flex items-center space-x-2">
+              {/* <label className="flex items-center space-x-2">
                 <input
                   type="radio"
                   name="deliveryMethod"
@@ -212,7 +215,7 @@ const CreateCustomNotification = () => {
                   className="focus:ring-green-500 text-green-600 border-gray-300"
                 />
                 <span>Email</span>
-              </label>
+              </label> */}
               <label className="flex items-center space-x-2">
                 <input
                   type="radio"

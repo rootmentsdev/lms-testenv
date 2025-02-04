@@ -10,52 +10,683 @@ const router = express.Router();
 
 
 
+/**
+ * @swagger
+ * /get/HomeProgressData:
+ *   get:
+ *     summary: Retrieve home progress data
+ *     description: Returns progress data for the home dashboard.
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved home progress data.
+ *       401:
+ *         description: Unauthorized, invalid credentials or no token provided.
+ *       500:
+ *         description: Internal server error.
+ */
 router.get('/get/HomeProgressData', MiddilWare, HomeBar);
+
+/**
+ * @swagger
+ * /get/bestThreeUser:
+ *   get:
+ *     summary: Retrieve top three users
+ *     description: Fetches the three best users based on certain criteria.
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved top three users.
+ *       401:
+ *         description: Unauthorized, invalid credentials or no token provided.
+ *       500:
+ *         description: Internal server error.
+ */
 router.get('/get/bestThreeUser', MiddilWare, getTopUsers);
 
+/**
+ * @swagger
+ * /admin/createadmin:
+ *   post:
+ *     summary: Create a new admin user
+ *     description: Allows the creation of a new administrator with specific credentials and roles.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 description: Admin username
+ *               password:
+ *                 type: string
+ *                 description: Admin password
+ *               email:
+ *                 type: string
+ *                 description: Admin email
+ *     responses:
+ *       200:
+ *         description: Admin user created successfully.
+ *       400:
+ *         description: Bad request, missing or invalid data.
+ *       500:
+ *         description: Internal server error.
+ */
 router.post('/admin/createadmin', CreatingAdminUsers);
+
+/**
+ * @swagger
+ * /admin/permission:
+ *   post:
+ *     summary: Handle admin permissions
+ *     description: Updates or sets permissions for an existing admin.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               adminId:
+ *                 type: string
+ *                 description: The ID of the admin
+ *               permissions:
+ *                 type: object
+ *                 description: Key-value pairs of permissions
+ *     responses:
+ *       200:
+ *         description: Permissions updated/added successfully.
+ *       400:
+ *         description: Bad request, missing or invalid data.
+ *       500:
+ *         description: Internal server error.
+ */
 router.post('/admin/permission', handlePermissions);
+
+/**
+ * @swagger
+ * /setting/visibility:
+ *   post:
+ *     summary: Change visibility settings
+ *     description: Updates the visibility settings for a specific feature or component.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               featureName:
+ *                 type: string
+ *               visible:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Visibility updated successfully.
+ *       400:
+ *         description: Bad request, missing or invalid data.
+ *       500:
+ *         description: Internal server error.
+ */
 router.post('/setting/visibility', ChangeVisibility);
 
+/**
+ * @swagger
+ * /get/setting/visibility:
+ *   get:
+ *     summary: Get visibility settings
+ *     description: Retrieves current visibility settings for various features/components.
+ *     responses:
+ *       200:
+ *         description: Returns visibility settings.
+ *       401:
+ *         description: Unauthorized, invalid credentials or no token provided.
+ *       500:
+ *         description: Internal server error.
+ */
 router.get('/get/setting/visibility', getVisibility);
 
+/**
+ * @swagger
+ * /admin/login:
+ *   post:
+ *     summary: Admin login
+ *     description: Allows an admin to log in with valid credentials.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Successfully logged in, returning a token.
+ *       401:
+ *         description: Unauthorized, invalid credentials.
+ *       400:
+ *         description: Bad request, missing parameters or incorrect data.
+ */
 router.post('/admin/login', AdminLogin);
+
+/**
+ * @swagger
+ * /admin/verifyToken:
+ *   post:
+ *     summary: Verify admin token
+ *     description: Verifies the validity of an admin token.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               token:
+ *                 type: string
+ *                 description: The token to verify
+ *     responses:
+ *       200:
+ *         description: Token is valid.
+ *       401:
+ *         description: Unauthorized or invalid token.
+ *       400:
+ *         description: Bad request, missing or invalid data.
+ */
 router.post('/admin/verifyToken', VerifyToken);
 
+/**
+ * @swagger
+ * /home/notification:
+ *   get:
+ *     summary: Retrieve home notifications
+ *     description: Returns a list of notifications for the home page.
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved notifications.
+ *       401:
+ *         description: Unauthorized, invalid credentials or no token provided.
+ *       500:
+ *         description: Internal server error.
+ */
 router.get('/home/notification', getNotifications);
+
+/**
+ * @swagger
+ * /home/AllNotification:
+ *   get:
+ *     summary: Retrieve all home notifications
+ *     description: Returns a complete list of all notifications for the home page.
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved all notifications.
+ *       401:
+ *         description: Unauthorized, invalid credentials or no token provided.
+ *       500:
+ *         description: Internal server error.
+ */
 router.get('/home/AllNotification', getAllNotifications);
 
+/**
+ * @swagger
+ * /subroles:
+ *   post:
+ *     summary: Create or update a subrole
+ *     description: Creates a new subrole or updates an existing subrole.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               roleName:
+ *                 type: string
+ *               permissions:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       200:
+ *         description: Subrole created or updated successfully.
+ *       400:
+ *         description: Bad request, missing or invalid data.
+ *       500:
+ *         description: Internal server error.
+ */
 router.post('/subroles', Subroles);
 
+/**
+ * @swagger
+ * /getSubrole:
+ *   get:
+ *     summary: Retrieve subroles
+ *     description: Returns a list of all subroles and their permissions.
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved subroles.
+ *       401:
+ *         description: Unauthorized, invalid credentials or no token provided.
+ *       500:
+ *         description: Internal server error.
+ */
 router.get('/getSubrole', GetSubroles);
 
+/**
+ * @swagger
+ * /escalation/level:
+ *   post:
+ *     summary: Upsert escalation level
+ *     description: Creates or updates an escalation level configuration.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               levelName:
+ *                 type: string
+ *               criteria:
+ *                 type: string
+ *               action:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Escalation level upserted successfully.
+ *       400:
+ *         description: Bad request, missing or invalid data.
+ *       500:
+ *         description: Internal server error.
+ */
 router.post('/escalation/level', upsertEscalationLevel);
 
+/**
+ * @swagger
+ * /escalation/level/get:
+ *   get:
+ *     summary: Get escalation levels
+ *     description: Retrieves all configured escalation levels.
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved escalation levels.
+ *       401:
+ *         description: Unauthorized, invalid credentials or no token provided.
+ *       500:
+ *         description: Internal server error.
+ */
 router.get('/escalation/level/get', getEscalationLevel);
+
+/**
+ * @swagger
+ * /overdue/Assessment:
+ *   get:
+ *     summary: Find overdue assessments
+ *     description: Retrieves a list of users or tasks with overdue assessments.
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved overdue assessments.
+ *       401:
+ *         description: Unauthorized, invalid credentials or no token provided.
+ *       500:
+ *         description: Internal server error.
+ */
 router.get('/overdue/Assessment', MiddilWare, FindOverDueAssessment);
+
+/**
+ * @swagger
+ * /overdue/Training:
+ *   get:
+ *     summary: Find overdue trainings
+ *     description: Retrieves a list of users or tasks with overdue trainings.
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved overdue trainings.
+ *       401:
+ *         description: Unauthorized, invalid credentials or no token provided.
+ *       500:
+ *         description: Internal server error.
+ */
 router.get('/overdue/Training', MiddilWare, FindOverDueTraining);
+
+/**
+ * @swagger
+ * /overdue/Training/send/{empId}:
+ *   get:
+ *     summary: Send notification for overdue training
+ *     description: Sends a notification to a user about overdue training.
+ *     parameters:
+ *       - in: path
+ *         name: empId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Employee ID
+ *     responses:
+ *       200:
+ *         description: Notification sent successfully.
+ *       401:
+ *         description: Unauthorized, invalid credentials or no token provided.
+ *       404:
+ *         description: Employee not found.
+ *       500:
+ *         description: Internal server error.
+ */
 router.get('/overdue/Training/send/:empId', MiddilWare, SendNotification);
+
+/**
+ * @swagger
+ * /overdue/assessment/send/{empId}:
+ *   get:
+ *     summary: Send notification for overdue assessment
+ *     description: Sends a notification to a user about an overdue assessment.
+ *     parameters:
+ *       - in: path
+ *         name: empId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Employee ID
+ *     responses:
+ *       200:
+ *         description: Notification sent successfully.
+ *       401:
+ *         description: Unauthorized, invalid credentials or no token provided.
+ *       404:
+ *         description: Employee not found.
+ *       500:
+ *         description: Internal server error.
+ */
 router.get('/overdue/assessment/send/:empId', MiddilWare, SendNotificationAssessment);
 
+/**
+ * @swagger
+ * /notification/create:
+ *   post:
+ *     summary: Create a notification
+ *     description: Creates a new notification entry for a user or system event.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               userId:
+ *                 type: string
+ *               message:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Notification created successfully.
+ *       400:
+ *         description: Bad request, missing or invalid data.
+ *       500:
+ *         description: Internal server error.
+ */
 router.post('/notification/create', CreateNotification);
 
+/**
+ * @swagger
+ * /user/detailed/info/{id}:
+ *   get:
+ *     summary: Get detailed user info
+ *     description: Retrieves detailed information for a specific user.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved user details.
+ *       401:
+ *         description: Unauthorized, invalid credentials or no token provided.
+ *       404:
+ *         description: User not found.
+ *       500:
+ *         description: Internal server error.
+ */
 router.get('/user/detailed/info/:id', MiddilWare, GetAllUserDetailes);
 
+/**
+ * @swagger
+ * /user/update/{id}:
+ *   put:
+ *     summary: Update user details
+ *     description: Updates specific fields for a user.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               role:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: User updated successfully.
+ *       400:
+ *         description: Bad request, missing or invalid data.
+ *       401:
+ *         description: Unauthorized, invalid credentials or no token provided.
+ *       404:
+ *         description: User not found.
+ *       500:
+ *         description: Internal server error.
+ */
 router.put('/user/update/:id', MiddilWare, UpdateOneUserDetailes);
 
+/**
+ * @swagger
+ * /get/update/branch/{id}:
+ *   get:
+ *     summary: Retrieve branch details
+ *     description: Gets branch details for a specific branch ID.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Branch ID
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved branch details.
+ *       401:
+ *         description: Unauthorized, invalid credentials or no token provided.
+ *       404:
+ *         description: Branch not found.
+ *       500:
+ *         description: Internal server error.
+ */
 router.get('/get/update/branch/:id', MiddilWare, GetBranchDetailes);
 
+/**
+ * @swagger
+ * /put/update/branch/{id}:
+ *   put:
+ *     summary: Update branch details
+ *     description: Updates specific fields for a branch.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Branch ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               branchName:
+ *                 type: string
+ *               manager:
+ *                 type: string
+ *               location:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Branch updated successfully.
+ *       400:
+ *         description: Bad request, missing or invalid data.
+ *       401:
+ *         description: Unauthorized, invalid credentials or no token provided.
+ *       404:
+ *         description: Branch not found.
+ *       500:
+ *         description: Internal server error.
+ */
 router.put('/put/update/branch/:id', MiddilWare, UpdateBranchDetails);
 
+/**
+ * @swagger
+ * /get/current/admin:
+ *   get:
+ *     summary: Get current admin
+ *     description: Retrieves details of the currently logged-in admin.
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved current admin details.
+ *       401:
+ *         description: Unauthorized, invalid credentials or no token provided.
+ *       500:
+ *         description: Internal server error.
+ */
 router.get('/get/current/admin', MiddilWare, GetCurrentAdmin);
 
+/**
+ * @swagger
+ * /update/admin/detaile:
+ *   post:
+ *     summary: Update admin details
+ *     description: Updates certain fields for the currently logged-in admin.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               adminId:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Admin details updated successfully.
+ *       400:
+ *         description: Bad request, missing or invalid data.
+ *       401:
+ *         description: Unauthorized, invalid credentials or no token provided.
+ *       404:
+ *         description: Admin not found.
+ *       500:
+ *         description: Internal server error.
+ */
 router.post('/update/admin/detaile', MiddilWare, UpdateAdminDetaile);
 
+/**
+ * @swagger
+ * /get/storemanagerData:
+ *   get:
+ *     summary: Get store manager data
+ *     description: Retrieves data related to the store manager(s).
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved store manager data.
+ *       401:
+ *         description: Unauthorized, invalid credentials or no token provided.
+ *       500:
+ *         description: Internal server error.
+ */
 router.get('/get/storemanagerData', MiddilWare, GetStoreManager);
+
+/**
+ * @swagger
+ * /get/storemanagerduedata:
+ *   get:
+ *     summary: Get store manager due data
+ *     description: Retrieves any data related to upcoming or overdue items for store managers.
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved store manager due data.
+ *       401:
+ *         description: Unauthorized, invalid credentials or no token provided.
+ *       500:
+ *         description: Internal server error.
+ */
 router.get('/get/storemanagerduedata', MiddilWare, GetStoreManagerDueDate);
 
-router.post('/permission/controller', MiddilWare, PermissionController)
-router.get('/get/permission/controller', MiddilWare, GetPermissionController)
+/**
+ * @swagger
+ * /permission/controller:
+ *   post:
+ *     summary: Manage permission controller
+ *     description: Creates or updates permission rules for certain roles or users.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               roleId:
+ *                 type: string
+ *               permissions:
+ *                 type: object
+ *     responses:
+ *       200:
+ *         description: Permission rules created or updated successfully.
+ *       400:
+ *         description: Bad request, missing or invalid data.
+ *       500:
+ *         description: Internal server error.
+ */
+router.post('/permission/controller', MiddilWare, PermissionController);
+
+/**
+ * @swagger
+ * /get/permission/controller:
+ *   get:
+ *     summary: Get permission controller
+ *     description: Retrieves permission rules for certain roles or users.
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved permission rules.
+ *       401:
+ *         description: Unauthorized, invalid credentials or no token provided.
+ *       500:
+ *         description: Internal server error.
+ */
+router.get('/get/permission/controller', MiddilWare, GetPermissionController);
+
+
 
 
 export default router;

@@ -13,8 +13,10 @@ import AdminData from './routes/AdminRoute.js'
 import FutterAssessment from './routes/FutterAssessment.js'
 
 import { AlertNotification } from './lib/CornJob.js';
-import { sendWhatsAppMessage } from './lib/WhatsAppMessage.js';
+// import { sendWhatsAppMessage } from './lib/WhatsAppMessage.js';
+import setupSwagger from './swagger.js'; 
 const app = express();
+setupSwagger(app); 
 const port = process.env.PORT || 7000;
 
 //http://localhost:3000
