@@ -36,7 +36,7 @@ const Notification = () => {
     if (error) return <div className="text-red-500">{error}</div>;
 
     return (
-        <div className="bg-white w-[600px] shadow-lg rounded-lg p-6 mr-[90px] mt-[50px]">
+        <div className="bg-white w-[600px] shadow-lg border rounded-lg p-6 mr-[90px] mt-[50px]">
             <Link to={'/admin/Notification'}>
                 <h2 className="text-lg font-semibold mb-4">Notifications</h2>
                 <ul>

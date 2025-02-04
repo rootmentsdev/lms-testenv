@@ -1,22 +1,15 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import baseUrl from "../../api/api";
+import { toast } from "react-toastify";
 
 const PermissionSettings = () => {
+  const token = localStorage.getItem("token");
+
+  // Default structure to prevent undefined errors
   const [permissions, setPermissions] = useState({
-    admin: {
-      training: [true, true, true,],
-      assessment: [true, true, true],
-      // employee: [true],
-    },
-    clusterManager: {
-      training: [true, false, false,],
-      assessment: [false, true, true],
-      // employee: [false],
-    },
-    storeManager: {
-      training: [true, true, false,],
-      assessment: [false, true, true],
-      // employee: [false],
-    },
+    admin: { training: [false, false, false], assessment: [false, false, false] },
+    clusterManager: { training: [false, false, false], assessment: [false, false, false] },
+    storeManager: { training: [false, false, false], assessment: [false, false, false] },
   });
 
   const togglePermission = (role, category, index) => {
@@ -24,15 +17,116 @@ const PermissionSettings = () => {
       ...prev,
       [role]: {
         ...prev[role],
-        [category]: prev[role][category].map((val, idx) =>
-          idx === index ? !val : val
-        ),
+        [category]: prev[role][category].map((val, idx) => (idx === index ? !val : val)),
       },
     }));
   };
 
-  const handleSaveChanges = () => {
-    console.log("Permissions saved:", permissions);
+  useEffect(() => {
+    const FetchAllData = async () => {
+      try {
+        const fetchData = await fetch(
+          `${baseUrl.baseUrl}api/admin/get/permission/controller`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            credentials: "include",
+          }
+        );
+
+        if (!fetchData.ok) {
+          throw new Error("Failed to fetch permissions");
+        }
+
+        const result = await fetchData.json();
+
+        if (!result.data || result.data.length < 3) {
+          throw new Error("Invalid permission data received");
+        }
+        console.log(result.data);
+
+
+        setPermissions({
+          admin: {
+            training: [
+              result.data[0]?.permissions.canCreateTraining || false,
+              result.data[0]?.permissions.canReassignTraining || false,
+              result.data[0]?.permissions.canDeleteTraining || false,
+            ],
+            assessment: [
+              result.data[0]?.permissions.canCreateAssessment || false,
+              result.data[0]?.permissions.canReassignAssessment || false,
+              result.data[0]?.permissions.canDeleteAssessment || false,
+            ],
+          },
+          clusterManager: {
+            training: [
+              result.data[1]?.permissions.canCreateTraining || false,
+              result.data[1]?.permissions.canReassignTraining || false,
+              result.data[1]?.permissions.canDeleteTraining || false,
+            ],
+            assessment: [
+              result.data[1]?.permissions.canCreateAssessment || false,
+              result.data[1]?.permissions.canReassignAssessment || false,
+              result.data[1]?.permissions.canDeleteAssessment || false,
+            ],
+          },
+          storeManager: {
+            training: [
+              result.data[2]?.permissions.canCreateTraining || false,
+              result.data[2]?.permissions.canReassignTraining || false,
+              result.data[2]?.permissions.canDeleteTraining || false,
+            ],
+            assessment: [
+              result.data[2]?.permissions.canCreateAssessment || false,
+              result.data[2]?.permissions.canReassignAssessment || false,
+              result.data[2]?.permissions.canDeleteAssessment || false,
+            ],
+          },
+        });
+      } catch (error) {
+        console.error("Error fetching permissions:", error);
+        toast.error("Failed to load permissions");
+      }
+    };
+
+    if (token) FetchAllData();
+  }, [token]);
+
+  const handleSaveChanges = async () => {
+    const formattedPermissions = Object.keys(permissions).reduce((acc, role) => {
+      acc[role] = {
+        training: permissions[role].training,
+        assessment: permissions[role].assessment,
+      };
+      return acc;
+    }, {});
+
+    console.log("Formatted Permissions:", formattedPermissions);
+
+    try {
+      const response = await fetch(`${baseUrl.baseUrl}api/admin/permission/controller`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        credentials: "include",
+        body: JSON.stringify(formattedPermissions),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save permissions");
+      }
+
+      toast.success("Permissions successfully updated!");
+    } catch (error) {
+      console.error("Error saving permissions:", error);
+      toast.error("Failed to save permissions");
+    }
   };
 
   return (
@@ -54,7 +148,6 @@ const PermissionSettings = () => {
               {[
                 { category: "training", actions: ["Create Training", "Assign Training", "Delete Training"] },
                 { category: "assessment", actions: ["Create Assessment", "Assign Assessment", "Delete Assessment"] },
-                // { category: "employee", actions: ["Create/ Delete/ Edit Employee"] },
               ].map(({ category, actions }) => (
                 <React.Fragment key={category}>
                   {actions.map((action, idx) => (
@@ -64,7 +157,7 @@ const PermissionSettings = () => {
                         <td key={role} className="border border-gray-300 text-center p-2">
                           <input
                             type="checkbox"
-                            checked={permissions[role][category][idx]}
+                            checked={permissions[role]?.[category]?.[idx] || false}
                             onChange={() => togglePermission(role, category, idx)}
                           />
                         </td>

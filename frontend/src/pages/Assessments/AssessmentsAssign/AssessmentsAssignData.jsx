@@ -62,7 +62,6 @@ const AssessmentsAssignData = () => {
     if (role) {
       filtered = filtered.filter(user => user.designation === role);
     }
-
     if (branch) {
       filtered = filtered.filter(user => user.workingBranch === branch);
     }

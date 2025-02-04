@@ -3,6 +3,7 @@ import { assignModuleToUser, assignAssessmentToUser, ReassignTraining, deleteTra
 import { GetuserTraining, GetuserTrainingprocess, GetuserTrainingprocessmodule, UpdateuserTrainingprocess } from '../controllers/CreateUser.js';
 import { AssessmentAssign, TrainingDetails } from '../controllers/AssessmentReassign.js';
 import { GetAssessmentDetails } from '../controllers/moduleController.js';
+import { MiddilWare } from '../lib/middilWare.js';
 
 const router = express.Router();
 
@@ -17,7 +18,7 @@ router.post('/reassign/training', ReassignTraining)
 router.delete('/delete/training/:id', deleteTrainingController)
 router.get('/get/AllAssessment', GetAssessment)
 router.get('/get/Training/details/:id', TrainingDetails)
-router.post('/post/createAssessment', AssessmentAssign)
+router.post('/post/createAssessment', MiddilWare, AssessmentAssign)
 router.get('/get/assessment/details/:id', GetAssessmentDetails)
 
 export default router;

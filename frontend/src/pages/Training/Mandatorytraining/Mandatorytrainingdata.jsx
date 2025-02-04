@@ -49,7 +49,10 @@ const Mandatorytrainingdata = () => {
                 const endpoint = "api/usercreate/getAll/designation";
                 const response = await fetch(`${baseUrl.baseUrl}${endpoint}`, {
                     method: "GET",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        'Authorization': `Bearer ${token}`,
+                    },
                     credentials: "include",
                 });
 
@@ -95,7 +98,8 @@ const Mandatorytrainingdata = () => {
             // POST request (uncomment to use)
             const response = await fetch(`${baseUrl.baseUrl}api/mandatorytrainings`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" ,
+                headers: {
+                    "Content-Type": "application/json",
                     'Authorization': `Bearer ${token}`,
                 },
                 body: JSON.stringify(trainingData),

@@ -3,6 +3,7 @@ import baseUrl from "../../api/api";
 // import { FaSortAmountDownAlt } from "react-icons/fa";
 // import { FaSortAmountUp } from "react-icons/fa";
 import { BiSortAlt2 } from "react-icons/bi";
+import { useSelector } from "react-redux";
 
 
 const TopEmployeeAndBranch = () => {
@@ -11,6 +12,8 @@ const TopEmployeeAndBranch = () => {
     const [topData, setTopData] = useState("top"); // "top" or "last"
     const [isLoading, setIsLoading] = useState(true); // For loading state
     const token = localStorage.getItem('token');
+    const user = useSelector((state) => state.auth.user); // Access user from Redux store
+
 
     // Fetch data on component mount
     useEffect(() => {
@@ -117,7 +120,7 @@ const TopEmployeeAndBranch = () => {
                 <h2 className="text-lg font-bold flex items-center text-black"> <BiSortAlt2 onClick={() => handleTopDataToggle(topData === "top" ? "last" : "top")} className="text-2xl text-green-500 cursor-pointer" /> {topData === 'last' ? "Low" : " Top"} Performance</h2>
             </div>
             <div className="flex items-center justify-between ">
-                <div className="mb-4">
+                {user?.role === 'store_admin' ? null : <div className="mb-4">
                     <button
                         className={`bg-green-300 relative text-white  flex gap-0 rounded-md text-sm transition-all duration-300 `}
                         onClick={() => handleViewToggle(view === "employees" ? "branches" : "employees")}
@@ -149,7 +152,8 @@ const TopEmployeeAndBranch = () => {
 
 
 
-                </div>
+                </div>}
+
                 <div className="mb-4">
 
 

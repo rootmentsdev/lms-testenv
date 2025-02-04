@@ -110,7 +110,27 @@ export const TrainingDetails = async (req, res) => {
 export const AssessmentAssign = async (req, res) => {
     try {
         const { assessmentId, assignedTo, days, selectedOption, Reassign } = req.body;
+        console.log(assessmentId, assignedTo, days, selectedOption, Reassign);
 
+        const AdminID = req.admin.userId;
+        const AdminData = await Admin.findById(AdminID).populate("permissions");
+
+        if (!AdminData || !AdminData.permissions.length) {
+            return res.status(403).json({
+                message: "No permissions found for this admin",
+            });
+        }
+        // console.log();
+
+
+        // Extract first permission object
+        const adminPermissions = AdminData.permissions[0];
+
+        if (!AdminData.permissions[0].permissions.canCreateAssessment) {
+            return res.status(401).json({
+                message: "You have no permission",
+            });
+        }
         // Validate input
         if (!assessmentId || !assignedTo || !Array.isArray(assignedTo) || assignedTo.length === 0 || !days) {
             return res.status(400).json({ message: "All fields are required and 'assignedTo' must be a non-empty array." });

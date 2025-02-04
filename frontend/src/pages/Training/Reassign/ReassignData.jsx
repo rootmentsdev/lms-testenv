@@ -11,6 +11,8 @@ const ReassignData = () => {
     const [training, setTraining] = useState(null);
     const [assignedTo, setAssignedTo] = useState([]); // Multi-select values
     const [users, setUsers] = useState([]);
+    const token = localStorage.getItem('token');
+
     useEffect(() => {
         const fetchTrainingDetails = async () => {
             try {
@@ -35,7 +37,9 @@ const ReassignData = () => {
 
                 const response = await fetch(`${baseUrl.baseUrl}${endpoint}`, {
                     method: "GET",
-                    headers: { "Content-Type": "application/json" },
+                    headers: { "Content-Type": "application/json" ,
+                        'Authorization': `Bearer ${token}`, 
+                    },
                     credentials: "include",
                 });
 

@@ -1,6 +1,8 @@
 import Admin from "../model/Admin.js";
+import Permission from "../model/AdminPermission.js";
 import AssessmentProcess from "../model/Assessmentprocessschema.js";
 import Branch from "../model/Branch.js";
+import TrainingProgress from "../model/Trainingprocessschema.js";
 import User from "../model/User.js";
 
 export const UserAssessmentGet = async (req, res) => {
@@ -343,6 +345,242 @@ export const UpdateAdminDetaile = async (req, res) => {
         console.error(error);
         res.status(500).json({
             message: "Internal server error"
+        });
+    }
+};
+
+export const GetStoreManager = async (req, res) => {
+    try {
+        const AdminId = req.admin.userId;
+
+        // Step 1: Find the Admin and populate branches
+        const AdminData = await Admin.findById(AdminId).populate('branches');
+
+        if (!AdminData) {
+            return res.status(404).json({ message: 'Admin not found' });
+        }
+
+        // Step 2: Extract locCodes from the populated branches
+        const locCodes = AdminData.branches.map(branch => branch.locCode);
+
+        if (locCodes.length === 0) {
+            return res.status(404).json({ message: 'No branches or locCodes found' });
+        }
+
+        // Step 3: Find all users associated with the locCodes
+        const users = await User.find({ locCode: { $in: locCodes } });
+
+        if (users.length === 0) {
+            return res.status(404).json({ message: 'No users found for the locCodes' });
+        }
+
+        // Step 4: Filter trainings for these users
+        const userIds = users.map(user => user._id);
+        const trainings = await TrainingProgress.find({ userId: { $in: userIds } });
+
+        // Step 5: Classify trainings into categories
+        const pendingTrainings = trainings.filter(
+            training => training.status === 'Pending'
+        );
+        const completedTrainings = trainings.filter(
+            training => training.status === 'completed'
+        );
+        const dueTrainings = trainings.filter(
+            training => training.status !== 'completed' && training.status !== 'Pending'
+        );
+
+        // Step 6: Send the filtered data with counts in the response
+        res.status(200).json({
+            pendingTrainings: {
+                count: pendingTrainings.length,
+                data: pendingTrainings,
+            },
+            completedTrainings: {
+                count: completedTrainings.length,
+                data: completedTrainings,
+            },
+            dueTrainings: {
+                count: dueTrainings.length,
+                data: dueTrainings,
+            },
+            userconut: {
+                count: users.length,
+
+            },
+        });
+    } catch (error) {
+        console.error('Error fetching store manager data:', error);
+        res.status(500).json({
+            message: 'Internal server error',
+        });
+    }
+};
+
+export const GetStoreManagerDueDate = async (req, res) => {
+    try {
+        const AdminId = req.admin.userId;
+
+        // Step 1: Find the Admin and populate branches
+        const AdminData = await Admin.findById(AdminId).populate("branches");
+
+        if (!AdminData) {
+            return res.status(404).json({ message: "Admin not found" });
+        }
+
+        // Step 2: Extract locCodes from the populated branches
+        const locCodes = AdminData.branches.map((branch) => branch.locCode);
+
+        if (locCodes.length === 0) {
+            return res.status(404).json({ message: "No branches or locCodes found" });
+        }
+
+        // Step 3: Find all users associated with the locCodes
+        const users = await User.find({ locCode: { $in: locCodes } });
+
+        if (users.length === 0) {
+            return res.status(404).json({ message: "No users found for the locCodes" });
+        }
+
+        // Step 4: Filter overdue users
+        const currentDate = new Date();
+        const overdueUsers = users
+            .map((user) => {
+                // Filter overdue trainings (status is NOT 'completed' and deadline is past)
+                const overdueTrainings = user.training.filter(
+                    (t) => t.status !== "completed" && new Date(t.deadline) < currentDate
+                );
+
+                // Filter overdue assignments (status is NOT 'Completed' and deadline is past)
+                const overdueAssessments = user.assignedAssessments.filter(
+                    (a) => a.status !== "Completed" && new Date(a.deadline) < currentDate
+                );
+
+                // Include only users with overdue items
+                if (overdueTrainings.length > 0 || overdueAssessments.length > 0) {
+                    return {
+                        userId: user._id,
+                        name: user.username, // Assuming 'username' is the correct field
+                        locCode: user.locCode,
+                        overdueTrainings,
+                        overdueAssessments,
+                    };
+                }
+
+                return null; // Exclude users with no overdue items
+            })
+            .filter((user) => user !== null); // Remove null entries
+
+        // Step 5: Slice the first 3 users
+        const topOverdueUsers = overdueUsers.slice(0, 3);
+
+        // Step 6: Send the response
+        res.status(200).json({
+            count: overdueUsers.length,
+            topOverdueUsers,
+        });
+    } catch (error) {
+        console.error("Error fetching store manager data:", error);
+        res.status(500).json({
+            message: "Internal server error",
+        });
+    }
+};
+
+export const PermissionController = async (req, res) => {
+    try {
+        const { admin, clusterManager, storeManager } = req.body;
+
+        console.log("Received Permissions:", admin, clusterManager, storeManager);
+
+        // Update admin permissions
+        const AdminUpdate = await Permission.findOneAndUpdate(
+            { role: "super_admin" },
+            {
+                $set: {
+                    "permissions.canCreateTraining": admin.training[0],
+                    "permissions.canCreateAssessment": admin.assessment[0],
+                    "permissions.canReassignTraining": admin.training[1],
+                    "permissions.canReassignAssessment": admin.assessment[1],
+                    "permissions.canDeleteTraining": admin.training[2],
+                    "permissions.canDeleteAssessment": admin.assessment[2],
+                },
+            },
+            { new: true }
+        );
+
+        // Update cluster manager permissions
+        const ClusterUpdate = await Permission.findOneAndUpdate(
+            { role: "cluster_admin" },
+            {
+                $set: {
+                    "permissions.canCreateTraining": clusterManager.training[0],
+                    "permissions.canCreateAssessment": clusterManager.assessment[0],
+                    "permissions.canReassignTraining": clusterManager.training[1],
+                    "permissions.canReassignAssessment": clusterManager.assessment[1],
+                    "permissions.canDeleteTraining": clusterManager.training[2],
+                    "permissions.canDeleteAssessment": clusterManager.assessment[2],
+                },
+            },
+            { new: true }
+        );
+
+        // Update store manager permissions
+        const StoreUpdate = await Permission.findOneAndUpdate(
+            { role: "store_admin" },
+            {
+                $set: {
+                    "permissions.canCreateTraining": storeManager.training[0],
+                    "permissions.canCreateAssessment": storeManager.assessment[0],
+                    "permissions.canReassignTraining": storeManager.training[1],
+                    "permissions.canReassignAssessment": storeManager.assessment[1],
+                    "permissions.canDeleteTraining": storeManager.training[2],
+                    "permissions.canDeleteAssessment": storeManager.assessment[2],
+                },
+            },
+            { new: true }
+        );
+
+        res.status(200).json({
+            message: "Permissions updated successfully",
+            data: {
+                admin: AdminUpdate,
+                clusterManager: ClusterUpdate,
+                storeManager: StoreUpdate,
+            },
+        });
+
+    } catch (error) {
+        console.error("Error updating permissions:", error);
+        res.status(500).json({
+            message: "Internal server error",
+            error: error.message,
+        });
+    }
+};
+
+export const GetPermissionController = async (req, res) => {
+    try {
+
+        const AllData = await Permission.find()
+
+        if (!AllData) {
+            return res.status(404).json({
+                message: "NO DATA FOUND"
+            })
+        }
+        // Update admin permissions
+
+
+        res.status(200).json({
+            message: "Permissions updated successfully",
+            data: AllData
+        });
+
+    } catch (error) {
+        console.error("Error updating permissions:", error);
+        res.status(500).json({
+            message: "Internal server error",
+            error: error.message,
         });
     }
 };

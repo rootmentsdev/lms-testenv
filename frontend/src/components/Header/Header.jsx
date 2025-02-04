@@ -2,6 +2,7 @@ import { IoIosSearch } from "react-icons/io";
 import { GoBell } from "react-icons/go";
 import image from '../../../public/Rootments.jpg'
 import { Link, useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 
 
 const Header = () => {
@@ -13,6 +14,7 @@ const Header = () => {
         // Redirect to login page
         navigate('/login');
     };
+    const user = useSelector((state) => state.auth.user);
     return (
         <div className="w-full">
 
@@ -79,7 +81,8 @@ const Header = () => {
 
 
                             </li>
-                            <li><Link to={'/settings'}>Settings</Link></li>
+                            {user?.role === 'super_admin' ? <li><Link to={'/settings'}>Settings</Link></li> : null}
+
                             <li><a onClick={handleLogout}>Logout</a> </li>
                         </ul>
                     </div>

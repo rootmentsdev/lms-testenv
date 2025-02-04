@@ -15,6 +15,8 @@ const AssignAssessmentData = () => {
     const [days, setDays] = useState(""); // Track input days
     const [selectedOption, setSelectedOption] = useState("user");
     const [Reassign, setReassign] = useState(true);
+    const token = localStorage.getItem('token');
+
     const checkfuntion = async () => {
         const Assessment = {
             assignedTo: assignedTo.map((item) => item.value), // Map assignedTo values
@@ -32,7 +34,10 @@ const AssignAssessmentData = () => {
 
             const RequestData = await fetch(url, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify(Assessment),
             });
 
@@ -98,7 +103,10 @@ const AssignAssessmentData = () => {
 
                 const response = await fetch(`${baseUrl.baseUrl}${endpoint}`, {
                     method: "GET",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        'Authorization': `Bearer ${token}`,
+                    },
                     credentials: "include",
                 });
                 console.log(response);

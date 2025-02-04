@@ -60,6 +60,26 @@ export const getAssessments = async (req, res) => {
 
 export const createTraining = async (req, res) => {
     const { trainingName, modules, days, workingBranch, selectedOption } = req.body;
+    const AdminID = req.admin.userId;
+    const AdminData = await Admin.findById(AdminID).populate("permissions");
+
+    if (!AdminData || !AdminData.permissions.length) {
+        return res.status(403).json({
+            message: "No permissions found for this admin",
+        });
+    }
+
+    // Extract first permission object
+    const adminPermissions = AdminData.permissions[0];
+
+    if (!AdminData.permissions[0].permissions.canCreateTraining) {
+        return res.status(401).json({
+            message: "You have no permission",
+        });
+    }
+
+    console.log(AdminData);
+
 
     console.log(req.admin);
     const admin = await Admin.findById(req?.admin?.userId)
@@ -371,7 +391,7 @@ export const calculateProgress = async (req, res) => {
                 ).length;
             }
         });
-      
+
 
 
         // Return results
