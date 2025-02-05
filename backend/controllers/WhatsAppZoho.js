@@ -6,7 +6,7 @@ const authToken = process.env.TWILIO_AUTH_TOKEN || "YOUR_TWILIO_AUTH_TOKEN";
 const client = twilio(accountSid, authToken);
 
 
-const TWILIO_WHATSAPP_FROM = "whatsapp:+18283749771";
+const TWILIO_WHATSAPP_FROM = "whatsapp:+14155238886";
 
 export const WhatsAppZoho = async (req, res) => {
     try {
