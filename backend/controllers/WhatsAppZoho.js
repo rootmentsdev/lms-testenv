@@ -1,5 +1,8 @@
 import twilio from "twilio";
+import dotenv from 'dotenv';
 
+// Load environment variables
+dotenv.config();
 // 1. Twilio Credentials
 const accountSid = process.env.TWILIO_ACCOUNT_SID || "YOUR_TWILIO_ACCOUNT_SID";
 const authToken = process.env.TWILIO_AUTH_TOKEN || "YOUR_TWILIO_AUTH_TOKEN";
