@@ -11,12 +11,13 @@ import UserCreating from './routes/UserRoute.js';
 import UserRouters from './routes/UserConRoute.js';
 import AdminData from './routes/AdminRoute.js'
 import FutterAssessment from './routes/FutterAssessment.js'
+import Whatsapprouter from './routes/WhatsappRouteZoho.js'
 
 import { AlertNotification } from './lib/CornJob.js';
 // import { sendWhatsAppMessage } from './lib/WhatsAppMessage.js';
-import setupSwagger from './swagger.js'; 
+import setupSwagger from './swagger.js';
 const app = express();
-setupSwagger(app); 
+setupSwagger(app);
 const port = process.env.PORT || 7000;
 
 //http://localhost:3000
@@ -43,7 +44,7 @@ app.use('/api/usercreate', UserCreating)
 app.use('/api/auth', UserRouters)
 app.use('/api/admin', AdminData)
 app.use('/api/user/assessment', FutterAssessment)
-
+app.use('/zoho',Whatsapprouter)
 
 
 console.log(new Date());

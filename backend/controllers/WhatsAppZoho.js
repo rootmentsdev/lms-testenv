@@ -1,0 +1,44 @@
+import twilio from "twilio";
+
+// 1. Twilio Credentials
+const accountSid = process.env.TWILIO_ACCOUNT_SID || "YOUR_TWILIO_ACCOUNT_SID";
+const authToken = process.env.TWILIO_AUTH_TOKEN || "YOUR_TWILIO_AUTH_TOKEN";
+const client = twilio(accountSid, authToken);
+
+
+const TWILIO_WHATSAPP_FROM = "whatsapp:+18283749771";
+
+export const WhatsAppZoho = async (req, res) => {
+    try {
+        // (A) Parse Zoho invoice data
+        const payload = req.body;
+        console.log("Zoho Books Invoice Webhook Data:", payload);
+
+        // (B) Extract invoice ID (Zoho might send it as 'invoice_id' or nested in payload.data)
+        const invoiceId = payload.invoice_id || payload.data?.invoice_id;
+        if (!invoiceId) {
+            console.error("No invoice ID found in payload");
+            return res.status(400).send("No invoice ID found");
+        }
+
+        // (C) Retrieve the customer phone number
+        // Make sure it's in E.164 format with a '+', then prefix with "whatsapp:" for Twilio
+        let customerPhone = payload.customer_phone || "1234567890";
+        // Example: if payload.customer_phone is "1234567890", we make it "whatsapp:+1234567890"
+        customerPhone = `whatsapp:${customerPhone.startsWith("+") ? customerPhone : `+${customerPhone}`}`;
+
+        // (D) Send a Text Message via Twilio WhatsApp
+        const textMessage = await client.messages.create({
+            body: `Your invoice ${invoiceId} has been created in Zoho Books!`,
+            from: TWILIO_WHATSAPP_FROM,
+            to: customerPhone
+        });
+        console.log("Twilio WhatsApp Text SID:", textMessage.sid);
+
+        // (E) Return success response
+        return res.status(200).send("OK: Invoice received, Twilio WhatsApp text message sent");
+    } catch (error) {
+        console.error("Error handling invoice webhook:", error?.message);
+        return res.status(500).send("Error processing invoice webhook");
+    }
+};

@@ -170,7 +170,7 @@ const AssessmentOverDuedata = () => {
                 <th className="px-3 py-1 border-2 border-gray-300">Name</th>
                 <th className="px-3 py-1 border-2 border-gray-300">Role</th>
                 <th className="px-3 py-1 border-2 border-gray-300">Branch</th>
-                <th className="px-3 py-1 border-2 border-gray-300">Training Overdue</th>
+                <th className="px-3 py-1 border-2 border-gray-300">Assessment Overdue</th>
                 <th className="px-3 py-1 border-2 border-gray-300">Send Reminder</th>
               </tr>
             </thead>
