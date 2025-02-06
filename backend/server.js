@@ -16,6 +16,7 @@ import Whatsapprouter from './routes/WhatsappRouteZoho.js'
 import { AlertNotification } from './lib/CornJob.js';
 // import { sendWhatsAppMessage } from './lib/WhatsAppMessage.js';
 import setupSwagger from './swagger.js';
+import { sendWhatsAppMessage } from './lib/WhatsAppMessage.js';
 const app = express();
 setupSwagger(app);
 const port = process.env.PORT || 7000;
@@ -44,7 +45,7 @@ app.use('/api/usercreate', UserCreating)
 app.use('/api/auth', UserRouters)
 app.use('/api/admin', AdminData)
 app.use('/api/user/assessment', FutterAssessment)
-app.use('/zoho',Whatsapprouter)
+app.use('/zoho', Whatsapprouter)
 
 
 console.log(new Date());
@@ -79,7 +80,7 @@ cron.schedule("30 18 * * *", async () => {
 
 // AlertNotification();
 
-// sendWhatsAppMessage('918590302743', 'Running AlertNotification every minute for testing...')
+sendWhatsAppMessage('917736724727', 'Running AlertNotification every minute for testing...')
 
 
 
