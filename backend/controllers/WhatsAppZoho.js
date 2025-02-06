@@ -26,7 +26,7 @@ export const WhatsAppZoho = async (req, res) => {
 
         // (C) Retrieve the customer phone number
         // Make sure it's in E.164 format with a '+', then prefix with "whatsapp:" for Twilio
-        let customerPhone ="91"+ payload.customer_phone || "1234567890";
+        let customerPhone ="91"+ payload.contact_mobile_phone || "1234567890";
         // Example: if payload.customer_phone is "1234567890", we make it "whatsapp:+1234567890"
         customerPhone = `whatsapp:${customerPhone.startsWith("+") ? customerPhone : `+${customerPhone}`}`;
 
