@@ -19,6 +19,9 @@ export const WhatsAppZoho = async (req, res) => {
 
         // (B) Extract invoice ID (Zoho might send it as 'invoice_id' or nested in payload.data)
         const invoiceId = payload.invoice_id || payload.data?.invoice_id;
+        const InvoiceUrl = payload.Invoice_Url || payload.data?.Invoice_Url
+
+        const name = payload.name || payload.data?.name
         if (!invoiceId) {
             console.error("No invoice ID found in payload");
             return res.status(400).send("No invoice ID found");
@@ -26,13 +29,14 @@ export const WhatsAppZoho = async (req, res) => {
 
         // (C) Retrieve the customer phone number
         // Make sure it's in E.164 format with a '+', then prefix with "whatsapp:" for Twilio
-        let customerPhone ="91"+ payload.contact_mobile_phone || "1234567890";
+        let customerPhone = "91" + payload.contact_mobile_phone || "1234567890";
         // Example: if payload.customer_phone is "1234567890", we make it "whatsapp:+1234567890"
         customerPhone = `whatsapp:${customerPhone.startsWith("+") ? customerPhone : `+${customerPhone}`}`;
 
         // (D) Send a Text Message via Twilio WhatsApp
         const textMessage = await client.messages.create({
-            body: `Your invoice ${invoiceId} has been created in Zoho Books!`,
+            
+            body: `hello ${name}\nYour invoice ${invoiceId} has been created in Zoho Books! this i your url ${InvoiceUrl}`,
             from: TWILIO_WHATSAPP_FROM,
             to: customerPhone
         });
