@@ -80,7 +80,7 @@ cron.schedule("30 18 * * *", async () => {
 
 // AlertNotification();
 
-sendWhatsAppMessage('917736724727', 'Running AlertNotification every minute for testing...')
+// sendWhatsAppMessage('917736724727', 'Running AlertNotification every minute for testing...')
 
 
 
