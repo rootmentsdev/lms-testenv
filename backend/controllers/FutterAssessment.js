@@ -584,3 +584,70 @@ export const GetPermissionController = async (req, res) => {
         });
     }
 };
+
+
+export const GetSearchDataController = async (req, res) => {
+    try {
+        const AdminId = req.admin.userId;
+        const search = req.body.search?.trim() || "";
+
+        if (!search) {
+            return res.status(400).json({ message: "Search query is required" });
+        }
+
+        // Step 1: Find the Admin and populate branches
+        const AdminData = await Admin.findById(AdminId).populate("branches");
+
+        if (!AdminData) {
+            return res.status(404).json({ message: "Admin not found" });
+        }
+
+        // Step 2: Extract locCodes from the populated branches
+        const locCodes = AdminData.branches.map((branch) => branch.locCode);
+
+        // Step 3: Find Users and prioritize exact matches
+        const userdata = await User.find({
+            locCode: { $in: locCodes },
+            $or: [
+                { username: { $regex: search, $options: "i" } },
+                { empID: { $regex: search, $options: "i" } },
+                { email: { $regex: search, $options: "i" } }
+            ]
+        })
+            .lean() // Convert MongoDB documents to plain objects
+            .then(users => {
+                return users.map(user => {
+                    let score = 0;
+                    if (user.username?.toLowerCase() === search.toLowerCase()) score += 3;
+                    if (user.empID?.toLowerCase() === search.toLowerCase()) score += 2;
+                    if (user.email?.toLowerCase() === search.toLowerCase()) score += 1;
+                    return { ...user, score };
+                }).sort((a, b) => b.score - a.score); // Sort descending by score
+            });
+        const TopthreeData = userdata.slice(0, 3)
+
+
+
+        const findBranch = await Branch.find({
+            locCode: { $in: locCodes }, $or: [
+                { locCode: { $regex: search, $options: "i" } },
+                { workingBranch: { $regex: search, $options: "i" } },
+                { location: { $regex: search, $options: "i" } }
+            ]
+        })
+
+
+        const topthree = findBranch.slice(0, 3)
+        res.status(200).json({
+            message: "ok",
+            data: TopthreeData,
+            branch: topthree
+        });
+
+    } catch (error) {
+        console.error("Error in GetSearchDataController:", error);
+        res.status(500).json({
+            message: "Internal Server Error"
+        });
+    }
+};

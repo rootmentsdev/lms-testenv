@@ -9,7 +9,7 @@ export const MiddilWare = (req, res, next) => {
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET); // Verify token
         req.admin = decoded; // Attach user info to the request object
-        console.log(token);
+        // console.log(token);
 
         next(); // Pass control to the next middleware/handler
     } catch (err) {

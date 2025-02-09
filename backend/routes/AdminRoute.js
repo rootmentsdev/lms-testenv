@@ -4,7 +4,7 @@ import { AdminLogin, ChangeVisibility, getAllNotifications, getEscalationLevel, 
 import { VerifyToken } from '../lib/VerifyJwt.js';
 import { CreateNotification, FindOverDueAssessment, FindOverDueTraining, SendNotification, SendNotificationAssessment } from '../controllers/AssessmentReassign.js';
 import { MiddilWare } from '../lib/middilWare.js';
-import { GetAllUserDetailes, GetBranchDetailes, GetCurrentAdmin, GetPermissionController, GetStoreManager, GetStoreManagerDueDate, PermissionController, UpdateAdminDetaile, UpdateBranchDetails, UpdateOneUserDetailes } from '../controllers/FutterAssessment.js';
+import { GetAllUserDetailes, GetBranchDetailes, GetCurrentAdmin, GetPermissionController, GetSearchDataController, GetStoreManager, GetStoreManagerDueDate, PermissionController, UpdateAdminDetaile, UpdateBranchDetails, UpdateOneUserDetailes } from '../controllers/FutterAssessment.js';
 
 const router = express.Router();
 
@@ -685,6 +685,25 @@ router.post('/permission/controller', MiddilWare, PermissionController);
  *         description: Internal server error.
  */
 router.get('/get/permission/controller', MiddilWare, GetPermissionController);
+
+
+/**
+ * @swagger
+ * /get/searching/userORbranch:
+ *   get:
+ *     summary: Get the search result of user or branch
+ *     description: Retrieves  users or branch.
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved users or branch.
+ *       401:
+ *         description: Unauthorized, invalid credentials or no token provided.
+ *       500:
+ *         description: Internal server error.
+ */
+
+
+router.post('/get/searching/userORbranch', MiddilWare, GetSearchDataController);
 
 
 
