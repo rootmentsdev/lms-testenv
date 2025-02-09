@@ -111,7 +111,10 @@ const TopEmployeeAndBranch = () => {
     };
 
     if (isLoading) {
-        return <p>Loading...</p>; // Show loading text until data is available
+        return <div role="status" className="flex items-center justify-center  w-[600px] h-[400px] shadow-xl bg-slate-100 rounded-lg animate-pulse d">
+
+            <span className="sr-only">Loading...</span>
+        </div>; // Show loading text until data is available
     }
 
     return (
@@ -164,6 +167,13 @@ const TopEmployeeAndBranch = () => {
                 {view === "employees" ? renderEmployees() : renderBranches()}
             </div>
         </div >
+
+
+
+
+
+
+
     );
 };
 

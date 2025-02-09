@@ -23,9 +23,10 @@ const HomeData = ({ user }) => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await fetch(baseUrl.baseUrl + 'api/get/progress',{
+                const response = await fetch(baseUrl.baseUrl + 'api/get/progress', {
                     method: "GET",
-                    headers: { "Content-Type": "application/json" ,
+                    headers: {
+                        "Content-Type": "application/json",
                         'Authorization': `Bearer ${token}`,
                     },
                     credentials: "include",
@@ -70,7 +71,7 @@ const HomeData = ({ user }) => {
                         <p className="text-sm md:text-lg">Your dashboard is ready, Let’s create a productive learning environment!</p>
                     </div>
                     {loading && (
-                        <div className="flex mb-[70px] gap-3 lg:gap-6 mx-10 lg:mx-15 md:flex-wrap flex-wrap sm:w-full md:gap-9 md:mx-10 md:justify-start mt-10 font-semibold">
+                        <div className="flex mb-[70px] gap-3 lg:gap-10 mx-10 lg:mx-15 md:flex-wrap flex-wrap sm:w-full md:gap-9  md:mx-10 md:justify-start mt-10 font-semibold">
                             <HomeSkeleton />
                             <HomeSkeleton />
                             <HomeSkeleton />
@@ -174,7 +175,7 @@ const HomeData = ({ user }) => {
 
                 </div>
             </div>
-            <div className="flex ml-[200px] gap-10 justify-between">
+            <div className="flex ml-[200px] gap-52">
                 <div>
                     <Quick />
                 </div>
