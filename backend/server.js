@@ -30,7 +30,7 @@ app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
 app.use(
   cors({
-    origin: ['https://unicode-mu.vercel.app', 'http://localhost:3000', 'https://lms-dev-jishnu.vercel.app',''],
+    origin: ['https://unicode-mu.vercel.app', 'http://localhost:3000', 'https://lms-dev-jishnu.vercel.app','https://lms-3w6k.vercel.app'],
     credentials: true,
   })
 );
