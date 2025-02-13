@@ -28,7 +28,7 @@ const trainingSchema = new mongoose.Schema({
 const userSchema = new mongoose.Schema({
     username: { type: String, required: true, }, // User's username
     email: { type: String, required: true, unique: true },
-    phoneNumber: { type: String, required: true }, // Store as a string
+    phoneNumber: { type: String, default: "" }, // Store as a string
     locCode: { type: String, required: true }, // User's email
     empID: { type: String, required: true, unique: true }, // Employee ID
     designation: { type: String, required: true },
