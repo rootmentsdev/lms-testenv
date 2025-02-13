@@ -55,11 +55,13 @@ const Notification = () => {
                                     </div>
                                     <div>
                                         <p className="text-sm font-medium text-gray-800">{notification.title.length < 20 ? notification.title : notification.title.slice(0, 20)}</p>
-                                        <p className="text-sm text-gray-600">{notification.body.length < 40 ? notification.body : notification.body.slice(0, 40) + "..."}</p>
+                                        {notification.body.length ? <p className="text-sm text-gray-600">{notification.body.length < 40 ? notification.body : notification.body.slice(0, 40) + "..."}</p>
+                                            : <p className="text-sm text-gray-600"></p>
+                                        }
                                     </div>
                                 </div>
                                 <p className="text-sm text-gray-400 self-start">
-                                    {new Date(notification.createdAt).toLocaleString()}
+                                    {notification.createdAt ? new Date(notification.createdAt).toLocaleString() : ""}
                                 </p>
                             </li>
                         ))}

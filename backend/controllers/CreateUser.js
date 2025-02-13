@@ -47,9 +47,9 @@ export const createUser = async (req, res) => {
     }).populate('modules');
     console.log(mandatoryTraining);
 
-    if (!mandatoryTraining || mandatoryTraining.length === 0) {
-      return res.status(400).json({ message: 'No mandatory training found for the user role.' });
-    }
+    // if (!mandatoryTraining || mandatoryTraining.length === 0) {
+    //   return res.status(400).json({ message: 'No mandatory training found for the user role.' });
+    // }
 
     const deadlineDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // Default 30-day deadline
 
