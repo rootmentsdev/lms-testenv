@@ -97,7 +97,7 @@ const SettingData = () => {
 
                             <li className="pl-4">
                                 <button
-                                    className={`text-gray-600 hover:text-black ${activeTab === "subrole" ? "text-green-600 font-medium" : ""}`}
+                                    className={`text-gray-600 hover:text-black ${activeTab === "Escalation" ? "text-green-600 font-medium" : ""}`}
                                     onClick={() => setActiveTab("Escalation")}
                                 >
                                     + Escalation

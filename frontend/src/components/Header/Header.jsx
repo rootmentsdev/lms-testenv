@@ -4,6 +4,8 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { useState, useEffect } from "react";
 import baseUrl from "../../api/api.js";
+import { IoPersonCircleSharp } from "react-icons/io5";
+
 
 const Header = () => {
     const location = useLocation();
@@ -117,11 +119,12 @@ const Header = () => {
                     </Link>
 
                     <div className="dropdown dropdown-end mr-9">
-                        <div tabIndex={0} role="button" className="btn btn-ghost btn-circle avatar">
-                            <div className="w-10 rounded-full">
-                                <img alt="User Avatar" src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.webp" />
-                            </div>
-                        </div>
+                        {/* <div tabIndex={0} role="button" className="btn btn-ghost btn-circle avatar flex items-center justify-center"> */}
+                        {/* <img alt="User Avatar" src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.webp" /> */}
+                        {/* <IoPersonCircleSharp className="w-full text-6xl" /> */}
+                        {/* </div> */}
+
+                        <IoPersonCircleSharp tabIndex={0} role="button" className={`btn btn-ghost btn-circle avatar  text-[#016E5B] ${isActive('/admin/profile') ? 'border-[#016E5B]  rounded-lg text-6xl ' : ''}`} />
                         <ul tabIndex={0} className="menu menu-sm dropdown-content rounded-box mt-3 w-52 p-2 shadow z-10 text-[#016E5B] bg-white">
                             <li><Link to={'/admin/profile'}>Profile</Link></li>
                             {user?.role === 'super_admin' && <li><Link to={'/settings'}>Settings</Link></li>}

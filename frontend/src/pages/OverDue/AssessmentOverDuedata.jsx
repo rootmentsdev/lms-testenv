@@ -41,6 +41,7 @@ const AssessmentOverDuedata = () => {
         if (!response.ok) {
           throw new Error(`${response.statusText}`);
         }
+        console.log(error);
 
         const result = await response.json();
         setData(result.data);
@@ -52,7 +53,7 @@ const AssessmentOverDuedata = () => {
     };
 
     fetchEmployees();
-  }, []);
+  }, [error, token]);
 
   const roles = useMemo(() => [...new Set(data.map(emp => emp.role))], [data]);
   const branches = useMemo(() => [...new Set(data.map(emp => emp.workingBranch))], [data]);
@@ -159,7 +160,7 @@ const AssessmentOverDuedata = () => {
         </div>
 
         {/* Error Message */}
-        {error && <div className="text-red-500 text-center mb-4">{error}</div>}
+        {/* {error && <div className="text-red-500 text-center mb-4">{error} OR No data</div>} */}
 
         {/* Employee Table */}
         <div className="mx-10 overflow-x-auto text-black lg:mb-[70px]">

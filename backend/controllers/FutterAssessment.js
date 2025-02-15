@@ -383,10 +383,10 @@ export const GetStoreManager = async (req, res) => {
             training => training.status === 'Pending'
         );
         const completedTrainings = trainings.filter(
-            training => training.status === 'completed'
+            training => training.status === 'Completed'
         );
         const dueTrainings = trainings.filter(
-            training => training.status !== 'completed' && training.status !== 'Pending'
+            training => training.status !== 'Completed' && training.status !== 'Pending'
         );
 
         // Step 6: Send the filtered data with counts in the response

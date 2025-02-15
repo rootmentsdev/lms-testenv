@@ -54,7 +54,7 @@ const HomeDatastore = ({ user }) => {
         };
 
         fetchData();
-    }, []);
+    }, [data, token]);
 
 
 
