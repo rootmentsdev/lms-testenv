@@ -65,6 +65,7 @@ const CreateTrainingDatas = () => {
 
                 const data = await response.json();
                 console.log(data);
+                console.log(selectedOption);
 
                 // Map users to options required by react-select
                 if (selectedOption === 'branch') {
@@ -77,14 +78,18 @@ const CreateTrainingDatas = () => {
                 if (selectedOption === 'user') {
                     const options = data.data.map((user) => ({
                         value: user._id,
-                        label: "EmpId : " + user.empID + "  " + " Name: " + user.username,
+                        label: "EmpId : " + user.empID + "  " + " Name : " + user.username,
                     }));
                     setUsers(options);
                 }
                 if (selectedOption === 'designation') {
                     const options = data.data.map((user) => ({
-                        value: user.designation,
-                        label: user.designation,
+                        value: user.designation
+
+                        ,
+                        label: user.designation
+
+                        ,
                     }));
                     setUsers(options);
                 }
@@ -95,7 +100,7 @@ const CreateTrainingDatas = () => {
 
         fetchModules();
         fetchUsers();
-    }, [selectedOption]);
+    }, [selectedOption, token]);
 
     // Submit handler
     const handleSubmit = async (e) => {
@@ -175,7 +180,7 @@ const CreateTrainingDatas = () => {
                             options={modules}
                             isMulti
                             value={selectedModules}
-                            onChange={setSelectedModules} // Updates state
+                            onChange={setSelectedModules}
                             className="w-full"
                         />
                     </div>
