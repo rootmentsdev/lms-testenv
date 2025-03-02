@@ -64,6 +64,8 @@ router.get('/get/bestThreeUser', MiddilWare, getTopUsers);
  *               email:
  *                 type: string
  *                 description: Admin email
+ *               branch:
+ *                     type:array
  *     responses:
  *       200:
  *         description: Admin user created successfully.

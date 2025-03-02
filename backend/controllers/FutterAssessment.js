@@ -2,6 +2,7 @@ import Admin from "../model/Admin.js";
 import Permission from "../model/AdminPermission.js";
 import AssessmentProcess from "../model/Assessmentprocessschema.js";
 import Branch from "../model/Branch.js";
+import Notification from "../model/Notification.js";
 import TrainingProgress from "../model/Trainingprocessschema.js";
 import User from "../model/User.js";
 
@@ -648,6 +649,41 @@ export const GetSearchDataController = async (req, res) => {
         console.error("Error in GetSearchDataController:", error);
         res.status(500).json({
             message: "Internal Server Error"
+        });
+    }
+};
+
+
+export const GetUserMessage = async (req, res) => {
+    try {
+        const { email } = req.params;
+
+        if (!email) {
+            return res.status(400).json({ message: "Email is required" });
+        }
+
+        const userData = await User.findOne({ email })
+            .select("username email locCode empID designation workingBranch");
+
+        if (!userData) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        const notifications = await Notification.find({
+            $or: [
+                { Role: { $in: [userData.designation] } },
+                { user: { $in: [userData._id] } },
+                { branch: { $in: [userData.locCode] } }
+            ]
+        });
+
+
+        return res.status(200).json({ notifications });
+
+    } catch (error) {
+        return res.status(500).json({
+            message: "Internal Server Error",
+            error: error.message
         });
     }
 };

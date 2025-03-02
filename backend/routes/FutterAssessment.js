@@ -1,5 +1,5 @@
 import express from 'express';
-import { UserAssessmentGet, userAssessmentUpdate, Usergetquestions } from '../controllers/FutterAssessment.js';
+import { GetUserMessage, UserAssessmentGet, userAssessmentUpdate, Usergetquestions } from '../controllers/FutterAssessment.js';
 const router = express.Router();
 
 
@@ -140,4 +140,7 @@ router.get('/user/get/assessment/quesions', Usergetquestions);
  *         description: Internal server error.
  */
 router.post('/user/update/assessment', userAssessmentUpdate);
+
+
+router.get('/user/get/message/:email',GetUserMessage)
 export default router;
