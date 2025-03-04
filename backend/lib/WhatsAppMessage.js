@@ -1,38 +1,32 @@
-import twilio from 'twilio';
+import axios from 'axios';
 import dotenv from 'dotenv';
 
-// Load environment variables
 dotenv.config();
 
-const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+const WHATSAPP_API_URL = 'https://graph.facebook.com/v18.0/' + process.env.WHATSAPP_PHONE_NUMBER_ID + '/messages';
 
-
-
-// Send WhatsApp Notifications
-//         for (const user of usersToNotify) {
-//             const message = `Hello ${user.name}, 
-
-// You have pending training modules (${user.pendingTraining}) and assessments (${user.pendingAssessments}). 
-// Please complete them as soon as possible. ✅`;
-
-//             await sendWhatsAppMessage(user.phone, message);
-//         }
-
-// Return results
-;
-
-
-// Function to Send WhatsApp Message
 export const sendWhatsAppMessage = async (phone, message) => {
     try {
-        const formattedPhone = `whatsapp:+${phone}`;
-        await client.messages.create({
-            from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`,
-            to: formattedPhone,
-            body: message,
+        const payload = {
+            messaging_product: 'whatsapp',
+            to: phone,
+            type: 'text',
+            text: { body: message }
+        };
+
+        const response = await axios.post(WHATSAPP_API_URL, payload, {
+            headers: {
+                'Authorization': `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
+                'Content-Type': 'application/json'
+            }
         });
-        console.log(`WhatsApp message sent to ${phone}`);
+
+        console.log(`WhatsApp message sent to ${phone}:`, response.data);
     } catch (error) {
-        console.error('Error sending WhatsApp message:', error);
+        console.error('Error sending WhatsApp message:', error.response?.data || error.message);
     }
 };
+
+
+ 
+ 
