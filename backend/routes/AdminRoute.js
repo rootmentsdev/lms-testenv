@@ -161,9 +161,9 @@ router.get('/get/setting/visibility', getVisibility);
  *           schema:
  *             type: object
  *             properties:
- *               username:
+ *               EmpId:
  *                 type: string
- *               password:
+ *               email:
  *                 type: string
  *     responses:
  *       200:
