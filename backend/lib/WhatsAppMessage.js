@@ -2,8 +2,9 @@ import axios from 'axios';
 import dotenv from 'dotenv';
 
 dotenv.config();
+// https://graph.facebook.com/v22.0/592456870611613/messages
 
-const WHATSAPP_API_URL = 'https://graph.facebook.com/v18.0/' + process.env.WHATSAPP_PHONE_NUMBER_ID + '/messages';
+const WHATSAPP_API_URL = 'https://graph.facebook.com/v22.0/' + process.env.WHATSAPP_PHONE_NUMBER_ID + '/messages';
 
 export const sendWhatsAppMessage = async (phone, message) => {
     try {
@@ -21,12 +22,15 @@ export const sendWhatsAppMessage = async (phone, message) => {
             }
         });
 
+        console.log(`WhatsApp response:`, JSON.stringify(response.data, null, 2));
         console.log(`WhatsApp message sent to ${phone}:`, response.data);
+
+
     } catch (error) {
-        console.error('Error sending WhatsApp message:', error.response?.data || error.message);
+        console.error('Error sending WhatsApp message:', JSON.stringify(error.response?.data || error.message, null, 2));
     }
 };
 
 
- 
- 
+
+

@@ -30,7 +30,7 @@ app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
 app.use(
   cors({
-    origin: ['https://unicode-mu.vercel.app', 'http://localhost:3000', 'https://lms-dev-jishnu.vercel.app', 'https://lms-3w6k.vercel.app', 'https://lmsrootments.vercel.app'],
+    origin: ['https://unicode-mu.vercel.app', 'https://lms.rootments.live', 'http://localhost:3000', 'https://lms-dev-jishnu.vercel.app', 'https://lms-3w6k.vercel.app', 'https://lmsrootments.vercel.app'],
     credentials: true,
   })
 );
@@ -65,7 +65,7 @@ cron.schedule("30 18 * * *", async () => {
   timezone: "Asia/Kolkata"  // ✅ Set timezone explicitly
 });
 
-// sendWhatsAppMessage("+917736724727", "Hello! This is a test message from WhatsApp Cloud API")
+// sendWhatsAppMessage("919846871894", "Hello! This is a test message from WhatsApp Cloud API")
 
 // cron.schedule("* * * * *", async () => {
 //   console.log("Running AlertNotification every minute for testing...");
