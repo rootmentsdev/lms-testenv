@@ -11,8 +11,8 @@ const options = {
         },
         servers: [
             {
-                url: "http://localhost:7000/api", // Change this to your actual API URL
-                description: "Local Development Server",
+                url: "https://lms-1-lavs.onrender.com/", // Change this to your actual API URL
+                description: "Live Development Server",
             },
         ],
     },
