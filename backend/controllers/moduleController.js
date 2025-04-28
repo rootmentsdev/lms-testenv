@@ -262,7 +262,7 @@ export const AdminLogin = async (req, res) => {
         };
 
         // Sign the JWT token with secret key
-        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
+        const token = jwt.sign(payload, process.env.JWT_SECRET);
 
         // Send the token in the response
         res.json({ token, user: payload });
