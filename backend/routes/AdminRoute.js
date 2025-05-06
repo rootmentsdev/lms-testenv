@@ -12,18 +12,63 @@ const router = express.Router();
 
 /**
  * @swagger
- * /get/HomeProgressData:
+ * /admin/get/HomeProgressData:
  *   get:
- *     summary: Retrieve home progress data
- *     description: Returns progress data for the home dashboard.
+ *     summary: Get training and assessment progress for all branches
+ *     tags: [Admin]
+ *     description: Returns training and assessment completion percentages branch-wise.
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Successfully retrieved home progress data.
+ *         description: Successfully retrieved home progress data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Data fetched for progress
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       branchName:
+ *                         type: string
+ *                         example: Zorucci Edappally
+ *                       locCode:
+ *                         type: string
+ *                         example: "1"
+ *                       totalTraining:
+ *                         type: integer
+ *                         example: 3
+ *                       totalAssessment:
+ *                         type: integer
+ *                         example: 4
+ *                       pendingTraining:
+ *                         type: number
+ *                         format: float
+ *                         example: 100
+ *                       completeTraining:
+ *                         type: number
+ *                         format: float
+ *                         example: 0
+ *                       pendingAssessment:
+ *                         type: number
+ *                         format: float
+ *                         example: 100
+ *                       completeAssessment:
+ *                         type: number
+ *                         format: float
+ *                         example: 0
  *       401:
- *         description: Unauthorized, invalid credentials or no token provided.
+ *         description: Unauthorized – Invalid token
  *       500:
- *         description: Internal server error.
+ *         description: Internal server error
  */
+
 router.get('/get/HomeProgressData', MiddilWare, HomeBar);
 
 /**
