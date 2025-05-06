@@ -14,9 +14,12 @@ const router = express.Router();
  * @swagger
  * /admin/get/HomeProgressData:
  *   get:
- *     summary: Get training and assessment progress for all branches
- *     tags: [Admin]
- *     description: Returns training and assessment completion percentages branch-wise.
+ *     summary: Get branch-wise training & assessment progress
+ *     description: >
+ *       Returns training and assessment completion percentages for all branches 
+ *       assigned to the authenticated admin. Useful for monitoring LMS adoption across the organization.
+ *     tags:
+ *       - Progress Reports
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -49,25 +52,22 @@ const router = express.Router();
  *                         example: 4
  *                       pendingTraining:
  *                         type: number
- *                         format: float
  *                         example: 100
  *                       completeTraining:
  *                         type: number
- *                         format: float
  *                         example: 0
  *                       pendingAssessment:
  *                         type: number
- *                         format: float
  *                         example: 100
  *                       completeAssessment:
  *                         type: number
- *                         format: float
  *                         example: 0
  *       401:
  *         description: Unauthorized – Invalid token
  *       500:
  *         description: Internal server error
  */
+
 
 router.get('/get/HomeProgressData', MiddilWare, HomeBar);
 
