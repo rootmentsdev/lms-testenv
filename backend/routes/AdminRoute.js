@@ -10,6 +10,24 @@ const router = express.Router();
 
 
 
+
+/**
+ * @swagger
+ * /api/admin/get/bestThreeUser:
+ *   get:
+ *     summary: Retrieve top three users
+ *     description: Fetches the three best users based on certain criteria.
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved top three users.
+ *       401:
+ *         description: Unauthorized, invalid credentials or no token provided.
+ *       500:
+ *         description: Internal server error.
+ */
+router.get('/get/bestThreeUser', MiddilWare, getTopUsers);
+
+
 /**
  * @swagger
  * /api/admin/get/HomeProgressData:
@@ -67,25 +85,9 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-
-
 router.get('/get/HomeProgressData', MiddilWare, HomeBar);
 
-/**
- * @swagger
- * /api/admin/get/bestThreeUser:
- *   get:
- *     summary: Retrieve top three users
- *     description: Fetches the three best users based on certain criteria.
- *     responses:
- *       200:
- *         description: Successfully retrieved top three users.
- *       401:
- *         description: Unauthorized, invalid credentials or no token provided.
- *       500:
- *         description: Internal server error.
- */
-router.get('/get/bestThreeUser', MiddilWare, getTopUsers);
+
 
 /**
  * @swagger
