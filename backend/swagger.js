@@ -7,17 +7,36 @@ const options = {
         info: {
             title: "LMS API",
             version: "1.0.0",
-            description: "API documentation for the Learning Management System (LMS).",
         },
         servers: [
             {
                 url: "https://lms-1-lavs.onrender.com/", // Change this to your actual API URL
                 description: "Live Development Server",
             },
+            {
+                url: "http://localhost:7000/",
+                description: "local Host"
+            }
+        ],
+        components: {
+            securitySchemes: {
+                bearerAuth: {
+                    type: "http",
+                    scheme: "bearer",
+                    bearerFormat: "JWT",
+                },
+            },
+        },
+        security: [
+            {
+                bearerAuth: [],
+            },
         ],
     },
-    apis: ["./routes/*.js"], // Points to all route files
+    apis: ["./routes/*.js"], // or wherever your route files are
 };
+
+
 
 const swaggerSpec = swaggerJsdoc(options);
 

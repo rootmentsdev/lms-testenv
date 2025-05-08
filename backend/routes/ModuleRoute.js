@@ -7,7 +7,7 @@ import { MiddilWare } from '../lib/middilWare.js';
 
 /**
  * @swagger
- * /modules:
+ * /api/modules:
  *   post:
  *     summary: Create a new module
  *     description: Creates a new training module in the system.
@@ -52,7 +52,7 @@ router.post('/modules', createModule);
 
 /**
  * @swagger
- * /assessments:
+ * /api/assessments:
  *   post:
  *     summary: Create a new assessment
  *     description: Creates a new assessment in the system.
@@ -93,7 +93,7 @@ router.post('/assessments', MiddilWare, createAssessment);
 
 /**
  * @swagger
- * /modules/{id}:
+ * /api/modules/{id}:
  *   get:
  *     summary: Get modules
  *     description: Retrieves one or all modules. If an `id` is provided, returns a single module; otherwise, returns all modules.
@@ -116,7 +116,7 @@ router.get('/modules/:id?', getModules);
 
 /**
  * @swagger
- * /assessments/{id}:
+ * /api/assessments/{id}:
  *   get:
  *     summary: Get assessments
  *     description: Retrieves one or all assessments. If an `id` is provided, returns a single assessment; otherwise, returns all assessments.
@@ -139,7 +139,7 @@ router.get('/assessments/:id?', getAssessments);
 
 /**
  * @swagger
- * /trainings:
+ * /api/trainings:
  *   post:
  *     summary: Create a new training
  *     description: Creates a new training session, linking modules or assessments if necessary.
@@ -174,7 +174,7 @@ router.post('/trainings', MiddilWare, createTraining);
 
 /**
  * @swagger
- * /trainings/{id}:
+ * /api/trainings/{id}:
  *   get:
  *     summary: Get training by ID or list all
  *     description: Retrieves a specific training if an `id` is provided; otherwise, returns all trainings.
@@ -197,7 +197,7 @@ router.get('/trainings/:id?', GetTrainingById);
 
 /**
  * @swagger
- * /get/allusertraining:
+ * /api/get/allusertraining:
  *   get:
  *     summary: Get all user training with completion status
  *     description: Returns a list of all trainings for all users, along with their completion status.
@@ -211,7 +211,7 @@ router.get('/get/allusertraining', GetAllTrainingWithCompletion);
 
 /**
  * @swagger
- * /get/mandatory/allusertraining:
+ * /api/get/mandatory/allusertraining:
  *   get:
  *     summary: Get all mandatory user training with completion status
  *     description: Returns a list of mandatory trainings for all users, along with their completion status.
@@ -225,7 +225,7 @@ router.get('/get/mandatory/allusertraining', MandatoryGetAllTrainingWithCompleti
 
 /**
  * @swagger
- * /get/Full/allusertraining:
+ * /api/get/Full/allusertraining:
  *   get:
  *     summary: Get all user training (full) with completion status
  *     description: Returns a list of all user trainings, whether mandatory or optional, with completion info.
@@ -239,7 +239,7 @@ router.get('/get/Full/allusertraining', GetAllFullTrainingWithCompletion);
 
 /**
  * @swagger
- * /get/progress:
+ * /api/get/progress:
  *   get:
  *     summary: Calculate user training progress
  *     description: Calculates and returns the training progress for the authenticated user or all users.
@@ -261,7 +261,7 @@ router.get('/get/progress', MiddilWare, calculateProgress);
 
 /**
  * @swagger
- * /mandatorytrainings:
+ * /api/mandatorytrainings:
  *   post:
  *     summary: Create or assign mandatory training
  *     description: Creates a new mandatory training or assigns an existing training as mandatory.

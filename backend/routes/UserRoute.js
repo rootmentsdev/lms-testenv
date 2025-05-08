@@ -8,7 +8,7 @@ const router = express.Router();
 // Route to create a user
 /**
  * @swagger
- * /create-user:
+ * /api/usercreate/create-user:
  *   post:
  *     summary: Create a new user
  *     description: Registers a new user in the system.
@@ -57,7 +57,7 @@ router.post('/create-user', createUser);
 
 /**
  * @swagger
- * /user-login:
+ * /api/usercreate/user-login:
  *   post:
  *     summary: User login
  *     description: Authenticates a user with a username/email and password.
@@ -99,7 +99,7 @@ router.post('/user-login', loginUser);
 
 /**
  * @swagger
- * /getAllUser:
+ * /api/usercreate/getAllUser:
  *   get:
  *     summary: Retrieve all users
  *     description: Fetches a list of all registered users.
@@ -130,7 +130,7 @@ router.get('/getAllUser', MiddilWare, GetAllUser);
 
 /**
  * @swagger
- * /create/branch:
+ * /api/usercreate/create/branch:
  *   post:
  *     summary: Create a new branch
  *     description: Creates a new branch in the system.
@@ -161,7 +161,7 @@ router.post('/create/branch', createBranch);
 
 /**
  * @swagger
- * /getBranch:
+ * /api/usercreate/getBranch:
  *   get:
  *     summary: Retrieve all branches
  *     description: Fetches a list of all branches in the system.
@@ -192,7 +192,7 @@ router.get('/getBranch', MiddilWare, GetBranch);
 
 /**
  * @swagger
- * /create/designation:
+ * /api/usercreate/create/designation:
  *   post:
  *     summary: Create a new designation
  *     description: Creates a new designation (job title/role) in the system.
@@ -220,7 +220,7 @@ router.post('/create/designation', createDesignation);
 
 /**
  * @swagger
- * /getAll/designation:
+ * /api/usercreate/getAll/designation:
  *   get:
  *     summary: Retrieve all designations
  *     description: Fetches a list of all designations in the system.

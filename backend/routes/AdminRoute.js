@@ -12,7 +12,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /get/HomeProgressData:
+ * /api/admin/get/HomeProgressData:
  *   get:
  *     summary: Retrieve home progress data
  *     description: Returns progress data for the home dashboard.
@@ -28,7 +28,7 @@ router.get('/get/HomeProgressData', MiddilWare, HomeBar);
 
 /**
  * @swagger
- * /get/bestThreeUser:
+ * /api/admin/get/bestThreeUser:
  *   get:
  *     summary: Retrieve top three users
  *     description: Fetches the three best users based on certain criteria.
@@ -44,7 +44,7 @@ router.get('/get/bestThreeUser', MiddilWare, getTopUsers);
 
 /**
  * @swagger
- * /admin/createadmin:
+ * /api/admin/admin/createadmin:
  *   post:
  *     summary: Create a new admin user
  *     description: Allows the creation of a new administrator with specific credentials and roles.
@@ -78,7 +78,7 @@ router.post('/admin/createadmin', CreatingAdminUsers);
 
 /**
  * @swagger
- * /admin/permission:
+ * /api/admin/admin/permission:
  *   post:
  *     summary: Handle admin permissions
  *     description: Updates or sets permissions for an existing admin.
@@ -107,34 +107,48 @@ router.post('/admin/permission', handlePermissions);
 
 /**
  * @swagger
- * /setting/visibility:
+ * /api/admin/setting/visibility:
+ *
  *   post:
  *     summary: Change visibility settings
- *     description: Updates the visibility settings for a specific feature or component.
+ *     description: Updates the visibility settings for specific sections and roles.
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             properties:
- *               featureName:
- *                 type: string
- *               visible:
- *                 type: boolean
+ *             type: array
+ *             items:
+ *               type: object
+ *               properties:
+ *                 section:
+ *                   type: string
+ *                   example: "trainingSection"
+ *                 role:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       role:
+ *                         type: string
+ *                         example: "admin"
+ *                       visibility:
+ *                         type: boolean
+ *                         example: true
  *     responses:
  *       200:
- *         description: Visibility updated successfully.
+ *         description: Visibility settings updated successfully.
  *       400:
  *         description: Bad request, missing or invalid data.
  *       500:
  *         description: Internal server error.
  */
+
 router.post('/setting/visibility', ChangeVisibility);
 
 /**
  * @swagger
- * /get/setting/visibility:
+ * /api/admin/get/setting/visibility:
  *   get:
  *     summary: Get visibility settings
  *     description: Retrieves current visibility settings for various features/components.
@@ -150,7 +164,7 @@ router.get('/get/setting/visibility', getVisibility);
 
 /**
  * @swagger
- * /admin/login:
+ * /api/admin/admin/login:
  *   post:
  *     summary: Admin login
  *     description: Allows an admin to log in with valid credentials.
@@ -163,21 +177,32 @@ router.get('/get/setting/visibility', getVisibility);
  *             properties:
  *               EmpId:
  *                 type: string
+ *                 example: Rootments@2025  
  *               email:
  *                 type: string
+ *                 example: rootmentshradmin@gmail.com
  *     responses:
  *       200:
  *         description: Successfully logged in, returning a token.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token:
+ *                   type: string
+ *                   example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
  *       401:
  *         description: Unauthorized, invalid credentials.
  *       400:
  *         description: Bad request, missing parameters or incorrect data.
  */
+
 router.post('/admin/login', AdminLogin);
 
 /**
  * @swagger
- * /admin/verifyToken:
+ * /api/admin/admin/verifyToken:
  *   post:
  *     summary: Verify admin token
  *     description: Verifies the validity of an admin token.
@@ -203,7 +228,7 @@ router.post('/admin/verifyToken', VerifyToken);
 
 /**
  * @swagger
- * /home/notification:
+ * /api/admin/home/notification:
  *   get:
  *     summary: Retrieve home notifications
  *     description: Returns a list of notifications for the home page.
@@ -219,7 +244,7 @@ router.get('/home/notification', getNotifications);
 
 /**
  * @swagger
- * /home/AllNotification:
+ * /api/admin/home/AllNotification:
  *   get:
  *     summary: Retrieve all home notifications
  *     description: Returns a complete list of all notifications for the home page.
@@ -235,7 +260,7 @@ router.get('/home/AllNotification', getAllNotifications);
 
 /**
  * @swagger
- * /subroles:
+ * /api/admin/subroles:
  *   post:
  *     summary: Create or update a subrole
  *     description: Creates a new subrole or updates an existing subrole.
@@ -264,7 +289,7 @@ router.post('/subroles', Subroles);
 
 /**
  * @swagger
- * /getSubrole:
+ * /api/admin/getSubrole:
  *   get:
  *     summary: Retrieve subroles
  *     description: Returns a list of all subroles and their permissions.
@@ -280,7 +305,7 @@ router.get('/getSubrole', GetSubroles);
 
 /**
  * @swagger
- * /escalation/level:
+ * /api/admin/escalation/level:
  *   post:
  *     summary: Upsert escalation level
  *     description: Creates or updates an escalation level configuration.
@@ -309,7 +334,7 @@ router.post('/escalation/level', upsertEscalationLevel);
 
 /**
  * @swagger
- * /escalation/level/get:
+ * /api/admin/escalation/level/get:
  *   get:
  *     summary: Get escalation levels
  *     description: Retrieves all configured escalation levels.
@@ -325,7 +350,7 @@ router.get('/escalation/level/get', getEscalationLevel);
 
 /**
  * @swagger
- * /overdue/Assessment:
+ * /api/admin/overdue/Assessment:
  *   get:
  *     summary: Find overdue assessments
  *     description: Retrieves a list of users or tasks with overdue assessments.
@@ -341,7 +366,7 @@ router.get('/overdue/Assessment', MiddilWare, FindOverDueAssessment);
 
 /**
  * @swagger
- * /overdue/Training:
+ * /api/admin/overdue/Training:
  *   get:
  *     summary: Find overdue trainings
  *     description: Retrieves a list of users or tasks with overdue trainings.
@@ -357,7 +382,7 @@ router.get('/overdue/Training', MiddilWare, FindOverDueTraining);
 
 /**
  * @swagger
- * /overdue/Training/send/{empId}:
+ * /api/admin/overdue/Training/send/{empId}:
  *   get:
  *     summary: Send notification for overdue training
  *     description: Sends a notification to a user about overdue training.
@@ -382,7 +407,7 @@ router.get('/overdue/Training/send/:empId', MiddilWare, SendNotification);
 
 /**
  * @swagger
- * /overdue/assessment/send/{empId}:
+ * /api/admin/overdue/assessment/send/{empId}:
  *   get:
  *     summary: Send notification for overdue assessment
  *     description: Sends a notification to a user about an overdue assessment.
@@ -407,7 +432,7 @@ router.get('/overdue/assessment/send/:empId', MiddilWare, SendNotificationAssess
 
 /**
  * @swagger
- * /notification/create:
+ * /api/admin/notification/create:
  *   post:
  *     summary: Create a notification
  *     description: Creates a new notification entry for a user or system event.
@@ -436,7 +461,7 @@ router.post('/notification/create', CreateNotification);
 
 /**
  * @swagger
- * /user/detailed/info/{id}:
+ * /api/admin/user/detailed/info/{id}:
  *   get:
  *     summary: Get detailed user info
  *     description: Retrieves detailed information for a specific user.
@@ -461,7 +486,7 @@ router.get('/user/detailed/info/:id', MiddilWare, GetAllUserDetailes);
 
 /**
  * @swagger
- * /user/update/{id}:
+ * /api/admin/user/update/{id}:
  *   put:
  *     summary: Update user details
  *     description: Updates specific fields for a user.
@@ -501,7 +526,7 @@ router.put('/user/update/:id', MiddilWare, UpdateOneUserDetailes);
 
 /**
  * @swagger
- * /get/update/branch/{id}:
+ * /api/admin/get/update/branch/{id}:
  *   get:
  *     summary: Retrieve branch details
  *     description: Gets branch details for a specific branch ID.
@@ -526,7 +551,7 @@ router.get('/get/update/branch/:id', MiddilWare, GetBranchDetailes);
 
 /**
  * @swagger
- * /put/update/branch/{id}:
+ * /api/admin/put/update/branch/{id}:
  *   put:
  *     summary: Update branch details
  *     description: Updates specific fields for a branch.
@@ -582,7 +607,7 @@ router.get('/get/current/admin', MiddilWare, GetCurrentAdmin);
 
 /**
  * @swagger
- * /update/admin/detaile:
+ * /api/admin/update/admin/detaile:
  *   post:
  *     summary: Update admin details
  *     description: Updates certain fields for the currently logged-in admin.
@@ -615,7 +640,7 @@ router.post('/update/admin/detaile', MiddilWare, UpdateAdminDetaile);
 
 /**
  * @swagger
- * /get/storemanagerData:
+ * /api/admin/get/storemanagerData:
  *   get:
  *     summary: Get store manager data
  *     description: Retrieves data related to the store manager(s).
@@ -631,7 +656,7 @@ router.get('/get/storemanagerData', MiddilWare, GetStoreManager);
 
 /**
  * @swagger
- * /get/storemanagerduedata:
+ * /api/admin/get/storemanagerduedata:
  *   get:
  *     summary: Get store manager due data
  *     description: Retrieves any data related to upcoming or overdue items for store managers.
@@ -647,7 +672,7 @@ router.get('/get/storemanagerduedata', MiddilWare, GetStoreManagerDueDate);
 
 /**
  * @swagger
- * /permission/controller:
+ * /api/admin/permission/controller:
  *   post:
  *     summary: Manage permission controller
  *     description: Creates or updates permission rules for certain roles or users.
@@ -662,6 +687,28 @@ router.get('/get/storemanagerduedata', MiddilWare, GetStoreManagerDueDate);
  *                 type: string
  *               permissions:
  *                 type: object
+ *                 properties:
+ *                   canCreateTraining:
+ *                     type: boolean
+ *                   canCreateAssessment:
+ *                     type: boolean
+ *                   canReassignTraining:
+ *                     type: boolean
+ *                   canReassignAssessment:
+ *                     type: boolean
+ *                   canDeleteTraining:
+ *                     type: boolean
+ *                   canDeleteAssessment:
+ *                     type: boolean
+ *             example:
+ *               roleId: "super_admin"
+ *               permissions:
+ *                 canCreateTraining: true
+ *                 canCreateAssessment: true
+ *                 canReassignTraining: true
+ *                 canReassignAssessment: true
+ *                 canDeleteTraining: true
+ *                 canDeleteAssessment: true
  *     responses:
  *       200:
  *         description: Permission rules created or updated successfully.
@@ -670,11 +717,12 @@ router.get('/get/storemanagerduedata', MiddilWare, GetStoreManagerDueDate);
  *       500:
  *         description: Internal server error.
  */
+
 router.post('/permission/controller', MiddilWare, PermissionController);
 
 /**
  * @swagger
- * /get/permission/controller:
+ * /api/admin/get/permission/controller:
  *   get:
  *     summary: Get permission controller
  *     description: Retrieves permission rules for certain roles or users.
@@ -691,7 +739,7 @@ router.get('/get/permission/controller', MiddilWare, GetPermissionController);
 
 /**
  * @swagger
- * /get/searching/userORbranch:
+ * /api/admin/get/searching/userORbranch:
  *   get:
  *     summary: Get the search result of user or branch
  *     description: Retrieves  users or branch.

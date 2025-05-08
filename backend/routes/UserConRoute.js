@@ -5,7 +5,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /login:
+ * /api/auth/login:
  *   post:
  *     summary: User login
  *     description: This route allows a user to log in with their credentials (e.g., username and password).
