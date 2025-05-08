@@ -12,7 +12,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /get/HomeProgressData:
+ * /api/admin/get/HomeProgressData:
  *   get:
  *     summary: Get branch-wise training & assessment progress
  *     description: >
