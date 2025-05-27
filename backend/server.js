@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
-import cron from "node-cron";
 dotenv.config();
+import cron from "node-cron";
 import cors from 'cors';
 import express from 'express';
 import cookieParser from 'cookie-parser';

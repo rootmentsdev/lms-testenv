@@ -136,7 +136,7 @@ const UserTrainingProgressData = () => {
                                             <tr key={index} className="border-b hover:bg-gray-100">
                                                 <td className="px-3 py-2 border-2 border-gray-300">{employee.user.empID}</td>
                                                 <td className="px-3 py-2 border-2 border-gray-300">{employee.user.username}</td>
-                                                <td className="px-3 py-2 border-2 border-gray-300">{employee.user.designation}</td>
+                                                <td className="px-3 py-2 border-2 border-gray-300">{employee.user.designation?.toUpperCase()}</td>
                                                 <td className="px-3 py-2 border-2 border-gray-300">{employee.user.workingBranch}</td>
                                                 <td className="px-3 py-2 border-2 border-gray-300">{employee.progress === 'Completed' && daysLeft > 0 ? 'complete' : daysLeft}</td>
                                                 <td className="px-3 py-2 border-2 border-gray-300">{training?.status || 'N/A'}</td>

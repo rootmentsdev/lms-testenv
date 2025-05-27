@@ -43,7 +43,7 @@ export const createUser = async (req, res) => {
     // Fetch all mandatory training based on the user role (designation)
     const mandatoryTraining = await Training.find({
       Trainingtype: 'Mandatory',
-      Assignedfor: { $in: [designation] }, // Match the role in the `Assignedfor` array
+     Assignedfor: { $elemMatch: { $regex: `^${designation}$`, $options: 'i' } }, // Match the role in the `Assignedfor` array ABHI
     }).populate('modules');
     console.log(mandatoryTraining);
 

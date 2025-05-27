@@ -124,7 +124,7 @@ export const createTraining = async (req, res) => {
             if (!workingBranch) {
                 return res.status(400).json({ message: "Designation is required when selectedOption is 'designation'" });
             }
-            usersInBranch = await User.find({ designation: workingBranch });
+           usersInBranch = await User.find({designation: { $regex: `^${workingBranch}$`, $options: 'i' }});  //abhiram
 
         } else if (selectedOption === 'branch') {
             if (!workingBranch) {
@@ -452,8 +452,13 @@ export const createMandatoryTraining = async (req, res) => {
         // Save the training record
         await newTraining.save();
 
-        // Find users based on designation/branch
-        const usersInBranch = await User.find({ designation: { $in: workingBranch } });
+        // Find users based on designation/branch  abhiram chnage
+        const usersInBranch = await User.find({
+  $or: workingBranch.map(role => ({
+    designation: { $regex: `^${role}$`, $options: 'i' }
+  }))
+});
+
 
         if (usersInBranch.length === 0) {
             return res.status(404).json({ message: "No users found matching the criteria" });
