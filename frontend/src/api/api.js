@@ -1,6 +1,6 @@
   
 const baseUrl = {
-    baseUrl: "http://localhost:7000/"
+    baseUrl: "http://localhost:4000/"
 };
 
 export default baseUrl;
