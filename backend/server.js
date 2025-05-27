@@ -16,10 +16,12 @@ import Whatsapprouter from './routes/WhatsappRouteZoho.js'
 import { AlertNotification } from './lib/CornJob.js';
 // import { sendWhatsAppMessage } from './lib/WhatsAppMessage.js';
 import setupSwagger from './swagger.js';
-import { sendWhatsAppMessage } from './lib/WhatsAppMessage.js';
+// import { sendWhatsAppMessage } from './lib/WhatsAppMessage.js';
 const app = express();
 setupSwagger(app);
-const port = process.env.PORT || 4000;
+const port = process.env.PORT || 7000;
+
+
 
 //http://localhost:3000
 
@@ -36,8 +38,9 @@ app.use(
 );
 
 app.get('/', (req, res) => {
-  res.send('App is running');
+  res.send('✅ API is working');
 });
+
 
 app.use('/api', ModuleRouter)
 app.use('/api/user', userrouter)
