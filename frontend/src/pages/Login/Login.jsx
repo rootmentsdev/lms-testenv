@@ -23,11 +23,11 @@ const Login = () => {
     console.log({ email, EmpId });
 
     try {
-      const response = await fetch(baseUrl.baseUrl + '/api/admin/admin/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+     const response = await fetch('https://lms-testenv.onrender.com/api/admin/admin/login', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
         body: JSON.stringify({ email, EmpId }),
       });
 
