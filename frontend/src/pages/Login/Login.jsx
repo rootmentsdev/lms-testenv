@@ -23,7 +23,7 @@ const Login = () => {
     console.log({ email, EmpId });
 
     try {
-      const response = await fetch(baseUrl.baseUrl + 'api/admin/admin/login', {
+      const response = await fetch(baseUrl.baseUrl + '/api/admin/admin/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
