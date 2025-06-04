@@ -88,13 +88,12 @@ cron.schedule("30 18 * * *", async () => {
 
 
 
-  connectMongoDB().then(() => {
+    connectMongoDB().then(() => {
   app.listen(port, () => {
     console.log(`✅ Server running on port ${port}`);
   });
 }).catch(err => {
   console.error('❌ MongoDB connection failed:', err);
 });
-
 
 
