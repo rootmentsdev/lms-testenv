@@ -49,6 +49,7 @@ app.use('/api/auth', UserRouters)
 app.use('/api/admin', AdminData)
 app.use('/api/user/assessment', FutterAssessment)
 app.use('/zoho', Whatsapprouter)
+app.use('/api/trainings', trainingRoutes);
 
 
 console.log(new Date());
@@ -84,6 +85,10 @@ cron.schedule("30 18 * * *", async () => {
 // AlertNotification();
 
 // sendWhatsAppMessage('917736724727', 'Running AlertNotification every minute for testing...')
+
+
+//abhiram
+const trainingRoutes = require('./routes/trainingRoutes');  
 
 
 
