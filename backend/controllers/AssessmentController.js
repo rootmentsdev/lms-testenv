@@ -124,7 +124,16 @@ export const createTraining = async (req, res) => {
             if (!workingBranch) {
                 return res.status(400).json({ message: "Designation is required when selectedOption is 'designation'" });
             }
-           usersInBranch = await User.find({designation: { $regex: `^${workingBranch}$`, $options: 'i' }});  //abhiram
+            // abhiram change 
+            const normalizeRegex = (str) => str.toLowerCase().replace(/\s+/g, '').split('').join('\\s*');
+
+            usersInBranch = await User.find({
+                designation: {
+                    $regex: `^${normalizeRegex(workingBranch)}$`,
+                    $options: 'i'
+                }
+            });
+
 
         } else if (selectedOption === 'branch') {
             if (!workingBranch) {
@@ -452,12 +461,26 @@ export const createMandatoryTraining = async (req, res) => {
         // Save the training record
         await newTraining.save();
 
-        // Find users based on designation/branch  abhiram chnage
+        //         // Find users based on designation/branch  abhiram chnage
+        //         const usersInBranch = await User.find({
+        //   $or: workingBranch.map(role => ({
+        //     designation: { $regex: `^${role}$`, $options: 'i' }
+        //   }))
+        // });
+
+        // Helper function to create flexible regex
+        const normalizeRegex = (str) => str.toLowerCase().replace(/\s+/g, '').split('').join('\\s*');
+
+        // Updated line for finding users by designation
         const usersInBranch = await User.find({
-  $or: workingBranch.map(role => ({
-    designation: { $regex: `^${role}$`, $options: 'i' }
-  }))
-});
+            $or: workingBranch.map(role => ({
+                designation: {
+                    $regex: `^${normalizeRegex(role)}$`,
+                    $options: 'i'
+                }
+            }))
+        });
+
 
 
         if (usersInBranch.length === 0) {

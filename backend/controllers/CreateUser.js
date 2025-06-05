@@ -48,32 +48,31 @@ export const createUser = async (req, res) => {
     // }).populate('modules');
     // console.log(mandatoryTraining);
 
+    // ABHORAM CHNAG 
+
+    const normalize = (str) => str.toLowerCase().replace(/\s+/g, '').split('').join('\\s*');
+
+    // Normalize designation
+    const regexPattern = `^${normalize(designation)}$`;
+
+    const mandatoryTraining = await Training.find({
+      Trainingtype: 'Mandatory',
+      Assignedfor: {
+        $elemMatch: {
+          $regex: regexPattern,
+          $options: 'i'
+        }
+      }
+    }).populate('modules');
+
+    console.log(mandatoryTraining);
 
 
-    // ABHIRAM CHNGES 
 
 
-    // Function to normalize input: lowercase + remove all spaces
-const normalize = (str) => str.toLowerCase().replace(/\s+/g, '');
 
-// Normalize the input designation (e.g., "S t A F F" ➝ "staff")
-const normalizedDesignation = normalize(designation);
 
-// Convert it to a regex pattern that allows spaces between characters
-const regexPattern = normalizedDesignation.split('').join('\\s*'); // 'staff' ➝ 's\\s*t\\s*a\\s*f\\s*f'
 
-// Fetch mandatory trainings with flexible matching in Assignedfor array
-const mandatoryTraining = await Training.find({
-  Trainingtype: 'Mandatory',
-  Assignedfor: {
-    $elemMatch: {
-      $regex: `^${regexPattern}$`, // strict match from start to end
-      $options: 'i', // case-insensitive
-    },
-  },
-}).populate('modules');
-
-console.log(mandatoryTraining);
 
 
     // if (!mandatoryTraining || mandatoryTraining.length === 0) {
