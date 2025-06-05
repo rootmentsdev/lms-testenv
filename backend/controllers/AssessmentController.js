@@ -124,15 +124,21 @@ export const createTraining = async (req, res) => {
             if (!workingBranch) {
                 return res.status(400).json({ message: "Designation is required when selectedOption is 'designation'" });
             }
-            // abhiram change 
-            const normalizeRegex = (str) => str.toLowerCase().replace(/\s+/g, '').split('').join('\\s*');
+           // abhiram change
+const normalizeRegex = (str) => str
+  .toLowerCase()
+  .replace(/\s+/g, '')             // Remove all whitespace first
+  .split('')
+  .map(ch => `\\s*${ch}`)          // Allow optional whitespace before each character
+  .join('') + '\\s*';              // Allow optional trailing whitespace
 
-            usersInBranch = await User.find({
-                designation: {
-                    $regex: `^${normalizeRegex(workingBranch)}$`,
-                    $options: 'i'
-                }
-            });
+usersInBranch = await User.find({
+  designation: {
+    $regex: `^${normalizeRegex(workingBranch)}$`,
+    $options: 'i'
+  }
+});
+
 
 
         } else if (selectedOption === 'branch') {
@@ -468,18 +474,35 @@ export const createMandatoryTraining = async (req, res) => {
         //   }))
         // });
 
-        // Helper function to create flexible regex
-        const normalizeRegex = (str) => str.toLowerCase().replace(/\s+/g, '').split('').join('\\s*');
+        // // Helper function to create flexible regex
+        // const normalizeRegex = (str) => str.toLowerCase().replace(/\s+/g, '').split('').join('\\s*');
 
-        // Updated line for finding users by designation
-        const usersInBranch = await User.find({
-            $or: workingBranch.map(role => ({
-                designation: {
-                    $regex: `^${normalizeRegex(role)}$`,
-                    $options: 'i'
-                }
-            }))
-        });
+        // // Updated line for finding users by designation
+        // const usersInBranch = await User.find({
+        //     $or: workingBranch.map(role => ({
+        //         designation: {
+        //             $regex: `^${normalizeRegex(role)}$`,
+        //             $options: 'i'
+        //         }
+        //     }))
+        // });
+
+
+
+
+        const flatten = (str) => str.toLowerCase().replace(/\s+/g, '');
+
+        const matchAnyDesignation = (userDesig, roleList) => {
+            const flat = flatten(userDesig);
+            return roleList.map(flatten).includes(flat);
+        };
+
+        const allUsers = await User.find(); // Optionally add filters like { locCode: "XYZ" }
+
+        const usersInBranch = allUsers.filter(user =>
+            matchAnyDesignation(user.designation, workingBranch)
+        );
+
 
 
 

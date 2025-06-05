@@ -50,24 +50,23 @@ export const createUser = async (req, res) => {
 
     // ABHORAM CHNAG 
 
-    const normalize = (str) => str.toLowerCase().replace(/\s+/g, '').split('').join('\\s*');
+    // Function to flatten a string (remove spaces and lowercase)
+const flatten = (str) => str.toLowerCase().replace(/\s+/g, '');
 
-    // Normalize designation
-    const regexPattern = `^${normalize(designation)}$`;
+// Flatten input designation
+const flatDesignation = flatten(designation);
 
-    const mandatoryTraining = await Training.find({
-      Trainingtype: 'Mandatory',
-      Assignedfor: {
-        $elemMatch: {
-          $regex: regexPattern,
-          $options: 'i'
-        }
-      }
-    }).populate('modules');
+// Step 1: Fetch all mandatory trainings
+const allTrainings = await Training.find({
+  Trainingtype: 'Mandatory'
+}).populate('modules');
 
-    console.log(mandatoryTraining);
+// Step 2: Filter in JS using flattened comparison
+const mandatoryTraining = allTrainings.filter(training =>
+  training.Assignedfor.some(role => flatten(role) === flatDesignation)
+);
 
-
+console.log(mandatoryTraining);
 
 
 
