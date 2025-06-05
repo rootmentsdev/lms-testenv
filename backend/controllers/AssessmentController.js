@@ -124,20 +124,20 @@ export const createTraining = async (req, res) => {
             if (!workingBranch) {
                 return res.status(400).json({ message: "Designation is required when selectedOption is 'designation'" });
             }
-           // abhiram change
-const normalizeRegex = (str) => str
-  .toLowerCase()
-  .replace(/\s+/g, '')             // Remove all whitespace first
-  .split('')
-  .map(ch => `\\s*${ch}`)          // Allow optional whitespace before each character
-  .join('') + '\\s*';              // Allow optional trailing whitespace
+            // abhiram change
+            const normalizeRegex = (str) => str
+                .toLowerCase()
+                .replace(/\s+/g, '')             // Remove all whitespace first
+                .split('')
+                .map(ch => `\\s*${ch}`)          // Allow optional whitespace before each character
+                .join('') + '\\s*';              // Allow optional trailing whitespace
 
-usersInBranch = await User.find({
-  designation: {
-    $regex: `^${normalizeRegex(workingBranch)}$`,
-    $options: 'i'
-  }
-});
+            usersInBranch = await User.find({
+                designation: {
+                    $regex: `^${normalizeRegex(workingBranch)}$`,
+                    $options: 'i'
+                }
+            });
 
 
 

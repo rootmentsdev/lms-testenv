@@ -51,22 +51,22 @@ export const createUser = async (req, res) => {
     // ABHORAM CHNAG 
 
     // Function to flatten a string (remove spaces and lowercase)
-const flatten = (str) => str.toLowerCase().replace(/\s+/g, '');
+    const flatten = (str) => str.toLowerCase().replace(/\s+/g, '');
 
-// Flatten input designation
-const flatDesignation = flatten(designation);
+    // Flatten input designation
+    const flatDesignation = flatten(designation);
 
-// Step 1: Fetch all mandatory trainings
-const allTrainings = await Training.find({
-  Trainingtype: 'Mandatory'
-}).populate('modules');
+    // Step 1: Fetch all mandatory trainings
+    const allTrainings = await Training.find({
+      Trainingtype: 'Mandatory'
+    }).populate('modules');
 
-// Step 2: Filter in JS using flattened comparison
-const mandatoryTraining = allTrainings.filter(training =>
-  training.Assignedfor.some(role => flatten(role) === flatDesignation)
-);
+    // Step 2: Filter in JS using flattened comparison
+    const mandatoryTraining = allTrainings.filter(training =>
+      training.Assignedfor.some(role => flatten(role) === flatDesignation)
+    );
 
-console.log(mandatoryTraining);
+    console.log(mandatoryTraining);
 
 
 
