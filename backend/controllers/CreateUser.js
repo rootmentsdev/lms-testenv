@@ -42,11 +42,39 @@ export const createUser = async (req, res) => {
 
 
     // Fetch all mandatory training based on the user role (designation)
-    const mandatoryTraining = await Training.find({
-      Trainingtype: 'Mandatory',
-     Assignedfor: { $elemMatch: { $regex: `^${designation}$`, $options: 'i' } }, // Match the role in the `Assignedfor` array ABHI
-    }).populate('modules');
-    console.log(mandatoryTraining);
+    // const mandatoryTraining = await Training.find({
+    //   Trainingtype: 'Mandatory',
+    //  Assignedfor: { $elemMatch: { $regex: `^${designation}$`, $options: 'i' } }, // Match the role in the `Assignedfor` array ABHI
+    // }).populate('modules');
+    // console.log(mandatoryTraining);
+
+
+
+    // ABHIRAM CHNGES 
+
+
+    // Function to normalize input: lowercase + remove all spaces
+const normalize = (str) => str.toLowerCase().replace(/\s+/g, '');
+
+// Normalize the input designation (e.g., "S t A F F" ➝ "staff")
+const normalizedDesignation = normalize(designation);
+
+// Convert it to a regex pattern that allows spaces between characters
+const regexPattern = normalizedDesignation.split('').join('\\s*'); // 'staff' ➝ 's\\s*t\\s*a\\s*f\\s*f'
+
+// Fetch mandatory trainings with flexible matching in Assignedfor array
+const mandatoryTraining = await Training.find({
+  Trainingtype: 'Mandatory',
+  Assignedfor: {
+    $elemMatch: {
+      $regex: `^${regexPattern}$`, // strict match from start to end
+      $options: 'i', // case-insensitive
+    },
+  },
+}).populate('modules');
+
+console.log(mandatoryTraining);
+
 
     // if (!mandatoryTraining || mandatoryTraining.length === 0) {
     //   return res.status(400).json({ message: 'No mandatory training found for the user role.' });
