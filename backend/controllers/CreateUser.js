@@ -472,175 +472,78 @@ export const GetuserTrainingprocess = async (req, res) => {
 };
 
 
-// export const UpdateuserTrainingprocess = async (req, res) => {
-//   const { userId, trainingId, moduleId, videoId } = req.query;
-
-//   // Validate input parameters
-//   if (!userId || !trainingId || !moduleId || !videoId) {
-//     return res.status(400).json({ message: "Missing required query parameters" });
-//   }
-
-//   try {
-//     // Find the training progress
-//     const trainingProgress = await TrainingProgress.findOne({ userId, trainingId });
-
-//     if (!trainingProgress) {
-//       return res.status(404).json({ message: "Training progress not found" });
-//     }
-
-//     // Find the module in the training progress
-//     const module = trainingProgress.modules.find(mod => mod.moduleId.toString() === moduleId);
-
-//     if (!module) {
-//       return res.status(404).json({ message: "Module not found" });
-//     }
-
-//     // Find the video in the module
-//     const video = module.videos.find(v => v.videoId.toString() === videoId);
-
-//     if (!video) {
-//       return res.status(404).json({ message: "Video not found" });
-//     }
-
-//     // Update video status
-//     if (!video.pass) {
-//       video.pass = true; // Mark video as passed
-//     }
-
-//     // Update module status if all videos are passed
-//     const allVideosPassed = module.videos.every(v => v.pass === true);
-//     if (allVideosPassed && !module.pass) {
-//       module.pass = true;
-//     }
-
-//     // Update training status
-//     const allModulesPassed = trainingProgress.modules.every(mod => mod.pass === true);
-
-//     if (allModulesPassed) {
-//       trainingProgress.pass = true;
-//       trainingProgress.status = 'Completed'; // Mark training as completed
-//     } else {
-//       trainingProgress.status = 'In Progress'; // Mark training as in progress
-//     }
-
-//     // Save updated training progress
-//     await trainingProgress.save();
-
-//     // ===== Update User Collection =====
-//     const user = await User.findById(userId);
-
-//     if (!user) {
-//       return res.status(404).json({ message: "User not found" });
-//     }
-
-//     // Update user training status
-//     const userTraining = user.training.find(train => train.trainingId.toString() === trainingId);
-//     if (userTraining) {
-//       userTraining.status = trainingProgress.status; // Sync user status with training status
-//       userTraining.pass = trainingProgress.pass; // Sync pass status
-//     }
-
-//     // Save updated user status
-//     await user.save();
-
-//     // Send success response
-//     res.status(200).json({
-//       message: "Training progress and user status updated successfully",
-//       data: { trainingProgress, user },
-//     });
-
-//   } catch (error) {
-//     console.error('Error updating training progress and user status:', error.stack);
-//     res.status(500).json({ message: "Server error while updating progress and user status" });
-//   }
-// };
-
-
-
 export const UpdateuserTrainingprocess = async (req, res) => {
-  // Extract parameters from query string
   const { userId, trainingId, moduleId, videoId } = req.query;
 
-  // Validate required parameters
+  // Validate input parameters
   if (!userId || !trainingId || !moduleId || !videoId) {
     return res.status(400).json({ message: "Missing required query parameters" });
   }
 
   try {
-    // 🔍 Find the user's training progress record
+    // Find the training progress
     const trainingProgress = await TrainingProgress.findOne({ userId, trainingId });
+
     if (!trainingProgress) {
       return res.status(404).json({ message: "Training progress not found" });
     }
 
-    // 🔍 Locate the correct module in training progress
+    // Find the module in the training progress
     const module = trainingProgress.modules.find(mod => mod.moduleId.toString() === moduleId);
+
     if (!module) {
       return res.status(404).json({ message: "Module not found" });
     }
 
-    // 🔍 Find the specific video in that module
+    // Find the video in the module
     const video = module.videos.find(v => v.videoId.toString() === videoId);
+
     if (!video) {
       return res.status(404).json({ message: "Video not found" });
     }
 
-    // ✅ Mark this video as completed if not already
+    // Update video status
     if (!video.pass) {
-      video.pass = true;
+      video.pass = true; // Mark video as passed
     }
 
-    // ✅ If all videos in this module are passed, mark the module as passed
+    // Update module status if all videos are passed
     const allVideosPassed = module.videos.every(v => v.pass === true);
     if (allVideosPassed && !module.pass) {
       module.pass = true;
     }
 
-    // ✅ Check if all modules are passed, mark training as completed
+    // Update training status
     const allModulesPassed = trainingProgress.modules.every(mod => mod.pass === true);
+
     if (allModulesPassed) {
       trainingProgress.pass = true;
-      trainingProgress.status = 'Completed';
+      trainingProgress.status = 'Completed'; // Mark training as completed
     } else {
-      trainingProgress.status = 'In Progress';
+      trainingProgress.status = 'In Progress'; // Mark training as in progress
     }
 
-    // 💾 Save the updated training progress
+    // Save updated training progress
     await trainingProgress.save();
 
-    // 🔍 Get user details for syncing status
+    // ===== Update User Collection =====
     const user = await User.findById(userId);
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // 🔁 Sync training status into the User’s `training[]` array
+    // Update user training status
     const userTraining = user.training.find(train => train.trainingId.toString() === trainingId);
     if (userTraining) {
-      userTraining.status = trainingProgress.status;
-      userTraining.pass = trainingProgress.pass;
+      userTraining.status = trainingProgress.status; // Sync user status with training status
+      userTraining.pass = trainingProgress.pass; // Sync pass status
     }
 
-    // 💾 Save updated user object
+    // Save updated user status
     await user.save();
 
-    // ✅ If training is completed, send a confirmation email
-    if (trainingProgress.status === 'Completed') {
-      const emp = await Employee.findOne({ userId });          // employee details
-      const training = await Training.findById(trainingId);    // training title
-
-      if (emp && training) {
-        await sendCompletionEmail({
-          name: user.name,
-          empId: emp.empId,
-          trainingName: training.title,
-          branch: emp.branchName,
-          email: user.email
-        });
-      }
-    }
-
-    // 📤 Respond with success
+    // Send success response
     res.status(200).json({
       message: "Training progress and user status updated successfully",
       data: { trainingProgress, user },
@@ -651,6 +554,103 @@ export const UpdateuserTrainingprocess = async (req, res) => {
     res.status(500).json({ message: "Server error while updating progress and user status" });
   }
 };
+
+
+
+// export const UpdateuserTrainingprocess = async (req, res) => {
+//   // Extract parameters from query string
+//   const { userId, trainingId, moduleId, videoId } = req.query;
+
+//   // Validate required parameters
+//   if (!userId || !trainingId || !moduleId || !videoId) {
+//     return res.status(400).json({ message: "Missing required query parameters" });
+//   }
+
+//   try {
+//     // 🔍 Find the user's training progress record
+//     const trainingProgress = await TrainingProgress.findOne({ userId, trainingId });
+//     if (!trainingProgress) {
+//       return res.status(404).json({ message: "Training progress not found" });
+//     }
+
+//     // 🔍 Locate the correct module in training progress
+//     const module = trainingProgress.modules.find(mod => mod.moduleId.toString() === moduleId);
+//     if (!module) {
+//       return res.status(404).json({ message: "Module not found" });
+//     }
+
+//     // 🔍 Find the specific video in that module
+//     const video = module.videos.find(v => v.videoId.toString() === videoId);
+//     if (!video) {
+//       return res.status(404).json({ message: "Video not found" });
+//     }
+
+//     // ✅ Mark this video as completed if not already
+//     if (!video.pass) {
+//       video.pass = true;
+//     }
+
+//     // ✅ If all videos in this module are passed, mark the module as passed
+//     const allVideosPassed = module.videos.every(v => v.pass === true);
+//     if (allVideosPassed && !module.pass) {
+//       module.pass = true;
+//     }
+
+//     // ✅ Check if all modules are passed, mark training as completed
+//     const allModulesPassed = trainingProgress.modules.every(mod => mod.pass === true);
+//     if (allModulesPassed) {
+//       trainingProgress.pass = true;
+//       trainingProgress.status = 'Completed';
+//     } else {
+//       trainingProgress.status = 'In Progress';
+//     }
+
+//     // 💾 Save the updated training progress
+//     await trainingProgress.save();
+
+//     // 🔍 Get user details for syncing status
+//     const user = await User.findById(userId);
+//     if (!user) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+
+//     // 🔁 Sync training status into the User’s `training[]` array
+//     const userTraining = user.training.find(train => train.trainingId.toString() === trainingId);
+//     if (userTraining) {
+//       userTraining.status = trainingProgress.status;
+//       userTraining.pass = trainingProgress.pass;
+//     }
+
+//     // 💾 Save updated user object
+//     await user.save();
+
+//     // ✅ If training is completed, send a confirmation email
+//     if (trainingProgress.status === 'Completed') {
+//       const emp = await Employee.findOne({ userId });          // employee details
+//       const training = await Training.findById(trainingId);    // training title
+
+//       if (emp && training) {
+//         await sendCompletionEmail({
+//           name: user.name,
+//           empId: emp.empId,
+//           trainingName: training.title,
+//           branch: emp.branchName,
+//           email: user.email
+//         });
+//       }
+//     }
+
+//     // 📤 Respond with success
+//     res.status(200).json({
+//       message: "Training progress and user status updated successfully",
+//       data: { trainingProgress, user },
+//     });
+
+//   } catch (error) {
+//     console.error('Error updating training progress and user status:', error.stack);
+//     res.status(500).json({ message: "Server error while updating progress and user status" });
+//   }
+// };
 
 
 
