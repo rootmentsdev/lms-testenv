@@ -1,59 +1,82 @@
-// controllers/TrainingController.js
-
+import mongoose from 'mongoose';
 import TrainingProgress from '../model/Trainingprocessschema.js';
 
-// Controller function for migrating the "Foundation of Service" training
+/**
+ * POST /api/admin/migrate/foundationTraining
+ * Migrates “Foundation of Service” progress
+ *   – Moves each user’s *Completed* record from Assigned ➜ Mandatory
+ *   – Merges if a Mandatory record already exists
+ *   – Deletes the old Assigned record
+ *   – Runs in a single transaction for full rollback safety
+ */
 export const migrateFoundationOfServiceTraining = async (req, res) => {
+  const session = await mongoose.startSession();
+
   try {
-    // Step 1: Find users who have completed "Foundation of Service" training in the assigned section
-    const usersWithAssignedTraining = await TrainingProgress.find({
-      'trainingName': 'Foundation of Service',
-      'section': 'Assigned',
-      'status': 'Completed',
-    }).populate('userId'); // Populate userId to easily access user data
+    await session.withTransaction(async () => {
+      // 1️⃣  Fetch all COMPLETED progress items in the Assigned section
+      const assignedProgress = await TrainingProgress.find(
+        {
+          trainingName: { $regex: /^foundation of service$/i },
+          section: 'Assigned',
+          status: 'Completed'
+        },
+        null,
+        { session }
+      );
 
-    // Step 2: Migrate their completion data to the mandatory section
-    for (let progress of usersWithAssignedTraining) {
-      // Check if the training already exists in the mandatory section for this user
-      const existingTraining = await TrainingProgress.findOne({
-        userId: progress.userId._id,
-        trainingName: 'Foundation of Service',
-        section: 'Mandatory',
-      });
+      // 2️⃣  For every user…
+      for (const progress of assignedProgress) {
+        // —— Check if they already have a Mandatory entry
+        const mandatory = await TrainingProgress.findOne(
+          {
+            userId: progress.userId,
+            trainingName: { $regex: /^foundation of service$/i },
+            section: 'Mandatory'
+          },
+          null,
+          { session }
+        );
 
-      if (!existingTraining) {
-        // Migrate training to mandatory section
-        const mandatoryTrainingProgress = new TrainingProgress({
-          userId: progress.userId._id,
-          trainingName: 'Foundation of Service',
-          section: 'Mandatory',
-          status: 'Completed', // Training is marked as completed
-          pass: progress.pass,
-          deadline: progress.deadline, // Retaining the original deadline
-          modules: progress.modules, // Copy the modules as they are
-        });
+        if (mandatory) {
+          // ✅ Merge the data
+          mandatory.status    = 'Completed';
+          mandatory.pass      = progress.pass      ?? mandatory.pass;
+          mandatory.score     = progress.score     ?? mandatory.score;
+          mandatory.deadline  = progress.deadline  ?? mandatory.deadline;
+          mandatory.modules   = progress.modules?.length ? progress.modules : mandatory.modules;
+          await mandatory.save({ session });
+        } else {
+          // ➕ Create a new Mandatory record
+          await TrainingProgress.create(
+            [
+              {
+                userId:       progress.userId,
+                trainingName: progress.trainingName,   // keep exact capitalisation
+                section:      'Mandatory',
+                status:       'Completed',
+                pass:         progress.pass,
+                score:        progress.score,
+                deadline:     progress.deadline,
+                modules:      progress.modules
+              }
+            ],
+            { session }
+          );
+        }
 
-        // Save the mandatory progress entry
-        await mandatoryTrainingProgress.save();
+        // 3️⃣ Delete the old Assigned entry
+        await TrainingProgress.deleteOne({ _id: progress._id }, { session });
       }
-
-      // Step 3: Delete the duplicate "Foundation of Service" entry from the assigned section
-      await TrainingProgress.deleteOne({
-        userId: progress.userId._id,
-        trainingName: 'Foundation of Service',
-        section: 'Assigned',
-      });
-    }
-
-    // Step 4: Return success response
-    res.status(200).json({
-      message: 'Successfully migrated the training from Assigned to Mandatory section and cleaned up duplicates.',
     });
-  } catch (error) {
-    console.error('Error migrating training progress:', error);
-    res.status(500).json({
-      message: 'Error during migration process.',
-      error: error.message,
-    });
+
+    res.json({ message: 'Migration finished successfully 🎉' });
+  } catch (err) {
+    // Roll back everything if anything failed
+    await session.abortTransaction();
+    console.error('❌ Migration failed:', err);
+    res.status(500).json({ message: 'Migration failed', error: err.message });
+  } finally {
+    session.endSession();
   }
 };

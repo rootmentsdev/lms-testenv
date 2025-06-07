@@ -165,7 +165,8 @@ app.use('/api/auth', UserRouters);
 app.use('/api/admin', AdminData);
 app.use('/api/user/assessment', FutterAssessment);
 app.use('/zoho', Whatsapprouter);
-app.use('/api/admin', TrainingRoutes); 
+app.use('/api/admin', TrainingRoutes);
+
 
 console.log(new Date());
 

@@ -1,24 +1,23 @@
-import React from 'react';
 import axios from 'axios';
 
 const migrateTraining = async () => {
   try {
-    // Correctly pointing to the backend API URL
-    const response = await axios.post('https://lms-testenv.onrender.com/api/migrate-training'); // Ensure the URL is correct
-    alert(response.data.message);
-  } catch (error) {
-    console.error('Error migrating training:', error);
-    alert('Error occurred during migration.');
+    const token = localStorage.getItem('token');   // adjust to your auth flow
+    const res = await axios.post(
+      'https://lms-testenv.onrender.com/api/admin/migrate/foundationTraining',
+      {},                                          // no body needed
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    alert(res.data.message);
+  } catch (err) {
+    alert(err.response?.data?.message || 'Migration failed');
   }
 };
 
-const Training = () => {
+export default function Training() {
   return (
-    <div>
-      <button onClick={migrateTraining}>Migrate Foundation Training</button>
-    </div>
+    <button onClick={migrateTraining}>
+      Migrate “Foundation of Service”
+    </button>
   );
-};
-
-export default Training;
-
+}

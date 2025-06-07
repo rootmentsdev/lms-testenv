@@ -1,24 +1,54 @@
 // routes/TrainingRoutes.js
-
 import express from 'express';
-import { migrateFoundationOfServiceTraining } from '../controllers/TrainingController.js'; // Import the function
-import { MiddilWare } from '../lib/middilWare.js'; // If you have any middleware for authentication
+import { migrateFoundationOfServiceTraining } from '../controllers/TrainingController.js';
+import { MiddilWare } from '../lib/middilWare.js';
 
 const router = express.Router();
 
-// Route to trigger the migration
+/* -------------------------------------------------------------------------- */
+/*                         🔖 Swagger / OpenAPI Docs                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * @swagger
+ * tags:
+ *   name: AdminMigration
+ *   description: Admin-only endpoints that handle one-off data migrations
+ */
+
 /**
  * @swagger
  * /api/admin/migrate/foundationTraining:
- *   get:
- *     summary: Migrate "Foundation of Service" training from Assigned to Mandatory
- *     description: This endpoint will move the "Foundation of Service" training from Assigned to Mandatory and clean up duplicates.
+ *   post:
+ *     summary: Migrate “Foundation of Service” progress
+ *     description: |
+ *       Moves each user’s **Completed** record for *Foundation of Service* \
+ *       from the **Assigned** section to **Mandatory**, merges data if a \
+ *       Mandatory entry already exists, and deletes the old Assigned record. \
+ *       The operation is **idempotent** and runs inside a MongoDB transaction.
+ *     tags: [AdminMigration]
+ *     security:
+ *       - bearerAuth: []          # 👈 matches the scheme you defined in swagger.js
  *     responses:
  *       200:
- *         description: Successfully migrated the training.
+ *         description: Migration finished successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Migration finished successfully 🎉
+ *       401:
+ *         description: Unauthorized – missing or invalid token
  *       500:
- *         description: Internal server error.
+ *         description: Server error
  */
-router.get('/migrate/foundationTraining', MiddilWare, migrateFoundationOfServiceTraining);
+router.post(
+  '/migrate/foundationTraining',
+  MiddilWare,                          // 🔒 remove or replace if you don't want auth
+  migrateFoundationOfServiceTraining
+);
 
 export default router;
