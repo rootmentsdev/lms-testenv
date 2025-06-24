@@ -5,6 +5,7 @@ const TrainingProgressSchema = new mongoose.Schema({
         ref: 'User',
         required: true,
     },
+     trainingName: { type: String, required: true },
     trainingId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Training',
