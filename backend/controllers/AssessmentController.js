@@ -121,23 +121,30 @@ export const createTraining = async (req, res) => {
             usersInBranch = await User.find({ _id: { $in: workingBranch } });
 
         } else if (selectedOption === 'designation') {
-            if (!workingBranch) {
-                return res.status(400).json({ message: "Designation is required when selectedOption is 'designation'" });
-            }
-            // abhiram change
-            const normalizeRegex = (str) => str
-                .toLowerCase()
-                .replace(/\s+/g, '')             // Remove all whitespace first
-                .split('')
-                .map(ch => `\\s*${ch}`)          // Allow optional whitespace before each character
-                .join('') + '\\s*';              // Allow optional trailing whitespace
+    if (!workingBranch || workingBranch.length === 0) {
+        return res.status(400).json({ message: "Designation is required when selectedOption is 'designation'" });
+    }
 
-            usersInBranch = await User.find({
-                designation: {
-                    $regex: `^${normalizeRegex(workingBranch)}$`,
-                    $options: 'i'
-                }
-            });
+    const normalizeRegex = (str) =>
+        str
+            .toLowerCase()
+            .replace(/\s+/g, '')
+            .split('')
+            .map((ch) => `\\s*${ch}`)
+            .join('') + '\\s*';
+
+    // workingBranch is an array of roles (e.g., ['STAFF', 'Manager'])
+    usersInBranch = await User.find({
+        $or: workingBranch.map((role) => ({
+            designation: {
+                $regex: `^${normalizeRegex(role)}$`,
+                $options: 'i',
+            }
+        }))
+    });
+
+
+       
 
 
 
@@ -169,6 +176,7 @@ export const createTraining = async (req, res) => {
             const trainingProgress = new TrainingProgress({
                 userId: user._id,
                 trainingId: newTraining._id,
+                   trainingName: trainingName,
                 deadline: deadlineDate, // Use the fixed deadline Date object
                 pass: false,
                 modules: moduleDetails.map(module => ({
@@ -524,6 +532,7 @@ export const createMandatoryTraining = async (req, res) => {
             const trainingProgress = new TrainingProgress({
                 userId: user._id,
                 trainingId: newTraining._id,
+                  trainingName: trainingName,
                 deadline: deadlineDate,
                 pass: false,
                 modules: moduleDetails.map(module => ({
