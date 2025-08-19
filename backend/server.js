@@ -100,8 +100,6 @@
 // });
 
 
-
-
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -109,7 +107,7 @@ import cron from "node-cron";
 import cors from 'cors';
 import express from 'express';
 import cookieParser from 'cookie-parser';
-import axios from 'axios';                           // ✅ added
+import axios from 'axios';                           // ✅ needed
 
 import connectMongoDB from './db/database.js';
 import ModuleRouter from './routes/ModuleRoute.js';
@@ -158,12 +156,14 @@ app.get('/', (req, res) => {
    ✅ INLINE PROXY: POST /api/employee_range
    -> Forwards to https://rootments.in/api/employee_range
    -> Adds Authorization: Bearer <your token>
+   Body: { startEmpId, endEmpId }
 ================================================== */
 app.post('/api/employee_range', async (req, res) => {
   try {
     const { startEmpId = 'EMP1', endEmpId = 'EMP9999' } = req.body || {};
-    const upstream = 'https://rootments.in/api/employee_range';
+    console.log('↗️  /api/employee_range', { startEmpId, endEmpId });
 
+    const upstream = 'https://rootments.in/api/employee_range';
     const { data } = await axios.post(
       upstream,
       { startEmpId, endEmpId },
@@ -172,18 +172,60 @@ app.post('/api/employee_range', async (req, res) => {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          // 👇 using your token as-is
           'Authorization': `Bearer ${ROOTMENTS_API_TOKEN}`,
         },
       }
     );
 
-    // Upstream returns: { status: "success", data: [...] }
-    return res.status(200).json(data);
+    console.log('↘️  /employee_range upstream items:',
+      Array.isArray(data?.data) ? data.data.length : 0
+    );
+    return res.status(200).json(data); // { status: "success", data: [...] }
   } catch (err) {
     const status = err?.response?.status || 500;
     const payload = err?.response?.data || { message: err.message || 'Proxy failed' };
     console.error('❌ /api/employee_range error:', status, payload);
+    return res.status(status).json(payload);
+  }
+});
+
+/* =================================================
+   ✅ SINGLE EMPLOYEE DETAIL PROXY
+   POST /api/employee_detail
+   Body: { empId: "EMP123" }
+   -> Uses upstream range API with start=end=empId
+================================================== */
+app.post('/api/employee_detail', async (req, res) => {
+  try {
+    const { empId } = req.body || {};
+    if (!empId) {
+      return res.status(400).json({ status: 'fail', message: 'empId is required' });
+    }
+    console.log('↗️  /api/employee_detail', { empId });
+
+    const upstream = 'https://rootments.in/api/employee_range';
+    const { data } = await axios.post(
+      upstream,
+      { startEmpId: empId, endEmpId: empId },
+      {
+        timeout: 20000,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${ROOTMENTS_API_TOKEN}`,
+        },
+      }
+    );
+
+    // Expect { status: 'success', data: [singleOrEmpty] }
+    console.log('↘️  /employee_detail upstream items:',
+      Array.isArray(data?.data) ? data.data.length : 0
+    );
+    return res.status(200).json(data);
+  } catch (err) {
+    const status = err?.response?.status || 500;
+    const payload = err?.response?.data || { message: err.message || 'Proxy failed' };
+    console.error('❌ /api/employee_detail error:', status, payload);
     return res.status(status).json(payload);
   }
 });
