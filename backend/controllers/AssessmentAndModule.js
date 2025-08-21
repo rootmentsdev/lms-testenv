@@ -3,6 +3,7 @@ import Assessment from '../model/Assessment.js';
 import TrainingProgress from '../model/Trainingprocessschema.js';
 import { Training } from '../model/Traning.js';
 import User from '../model/User.js';
+import axios from 'axios';
 
 export const assignModuleToUser = async (req, res) => {
   try {
@@ -50,27 +51,83 @@ export const assignAssessmentToUser = async (req, res) => {
   }
 };
 
+// Helper function to fetch employee data from external API
+const fetchEmployeeData = async () => {
+  try {
+    const response = await axios.post(`${process.env.BASE_URL || 'http://localhost:7000'}/api/employee_range`, {
+      startEmpId: 'EMP1',
+      endEmpId: 'EMP9999'
+    }, { timeout: 15000 });
+    
+    return response.data?.data || [];
+  } catch (error) {
+    console.error('Error fetching employee data from local API:', error);
+    return [];
+  }
+};
+
 export const GetAllTrainingWithCompletion = async (req, res) => {
   try {
-    // Fetch all trainings
-    const trainings = await Training.find({ Trainingtype: 'Assigned' }).populate('modules'); // Populate modules for reference
-
-    if (!trainings || trainings.length === 0) {
-      return res.status(404).json({ message: "No training data found" });
+    // Fetch all trainings that have been assigned to users (have progress records)
+    // We'll find trainings by looking at TrainingProgress records
+    const progressRecords = await TrainingProgress.find().populate('trainingId', 'trainingName modules Trainingtype Assignedfor deadline');
+    
+    if (!progressRecords || progressRecords.length === 0) {
+      return res.status(404).json({ message: "No assigned training data found" });
     }
+
+    // Group progress records by training ID to get unique trainings
+    const trainingMap = new Map();
+    progressRecords.forEach(record => {
+      if (record.trainingId) {
+        const trainingId = record.trainingId._id.toString();
+        if (!trainingMap.has(trainingId)) {
+          trainingMap.set(trainingId, {
+            training: record.trainingId,
+            progressRecords: []
+          });
+        }
+        trainingMap.get(trainingId).progressRecords.push(record);
+      }
+    });
+
+    // Fetch employee data from local API (like we fixed in mandatory training)
+    let employeeData = [];
+    try {
+      const response = await axios.post(`${process.env.BASE_URL || 'http://localhost:7000'}/api/employee_range`, {
+        startEmpId: 'EMP1',
+        endEmpId: 'EMP9999'
+      });
+      
+      employeeData = response.data?.data || [];
+      console.log('Fetched employee data from local API:', employeeData.length, 'employees');
+    } catch (error) {
+      console.error('Error fetching employee data from local API:', error.message);
+      // Continue with internal users only
+    }
+
+    // Create a map for quick employee lookup by empID
+    const employeeMap = new Map();
+    employeeData.forEach(emp => {
+      if (emp.emp_code) {
+        employeeMap.set(emp.emp_code, {
+          empID: emp.emp_code,
+          username: emp.name || '',
+          designation: emp.role_name || '',
+          workingBranch: emp.store_name || '',
+          email: emp.email || ''
+        });
+      }
+    });
 
     // Process each training to calculate completion percentages
     const trainingData = await Promise.all(
-      trainings.map(async (training) => {
-        const progressRecords = await TrainingProgress.find({
-          trainingId: training._id
-        }).populate('userId', 'workingBranch designation username email'); // Populate user data
-
+      Array.from(trainingMap.values()).map(async ({ training, progressRecords }) => {
         let totalUsers = 0;
         let totalPercentage = 0;
-        const userProgress = []; // Store user progress for each training
-        const uniqueBranches = new Set(); // To store unique branches
-        const uniqueDesignations = new Set(); // To store unique designations
+        const userProgress = [];
+        const uniqueBranches = new Set();
+        const uniqueDesignations = new Set();
 
         // Calculate completion percentage for each user's progress
         await Promise.all(progressRecords.map(async (record) => {
@@ -80,78 +137,95 @@ export const GetAllTrainingWithCompletion = async (req, res) => {
           let completedModules = 0;
           let totalVideos = 0;
           let completedVideos = 0;
-          const videoCompletionMap = new Map(); // To track which videos have been completed
+          const videoCompletionMap = new Map();
 
-          record.modules.forEach((module) => {
-            totalModules++;
+          if (record.modules && Array.isArray(record.modules)) {
+            record.modules.forEach((module) => {
+              totalModules++;
+              if (module.pass) completedModules++;
 
-            // Count completed modules
-            if (module.pass) completedModules++;
-
-            module.videos.forEach((video) => {
-              totalVideos++;
-
-              // Track the video completion by video ID, ensuring each video is only counted once
-              if (video.pass && !videoCompletionMap.has(video._id.toString())) {
-                completedVideos++;
-                videoCompletionMap.set(video._id.toString(), true);
+              if (module.videos && Array.isArray(module.videos)) {
+                module.videos.forEach((video) => {
+                  totalVideos++;
+                  if (video.pass && !videoCompletionMap.has(video._id.toString())) {
+                    completedVideos++;
+                    videoCompletionMap.set(video._id.toString(), true);
+                  }
+                });
               }
             });
-          });
+          }
 
-          // Calculate the completion percentages based on module and video completion
           const moduleCompletion = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
           const videoCompletion = totalVideos > 0 ? (completedVideos / totalVideos) * 100 : 0;
-
-          // The user's overall completion percentage is weighted (40% for modules, 60% for videos)
           const userPercentage = (moduleCompletion * 0.4) + (videoCompletion * 0.6);
 
           totalPercentage += userPercentage;
 
-          // Add unique workingBranch and designation
-          const { workingBranch, designation, username, email } = record.userId || {};
-          if (workingBranch) uniqueBranches.add(workingBranch);
-          if (designation) uniqueDesignations.add(designation);
+          // Get employee data from local API or fallback to internal user data
+          let employeeInfo = null;
+          if (record.userId?.empID) {
+            employeeInfo = employeeMap.get(record.userId.empID);
+          }
 
-          // Store user progress for each user
+          // Use local API data if available, otherwise fallback to internal data
+          const finalUserData = employeeInfo || {
+            empID: record.userId?.empID || '',
+            username: record.userId?.username || '',
+            designation: record.userId?.designation || '',
+            workingBranch: record.userId?.workingBranch || '',
+            email: record.userId?.email || ''
+          };
+
+          // Add unique branches and designations from local API data
+          if (finalUserData.workingBranch) uniqueBranches.add(finalUserData.workingBranch);
+          if (finalUserData.designation) uniqueDesignations.add(finalUserData.designation);
+
           userProgress.push({
             userId: record.userId?._id,
-            username,
-            email,
-            workingBranch,
-            designation,
-            modules: record.modules,
-            overallCompletionPercentage: userPercentage.toFixed(2), // User's completion percentage
+            empID: finalUserData.empID,
+            username: finalUserData.username,
+            email: finalUserData.email,
+            workingBranch: finalUserData.workingBranch,
+            designation: finalUserData.designation,
+            modules: record.modules || [],
+            overallCompletionPercentage: userPercentage.toFixed(2),
           });
         }));
 
-        // Calculate average completion percentage for the training based on all users
+        // Also add unique branches and designations from all employees (for filtering)
+        employeeData.forEach(emp => {
+          if (emp.store_name) uniqueBranches.add(emp.store_name);
+          if (emp.role_name) uniqueDesignations.add(emp.role_name);
+        });
+
         const averageCompletionPercentage = totalUsers > 0 ? (totalPercentage / totalUsers).toFixed(2) : 0;
 
         return {
           trainingId: training._id,
           trainingName: training.trainingName,
           trainingTitle: training.title,
-          numberOfModules: training.modules.length,
-          totalUsers,
-          averageCompletionPercentage, // The average completion percentage for all users
-          uniqueBranches: Array.from(uniqueBranches), // Convert Set to Array
-          uniqueItems: Array.from(uniqueDesignations), // Convert Set to Array
-          userProgress // Return the detailed user progress
+          numberOfModules: training.modules ? training.modules.length : 0,
+          totalUsers: employeeData.length, // Show total employees from local API
+          totalAssignedUsers: totalUsers, // Show actually assigned users
+          averageCompletionPercentage,
+          uniqueBranches: Array.from(uniqueBranches),
+          uniqueItems: Array.from(uniqueDesignations),
+          userProgress,
+          allEmployees: employeeData.length, // Total number of employees available
+          trainingType: training.Trainingtype || 'Assigned',
+          assignedFor: training.Assignedfor || []
         };
       })
     );
-    console.log(trainingData);
 
-
-    // Return training data with percentages and unique values
     res.status(200).json({
-      message: "Training data fetched successfully",
+      message: "Assigned training data fetched successfully",
       data: trainingData
     });
   } catch (error) {
-    console.error('Error fetching training data:', error.message);
-    res.status(500).json({ message: "Server error while fetching training data" });
+    console.error('Error fetching assigned training data:', error.message);
+    res.status(500).json({ message: "Server error while fetching assigned training data" });
   }
 };
 
@@ -184,16 +258,51 @@ export const ReassignTraining = async (req, res) => {
       return res.status(400).json({ message: "No modules found for this training" });
     }
 
-    // Fetch the users to assign the training to
-    const users = await User.find({ _id: { $in: assignedTo } });
-    if (users.length === 0) {
-      return res.status(404).json({ message: "No users found matching the provided IDs" });
-    }
+    // Fetch employee data from external API
+    const employeeData = await fetchEmployeeData();
+    const employeeMap = new Map();
+    employeeData.forEach(emp => {
+      if (emp.emp_code) {
+        employeeMap.set(emp.emp_code, emp);
+      }
+    });
 
     const deadlineDate = new Date(Date.now() + training.deadline * 24 * 60 * 60 * 1000);
+    const processedUsers = [];
 
-    // Assign the training to each user
-    const updatedUsers = users.map(async (user) => {
+    // Process each assigned employee code
+    for (const empCode of assignedTo) {
+      const employeeInfo = employeeMap.get(empCode);
+      if (!employeeInfo) {
+        console.warn(`Employee with code ${empCode} not found in external API`);
+        continue;
+      }
+
+      // Find or create user in internal database
+      let user = await User.findOne({ empID: empCode });
+      
+      if (!user) {
+        // Create new user from external employee data
+        user = new User({
+          username: employeeInfo.name || '',
+          email: employeeInfo.email || `${empCode}@company.com`,
+          phoneNumber: employeeInfo.phone || '',
+          locCode: employeeInfo.store_code || '',
+          empID: empCode,
+          designation: employeeInfo.role_name || '',
+          workingBranch: employeeInfo.store_name || '',
+          assignedModules: [],
+          assignedAssessments: [],
+          training: []
+        });
+      } else {
+        // Update existing user with latest employee data
+        user.username = employeeInfo.name || user.username;
+        user.designation = employeeInfo.role_name || user.designation;
+        user.workingBranch = employeeInfo.store_name || user.workingBranch;
+        user.email = employeeInfo.email || user.email;
+      }
+
       // Check if the user already has the training assigned
       const existingTrainingIndex = user.training.findIndex(t => t.trainingId.toString() === trainingId);
       if (existingTrainingIndex !== -1) {
@@ -205,14 +314,17 @@ export const ReassignTraining = async (req, res) => {
       // Reassign the training
       user.training.push({
         trainingId: training._id,
-        deadline: deadlineDate, // Existing deadline
+        deadline: deadlineDate,
         pass: false,
         status: 'Pending',
       });
 
+      await user.save(); // Save the user first to get the _id
+
       // Create TrainingProgress for the user
       const trainingProgress = new TrainingProgress({
         userId: user._id,
+        trainingName: training.trainingName,
         trainingId: training._id,
         deadline: deadlineDate,
         pass: false,
@@ -227,15 +339,17 @@ export const ReassignTraining = async (req, res) => {
       });
 
       await trainingProgress.save();
-      await user.save(); // Save the updated user
+      processedUsers.push(user);
+    }
+
+    res.status(200).json({ 
+      message: `Training successfully reassigned to ${processedUsers.length} users`,
+      assignedUsers: processedUsers.length,
+      totalRequested: assignedTo.length
     });
-
-    await Promise.all(updatedUsers); // Wait for all users to be updated
-
-    res.status(200).json({ message: "Training successfully reassigned to users" });
   } catch (error) {
     console.error("Error reassigning training:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
