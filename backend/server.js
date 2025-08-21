@@ -125,8 +125,8 @@ const app = express();
 setupSwagger(app);
 const port = process.env.PORT || 7000;
 
-// ✅ Hardcode the upstream token EXACTLY as provided
-const ROOTMENTS_API_TOKEN = 'RootX-production-9d17d9485eb772e79df8564004d4a4d4';
+// ✅ Use environment variable for the upstream token for security
+const ROOTMENTS_API_TOKEN = process.env.ROOTMENTS_API_TOKEN || 'RootX-production-9d17d9485eb772e79df8564004d4a4d4';
 
 app.use(express.json());
 app.use(cookieParser());
