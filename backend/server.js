@@ -117,6 +117,7 @@ import UserRouters from './routes/UserConRoute.js';
 import AdminData from './routes/AdminRoute.js'
 import FutterAssessment from './routes/FutterAssessment.js'
 import Whatsapprouter from './routes/WhatsappRouteZoho.js'
+import EmployeeRouter from './routes/EmployeeRoute.js'
 
 import { AlertNotification } from './lib/CornJob.js';
 import setupSwagger from './swagger.js';
@@ -238,6 +239,7 @@ app.use('/api/auth', UserRouters)
 app.use('/api/admin', AdminData)
 app.use('/api/user/assessment', FutterAssessment)
 app.use('/zoho', Whatsapprouter)
+app.use('/api/employee', EmployeeRouter)
 
 console.log(new Date());
 
