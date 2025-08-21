@@ -6,6 +6,7 @@ import Notification from "../model/Notification.js";
 import TrainingProgress from "../model/Trainingprocessschema.js";
 import { Training } from "../model/Traning.js";
 import User from "../model/User.js";
+import axios from 'axios';
 
 export const createAssessment = async (req, res) => {
     try {
@@ -55,6 +56,21 @@ export const getAssessments = async (req, res) => {
     } catch (error) {
         console.error('Error fetching assessments:', error);
         res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+// Helper function to fetch employee data from external API
+const fetchEmployeeDataForTraining = async () => {
+    try {
+        const response = await axios.post('https://rootments.in/api/employee_range', {
+            startEmpId: 'EMP1',
+            endEmpId: 'EMP9999'
+        }, { timeout: 15000 });
+        
+        return response.data?.data || [];
+    } catch (error) {
+        console.error('Error fetching employee data:', error);
+        return [];
     }
 };
 
