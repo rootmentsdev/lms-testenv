@@ -566,7 +566,7 @@ export const createMandatoryTraining = async (req, res) => {
                 startEmpId: "EMP1",
                 endEmpId: "EMP9999"
             }, {
-                timeout: 20000,
+                timeout: 10000, // Reduced timeout
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
@@ -575,28 +575,56 @@ export const createMandatoryTraining = async (req, res) => {
             });
             
             externalEmployees = response.data?.data || [];
+            console.log(`Fetched ${externalEmployees.length} external employees`);
         } catch (error) {
-            console.error('Error fetching external employee data:', error);
-            // Continue with internal users only
+            console.error('Error fetching external employee data:', error.message);
+            // Continue with internal users only - this is not a critical failure
         }
 
         const flatten = (str) => str.toLowerCase().replace(/\s+/g, '');
 
         const matchAnyDesignation = (userDesig, roleList) => {
+            if (!userDesig || !Array.isArray(roleList)) return false;
             const flat = flatten(userDesig);
-            return roleList.map(flatten).includes(flat);
+            const flatRoles = roleList.map(role => flatten(role || ''));
+            
+            // Try exact match first
+            if (flatRoles.includes(flat)) return true;
+            
+            // Try partial matches for common designation variations
+            return flatRoles.some(role => {
+                // Check if either contains the other (for variations like "Assistant General Manager" vs "AssistantGeneralManager")
+                return role.includes(flat) || flat.includes(role) ||
+                       // Also check word-by-word matching for cases with different spacing/punctuation
+                       role.replace(/[^\w]/g, '').includes(flat.replace(/[^\w]/g, '')) ||
+                       flat.replace(/[^\w]/g, '').includes(role.replace(/[^\w]/g, ''));
+            });
         };
+
+        console.log('Looking for designations:', workingBranch);
+        console.log('Flattened designations:', workingBranch.map(flatten));
 
         // Get internal users that match the designation
         const allInternalUsers = await User.find();
+        console.log(`Found ${allInternalUsers.length} internal users`);
+        
+        // Log all unique designations from internal users
+        const internalDesignations = [...new Set(allInternalUsers.map(u => u.designation))];
+        console.log('Internal user designations:', internalDesignations);
+        
         const internalUsersInBranch = allInternalUsers.filter(user =>
             matchAnyDesignation(user.designation, workingBranch)
         );
+        console.log(`Found ${internalUsersInBranch.length} matching internal users`);
 
         // Filter external employees by designation and create/find corresponding internal users
+        const externalDesignations = [...new Set(externalEmployees.map(emp => emp.role_name).filter(Boolean))];
+        console.log('External employee designations:', externalDesignations.slice(0, 10), externalDesignations.length > 10 ? '...' : '');
+        
         const matchingExternalEmployees = externalEmployees.filter(emp =>
             matchAnyDesignation(emp.role_name, workingBranch)
         );
+        console.log(`Found ${matchingExternalEmployees.length} matching external employees`);
 
         // Create or find internal users for matching external employees
         const externalToInternalUsers = [];
@@ -615,16 +643,21 @@ export const createMandatoryTraining = async (req, res) => {
 
             if (!user) {
                 // Create new user if doesn't exist
-                user = new User({
-                    username: emp.name || emp.emp_code || 'Unknown',
-                    email: emp.email,
-                    empID: emp.emp_code,
-                    locCode: emp.store_code || '',
-                    designation: emp.role_name || '',
-                    location: emp.store_name || '',
-                    workingBranch: emp.store_name || '',
-                });
-                await user.save();
+                try {
+                    user = new User({
+                        username: emp.name || emp.emp_code || 'Unknown',
+                        email: emp.email,
+                        empID: emp.emp_code,
+                        locCode: emp.store_code || 'DEFAULT',
+                        designation: emp.role_name || '',
+                        workingBranch: emp.store_name || 'DEFAULT',
+                    });
+                    await user.save();
+                    console.log(`Created new user: ${user.username} with designation: ${user.designation}`);
+                } catch (saveError) {
+                    console.error(`Failed to create user for ${emp.emp_code}:`, saveError.message);
+                    continue;
+                }
             }
             externalToInternalUsers.push(user);
         }
@@ -642,9 +675,77 @@ export const createMandatoryTraining = async (req, res) => {
         const finalUsersInBranch = Array.from(uniqueUsersMap.values());
 
         if (finalUsersInBranch.length === 0) {
-            return res.status(404).json({ 
-                message: `No users found for the provided designation(s): ${workingBranch.join(', ')}. Please check if the designation names match exactly.`
+            // Last resort: Try to find any external employees with matching designations and create users for them
+            const lastResortMatches = externalEmployees.filter(emp => {
+                if (!emp.role_name || !emp.emp_code || !emp.email) return false;
+                return workingBranch.some(designation => {
+                    const empRole = flatten(emp.role_name);
+                    const targetRole = flatten(designation);
+                    // Very flexible matching for last resort
+                    return empRole.includes(targetRole) || targetRole.includes(empRole) ||
+                           empRole.replace(/[^\w]/g, '') === targetRole.replace(/[^\w]/g, '');
+                });
             });
+            
+            console.log(`Last resort: Found ${lastResortMatches.length} potential matches`);
+            
+            // Create users for last resort matches
+            const lastResortUsers = [];
+            for (const emp of lastResortMatches.slice(0, 50)) { // Limit to 50 to avoid overwhelming
+                try {
+                    // Check if user already exists
+                    const existingUser = await User.findOne({
+                        $or: [
+                            { empID: emp.emp_code },
+                            { email: emp.email }
+                        ]
+                    });
+                    
+                    if (!existingUser) {
+                        const newUser = new User({
+                            username: emp.name || emp.emp_code || 'Unknown',
+                            email: emp.email,
+                            empID: emp.emp_code,
+                            locCode: emp.store_code || 'DEFAULT',
+                            designation: emp.role_name || '',
+                            workingBranch: emp.store_name || 'DEFAULT',
+                        });
+                        await newUser.save();
+                        lastResortUsers.push(newUser);
+                        console.log(`Created user: ${newUser.username} with designation: ${newUser.designation}`);
+                    } else {
+                        lastResortUsers.push(existingUser);
+                    }
+                } catch (createError) {
+                    console.error(`Failed to create user for ${emp.emp_code}:`, createError.message);
+                }
+            }
+            
+            if (lastResortUsers.length > 0) {
+                console.log(`Successfully created/found ${lastResortUsers.length} users for training assignment`);
+                // Continue with the training assignment for these users
+                finalUsersInBranch.push(...lastResortUsers);
+            } else {
+                // Provide more helpful error information
+                const availableDesignations = [
+                    ...new Set([
+                        ...internalDesignations,
+                        ...externalDesignations.slice(0, 20) // Limit to first 20 to avoid too long message
+                    ])
+                ].sort();
+                
+                return res.status(404).json({ 
+                    message: `No users found for the provided designation(s): ${workingBranch.join(', ')}. Please check if the designation names match exactly.`,
+                    debug: {
+                        searchedDesignations: workingBranch,
+                        internalUsersFound: allInternalUsers.length,
+                        externalEmployeesFound: externalEmployees.length,
+                        availableDesignations: availableDesignations.slice(0, 10),
+                        totalAvailableDesignations: availableDesignations.length,
+                        lastResortAttempted: lastResortMatches.length
+                    }
+                });
+            }
         }
 
 
