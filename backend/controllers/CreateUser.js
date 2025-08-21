@@ -162,18 +162,62 @@ export const loginUser = async (req, res) => {
       { expiresIn: '30d' }
     );
 
-    // Send response
-    res.status(200).json({
-      message: 'Login successful',
-      token,
-      user: {
+    // Track user login
+    try {
+      const { detectDeviceInfo, getLocationFromIP } = await import('../utils/deviceDetection.js');
+      const userAgent = req.headers['user-agent'] || 'Unknown';
+      const ipAddress = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] || 'Unknown';
+      
+      // Detect device information
+      const deviceInfo = detectDeviceInfo(userAgent, ipAddress);
+      const location = await getLocationFromIP(ipAddress);
+      
+      // Import UserLoginSession model
+      const UserLoginSession = (await import('../model/UserLoginSession.js')).default;
+      
+      // Create login session
+      const loginSession = new UserLoginSession({
+        userId: user._id,
         username: user.username,
         email: user.email,
-        empID: user.empID,
-        location: user.location,
-        workingBranch: user.workingBranch,
-      },
-    });
+        ...deviceInfo,
+        location,
+        ipAddress
+      });
+      
+      await loginSession.save();
+      
+      // Store session ID in response for logout tracking
+      const sessionId = loginSession._id;
+      
+      // Send response
+      res.status(200).json({
+        message: 'Login successful',
+        token,
+        sessionId, // Include session ID for logout tracking
+        user: {
+          username: user.username,
+          email: user.email,
+          empID: user.empID,
+          location: user.location,
+          workingBranch: user.workingBranch,
+        },
+      });
+    } catch (trackingError) {
+      console.error('Error tracking login:', trackingError);
+      // Still send successful response even if tracking fails
+      res.status(200).json({
+        message: 'Login successful',
+        token,
+        user: {
+          username: user.username,
+          email: user.email,
+          empID: user.empID,
+          location: user.location,
+          workingBranch: user.workingBranch,
+        },
+      });
+    }
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ message: 'Internal server error' });

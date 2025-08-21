@@ -241,6 +241,10 @@ app.use('/api/user/assessment', FutterAssessment)
 app.use('/zoho', Whatsapprouter)
 app.use('/api/employee', EmployeeRouter)
 
+// User Login Tracking Routes
+import UserLoginRouter from './routes/UserLoginRoute.js';
+app.use('/api/user-login', UserLoginRouter)
+
 console.log(new Date());
 
 cron.schedule("30 18 * * *", async () => {

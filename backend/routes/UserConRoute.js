@@ -32,4 +32,41 @@ const router = express.Router();
  */
 router.post('/login', loginUser);
 
+// Logout endpoint
+router.post('/logout', async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+    
+    if (!sessionId) {
+      return res.status(400).json({ message: 'Session ID is required' });
+    }
+    
+    // Import UserLoginSession model
+    const UserLoginSession = (await import('../model/UserLoginSession.js')).default;
+    
+    const session = await UserLoginSession.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+    
+    // Calculate session duration
+    const logoutTime = new Date();
+    const sessionDuration = Math.round((logoutTime - session.loginTime) / (1000 * 60)); // in minutes
+    
+    session.logoutTime = logoutTime;
+    session.isActive = false;
+    session.sessionDuration = sessionDuration;
+    
+    await session.save();
+    
+    res.status(200).json({
+      message: 'Logout tracked successfully',
+      sessionDuration
+    });
+  } catch (error) {
+    console.error('Error tracking logout:', error);
+    res.status(500).json({ message: 'Failed to track logout' });
+  }
+});
+
 export default router;
