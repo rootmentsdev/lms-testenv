@@ -36,14 +36,12 @@ const ReassignData = () => {
         };
         const fetchUsers = async () => {
             try {
-                const endpoint = "api/usercreate/getAllUser"
-
-                const response = await fetch(`${baseUrl.baseUrl}${endpoint}`, {
-                    method: "GET",
-                    headers: { "Content-Type": "application/json" ,
-                        'Authorization': `Bearer ${token}`, 
-                    },
+                // Fetch from external employee API
+                const response = await fetch(`${baseUrl.baseUrl}api/employee_range`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
                     credentials: "include",
+                    body: JSON.stringify({ startEmpId: "EMP1", endEmpId: "EMP9999" }),
                 });
 
                 if (!response.ok) {
@@ -51,26 +49,25 @@ const ReassignData = () => {
                 }
 
                 const data = await response.json();
-                console.log(data);
+                console.log('External employee data:', data);
 
-                // Map users to options required by react-select
-
-                const options = data.data.map((user) => ({
-                    value: user._id,
-                    label: "EmpId: " + user.empID + " | Name: " + user.username + " | Role: " + (user.designation || "N/A"),
-                    role: user.designation, // Add role for filtering
-                    empID: user.empID,
-                    username: user.username
+                // Map external employee data to options required by react-select
+                const options = (data?.data || []).map((employee) => ({
+                    value: employee.emp_code, // Use emp_code as the value
+                    label: `EmpId: ${employee.emp_code || 'N/A'} | Name: ${employee.name || 'N/A'} | Role: ${employee.role_name || 'N/A'}`,
+                    role: employee.role_name, // Add role for filtering
+                    empID: employee.emp_code,
+                    username: employee.name,
+                    branch: employee.store_name,
+                    email: employee.email
                 }));
                 
                 setAllUsers(options);
                 setUsers(options);
                 
                 // Extract unique roles for filtering
-                const roles = [...new Set(data.data.map(user => user.designation).filter(Boolean))];
+                const roles = [...new Set((data?.data || []).map(emp => emp.role_name).filter(Boolean))];
                 setAvailableRoles(roles);
-
-
 
             } catch (error) {
                 console.error("Failed to fetch users:", error.message);

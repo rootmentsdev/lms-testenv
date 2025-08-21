@@ -263,7 +263,7 @@ const AssignedTrainingsData = () => {
                                     initialProgress={item.averageCompletionPercentage}
                                     title={item.trainingName}
                                     Module={`No. of Modules : ${item.numberOfModules}`}
-                                    duration={`No. of users: ${item.totalUsers}`}
+                                    duration={`Total Users: ${item.totalUsers} | Assigned: ${item.totalAssignedUsers || 0}`}
                                     complete={`Completion Rate : ${item.averageCompletionPercentage}%`}
                                 />
                             </Link>
