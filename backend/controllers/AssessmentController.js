@@ -127,51 +127,96 @@ export const createTraining = async (req, res) => {
         // Save the training record
         await newTraining.save();
 
-        let usersInBranch = [];
+        // First, fetch external employee data to get the list of employees
+        const response = await axios.post('https://rootments.in/api/employee_range', {
+            startEmpId: "EMP1",
+            endEmpId: "EMP9999"
+        });
 
-        // Logic based on the selectedOption
+        if (!response.data || !response.data.data) {
+            return res.status(500).json({ message: "Failed to fetch external employee data" });
+        }
+
+        const externalEmployees = response.data.data;
+        let filteredEmployees = [];
+
+        // Filter external employees based on the selectedOption
         if (selectedOption === 'user') {
             if (!workingBranch || workingBranch.length === 0) {
                 return res.status(400).json({ message: "User IDs are required when selectedOption is 'user'" });
             }
-            usersInBranch = await User.find({ _id: { $in: workingBranch } });
+            // Filter by employee codes
+            filteredEmployees = externalEmployees.filter(emp => 
+                workingBranch.includes(emp.emp_code)
+            );
 
         } else if (selectedOption === 'designation') {
-    if (!workingBranch || workingBranch.length === 0) {
-        return res.status(400).json({ message: "Designation is required when selectedOption is 'designation'" });
-    }
-
-    const normalizeRegex = (str) =>
-        str
-            .toLowerCase()
-            .replace(/\s+/g, '')
-            .split('')
-            .map((ch) => `\\s*${ch}`)
-            .join('') + '\\s*';
-
-    // workingBranch is an array of roles (e.g., ['STAFF', 'Manager'])
-    usersInBranch = await User.find({
-        $or: workingBranch.map((role) => ({
-            designation: {
-                $regex: `^${normalizeRegex(role)}$`,
-                $options: 'i',
+            if (!workingBranch || workingBranch.length === 0) {
+                return res.status(400).json({ message: "Designation is required when selectedOption is 'designation'" });
             }
-        }))
-    });
-
-
-       
-
-
+            // Filter by role names
+            filteredEmployees = externalEmployees.filter(emp => 
+                workingBranch.includes(emp.role_name)
+            );
 
         } else if (selectedOption === 'branch') {
-            if (!workingBranch) {
+            if (!workingBranch || workingBranch.length === 0) {
                 return res.status(400).json({ message: "Working branch is required when selectedOption is 'branch'" });
             }
-            usersInBranch = await User.find({ locCode: workingBranch });
+            // Filter by store names
+            filteredEmployees = externalEmployees.filter(emp => 
+                workingBranch.includes(emp.store_name)
+            );
 
         } else {
             return res.status(400).json({ message: "Invalid selected option" });
+        }
+
+        if (filteredEmployees.length === 0) {
+            return res.status(404).json({ message: "No employees found matching the criteria from external API" });
+        }
+
+        // Now find or create corresponding users in the internal database
+        let usersInBranch = [];
+        for (const emp of filteredEmployees) {
+            if (!emp.emp_code || !emp.email) {
+                console.log('Skipping employee with missing emp_code or email:', emp);
+                continue;
+            }
+
+            // Try to find existing user by empID or email
+            let user = await User.findOne({
+                $or: [
+                    { empID: emp.emp_code },
+                    { email: emp.email }
+                ]
+            });
+
+            if (!user) {
+                // Create new user if doesn't exist
+                user = new User({
+                    username: emp.name || emp.emp_code || 'Unknown',
+                    email: emp.email,
+                    empID: emp.emp_code,
+                    designation: emp.role_name || 'Unknown',
+                    locCode: emp.store_name || 'Unknown',
+                    workingBranch: emp.store_name || 'Unknown',
+                    phoneNumber: emp.phone || '',
+                });
+                await user.save();
+                console.log('Created new user for employee:', emp.emp_code);
+            } else {
+                // Update existing user with latest info from external API
+                user.username = emp.name || user.username;
+                user.designation = emp.role_name || user.designation;
+                user.locCode = emp.store_name || user.locCode;
+                user.workingBranch = emp.store_name || user.workingBranch;
+                user.phoneNumber = emp.phone || user.phoneNumber;
+                await user.save();
+                console.log('Updated existing user for employee:', emp.emp_code);
+            }
+
+            usersInBranch.push(user);
         }
 
         if (usersInBranch.length === 0) {
