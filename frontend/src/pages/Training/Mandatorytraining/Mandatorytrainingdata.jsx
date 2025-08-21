@@ -319,6 +319,20 @@ const Mandatorytrainingdata = () => {
     if (moduleIds.length === 0) return toast.error("Select at least one module (valid ID).");
     if (designations.length === 0) return toast.error("Select at least one designation.");
 
+    // Additional validation to help debug designation issues
+    console.log("Selected designations:", designations);
+    console.log("Available role options:", roleOptions.map(r => r.value));
+
+    // Validate that selected designations exist in the available options
+    const availableDesignations = roleOptions.map(r => r.value.toLowerCase());
+    const invalidDesignations = designations.filter(d => 
+      !availableDesignations.includes(d.toLowerCase())
+    );
+    
+    if (invalidDesignations.length > 0) {
+      return toast.error(`Invalid designation(s): ${invalidDesignations.join(', ')}. Please select from the available options.`);
+    }
+
     const payload = {
       trainingName: trainingName.trim(),
       modules: moduleIds,
@@ -354,7 +368,14 @@ const Mandatorytrainingdata = () => {
     } catch (err) {
       console.error("Submit failed:", err);
       // This shows the server's actual message (e.g., invalid id / no users found)
-      toast.error(String(err?.message || "Server Error"));
+      const errorMessage = String(err?.message || "Server Error");
+      
+      // Provide more helpful error messages for common issues
+      if (errorMessage.includes("No users found")) {
+        toast.error(`${errorMessage}\n\nTip: Make sure the designation names match exactly with the available options. Check the console for selected vs available designations.`);
+      } else {
+        toast.error(errorMessage);
+      }
     }
   };
 
@@ -418,7 +439,7 @@ const Mandatorytrainingdata = () => {
               options={roleOptions}
               isMulti
               value={assignedTo}
-              onChange={(opts) => setAssignedTo((opts || []).filter((o) => String(o?.value ?? "").trim()))}
+              onChange={(opts) => setAssignedTo((opts || []).filter((o) => String(o?.value ?? "").trim() !== ""))}
               className="w-full"
               placeholder="Select designation(s)…"
             />
