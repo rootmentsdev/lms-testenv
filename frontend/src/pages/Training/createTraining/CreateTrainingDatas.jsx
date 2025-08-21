@@ -78,7 +78,7 @@ const CreateTrainingDatas = () => {
                 if (selectedOption === 'user') {
                     const options = data.data.map((user) => ({
                         value: user._id,
-                        label: "EmpId : " + user.empID + "  " + " Name : " + user.username,
+                        label: "EmpId: " + user.empID + " | Name: " + user.username + " | Role: " + (user.designation || "N/A"),
                     }));
                     setUsers(options);
                 }
