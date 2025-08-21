@@ -169,7 +169,7 @@ app.post('/api/employee_range', async (req, res) => {
       upstream,
       { startEmpId, endEmpId },
       {
-        timeout: 20000,
+        timeout: 30000, // Increased timeout to 30 seconds
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -209,7 +209,7 @@ app.post('/api/employee_detail', async (req, res) => {
       upstream,
       { startEmpId: empId, endEmpId: empId },
       {
-        timeout: 20000,
+        timeout: 30000, // Increased timeout to 30 seconds
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',

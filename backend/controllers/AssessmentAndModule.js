@@ -54,30 +54,57 @@ export const assignAssessmentToUser = async (req, res) => {
 // Helper function to fetch employee data from external API
 const fetchEmployeeData = async () => {
   try {
-    const response = await axios.post('https://rootments.in/api/employee_range', {
+    const response = await axios.post(`${process.env.BASE_URL || 'http://localhost:7000'}/api/employee_range`, {
       startEmpId: 'EMP1',
       endEmpId: 'EMP9999'
     }, { timeout: 15000 });
     
     return response.data?.data || [];
   } catch (error) {
-    console.error('Error fetching employee data:', error);
+    console.error('Error fetching employee data from local API:', error);
     return [];
   }
 };
 
 export const GetAllTrainingWithCompletion = async (req, res) => {
   try {
-    // Fetch all trainings
-    const trainings = await Training.find({ Trainingtype: 'Assigned' }).populate('modules');
-
-    if (!trainings || trainings.length === 0) {
-      return res.status(404).json({ message: "No training data found" });
+    // Fetch all trainings that have been assigned to users (have progress records)
+    // We'll find trainings by looking at TrainingProgress records
+    const progressRecords = await TrainingProgress.find().populate('trainingId', 'trainingName modules Trainingtype Assignedfor deadline');
+    
+    if (!progressRecords || progressRecords.length === 0) {
+      return res.status(404).json({ message: "No assigned training data found" });
     }
 
-    // Fetch employee data from external API
-    const employeeData = await fetchEmployeeData();
-    console.log('Fetched employee data:', employeeData.length, 'employees');
+    // Group progress records by training ID to get unique trainings
+    const trainingMap = new Map();
+    progressRecords.forEach(record => {
+      if (record.trainingId) {
+        const trainingId = record.trainingId._id.toString();
+        if (!trainingMap.has(trainingId)) {
+          trainingMap.set(trainingId, {
+            training: record.trainingId,
+            progressRecords: []
+          });
+        }
+        trainingMap.get(trainingId).progressRecords.push(record);
+      }
+    });
+
+    // Fetch employee data from local API (like we fixed in mandatory training)
+    let employeeData = [];
+    try {
+      const response = await axios.post(`${process.env.BASE_URL || 'http://localhost:7000'}/api/employee_range`, {
+        startEmpId: 'EMP1',
+        endEmpId: 'EMP9999'
+      });
+      
+      employeeData = response.data?.data || [];
+      console.log('Fetched employee data from local API:', employeeData.length, 'employees');
+    } catch (error) {
+      console.error('Error fetching employee data from local API:', error.message);
+      // Continue with internal users only
+    }
 
     // Create a map for quick employee lookup by empID
     const employeeMap = new Map();
@@ -95,11 +122,7 @@ export const GetAllTrainingWithCompletion = async (req, res) => {
 
     // Process each training to calculate completion percentages
     const trainingData = await Promise.all(
-      trainings.map(async (training) => {
-        const progressRecords = await TrainingProgress.find({
-          trainingId: training._id
-        }).populate('userId', 'empID workingBranch designation username email');
-
+      Array.from(trainingMap.values()).map(async ({ training, progressRecords }) => {
         let totalUsers = 0;
         let totalPercentage = 0;
         const userProgress = [];
@@ -116,18 +139,22 @@ export const GetAllTrainingWithCompletion = async (req, res) => {
           let completedVideos = 0;
           const videoCompletionMap = new Map();
 
-          record.modules.forEach((module) => {
-            totalModules++;
-            if (module.pass) completedModules++;
+          if (record.modules && Array.isArray(record.modules)) {
+            record.modules.forEach((module) => {
+              totalModules++;
+              if (module.pass) completedModules++;
 
-            module.videos.forEach((video) => {
-              totalVideos++;
-              if (video.pass && !videoCompletionMap.has(video._id.toString())) {
-                completedVideos++;
-                videoCompletionMap.set(video._id.toString(), true);
+              if (module.videos && Array.isArray(module.videos)) {
+                module.videos.forEach((video) => {
+                  totalVideos++;
+                  if (video.pass && !videoCompletionMap.has(video._id.toString())) {
+                    completedVideos++;
+                    videoCompletionMap.set(video._id.toString(), true);
+                  }
+                });
               }
             });
-          });
+          }
 
           const moduleCompletion = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
           const videoCompletion = totalVideos > 0 ? (completedVideos / totalVideos) * 100 : 0;
@@ -135,13 +162,13 @@ export const GetAllTrainingWithCompletion = async (req, res) => {
 
           totalPercentage += userPercentage;
 
-          // Get employee data from external API or fallback to internal user data
+          // Get employee data from local API or fallback to internal user data
           let employeeInfo = null;
           if (record.userId?.empID) {
             employeeInfo = employeeMap.get(record.userId.empID);
           }
 
-          // Use external API data if available, otherwise fallback to internal data
+          // Use local API data if available, otherwise fallback to internal data
           const finalUserData = employeeInfo || {
             empID: record.userId?.empID || '',
             username: record.userId?.username || '',
@@ -150,7 +177,7 @@ export const GetAllTrainingWithCompletion = async (req, res) => {
             email: record.userId?.email || ''
           };
 
-          // Add unique branches and designations from external API data
+          // Add unique branches and designations from local API data
           if (finalUserData.workingBranch) uniqueBranches.add(finalUserData.workingBranch);
           if (finalUserData.designation) uniqueDesignations.add(finalUserData.designation);
 
@@ -161,7 +188,7 @@ export const GetAllTrainingWithCompletion = async (req, res) => {
             email: finalUserData.email,
             workingBranch: finalUserData.workingBranch,
             designation: finalUserData.designation,
-            modules: record.modules,
+            modules: record.modules || [],
             overallCompletionPercentage: userPercentage.toFixed(2),
           });
         }));
@@ -178,25 +205,27 @@ export const GetAllTrainingWithCompletion = async (req, res) => {
           trainingId: training._id,
           trainingName: training.trainingName,
           trainingTitle: training.title,
-          numberOfModules: training.modules.length,
-          totalUsers: employeeData.length, // Show total employees from external API
+          numberOfModules: training.modules ? training.modules.length : 0,
+          totalUsers: employeeData.length, // Show total employees from local API
           totalAssignedUsers: totalUsers, // Show actually assigned users
           averageCompletionPercentage,
           uniqueBranches: Array.from(uniqueBranches),
           uniqueItems: Array.from(uniqueDesignations),
           userProgress,
-          allEmployees: employeeData.length // Total number of employees available
+          allEmployees: employeeData.length, // Total number of employees available
+          trainingType: training.Trainingtype || 'Assigned',
+          assignedFor: training.Assignedfor || []
         };
       })
     );
 
     res.status(200).json({
-      message: "Training data fetched successfully",
+      message: "Assigned training data fetched successfully",
       data: trainingData
     });
   } catch (error) {
-    console.error('Error fetching training data:', error.message);
-    res.status(500).json({ message: "Server error while fetching training data" });
+    console.error('Error fetching assigned training data:', error.message);
+    res.status(500).json({ message: "Server error while fetching assigned training data" });
   }
 };
 

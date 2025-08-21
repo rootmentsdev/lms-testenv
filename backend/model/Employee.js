@@ -87,8 +87,6 @@ employeeSchema.pre('save', function (next) {
 });
 
 // Create indexes for better query performance
-employeeSchema.index({ employeeId: 1 });
-employeeSchema.index({ email: 1 });
 employeeSchema.index({ department: 1 });
 employeeSchema.index({ status: 1 });
 

@@ -1,16 +1,14 @@
-import { Link } from "react-router-dom";
-import RoundProgressBar from "../../components/RoundBar/RoundBar";
-import Header from "../../components/Header/Header";
-import { FaPlus } from "react-icons/fa";
-import { CiFilter } from "react-icons/ci";
-import { FaTrashAlt } from "react-icons/fa";
 import { useEffect, useState } from "react";
-import baseUrl from "../../api/api";
-import Card from "../../components/Skeleton/Card";
-import SideNav from "../../components/SideNav/SideNav";
+import { FaTrashAlt, FaPlus } from "react-icons/fa";
+import { CiFilter } from "react-icons/ci";
+import baseUrl from "../../../api/api";
+import Header from "../../../components/Header/Header";
+import SideNav from "../../../components/SideNav/SideNav";
+import RoundProgressBar from "../../../components/RoundBar/RoundBar";
+import Card from "../../../components/Skeleton/Card";
+import { Link } from "react-router-dom";
 
-const AssignedTrainingsData = () => {
-    const [isOpen, setIsOpen] = useState({ range: false, branch: false, role: false });
+const MandatoryTrainingList = () => {
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState([]);
     const [filteredData, setFilteredData] = useState([]);
@@ -19,8 +17,9 @@ const AssignedTrainingsData = () => {
     const [uniqueItems, setUniqueItems] = useState([]);
     const [selectedBranch, setSelectedBranch] = useState("");
     const [selectedItem, setSelectedItem] = useState("");
+    const [isOpen, setIsOpen] = useState({ range: false, branch: false, role: false });
     
-    // New state for multiple selection and bulk delete
+    // State for multiple selection and bulk delete
     const [selectedTrainings, setSelectedTrainings] = useState(new Set());
     const [isDeleting, setIsDeleting] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -47,7 +46,7 @@ const AssignedTrainingsData = () => {
         if (selectedTrainings.size === filteredData.length) {
             setSelectedTrainings(new Set());
         } else {
-            setSelectedTrainings(new Set(filteredData.map(item => item.trainingId)));
+            setSelectedTrainings(new Set(filteredData.map(item => item._id)));
         }
     };
 
@@ -74,8 +73,8 @@ const AssignedTrainingsData = () => {
                 alert(`Failed to delete ${failedDeletes.length} training(s). Please try again.`);
             } else {
                 // Remove deleted trainings from data
-                setData(prev => prev.filter(item => !selectedTrainings.has(item.trainingId)));
-                setFilteredData(prev => prev.filter(item => !selectedTrainings.has(item.trainingId)));
+                setData(prev => prev.filter(item => !selectedTrainings.has(item._id)));
+                setFilteredData(prev => prev.filter(item => !selectedTrainings.has(item._id)));
                 setSelectedTrainings(new Set());
                 setShowDeleteConfirm(false);
                 alert(`Successfully deleted ${selectedTrainings.size} training(s)`);
@@ -90,35 +89,45 @@ const AssignedTrainingsData = () => {
 
     useEffect(() => {
         const fetchData = async () => {
-            setLoading(true); // Start loading
+            setLoading(true);
             try {
+                // Fetch mandatory trainings (Trainingtype: "Mandatory")
                 const response = await fetch(`${baseUrl.baseUrl}api/get/allusertraining`);
                 if (!response.ok) {
                     throw new Error("Failed to fetch data");
                 }
                 const result = await response.json();
 
+                // Filter only mandatory trainings
+                const mandatoryTrainings = result.data.filter(training => 
+                    training.Trainingtype === "Mandatory"
+                );
+
                 // Extract uniqueBranches and uniqueItems
                 const branches = new Set();
                 const items = new Set();
-                result.data.forEach((training) => {
-                    training.uniqueBranches.forEach((branch) => branches.add(branch));
-                    training.uniqueItems.forEach((item) => items.add(item));
+                mandatoryTrainings.forEach((training) => {
+                    if (training.uniqueBranches) {
+                        training.uniqueBranches.forEach((branch) => branches.add(branch));
+                    }
+                    if (training.uniqueItems) {
+                        training.uniqueItems.forEach((item) => items.add(item));
+                    }
                 });
 
                 setUniqueBranches([...branches]);
                 setUniqueItems([...items]);
-                setData(result.data); // Set data
-                setFilteredData(result.data); // Initialize filtered data
+                setData(mandatoryTrainings);
+                setFilteredData(mandatoryTrainings);
             } catch (error) {
-                console.error("Error fetching data:", error); // Log errors
+                console.error("Error fetching data:", error);
             } finally {
-                setLoading(false); // Ensure loading is stopped in all cases
+                setLoading(false);
             }
         };
 
-        fetchData(); // Call the function to fetch data
-    }, []); // Dependency array ensures it runs only once
+        fetchData();
+    }, []);
 
     // Keyboard shortcuts
     useEffect(() => {
@@ -179,13 +188,13 @@ const AssignedTrainingsData = () => {
 
         if (selectedBranch) {
             filtered = filtered.filter((item) =>
-                item.uniqueBranches.includes(selectedBranch)
+                item.uniqueBranches && item.uniqueBranches.includes(selectedBranch)
             );
         }
 
         if (selectedItem) {
             filtered = filtered.filter((item) =>
-                item.uniqueItems.includes(selectedItem)
+                item.uniqueItems && item.uniqueItems.includes(selectedItem)
             );
         }
 
@@ -194,44 +203,36 @@ const AssignedTrainingsData = () => {
 
     useEffect(() => {
         applyFilters();
-    }, [filterRange, selectedBranch, selectedItem]); // Reapply filters when any filter changes
+    }, [filterRange, selectedBranch, selectedItem]);
 
     return (
         <>
             <div className="mb-[70px] w-full h-full bg-white">
                 <div>
-                    <Header name="Assigned Training" />
+                    <Header name="Mandatory Training List" />
                 </div>
                 <SideNav />
                 <div className="md:ml-[100px] mt-[100px]">
                     <div>
                         <div className="flex justify-end mr-20">
-                            <Link to={"/Alltraining"}>
+                            <Link to={"/training"}>
                                 <div className="flex w-56 mt-5 border-2 justify-center items-center py-2 ml-10 cursor-pointer">
-                                    <h4 className="text-black">Show All Training</h4>
+                                    <h4 className="text-black">Create New Training</h4>
                                 </div>
                             </Link>
                         </div>
                         <div className="flex text-black ml-10 gap-5 text-xl w-auto">
-                            <Link to="/training">
-                                <h4 className="cursor-pointer">Mandatory Trainings</h4>
-                            </Link>
                             <h4 className="border-b-[3px] border-[#016E5B] text-[#016E5B] ">
-                                Assigned Trainings
+                                Mandatory Trainings
                             </h4>
+                            <Link to="/assignedtrainings">
+                                <h4 className="cursor-pointer">Assigned Trainings</h4>
+                            </Link>
                         </div>
                         <hr className="mx-10 mt-[-1px] border-[#016E5B]" />
 
-                        <div className="flex mx-10 justify-between mt-10 gap-5">
-                            <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer">
-                                <div className="text-[#016E5B]">
-                                    <FaPlus />
-                                </div>
-                                <Link to={"/createnewtraining"}>
-                                    <h4 className="text-black">Create new Training</h4>
-                                </Link>
-                            </div>
-
+                        {/* Filter Section */}
+                        <div className="flex mx-10 justify-end mt-10 gap-5">
                             {/* Filter by Range */}
                             <div className="flex gap-2">
                                 <div className="relative text-left w-36">
@@ -333,74 +334,120 @@ const AssignedTrainingsData = () => {
                     </div>
 
                     {/* Bulk Actions Bar */}
-                    {filteredData.length > 0 && (
-                        <div className="mt-6 ml-10 flex items-center gap-4 p-4 bg-gray-50 rounded-lg border">
-                            <div className="flex items-center gap-2">
-                                <input
-                                    type="checkbox"
-                                    checked={selectedTrainings.size === filteredData.length && filteredData.length > 0}
-                                    onChange={handleSelectAll}
-                                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-                                />
-                                <span className="text-sm text-gray-700">
-                                    {selectedTrainings.size === 0 
-                                        ? "Select All (Ctrl+A)" 
-                                        : `${selectedTrainings.size} of ${filteredData.length} selected`
-                                    }
-                                </span>
-                            </div>
-                            
-                            {selectedTrainings.size > 0 && (
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => setSelectedTrainings(new Set())}
-                                        className="px-3 py-2 text-gray-600 bg-gray-200 rounded-md hover:bg-gray-300"
-                                    >
-                                        Clear Selection
-                                    </button>
-                                    <button
-                                        onClick={() => setShowDeleteConfirm(true)}
-                                        disabled={isDeleting}
-                                        className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        <FaTrashAlt />
-                                        Delete Selected ({selectedTrainings.size})
-                                    </button>
-                                </div>
-                            )}
-                            
-                            {/* Delete All Trainings Option */}
-                            <div className="ml-auto flex items-center gap-3 border-l border-gray-300 pl-4">
+                    <div className="mt-6 ml-10 flex items-center gap-4 p-4 bg-gray-50 rounded-lg border">
+                        {filteredData.length > 0 ? (
+                            <>
                                 <div className="flex items-center gap-2">
                                     <input
                                         type="checkbox"
-                                        id="deleteAllCheckbox"
-                                        className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500 focus:ring-2"
+                                        checked={selectedTrainings.size === filteredData.length && filteredData.length > 0}
+                                        onChange={handleSelectAll}
+                                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
                                     />
-                                    <label htmlFor="deleteAllCheckbox" className="text-sm text-gray-700 font-medium">
-                                        Delete All Trainings
-                                    </label>
-                                </div>
-                                <button
-                                    onClick={() => {
-                                        const deleteAllCheckbox = document.getElementById('deleteAllCheckbox');
-                                        if (deleteAllCheckbox && deleteAllCheckbox.checked) {
-                                            // Select all trainings and show delete confirmation
-                                            setSelectedTrainings(new Set(filteredData.map(item => item.trainingId)));
-                                            setShowDeleteConfirm(true);
-                                        } else {
-                                            alert('Please check the "Delete All Trainings" checkbox to confirm you want to delete all trainings.');
+                                    <span className="text-sm text-gray-700">
+                                        {selectedTrainings.size === 0 
+                                            ? "Select All (Ctrl+A)" 
+                                            : `${selectedTrainings.size} of ${filteredData.length} selected`
                                         }
-                                    }}
-                                    disabled={isDeleting}
-                                    className="px-4 py-2 bg-red-700 text-white rounded-md hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                                >
-                                    <FaTrashAlt />
-                                    Delete All
-                                </button>
+                                    </span>
+                                </div>
+                                
+                                {selectedTrainings.size > 0 && (
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => setSelectedTrainings(new Set())}
+                                            className="px-3 py-2 text-gray-600 bg-gray-200 rounded-md hover:bg-gray-300"
+                                        >
+                                            Clear Selection
+                                        </button>
+                                        <button
+                                            onClick={() => setShowDeleteConfirm(true)}
+                                            disabled={isDeleting}
+                                            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            <FaTrashAlt />
+                                            Delete Selected ({selectedTrainings.size})
+                                        </button>
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <div className="text-sm text-gray-500">
+                                No trainings available for selection
                             </div>
+                        )}
+                        
+                        {/* Delete All Trainings Option - Always Visible */}
+                        <div className="ml-auto flex items-center gap-3 border-l border-gray-300 pl-4">
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    id="deleteAllCheckbox"
+                                    className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500 focus:ring-2"
+                                />
+                                <label htmlFor="deleteAllCheckbox" className="text-sm text-gray-700 font-medium">
+                                    Delete All Trainings
+                                </label>
+                            </div>
+                            <button
+                                onClick={async () => {
+                                    const deleteAllCheckbox = document.getElementById('deleteAllCheckbox');
+                                    if (deleteAllCheckbox && deleteAllCheckbox.checked) {
+                                        if (confirm('Are you absolutely sure you want to delete ALL mandatory trainings? This action cannot be undone!')) {
+                                            try {
+                                                // Fetch all mandatory trainings first
+                                                const response = await fetch(`${baseUrl.baseUrl}api/get/allusertraining`);
+                                                if (!response.ok) throw new Error("Failed to fetch trainings");
+                                                
+                                                const result = await response.json();
+                                                const mandatoryTrainings = result.data.filter(training => 
+                                                    training.Trainingtype === "Mandatory"
+                                                );
+                                                
+                                                if (mandatoryTrainings.length === 0) {
+                                                    alert('No mandatory trainings found to delete.');
+                                                    return;
+                                                }
+                                                
+                                                // Delete all mandatory trainings
+                                                const deletePromises = mandatoryTrainings.map(training =>
+                                                    fetch(`${baseUrl.baseUrl}api/user/delete/training/${training._id}`, {
+                                                        method: 'DELETE',
+                                                        headers: {
+                                                            'Content-Type': 'application/json',
+                                                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                                                        }
+                                                    })
+                                                );
+                                                
+                                                const results = await Promise.all(deletePromises);
+                                                const failedDeletes = results.filter(result => !result.ok);
+                                                
+                                                if (failedDeletes.length > 0) {
+                                                    alert(`Failed to delete ${failedDeletes.length} training(s). Please try again.`);
+                                                } else {
+                                                    alert(`Successfully deleted ${mandatoryTrainings.length} mandatory training(s)`);
+                                                    // Reset the checkbox and refresh data
+                                                    deleteAllCheckbox.checked = false;
+                                                    window.location.reload(); // Refresh to show updated data
+                                                }
+                                            } catch (error) {
+                                                console.error('Error deleting all trainings:', error);
+                                                alert('An error occurred while deleting all trainings. Please try again.');
+                                            }
+                                        }
+                                    } else {
+                                        alert('Please check the confirmation checkbox to delete all trainings.');
+                                    }
+                                }}
+                                disabled={isDeleting}
+                                className="px-4 py-2 bg-red-700 text-white rounded-md hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            >
+                                <FaTrashAlt />
+                                Delete All
+                            </button>
                         </div>
-                    )}
+                    </div>
 
                     <div className="mt-10 ml-10 flex flex-wrap gap-3">
                         {loading ? (
@@ -410,34 +457,41 @@ const AssignedTrainingsData = () => {
                                 <Card />
                                 <Card />
                             </>
+                        ) : filteredData.length === 0 ? (
+                            <div className="w-full text-center py-10">
+                                <p className="text-gray-500 text-lg">No mandatory trainings found</p>
+                                <Link to="/training" className="text-blue-600 hover:underline mt-2 inline-block">
+                                    Create your first mandatory training
+                                </Link>
+                            </div>
                         ) : (
                             filteredData.map((item) => (
-                                <div key={item.trainingId} className={`relative group ${
-                                    selectedTrainings.has(item.trainingId) ? 'ring-2 ring-blue-500 ring-offset-2' : ''
+                                <div key={item._id} className={`relative group ${
+                                    selectedTrainings.has(item._id) ? 'ring-2 ring-blue-500 ring-offset-2' : ''
                                 }`}>
                                     {/* Selection Checkbox */}
                                     <div className={`absolute top-2 left-2 z-10 transition-opacity ${
-                                        selectedTrainings.has(item.trainingId) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                                        selectedTrainings.has(item._id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                                     }`}>
                                         <input
                                             type="checkbox"
-                                            checked={selectedTrainings.has(item.trainingId)}
+                                            checked={selectedTrainings.has(item._id)}
                                             onChange={(e) => {
                                                 e.stopPropagation();
-                                                handleTrainingSelection(item.trainingId);
+                                                handleTrainingSelection(item._id);
                                             }}
                                             className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
                                         />
                                     </div>
                                     
                                     {/* Training Card */}
-                                    <Link to={`/assigtraining/${item.trainingId}`}>
+                                    <Link to={`/assigtraining/${item._id}`}>
                                         <RoundProgressBar
-                                            initialProgress={item.averageCompletionPercentage}
+                                            initialProgress={item.averageCompletionPercentage || 0}
                                             title={item.trainingName}
-                                            Module={`No. of Modules : ${item.numberOfModules}`}
-                                            duration={`Total Users: ${item.totalUsers} | Assigned: ${item.totalAssignedUsers || 0}`}
-                                            complete={`Completion Rate : ${item.averageCompletionPercentage}%`}
+                                            Module={`No. of Modules : ${item.numberOfModules || 0}`}
+                                            duration={`Total Users: ${item.totalUsers || 0} | Assigned: ${item.totalAssignedUsers || 0}`}
+                                            complete={`Completion Rate : ${item.averageCompletionPercentage || 0}%`}
                                         />
                                     </Link>
                                 </div>
@@ -457,7 +511,7 @@ const AssignedTrainingsData = () => {
                         </div>
                         
                         <p className="text-gray-700 mb-6">
-                            Are you sure you want to delete <span className="font-semibold">{selectedTrainings.size}</span> training(s)? 
+                            Are you sure you want to delete <span className="font-semibold">{selectedTrainings.size}</span> mandatory training(s)? 
                             This action cannot be undone and will also remove all associated training progress records.
                         </p>
                         
@@ -494,4 +548,4 @@ const AssignedTrainingsData = () => {
     );
 };
 
-export default AssignedTrainingsData;
+export default MandatoryTrainingList;
