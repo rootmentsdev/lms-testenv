@@ -399,11 +399,11 @@ export const GetBranch = async (req, res) => {
 
 
 export const GetuserTraining = async (req, res) => {
-  const { email } = req.query; // Extract email from query
+  const { empID } = req.query; // Extract empID from query instead of email
 
   try {
-    // Find user based on email and populate training and modules separately
-    const user = await User.findOne({ email })
+    // Find user based on empID and populate training and modules separately
+    const user = await User.findOne({ empID })
       .populate({
         path: 'training.trainingId', // Populate the training details
 

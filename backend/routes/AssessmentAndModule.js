@@ -3,6 +3,7 @@ import { assignModuleToUser, assignAssessmentToUser, ReassignTraining, deleteTra
 import { GetuserTraining, GetuserTrainingprocess, GetuserTrainingprocessmodule, UpdateuserTrainingprocess } from '../controllers/CreateUser.js';
 import { AssessmentAssign, TrainingDetails } from '../controllers/AssessmentReassign.js';
 import { GetAssessmentDetails } from '../controllers/moduleController.js';
+import { UserAssessmentGet } from '../controllers/FutterAssessment.js';
 import { MiddilWare } from '../lib/middilWare.js';
 
 const router = express.Router();
@@ -117,11 +118,11 @@ router.post('/assign-assessment', assignAssessmentToUser);
  *     description: Fetches a list of all trainings assigned to a user, including their progress and overall completion percentage.
  *     parameters:
  *       - in: query
- *         name: email
+ *         name: empID
  *         schema:
  *           type: string
  *         required: true
- *         description: Email of the user to fetch training progress for.
+ *         description: Employee ID of the user to fetch training progress for.
  *     responses:
  *       200:
  *         description: Successfully retrieved training data.
@@ -675,5 +676,61 @@ router.post('/post/createAssessment', MiddilWare, AssessmentAssign);
  *         description: Internal server error.
  */
 router.get('/get/assessment/details/:id', GetAssessmentDetails);
+
+
+
+/**
+ * @swagger
+ * /api/user/getAll/assessment:
+ *   get:
+ *     summary: Retrieve all assessments with user progress
+ *     description: Returns all assessments in the system, along with statistics on how many users were assigned and how many passed each assessment.
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved all assessments with statistics.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Assessments retrieved successfully.
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       assessmentId:
+ *                         type: string
+ *                         example: "60f8a6b5f83e4c42f87e7d90"
+ *                       assessmentName:
+ *                         type: string
+ *                         example: "JavaScript Basics"
+ *                       assessment:
+ *                         type: integer
+ *                         example: 10
+ *                       assessmentdeadline:
+ *                         type: string
+ *                         format: date
+ *                         example: "2025-06-01"
+ *                       assessmentduration:
+ *                         type: integer
+ *                         example: 30
+ *                       totalAssigned:
+ *                         type: integer
+ *                         example: 5
+ *                       totalPassed:
+ *                         type: integer
+ *                         example: 3
+ *                       completionPercentage:
+ *                         type: string
+ *                         example: "60.00"
+ *       400:
+ *         description: Bad request, invalid query parameters.
+ *       500:
+ *         description: Internal server error.
+ */
+router.get('/getAll/assessment', UserAssessmentGet);
 
 export default router;

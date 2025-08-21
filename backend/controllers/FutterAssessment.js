@@ -8,15 +8,15 @@ import User from "../model/User.js";
 
 export const UserAssessmentGet = async (req, res) => {
     try {
-        const { email } = req.query;
+        const { empID } = req.query; // Changed from email to empID
 
-        if (!email) {
+        if (!empID) {
             return res.status(400).json({
-                message: "Email is required"
+                message: "Employee ID is required"
             });
         }
 
-        const userAssessment = await User.findOne({ email }).populate({
+        const userAssessment = await User.findOne({ empID }).populate({
             path: 'assignedAssessments.assessmentId',
             select: '-questions', // Excludes the 'questions' field
         }).select('-training');

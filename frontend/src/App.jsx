@@ -38,6 +38,7 @@ const EmployeeDetaile = lazy(() => import('./pages/Employee/EmployeeDetaile/Empl
 const BranchDetails = lazy(() => import('./pages/Branch/BranchDetails/BranchDetails.jsx'))
 const Profile = lazy(() => import('./pages/profile/Profile.jsx'))
 const LoginAnalytics = lazy(() => import('./pages/Setting/LoginAnalytics.jsx'))
+const APITest = lazy(() => import('./components/APITest.jsx'))
 
 import { setUser } from './features/auth/authSlice.js';
 
@@ -142,6 +143,7 @@ function App() {
           <Route path="/branch/detailed/:id" element={<ProtectedRoute>< BranchDetails /></ProtectedRoute>} />
           <Route path="/admin/profile" element={<ProtectedRoute>< Profile /></ProtectedRoute>} />
           <Route path="/admin/login-analytics" element={<ProtectedRoute>< LoginAnalytics /></ProtectedRoute>} />
+          <Route path="/admin/api-test" element={<ProtectedRoute>< APITest /></ProtectedRoute>} />
 
         </Routes>
       </Suspense>
