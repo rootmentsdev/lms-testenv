@@ -485,7 +485,7 @@ export const calculateProgress = async (req, res) => {
                 assessmentCount,
                 branchCount: AdminData.branches.length,
                 userCount: userCount.length,
-                averageProgress,
+                averageProgress: parseFloat(averageProgress),
                 assessmentProgress: passedAssessments,
                 trainingPending: trainingpend
             },
@@ -559,6 +559,27 @@ export const createMandatoryTraining = async (req, res) => {
 
 
 
+        // First, get external employee data to find matching employees
+        let externalEmployees = [];
+        try {
+            const response = await axios.post('https://rootments.in/api/employee_range', {
+                startEmpId: "EMP1",
+                endEmpId: "EMP9999"
+            }, {
+                timeout: 20000,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer RootX-production-9d17d9485eb772e79df8564004d4a4d4',
+                },
+            });
+            
+            externalEmployees = response.data?.data || [];
+        } catch (error) {
+            console.error('Error fetching external employee data:', error);
+            // Continue with internal users only
+        }
+
         const flatten = (str) => str.toLowerCase().replace(/\s+/g, '');
 
         const matchAnyDesignation = (userDesig, roleList) => {
@@ -566,22 +587,69 @@ export const createMandatoryTraining = async (req, res) => {
             return roleList.map(flatten).includes(flat);
         };
 
-        const allUsers = await User.find(); // Optionally add filters like { locCode: "XYZ" }
-
-        const usersInBranch = allUsers.filter(user =>
+        // Get internal users that match the designation
+        const allInternalUsers = await User.find();
+        const internalUsersInBranch = allInternalUsers.filter(user =>
             matchAnyDesignation(user.designation, workingBranch)
         );
 
+        // Filter external employees by designation and create/find corresponding internal users
+        const matchingExternalEmployees = externalEmployees.filter(emp =>
+            matchAnyDesignation(emp.role_name, workingBranch)
+        );
 
+        // Create or find internal users for matching external employees
+        const externalToInternalUsers = [];
+        for (const emp of matchingExternalEmployees) {
+            if (!emp.emp_code || !emp.email) {
+                continue;
+            }
 
+            // Try to find existing user
+            let user = await User.findOne({
+                $or: [
+                    { empID: emp.emp_code },
+                    { email: emp.email }
+                ]
+            });
 
-        if (usersInBranch.length === 0) {
-            return res.status(404).json({ message: "No users found matching the criteria" });
+            if (!user) {
+                // Create new user if doesn't exist
+                user = new User({
+                    username: emp.name || emp.emp_code || 'Unknown',
+                    email: emp.email,
+                    empID: emp.emp_code,
+                    locCode: emp.store_code || '',
+                    designation: emp.role_name || '',
+                    location: emp.store_name || '',
+                    workingBranch: emp.store_name || '',
+                });
+                await user.save();
+            }
+            externalToInternalUsers.push(user);
+        }
+
+        // Combine internal and external-derived users
+        const usersInBranch = [...internalUsersInBranch, ...externalToInternalUsers];
+
+        // Remove duplicates based on empID
+        const uniqueUsersMap = new Map();
+        usersInBranch.forEach(user => {
+            if (!uniqueUsersMap.has(user.empID)) {
+                uniqueUsersMap.set(user.empID, user);
+            }
+        });
+        const finalUsersInBranch = Array.from(uniqueUsersMap.values());
+
+        if (finalUsersInBranch.length === 0) {
+            return res.status(404).json({ 
+                message: `No users found for the provided designation(s): ${workingBranch.join(', ')}. Please check if the designation names match exactly.`
+            });
         }
 
 
         // Assign training and create progress for each user
-        const updatedUsers = usersInBranch.map(async (user) => {
+        const updatedUsers = finalUsersInBranch.map(async (user) => {
             user.training.push({
                 trainingId: newTraining._id,
                 deadline: deadlineDate,
@@ -613,14 +681,14 @@ export const createMandatoryTraining = async (req, res) => {
         await Promise.all(updatedUsers); // Save all users asynchronously
 
         res.status(201).json({
-            message: "Training created and assigned successfully",
+            message: `Training created and assigned successfully to ${finalUsersInBranch.length} users`,
             training: newTraining,
+            assignedUsersCount: finalUsersInBranch.length
         });
         const newNotification = await Notification.create({
             title: `New training Created : ${trainingName}`,
-            body: `${trainingName} has been successfully created. Created by ${admin?.name}. The training is scheduled to be completed in ${days} days.`,
+            body: `${trainingName} has been successfully created and assigned to ${finalUsersInBranch.length} users. Created by ${admin?.name}. The training is scheduled to be completed in ${days} days.`,
             Role: workingBranch,
-
             useradmin: admin?.name, // Optional
         });
     } catch (error) {
