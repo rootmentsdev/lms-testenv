@@ -7,6 +7,7 @@ import TrainingProgress from "../model/Trainingprocessschema.js";
 import { Training } from "../model/Traning.js";
 import User from "../model/User.js";
 import axios from 'axios';
+import UserLoginSession from '../model/UserLoginSession.js';
 
 export const createAssessment = async (req, res) => {
     try {
@@ -706,6 +707,20 @@ export const calculateProgress = async (req, res) => {
 
 
 
+        // Get login statistics
+        const uniqueLoginUsers = await UserLoginSession.distinct('userId');
+        const uniqueLoginUserCount = uniqueLoginUsers.length;
+        const totalLogins = await UserLoginSession.countDocuments();
+        
+        // Get device breakdown
+        const deviceStats = await UserLoginSession.aggregate([
+            { $group: { _id: '$deviceOS', count: { $sum: 1 } } },
+            { $sort: { count: -1 } }
+        ]);
+        
+        // Calculate login percentage
+        const loginPercentage = userCount.length > 0 ? Math.round((uniqueLoginUserCount / userCount.length) * 100) : 0;
+        
         // Return results
         res.status(200).json({
             success: true,
@@ -715,7 +730,12 @@ export const calculateProgress = async (req, res) => {
                 userCount: userCount.length,
                 averageProgress: parseFloat(averageProgress),
                 assessmentProgress: passedAssessments,
-                trainingPending: trainingpend
+                trainingPending: trainingpend,
+                // Login statistics
+                uniqueLoginUserCount,
+                totalLogins,
+                loginPercentage,
+                deviceStats
             },
         });
     } catch (error) {

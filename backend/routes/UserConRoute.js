@@ -7,6 +7,7 @@ const router = express.Router();
  * @swagger
  * /api/auth/login:
  *   post:
+ *     tags: [User Management]
  *     summary: User login
  *     description: This route allows a user to log in with their credentials (e.g., username and password).
  *     requestBody:
@@ -32,7 +33,46 @@ const router = express.Router();
  */
 router.post('/login', loginUser);
 
-// Logout endpoint
+/**
+ * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     tags: [User Management]
+ *     summary: User logout
+ *     description: Logs out a user and tracks the session duration
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               sessionId:
+ *                 type: string
+ *                 description: The session ID to logout
+ *             required:
+ *               - sessionId
+ *     responses:
+ *       200:
+ *         description: Successfully logged out
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Logout tracked successfully
+ *                 sessionDuration:
+ *                   type: number
+ *                   description: Session duration in minutes
+ *       400:
+ *         description: Bad request - Session ID is required
+ *       404:
+ *         description: Session not found
+ *       500:
+ *         description: Internal server error
+ */
 router.post('/logout', async (req, res) => {
   try {
     const { sessionId } = req.body;

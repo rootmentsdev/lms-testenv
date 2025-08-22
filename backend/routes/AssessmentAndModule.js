@@ -13,6 +13,7 @@ const router = express.Router();
  * @swagger
  * /api/user/assign-module:
  *   post:
+ *     tags: [Modules]
  *     summary: Assign a module to a user
  *     description: Assigns a training or learning module to a specific user with an optional deadline.
  *     requestBody:
@@ -63,6 +64,7 @@ router.post('/assign-module', assignModuleToUser);
  * @swagger
  * /api/user/assign-assessment:
  *   post:
+ *     tags: [Assessments]
  *     summary: Assign an assessment to a user
  *     description: Assigns an assessment to a specific user with an optional deadline.
  *     requestBody:
@@ -114,6 +116,7 @@ router.post('/assign-assessment', assignAssessmentToUser);
  * @swagger
  * /api/user/getAll/training:
  *   get:
+ *     tags: [Training]
  *     summary: Retrieve all user training
  *     description: Fetches a list of all trainings assigned to a user, including their progress and overall completion percentage.
  *     parameters:
@@ -353,6 +356,7 @@ router.get('/update/trainingprocess', UpdateuserTrainingprocess);
  * @swagger
  * /api/user/reassign/training:
  *   post:
+ *     tags: [Training]
  *     summary: Reassign training to users
  *     description: Reassigns a training program to one or more users by removing existing progress and reinitializing the training state.
  *     requestBody:
