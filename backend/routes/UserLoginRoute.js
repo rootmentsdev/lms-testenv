@@ -6,7 +6,8 @@ import {
     getUserLoginHistory,
     getActiveUsers,
     getDashboardLoginStats,
-    getPublicLoginStats
+    getPublicLoginStats,
+    userLogin
 } from '../controllers/UserLoginController.js';
 import { verifyJWT } from '../lib/JWT.js';
 
@@ -697,5 +698,63 @@ router.get('/history/:userId', verifyJWT, getUserLoginHistory);
  *         description: Internal server error
  */
 router.get('/active-users', verifyJWT, getActiveUsers);
+
+/**
+ * @swagger
+ * /api/user-login/login:
+ *   post:
+ *     tags: [Login Analytics]
+ *     summary: User login for iOS users
+ *     description: Authenticates iOS users with email and employee ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 description: User's email address
+ *               empId:
+ *                 type: string
+ *                 description: Employee ID
+ *             required:
+ *               - email
+ *               - empId
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 token:
+ *                   type: string
+ *                   description: JWT token for authentication
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     userId:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     empId:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *       401:
+ *         description: Unauthorized - Invalid credentials
+ *       400:
+ *         description: Bad request - Missing required fields
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/login', userLogin);
 
 export default router;

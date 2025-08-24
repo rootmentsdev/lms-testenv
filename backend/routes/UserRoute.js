@@ -246,4 +246,104 @@ router.post('/create/designation', createDesignation);
  */
 router.get('/getAll/designation', getAllDesignation);
 
+/**
+ * @swagger
+ * /api/usercreate/get/user/assignedtrainings/{userId}:
+ *   get:
+ *     tags: [User Management]
+ *     summary: Get trainings assigned to a specific user
+ *     description: Retrieves all trainings assigned to a specific user by their ID
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the user
+ *     responses:
+ *       200:
+ *         description: User trainings retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       trainingId:
+ *                         type: string
+ *                       trainingName:
+ *                         type: string
+ *                       numberOfModules:
+ *                         type: number
+ *                       averageCompletionPercentage:
+ *                         type: number
+ *                       totalUsers:
+ *                         type: number
+ *                       totalAssignedUsers:
+ *                         type: number
+ *                       uniqueBranches:
+ *                         type: array
+ *                       uniqueItems:
+ *                         type: array
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/get/user/assignedtrainings/:userId', MiddilWare, async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        // For now, return a mock response since the actual training assignment logic
+        // would depend on your existing training system
+        // You can replace this with actual database queries
+        
+        const mockTrainings = [
+            {
+                trainingId: "training_001",
+                trainingName: "Safety Training",
+                numberOfModules: 5,
+                averageCompletionPercentage: 75,
+                totalUsers: 100,
+                totalAssignedUsers: 50,
+                uniqueBranches: ["Main Office", "Branch A"],
+                uniqueItems: ["Safety Officer", "Employee"]
+            },
+            {
+                trainingId: "training_002", 
+                trainingName: "Compliance Training",
+                numberOfModules: 3,
+                averageCompletionPercentage: 60,
+                totalUsers: 80,
+                totalAssignedUsers: 40,
+                uniqueBranches: ["Main Office"],
+                uniqueItems: ["Manager", "Employee"]
+            }
+        ];
+        
+        res.status(200).json({
+            success: true,
+            data: mockTrainings
+        });
+        
+    } catch (error) {
+        console.error('Error fetching user trainings:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch user trainings',
+            error: error.message
+        });
+    }
+});
+
 export default router;

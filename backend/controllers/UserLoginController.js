@@ -1,5 +1,7 @@
 import UserLoginSession from '../model/UserLoginSession.js';
 import { detectDeviceInfo, getLocationFromIP } from '../utils/deviceDetection.js';
+import jwt from 'jsonwebtoken';
+import Employee from '../model/Employee.js';
 
 // Track user login
 export const trackUserLogin = async (req, res) => {
@@ -466,6 +468,83 @@ export const getPublicLoginStats = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Failed to get login statistics',
+            error: error.message
+        });
+    }
+};
+
+// User login for iOS users
+export const userLogin = async (req, res) => {
+    try {
+        const { email, empId } = req.body;
+
+        // Validate input
+        if (!email || !empId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email and Employee ID are required'
+            });
+        }
+
+        // Check if employee exists
+        const employee = await Employee.findOne({ 
+            email: email.toLowerCase(),
+            empId: empId 
+        });
+
+        if (!employee) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid email or Employee ID'
+            });
+        }
+
+        // Generate JWT token
+        const token = jwt.sign(
+            { 
+                userId: employee._id, 
+                email: employee.email, 
+                empId: employee.empId,
+                role: 'user'
+            },
+            process.env.JWT_SECRET || 'your-secret-key',
+            { expiresIn: '24h' }
+        );
+
+        // Track login session
+        const userAgent = req.headers['user-agent'] || 'Unknown';
+        const ipAddress = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] || 'Unknown';
+        const deviceInfo = detectDeviceInfo(userAgent, ipAddress);
+        const location = await getLocationFromIP(ipAddress);
+
+        const loginSession = new UserLoginSession({
+            userId: employee._id,
+            username: employee.name || employee.empId,
+            email: employee.email,
+            ...deviceInfo,
+            location,
+            ipAddress
+        });
+
+        await loginSession.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Login successful',
+            token,
+            user: {
+                userId: employee._id,
+                email: employee.email,
+                empId: employee.empId,
+                name: employee.name || employee.empId
+            }
+        });
+
+    } catch (error) {
+        console.error('Error during user login:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error during login',
             error: error.message
         });
     }

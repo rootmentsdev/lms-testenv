@@ -50,7 +50,7 @@ const Login = () => {
 
         // Display success message and redirect
         toast.success('Login successful');
-        navigate('/'); // Redirect to the desired route
+        navigate('/home'); // Redirect to admin home
       } else {
         setLoading(true)
         // Handle non-200 responses

@@ -1,17 +1,21 @@
-import { useEffect } from 'react';
-import { Route, Routes, useNavigate } from 'react-router-dom';
-import './App.css';
-import { ToastContainer } from 'react-toastify';
+// CSS imports must come first
 import 'react-toastify/dist/ReactToastify.css';
 import "@fontsource/poppins"
 import "@fontsource/poppins/500.css"
 import "@fontsource/poppins/700.css"
+
+// React and other imports
+import { useEffect } from 'react';
+import { Route, Routes, useNavigate } from 'react-router-dom';
+import { ToastContainer } from 'react-toastify';
 import HashLoader from "react-spinners/HashLoader";
 
 
 import { lazy, Suspense } from 'react';
 const Home = lazy(() => import('./pages/Home/Home'));
+const LandingPage = lazy(() => import('./pages/Login/LandingPage'));
 const Login = lazy(() => import('./pages/Login/Login'));
+const IOSUserLogin = lazy(() => import('./pages/Login/IOSUserLogin'));
 const Assessments = lazy(() => import('./pages/Assessments/Assessments'));
 const Branch = lazy(() => import('./pages/Branch/Branch'));
 const Employee = lazy(() => import('./pages/Employee/Employee'));
@@ -20,6 +24,7 @@ const Training = lazy(() => import('./pages/Training/Training'));
 const Setting = lazy(() => import('./pages/Setting/Setting'));
 const CreateTraining = lazy(() => import('./pages/Training/CreateTraining'));
 const AssignedTrainings = lazy(() => import('./pages/Training/AssignedTrainings'));
+const IOSUserTraining = lazy(() => import('./pages/Training/IOSUserTraining'));
 const AssingOrdelete = lazy(() => import('./pages/Training/AssingOrdelete'));
 const CreateModule = lazy(() => import('./pages/Modules/createmodule/CreateModule'));
 const CreateTrainings = lazy(() => import('./pages/Training/createTraining/CreateTrainings'));
@@ -59,7 +64,7 @@ function App() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      navigate('/login');
+      navigate('/');
     } else {
       const verifyToken = async () => {
         try {
@@ -70,7 +75,7 @@ function App() {
             },
           });
           if (!response.ok) {
-            navigate('/login');
+            navigate('/');
           }
           console.log("hi");
 
@@ -87,7 +92,7 @@ function App() {
           console.error('Error verifying token:', error);
           localStorage.removeItem('token');
           window.location.reload();
-          navigate('/login');
+          navigate('/');
         }
       };
 
@@ -101,7 +106,15 @@ function App() {
         <HashLoader color="#016E5B" size={50} />
       </div>}>
         <Routes>
-          {/* Public Route */}
+          {/* Public Routes */}
+          <Route
+            path="/"
+            element={
+              <div>
+                <LandingPage />
+              </div>
+            }
+          />
           <Route
             path="/login"
             element={
@@ -110,9 +123,17 @@ function App() {
               </PublicRoute>
             }
           />
+          <Route
+            path="/ios-login"
+            element={
+              <PublicRoute>
+                <IOSUserLogin />
+              </PublicRoute>
+            }
+          />
 
           {/* Protected Routes */}
-          <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+          <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
           <Route path="/assessments" element={<ProtectedRoute><Assessments /></ProtectedRoute>} />
 
           <Route path="/branch" element={<ProtectedRoute><Branch /></ProtectedRoute>} />
@@ -124,6 +145,7 @@ function App() {
           <Route path="/alltraining" element={<ProtectedRoute><Training /></ProtectedRoute>} />
           <Route path="/training" element={<ProtectedRoute><CreateTraining /></ProtectedRoute>} />
           <Route path="/assigdata" element={<ProtectedRoute><AssignedTrainings /></ProtectedRoute>} />
+          <Route path="/ios-user-training" element={<ProtectedRoute><IOSUserTraining /></ProtectedRoute>} />
           <Route path="/assigtraining/:id" element={<ProtectedRoute><AssingOrdelete /></ProtectedRoute>} />
           <Route path="/createmodule" element={<ProtectedRoute><CreateModule /></ProtectedRoute>} />
           <Route path="/createnewtraining" element={<ProtectedRoute><CreateTrainings /></ProtectedRoute>} />

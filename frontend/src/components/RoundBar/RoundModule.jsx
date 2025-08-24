@@ -1,5 +1,8 @@
-import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
+// CSS imports must come first
 import "react-circular-progressbar/dist/styles.css"; // Import the styles
+
+// React component imports
+import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
 
 const RoundModule = ({ initialProgress, title, Module, complete }) => {
     // Initialize the progress state

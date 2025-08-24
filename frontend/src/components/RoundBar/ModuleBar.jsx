@@ -1,3 +1,4 @@
+// CSS imports must come first
 import "react-circular-progressbar/dist/styles.css"; // Import the styles
 
 const ModuleBar = ({ title, Module, duration, complete }) => {
