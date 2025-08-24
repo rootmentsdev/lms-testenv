@@ -8,40 +8,6 @@ import { MiddilWare } from '../lib/middilWare.js';
 
 const router = express.Router();
 
-// CORS middleware specifically for training process endpoints
-const corsMiddleware = (req, res, next) => {
-  const origin = req.headers.origin;
-  
-  // Allow specific origins
-  const allowedOrigins = [
-    'https://unicode-mu.vercel.app',
-    'https://lms.rootments.live',
-    'http://localhost:3000',
-    'http://localhost:5173', // dev (Vite)
-    'https://lms-dev-jishnu.vercel.app',
-    'https://lms-3w6k.vercel.app',
-    'https://lmsrootments.vercel.app',
-    'https://lms-testenv-q8co.vercel.app'
-  ];
-  
-  if (origin && allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-  }
-  
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma, X-API-Key');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Max-Age', '86400');
-  
-  // Handle preflight
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-  
-  next();
-};
-
 
 /**
  * @swagger
@@ -251,7 +217,7 @@ router.get('/getAll/training', GetuserTraining);
  *       500:
  *         description: Internal server error.
  */
-router.get('/getAll/trainingprocess', corsMiddleware, GetuserTrainingprocess);
+router.get('/getAll/trainingprocess', GetuserTrainingprocess);
 
 
 
@@ -311,7 +277,7 @@ router.get('/getAll/trainingprocess', corsMiddleware, GetuserTrainingprocess);
  *         description: Internal server error.
  */
 
-router.get('/getAll/trainingprocess/module', corsMiddleware, GetuserTrainingprocessmodule);
+router.get('/getAll/trainingprocess/module', GetuserTrainingprocessmodule);
 
 
 
@@ -377,7 +343,7 @@ router.get('/getAll/trainingprocess/module', corsMiddleware, GetuserTrainingproc
  *         description: Internal server error.
  */
 
-router.patch('/update/trainingprocess', corsMiddleware, UpdateuserTrainingprocess);
+router.get('/update/trainingprocess', UpdateuserTrainingprocess);
 
 
 

@@ -133,140 +133,24 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
 
-// Enhanced CORS configuration optimized for Vercel deployment
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) return callback(null, true);
-      
-      const allowedOrigins = [
-        'https://unicode-mu.vercel.app',
-        'https://lms.rootments.live',
-        'http://localhost:3000',
-        'http://localhost:5173', // dev (Vite) - CRITICAL FOR LOCAL DEVELOPMENT
-        'https://lms-dev-jishnu.vercel.app',
-        'https://lms-3w6k.vercel.app',
-        'https://lmsrootments.vercel.app',
-        'https://lms-testenv-q8co.vercel.app'
-      ];
-      
-      // Log the origin for debugging in Vercel
-      console.log('🌐 CORS Origin Check:', origin);
-      
-      if (allowedOrigins.indexOf(origin) !== -1) {
-        console.log('✅ CORS Origin Allowed:', origin);
-        callback(null, true);
-      } else {
-        console.log('🚫 CORS Origin Blocked:', origin);
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: [
-      'Origin',
-      'X-Requested-With',
-      'Content-Type',
-      'Accept',
-      'Authorization',
-      'Cache-Control',
-      'Pragma',
-      'X-API-Key'
+    origin: [
+      'https://unicode-mu.vercel.app',
+      'https://lms.rootments.live',
+      'http://localhost:3000',
+      'http://localhost:5173', // dev (Vite)
+      'https://lms-dev-jishnu.vercel.app',
+      'https://lms-3w6k.vercel.app',
+      'https://lmsrootments.vercel.app',
+      'https://lms-testenv-q8co.vercel.app'
     ],
-    exposedHeaders: ['Content-Length', 'X-Requested-With'],
-    maxAge: 86400, // 24 hours
-    preflightContinue: false,
-    optionsSuccessStatus: 200
+    credentials: true,
   })
 );
 
 app.get('/', (req, res) => {
   res.send('✅ API is working');
-});
-
-// Vercel-specific CORS middleware for critical endpoints
-app.use('/api/user/update/trainingprocess', (req, res, next) => {
-  const origin = req.headers.origin;
-  
-  // Always allow localhost:5173 for development
-  if (origin === 'http://localhost:5173') {
-    res.header('Access-Control-Allow-Origin', origin);
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Methods', 'PATCH, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma, X-API-Key');
-    res.header('Access-Control-Max-Age', '86400');
-    
-    // Handle preflight
-    if (req.method === 'OPTIONS') {
-      res.status(200).end();
-      return;
-    }
-  }
-  
-  next();
-});
-
-// Force CORS headers for all API routes in Vercel
-app.use('/api', (req, res, next) => {
-  const origin = req.headers.origin;
-  
-  // Set CORS headers for localhost:5173
-  if (origin === 'http://localhost:5173') {
-    res.header('Access-Control-Allow-Origin', origin);
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma, X-API-Key');
-    res.header('Access-Control-Max-Age', '86400');
-  }
-  
-  next();
-});
-
-// Add specific OPTIONS handler for the training process endpoint
-app.options('/api/user/update/trainingprocess', (req, res) => {
-  const origin = req.headers.origin;
-  
-  if (origin) {
-    res.header('Access-Control-Allow-Origin', origin);
-  }
-  res.header('Access-Control-Allow-Methods', 'PATCH, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma, X-API-Key');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Max-Age', '86400');
-  
-  res.status(200).end();
-});
-
-// Add direct PATCH route handler for training process (backup)
-import { UpdateuserTrainingprocess } from './controllers/CreateUser.js';
-app.patch('/api/user/update/trainingprocess', async (req, res) => {
-  // Set CORS headers
-  const origin = req.headers.origin;
-  if (origin) {
-    res.header('Access-Control-Allow-Origin', origin);
-  }
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
-  // Call the controller function
-  await UpdateuserTrainingprocess(req, res);
-});
-
-// Enhanced preflight OPTIONS handler for Vercel compatibility (moved after specific handlers)
-app.options('*', (req, res) => {
-  const origin = req.headers.origin;
-  
-  // Set CORS headers
-  if (origin) {
-    res.header('Access-Control-Allow-Origin', origin);
-  }
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma, X-API-Key');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Max-Age', '86400');
-  
-  // Handle preflight
-  res.status(200).end();
 });
 
 /* =================================================
