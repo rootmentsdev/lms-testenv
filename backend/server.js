@@ -133,19 +133,31 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
 
-// Enhanced CORS configuration for better preflight handling
+// Enhanced CORS configuration optimized for Vercel deployment
 app.use(
   cors({
-    origin: [
-      'https://unicode-mu.vercel.app',
-      'https://lms.rootments.live',
-      'http://localhost:3000',
-      'http://localhost:5173', // dev (Vite)
-      'https://lms-dev-jishnu.vercel.app',
-      'https://lms-3w6k.vercel.app',
-      'https://lmsrootments.vercel.app',
-      'https://lms-testenv-q8co.vercel.app'
-    ],
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      
+      const allowedOrigins = [
+        'https://unicode-mu.vercel.app',
+        'https://lms.rootments.live',
+        'http://localhost:3000',
+        'http://localhost:5173', // dev (Vite)
+        'https://lms-dev-jishnu.vercel.app',
+        'https://lms-3w6k.vercel.app',
+        'https://lmsrootments.vercel.app',
+        'https://lms-testenv-q8co.vercel.app'
+      ];
+      
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        console.log('🚫 CORS blocked origin:', origin);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
@@ -155,7 +167,8 @@ app.use(
       'Accept',
       'Authorization',
       'Cache-Control',
-      'Pragma'
+      'Pragma',
+      'X-API-Key'
     ],
     exposedHeaders: ['Content-Length', 'X-Requested-With'],
     maxAge: 86400, // 24 hours
@@ -168,13 +181,20 @@ app.get('/', (req, res) => {
   res.send('✅ API is working');
 });
 
-// Handle preflight OPTIONS requests for all routes
+// Enhanced preflight OPTIONS handler for Vercel compatibility
 app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  const origin = req.headers.origin;
+  
+  // Set CORS headers
+  if (origin) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma, X-API-Key');
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Max-Age', '86400');
+  
+  // Handle preflight
   res.status(200).end();
 });
 
