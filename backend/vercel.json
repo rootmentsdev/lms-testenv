@@ -1,13 +1,13 @@
 {
   "version": 2,
   "functions": {
-    "server.js": {
+    "api/server.js": {
       "maxDuration": 30
     }
   },
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/api/(.*)",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
@@ -35,7 +35,11 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/server.js"
+      "destination": "/api/server.js"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
