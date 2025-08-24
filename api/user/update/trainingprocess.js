@@ -1,5 +1,5 @@
 // Vercel API route for /api/user/update/trainingprocess
-import { UpdateuserTrainingprocess } from '../../../controllers/CreateUser.js';
+import { UpdateuserTrainingprocess } from '../../../backend/controllers/CreateUser.js';
 
 export default async function handler(req, res) {
   // Set CORS headers for localhost:5173
