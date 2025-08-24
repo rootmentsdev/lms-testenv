@@ -114,6 +114,12 @@ export const createTraining = async (req, res) => {
             return res.status(400).json({ message: "Training name, modules, days, and selected option are required" });
         }
 
+        // Validate workingBranch is provided and not empty
+        if (!workingBranch || !Array.isArray(workingBranch) || workingBranch.length === 0) {
+            console.log("Missing or invalid workingBranch:", workingBranch);
+            return res.status(400).json({ message: "Working branch/designation/user selection is required" });
+        }
+
         console.log("Required fields validation passed");
 
         // Fetch details of modules from Module collection
@@ -133,13 +139,38 @@ export const createTraining = async (req, res) => {
             trainingName,
             modules,
             deadline: days, // Store deadline as a proper Date object
+            Assignedfor: workingBranch || [], // Set the Assignedfor field with workingBranch data
         });
 
         console.log("Created training object:", newTraining);
+        console.log("Assignedfor field value:", newTraining.Assignedfor);
+        console.log("WorkingBranch from request:", workingBranch);
+        
+        // Validate the training object before saving
+        try {
+            await newTraining.validate();
+            console.log("Training validation passed");
+        } catch (validationError) {
+            console.error("Training validation failed:", validationError.message);
+            return res.status(400).json({ 
+                message: "Training validation failed", 
+                error: validationError.message 
+            });
+        }
 
         // Save the training record
         await newTraining.save();
         console.log("Training saved successfully with ID:", newTraining._id);
+        
+        // Verify the saved data
+        const savedTraining = await Training.findById(newTraining._id);
+        console.log("Verified saved training data:", {
+            id: savedTraining._id,
+            trainingName: savedTraining.trainingName,
+            Assignedfor: savedTraining.Assignedfor,
+            modules: savedTraining.modules,
+            deadline: savedTraining.deadline
+        });
 
         // First, fetch external employee data to get the list of employees
         console.log("Fetching employee data from local API...");

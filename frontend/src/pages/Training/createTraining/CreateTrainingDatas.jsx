@@ -103,6 +103,24 @@ const CreateTrainingDatas = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+        // Validate form data before submission
+        if (!trainingName.trim()) {
+            toast.error("Training name is required");
+            return;
+        }
+        if (selectedModules.length === 0) {
+            toast.error("Please select at least one module");
+            return;
+        }
+        if (!days || days <= 0) {
+            toast.error("Please enter a valid number of days");
+            return;
+        }
+        if (assignedTo.length === 0) {
+            toast.error("Please select at least one user/role/branch to assign the training to");
+            return;
+        }
+
         const trainingData = {
             trainingName,
             workingBranch: assignedTo.map((item) => item.value), // Extract values
@@ -112,7 +130,11 @@ const CreateTrainingDatas = () => {
         };
 
         try {
-            console.log(trainingData); // Log final data for submission
+            console.log("=== TRAINING CREATION DEBUG ===");
+            console.log("Training Data being sent:", trainingData);
+            console.log("AssignedTo array:", assignedTo);
+            console.log("WorkingBranch values:", trainingData.workingBranch);
+            console.log("Modules selected:", trainingData.modules);
             toast("Form Submitted Successfully!");
             // POST request (uncomment to use)
             const response = await fetch(`${baseUrl.baseUrl}api/trainings`, {
@@ -123,8 +145,23 @@ const CreateTrainingDatas = () => {
                 },
                 body: JSON.stringify(trainingData),
             });
+            
             const data = await response.json();
-            toast.success(data.message);
+            
+            if (!response.ok) {
+                console.error("Server error:", data);
+                toast.error(data.message || "Failed to create training");
+                return;
+            }
+            
+            console.log("Training created successfully:", data);
+            toast.success(data.message || "Training created successfully!");
+            
+            // Clear form after successful creation
+            setTrainingName("");
+            setSelectedModules([]);
+            setAssignedTo([]);
+            setDays("");
         } catch (error) {
             console.error("Failed to submit training:", error.message);
             toast.error("Error submitting training.");
