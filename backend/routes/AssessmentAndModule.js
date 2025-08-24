@@ -343,7 +343,7 @@ router.get('/getAll/trainingprocess/module', GetuserTrainingprocessmodule);
  *         description: Internal server error.
  */
 
-router.get('/update/trainingprocess', UpdateuserTrainingprocess);
+router.patch('/update/trainingprocess', UpdateuserTrainingprocess);
 
 
 
