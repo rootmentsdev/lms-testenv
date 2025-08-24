@@ -207,6 +207,22 @@ app.use('/api/user/update/trainingprocess', (req, res, next) => {
   next();
 });
 
+// Force CORS headers for all API routes in Vercel
+app.use('/api', (req, res, next) => {
+  const origin = req.headers.origin;
+  
+  // Set CORS headers for localhost:5173
+  if (origin === 'http://localhost:5173') {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma, X-API-Key');
+    res.header('Access-Control-Max-Age', '86400');
+  }
+  
+  next();
+});
+
 // Add specific OPTIONS handler for the training process endpoint
 app.options('/api/user/update/trainingprocess', (req, res) => {
   const origin = req.headers.origin;
