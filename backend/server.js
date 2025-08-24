@@ -144,17 +144,21 @@ app.use(
         'https://unicode-mu.vercel.app',
         'https://lms.rootments.live',
         'http://localhost:3000',
-        'http://localhost:5173', // dev (Vite)
+        'http://localhost:5173', // dev (Vite) - CRITICAL FOR LOCAL DEVELOPMENT
         'https://lms-dev-jishnu.vercel.app',
         'https://lms-3w6k.vercel.app',
         'https://lmsrootments.vercel.app',
         'https://lms-testenv-q8co.vercel.app'
       ];
       
+      // Log the origin for debugging in Vercel
+      console.log('🌐 CORS Origin Check:', origin);
+      
       if (allowedOrigins.indexOf(origin) !== -1) {
+        console.log('✅ CORS Origin Allowed:', origin);
         callback(null, true);
       } else {
-        console.log('🚫 CORS blocked origin:', origin);
+        console.log('🚫 CORS Origin Blocked:', origin);
         callback(new Error('Not allowed by CORS'));
       }
     },
@@ -179,6 +183,28 @@ app.use(
 
 app.get('/', (req, res) => {
   res.send('✅ API is working');
+});
+
+// Vercel-specific CORS middleware for critical endpoints
+app.use('/api/user/update/trainingprocess', (req, res, next) => {
+  const origin = req.headers.origin;
+  
+  // Always allow localhost:5173 for development
+  if (origin === 'http://localhost:5173') {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'PATCH, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma, X-API-Key');
+    res.header('Access-Control-Max-Age', '86400');
+    
+    // Handle preflight
+    if (req.method === 'OPTIONS') {
+      res.status(200).end();
+      return;
+    }
+  }
+  
+  next();
 });
 
 // Add specific OPTIONS handler for the training process endpoint
