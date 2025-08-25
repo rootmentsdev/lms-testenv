@@ -266,6 +266,10 @@ app.use('/api/user/assessment', FutterAssessment)
 app.use('/zoho', Whatsapprouter)
 app.use('/api/employee', EmployeeRouter)
 
+// Training routes
+import TrainingRoutes from './routes/TrainingRoutes.js';
+app.use('/api/user', TrainingRoutes)
+
 // User Login Tracking Routes
 import UserLoginRouter from './routes/UserLoginRoute.js';
 app.use('/api/user-login', UserLoginRouter)

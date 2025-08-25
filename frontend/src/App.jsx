@@ -39,6 +39,8 @@ const BranchDetails = lazy(() => import('./pages/Branch/BranchDetails/BranchDeta
 const Profile = lazy(() => import('./pages/profile/Profile.jsx'))
 const LoginAnalytics = lazy(() => import('./pages/Setting/LoginAnalytics.jsx'))
 const APITest = lazy(() => import('./components/APITest.jsx'))
+const TrainingDashboard = lazy(() => import('./components/TrainingDashboard/TrainingDashboard.jsx'))
+const TrainingDetail = lazy(() => import('./pages/Training/TrainingDetail.jsx'))
 
 import { setUser } from './features/auth/authSlice.js';
 
@@ -144,6 +146,10 @@ function App() {
           <Route path="/admin/profile" element={<ProtectedRoute>< Profile /></ProtectedRoute>} />
           <Route path="/admin/login-analytics" element={<ProtectedRoute>< LoginAnalytics /></ProtectedRoute>} />
           <Route path="/admin/api-test" element={<ProtectedRoute>< APITest /></ProtectedRoute>} />
+
+          {/* Training Dashboard Routes for iOS Users */}
+          <Route path="/trainings" element={<ProtectedRoute><TrainingDashboard /></ProtectedRoute>} />
+          <Route path="/training/:trainingId" element={<ProtectedRoute><TrainingDetail /></ProtectedRoute>} />
 
         </Routes>
       </Suspense>
