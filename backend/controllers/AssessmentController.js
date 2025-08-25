@@ -690,6 +690,9 @@ export const calculateProgress = async (req, res) => {
         const userCount = await User.find({ locCode: { $in: allowedLocCodes } });
         console.log(allowedLocCodes);
 
+        // Use local user count for now, frontend will fetch actual employee count separately
+        const totalEmployeeCount = userCount.length;
+
         // Fetch users once instead of multiple times
         const users = await User.find({ locCode: { $in: allowedLocCodes } });
         const userID = users.map(id => id._id)
@@ -750,7 +753,7 @@ export const calculateProgress = async (req, res) => {
         ]);
         
         // Calculate login percentage
-        const loginPercentage = userCount.length > 0 ? Math.round((uniqueLoginUserCount / userCount.length) * 100) : 0;
+        const loginPercentage = totalEmployeeCount > 0 ? Math.round((uniqueLoginUserCount / totalEmployeeCount) * 100) : 0;
         
         // Return results
         res.status(200).json({
@@ -758,7 +761,8 @@ export const calculateProgress = async (req, res) => {
             data: {
                 assessmentCount,
                 branchCount: AdminData.branches.length,
-                userCount: userCount.length,
+                userCount: totalEmployeeCount, // Use total employee count from external API
+                localUserCount: userCount.length, // Keep local user count for reference
                 averageProgress: parseFloat(averageProgress),
                 assessmentProgress: passedAssessments,
                 trainingPending: trainingpend,
@@ -778,6 +782,7 @@ export const calculateProgress = async (req, res) => {
         });
     }
 };
+
 
 
 
