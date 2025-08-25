@@ -140,6 +140,7 @@ app.use(
       'https://unicode-mu.vercel.app',
       'https://lms.rootments.live',
       'http://localhost:3000',
+      'http://localhost:3001', // lmsweb local dev
       'http://localhost:5173', // dev (Vite)
       'http://localhost:5174', // lmsweb dev (Vite)
       'https://lms-dev-jishnu.vercel.app',
