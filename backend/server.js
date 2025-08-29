@@ -259,6 +259,144 @@ app.post('/api/employee_detail', async (req, res) => {
   }
 });
 
+/* =================================================
+   ✅ EMPLOYEE VERIFICATION PROXY
+   POST /api/verify_employee
+   Body: { employeeId: "emp257", password: "userpassword" }
+   -> Forwards to https://rootments.in/api/verify_employee
+   -> Adds Authorization: Bearer <your token>
+================================================== */
+app.post('/api/verify_employee', async (req, res) => {
+  try {
+    const { employeeId, password } = req.body || {};
+    if (!employeeId || !password) {
+      return res.status(400).json({ 
+        status: 'fail', 
+        message: 'employeeId and password are required' 
+      });
+    }
+    console.log('↗️  /api/verify_employee', { employeeId });
+
+    const upstream = 'https://rootments.in/api/verify_employee';
+    const { data } = await axios.post(
+      upstream,
+      { employeeId, password },
+      {
+        timeout: 30000, // Increased timeout to 30 seconds
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${ROOTMENTS_API_TOKEN}`,
+        },
+      }
+    );
+
+    console.log('↘️  /verify_employee upstream response:', data?.status || 'unknown');
+    return res.status(200).json(data);
+  } catch (err) {
+    const status = err?.response?.status || 500;
+    const payload = err?.response?.data || { message: err.message || 'Proxy failed' };
+    console.error('❌ /api/verify_employee error:', status, payload);
+    return res.status(status).json(payload);
+  }
+});
+
+/* =================================================
+   ✅ VIDEO WATCH PROGRESS TRACKING
+   POST /api/video_progress
+   Body: { userId, trainingId, moduleId, videoId, watchTime, totalDuration, watchPercentage }
+   -> Updates video watch progress in TrainingProgress collection
+================================================== */
+app.post('/api/video_progress', async (req, res) => {
+  try {
+    const { userId, trainingId, moduleId, videoId, watchTime, totalDuration, watchPercentage } = req.body || {};
+    
+    if (!userId || !trainingId || !moduleId || !videoId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'userId, trainingId, moduleId, and videoId are required' 
+      });
+    }
+
+    console.log('↗️  /api/video_progress', { userId, trainingId, moduleId, videoId, watchTime, watchPercentage });
+
+    // Import TrainingProgress model
+    const { default: TrainingProgress } = await import('./model/Trainingprocessschema.js');
+
+    // Find the training progress
+    const trainingProgress = await TrainingProgress.findOne({ 
+      userId, 
+      trainingId 
+    });
+
+    if (!trainingProgress) {
+      return res.status(404).json({ 
+        success: false,
+        message: "Training progress not found for this user and training" 
+      });
+    }
+
+    // Find the module in the training progress
+    const module = trainingProgress.modules.find(mod => 
+      mod.moduleId.toString() === moduleId
+    );
+
+    if (!module) {
+      return res.status(404).json({ 
+        success: false,
+        message: "Module not found in this training progress" 
+      });
+    }
+
+    // Find the video in the module
+    const video = module.videos.find(v => 
+      v.videoId.toString() === videoId
+    );
+
+    if (!video) {
+      return res.status(404).json({ 
+        success: false,
+        message: "Video not found in this module" 
+      });
+    }
+
+    // Update video progress
+    video.watchTime = Math.max(video.watchTime || 0, watchTime || 0); // Keep the highest watch time
+    video.totalDuration = totalDuration || video.totalDuration || 0;
+    video.watchPercentage = watchPercentage || (totalDuration > 0 ? (video.watchTime / totalDuration) * 100 : 0);
+    video.lastWatchedAt = new Date();
+
+    // Auto-mark as completed if 90% watched
+    if (video.watchPercentage >= 90 && !video.pass) {
+      video.pass = true;
+      console.log('✅ Video auto-marked as completed (90% watched)');
+    }
+
+    // Save updated training progress
+    await trainingProgress.save();
+
+    console.log('↘️  /video_progress updated successfully');
+    return res.status(200).json({
+      success: true,
+      message: 'Video progress updated successfully',
+      data: {
+        watchTime: video.watchTime,
+        totalDuration: video.totalDuration,
+        watchPercentage: video.watchPercentage,
+        completed: video.pass
+      }
+    });
+
+  } catch (err) {
+    console.error('❌ /api/video_progress error:', err);
+    return res.status(500).json({ 
+      success: false,
+      message: 'Failed to update video progress',
+      error: err.message 
+    });
+  }
+});
+
 // === your existing routes (unchanged) ===
 app.use('/api', ModuleRouter)
 app.use('/api/user', userrouter)

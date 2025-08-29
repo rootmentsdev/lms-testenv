@@ -45,6 +45,22 @@ const TrainingProgressSchema = new mongoose.Schema({
                         type: Boolean,
                         default: false,
                     },
+                    watchTime: {
+                        type: Number,
+                        default: 0, // Time watched in seconds
+                    },
+                    totalDuration: {
+                        type: Number,
+                        default: 0, // Total video duration in seconds
+                    },
+                    watchPercentage: {
+                        type: Number,
+                        default: 0, // Percentage of video watched (0-100)
+                    },
+                    lastWatchedAt: {
+                        type: Date,
+                        default: Date.now,
+                    },
                 },
             ],
         },

@@ -424,7 +424,7 @@ export const GetuserTraining = async (req, res) => {
       if (!progress) {
         return {
           trainingId: training.trainingId._id,
-          name: training.trainingId.name,
+          name: training.trainingId.trainingName || 'Unknown Training',
           completionPercentage: 0
         };
       }
@@ -451,7 +451,7 @@ export const GetuserTraining = async (req, res) => {
 
       return {
         trainingId: training.trainingId._id,
-        name: training.trainingId.name,
+        name: training.trainingId.trainingName || 'Unknown Training',
         completionPercentage: overallCompletionPercentage.toFixed(2)
       };
     });
@@ -481,33 +481,98 @@ export const GetuserTrainingprocess = async (req, res) => {
   const { userId, trainingId } = req.query; // Extract request body
 
   try {
+    // First get the training progress
     const traingproess = await TrainingProgress.find({
       userId,
       trainingId
-    }).populate({
-      path: 'trainingId', // Populate trainingId first
-      populate: {
-        path: 'modules', // Populate modules inside trainingId
-        populate: {
-          path: 'videos', // Populate videos inside modules
-        },
-      },
-    })
+    }).populate('trainingId') // Only populate the training, not the nested modules
       .exec();
 
     if (!traingproess || traingproess.length === 0) {
       return res.status(404).json({ message: "No data" });
     }
 
-    // Calculate the percentage of completion
     const trainingData = traingproess[0];
+    
+    // Get the actual module data with videos from Module collection
+    const moduleIds = trainingData.trainingId.modules;
+    const actualModules = await Module.find({ _id: { $in: moduleIds } });
+    
+    console.log('📚 Found modules:', actualModules.length);
+    console.log('🎥 Sample video data:', actualModules[0]?.videos[0]);
+    
+    // Merge progress data with actual module data
+    const enrichedModules = trainingData.modules.map(progressModule => {
+      const actualModule = actualModules.find(m => m._id.toString() === progressModule.moduleId.toString());
+      
+      console.log('🔍 Processing module:', {
+        progressModuleId: progressModule.moduleId.toString(),
+        actualModuleFound: !!actualModule,
+        actualModuleName: actualModule?.moduleName,
+        actualModuleVideos: actualModule?.videos?.length || 0,
+        progressVideos: progressModule.videos?.length || 0
+      });
+      
+      if (actualModule) {
+        console.log('🎥 Actual module videos:', actualModule.videos.map(v => ({
+          id: v._id.toString(),
+          title: v.title,
+          videoUri: v.videoUri
+        })));
+        
+        console.log('📊 Progress module videos:', progressModule.videos.map(v => ({
+          videoId: v.videoId.toString()
+        })));
+        
+        // Map progress videos with actual video data
+        const enrichedVideos = actualModule.videos.map(actualVideo => {
+          const progressVideo = progressModule.videos.find(pv => pv.videoId.toString() === actualVideo._id.toString());
+          
+          console.log('🔗 Video mapping:', {
+            actualVideoId: actualVideo._id.toString(),
+            actualVideoTitle: actualVideo.title,
+            actualVideoUri: actualVideo.videoUri,
+            progressVideoFound: !!progressVideo,
+            progressVideoId: progressVideo?.videoId?.toString()
+          });
+          
+          return {
+            videoId: actualVideo._id,
+            title: actualVideo.title,
+            videoUri: actualVideo.videoUri, // This is the actual YouTube URL!
+            videoTitle: actualVideo.title, // Add both title fields
+            questions: actualVideo.questions,
+            pass: progressVideo ? progressVideo.pass : false,
+            watchTime: progressVideo ? progressVideo.watchTime : 0,
+            totalDuration: progressVideo ? progressVideo.totalDuration : 0,
+            watchPercentage: progressVideo ? progressVideo.watchPercentage : 0,
+            lastWatchedAt: progressVideo ? progressVideo.lastWatchedAt : null
+          };
+        });
+        
+        console.log('✅ Enriched videos for module:', actualModule.moduleName, enrichedVideos.length);
+        console.log('🎥 Sample enriched video:', enrichedVideos[0]);
+        
+        return {
+          moduleId: actualModule._id,
+          moduleName: actualModule.moduleName,
+          description: actualModule.description,
+          pass: progressModule.pass,
+          videos: enrichedVideos
+        };
+      }
+      
+      console.log('⚠️ No actual module found for progress module:', progressModule.moduleId.toString());
+      return progressModule;
+    });
+
+    // Calculate completion percentages
     let totalModules = 0;
     let completedModules = 0;
     let totalVideos = 0;
     let completedVideos = 0;
 
-    // Iterate through the modules and videos to calculate the percentage
-    trainingData.modules.forEach(module => {
+    enrichedModules.forEach(module => {
       totalModules++;
       if (module.pass) {
         completedModules++;
@@ -528,15 +593,22 @@ export const GetuserTrainingprocess = async (req, res) => {
     // Calculate overall percentage (average of module and video completion)
     const overallCompletionPercentage = (moduleCompletionPercentage + videoCompletionPercentage) / 2;
 
-    // Return user data with populated training, modules, and percentage of completion
+    // Return enriched data with actual video URLs
+    const enrichedTrainingData = {
+      ...trainingData.toObject(),
+      modules: enrichedModules
+    };
+
+    console.log('✅ Returning enriched training data with', totalVideos, 'videos');
+
     res.status(200).json({
       message: "Data found",
-      data: trainingData,
-      completionPercentage: overallCompletionPercentage.toFixed(2) // Rounded to 2 decimal places
+      data: enrichedTrainingData,
+      completionPercentage: overallCompletionPercentage.toFixed(2)
     });
 
   } catch (error) {
-    console.error('Error finding user:', error.message);
+    console.error('Error in GetuserTrainingprocess:', error);
     res.status(500).json({ message: "Server error while finding user" });
   }
 };
