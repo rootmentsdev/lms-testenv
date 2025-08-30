@@ -418,7 +418,21 @@ export const GetuserTraining = async (req, res) => {
     const trainingProgress = await TrainingProgress.find({ userId: user._id });
 
     // Process each training to calculate completion percentages
-    const trainingDetails = user.training.map(training => {
+    // Filter out mandatory trainings - only return assigned trainings
+    const trainingDetails = user.training
+      .filter(training => {
+        // Check if this is a mandatory training
+        const trainingType = training.trainingId.Trainingtype;
+        const isMandatory = trainingType === 'Mandatory' || trainingType === 'mandatory';
+        
+        if (isMandatory) {
+          console.log(`Skipping mandatory training "${training.trainingId.trainingName}" from GetuserTraining API`);
+          return false; // Skip mandatory trainings
+        }
+        
+        return true; // Include assigned trainings
+      })
+      .map(training => {
       const progress = trainingProgress.find(p => p.trainingId.toString() === training.trainingId._id.toString());
 
       if (!progress) {
@@ -459,6 +473,8 @@ export const GetuserTraining = async (req, res) => {
     // Calculate the overall completion percentage for the user (average of all training completions)
     const totalCompletionPercentage = trainingDetails.reduce((sum, training) => sum + parseFloat(training.completionPercentage), 0);
     const userOverallCompletionPercentage = trainingDetails.length > 0 ? (totalCompletionPercentage / trainingDetails.length).toFixed(2) : 0;
+    
+    console.log(`✅ GetuserTraining API: Returning ${trainingDetails.length} assigned trainings for user ${empID}`);
 
     // Return user data with training completion percentages and overall completion percentage
     res.status(200).json({
@@ -614,6 +630,55 @@ export const GetuserTrainingprocess = async (req, res) => {
 };
 
 
+export const CreateTrainingProgress = async (req, res) => {
+  try {
+    const { userId, trainingId, modules } = req.body;
+
+    // Validate input parameters
+    if (!userId || !trainingId || !modules) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Missing required parameters: userId, trainingId, modules" 
+      });
+    }
+
+    // Check if TrainingProgress already exists
+    const existingProgress = await TrainingProgress.findOne({ userId, trainingId });
+    if (existingProgress) {
+      return res.status(200).json({ 
+        success: true,
+        message: "Training progress already exists",
+        data: existingProgress
+      });
+    }
+
+    // Create new TrainingProgress record
+    const trainingProgress = new TrainingProgress({
+      userId,
+      trainingId,
+      modules: modules,
+      pass: false,
+      status: 'Pending'
+    });
+
+    await trainingProgress.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Training progress created successfully",
+      data: trainingProgress
+    });
+
+  } catch (error) {
+    console.error('Error creating training progress:', error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while creating training progress",
+      error: error.message
+    });
+  }
+};
+
 export const UpdateuserTrainingprocess = async (req, res) => {
   try {
     // Handle both query and body parameters for flexibility
@@ -630,22 +695,39 @@ export const UpdateuserTrainingprocess = async (req, res) => {
       });
     }
 
-    // Validate ObjectId format
-    if (!userId.match(/^[0-9a-fA-F]{24}$/) || 
-        !trainingId.match(/^[0-9a-fA-F]{24}$/) || 
+    // Validate ObjectId format for MongoDB IDs only
+    // Allow non-MongoDB ObjectId formats for userId (like EMP103)
+    if (!trainingId.match(/^[0-9a-fA-F]{24}$/) || 
         !moduleId.match(/^[0-9a-fA-F]{24}$/) || 
         !videoId.match(/^[0-9a-fA-F]{24}$/)) {
       return res.status(400).json({ 
         success: false,
-        message: "Invalid ObjectId format for one or more parameters" 
+        message: "Invalid ObjectId format for trainingId, moduleId, or videoId" 
       });
     }
 
-    // Find the training progress
-    const trainingProgress = await TrainingProgress.findOne({ 
-      userId, 
-      trainingId 
-    });
+    // Find the training progress - handle both ObjectId and non-ObjectId userIds
+    let trainingProgress;
+    if (userId.match(/^[0-9a-fA-F]{24}$/)) {
+      // MongoDB ObjectId format
+      trainingProgress = await TrainingProgress.findOne({ 
+        userId, 
+        trainingId 
+      });
+    } else {
+      // Non-MongoDB ObjectId format (like EMP103) - find user by empID first
+      const user = await User.findOne({ empID: userId });
+      if (!user) {
+        return res.status(404).json({ 
+          success: false,
+          message: "User not found with empID: " + userId 
+        });
+      }
+      trainingProgress = await TrainingProgress.findOne({ 
+        userId: user._id, 
+        trainingId 
+      });
+    }
 
     if (!trainingProgress) {
       return res.status(404).json({ 
@@ -705,8 +787,15 @@ export const UpdateuserTrainingprocess = async (req, res) => {
     // Save updated training progress
     await trainingProgress.save();
 
-    // Update User Collection
-    const user = await User.findById(userId);
+    // Update User Collection - handle both ObjectId and non-ObjectId userIds
+    let user;
+    if (userId.match(/^[0-9a-fA-F]{24}$/)) {
+      // MongoDB ObjectId format
+      user = await User.findById(userId);
+    } else {
+      // Non-MongoDB ObjectId format (like EMP103) - find by empID
+      user = await User.findOne({ empID: userId });
+    }
 
     if (!user) {
       return res.status(404).json({ 
@@ -839,5 +928,222 @@ export const GetuserTrainingprocessmodule = async (req, res) => {
   } catch (error) {
     console.error('Error finding module:', error.message);
     res.status(500).json({ message: "Server error while finding module" });
+  }
+};
+
+export const submitVideoAssessment = async (req, res) => {
+  try {
+    const { userId, trainingId, moduleId, videoId, answers } = req.body;
+
+    // Validate input parameters
+    if (!userId || !trainingId || !moduleId || !videoId || !answers) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Missing required parameters: userId, trainingId, moduleId, videoId, answers" 
+      });
+    }
+
+    // Validate ObjectId format for MongoDB IDs only
+    if (!trainingId.match(/^[0-9a-fA-F]{24}$/) || 
+        !moduleId.match(/^[0-9a-fA-F]{24}$/) || 
+        !videoId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Invalid ObjectId format for trainingId, moduleId, or videoId" 
+      });
+    }
+
+    // Find the training progress - handle both ObjectId and non-ObjectId userIds
+    let trainingProgress;
+    if (userId.match(/^[0-9a-fA-F]{24}$/)) {
+      // MongoDB ObjectId format
+      trainingProgress = await TrainingProgress.findOne({ 
+        userId, 
+        trainingId 
+      });
+    } else {
+      // Non-MongoDB ObjectId format (like EMP103) - find user by empID first
+      const user = await User.findOne({ empID: userId });
+      if (!user) {
+        return res.status(404).json({ 
+          success: false,
+          message: "User not found with empID: " + userId 
+        });
+      }
+      trainingProgress = await TrainingProgress.findOne({ 
+        userId: user._id, 
+        trainingId 
+      });
+    }
+
+    if (!trainingProgress) {
+      return res.status(404).json({ 
+        success: false,
+        message: "Training progress not found for this user and training" 
+      });
+    }
+
+    // Find the module and video
+    const module = trainingProgress.modules.find(mod => 
+      mod.moduleId.toString() === moduleId
+    );
+
+    if (!module) {
+      return res.status(404).json({ 
+        success: false,
+        message: "Module not found in this training progress" 
+      });
+    }
+
+    const video = module.videos.find(v => 
+      v.videoId.toString() === videoId
+    );
+
+    if (!video) {
+      return res.status(404).json({ 
+        success: false,
+        message: "Video not found in this module" 
+      });
+    }
+
+    // Get the actual video data from Module collection to access questions
+    const moduleData = await Module.findById(moduleId);
+    if (!moduleData) {
+      return res.status(404).json({ 
+        success: false,
+        message: "Module data not found" 
+      });
+    }
+
+    const videoData = moduleData.videos.find(v => v._id.toString() === videoId);
+    if (!videoData) {
+      return res.status(404).json({ 
+        success: false,
+        message: "Video data not found" 
+      });
+    }
+
+    // Check if video has questions
+    if (!videoData.questions || videoData.questions.length === 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: "This video has no assessment questions" 
+      });
+    }
+
+    // Validate answers format
+    if (!Array.isArray(answers) || answers.length !== videoData.questions.length) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Invalid answers format or number of answers" 
+      });
+    }
+
+    // Grade the assessment
+    let correctAnswers = 0;
+    const gradedAnswers = answers.map((answer, index) => {
+      const question = videoData.questions[index];
+      const isCorrect = answer === question.correctAnswer;
+      if (isCorrect) correctAnswers++;
+      
+      return {
+        questionId: question._id,
+        selectedAnswer: answer,
+        correctAnswer: question.correctAnswer,
+        isCorrect: isCorrect
+      };
+    });
+
+    // Calculate score (percentage)
+    const score = (correctAnswers / videoData.questions.length) * 100;
+    const passed = score >= 70; // 70% passing threshold
+
+    // Update video status based on assessment result
+    if (passed) {
+      video.pass = true;
+      video.completedAt = new Date();
+      video.assessmentScore = score;
+      video.assessmentPassed = true;
+    } else {
+      video.pass = false;
+      video.assessmentScore = score;
+      video.assessmentPassed = false;
+    }
+
+    // Update module status if all videos are passed
+    const allVideosPassed = module.videos.every(v => v.pass === true);
+    if (allVideosPassed && !module.pass) {
+      module.pass = true;
+      module.completedAt = new Date();
+    }
+
+    // Update training status
+    const allModulesPassed = trainingProgress.modules.every(mod => mod.pass === true);
+    if (allModulesPassed) {
+      trainingProgress.pass = true;
+      trainingProgress.status = 'Completed';
+      trainingProgress.completedAt = new Date();
+    } else {
+      trainingProgress.status = 'In Progress';
+    }
+
+    // Save updated training progress
+    await trainingProgress.save();
+
+    // Update User Collection - handle both ObjectId and non-ObjectId userIds
+    let user;
+    if (userId.match(/^[0-9a-fA-F]{24}$/)) {
+      // MongoDB ObjectId format
+      user = await User.findById(userId);
+    } else {
+      // Non-MongoDB ObjectId format (like EMP103) - find by empID
+      user = await User.findOne({ empID: userId });
+    }
+
+    if (!user) {
+      return res.status(404).json({ 
+        success: false,
+        message: "User not found" 
+      });
+    }
+
+    // Update user training status
+    const userTraining = user.training.find(train => 
+      train.trainingId.toString() === trainingId
+    );
+    
+    if (userTraining) {
+      userTraining.status = trainingProgress.status;
+      userTraining.pass = trainingProgress.pass;
+      if (trainingProgress.completedAt) {
+        userTraining.completedAt = trainingProgress.completedAt;
+      }
+    }
+
+    // Save updated user status
+    await user.save();
+
+    // Send response
+    res.status(200).json({
+      success: true,
+      message: passed ? "Assessment passed! Video marked as complete." : "Assessment failed. Please retry.",
+      data: {
+        passed: passed,
+        score: score,
+        correctAnswers: correctAnswers,
+        totalQuestions: videoData.questions.length,
+        gradedAnswers: gradedAnswers,
+        videoCompleted: passed,
+        nextVideoAvailable: passed
+      }
+    });
+
+  } catch (error) {
+    console.error('Error submitting video assessment:', error.stack);
+    res.status(500).json({ 
+      success: false,
+      message: "Server error while submitting video assessment",
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
   }
 };

@@ -9,7 +9,8 @@ const trainingSchema = new mongoose.Schema({
   Trainingtype: { type: String, default: "Assigned" },
   Assignedfor: [{ type: String, default: 'Normal' }],
   createdBY: { type: String, default: 'admin' },
-  createdDate: { type: Date, default: Date.now }, // Creation date
+  createdDate: { type: Date, default: Date.now }, // Creation datec
+  
   editedDate: { type: Date, default: Date.now }, // Last edited date
 });
 

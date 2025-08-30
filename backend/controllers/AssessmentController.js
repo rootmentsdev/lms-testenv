@@ -570,10 +570,14 @@ export const GetTrainingById = async (req, res) => {
 
 
     try {
-        // Fetch training data and populate modules
+        // Fetch training data and populate modules with videos
         const training = await Training.findById(id).populate({
             path: 'modules',
             model: 'Module',
+            populate: {
+                path: 'videos',
+                model: 'Video'
+            }
         });
 
         if (!training) {

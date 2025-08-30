@@ -1,6 +1,6 @@
 import express from 'express';
 import { assignModuleToUser, assignAssessmentToUser, ReassignTraining, deleteTrainingController, GetAssessment } from '../controllers/AssessmentAndModule.js';
-import { GetuserTraining, GetuserTrainingprocess, GetuserTrainingprocessmodule, UpdateuserTrainingprocess } from '../controllers/CreateUser.js';
+import { GetuserTraining, GetuserTrainingprocess, GetuserTrainingprocessmodule, UpdateuserTrainingprocess, CreateTrainingProgress, submitVideoAssessment } from '../controllers/CreateUser.js';
 import { AssessmentAssign, TrainingDetails } from '../controllers/AssessmentReassign.js';
 import { GetAssessmentDetails } from '../controllers/moduleController.js';
 import { UserAssessmentGet } from '../controllers/FutterAssessment.js';
@@ -344,6 +344,80 @@ router.get('/getAll/trainingprocess/module', GetuserTrainingprocessmodule);
  */
 
 router.patch('/update/trainingprocess', UpdateuserTrainingprocess);
+
+// Create training progress record
+router.post('/create/trainingprogress', CreateTrainingProgress);
+
+/**
+ * @swagger
+ * /api/user/submit/video-assessment:
+ *   post:
+ *     tags: [Training]
+ *     summary: Submit video assessment answers
+ *     description: Submit answers for video assessment questions and get graded results
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *               - trainingId
+ *               - moduleId
+ *               - videoId
+ *               - answers
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 description: User ID (can be MongoDB ObjectId or empID)
+ *               trainingId:
+ *                 type: string
+ *                 description: Training ID (MongoDB ObjectId)
+ *               moduleId:
+ *                 type: string
+ *                 description: Module ID (MongoDB ObjectId)
+ *               videoId:
+ *                 type: string
+ *                 description: Video ID (MongoDB ObjectId)
+ *               answers:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of selected answers for each question
+ *     responses:
+ *       200:
+ *         description: Assessment submitted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     passed:
+ *                       type: boolean
+ *                     score:
+ *                       type: number
+ *                     correctAnswers:
+ *                       type: number
+ *                     totalQuestions:
+ *                       type: number
+ *                     videoCompleted:
+ *                       type: boolean
+ *       400:
+ *         description: Bad request, missing or invalid parameters
+ *       404:
+ *         description: User, training, module, or video not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/submit/video-assessment', submitVideoAssessment);
 
 
 
