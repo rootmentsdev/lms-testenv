@@ -47,7 +47,8 @@ app.use(
       'https://lms-3w6k.vercel.app',
       'https://lmsrootments.vercel.app',
       'https://lms-testenv-q8co.vercel.app',
-      'https://web-lms-fawn.vercel.app'
+      'https://web-lms-fawn.vercel.app',
+      'https://trainingweb-gamma.vercel.app'
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
