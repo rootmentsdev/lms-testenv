@@ -4,6 +4,7 @@ import TrainingProgress from '../model/Trainingprocessschema.js';
 import { Training } from '../model/Traning.js';
 import User from '../model/User.js';
 import axios from 'axios';
+import Module from '../model/Module.js'; // Added import for Module
 
 export const assignModuleToUser = async (req, res) => {
   try {
@@ -461,6 +462,7 @@ export const MandatoryGetAllTrainingWithCompletion = async (req, res) => {
           trainingId: training._id,
           trainingName: training.trainingName,
           trainingTitle: training.title,
+          Trainingtype: training.Trainingtype, // Include the training type
           numberOfModules: training.modules.length,
           totalUsers,
           averageCompletionPercentage, // The average completion percentage for all users
@@ -631,5 +633,206 @@ export const GetAssessment = async (req, res) => {
       error: error.message,
     });
   }
+};
+
+// Get video assessment questions
+export const getVideoAssessment = async (req, res) => {
+    try {
+        const { videoId } = req.params;
+        
+        if (!videoId) {
+            return res.status(400).json({
+                success: false,
+                message: "Video ID is required"
+            });
+        }
+
+        // Find the module that contains this video
+        const module = await Module.findOne({
+            "videos._id": videoId
+        });
+
+        if (!module) {
+            return res.status(404).json({
+                success: false,
+                message: "Video not found"
+            });
+        }
+
+        // Find the specific video
+        const video = module.videos.find(v => v._id.toString() === videoId);
+        
+        if (!video) {
+            return res.status(404).json({
+                success: false,
+                message: "Video not found"
+            });
+        }
+
+        // Check if video has questions
+        if (!video.questions || video.questions.length === 0) {
+            return res.status(200).json({
+                success: true,
+                message: "Video has no assessment questions",
+                data: {
+                    videoId: video._id,
+                    videoTitle: video.title,
+                    questions: []
+                }
+            });
+        }
+
+        // Return only the questions (without correct answers for security)
+        const questions = video.questions.map(q => ({
+            _id: q._id,
+            questionText: q.questionText,
+            options: q.options
+        }));
+
+        res.status(200).json({
+            success: true,
+            message: "Video assessment questions retrieved successfully",
+            data: {
+                videoId: video._id,
+                videoTitle: video.title,
+                questions: questions
+            }
+        });
+
+    } catch (error) {
+        console.error('Error getting video assessment:', error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            error: error.message
+        });
+    }
+};
+
+// Submit video assessment answers
+export const submitVideoAssessment = async (req, res) => {
+    try {
+        const { videoId } = req.params;
+        const { answers, userId, trainingId, moduleId } = req.body;
+        
+        if (!videoId || !answers || !Array.isArray(answers)) {
+            return res.status(400).json({
+                success: false,
+                message: "Video ID and answers array are required"
+            });
+        }
+
+        // Find the module that contains this video
+        const module = await Module.findOne({
+            "videos._id": videoId
+        });
+
+        if (!module) {
+            return res.status(404).json({
+                success: false,
+                message: "Video not found"
+            });
+        }
+
+        // Find the specific video
+        const video = module.videos.find(v => v._id.toString() === videoId);
+        
+        if (!video) {
+            return res.status(404).json({
+                success: false,
+                message: "Video not found"
+            });
+        }
+
+        // Validate answers and calculate score
+        let correctAnswers = 0;
+        const totalQuestions = video.questions.length;
+        
+        const results = answers.map(userAnswer => {
+            const question = video.questions.find(q => q._id.toString() === userAnswer.questionId);
+            if (!question) {
+                return {
+                    questionId: userAnswer.questionId,
+                    correct: false,
+                    error: "Question not found"
+                };
+            }
+            
+            const isCorrect = question.correctAnswer === userAnswer.selectedAnswer;
+            if (isCorrect) correctAnswers++;
+            
+            return {
+                questionId: userAnswer.questionId,
+                selectedAnswer: userAnswer.selectedAnswer,
+                correctAnswer: question.correctAnswer,
+                correct: isCorrect
+            };
+        });
+
+        const score = totalQuestions > 0 ? (correctAnswers / totalQuestions) * 100 : 0;
+        const passed = score >= 70; // 70% passing threshold
+
+        // Save assessment result to training progress
+        if (userId && trainingId && moduleId) {
+            try {
+                const TrainingProgress = await import('../model/Trainingprocessschema.js');
+                
+                // Find existing training progress
+                let trainingProgress = await TrainingProgress.default.findOne({
+                    userId: userId,
+                    trainingId: trainingId,
+                    moduleId: moduleId
+                });
+
+                if (trainingProgress) {
+                    // Update existing progress
+                    const videoProgress = trainingProgress.videos.find(v => v.videoId.toString() === videoId);
+                    if (videoProgress) {
+                        videoProgress.assessmentCompleted = true;
+                        videoProgress.assessmentScore = score;
+                        videoProgress.assessmentPassed = passed;
+                        videoProgress.assessmentAnswers = results;
+                        videoProgress.completedAt = new Date();
+                    } else {
+                        // Add new video progress
+                        trainingProgress.videos.push({
+                            videoId: videoId,
+                            assessmentCompleted: true,
+                            assessmentScore: score,
+                            assessmentPassed: passed,
+                            assessmentAnswers: results,
+                            completedAt: new Date()
+                        });
+                    }
+                    
+                    await trainingProgress.save();
+                }
+            } catch (progressError) {
+                console.error('Error saving training progress:', progressError);
+                // Continue with response even if progress save fails
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Video assessment submitted successfully",
+            data: {
+                videoId: videoId,
+                score: score,
+                passed: passed,
+                totalQuestions: totalQuestions,
+                correctAnswers: correctAnswers,
+                results: results
+            }
+        });
+
+    } catch (error) {
+        console.error('Error submitting video assessment:', error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            error: error.message
+        });
+    }
 };
 

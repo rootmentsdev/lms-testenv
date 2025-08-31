@@ -418,7 +418,21 @@ export const GetuserTraining = async (req, res) => {
     const trainingProgress = await TrainingProgress.find({ userId: user._id });
 
     // Process each training to calculate completion percentages
-    const trainingDetails = user.training.map(training => {
+    // Filter out mandatory trainings - only return assigned trainings
+    const trainingDetails = user.training
+      .filter(training => {
+        // Check if this is a mandatory training
+        const trainingType = training.trainingId.Trainingtype;
+        const isMandatory = trainingType === 'Mandatory' || trainingType === 'mandatory';
+        
+        if (isMandatory) {
+          console.log(`Skipping mandatory training "${training.trainingId.trainingName}" from GetuserTraining API`);
+          return false; // Skip mandatory trainings
+        }
+        
+        return true; // Include assigned trainings
+      })
+      .map(training => {
       const progress = trainingProgress.find(p => p.trainingId.toString() === training.trainingId._id.toString());
 
       if (!progress) {
@@ -617,7 +631,7 @@ export const GetuserTrainingprocess = async (req, res) => {
 export const UpdateuserTrainingprocess = async (req, res) => {
   try {
     // Handle both query and body parameters for flexibility
-    const { userId, trainingId, moduleId, videoId } = {
+    const { userId, trainingId, moduleId, videoId, watchTime, totalDuration } = {
       ...req.query,
       ...req.body
     };
@@ -682,6 +696,13 @@ export const UpdateuserTrainingprocess = async (req, res) => {
     if (!video.pass) {
       video.pass = true;
       video.completedAt = new Date(); // Add completion timestamp
+      
+      // Store watch time data if provided
+      if (watchTime && totalDuration) {
+        video.watchTime = watchTime;
+        video.totalDuration = totalDuration;
+        video.watchPercentage = Math.round((watchTime / totalDuration) * 100);
+      }
     }
 
     // Update module status if all videos are passed
@@ -839,5 +860,174 @@ export const GetuserTrainingprocessmodule = async (req, res) => {
   } catch (error) {
     console.error('Error finding module:', error.message);
     res.status(500).json({ message: "Server error while finding module" });
+  }
+};
+
+// Unified training API that returns both assigned and mandatory trainings for a specific user
+export const GetUserAllTrainings = async (req, res) => {
+  const { empID } = req.query;
+
+  try {
+    console.log('🔍 Getting all trainings for user:', empID);
+
+    // 1. Find user based on empID
+    const user = await User.findOne({ empID })
+      .populate({
+        path: 'training.trainingId',
+      });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // 2. Fetch all training progress using user ID
+    const trainingProgress = await TrainingProgress.find({ userId: user._id });
+
+    // 3. Get user's role/designation for mandatory training filtering
+    const userRole = user.designation || user.role || 'generalist';
+    console.log('🔍 User role for mandatory training filtering:', userRole);
+
+    // 4. Process assigned trainings (non-mandatory)
+    const assignedTrainings = user.training
+      .filter(training => {
+        const trainingType = training.trainingId.Trainingtype;
+        const isMandatory = trainingType === 'Mandatory' || trainingType === 'mandatory';
+        
+        if (isMandatory) {
+          console.log(`Skipping mandatory training "${training.trainingId.trainingName}" from assigned trainings`);
+          return false;
+        }
+        
+        return true;
+      })
+      .map(training => {
+        const progress = trainingProgress.find(p => p.trainingId.toString() === training.trainingId._id.toString());
+
+        if (!progress) {
+          return {
+            trainingId: training.trainingId._id,
+            name: training.trainingId.trainingName || 'Unknown Training',
+            completionPercentage: 0,
+            type: 'assigned'
+          };
+        }
+
+        let totalModules = 0;
+        let completedModules = 0;
+        let totalVideos = 0;
+        let completedVideos = 0;
+
+        progress.modules.forEach(module => {
+          totalModules++;
+          if (module.pass) completedModules++;
+
+          module.videos.forEach(video => {
+            totalVideos++;
+            if (video.pass) completedVideos++;
+          });
+        });
+
+        const moduleCompletionPercentage = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
+        const videoCompletionPercentage = totalVideos > 0 ? (completedVideos / totalVideos) * 100 : 0;
+        const overallCompletionPercentage = (moduleCompletionPercentage + videoCompletionPercentage) / 2;
+
+        return {
+          trainingId: training.trainingId._id,
+          name: training.trainingId.trainingName || 'Unknown Training',
+          completionPercentage: overallCompletionPercentage.toFixed(2),
+          type: 'assigned',
+          totalModules,
+          completedModules,
+          totalVideos,
+          completedVideos
+        };
+      });
+
+    // 5. Get mandatory trainings that are assigned to user's role
+    // Only include trainings specifically assigned to the user's role, not "All" or "No Role"
+    const mandatoryTrainings = await Training.find({ 
+      Trainingtype: 'Mandatory',
+      Assignedfor: { $in: [userRole] } // Only include trainings assigned to user's specific role
+    });
+
+    console.log('🔍 User role:', userRole);
+    console.log('🔍 Found mandatory trainings for role:', userRole, mandatoryTrainings.length);
+    console.log('🔍 Mandatory training names:', mandatoryTrainings.map(t => t.trainingName));
+
+    // 6. Process mandatory trainings with user-specific progress
+    const processedMandatoryTrainings = await Promise.all(
+      mandatoryTrainings.map(async (training) => {
+        // Check if user has progress for this mandatory training
+        const userProgress = trainingProgress.find(p => p.trainingId.toString() === training._id.toString());
+        
+        let totalModules = 0;
+        let completedModules = 0;
+        let totalVideos = 0;
+        let completedVideos = 0;
+        let completionPercentage = 0;
+
+        if (userProgress) {
+          // User has progress - calculate from their progress
+          userProgress.modules.forEach(module => {
+            totalModules++;
+            if (module.pass) completedModules++;
+
+            module.videos.forEach(video => {
+              totalVideos++;
+              if (video.pass) completedVideos++;
+            });
+          });
+
+          const moduleCompletionPercentage = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
+          const videoCompletionPercentage = totalVideos > 0 ? (completedVideos / totalVideos) * 100 : 0;
+          completionPercentage = (moduleCompletionPercentage + videoCompletionPercentage) / 2;
+        } else {
+          // User has no progress - set to 0
+          totalModules = training.modules.length;
+          totalVideos = 0; // Will be calculated when modules are populated
+        }
+
+        return {
+          trainingId: training._id,
+          name: training.trainingName,
+          completionPercentage: completionPercentage.toFixed(2),
+          type: 'mandatory',
+          totalModules,
+          completedModules,
+          totalVideos,
+          completedVideos,
+          assignedFor: training.Assignedfor,
+          hasUserProgress: !!userProgress
+        };
+      })
+    );
+
+    // 7. Calculate overall completion percentage
+    const allTrainings = [...assignedTrainings, ...processedMandatoryTrainings];
+    const totalCompletionPercentage = allTrainings.reduce((sum, training) => sum + parseFloat(training.completionPercentage), 0);
+    const userOverallCompletionPercentage = allTrainings.length > 0 ? (totalCompletionPercentage / allTrainings.length).toFixed(2) : 0;
+
+    // 8. Return unified response
+    res.status(200).json({
+      message: "All trainings data found",
+      data: {
+        user: {
+          _id: user._id,
+          empID: user.empID,
+          name: user.name,
+          designation: user.designation,
+          role: user.role
+        },
+        assignedTrainings,
+        mandatoryTrainings: processedMandatoryTrainings,
+        allTrainings: allTrainings,
+        userOverallCompletionPercentage,
+        userRole
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in GetUserAllTrainings:', error);
+    res.status(500).json({ message: "Server error while fetching trainings" });
   }
 };
