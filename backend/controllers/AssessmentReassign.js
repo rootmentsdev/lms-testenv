@@ -11,6 +11,7 @@ import User from "../model/User.js";
 const convertToEmbedUrl = (url) => {
     if (!url) return '';
     
+    
     // Handle different YouTube URL formats
     let videoId = '';
     
