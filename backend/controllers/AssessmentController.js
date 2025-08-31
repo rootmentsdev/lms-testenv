@@ -1065,20 +1065,22 @@ export const createMandatoryTraining = async (req, res) => {
         }
 
 
-        // Assign training and create progress for each user
+        // For mandatory trainings, only create progress records, don't add to user.training array
+        // This prevents mandatory trainings from appearing in both "assigned" and "mandatory" sections
         const updatedUsers = validatedUsers.map(async (user) => {
-            user.training.push({
-                trainingId: newTraining._id,
-                deadline: deadlineDate,
-                pass: false,
-                status: 'Pending',
-            });
+            // DON'T add mandatory training to user.training array
+            // user.training.push({
+            //     trainingId: newTraining._id,
+            //     deadline: deadlineDate,
+            //     pass: false,
+            //     status: 'Pending',
+            // });
 
-            // Create training progress
+            // Create training progress for mandatory training
             const trainingProgress = new TrainingProgress({
                 userId: user._id,
                 trainingId: newTraining._id,
-                  trainingName: trainingName,
+                trainingName: trainingName,
                 deadline: deadlineDate,
                 pass: false,
                 modules: moduleDetails.map(module => ({
@@ -1092,19 +1094,20 @@ export const createMandatoryTraining = async (req, res) => {
             });
 
             await trainingProgress.save();
-            return user.save();
+            return user.save(); // Save user without adding to training array
         });
 
         await Promise.all(updatedUsers); // Save all users asynchronously
 
         res.status(201).json({
-            message: `Training created and assigned successfully to ${validatedUsers.length} users`,
+            message: `Mandatory training created successfully for ${validatedUsers.length} users`,
             training: newTraining,
-            assignedUsersCount: validatedUsers.length
+            assignedUsersCount: validatedUsers.length,
+            note: "Mandatory trainings are handled separately from assigned trainings"
         });
         const newNotification = await Notification.create({
-            title: `New training Created : ${trainingName}`,
-            body: `${trainingName} has been successfully created and assigned to ${validatedUsers.length} users. Created by ${admin?.name}. The training is scheduled to be completed in ${days} days.`,
+            title: `New Mandatory Training Created : ${trainingName}`,
+            body: `${trainingName} has been successfully created as a mandatory training for ${validatedUsers.length} users. Created by ${admin?.name}. The training is scheduled to be completed in ${days} days.`,
             Role: workingBranch,
             useradmin: admin?.name, // Optional
         });

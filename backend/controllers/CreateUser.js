@@ -80,15 +80,16 @@ export const createUser = async (req, res) => {
 
     const deadlineDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // Default 30-day deadline
 
-    // Assign each mandatory training to the user and create progress entries
+    // For mandatory trainings, only create progress records, don't add to user.training array
+    // This prevents mandatory trainings from appearing in both "assigned" and "mandatory" sections
     const trainingAssignments = mandatoryTraining.map(async (training) => {
-      // Assign training to the user
-      newUser.training.push({
-        trainingId: training._id,
-        deadline: deadlineDate,
-        pass: false,
-        status: 'Pending',
-      });
+      // DON'T add mandatory training to user.training array
+      // newUser.training.push({
+      //   trainingId: training._id,
+      //   deadline: deadlineDate,
+      //   pass: false,
+      //   status: 'Pending',
+      // });
 
       // Create TrainingProgress for the user
       const trainingProgress = new TrainingProgress({
@@ -116,8 +117,9 @@ export const createUser = async (req, res) => {
     await newUser.save();
 
     res.status(201).json({
-      message: 'User created successfully, and mandatory training assigned.',
+      message: 'User created successfully, and mandatory training progress created.',
       user: newUser,
+      note: 'Mandatory trainings are handled separately from assigned trainings'
     });
   } catch (error) {
     console.error('Error creating user:', error);

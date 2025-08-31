@@ -119,11 +119,26 @@ export const GetAllTrainingWithCompletion = async (req, res) => {
           email: emp.email || ''
         });
       }
-    });
+          });
 
-    // Process each training to calculate completion percentages
-    const trainingData = await Promise.all(
-      Array.from(trainingMap.values()).map(async ({ training, progressRecords }) => {
+      // Filter out mandatory trainings - only return assigned trainings
+      const filteredTrainingMap = new Map();
+      Array.from(trainingMap.values()).forEach(({ training, progressRecords }) => {
+        // Check if this is a mandatory training
+        const trainingType = training.Trainingtype;
+        const isMandatory = trainingType === 'Mandatory' || trainingType === 'mandatory';
+        
+        if (isMandatory) {
+          console.log(`Skipping mandatory training "${training.trainingName}" from GetuserTraining API`);
+          return; // Skip mandatory trainings
+        }
+        
+        filteredTrainingMap.set(training._id.toString(), { training, progressRecords });
+      });
+
+      // Process each training to calculate completion percentages
+      const trainingData = await Promise.all(
+        Array.from(filteredTrainingMap.values()).map(async ({ training, progressRecords }) => {
         let totalUsers = 0;
         let totalPercentage = 0;
         const userProgress = [];
@@ -220,10 +235,10 @@ export const GetAllTrainingWithCompletion = async (req, res) => {
       })
     );
 
-    res.status(200).json({
-      message: "Assigned training data fetched successfully",
-      data: trainingData
-    });
+          res.status(200).json({
+        message: "Assigned training data fetched successfully (mandatory trainings excluded)",
+        data: trainingData
+      });
   } catch (error) {
     console.error('Error fetching assigned training data:', error.message);
     res.status(500).json({ message: "Server error while fetching assigned training data" });
@@ -304,21 +319,36 @@ export const ReassignTraining = async (req, res) => {
         user.email = employeeInfo.email || user.email;
       }
 
-      // Check if the user already has the training assigned
-      const existingTrainingIndex = user.training.findIndex(t => t.trainingId.toString() === trainingId);
-      if (existingTrainingIndex !== -1) {
-        // Remove the existing training and progress
-        user.training.splice(existingTrainingIndex, 1);
-        await TrainingProgress.deleteOne({ userId: user._id, trainingId: training._id });
-      }
+      // Check if this is a mandatory training
+      const isMandatory = training.Trainingtype === 'Mandatory' || training.Trainingtype === 'mandatory';
+      
+      if (isMandatory) {
+        // For mandatory trainings, only create progress records, don't add to user.training array
+        console.log(`Handling mandatory training "${training.trainingName}" - not adding to user.training array`);
+        
+        // Check if the user already has progress for this mandatory training
+        const existingProgress = await TrainingProgress.findOne({ userId: user._id, trainingId: training._id });
+        if (existingProgress) {
+          // Remove the existing progress
+          await TrainingProgress.deleteOne({ userId: user._id, trainingId: training._id });
+        }
+      } else {
+        // For regular trainings, handle as before
+        const existingTrainingIndex = user.training.findIndex(t => t.trainingId.toString() === trainingId);
+        if (existingTrainingIndex !== -1) {
+          // Remove the existing training and progress
+          user.training.splice(existingTrainingIndex, 1);
+          await TrainingProgress.deleteOne({ userId: user._id, trainingId: training._id });
+        }
 
-      // Reassign the training
-      user.training.push({
-        trainingId: training._id,
-        deadline: deadlineDate,
-        pass: false,
-        status: 'Pending',
-      });
+        // Add training to user.training array for regular trainings
+        user.training.push({
+          trainingId: training._id,
+          deadline: deadlineDate,
+          pass: false,
+          status: 'Pending',
+        });
+      }
 
       await user.save(); // Save the user first to get the _id
 
