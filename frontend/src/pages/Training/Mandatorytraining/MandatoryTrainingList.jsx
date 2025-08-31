@@ -92,17 +92,15 @@ const MandatoryTrainingList = () => {
         const fetchData = async () => {
             setLoading(true);
             try {
-                // Fetch mandatory trainings (Trainingtype: "Mandatory")
-                const response = await fetch(`${baseUrl.baseUrl}api/get/allusertraining`);
+                // Fetch mandatory trainings using the dedicated API
+                const response = await fetch(`${baseUrl.baseUrl}api/get/mandatory/allusertraining`);
                 if (!response.ok) {
                     throw new Error("Failed to fetch data");
                 }
                 const result = await response.json();
 
-                // Filter only mandatory trainings
-                const mandatoryTrainings = result.data.filter(training => 
-                    training.Trainingtype === "Mandatory"
-                );
+                // All trainings from this API are mandatory trainings
+                const mandatoryTrainings = result.data;
 
                 // Extract uniqueBranches and uniqueItems
                 const branches = new Set();
@@ -395,15 +393,13 @@ const MandatoryTrainingList = () => {
                                     const deleteAllCheckbox = document.getElementById('deleteAllCheckbox');
                                     if (deleteAllCheckbox && deleteAllCheckbox.checked) {
                                         if (confirm('Are you absolutely sure you want to delete ALL mandatory trainings? This action cannot be undone!')) {
-                                            try {
-                                                // Fetch all mandatory trainings first
-                                                const response = await fetch(`${baseUrl.baseUrl}api/get/allusertraining`);
-                                                if (!response.ok) throw new Error("Failed to fetch trainings");
-                                                
-                                                const result = await response.json();
-                                                const mandatoryTrainings = result.data.filter(training => 
-                                                    training.Trainingtype === "Mandatory"
-                                                );
+                                                                try {
+                      // Fetch all mandatory trainings first
+                      const response = await fetch(`${baseUrl.baseUrl}api/get/mandatory/allusertraining`);
+                      if (!response.ok) throw new Error("Failed to fetch trainings");
+                      
+                      const result = await response.json();
+                      const mandatoryTrainings = result.data;
                                                 
                                                 if (mandatoryTrainings.length === 0) {
                                                     alert('No mandatory trainings found to delete.');
