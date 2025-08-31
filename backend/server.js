@@ -36,20 +36,37 @@ app.use(express.urlencoded({ extended: true }));
 // Enhanced CORS configuration for better preflight handling
 app.use(
   cors({
-    origin: [
-      'https://unicode-mu.vercel.app',
-      'https://lms.rootments.live',
-      'http://localhost:3000',
-      'http://localhost:3001', // lmsweb local dev
-      'http://localhost:5173', // dev (Vite)
-      'http://localhost:5174', // lmsweb dev (Vite)
-      'https://lms-dev-jishnu.vercel.app',
-      'https://lms-3w6k.vercel.app',
-      'https://lmsrootments.vercel.app',
-      'https://lms-testenv-q8co.vercel.app',
-      'https://web-lms-fawn.vercel.app',
-      'https://trainingweb-gamma.vercel.app'
-    ],
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      
+      const allowedOrigins = [
+        'https://unicode-mu.vercel.app',
+        'https://lms.rootments.live',
+        'http://localhost:3000',
+        'http://localhost:3001', // lmsweb local dev
+        'http://localhost:5173', // dev (Vite)
+        'http://localhost:5174', // lmsweb dev (Vite)
+        'https://lms-dev-jishnu.vercel.app',
+        'https://lms-3w6k.vercel.app',
+        'https://lmsrootments.vercel.app',
+        'https://lms-testenv-q8co.vercel.app',
+        'https://web-lms-fawn.vercel.app',
+        'https://trainingweb-gamma.vercel.app' // ✅ Your Vercel deployment
+      ];
+      
+      // Allow Vercel domains
+      if (origin.endsWith('.vercel.app')) {
+        return callback(null, true);
+      }
+      
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        console.log('🚫 CORS blocked origin:', origin);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
@@ -69,6 +86,7 @@ app.use(
 );
 
 app.get('/', (req, res) => {
+  console.log('🌐 Root endpoint accessed from:', req.headers.origin);
   res.send('✅ API is working');
 });
 
@@ -169,6 +187,9 @@ app.post('/api/employee_detail', async (req, res) => {
 ================================================== */
 app.post('/api/verify_employee', async (req, res) => {
   try {
+    console.log('🌐 /api/verify_employee accessed from:', req.headers.origin);
+    console.log('📝 Request headers:', req.headers);
+    
     const { employeeId, password } = req.body || {};
     if (!employeeId || !password) {
       return res.status(400).json({ 
