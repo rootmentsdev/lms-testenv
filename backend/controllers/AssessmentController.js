@@ -721,27 +721,113 @@ export const calculateProgress = async (req, res) => {
         const users = await User.find({ locCode: { $in: allowedLocCodes } });
         const userID = users.map(id => id._id)
 
-        // Fetch all trainings
+        // Fetch all trainings for the admin's users
         const trainings = await TrainingProgress.find({ userId: { $in: userID } });
+        
+        console.log(`🔍 Dashboard calculation debug:`);
+        console.log(`   - Admin allowed branches: ${allowedLocCodes.length}`);
+        console.log(`   - Users in allowed branches: ${users.length}`);
+        console.log(`   - Training progress records found: ${trainings.length}`);
 
-        // Calculate completion percentage for each training
+        // Calculate completion percentage for each training with improved logic
         const progressArray = trainings.map((training) => {
-            if (!training.modules || !Array.isArray(training.modules)) return 0;
+            if (!training.modules || !Array.isArray(training.modules)) {
+                console.log(`   ⚠️  Training ${training._id} has no modules or invalid structure`);
+                return 0;
+            }
 
             const totalModules = training.modules.length;
-            const completedModules = training.modules.reduce((count, module) => {
-                const totalVideos = module.videos?.length || 0;
-                const completedVideos = module.videos?.filter(video => video.pass).length || 0;
-                return count + (module.pass && completedVideos === totalVideos ? 1 : 0);
-            }, 0);
+            let completedModules = 0;
+            
+            training.modules.forEach((module, moduleIndex) => {
+                if (!module.videos || !Array.isArray(module.videos)) {
+                    console.log(`   ⚠️  Module ${moduleIndex} in training ${training._id} has no videos`);
+                    return;
+                }
+                
+                const totalVideos = module.videos.length;
+                const completedVideos = module.videos.filter(video => video.pass).length;
+                
+                // A module is completed only if module.pass = true AND all videos are completed
+                if (module.pass && completedVideos === totalVideos && totalVideos > 0) {
+                    completedModules++;
+                }
+            });
 
-            return totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
+            const progress = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
+            
+            // Debug logging for first few records
+            if (trainings.indexOf(training) < 3) {
+                console.log(`   📊 Training: ${training.trainingName || 'N/A'}`);
+                console.log(`     - Total modules: ${totalModules}`);
+                console.log(`     - Completed modules: ${completedModules}`);
+                console.log(`     - Progress: ${progress.toFixed(2)}%`);
+            }
+            
+            return progress;
         });
 
-        // Calculate overall average progress
-        const averageProgress = progressArray.length
-            ? (progressArray.reduce((a, b) => a + b, 0) / progressArray.length).toFixed(2)
-            : "0.00";
+        // Calculate overall average progress with validation
+        let averageProgress = 0;
+        if (progressArray.length > 0) {
+            const totalProgress = progressArray.reduce((sum, progress) => sum + progress, 0);
+            averageProgress = totalProgress / progressArray.length;
+            
+            console.log(`   📈 Progress calculation summary:`);
+            console.log(`     - Total trainings: ${progressArray.length}`);
+            console.log(`     - Progress array: [${progressArray.slice(0, 5).map(p => p.toFixed(2)).join(', ')}${progressArray.length > 5 ? '...' : ''}]`);
+            console.log(`     - Sum of all progress: ${totalProgress.toFixed(2)}`);
+            console.log(`     - Average progress: ${averageProgress.toFixed(4)}%`);
+            console.log(`     - Rounded average: ${Math.round(averageProgress)}%`);
+        } else {
+            console.log(`   ⚠️  No training progress records found for calculation`);
+        }
+
+        // Validate the calculation result
+        if (isNaN(averageProgress) || !isFinite(averageProgress)) {
+            console.log(`   ❌ Invalid calculation result: ${averageProgress}, defaulting to 0`);
+            averageProgress = 0;
+        }
+        
+        // Ensure the result is a valid number and format it properly
+        const formattedAverageProgress = parseFloat(averageProgress.toFixed(2));
+        
+        // Fallback calculation: If the main calculation seems wrong, use a simpler method
+        let fallbackProgress = 0;
+        if (trainings.length > 0) {
+            // Count fully completed trainings vs total trainings
+            const fullyCompletedTrainings = trainings.filter(training => {
+                if (!training.modules || !Array.isArray(training.modules)) return false;
+                
+                return training.modules.every(module => {
+                    if (!module.videos || !Array.isArray(module.videos)) return false;
+                    return module.pass && module.videos.every(video => video.pass);
+                });
+            }).length;
+            
+            fallbackProgress = (fullyCompletedTrainings / trainings.length) * 100;
+            
+            console.log(`   🔄 Fallback calculation:`);
+            console.log(`     - Fully completed trainings: ${fullyCompletedTrainings}`);
+            console.log(`     - Total trainings: ${trainings.length}`);
+            console.log(`     - Fallback progress: ${fallbackProgress.toFixed(2)}%`);
+            
+            // If there's a significant difference, log a warning
+            if (Math.abs(averageProgress - fallbackProgress) > 5) {
+                console.log(`   ⚠️  Large difference between main (${averageProgress.toFixed(2)}%) and fallback (${fallbackProgress.toFixed(2)}%) calculations`);
+            }
+        }
+        
+        // Final validation and selection of the most accurate result
+        let finalAverageProgress = formattedAverageProgress;
+        
+        // If the main calculation seems wrong (too low or invalid), use fallback
+        if (formattedAverageProgress < 1 && fallbackProgress > 1) {
+            console.log(`   🔧 Using fallback calculation due to suspiciously low main result`);
+            finalAverageProgress = fallbackProgress;
+        }
+        
+        console.log(`   ✅ Final dashboard progress: ${finalAverageProgress.toFixed(2)}%`);
 
         // Calculate assessment progress
         let totalAssessments = 0;
@@ -785,7 +871,7 @@ export const calculateProgress = async (req, res) => {
                 branchCount: AdminData.branches.length,
                 userCount: totalEmployeeCount, // Use total employee count from external API
                 localUserCount: userCount.length, // Keep local user count for reference
-                averageProgress: parseFloat(averageProgress),
+                averageProgress: finalAverageProgress,
                 assessmentProgress: passedAssessments,
                 trainingPending: trainingpend,
                 // Login statistics

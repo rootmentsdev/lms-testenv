@@ -1,10 +1,10 @@
 // Script to check database data and diagnose the issue
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import Admin from './backend/model/Admin.js';
-import User from './backend/model/User.js';
-import Branch from './backend/model/Branch.js';
-import TrainingProgress from './backend/model/Trainingprocessschema.js';
+import Admin from './model/Admin.js';
+import User from './model/User.js';
+import Branch from './model/Branch.js';
+import TrainingProgress from './model/Trainingprocessschema.js';
 
 dotenv.config();
 
