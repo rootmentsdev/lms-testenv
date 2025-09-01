@@ -1,7 +1,7 @@
 import express from 'express'
 const router = express.Router();
 import { createModule, getModules } from '../controllers/moduleController.js'; // Adjust the path to your controller
-import { calculateProgress, createAssessment, createMandatoryTraining, createTraining, getAssessments, GetTrainingById } from '../controllers/AssessmentController.js';
+import { calculateProgress, createAssessment, createMandatoryTraining, createTraining, getAssessments, GetTrainingById, testTrainingProgress } from '../controllers/AssessmentController.js';
 import { GetAllFullTrainingWithCompletion, GetAllTrainingWithCompletion, MandatoryGetAllTrainingWithCompletion } from '../controllers/AssessmentAndModule.js';
 import { MiddilWare } from '../lib/middilWare.js';
 
@@ -263,6 +263,7 @@ router.get('/get/Full/allusertraining', GetAllFullTrainingWithCompletion);
  *         description: Internal server error
  */
 router.get('/get/progress', MiddilWare, calculateProgress);
+router.get('/test/training-progress', testTrainingProgress);
 
 /**
  * @swagger
