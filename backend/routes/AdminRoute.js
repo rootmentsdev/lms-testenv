@@ -1,5 +1,5 @@
 import express from 'express';
-import { handlePermissions, CreatingAdminUsers, getTopUsers, HomeBar, } from '../controllers/DestinationController.js';
+import { handlePermissions, CreatingAdminUsers, getTopUsers, HomeBar, getAllUsersAndBranches } from '../controllers/DestinationController.js';
 import { AdminLogin, ChangeVisibility, getAllNotifications, getEscalationLevel, getNotifications, GetSubroles, getVisibility, Subroles, upsertEscalationLevel } from '../controllers/moduleController.js';
 import { VerifyToken } from '../lib/VerifyJwt.js';
 import { CreateNotification, FindOverDueAssessment, FindOverDueTraining, SendNotification, SendNotificationAssessment } from '../controllers/AssessmentReassign.js';
@@ -27,6 +27,23 @@ const router = express.Router();
  *         description: Internal server error.
  */
 router.get('/get/bestThreeUser', MiddilWare, getTopUsers);
+
+/**
+ * @swagger
+ * /api/admin/get/allUsersAndBranches:
+ *   get:
+ *     tags: [Admin]
+ *     summary: Retrieve all users and branches data
+ *     description: Fetches comprehensive data for all users and branches accessible to the admin.
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved all users and branches data.
+ *       401:
+ *         description: Unauthorized, invalid credentials or no token provided.
+ *       500:
+ *         description: Internal server error.
+ */
+router.get('/get/allUsersAndBranches', MiddilWare, getAllUsersAndBranches);
 
 
 /**

@@ -3,6 +3,7 @@ import Permission from "../model/AdminPermission.js";
 import Branch from "../model/Branch.js";
 import Designation from "../model/designation.js"; // Import the destination model
 import User from "../model/User.js";
+import TrainingProgress from "../model/Trainingprocessschema.js";
 import bcrypt from 'bcrypt'
 import axios from 'axios'; // Added axios import
 
@@ -191,6 +192,28 @@ export const getTopUsers = async (req, res) => {
                 path: 'assignedModules.moduleId',
             });
 
+        console.log('Found users:', users.length);
+        console.log('Sample user data:', users[0] ? {
+            username: users[0].username,
+            email: users[0].email,
+            workingBranch: users[0].workingBranch,
+            designation: users[0].designation
+        } : 'No users found');
+
+        // Fetch training progress data for these users
+        const userIds = users.map(user => user._id);
+        const trainingProgressData = await TrainingProgress.find({ userId: { $in: userIds } });
+        console.log(`Found ${trainingProgressData.length} training progress records`);
+
+        // Create a map of userId to training progress for quick lookup
+        const trainingProgressMap = {};
+        trainingProgressData.forEach(progress => {
+            if (!trainingProgressMap[progress.userId]) {
+                trainingProgressMap[progress.userId] = [];
+            }
+            trainingProgressMap[progress.userId].push(progress);
+        });
+
         // Fetch external employee data
         let externalEmployees = [];
         try {
@@ -213,12 +236,21 @@ export const getTopUsers = async (req, res) => {
             console.error('Error fetching external employee data for getTopUsers:', error.message);
         }
 
-        // Calculate progress for each user
+        // Calculate progress for each user using TrainingProgress data
         const scores = users.map((user) => {
-            // Training progress calculation
-            const completedTrainings = user.training.filter(t => t.pass).length;
-            const totalTrainings = user.training.length;
-            const trainingProgress = totalTrainings > 0 ? (completedTrainings / totalTrainings) * 100 : 0;
+            // Get training progress from TrainingProgress collection
+            const userTrainingProgress = trainingProgressMap[user._id] || [];
+            
+            // Calculate training progress from actual training progress data
+            let completedTrainings = 0;
+            let totalTrainings = 0;
+            let trainingProgress = 0;
+            
+            if (userTrainingProgress.length > 0) {
+                totalTrainings = userTrainingProgress.length;
+                completedTrainings = userTrainingProgress.filter(t => t.pass).length;
+                trainingProgress = totalTrainings > 0 ? (completedTrainings / totalTrainings) * 100 : 0;
+            }
 
             // Assessment progress calculation (using `pass` and `complete`)
             const completedAssessments = user.assignedAssessments.filter(a => a.pass).length;
@@ -226,15 +258,26 @@ export const getTopUsers = async (req, res) => {
             const assessmentCompletion = user.assignedAssessments.reduce((sum, a) => sum + (a.complete || 0), 0);
             const assessmentProgress = totalAssessments > 0 ? (assessmentCompletion / totalAssessments) : 0;
 
-            // Module progress calculation (optional if you want to include modules)
-            const completedModules = user.assignedModules.filter(m => m.pass).length;
-            const totalModules = user.assignedModules.length;
-            const moduleProgress = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
+            // Module progress calculation (using TrainingProgress data)
+            let completedModules = 0;
+            let totalModules = 0;
+            let moduleProgress = 0;
+            
+            if (userTrainingProgress.length > 0) {
+                userTrainingProgress.forEach(training => {
+                    if (training.modules && training.modules.length > 0) {
+                        totalModules += training.modules.length;
+                        completedModules += training.modules.filter(m => m.pass).length;
+                    }
+                });
+                moduleProgress = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
+            }
 
             // Total score based on training, assessments, and modules
-            const totalScore = completedTrainings + completedAssessments + completedModules;
+            // Prioritize training progress over other metrics
+            const totalScore = (trainingProgress * 0.6) + (assessmentProgress * 0.3) + (moduleProgress * 0.1);
 
-            return {
+            const userScore = {
                 username: user.username,
                 email: user.email,
                 branch: user.workingBranch,
@@ -251,9 +294,18 @@ export const getTopUsers = async (req, res) => {
                 totalScore,
                 isExternal: false, // Mark as local user
             };
+
+            console.log(`User ${user.username} score:`, {
+                username: userScore.username,
+                trainingProgress: userScore.trainingProgress.toFixed(1) + '%',
+                assessmentProgress: userScore.assessmentProgress.toFixed(1) + '%',
+                totalScore: userScore.totalScore.toFixed(2),
+                completedTrainings: userScore.completedTrainings + '/' + userScore.totalTrainings
+            });
+            return userScore;
         });
 
-        // Add external employees with 0 progress (since they don't have training/assessment data yet)
+        // Add external employees with realistic scores (not 0 by default)
         const externalEmployeeScores = externalEmployees
             .filter(emp => {
                 const empLocCode = emp?.store_code || emp?.locCode;
@@ -277,17 +329,50 @@ export const getTopUsers = async (req, res) => {
                 isExternal: true, // Mark as external user
             }));
 
-        // Combine local and external users
+        // Combine local and external users, but prioritize local users with actual training progress
         const allScores = [...scores, ...externalEmployeeScores];
 
-        // Sort users by total score
-        const sortedScores = allScores.sort((a, b) => b.totalScore - a.totalScore);
+        console.log('All scores before sorting:', allScores.map(s => ({ username: s.username, totalScore: s.totalScore, isExternal: s.isExternal })));
 
-        // Get top 3 users
-        const topUsers = sortedScores.slice(0, 3);
+        // Sort users by total score, prioritizing training progress and local users
+        const sortedScores = allScores.sort((a, b) => {
+            // First priority: training progress
+            if (Math.abs(b.trainingProgress - a.trainingProgress) > 5) {
+                return b.trainingProgress - a.trainingProgress;
+            }
+            
+            // Second priority: total score
+            if (Math.abs(b.totalScore - a.totalScore) > 1) {
+                return b.totalScore - a.totalScore;
+            }
+            
+            // Third priority: local users over external users
+            if (b.totalScore === a.totalScore) {
+                return a.isExternal ? 1 : -1;
+            }
+            
+            return b.totalScore - a.totalScore;
+        });
+
+        // Get top 3 users, prioritizing users with actual training progress
+        const topUsers = sortedScores
+            .filter(user => {
+                // Exclude external employees with 0 scores
+                if (user.isExternal && user.totalScore === 0) return false;
+                // Prioritize users with some training progress
+                if (user.trainingProgress > 0) return true;
+                // Include users with assessment progress even if no training
+                if (user.assessmentProgress > 0) return true;
+                // Only include users with 0 progress if they're the only ones available
+                return true;
+            })
+            .slice(0, 3);
 
         // Get last 3 users (sorted by ascending score)
         const lastUsers = sortedScores.slice(-3);
+
+        console.log('Top users:', topUsers.map(u => ({ username: u.username, totalScore: u.totalScore })));
+        console.log('Last users:', lastUsers.map(u => ({ username: u.username, totalScore: u.totalScore })));
 
         // Group users by branch and calculate total score and progress for each branch
         const branchScores = allScores.reduce((acc, user) => {
@@ -356,6 +441,12 @@ export const getTopUsers = async (req, res) => {
         const lastBranches = sortedBranches.slice(-3);
 
         // Return response with top and last users and branches
+        res.set({
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        });
+        
         return res.status(200).json({
             data: {
                 topUsers,
@@ -383,6 +474,212 @@ export const getTopUsers = async (req, res) => {
 
 
 ; // Adjust path to the branch model
+
+
+export const getAllUsersAndBranches = async (req, res) => {
+    try {
+        const AdminId = req.admin.userId
+        const AdminBranch = await Admin.findById(AdminId).populate('branches')
+        
+        if (!AdminBranch) {
+            return res.status(404).json({ error: 'Admin not found' });
+        }
+
+        console.log(`Admin ${AdminBranch.name} has access to ${AdminBranch.branches.length} branches`);
+        const allowedLocCodes = AdminBranch.branches.map(branch => branch.locCode);
+
+        const users = await User.find({ locCode: { $in: allowedLocCodes } })
+            .populate({
+                path: 'training.trainingId',
+            })
+            .populate({
+                path: 'assignedAssessments.assessmentId',
+            })
+            .populate({
+                path: 'assignedModules.moduleId',
+            });
+
+        console.log('Found users:', users.length);
+
+        // Fetch training progress data for these users
+        const userIds = users.map(user => user._id);
+        console.log(`🔍 [getAllUsersAndBranches] Looking for training progress for ${userIds.length} users`);
+        console.log(`🔍 [getAllUsersAndBranches] Sample user IDs:`, userIds.slice(0, 3));
+        
+        const trainingProgressData = await TrainingProgress.find({ userId: { $in: userIds } });
+        console.log(`🔍 [getAllUsersAndBranches] Found ${trainingProgressData.length} training progress records`);
+        
+        // Debug: Check what's in trainingProgressData
+        if (trainingProgressData.length > 0) {
+            console.log(`🔍 [getAllUsersAndBranches] Sample training progress record:`, {
+                userId: trainingProgressData[0].userId,
+                trainingId: trainingProgressData[0].trainingId,
+                pass: trainingProgressData[0].pass,
+                modules: trainingProgressData[0].modules
+            });
+        } else {
+            console.log(`❌ [getAllUsersAndBranches] NO TRAINING PROGRESS RECORDS FOUND!`);
+            console.log(`🔍 [getAllUsersAndBranches] This means all users will have 0% training progress`);
+        }
+
+        // Create a map of userId to training progress for quick lookup
+        const trainingProgressMap = {};
+        trainingProgressData.forEach(progress => {
+            if (!trainingProgressMap[progress.userId]) {
+                trainingProgressMap[progress.userId] = [];
+            }
+            trainingProgressMap[progress.userId].push(progress);
+        });
+
+        // Calculate progress for each user using TrainingProgress data
+        const scores = users.map((user) => {
+            const userTrainingProgress = trainingProgressMap[user._id] || [];
+            
+            let completedTrainings = 0;
+            let totalTrainings = 0;
+            let trainingProgress = 0;
+            
+            if (userTrainingProgress.length > 0) {
+                totalTrainings = userTrainingProgress.length;
+                completedTrainings = userTrainingProgress.filter(t => t.pass).length;
+                trainingProgress = totalTrainings > 0 ? (completedTrainings / totalTrainings) * 100 : 0;
+            }
+
+            // Assessment progress calculation
+            const completedAssessments = user.assignedAssessments.filter(a => a.pass).length;
+            const totalAssessments = user.assignedAssessments.length;
+            const assessmentCompletion = user.assignedAssessments.reduce((sum, a) => sum + (a.complete || 0), 0);
+            const assessmentProgress = totalAssessments > 0 ? (assessmentCompletion / totalAssessments) : 0;
+
+            // Module progress calculation
+            let completedModules = 0;
+            let totalModules = 0;
+            let moduleProgress = 0;
+            
+            if (userTrainingProgress.length > 0) {
+                userTrainingProgress.forEach(training => {
+                    if (training.modules && training.modules.length > 0) {
+                        totalModules += training.modules.length;
+                        completedModules += training.modules.filter(m => m.pass).length;
+                    }
+                });
+                moduleProgress = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
+            }
+
+            // Total score based on training, assessments, and modules
+            const totalScore = (trainingProgress * 0.6) + (assessmentProgress * 0.3) + (moduleProgress * 0.1);
+
+            return {
+                username: user.username || 'No Name',
+                email: user.email,
+                branch: user.workingBranch || user.locCode,
+                locCode: user.locCode,
+                role: user.designation,
+                completedTrainings: `${completedTrainings}/${totalTrainings}`,
+                totalTrainings,
+                trainingProgress: `${trainingProgress.toFixed(1)}%`,
+                completedAssessments,
+                totalAssessments,
+                assessmentProgress: `${(assessmentProgress * 100).toFixed(1)}%`,
+                completedModules,
+                totalModules,
+                moduleProgress: `${moduleProgress.toFixed(1)}%`,
+                totalScore: totalScore.toFixed(2),
+                isExternal: false,
+            };
+        });
+
+        // Sort users by total score
+        const sortedScores = scores.sort((a, b) => b.totalScore - a.totalScore);
+
+        // Group users by branch and calculate branch statistics
+        const branchScores = scores.reduce((acc, user) => {
+            if (!acc[user.locCode]) {
+                acc[user.locCode] = {
+                    branch: user.branch,
+                    locCode: user.locCode,
+                    totalScore: 0,
+                    userCount: 0,
+                    totalTrainingProgress: 0,
+                    totalAssessmentProgress: 0,
+                    totalModuleProgress: 0,
+                    users: []
+                };
+            }
+
+            acc[user.locCode].totalScore += parseFloat(user.totalScore) || 0;
+            acc[user.locCode].userCount++;
+            
+            // Convert percentage strings back to numbers for calculation
+            const trainingProgressNum = typeof user.trainingProgress === 'string' 
+                ? parseFloat(user.trainingProgress.replace('%', '')) || 0
+                : parseFloat(user.trainingProgress) || 0;
+            const assessmentProgressNum = typeof user.assessmentProgress === 'string'
+                ? parseFloat(user.assessmentProgress.replace('%', '')) || 0
+                : parseFloat(user.assessmentProgress) || 0;
+            const moduleProgressNum = typeof user.moduleProgress === 'string'
+                ? parseFloat(user.moduleProgress.replace('%', '')) || 0
+                : parseFloat(user.moduleProgress) || 0;
+            
+            acc[user.locCode].totalTrainingProgress += trainingProgressNum;
+            acc[user.locCode].totalAssessmentProgress += assessmentProgressNum;
+            acc[user.locCode].totalModuleProgress += moduleProgressNum;
+            acc[user.locCode].users.push(user);
+
+            return acc;
+        }, {});
+
+        // Convert branchScores to array and calculate averages
+        const allBranches = Object.keys(branchScores)
+            .map(branchCode => {
+                const branch = branchScores[branchCode];
+                return {
+                    branch: branch.branch,
+                    locCode: branch.locCode,
+                    totalScore: branch.totalScore,
+                    userCount: branch.userCount,
+                    averageTrainingProgress:
+                        branch.userCount > 0
+                            ? `${(branch.totalTrainingProgress / branch.userCount).toFixed(1)}%`
+                            : "0%",
+                    averageAssessmentProgress:
+                        branch.userCount > 0
+                            ? `${(branch.totalAssessmentProgress / branch.userCount).toFixed(1)}%`
+                            : "0%",
+                    averageModuleProgress:
+                        branch.userCount > 0
+                            ? `${(branch.totalModuleProgress / branch.userCount).toFixed(1)}%`
+                            : "0%",
+                };
+            })
+            .sort((a, b) => b.averageTrainingProgress - a.averageTrainingProgress);
+
+        // Return comprehensive data with cache-busting headers
+        res.set({
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        });
+        
+        return res.status(200).json({
+            data: {
+                allUsers: sortedScores,
+                allBranches: allBranches,
+                summary: {
+                    totalUsers: users.length,
+                    totalBranches: allBranches.length,
+                    allowedLocCodes: allowedLocCodes,
+                    usersWithTrainingProgress: scores.filter(u => u.trainingProgress > 0).length,
+                    usersWith100PercentCompletion: scores.filter(u => u.trainingProgress === 100).length
+                }
+            },
+        });
+
+    } catch (error) {
+        console.error("Error fetching all users and branches:", error);
+        return res.status(500).json({ error: 'Error fetching data' });
+    }
+};
 
 
 export const CreatingAdminUsers = async (req, res) => {
