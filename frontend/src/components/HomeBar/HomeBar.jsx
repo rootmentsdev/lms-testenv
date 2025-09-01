@@ -33,6 +33,8 @@ const HomeBar = () => {
                     throw new Error(`Error: ${response.status} ${response.statusText}`);
                 }
                 const result = await response.json();
+                console.log('HomeBar API response:', result);
+                console.log('HomeBar data received:', result.data);
                 setAllData(result.data);
                 setLoading(true)
             } catch (error) {
@@ -46,6 +48,7 @@ const HomeBar = () => {
 
     // Process data for recharts
     const chartData = allData.map((obj) => {
+        console.log('Processing chart data for obj:', obj);
         const totalTraining = obj.completeTraining + obj.pendingTraining;
         const totalAssessment = obj.completeAssessment + obj.pendingAssessment;
 
@@ -57,15 +60,19 @@ const HomeBar = () => {
         const completedAssessment = totalAssessment ? (obj.completeAssessment / totalAssessment) * 100 : 0;
         const pendingAssessment = totalAssessment ? (obj.pendingAssessment / totalAssessment) * 100 : 0;
 
-        return {
+        const chartItem = {
             name: obj.locCode,
-            Completed: change ? completedAssessment : completedTraining,
-            Pending: change ? pendingAssessment : pendingTraining,
+            Completed: change ? obj.completeAssessment : obj.completeTraining,  // Show raw counts
+            Pending: change ? obj.pendingAssessment : obj.pendingTraining,    // Show raw counts
             customTooltipText: change
-                ? `Branch: ${obj.branchName}\nCompleted: ${completedAssessment.toFixed(2)}%\nPending: ${pendingAssessment.toFixed(2)}%`
-                : `Branch: ${obj.branchName}\nCompleted: ${completedTraining.toFixed(2)}%\nPending: ${pendingTraining.toFixed(2)}%`,
+                ? `Branch: ${obj.branchName}\nCompleted: ${obj.completeAssessment} trainings\nPending: ${obj.pendingAssessment} trainings`
+                : `Branch: ${obj.branchName}\nCompleted: ${obj.completeTraining} trainings\nPending: ${obj.pendingTraining} trainings`,
         };
+        console.log('Chart item created:', chartItem);
+        return chartItem;
     });
+    
+    console.log('Final chart data array:', chartData);
 
     // Tooltip Formatter
     const CustomTooltip = ({ active, payload }) => {
@@ -107,7 +114,7 @@ const HomeBar = () => {
                                 >
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis dataKey="name" />
-                                    <YAxis tickFormatter={(value) => `${value}%`} />
+                                    <YAxis tickFormatter={(value) => `${value}`} />
                                     <Tooltip content={<CustomTooltip />} />
                                     <Legend layout="horizontal" verticalAlign="bottom" align="center" /> {/* Ensures legend stays inside */}
                                     <Bar dataKey="Completed" stackId="a" fill="#016E5B" />

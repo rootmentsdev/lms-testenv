@@ -129,10 +129,23 @@ export const HomeBar = async (req, res) => {
 
             // Calculate counts for the branch (local users only for now)
             branchUsers.forEach((user) => {
-                trainingCount += user.training.length;
-                assessmentCount += user.assignedAssessments.length;
-                trainingCountPending += user.training.filter((item) => item.pass === false).length;
-                assessmentCountPending += user.assignedAssessments.filter((item) => item.pass === false).length;
+                const userTraining = user.training || [];
+                const userAssessments = user.assignedAssessments || [];
+                
+                trainingCount += userTraining.length;
+                assessmentCount += userAssessments.length;
+                
+                const pendingTraining = userTraining.filter((item) => item.pass === false).length;
+                const completedTraining = userTraining.filter((item) => item.pass === true).length;
+                const pendingAssessment = userAssessments.filter((item) => item.pass === false).length;
+                
+                trainingCountPending += pendingTraining;
+                assessmentCountPending += pendingAssessment;
+                
+                // Debug logging for first few users
+                if (branchUsers.indexOf(user) < 3) {
+                    console.log(`User ${user.username || user.name}: Training=${userTraining.length}, Pending=${pendingTraining}, Completed=${completedTraining}`);
+                }
             });
 
             // For external employees, we don't have training/assessment data yet
@@ -142,10 +155,10 @@ export const HomeBar = async (req, res) => {
             return {
                 totalTraining: trainingCount,
                 totalAssessment: assessmentCount,
-                pendingTraining: (trainingCountPending / trainingCount) * 100 || 0,
-                completeTraining: ((trainingCount - trainingCountPending) / trainingCount) * 100 || 0,
-                pendingAssessment: (assessmentCountPending / assessmentCount) * 100 || 0,
-                completeAssessment: ((assessmentCount - assessmentCountPending) / assessmentCount) * 100 || 0,
+                pendingTraining: trainingCountPending,  // Send raw count, not percentage
+                completeTraining: trainingCount - trainingCountPending,  // Send raw count, not percentage
+                pendingAssessment: assessmentCountPending,  // Send raw count, not percentage
+                completeAssessment: assessmentCount - assessmentCountPending,  // Send raw count, not percentage
                 locCode: branch.locCode,
                 branchName: branch.workingBranch,
                 totalEmployees: totalEmployeesInBranch,
@@ -154,6 +167,22 @@ export const HomeBar = async (req, res) => {
             };
         });
 
+        console.log('HomeBar data being sent:', JSON.stringify(allData, null, 2));
+        
+        // Debug: Show sample data structure
+        if (allData.length > 0) {
+            const sample = allData[0];
+            console.log('Sample branch data:', {
+                locCode: sample.locCode,
+                branchName: sample.branchName,
+                totalTraining: sample.totalTraining,
+                pendingTraining: sample.pendingTraining,
+                completeTraining: sample.completeTraining,
+                totalAssessment: sample.totalAssessment,
+                pendingAssessment: sample.pendingAssessment,
+                completeAssessment: sample.completeAssessment
+            });
+        }
         return res.status(200).json({
             message: "Data fetched for progress",
             data: allData,
