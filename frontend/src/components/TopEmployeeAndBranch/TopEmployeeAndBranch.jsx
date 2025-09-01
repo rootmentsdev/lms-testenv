@@ -11,6 +11,7 @@ const TopEmployeeAndBranch = () => {
     const [view, setView] = useState("employees"); // "employees" or "branches"
     const [topData, setTopData] = useState("top"); // "top" or "last"
     const [isLoading, setIsLoading] = useState(true); // For loading state
+    const [error, setError] = useState(null); // For error state
     const token = localStorage.getItem('token');
     const user = useSelector((state) => state.auth.user); // Access user from Redux store
 
@@ -19,6 +20,9 @@ const TopEmployeeAndBranch = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
+                console.log('🔍 Fetching top performance data...');
+                setError(null);
+                
                 const response = await fetch(`${baseUrl.baseUrl}api/admin/get/bestThreeUser`, {
                     method: "GET",
                     headers: {
@@ -27,21 +31,41 @@ const TopEmployeeAndBranch = () => {
                     },
                     credentials: "include",
                 });
+                
+                console.log('📡 API Response Status:', response.status);
+                
                 if (!response.ok) {
-                    throw new Error(`Error: ${response.status} ${response.statusText}`);
+                    const errorText = await response.text();
+                    console.error('❌ API Error:', response.status, errorText);
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
                 }
+                
                 const result = await response.json();
-                setAllData(result.data);
-                console.log(result.data);
+                console.log('📊 API Response Data:', result);
+                
+                if (result.data) {
+                    setAllData(result.data);
+                    console.log('✅ Data set successfully:', result.data);
+                } else {
+                    console.warn('⚠️ No data property in response:', result);
+                    setAllData({});
+                }
 
                 setIsLoading(false); // Data is fetched, hide the loading state
             } catch (error) {
-                console.error("Failed to fetch data:", error.message);
+                console.error("❌ Failed to fetch data:", error.message);
+                setError(error.message);
                 setIsLoading(false); // Set loading to false even on error
             }
         };
 
-        fetchData();
+        if (token) {
+            fetchData();
+        } else {
+            console.error('❌ No token found');
+            setError('No authentication token found');
+            setIsLoading(false);
+        }
     }, [token]);
 
     // Function to handle toggling between 'top' and 'last' data
@@ -58,8 +82,19 @@ const TopEmployeeAndBranch = () => {
     const renderEmployees = () => {
         // Check if the data is available before rendering
         const users = topData === "top" ? allData.topUsers : allData.lastUsers;
+        
+        console.log(`👥 Rendering ${view} (${topData}):`, users);
 
-        if (!users || users.length === 0) return <p>No data available</p>;
+        if (!users || users.length === 0) {
+            return (
+                <div className="text-center py-8">
+                    <p className="text-gray-500 text-lg">No employee data available</p>
+                    <p className="text-gray-400 text-sm mt-2">
+                        {topData === 'top' ? 'Top performing employees' : 'Low performing employees'} not found
+                    </p>
+                </div>
+            );
+        }
 
         // Sort users by Training Completed first, then by Assessment Score
         const sortedUsers = [...users].sort((a, b) => {
@@ -91,7 +126,19 @@ const TopEmployeeAndBranch = () => {
     const renderBranches = () => {
         // Check if the data is available before rendering
         const branches = topData === "top" ? allData.topBranches : allData.lastBranches;
-        if (!branches || branches.length === 0) return <p>No data available</p>;
+        
+        console.log(`🏢 Rendering ${view} (${topData}):`, branches);
+        
+        if (!branches || branches.length === 0) {
+            return (
+                <div className="text-center py-8">
+                    <p className="text-gray-500 text-lg">No branch data available</p>
+                    <p className="text-gray-400 text-sm mt-2">
+                        {topData === 'top' ? 'Top performing branches' : 'Low performing branches'} not found
+                    </p>
+                </div>
+            );
+        }
 
         return branches.map((branch, index) => (
             <div key={index} className="flex items-center bg-gray-100 p-2 rounded-md">
@@ -110,9 +157,27 @@ const TopEmployeeAndBranch = () => {
         ));
     };
 
+    // Show error state
+    if (error) {
+        return (
+            <div className="p-2 bg-white w-full h-[400px] border border-red-300 rounded-xl shadow-lg mx-auto">
+                <div className="flex flex-col items-center justify-center h-full">
+                    <div className="text-red-500 text-6xl mb-4">⚠️</div>
+                    <h3 className="text-lg font-bold text-red-600 mb-2">Error Loading Data</h3>
+                    <p className="text-gray-600 text-center mb-4">{error}</p>
+                    <button 
+                        onClick={() => window.location.reload()} 
+                        className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                    >
+                        Retry
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     if (isLoading) {
         return <div role="status" className="flex items-center justify-center  w-[600px] h-[400px] shadow-xl bg-slate-100 rounded-lg animate-pulse d">
-
             <span className="sr-only">Loading...</span>
         </div>; // Show loading text until data is available
     }
@@ -167,7 +232,6 @@ const TopEmployeeAndBranch = () => {
                 {view === "employees" ? renderEmployees() : renderBranches()}
             </div>
         </div >
-
 
 
 
