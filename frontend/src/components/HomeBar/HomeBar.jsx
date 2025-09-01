@@ -46,16 +46,11 @@ const HomeBar = () => {
 
     // Process data for recharts
     const chartData = allData.map((obj) => {
-        const totalTraining = obj.completeTraining + obj.pendingTraining;
-        const totalAssessment = obj.completeAssessment + obj.pendingAssessment;
-
-        // Calculate percentages for Training (using total for Training only)
-        const completedTraining = totalTraining ? (obj.completeTraining / totalTraining) * 100 : 0;
-        const pendingTraining = totalTraining ? (obj.pendingTraining / totalTraining) * 100 : 0;
-
-        // Calculate percentages for Assessment (using total for Assessment only)
-        const completedAssessment = totalAssessment ? (obj.completeAssessment / totalAssessment) * 100 : 0;
-        const pendingAssessment = totalAssessment ? (obj.pendingAssessment / totalAssessment) * 100 : 0;
+        // The backend now sends the correct percentages, so we don't need to recalculate
+        const completedTraining = obj.completeTraining || 0;
+        const pendingTraining = obj.pendingTraining || 0;
+        const completedAssessment = obj.completeAssessment || 0;
+        const pendingAssessment = obj.pendingAssessment || 0;
 
         return {
             name: obj.locCode,

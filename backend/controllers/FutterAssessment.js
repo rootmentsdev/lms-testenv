@@ -442,34 +442,84 @@ export const GetStoreManagerDueDate = async (req, res) => {
             return res.status(404).json({ message: "No users found for the locCodes" });
         }
 
-        // Step 4: Filter overdue users
+        // Step 4: Get overdue trainings from TrainingProgress collection
         const currentDate = new Date();
-        const overdueUsers = users
-            .map((user) => {
-                // Filter overdue trainings (status is NOT 'completed' and deadline is past)
-                const overdueTrainings = user.training.filter(
-                    (t) => t.status !== "completed" && new Date(t.deadline) < currentDate
-                );
+        
+        // Group overdue items by user
+        const userOverdueMap = new Map();
 
-                // Filter overdue assignments (status is NOT 'Completed' and deadline is past)
-                const overdueAssessments = user.assignedAssessments.filter(
-                    (a) => a.status !== "Completed" && new Date(a.deadline) < currentDate
-                );
+        // 1. Find overdue trainings from TrainingProgress collection (mandatory trainings)
+        const overdueTrainingsFromProgress = await TrainingProgress.find({
+            userId: { $in: users.map(user => user._id) },
+            deadline: { $lt: currentDate },
+            pass: false
+        }).populate('userId', 'username locCode');
 
-                // Include only users with overdue items
-                if (overdueTrainings.length > 0 || overdueAssessments.length > 0) {
-                    return {
-                        userId: user._id,
-                        name: user.username, // Assuming 'username' is the correct field
-                        locCode: user.locCode,
-                        overdueTrainings,
-                        overdueAssessments,
-                    };
+        // 2. Process mandatory trainings from TrainingProgress
+        overdueTrainingsFromProgress.forEach(training => {
+            const userId = training.userId._id.toString();
+            if (!userOverdueMap.has(userId)) {
+                userOverdueMap.set(userId, {
+                    userId: training.userId._id,
+                    name: training.userId.username,
+                    locCode: training.userId.locCode,
+                    overdueTrainings: [],
+                    overdueAssessments: []
+                });
+            }
+            userOverdueMap.get(userId).overdueTrainings.push(training);
+        });
+
+        // 3. Find overdue trainings from User.training array (regular trainings)
+        users.forEach(user => {
+            if (Array.isArray(user.training)) {
+                const overdueRegularTrainings = user.training.filter(
+                    item => new Date(item.deadline) < currentDate && item.pass === false
+                );
+                
+                if (overdueRegularTrainings.length > 0) {
+                    const userId = user._id.toString();
+                    if (!userOverdueMap.has(userId)) {
+                        userOverdueMap.set(userId, {
+                            userId: user._id,
+                            name: user.username,
+                            locCode: user.locCode,
+                            overdueTrainings: [],
+                            overdueAssessments: []
+                        });
+                    }
+                    
+                    // Add regular trainings to the map
+                    overdueRegularTrainings.forEach(training => {
+                        userOverdueMap.get(userId).overdueTrainings.push(training);
+                    });
                 }
+            }
+        });
 
-                return null; // Exclude users with no overdue items
-            })
-            .filter((user) => user !== null); // Remove null entries
+        // 4. Find overdue assessments
+        const overdueAssessments = await AssessmentProcess.find({
+            userId: { $in: users.map(user => user._id) },
+            deadline: { $lt: currentDate },
+            pass: false
+        }).populate('userId', 'username locCode');
+
+        // 5. Process overdue assessments
+        overdueAssessments.forEach(assessment => {
+            const userId = assessment.userId._id.toString();
+            if (!userOverdueMap.has(userId)) {
+                userOverdueMap.set(userId, {
+                    userId: assessment.userId._id,
+                    name: assessment.userId.username,
+                    locCode: assessment.userId.locCode,
+                    overdueTrainings: [],
+                    overdueAssessments: []
+                });
+            }
+            userOverdueMap.get(userId).overdueAssessments.push(assessment);
+        });
+
+        const overdueUsers = Array.from(userOverdueMap.values());
 
         // Step 5: Slice the first 3 users
         const topOverdueUsers = overdueUsers.slice(0, 3);

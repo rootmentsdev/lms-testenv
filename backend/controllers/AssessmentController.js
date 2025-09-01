@@ -836,13 +836,36 @@ export const calculateProgress = async (req, res) => {
                     item => day > item.deadline && item.pass === false
                 ).length;
             }
-
-            if (Array.isArray(user.training)) {
-                trainingpend += user.training.filter(
-                    item => day > item.deadline && item.pass === false
-                ).length;
-            }
         });
+
+        // Calculate overdue trainings from TrainingProgress collection
+        const currentDate = new Date();
+        const overdueTrainingProgress = await TrainingProgress.find({
+            userId: { $in: users.map(user => user._id) },
+            deadline: { $lt: currentDate },
+            pass: false
+        }).select('userId trainingId');
+
+        // Base count from TrainingProgress
+        const overduePairsFromProgress = new Set(
+            overdueTrainingProgress.map(rec => `${rec.userId.toString()}_${rec.trainingId.toString()}`)
+        );
+
+        // Also include overdue trainings from User.training array (legacy/edge cases without progress records)
+        let overdueAssignedOnlyCount = 0;
+        users.forEach(user => {
+            if (!Array.isArray(user.training)) return;
+            user.training.forEach(t => {
+                const isOverdue = t.pass === false && t.deadline && new Date(t.deadline) < currentDate && t.trainingId;
+                if (!isOverdue) return;
+                const key = `${user._id.toString()}_${t.trainingId.toString()}`;
+                if (!overduePairsFromProgress.has(key)) {
+                    overdueAssignedOnlyCount += 1;
+                }
+            });
+        });
+
+        trainingpend = overdueTrainingProgress.length + overdueAssignedOnlyCount;
 
         // Get login statistics
         const uniqueLoginUsers = await UserLoginSession.distinct('userId');

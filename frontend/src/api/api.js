@@ -1,12 +1,9 @@
   
 const baseUrl = {
-    // Production URL (Render deployment)
-    baseUrl: "https://lms-testenv.onrender.com/",
-    
-    // Development URL (for local development)
-    // baseUrl: "http://localhost:7000/"
-    
-    // ✅ Your backend is deployed at: https://lms-testenv.onrender.com/
+	// Auto-select base URL depending on environment and window location
+	baseUrl: (typeof window !== 'undefined' && window.location.hostname === 'localhost')
+		? 'http://localhost:7000/'
+		: 'https://lms-testenv.onrender.com/'
 }; 
 
 export default baseUrl;
