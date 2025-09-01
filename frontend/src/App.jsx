@@ -63,25 +63,36 @@ function App() {
     } else {
       const verifyToken = async () => {
         try {
+          console.log('Verifying token:', token ? 'Token exists' : 'No token');
+          
           const response = await fetch(`${baseUrl.baseUrl}api/admin/admin/verifyToken`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
             },
           });
+          
+          console.log('Token verification response status:', response.status);
+          
           if (!response.ok) {
+            console.error('Token verification failed:', response.status);
             navigate('/login');
+            return;
           }
-          console.log("hi");
 
           const request = await response.json()
-          setUser(request.user)
-          console.log(request.user);
+          console.log('Token verification response:', request);
 
-          dispatch(setUser({
-            userId: request.user.userId,
-            role: request.user.role,
-          }));
+          if (request.user) {
+            dispatch(setUser({
+              userId: request.user.userId,
+              role: request.user.role,
+            }));
+          } else {
+            console.error('No user data in token verification response');
+            localStorage.removeItem('token');
+            navigate('/login');
+          }
 
         } catch (error) {
           console.error('Error verifying token:', error);

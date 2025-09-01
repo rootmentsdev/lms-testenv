@@ -688,10 +688,34 @@ export const calculateProgress = async (req, res) => {
         // Count documents
         const assessmentCount = await Assessment.countDocuments();
         const userCount = await User.find({ locCode: { $in: allowedLocCodes } });
-        console.log(allowedLocCodes);
+        console.log('Allowed location codes:', allowedLocCodes);
 
-        // Use local user count for now, frontend will fetch actual employee count separately
-        const totalEmployeeCount = userCount.length;
+        // Fetch external employee data to get total employee count
+        let totalEmployeeCount = userCount.length; // Default to local user count
+        let externalEmployees = [];
+        
+        try {
+            const response = await axios.post(`${process.env.BASE_URL || 'http://localhost:7000'}/api/employee_range`, {
+                startEmpId: 'EMP1',
+                endEmpId: 'EMP9999'
+            }, { timeout: 15000 });
+            
+            externalEmployees = response.data?.data || [];
+            console.log(`Fetched ${externalEmployees.length} external employees`);
+            
+            // Filter external employees by allowed location codes
+            const filteredExternalEmployees = externalEmployees.filter(emp => {
+                const empLocCode = emp?.store_code || emp?.locCode;
+                return allowedLocCodes.includes(empLocCode);
+            });
+            
+            totalEmployeeCount = filteredExternalEmployees.length;
+            console.log(`Filtered external employees for allowed locations: ${totalEmployeeCount}`);
+            
+        } catch (error) {
+            console.error('Error fetching external employee data:', error.message);
+            // Continue with local user count
+        }
 
         // Fetch users once instead of multiple times
         const users = await User.find({ locCode: { $in: allowedLocCodes } });
@@ -739,8 +763,6 @@ export const calculateProgress = async (req, res) => {
             }
         });
 
-
-
         // Get login statistics
         const uniqueLoginUsers = await UserLoginSession.distinct('userId');
         const uniqueLoginUserCount = uniqueLoginUsers.length;
@@ -752,10 +774,10 @@ export const calculateProgress = async (req, res) => {
             { $sort: { count: -1 } }
         ]);
         
-        // Calculate login percentage
+        // Calculate login percentage based on total employee count
         const loginPercentage = totalEmployeeCount > 0 ? Math.round((uniqueLoginUserCount / totalEmployeeCount) * 100) : 0;
         
-        // Return results
+        // Return results with proper structure
         res.status(200).json({
             success: true,
             data: {
@@ -770,7 +792,10 @@ export const calculateProgress = async (req, res) => {
                 uniqueLoginUserCount,
                 totalLogins,
                 loginPercentage,
-                deviceStats
+                deviceStats,
+                // Additional info for debugging
+                externalEmployeesFetched: externalEmployees.length,
+                allowedLocCodes: allowedLocCodes
             },
         });
     } catch (error) {
