@@ -13,7 +13,7 @@ import TopEmployeeAndBranch from "../../components/TopEmployeeAndBranch/TopEmplo
 import Notification from "../../components/Notification/Notification";
 import Quick from "../../components/Quick/Quick";
 import { RiIdCardLine } from "react-icons/ri";
-import { FaMobileAlt } from "react-icons/fa";
+import LMSWebsiteLoginStats from "../../components/LMSWebsiteLoginStats/LMSWebsiteLoginStats";
 
 
 const HomeData = ({ user }) => {
@@ -274,23 +274,8 @@ const HomeData = ({ user }) => {
                                         </div>
                                     </div>
                                 </Link>
-                                {/* App Login Statistics Box */}
-                                <div className="lg:w-56 w-48 md:w-52 h-28 relative border-blue-600 border-2 rounded-xl shadow-lg text-black flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
-                                    <div className="flex gap-3">
-                                        <div className="text-xl absolute top-2 right-2 bg-blue-100 h-10 w-10 rounded-full flex items-center justify-center">
-                                            <FaMobileAlt />
-                                        </div>
-                                        <div className="flex flex-col absolute top-5 left-2 w-10">
-                                            <p className="text-sm text-black">App Logins</p>
-                                            <h2 className="md:text-2xl sm:text-lg font-bold text-blue-600">
-                                                {data?.uniqueLoginUserCount || 0}
-                                            </h2>
-                                            <p className="text-xs text-gray-600">
-                                                {data?.loginPercentage || 0}% of {employeeCount || data?.userCount || 0} employees
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
+                                {/* LMS Website Login Statistics Box */}
+                                <LMSWebsiteLoginStats />
                             </div>
                         </div>
                     )}

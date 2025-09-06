@@ -333,6 +333,10 @@ app.use('/api/employee', EmployeeRouter)
 import UserLoginRouter from './routes/UserLoginRoute.js';
 app.use('/api/user-login', UserLoginRouter)
 
+// LMS Website Login Tracking Routes
+import LMSLoginRouter from './routes/LMSLoginRoute.js';
+app.use('/api/lms-login', LMSLoginRouter)
+
 console.log(new Date());
 
 cron.schedule("30 18 * * *", async () => {
