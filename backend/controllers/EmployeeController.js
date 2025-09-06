@@ -1,6 +1,7 @@
 import Employee from '../model/Employee.js';
 import User from '../model/User.js';
 import Admin from '../model/Admin.js';
+import TrainingProgress from '../model/Trainingprocessschema.js';
 import mongoose from 'mongoose';
 import axios from 'axios';
 
@@ -652,19 +653,92 @@ export const getAllEmployeesWithTrainingDetails = async (req, res) => {
             let assessmentCompletionPercentage = 0;
             
             if (localUser) {
-                // Calculate training data from user.training records
-                if (localUser.training && Array.isArray(localUser.training)) {
-                    trainingCount = localUser.training.length;
-                    passCountTraining = localUser.training.filter(t => t.pass).length;
+                // First, check TrainingProgress collection (primary source of truth)
+                const trainingProgress = await TrainingProgress.find({ userId: localUser._id });
+                console.log(`🔍 User ${empID}: Found ${trainingProgress.length} TrainingProgress records`);
+                
+                if (trainingProgress && trainingProgress.length > 0) {
+                    // Count unique trainings from TrainingProgress
+                    const uniqueTrainingIds = new Set(trainingProgress.map(tp => tp.trainingId.toString()));
+                    trainingCount = uniqueTrainingIds.size;
                     
-                    // Calculate overdue trainings
+                    // Calculate completion percentage based on module and video completion
+                    let totalCompletionPercentage = 0;
+                    trainingProgress.forEach(tp => {
+                        if (tp.modules && tp.modules.length > 0) {
+                            let moduleCompletion = 0;
+                            let videoCompletion = 0;
+                            let totalVideos = 0;
+                            let completedVideos = 0;
+                            
+                            tp.modules.forEach(module => {
+                                if (module.pass) {
+                                    moduleCompletion += 1;
+                                }
+                                
+                                if (module.videos && module.videos.length > 0) {
+                                    module.videos.forEach(video => {
+                                        totalVideos++;
+                                        if (video.pass) {
+                                            completedVideos++;
+                                        }
+                                    });
+                                }
+                            });
+                            
+                            // Calculate module completion percentage
+                            const moduleCompletionPercentage = tp.modules.length > 0 ? 
+                                (moduleCompletion / tp.modules.length) * 100 : 0;
+                            
+                            // Calculate video completion percentage
+                            videoCompletion = totalVideos > 0 ? 
+                                (completedVideos / totalVideos) * 100 : 0;
+                            
+                            // Weighted completion: 40% modules, 60% videos
+                            const trainingCompletion = (moduleCompletionPercentage * 0.4) + (videoCompletion * 0.6);
+                            totalCompletionPercentage += trainingCompletion;
+                        } else if (tp.pass === true) {
+                            // If no modules but training is marked as passed
+                            totalCompletionPercentage += 100;
+                        }
+                    });
+                    
+                    // Calculate average completion percentage
+                    trainingCompletionPercentage = trainingCount > 0 ? 
+                        Math.round(totalCompletionPercentage / trainingCount) : 0;
+                    
+                    // Count completed trainings (100% completion)
+                    passCountTraining = trainingProgress.filter(tp => {
+                        if (tp.pass === true) return true;
+                        if (tp.modules && tp.modules.length > 0) {
+                            const allModulesCompleted = tp.modules.every(module => module.pass === true);
+                            return allModulesCompleted;
+                        }
+                        return false;
+                    }).length;
+                    
+                    // Calculate overdue trainings from TrainingProgress
                     const today = new Date();
-                    trainingDue = localUser.training.filter(t => 
-                        new Date(t.deadline) < today && !t.pass
+                    trainingDue = trainingProgress.filter(tp => 
+                        new Date(tp.deadline) < today && !tp.pass
                     ).length;
                     
-                    trainingCompletionPercentage = trainingCount > 0 ? 
-                        Math.round((passCountTraining / trainingCount) * 100) : 0;
+                    console.log(`📊 User ${empID}: TrainingCount=${trainingCount}, Completed=${completedTrainings}, Percentage=${trainingCompletionPercentage}%`);
+                } else {
+                    // Fallback to user.training records if no TrainingProgress
+                    if (localUser.training && Array.isArray(localUser.training)) {
+                        trainingCount = localUser.training.length;
+                        passCountTraining = localUser.training.filter(t => t.pass).length;
+                        
+                        // Calculate overdue trainings
+                        const today = new Date();
+                        trainingDue = localUser.training.filter(t => 
+                            new Date(t.deadline) < today && !t.pass
+                        ).length;
+                        
+                        trainingCompletionPercentage = trainingCount > 0 ? 
+                            Math.round((passCountTraining / trainingCount) * 100) : 0;
+                    }
                 }
                 
                 // Calculate assessment data from user.assignedAssessments records

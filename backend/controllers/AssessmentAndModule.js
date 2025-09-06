@@ -321,55 +321,72 @@ export const ReassignTraining = async (req, res) => {
 
       // Check if this is a mandatory training
       const isMandatory = training.Trainingtype === 'Mandatory' || training.Trainingtype === 'mandatory';
+      let existingProgress = null;
       
       if (isMandatory) {
         // For mandatory trainings, only create progress records, don't add to user.training array
         console.log(`Handling mandatory training "${training.trainingName}" - not adding to user.training array`);
         
         // Check if the user already has progress for this mandatory training
-        const existingProgress = await TrainingProgress.findOne({ userId: user._id, trainingId: training._id });
+        existingProgress = await TrainingProgress.findOne({ userId: user._id, trainingId: training._id });
         if (existingProgress) {
-          // Remove the existing progress
-          await TrainingProgress.deleteOne({ userId: user._id, trainingId: training._id });
+          // Update existing progress instead of deleting it
+          console.log(`Updating existing mandatory training progress for user ${user.empID}`);
+          existingProgress.deadline = deadlineDate;
+          existingProgress.modules = training.modules.map(module => ({
+            moduleId: module._id,
+            pass: false,
+            videos: module.videos.map(video => ({
+              videoId: video._id,
+              pass: false,
+            })),
+          }));
+          await existingProgress.save();
+          processedUsers.push(user);
+          continue; // Skip creating new progress record
         }
       } else {
         // For regular trainings, handle as before
         const existingTrainingIndex = user.training.findIndex(t => t.trainingId.toString() === trainingId);
         if (existingTrainingIndex !== -1) {
-          // Remove the existing training and progress
-          user.training.splice(existingTrainingIndex, 1);
-          await TrainingProgress.deleteOne({ userId: user._id, trainingId: training._id });
+          // Update existing training instead of removing it
+          console.log(`Updating existing regular training for user ${user.empID}`);
+          user.training[existingTrainingIndex].deadline = deadlineDate;
+          user.training[existingTrainingIndex].status = 'Pending';
+        } else {
+          // Add training to user.training array for regular trainings
+          user.training.push({
+            trainingId: training._id,
+            deadline: deadlineDate,
+            pass: false,
+            status: 'Pending',
+          });
         }
-
-        // Add training to user.training array for regular trainings
-        user.training.push({
-          trainingId: training._id,
-          deadline: deadlineDate,
-          pass: false,
-          status: 'Pending',
-        });
       }
 
       await user.save(); // Save the user first to get the _id
 
-      // Create TrainingProgress for the user
-      const trainingProgress = new TrainingProgress({
-        userId: user._id,
-        trainingName: training.trainingName,
-        trainingId: training._id,
-        deadline: deadlineDate,
-        pass: false,
-        modules: training.modules.map(module => ({
-          moduleId: module._id,
+      // Create TrainingProgress for the user (only if not already handled above)
+      if (!isMandatory || !existingProgress) {
+        const trainingProgress = new TrainingProgress({
+          userId: user._id,
+          trainingName: training.trainingName,
+          trainingId: training._id,
+          deadline: deadlineDate,
           pass: false,
-          videos: module.videos.map(video => ({
-            videoId: video._id,
+          modules: training.modules.map(module => ({
+            moduleId: module._id,
             pass: false,
+            videos: module.videos.map(video => ({
+              videoId: video._id,
+              pass: false,
+            })),
           })),
-        })),
-      });
+        });
 
-      await trainingProgress.save();
+        await trainingProgress.save();
+      }
+      
       processedUsers.push(user);
     }
 

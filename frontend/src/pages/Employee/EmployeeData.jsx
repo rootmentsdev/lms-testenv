@@ -694,7 +694,7 @@ const EmployeeData = () => {
               <div className="text-gray-500">Total</div>
             </div>
             <div className="text-center">
-              <div className="font-semibold text-green-600">{employee.passCountTraining}%</div>
+              <div className="font-semibold text-green-600">{employee.trainingCompletionPercentage}%</div>
               <div className="text-gray-500">Completed</div>
             </div>
             <div className="text-center">
@@ -712,7 +712,7 @@ const EmployeeData = () => {
               <div className="text-gray-500">Total</div>
             </div>
             <div className="text-center">
-              <div className="font-semibold text-green-600">{employee.passCountAssessment}%</div>
+              <div className="font-semibold text-green-600">{employee.assessmentCompletionPercentage}%</div>
               <div className="text-gray-500">Completed</div>
             </div>
             <div className="text-center">
