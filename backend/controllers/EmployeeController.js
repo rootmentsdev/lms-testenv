@@ -1,5 +1,8 @@
 import Employee from '../model/Employee.js';
+import User from '../model/User.js';
+import Admin from '../model/Admin.js';
 import mongoose from 'mongoose';
+import axios from 'axios';
 
 /**
  * @swagger
@@ -502,6 +505,219 @@ export const deleteEmployee = async (req, res) => {
 
     } catch (error) {
         console.error('Error deleting employee:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: error.message
+        });
+    }
+};
+
+// New function for employee management with training details
+export const getAllEmployeesWithTrainingDetails = async (req, res) => {
+    try {
+        console.log('🔍 Fetching all employees with training details...');
+        
+        // Get admin's allowed branches
+        const AdminId = req.admin.userId;
+        const AdminBranch = await Admin.findById(AdminId).populate('branches');
+        const allowedLocCodes = AdminBranch.branches.map(branch => branch.locCode);
+        
+        console.log('📊 Admin allowed branches:', allowedLocCodes);
+        
+        // Fetch external employee data
+        let externalEmployees = [];
+        try {
+            const response = await axios.post(`${process.env.BASE_URL || 'http://localhost:7000'}/api/employee_range`, {
+                startEmpId: 'EMP1',
+                endEmpId: 'EMP9999'
+            }, { timeout: 15000 });
+            
+            externalEmployees = response.data?.data || [];
+            console.log(`📊 Fetched ${externalEmployees.length} external employees`);
+        } catch (error) {
+            console.error('Error fetching external employee data:', error.message);
+        }
+        
+        // Create mapping from store names to location codes
+        const storeNameToLocCode = {
+            'GROOMS TRIVANDRUM': '5',
+            'GROOMS PALAKKAD': '19',
+            'GROOMS EDAPALLY': '3',
+            'GROOMS KOTTAYAM': '9',
+            'GROOMS PERUMBAVOOR': '10',
+            'GROOMS THRISSUR': '11',
+            'GROOMS CHAVAKKAD': '12',
+            'GROOMS EDAPPAL': '15',
+            'GROOMS VATAKARA': '14',
+            'GROOMS PERINTHALMANNA': '16',
+            'GROOMS MANJERY': '18',
+            'GROOMS KOTTAKKAL': '17',
+            'GROOMS KOZHIKODE': '13',
+            'GROOMS CALICUT': '13',
+            'GROOMS KANNUR': '21',
+            'GROOMS KALPETTA': '20',
+            'ZORUCCI EDAPPAL': '6',
+            'ZORUCCI KOTTAKKAL': '8',
+            'ZORUCCI PERINTHALMANNA': '7',
+            'ZORUCCI EDAPPALLY': '1',
+            'SUITOR GUY TRIVANDRUM': '5',
+            'SUITOR GUY PALAKKAD': '19',
+            'SUITOR GUY EDAPPALLY': '3',
+            'SUITOR GUY KOTTAYAM': '9',
+            'SUITOR GUY PERUMBAVOOR': '10',
+            'SUITOR GUY THRISSUR': '11',
+            'SUITOR GUY CHAVAKKAD': '12',
+            'SUITOR GUY EDAPPAL': '15',
+            'SUITOR GUY VATAKARA': '14',
+            'SUITOR GUY PERINTHALMANNA': '16',
+            'SUITOR GUY MANJERI': '18',
+            'SUITOR GUY KOTTAKKAL': '17',
+            'SUITOR GUY CALICUT': '13',
+            'SUITOR GUY KALPETTA': '20',
+            'SUITOR GUY KANNUR': '21'
+        };
+        
+        // Filter external employees by allowed location codes
+        const filteredExternalEmployees = externalEmployees.filter(emp => {
+            const storeName = emp?.store_name?.toUpperCase();
+            
+            // Always include employees with "No Store" - they should be visible to all admins
+            if (storeName === 'NO STORE' || storeName === 'NO STORE' || !storeName || storeName === '') {
+                return true;
+            }
+            
+            const mappedLocCode = storeNameToLocCode[storeName];
+            
+            if (mappedLocCode && allowedLocCodes.includes(mappedLocCode)) {
+                return true;
+            }
+            
+            const empLocCode = emp?.store_code || emp?.locCode;
+            return allowedLocCodes.includes(empLocCode);
+        });
+        
+        console.log(`✅ Filtered external employees: ${filteredExternalEmployees.length}`);
+        
+        // Get local users in allowed branches + "No Store" employees
+        const localUsers = await User.find({ 
+            $or: [
+                { locCode: { $in: allowedLocCodes } },
+                { workingBranch: 'No Store' },
+                { workingBranch: 'NO STORE' },
+                { workingBranch: 'no store' },
+                { workingBranch: '' },
+                { workingBranch: { $exists: false } }
+            ]
+        });
+        console.log(`👥 Local users in allowed branches: ${localUsers.length}`);
+        
+        // Create a map of local users by empID for quick lookup
+        const localUserMap = new Map();
+        localUsers.forEach(user => {
+            localUserMap.set(user.empID, user);
+        });
+        
+        // Process all employees (external + local)
+        const allEmployees = [...filteredExternalEmployees];
+        
+        // Add local users that might not be in external data
+        localUsers.forEach(localUser => {
+            const existsInExternal = filteredExternalEmployees.some(ext => ext.emp_code === localUser.empID);
+            if (!existsInExternal) {
+                allEmployees.push({
+                    emp_code: localUser.empID,
+                    name: localUser.username,
+                    role_name: localUser.designation,
+                    store_name: localUser.workingBranch,
+                    email: localUser.email,
+                    phone: localUser.phoneNumber,
+                    __isLocal: true
+                });
+            }
+        });
+        
+        // Process each employee to add training/assessment details
+        const processedEmployees = await Promise.all(allEmployees.map(async (employee) => {
+            const empID = employee.emp_code;
+            const localUser = localUserMap.get(empID);
+            
+            let trainingCount = 0;
+            let passCountTraining = 0;
+            let trainingDue = 0;
+            let assignedAssessmentsCount = 0;
+            let passCountAssessment = 0;
+            let assessmentDue = 0;
+            let trainingCompletionPercentage = 0;
+            let assessmentCompletionPercentage = 0;
+            
+            if (localUser) {
+                // Calculate training data from user.training records
+                if (localUser.training && Array.isArray(localUser.training)) {
+                    trainingCount = localUser.training.length;
+                    passCountTraining = localUser.training.filter(t => t.pass).length;
+                    
+                    // Calculate overdue trainings
+                    const today = new Date();
+                    trainingDue = localUser.training.filter(t => 
+                        new Date(t.deadline) < today && !t.pass
+                    ).length;
+                    
+                    trainingCompletionPercentage = trainingCount > 0 ? 
+                        Math.round((passCountTraining / trainingCount) * 100) : 0;
+                }
+                
+                // Calculate assessment data from user.assignedAssessments records
+                if (localUser.assignedAssessments && Array.isArray(localUser.assignedAssessments)) {
+                    assignedAssessmentsCount = localUser.assignedAssessments.length;
+                    passCountAssessment = localUser.assignedAssessments.filter(a => a.pass).length;
+                    
+                    // Calculate overdue assessments
+                    const today = new Date();
+                    assessmentDue = localUser.assignedAssessments.filter(a => 
+                        new Date(a.deadline) < today && !a.pass
+                    ).length;
+                    
+                    assessmentCompletionPercentage = assignedAssessmentsCount > 0 ? 
+                        Math.round((passCountAssessment / assignedAssessmentsCount) * 100) : 0;
+                }
+            }
+            
+            return {
+                empID: empID,
+                username: employee.name || '',
+                designation: employee.role_name || '',
+                workingBranch: employee.store_name || '',
+                email: employee.email || '',
+                phoneNumber: employee.phone || '',
+                // Training data
+                trainingCount,
+                passCountTraining,
+                trainingDue,
+                trainingCompletionPercentage,
+                // Assessment data
+                assignedAssessmentsCount,
+                passCountAssessment,
+                assessmentDue,
+                assessmentCompletionPercentage,
+                // Additional info
+                isLocalUser: !!localUser,
+                hasTrainingData: trainingCount > 0 || assignedAssessmentsCount > 0
+            };
+        }));
+        
+        console.log(`✅ Processed ${processedEmployees.length} employees with training details`);
+        
+        res.status(200).json({
+            success: true,
+            message: "Employee data with training details fetched successfully",
+            data: processedEmployees,
+            totalCount: processedEmployees.length,
+            employeesWithTraining: processedEmployees.filter(emp => emp.hasTrainingData).length
+        });
+        
+    } catch (error) {
+        console.error('Error fetching employees with training details:', error);
         res.status(500).json({
             success: false,
             message: 'Internal server error',

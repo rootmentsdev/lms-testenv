@@ -502,36 +502,59 @@ const EmployeeData = () => {
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
-        const response = await fetch(`${baseUrl.baseUrl}api/employee_range`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setError("Authentication required. Please login again.");
+          return;
+        }
+
+        // Use the new API endpoint that includes training details
+        const response = await fetch(`${baseUrl.baseUrl}api/employee/management/with-training-details`, {
+          method: "GET",
+          headers: { 
+            "Content-Type": "application/json",
+            'Authorization': `Bearer ${token}`,
+          },
           credentials: "include",
-          body: JSON.stringify({ startEmpId: "EMP1", endEmpId: "EMP9999" }),
         });
 
         if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`);
         const json = await response.json();
 
-        const normalized = (json?.data || []).map((e) => {
-          const branchRaw = e?.store_name || "";
-          return {
-            empID: e?.emp_code || "",
-            username: e?.name || "",
-            designation: e?.role_name || "",
-            workingBranch: branchRaw,                // raw value (for CSV)
-            workingBranchLabel: titleCase(branchRaw),// UI label
-            trainingCount: 0,
-            passCountTraining: 0,
-            Trainingdue: 0,
-            assignedAssessmentsCount: 0,
-            passCountAssessment: 0,
-            AssessmentDue: 0,
-          };
-        });
+        if (json.success && json.data) {
+          const normalized = json.data.map((employee) => {
+            const branchRaw = employee.workingBranch || "";
+            return {
+              empID: employee.empID || "",
+              username: employee.username || "",
+              designation: employee.designation || "",
+              workingBranch: branchRaw,                // raw value (for CSV)
+              workingBranchLabel: titleCase(branchRaw),// UI label
+              // Training data from the API
+              trainingCount: employee.trainingCount || 0,
+              passCountTraining: employee.passCountTraining || 0,
+              Trainingdue: employee.trainingDue || 0,
+              trainingCompletionPercentage: employee.trainingCompletionPercentage || 0,
+              // Assessment data from the API
+              assignedAssessmentsCount: employee.assignedAssessmentsCount || 0,
+              passCountAssessment: employee.passCountAssessment || 0,
+              AssessmentDue: employee.assessmentDue || 0,
+              assessmentCompletionPercentage: employee.assessmentCompletionPercentage || 0,
+              // Additional info
+              isLocalUser: employee.isLocalUser || false,
+              hasTrainingData: employee.hasTrainingData || false,
+            };
+          });
 
-        setData(normalized);
-        setFilteredData(normalized);
-        setError("");
+          setData(normalized);
+          setFilteredData(normalized);
+          setError("");
+          
+          console.log(`✅ Loaded ${normalized.length} employees with training details`);
+          console.log(`📊 Employees with training data: ${json.employeesWithTraining}`);
+        } else {
+          throw new Error(json.message || "Invalid response format");
+        }
       } catch (error) {
         console.error("Failed to fetch employees:", error.message);
         setError("Failed to fetch employee data. Please try again later.");
@@ -613,10 +636,10 @@ const EmployeeData = () => {
       emp.designation,
       emp.workingBranch,
       emp.trainingCount,
-      `${emp.passCountTraining}%`,
+      `${emp.trainingCompletionPercentage}%`,
       emp.Trainingdue,
       emp.assignedAssessmentsCount,
-      `${emp.passCountAssessment}%`,
+      `${emp.assessmentCompletionPercentage}%`,
       emp.AssessmentDue,
     ]);
 
@@ -898,7 +921,7 @@ const EmployeeData = () => {
                             {employee.trainingCount}
                           </td>
                           <td className="px-3 py-3 border-r border-gray-200 text-center font-medium hidden md:table-cell">
-                            {employee.passCountTraining}%
+                            {employee.trainingCompletionPercentage}%
                           </td>
                           <td className="px-3 py-3 border-r border-gray-200 text-center font-medium hidden xl:table-cell">
                             {employee.Trainingdue}
@@ -907,7 +930,7 @@ const EmployeeData = () => {
                             {employee.assignedAssessmentsCount}
                           </td>
                           <td className="px-3 py-3 border-r border-gray-200 text-center font-medium hidden md:table-cell">
-                            {employee.passCountAssessment}%
+                            {employee.assessmentCompletionPercentage}%
                           </td>
                           <td className="px-3 py-3 border-r border-gray-200 text-center font-medium hidden xl:table-cell">
                             {employee.AssessmentDue}

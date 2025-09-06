@@ -451,25 +451,27 @@ const EmployeeDetaileData = () => {
             </thead>
             <tbody>
               {fulldata?.training?.length > 0 ? (
-                fulldata?.training.map((employee, index) => (
-                  <tr key={index} className="border-b hover:bg-gray-100">
-                    <td className="px-3 py-1 border-2 border-gray-300 text-center">
-                      #{employee.trainingId.trainingName}
-                    </td>
-                    <td className="px-3 py-1 border-2 border-gray-300 text-center">
-                      {employee.trainingId.modules.length}
-                    </td>
-                    <td className="px-3 py-1 border-2 border-gray-300 text-center">
-                      {new Date(employee.deadline).toLocaleDateString()}
-                    </td>
-                    <td className="px-3 py-1 border-2 border-gray-300 text-center">
-                      {employee.pass === true ? "pass" : "NOT pass"}
-                    </td>
-                    <td className="px-3 py-1 border-2 border-gray-300 text-center">
-                      {employee.status}
-                    </td>
-                  </tr>
-                ))
+                fulldata?.training
+                  .filter(employee => employee.trainingId) // Filter out null trainingId
+                  .map((employee, index) => (
+                    <tr key={index} className="border-b hover:bg-gray-100">
+                      <td className="px-3 py-1 border-2 border-gray-300 text-center">
+                        {employee.trainingId?.trainingName || 'Unknown Training'}
+                      </td>
+                      <td className="px-3 py-1 border-2 border-gray-300 text-center">
+                        {employee.trainingId?.modules?.length || 0}
+                      </td>
+                      <td className="px-3 py-1 border-2 border-gray-300 text-center">
+                        {employee.deadline ? new Date(employee.deadline).toLocaleDateString() : 'No deadline'}
+                      </td>
+                      <td className="px-3 py-1 border-2 border-gray-300 text-center">
+                        {employee.pass === true ? "pass" : "NOT pass"}
+                      </td>
+                      <td className="px-3 py-1 border-2 border-gray-300 text-center">
+                        {employee.status || 'Unknown'}
+                      </td>
+                    </tr>
+                  ))
               ) : (
                 <tr>
                   <td colSpan="6" className="text-center py-3">No data available</td>
