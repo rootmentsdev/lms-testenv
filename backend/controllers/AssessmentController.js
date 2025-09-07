@@ -429,7 +429,8 @@ export const createTraining = async (req, res) => {
                 // Update existing user with latest info from external API
                 user.username = emp.name || user.username;
                 user.designation = emp.role_name || user.designation;
-                user.locCode = emp.store_name || user.locCode;
+                // IMPORTANT: Don't update locCode from external API to preserve our branch mapping fix
+                // user.locCode = emp.store_name || user.locCode; // COMMENTED OUT
                 user.workingBranch = emp.store_name || user.workingBranch;
                 user.phoneNumber = emp.phone || user.phoneNumber;
                 await user.save();

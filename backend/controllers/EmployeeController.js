@@ -1,6 +1,7 @@
 import Employee from '../model/Employee.js';
 import User from '../model/User.js';
 import Admin from '../model/Admin.js';
+import TrainingProgress from '../model/Trainingprocessschema.js';
 import mongoose from 'mongoose';
 import axios from 'axios';
 
@@ -637,6 +638,24 @@ export const getAllEmployeesWithTrainingDetails = async (req, res) => {
             }
         });
         
+        // Pre-fetch all training progress records to avoid N+1 queries
+        const allUserIds = Array.from(localUserMap.values()).map(user => user._id);
+        const allTrainingProgress = await TrainingProgress.find({ 
+            userId: { $in: allUserIds } 
+        });
+        
+        // Create a map of userId -> training progress records
+        const trainingProgressMap = new Map();
+        allTrainingProgress.forEach(progress => {
+            const userId = progress.userId.toString();
+            if (!trainingProgressMap.has(userId)) {
+                trainingProgressMap.set(userId, []);
+            }
+            trainingProgressMap.get(userId).push(progress);
+        });
+        
+        console.log(`📊 Pre-fetched ${allTrainingProgress.length} training progress records for ${allUserIds.length} users`);
+        
         // Process each employee to add training/assessment details
         const processedEmployees = await Promise.all(allEmployees.map(async (employee) => {
             const empID = employee.emp_code;
@@ -652,7 +671,8 @@ export const getAllEmployeesWithTrainingDetails = async (req, res) => {
             let assessmentCompletionPercentage = 0;
             
             if (localUser) {
-                // Calculate training data from user.training records
+                // Use the same logic as the detailed view - only count user.training array
+                // This matches exactly what the detailed view shows
                 if (localUser.training && Array.isArray(localUser.training)) {
                     trainingCount = localUser.training.length;
                     passCountTraining = localUser.training.filter(t => t.pass).length;
@@ -662,9 +682,18 @@ export const getAllEmployeesWithTrainingDetails = async (req, res) => {
                     trainingDue = localUser.training.filter(t => 
                         new Date(t.deadline) < today && !t.pass
                     ).length;
-                    
-                    trainingCompletionPercentage = trainingCount > 0 ? 
-                        Math.round((passCountTraining / trainingCount) * 100) : 0;
+                } else {
+                    trainingCount = 0;
+                    passCountTraining = 0;
+                    trainingDue = 0;
+                }
+                
+                trainingCompletionPercentage = trainingCount > 0 ? 
+                    Math.round((passCountTraining / trainingCount) * 100) : 0;
+                
+                // Debug logging for employees with training data
+                if (trainingCount > 0) {
+                    console.log(`📈 Employee ${empID} (${localUser.username}): ${trainingCount} trainings, ${passCountTraining} passed (${trainingCompletionPercentage}%)`);
                 }
                 
                 // Calculate assessment data from user.assignedAssessments records
@@ -706,14 +735,20 @@ export const getAllEmployeesWithTrainingDetails = async (req, res) => {
             };
         }));
         
+        const employeesWithTraining = processedEmployees.filter(emp => emp.hasTrainingData).length;
+        const employeesWithMandatoryTraining = processedEmployees.filter(emp => emp.trainingCount > 0).length;
+        
         console.log(`✅ Processed ${processedEmployees.length} employees with training details`);
+        console.log(`📊 Employees with any training data: ${employeesWithTraining}`);
+        console.log(`📊 Employees with mandatory/assigned trainings: ${employeesWithMandatoryTraining}`);
         
         res.status(200).json({
             success: true,
             message: "Employee data with training details fetched successfully",
             data: processedEmployees,
             totalCount: processedEmployees.length,
-            employeesWithTraining: processedEmployees.filter(emp => emp.hasTrainingData).length
+            employeesWithTraining: employeesWithTraining,
+            employeesWithMandatoryTraining: employeesWithMandatoryTraining
         });
         
     } catch (error) {
