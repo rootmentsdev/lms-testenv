@@ -783,15 +783,46 @@ export const calculateProgress = async (req, res) => {
         const users = await User.find({ locCode: { $in: allowedLocCodes } });
         const userID = users.map(id => id._id)
 
-        // Calculate average progress from user.training records (more accurate for this system)
+        // Calculate average progress from both user.training records AND mandatory trainings (TrainingProgress)
         let totalUserTrainings = 0;
         let completedUserTrainings = 0;
         
+        // Pre-fetch all training progress records for these users
+        const allTrainingProgress = await TrainingProgress.find({ 
+            userId: { $in: userID } 
+        });
+        
+        // Create a map of userId -> training progress records
+        const trainingProgressMap = new Map();
+        allTrainingProgress.forEach(progress => {
+            const userId = progress.userId.toString();
+            if (!trainingProgressMap.has(userId)) {
+                trainingProgressMap.set(userId, []);
+            }
+            trainingProgressMap.get(userId).push(progress);
+        });
+        
         users.forEach(user => {
+            // Count assigned trainings from user.training array
             if (user.training && Array.isArray(user.training)) {
                 totalUserTrainings += user.training.length;
                 completedUserTrainings += user.training.filter(training => training.pass).length;
             }
+            
+            // Count mandatory trainings from TrainingProgress collection (avoid duplicates)
+            const userTrainingProgress = trainingProgressMap.get(user._id.toString()) || [];
+            
+            // Get assigned training IDs to avoid duplicates
+            const assignedTrainingIds = user.training ? 
+                user.training.map(t => t.trainingId.toString()) : [];
+            
+            // Filter out mandatory trainings that are already in assigned trainings
+            const uniqueMandatoryTrainings = userTrainingProgress.filter(tp => 
+                !assignedTrainingIds.includes(tp.trainingId.toString())
+            );
+            
+            totalUserTrainings += uniqueMandatoryTrainings.length;
+            completedUserTrainings += uniqueMandatoryTrainings.filter(tp => tp.pass).length;
         });
         
         // Calculate average progress from user training records
@@ -819,11 +850,28 @@ export const calculateProgress = async (req, res) => {
                 ).length;
             }
 
+            // Count overdue assigned trainings from user.training array
             if (Array.isArray(user.training)) {
                 trainingpend += user.training.filter(
                     item => day > item.deadline && item.pass === false
                 ).length;
             }
+            
+            // Count overdue mandatory trainings from TrainingProgress collection (avoid duplicates)
+            const userTrainingProgress = trainingProgressMap.get(user._id.toString()) || [];
+            
+            // Get assigned training IDs to avoid duplicates
+            const assignedTrainingIds = user.training ? 
+                user.training.map(t => t.trainingId.toString()) : [];
+            
+            // Filter out mandatory trainings that are already in assigned trainings
+            const uniqueMandatoryTrainings = userTrainingProgress.filter(tp => 
+                !assignedTrainingIds.includes(tp.trainingId.toString())
+            );
+            
+            trainingpend += uniqueMandatoryTrainings.filter(tp => 
+                day > tp.deadline && tp.pass === false
+            ).length;
         });
 
         // Get login statistics

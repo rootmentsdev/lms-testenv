@@ -281,7 +281,7 @@ const EmployeeDetaileData = () => {
   const FetchUserData = async () => {
     // 1) Try your existing backend details endpoint first (DB source)
     try {
-      const userdata = await fetch(`${baseUrl.baseUrl}api/admin/user/detailed/info/${id}`, {
+      const userdata = await fetch(`${baseUrl.baseUrl}api/admin/user/detailed/info/${id}?t=${Date.now()}`, {
         method: 'GET',
         headers: {
           "Content-Type": "application/json",
@@ -384,6 +384,20 @@ const EmployeeDetaileData = () => {
           </Link>
 
           <h1 className="text-xl font-semibold text-gray-800 mb-2">Employee Details</h1>
+          
+          {/* Refresh Button */}
+          <div className="mb-4 flex justify-between items-center">
+            <div></div>
+            <button
+              onClick={FetchUserData}
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh Data
+            </button>
+          </div>
           {isExternal && (
             <div className="mb-4 text-sm text-yellow-700 bg-yellow-100 border border-yellow-300 rounded p-2">
               This profile is from an external source. Editing is disabled here.

@@ -180,13 +180,45 @@ export const GetAllUserDetailes = async (req, res) => {
                 message: "user not found"
             })
         }
+
+        // Get mandatory trainings from TrainingProgress collection
+        const mandatoryTrainings = await TrainingProgress.find({ userId: userData._id })
+            .populate('trainingId');
+
+        // Get assigned training IDs to avoid duplicates
+        const assignedTrainingIds = userData.training ? 
+            userData.training.map(t => t.trainingId.toString()) : [];
+
+        // Filter out mandatory trainings that are already in assigned trainings
+        const uniqueMandatoryTrainings = mandatoryTrainings.filter(tp => 
+            !assignedTrainingIds.includes(tp.trainingId.toString())
+        );
+
+        // Convert mandatory trainings to the same format as assigned trainings
+        const mandatoryTrainingsFormatted = uniqueMandatoryTrainings.map(tp => ({
+            trainingId: tp.trainingId,
+            deadline: tp.deadline,
+            pass: tp.pass,
+            status: tp.pass ? 'Completed' : 'Pending',
+            isMandatory: true // Flag to identify mandatory trainings
+        }));
+
+        // Combine assigned and mandatory trainings
+        const allTrainings = [
+            ...(userData.training || []),
+            ...mandatoryTrainingsFormatted
+        ];
+
+        // Create response data with combined trainings
+        const responseData = {
+            ...userData.toObject(),
+            training: allTrainings
+        };
+
         res.status(200).json({
             message: "Data found",
-            data: userData
-
-
+            data: responseData
         })
-
 
     } catch (error) {
         res.status(500).json({

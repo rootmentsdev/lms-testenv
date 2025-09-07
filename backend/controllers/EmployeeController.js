@@ -671,29 +671,60 @@ export const getAllEmployeesWithTrainingDetails = async (req, res) => {
             let assessmentCompletionPercentage = 0;
             
             if (localUser) {
-                // Use the same logic as the detailed view - only count user.training array
-                // This matches exactly what the detailed view shows
+                // Count both assigned trainings (user.training) and mandatory trainings (TrainingProgress)
+                // But avoid double-counting duplicates
+                let assignedTrainingCount = 0;
+                let assignedPassCount = 0;
+                let assignedOverdueCount = 0;
+                
+                let mandatoryTrainingCount = 0;
+                let mandatoryPassCount = 0;
+                let mandatoryOverdueCount = 0;
+                
+                // Count assigned trainings from user.training array
                 if (localUser.training && Array.isArray(localUser.training)) {
-                    trainingCount = localUser.training.length;
-                    passCountTraining = localUser.training.filter(t => t.pass).length;
+                    assignedTrainingCount = localUser.training.length;
+                    assignedPassCount = localUser.training.filter(t => t.pass).length;
                     
-                    // Calculate overdue trainings
+                    // Calculate overdue assigned trainings
                     const today = new Date();
-                    trainingDue = localUser.training.filter(t => 
+                    assignedOverdueCount = localUser.training.filter(t => 
                         new Date(t.deadline) < today && !t.pass
                     ).length;
-                } else {
-                    trainingCount = 0;
-                    passCountTraining = 0;
-                    trainingDue = 0;
                 }
+                
+                // Count mandatory trainings from TrainingProgress collection
+                const userTrainingProgress = trainingProgressMap.get(localUser._id.toString()) || [];
+                
+                // Get assigned training IDs to avoid duplicates
+                const assignedTrainingIds = localUser.training ? 
+                    localUser.training.map(t => t.trainingId.toString()) : [];
+                
+                // Filter out mandatory trainings that are already in assigned trainings
+                const uniqueMandatoryTrainings = userTrainingProgress.filter(tp => 
+                    !assignedTrainingIds.includes(tp.trainingId.toString())
+                );
+                
+                mandatoryTrainingCount = uniqueMandatoryTrainings.length;
+                mandatoryPassCount = uniqueMandatoryTrainings.filter(tp => tp.pass).length;
+                
+                // Calculate overdue mandatory trainings (only unique ones)
+                const today = new Date();
+                mandatoryOverdueCount = uniqueMandatoryTrainings.filter(tp => 
+                    new Date(tp.deadline) < today && !tp.pass
+                ).length;
+                
+                // Combine both types of trainings (no duplicates)
+                trainingCount = assignedTrainingCount + mandatoryTrainingCount;
+                passCountTraining = assignedPassCount + mandatoryPassCount;
+                trainingDue = assignedOverdueCount + mandatoryOverdueCount;
                 
                 trainingCompletionPercentage = trainingCount > 0 ? 
                     Math.round((passCountTraining / trainingCount) * 100) : 0;
                 
                 // Debug logging for employees with training data
                 if (trainingCount > 0) {
-                    console.log(`📈 Employee ${empID} (${localUser.username}): ${trainingCount} trainings, ${passCountTraining} passed (${trainingCompletionPercentage}%)`);
+                    console.log(`📈 Employee ${empID} (${localUser.username}): ${trainingCount} unique trainings (${assignedTrainingCount} assigned + ${mandatoryTrainingCount} mandatory), ${passCountTraining} passed (${trainingCompletionPercentage}%)`);
                 }
                 
                 // Calculate assessment data from user.assignedAssessments records
