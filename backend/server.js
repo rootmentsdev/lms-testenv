@@ -54,7 +54,8 @@ app.use(
         'https://lmsrootments.vercel.app',
         'https://lms-testenv-q8co.vercel.app',
         'https://web-lms-fawn.vercel.app',
-        'https://trainingweb-gamma.vercel.app' // ✅ Your Vercel deployment
+        'https://trainingweb-gamma.vercel.app',
+        'https://learn.rootments.live'
       ];
       
       // Allow Vercel domains
