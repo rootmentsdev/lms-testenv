@@ -86,8 +86,8 @@ const LMSWebsiteLoginStats = () => {
                     <h2 className="md:text-2xl sm:text-lg font-bold text-green-600">
                         {lmsStats.uniqueLMSUserCount || 0}
                     </h2>
-                    <p className="text-xs text-gray-600">
-                        {lmsStats.totalLMSLogins || 0} total logins
+                    <p className="text-xs text-gray-900">
+                        Logins
                     </p>
                 </div>
             </div>
