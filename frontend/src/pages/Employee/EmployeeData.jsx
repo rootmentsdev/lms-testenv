@@ -510,9 +510,30 @@ const EmployeeData = () => {
         return;
       }
 
-        // Use the new API endpoint that includes training details with cache-busting
-        const cacheBuster = `?t=${Date.now()}`;
-        const response = await fetch(`${baseUrl.baseUrl}api/employee/management/with-training-details${cacheBuster}`, {
+      // Hybrid approach: Get all employees from direct API + training data from training endpoint
+      console.log('🔄 Using hybrid approach: Direct API + Training data...');
+      
+      // Step 1: Get all employees from direct API
+      const directResponse = await fetch(`${baseUrl.baseUrl}api/employee_range`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ startEmpId: "EMP1", endEmpId: "EMP9999" }),
+      });
+
+      if (!directResponse.ok) throw new Error(`Direct API failed: ${directResponse.status}`);
+      const directJson = await directResponse.json();
+      const allEmployees = directJson?.data || [];
+      
+      console.log(`📊 Direct API returned: ${allEmployees.length} total employees`);
+      
+      // Step 2: Get training data from training endpoint (force fresh data)
+      let trainingData = {};
+      
+      // FIRST: Try the direct database approach
+      try {
+        console.log('🔄 Trying direct database approach for training data...');
+        const directDbResponse = await fetch(`${baseUrl.baseUrl}api/getAll/training/with-completion`, {
           method: "GET",
           headers: { 
             "Content-Type": "application/json",
@@ -520,43 +541,233 @@ const EmployeeData = () => {
           },
           credentials: "include",
         });
-
-      if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`);
-      const json = await response.json();
-
-      if (json.success && json.data) {
-        const normalized = json.data.map((employee) => {
-          const branchRaw = employee.workingBranch || "";
-          return {
-            empID: employee.empID || "",
-            username: employee.username || "",
-            designation: employee.designation || "",
-            workingBranch: branchRaw,                // raw value (for CSV)
-            workingBranchLabel: titleCase(branchRaw),// UI label
-            // Training data from the API
-            trainingCount: employee.trainingCount || 0,
-            passCountTraining: employee.passCountTraining || 0,
-            Trainingdue: employee.trainingDue || 0,
-            trainingCompletionPercentage: employee.trainingCompletionPercentage || 0,
-            // Assessment data from the API
-            assignedAssessmentsCount: employee.assignedAssessmentsCount || 0,
-            passCountAssessment: employee.passCountAssessment || 0,
-            AssessmentDue: employee.assessmentDue || 0,
-            assessmentCompletionPercentage: employee.assessmentCompletionPercentage || 0,
-            // Additional info
-            isLocalUser: employee.isLocalUser || false,
-            hasTrainingData: employee.hasTrainingData || false,
-          };
-        });
-
-        setData(normalized);
-        setFilteredData(normalized);
-        setError("");
         
-        console.log(`✅ Loaded ${normalized.length} employees with training details`);
-        console.log(`📊 Employees with training data: ${json.employeesWithTraining}`);
+        if (directDbResponse.ok) {
+          const directDbJson = await directDbResponse.json();
+          console.log('📊 Direct DB training response:', directDbJson);
+        }
+      } catch (error) {
+        console.warn('⚠️ Direct DB training fetch failed:', error.message);
+      }
+      
+      try {
+        const cacheBuster = `?t=${Date.now()}&refresh=true`;
+        const trainingResponse = await fetch(`${baseUrl.baseUrl}api/employee/management/with-training-details${cacheBuster}`, {
+          method: "GET",
+          headers: { 
+            "Content-Type": "application/json",
+            'Authorization': `Bearer ${token}`,
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+          },
+          credentials: "include",
+        });
+        
+        if (trainingResponse.ok) {
+          const trainingJson = await trainingResponse.json();
+          if (trainingJson.success && trainingJson.data) {
+            console.log(`📊 Training endpoint returned: ${trainingJson.data.length} employees with training data`);
+            
+            // Debug: Check Fashion Consultants specifically
+            const fashionConsultants = trainingJson.data.filter(emp => 
+              emp.designation && emp.designation.toLowerCase().includes('fashion consultant')
+            );
+            console.log(`👗 Fashion Consultants with training data from endpoint: ${fashionConsultants.length}`);
+            if (fashionConsultants.length > 0) {
+              console.log('📋 Sample Fashion Consultant training data:', {
+                empID: fashionConsultants[0].empID,
+                name: fashionConsultants[0].username,
+                trainingCount: fashionConsultants[0].trainingCount,
+                trainingCompletionPercentage: fashionConsultants[0].trainingCompletionPercentage
+              });
+            }
+            
+            // Create a map of empID -> training data
+            trainingJson.data.forEach(emp => {
+              if (emp.empID) {
+                trainingData[emp.empID] = {
+                  trainingCount: emp.trainingCount || 0,
+                  passCountTraining: emp.passCountTraining || 0,
+                  trainingDue: emp.trainingDue || 0,
+                  trainingCompletionPercentage: emp.trainingCompletionPercentage || 0,
+                  assignedAssessmentsCount: emp.assignedAssessmentsCount || 0,
+                  passCountAssessment: emp.passCountAssessment || 0,
+                  assessmentDue: emp.assessmentDue || 0,
+                  assessmentCompletionPercentage: emp.assessmentCompletionPercentage || 0,
+                  isLocalUser: emp.isLocalUser || false,
+                  hasTrainingData: emp.hasTrainingData || false,
+                };
+              }
+            });
+          }
+        } else {
+          console.warn('⚠️ Training endpoint failed, using employees without training data');
+        }
+      } catch (error) {
+        console.warn('⚠️ Training endpoint error:', error.message);
+      }
+      
+      // Step 2.5: Fallback - Try to get additional training data from all trainings endpoint
+      try {
+        const allTrainingsResponse = await fetch(`${baseUrl.baseUrl}api/getAll/training/with-completion`, {
+          method: "GET",
+          headers: { 
+            "Content-Type": "application/json",
+            'Authorization': `Bearer ${token}`,
+          },
+          credentials: "include",
+        });
+        
+        if (allTrainingsResponse.ok) {
+          const allTrainingsJson = await allTrainingsResponse.json();
+          console.log(`📊 Fallback training response:`, allTrainingsJson);
+          
+          if (allTrainingsJson.success && allTrainingsJson.data) {
+            console.log(`📊 Additional training data found: ${allTrainingsJson.data.length} training records`);
+            
+            // Process additional training data
+            allTrainingsJson.data.forEach(training => {
+              if (training.assignedUsers && Array.isArray(training.assignedUsers)) {
+                training.assignedUsers.forEach(user => {
+                  if (user.empID && !trainingData[user.empID]) {
+                    // Add missing training data
+                    trainingData[user.empID] = {
+                      trainingCount: user.trainingCount || 1,
+                      passCountTraining: user.completionPercentage || 0,
+                      trainingDue: user.overdueCount || 0,
+                      trainingCompletionPercentage: user.completionPercentage || 0,
+                      assignedAssessmentsCount: 0,
+                      passCountAssessment: 0,
+                      assessmentDue: 0,
+                      assessmentCompletionPercentage: 0,
+                      isLocalUser: true,
+                      hasTrainingData: true,
+                    };
+                    console.log(`📈 Added missing training data for: ${user.empID} (${user.username})`);
+                  }
+                });
+              }
+            });
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ Fallback training data fetch failed:', error.message);
+      }
+      
+      // Step 2.6: FINAL DEBUG - Log what training data we actually have
+      console.log('🔍 FINAL TRAINING DATA SUMMARY:');
+      console.log('Total training records:', Object.keys(trainingData).length);
+      console.log('Training data sample:', Object.entries(trainingData).slice(0, 5));
+      
+      // MANUAL DEBUG: Check if testabhiram training exists
+      if (trainingData['testabhiram'] || trainingData['testabhiram'.toUpperCase()] || trainingData['testabhiram'.toLowerCase()]) {
+        console.log('✅ Found testabhiram training data!');
       } else {
-        throw new Error(json.message || "Invalid response format");
+        console.log('❌ testabhiram not found in training data');
+        console.log('Available keys containing "test":', Object.keys(trainingData).filter(key => key.toLowerCase().includes('test')));
+        console.log('Available keys containing "abhi":', Object.keys(trainingData).filter(key => key.toLowerCase().includes('abhi')));
+      }
+      
+      // Check specifically for Fashion Consultants in training data
+      const trainingDataFashionConsultants = Object.entries(trainingData).filter(([empID, data]) => 
+        data.hasTrainingData || data.trainingCount > 0
+      );
+      console.log('Employees with training data:', trainingDataFashionConsultants.length);
+      trainingDataFashionConsultants.forEach(([empID, data]) => {
+        console.log(`  - ${empID}: ${data.trainingCount} trainings, ${data.trainingCompletionPercentage}% complete`);
+      });
+      
+      // Step 3: Merge direct API employees with training data
+      console.log('🔍 Debugging ID matching...');
+      console.log('Training data keys:', Object.keys(trainingData));
+      console.log('Sample direct API emp_codes:', allEmployees.slice(0, 10).map(e => e?.emp_code));
+      
+      // Debug: Show all Fashion Consultants from external API
+      const externalFashionConsultants = allEmployees.filter(e => 
+        e?.role_name && e.role_name.toLowerCase().includes('fashion consultant')
+      );
+      console.log(`👗 External Fashion Consultants found: ${externalFashionConsultants.length}`);
+      externalFashionConsultants.forEach(fc => {
+        console.log(`   - ${fc.emp_code}: ${fc.name} (${fc.store_name})`);
+      });
+      
+      const normalized = allEmployees.map((e) => {
+        const empID = e?.emp_code || "";
+        let training = trainingData[empID] || {};
+        
+        // Enhanced ID matching for training data
+        if (!training.trainingCount && !training.hasTrainingData) {
+          // Try different ID formats
+          const altIds = [
+            empID.toUpperCase(), 
+            empID.toLowerCase(), 
+            empID.replace('Emp', 'EMP'), 
+            empID.replace('EMP', 'Emp'),
+            empID.replace('emp', 'Emp'),
+            empID.replace('emp', 'EMP')
+          ];
+          
+          const foundAltId = altIds.find(id => trainingData[id] && (trainingData[id].trainingCount > 0 || trainingData[id].hasTrainingData));
+          if (foundAltId) {
+            console.log(`🔄 ID mismatch fixed: ${empID} -> ${foundAltId} for ${e.name}`);
+            training = trainingData[foundAltId];
+          }
+        }
+        
+        // Debug: Check Fashion Consultants specifically
+        if (e?.role_name && e.role_name.toLowerCase().includes('fashion consultant')) {
+          const hasTrainingInData = !!(training.trainingCount > 0 || training.hasTrainingData);
+          if (!hasTrainingInData) {
+            console.log(`❌ No training data found for Fashion Consultant: ${empID} (${e.name})`);
+            console.log(`   Available training keys:`, Object.keys(trainingData).filter(key => key.toLowerCase().includes('311') || key.toLowerCase().includes(empID.toLowerCase())));
+          } else {
+            console.log(`✅ Training data found for Fashion Consultant: ${empID} (${e.name}) - ${training.trainingCount} trainings`);
+          }
+        }
+        
+        return {
+          empID: empID,
+          username: e?.name || "",
+          designation: e?.role_name || "",
+          workingBranch: e?.store_name || "",
+          workingBranchLabel: titleCase(e?.store_name || ""),
+          // Training data (if available)
+          trainingCount: training.trainingCount || 0,
+          passCountTraining: training.passCountTraining || 0,
+          Trainingdue: training.trainingDue || 0,
+          trainingCompletionPercentage: training.trainingCompletionPercentage || 0,
+          assignedAssessmentsCount: training.assignedAssessmentsCount || 0,
+          passCountAssessment: training.passCountAssessment || 0,
+          AssessmentDue: training.assessmentDue || 0,
+          assessmentCompletionPercentage: training.assessmentCompletionPercentage || 0,
+          isLocalUser: training.isLocalUser || false,
+          hasTrainingData: training.hasTrainingData || false,
+        };
+      });
+
+      setData(normalized);
+      setFilteredData(normalized);
+      setError("");
+      
+      const employeesWithTraining = normalized.filter(emp => emp.hasTrainingData || emp.trainingCount > 0).length;
+      console.log(`✅ Hybrid result: ${normalized.length} total employees, ${employeesWithTraining} with training data`);
+      console.log(`📈 Training data coverage: ${Math.round((employeesWithTraining / normalized.length) * 100)}%`);
+      
+      // Debug: Check Fashion Consultants in final result
+      const finalFashionConsultants = normalized.filter(emp => 
+        emp.designation && emp.designation.toLowerCase().includes('fashion consultant')
+      );
+      const fashionWithTraining = finalFashionConsultants.filter(emp => emp.trainingCount > 0);
+      console.log(`👗 Final result - Fashion Consultants: ${finalFashionConsultants.length} total, ${fashionWithTraining.length} with training`);
+      
+      if (finalFashionConsultants.length > 0) {
+        console.log('📋 Sample Fashion Consultant final data:', {
+          empID: finalFashionConsultants[0].empID,
+          name: finalFashionConsultants[0].username,
+          trainingCount: finalFashionConsultants[0].trainingCount,
+          trainingCompletionPercentage: finalFashionConsultants[0].trainingCompletionPercentage,
+          hasTrainingData: finalFashionConsultants[0].hasTrainingData
+        });
       }
     } catch (error) {
       console.error("Failed to fetch employees:", error.message);
