@@ -7,6 +7,10 @@ import {
     deleteEmployee,
     getAllEmployeesWithTrainingDetails
 } from '../controllers/EmployeeController.js';
+import {
+    getAllEmployeesWithTrainingDetailsV2,
+    autoSyncEmployees
+} from '../controllers/EmployeeManagementController.js';
 import { MiddilWare } from '../lib/middilWare.js';
 
 const router = express.Router();
@@ -248,6 +252,54 @@ router.delete('/:id', deleteEmployee);
  *       500:
  *         description: Internal server error
  */
-router.get('/management/with-training-details', MiddilWare, getAllEmployeesWithTrainingDetails);
+router.get('/management/with-training-details', MiddilWare, getAllEmployeesWithTrainingDetailsV2);
+
+/**
+ * @swagger
+ * /api/employee/auto-sync:
+ *   post:
+ *     tags: [Employee]
+ *     summary: Auto-sync employees from external API
+ *     description: Synchronizes all employees from external API to local database
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Auto-sync completed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Employee auto-sync completed successfully"
+ *                 results:
+ *                   type: object
+ *                   properties:
+ *                     created:
+ *                       type: integer
+ *                       example: 50
+ *                     updated:
+ *                       type: integer
+ *                       example: 20
+ *                     skipped:
+ *                       type: integer
+ *                       example: 5
+ *                     totalInDatabase:
+ *                       type: integer
+ *                       example: 200
+ *                     externalApiCount:
+ *                       type: integer
+ *                       example: 175
+ *       401:
+ *         description: Unauthorized - Invalid token
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/auto-sync', MiddilWare, autoSyncEmployees);
 
 export default router;
