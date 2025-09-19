@@ -6,6 +6,78 @@ import User from '../model/User.js';
 import axios from 'axios';
 import Module from '../model/Module.js'; // Added import for Module
 
+// Helper function to assign existing mandatory trainings to new users
+const assignExistingMandatoryTrainings = async (user) => {
+  try {
+    const designation = user.designation;
+    console.log(`Assigning existing mandatory trainings to new user with designation: ${designation}`);
+    
+    // Function to flatten a string (remove spaces and lowercase) - same logic as createUser
+    const flatten = (str) => str.toLowerCase().replace(/\s+/g, '');
+    const flatDesignation = flatten(designation);
+
+    // Fetch all mandatory trainings
+    const allTrainings = await Training.find({
+      Trainingtype: 'Mandatory'
+    }).populate('modules');
+
+    // Filter trainings that match this user's designation
+    const mandatoryTraining = allTrainings.filter(training =>
+      training.Assignedfor.some(role => flatten(role) === flatDesignation)
+    );
+
+    console.log(`Found ${mandatoryTraining.length} existing mandatory trainings for designation: ${designation}`);
+
+    if (mandatoryTraining.length === 0) {
+      console.log(`No existing mandatory trainings found for designation: ${designation}`);
+      return;
+    }
+
+    const deadlineDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // Default 30-day deadline
+
+    // Create TrainingProgress records for each mandatory training
+    const trainingAssignments = mandatoryTraining.map(async (training) => {
+      // Check if this user already has this training assigned
+      const existingProgress = await TrainingProgress.findOne({
+        userId: user._id,
+        trainingId: training._id
+      });
+
+      if (existingProgress) {
+        console.log(`User ${user.empID} already has training ${training.trainingName} assigned`);
+        return;
+      }
+
+      // Create TrainingProgress for the user
+      const trainingProgress = new TrainingProgress({
+        userId: user._id,
+        trainingId: training._id,
+        deadline: deadlineDate,
+        pass: false,
+        modules: training.modules.map(module => ({
+          moduleId: module._id,
+          pass: false,
+          videos: module.videos.map(video => ({
+            videoId: video._id,
+            pass: false,
+          })),
+        })),
+      });
+
+      await trainingProgress.save();
+      console.log(`Assigned mandatory training "${training.trainingName}" to user ${user.empID}`);
+    });
+
+    // Wait for all training assignments to complete
+    await Promise.all(trainingAssignments);
+    console.log(`Successfully assigned ${mandatoryTraining.length} mandatory trainings to user ${user.empID}`);
+    
+  } catch (error) {
+    console.error(`Error assigning mandatory trainings to user ${user.empID}:`, error);
+    // Don't throw error - let the main process continue
+  }
+};
+
 export const assignModuleToUser = async (req, res) => {
   try {
     const { userId, moduleId, deadline } = req.body;
@@ -311,6 +383,10 @@ export const ReassignTraining = async (req, res) => {
           assignedAssessments: [],
           training: []
         });
+        
+        // IMPORTANT: Assign existing mandatory trainings to new external employee
+        await assignExistingMandatoryTrainings(user);
+        console.log(`Assigned existing mandatory trainings to new external employee: ${empCode}`);
       } else {
         // Update existing user with latest employee data
         user.username = employeeInfo.name || user.username;
@@ -410,6 +486,41 @@ export const deleteTrainingController = async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const getUserTrainingProgress = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Find all mandatory training progress for this user
+    const trainingProgressRecords = await TrainingProgress.find({ userId })
+      .populate({
+        path: 'trainingId',
+        select: 'trainingName modules Trainingtype deadline'
+      });
+    
+    // Format the mandatory trainings to match the user.training structure
+    const mandatoryTrainings = trainingProgressRecords.map(progress => ({
+      trainingId: progress.trainingId,
+      deadline: progress.deadline,
+      status: progress.status,
+      pass: progress.pass,
+      assignedAt: progress.createdAt,
+      isMandatory: true
+    }));
+    
+    res.status(200).json({
+      message: "Training progress retrieved successfully",
+      mandatoryTrainings,
+      totalMandatoryTrainings: mandatoryTrainings.length
+    });
+  } catch (error) {
+    console.error('Error fetching user training progress:', error);
+    res.status(500).json({ 
+      message: "Internal server error", 
+      error: error.message 
+    });
   }
 };
 
