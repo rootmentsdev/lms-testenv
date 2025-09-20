@@ -1,9 +1,85 @@
 import axios from 'axios';
 import User from '../model/User.js';
 import TrainingProgress from '../model/Trainingprocessschema.js';
+import { Training } from '../model/Traning.js';
+import Module from '../model/Module.js';
 import Admin from '../model/Admin.js';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:7000';
+
+// Helper function to assign mandatory trainings to a user
+const assignMandatoryTrainingsToUser = async (user) => {
+    try {
+        console.log(`🔄 Checking mandatory trainings for user: ${user.empID} with designation: ${user.designation}`);
+        
+        // Function to flatten a string (remove spaces and lowercase)
+        const flatten = (str) => str.toLowerCase().replace(/\s+/g, '');
+        
+        // Flatten input designation
+        const flatDesignation = flatten(user.designation);
+        
+        // Step 1: Fetch all mandatory trainings
+        const allTrainings = await Training.find({
+            Trainingtype: 'Mandatory'
+        }).populate('modules');
+        
+        // Step 2: Filter in JS using flattened comparison
+        const mandatoryTraining = allTrainings.filter(training =>
+            training.Assignedfor.some(role => flatten(role) === flatDesignation)
+        );
+        
+        console.log(`📚 Found ${mandatoryTraining.length} mandatory trainings for designation: ${user.designation}`);
+        
+        if (mandatoryTraining.length === 0) {
+            console.log(`ℹ️  No mandatory trainings found for designation: ${user.designation}`);
+            return;
+        }
+        
+        const deadlineDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // Default 30-day deadline
+        
+        // Create TrainingProgress for each mandatory training
+        const trainingAssignments = mandatoryTraining.map(async (training) => {
+            // Check if this user already has this training assigned
+            const existingProgress = await TrainingProgress.findOne({
+                userId: user._id,
+                trainingId: training._id
+            });
+            
+            if (existingProgress) {
+                console.log(`ℹ️  User ${user.empID} already has training ${training.trainingName} assigned`);
+                return;
+            }
+            
+            // Create TrainingProgress for the user
+            const trainingProgress = new TrainingProgress({
+                userId: user._id,
+                trainingName: training.trainingName,
+                trainingId: training._id,
+                deadline: deadlineDate,
+                pass: false,
+                modules: training.modules.map(module => ({
+                    moduleId: module._id,
+                    pass: false,
+                    videos: module.videos.map(video => ({
+                        videoId: video._id,
+                        pass: false,
+                    })),
+                })),
+            });
+            
+            await trainingProgress.save();
+            console.log(`✅ Assigned mandatory training "${training.trainingName}" to user ${user.empID}`);
+        });
+        
+        // Wait for all training assignments to complete
+        await Promise.all(trainingAssignments);
+        console.log(`🎯 Successfully assigned ${mandatoryTraining.length} mandatory trainings to user ${user.empID}`);
+        
+    } catch (error) {
+        console.error(`❌ Error assigning mandatory trainings to user ${user.empID}:`, error);
+        // Don't throw error - let the main process continue
+    }
+};
 
 // Store name to locCode mapping
 const storeNameToLocCode = {
@@ -22,6 +98,7 @@ const storeNameToLocCode = {
     'GROOMS PERINTHALMANNA': '16',
     'GROOMS MANJERY': '18',
     'GROOMS KOTTAKKAL': '17',
+    'SUITOR GUY KOTTAKKAL': '17',
     'GROOMS KOZHIKODE': '13',
     'GROOMS CALICUT': '13',
     'GROOMS KANNUR': '21',
@@ -64,6 +141,7 @@ export const getAllEmployeesWithTrainingDetailsV2 = async (req, res) => {
         const isGlobalAdmin = allowedLocCodes.length === 0 || allowedLocCodes.includes('*');
         
         console.log(`👤 Admin: ${admin.firstName} ${admin.lastName}`);
+
         console.log(`🔐 Allowed location codes: ${isGlobalAdmin ? 'ALL (Global Admin)' : allowedLocCodes.join(', ')}`);
 
         // Fetch external employees with retry logic
@@ -148,8 +226,9 @@ export const getAllEmployeesWithTrainingDetailsV2 = async (req, res) => {
         // Create employee synchronization map
         const employeeDataMap = new Map();
         
-        // Add external employees to map
-        filteredExternalEmployees.forEach(emp => {
+        // Add external employees to map and auto-create local users if needed
+        const newUsersToCreate = [];
+        for (const emp of filteredExternalEmployees) {
             if (emp.emp_code) {
                 employeeDataMap.set(emp.emp_code, {
                     empID: emp.emp_code,
@@ -162,8 +241,60 @@ export const getAllEmployeesWithTrainingDetailsV2 = async (req, res) => {
                     hasTrainingData: false,
                     externalData: emp
                 });
+                
+                // Check if this external employee needs to be created locally
+                const existingLocalUser = localUsers.find(user => user.empID === emp.emp_code);
+                if (!existingLocalUser) {
+                    // Determine locCode from store_code or store name mapping
+                    let locCode = emp.store_code || '';
+                    if (!locCode && emp.store_name) {
+                        locCode = storeNameToLocCode[emp.store_name.toUpperCase()] || '1'; // Default to '1' if not found
+                    }
+                    if (!locCode) {
+                        locCode = '1'; // Final fallback
+                    }
+                    
+                    newUsersToCreate.push({
+                        empID: emp.emp_code,
+                        username: emp.name || '',
+                        email: emp.email || `${emp.emp_code}@company.com`,
+                        designation: emp.role_name || '',
+                        workingBranch: emp.store_name || '',
+                        locCode: locCode,
+                        phoneNumber: emp.phone || '',
+                        training: [],
+                        assignedAssessments: []
+                    });
+                }
             }
-        });
+        }
+        
+        // Create new local users for external employees
+        if (newUsersToCreate.length > 0) {
+            console.log(`🔄 Creating ${newUsersToCreate.length} new local users from external data...`);
+            
+            try {
+                const createdUsers = await User.insertMany(newUsersToCreate);
+                console.log(`✅ Created ${createdUsers.length} new local users`);
+                
+                // Auto-assign mandatory trainings to new users
+                for (const newUser of createdUsers) {
+                    try {
+                        await assignMandatoryTrainingsToUser(newUser);
+                        console.log(`✅ Assigned mandatory trainings to ${newUser.empID}`);
+                    } catch (error) {
+                        console.error(`❌ Failed to assign trainings to ${newUser.empID}:`, error.message);
+                    }
+                }
+                
+                // Update localUsers array to include new users
+                localUsers.push(...createdUsers);
+                console.log(`👥 Updated local users count: ${localUsers.length}`);
+                
+            } catch (error) {
+                console.error('❌ Error creating new local users:', error.message);
+            }
+        }
 
         // Add/Update with local user data
         localUsers.forEach(user => {
