@@ -3,7 +3,7 @@ const baseUrl = {
     // baseUrl: "https://lms-testenv.onrender.com/",
     
     // Development URL (for local development)
-    baseUrl: "http://localhost:7000/",
+     baseUrl: "http://localhost:7000/",
 };
 
 /**
