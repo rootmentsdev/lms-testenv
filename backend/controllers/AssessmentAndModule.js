@@ -493,8 +493,32 @@ export const getUserTrainingProgress = async (req, res) => {
   try {
     const { userId } = req.params;
     
-    // Find all mandatory training progress for this user
-    const trainingProgressRecords = await TrainingProgress.find({ userId })
+    // First, try to find user by MongoDB _id, then by empID if that fails
+    let user = null;
+    let actualUserId = null;
+    
+    // Check if userId is a valid MongoDB ObjectId
+    if (userId && userId.match(/^[0-9a-fA-F]{24}$/)) {
+      // It's a MongoDB ObjectId
+      actualUserId = userId;
+      user = await User.findById(userId);
+    } else {
+      // It's likely an empID, find the user first
+      user = await User.findOne({ empID: userId });
+      if (user) {
+        actualUserId = user._id;
+      }
+    }
+    
+    if (!user) {
+      return res.status(404).json({ 
+        message: "User not found",
+        searchedBy: userId.match(/^[0-9a-fA-F]{24}$/) ? "MongoDB ID" : "Employee ID"
+      });
+    }
+    
+    // Find all mandatory training progress for this user using the actual MongoDB _id
+    const trainingProgressRecords = await TrainingProgress.find({ userId: actualUserId })
       .populate({
         path: 'trainingId',
         select: 'trainingName modules Trainingtype deadline'
@@ -513,7 +537,12 @@ export const getUserTrainingProgress = async (req, res) => {
     res.status(200).json({
       message: "Training progress retrieved successfully",
       mandatoryTrainings,
-      totalMandatoryTrainings: mandatoryTrainings.length
+      totalMandatoryTrainings: mandatoryTrainings.length,
+      userInfo: {
+        empID: user.empID,
+        username: user.username,
+        designation: user.designation
+      }
     });
   } catch (error) {
     console.error('Error fetching user training progress:', error);
