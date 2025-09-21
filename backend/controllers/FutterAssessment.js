@@ -215,6 +215,7 @@ const assignMandatoryTrainingsToUser = async (user) => {
             const trainingProgress = new TrainingProgress({
                 userId: user._id,
                 trainingId: training._id,
+                trainingName: training.trainingName, // FIXED: Added missing trainingName field
                 deadline: deadlineDate,
                 pass: false,
                 modules: training.modules.map(module => ({
@@ -289,13 +290,61 @@ export const GetAllUserDetailes = async (req, res) => {
                 
                 // Create new user from external data
                 console.log('Creating new user from external data:', externalEmployee.name);
+                
+                // Handle locCode properly - provide fallback for empty values
+                let locCode = externalEmployee.store_code || '';
+                if (!locCode || locCode.trim() === '') {
+                    // If no store_code, try to map from store_name
+                    const storeNameToLocCode = {
+                        'GROOMS TRIVANDRUM': '5',
+                        'GROOMS PALAKKAD': '19',
+                        'GROOMS EDAPALLY': '3',
+                        'GROOMS KOTTAYAM': '9',
+                        'GROOMS PERUMBAVOOR': '10',
+                        'GROOMS THRISSUR': '11',
+                        'GROOMS CHAVAKKAD': '12',
+                        'GROOMS EDAPPAL': '15',
+                        'GROOMS VATAKARA': '14',
+                        'GROOMS PERINTHALMANNA': '16',
+                        'GROOMS MANJERY': '18',
+                        'GROOMS KOTTAKKAL': '17',
+                        'GROOMS KOZHIKODE': '13',
+                        'GROOMS CALICUT': '13',
+                        'GROOMS KANNUR': '21',
+                        'GROOMS KALPETTA': '20',
+                        'ZORUCCI EDAPPAL': '6',
+                        'ZORUCCI KOTTAKKAL': '8',
+                        'ZORUCCI PERINTHALMANNA': '7',
+                        'ZORUCCI EDAPPALLY': '1',
+                        'SUITOR GUY TRIVANDRUM': '5',
+                        'SUITOR GUY PALAKKAD': '19',
+                        'SUITOR GUY EDAPPALLY': '3',
+                        'SUITOR GUY KOTTAYAM': '9',
+                        'SUITOR GUY PERUMBAVOOR': '10',
+                        'SUITOR GUY THRISSUR': '11',
+                        'SUITOR GUY CHAVAKKAD': '12',
+                        'SUITOR GUY EDAPPAL': '15',
+                        'SUITOR GUY VATAKARA': '14',
+                        'SUITOR GUY PERINTHALMANNA': '16',
+                        'SUITOR GUY MANJERI': '18',
+                        'SUITOR GUY KOTTAKKAL': '17',
+                        'SUITOR GUY CALICUT': '13',
+                        'SUITOR GUY KALPETTA': '20',
+                        'SUITOR GUY KANNUR': '21'
+                    };
+                    
+                    const storeName = externalEmployee.store_name?.toUpperCase() || '';
+                    locCode = storeNameToLocCode[storeName] || '1'; // Default to '1' if no mapping found
+                    console.log(`Mapped store "${externalEmployee.store_name}" to locCode: ${locCode}`);
+                }
+                
                 userData = new User({
                     username: externalEmployee.name || '',
                     email: externalEmployee.email || `${empID}@company.com`,
                     empID: empID,
                     designation: externalEmployee.role_name || '',
-                    workingBranch: externalEmployee.store_name || '',
-                    locCode: externalEmployee.store_code || '',
+                    workingBranch: externalEmployee.store_name || 'No Store',
+                    locCode: locCode,
                     phoneNumber: externalEmployee.phone || '',
                     training: [],
                     assignedAssessments: []

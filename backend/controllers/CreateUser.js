@@ -83,31 +83,49 @@ export const createUser = async (req, res) => {
     // For mandatory trainings, only create progress records, don't add to user.training array
     // This prevents mandatory trainings from appearing in both "assigned" and "mandatory" sections
     const trainingAssignments = mandatoryTraining.map(async (training) => {
-      // DON'T add mandatory training to user.training array
-      // newUser.training.push({
-      //   trainingId: training._id,
-      //   deadline: deadlineDate,
-      //   pass: false,
-      //   status: 'Pending',
-      // });
+      try {
+        // DON'T add mandatory training to user.training array
+        // newUser.training.push({
+        //   trainingId: training._id,
+        //   deadline: deadlineDate,
+        //   pass: false,
+        //   status: 'Pending',
+        // });
 
-      // Create TrainingProgress for the user
-      const trainingProgress = new TrainingProgress({
-        userId: newUser._id,
-        trainingId: training._id,
-        deadline: deadlineDate,
-        pass: false,
-        modules: training.modules.map(module => ({
-          moduleId: module._id,
+        // Check if this training is already assigned to avoid duplicates
+        const existingProgress = await TrainingProgress.findOne({
+          userId: newUser._id,
+          trainingId: training._id
+        });
+
+        if (existingProgress) {
+          console.log(`Training "${training.trainingName}" already assigned to ${newUser.empID} - skipping`);
+          return;
+        }
+
+        // Create TrainingProgress for the user
+        const trainingProgress = new TrainingProgress({
+          userId: newUser._id,
+          trainingId: training._id,
+          trainingName: training.trainingName,
+          deadline: deadlineDate,
           pass: false,
-          videos: module.videos.map(video => ({
-            videoId: video._id,
+          modules: training.modules.map(module => ({
+            moduleId: module._id,
             pass: false,
+            videos: module.videos.map(video => ({
+              videoId: video._id,
+              pass: false,
+            })),
           })),
-        })),
-      });
+        });
 
-      await trainingProgress.save();
+        await trainingProgress.save();
+        console.log(`✅ Assigned mandatory training "${training.trainingName}" to new user ${newUser.empID}`);
+      } catch (error) {
+        console.error(`❌ Error assigning training "${training.trainingName}" to ${newUser.empID}:`, error.message);
+        // Continue with other trainings even if one fails
+      }
     });
 
     // Wait for all training assignments to complete

@@ -284,6 +284,18 @@ export const getAllEmployeesWithTrainingDetailsV2 = async (req, res) => {
                         console.log(`✅ Assigned mandatory trainings to ${newUser.empID}`);
                     } catch (error) {
                         console.error(`❌ Failed to assign trainings to ${newUser.empID}:`, error.message);
+                        // Continue with other users even if one fails
+                    }
+                }
+                
+                // Also check existing users for missing mandatory trainings
+                console.log(`🔍 Checking existing users for missing mandatory trainings...`);
+                for (const existingUser of localUsers.filter(u => !newUsersToCreate.find(nu => nu.empID === u.empID))) {
+                    try {
+                        await assignMandatoryTrainingsToUser(existingUser);
+                    } catch (error) {
+                        console.error(`❌ Failed to check/assign trainings to existing user ${existingUser.empID}:`, error.message);
+                        // Continue with other users even if one fails
                     }
                 }
                 

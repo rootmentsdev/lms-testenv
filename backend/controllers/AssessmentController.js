@@ -1199,7 +1199,7 @@ export const createMandatoryTraining = async (req, res) => {
                         username: emp.name || emp.emp_code || 'Unknown',
                         email: emp.email,
                         empID: emp.emp_code,
-                        locCode: emp.store_code || 'DEFAULT',
+                        locCode: emp.store_code || '1', // Default to '1' if no store_code
                         designation: emp.role_name || '',
                         workingBranch: emp.store_name || 'DEFAULT',
                     });

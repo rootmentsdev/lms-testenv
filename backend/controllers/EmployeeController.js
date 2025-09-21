@@ -193,7 +193,7 @@ export const createEmployee = async (req, res) => {
                     username: `${firstName} ${lastName}`,
                     email: email,
                     empID: employeeId,
-                    locCode: 'DEFAULT', // Set a default locCode - can be updated later
+                    locCode: '1', // Set a default locCode - can be updated later
                     designation: designation,
                     workingBranch: department, // Using department as working branch
                     phoneNumber: phoneNumber,
