@@ -1288,6 +1288,17 @@ export const createMandatoryTraining = async (req, res) => {
             //     status: 'Pending',
             // });
 
+            // Check if this user already has this training assigned to avoid duplicates
+            const existingProgress = await TrainingProgress.findOne({
+                userId: user._id,
+                trainingId: newTraining._id
+            });
+
+            if (existingProgress) {
+                console.log(`Training already exists for user ${user.empID} (${user.username})`);
+                return user; // Skip if already assigned
+            }
+
             // Create training progress for mandatory training
             const trainingProgress = new TrainingProgress({
                 userId: user._id,

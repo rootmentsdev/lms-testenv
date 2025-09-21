@@ -181,7 +181,7 @@ export const createEmployee = async (req, res) => {
         try {
             // Import the necessary models and functions here to avoid circular imports
             const User = (await import('../model/User.js')).default;
-            const Training = (await import('../model/Traning.js')).default;
+            const { Training } = (await import('../model/Traning.js'));
             const TrainingProgress = (await import('../model/Trainingprocessschema.js')).default;
 
             // Check if a User with this empID already exists
@@ -193,7 +193,7 @@ export const createEmployee = async (req, res) => {
                     username: `${firstName} ${lastName}`,
                     email: email,
                     empID: employeeId,
-                    locCode: '', // This might need to be mapped based on your business logic
+                    locCode: 'DEFAULT', // Set a default locCode - can be updated later
                     designation: designation,
                     workingBranch: department, // Using department as working branch
                     phoneNumber: phoneNumber,
@@ -204,21 +204,37 @@ export const createEmployee = async (req, res) => {
 
                 // Save the user first to get the _id
                 await newUser.save();
+                console.log(`✅ Created User record for employee: ${employeeId} (${firstName} ${lastName})`);
 
-                // Assign mandatory trainings based on designation
-                // Function to flatten a string (remove spaces and lowercase)
-                const flatten = (str) => str.toLowerCase().replace(/\s+/g, '');
-                const flatDesignation = flatten(designation);
+                // Assign mandatory trainings based on designation using EXACT matching
+                // STRICT MATCHING: Only match exact roles, no partial matches
+                const matchExactDesignation = (userDesig, roleList) => {
+                    if (!userDesig || !Array.isArray(roleList)) return false;
+                    
+                    // Normalize the user designation (trim and lowercase)
+                    const normalizedUserDesig = userDesig.trim().toLowerCase();
+                    
+                    // Check if the user's designation exactly matches any of the roles in the training
+                    return roleList.some(role => {
+                        if (!role) return false;
+                        const normalizedRole = role.trim().toLowerCase();
+                        
+                        // EXACT MATCH ONLY - no partial matches
+                        return normalizedUserDesig === normalizedRole;
+                    });
+                };
 
                 // Fetch all mandatory trainings
                 const allTrainings = await Training.find({
                     Trainingtype: 'Mandatory'
                 }).populate('modules');
 
-                // Filter in JS using flattened comparison
-                const mandatoryTraining = allTrainings.filter(training =>
-                    training.Assignedfor.some(role => flatten(role) === flatDesignation)
-                );
+                // Filter using EXACT designation matching
+                const mandatoryTraining = allTrainings.filter(training => {
+                    const isMatch = matchExactDesignation(designation, training.Assignedfor);
+                    console.log(`  Training: "${training.trainingName}" - Roles: [${training.Assignedfor.join(', ')}] - User Designation: "${designation}" - Match: ${isMatch}`);
+                    return isMatch;
+                });
 
                 // Create TrainingProgress records for mandatory trainings
                 const deadlineDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // Default 30-day deadline
@@ -227,6 +243,7 @@ export const createEmployee = async (req, res) => {
                     const trainingProgress = new TrainingProgress({
                         userId: newUser._id,
                         trainingId: training._id,
+                        trainingName: training.trainingName,
                         deadline: deadlineDate,
                         pass: false,
                         modules: training.modules.map(module => ({
@@ -245,7 +262,7 @@ export const createEmployee = async (req, res) => {
                 // Wait for all training assignments to complete
                 await Promise.all(trainingAssignments);
                 
-                console.log(`Created User record and assigned ${mandatoryTraining.length} mandatory trainings for employee: ${employeeId}`);
+                console.log(`✅ Successfully assigned ${mandatoryTraining.length} mandatory trainings to employee: ${employeeId}`);
             } else {
                 console.log(`User record already exists for employee: ${employeeId}`);
             }
