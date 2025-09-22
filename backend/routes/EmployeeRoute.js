@@ -302,4 +302,70 @@ router.get('/management/with-training-details', MiddilWare, getAllEmployeesWithT
  */
 router.post('/auto-sync', MiddilWare, autoSyncEmployees);
 
+/**
+ * @swagger
+ * /api/employee/test-external-api:
+ *   get:
+ *     tags: [Employee]
+ *     summary: Test external API connectivity
+ *     description: Tests direct connection to external API for debugging
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: External API test successful
+ *       500:
+ *         description: External API test failed
+ */
+router.get('/test-external-api', MiddilWare, async (req, res) => {
+    try {
+        console.log('🧪 Testing external API connectivity...');
+        
+        const ROOTMENTS_API_TOKEN = 'RootX-production-9d17d9485eb772e79df8564004d4a4d4';
+        const axios = (await import('axios')).default;
+        
+        const response = await axios.post('https://rootments.in/api/employee_range', {
+            startEmpId: 'EMP1',
+            endEmpId: 'EMP3' // Test with small range
+        }, { 
+            timeout: 15000,
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${ROOTMENTS_API_TOKEN}`,
+            }
+        });
+        
+        const employees = response.data?.data || [];
+        console.log(`✅ External API test successful: ${employees.length} employees`);
+        
+        res.status(200).json({
+            success: true,
+            message: 'External API test successful',
+            employeeCount: employees.length,
+            sampleData: employees.slice(0, 2) // Return first 2 employees as sample
+        });
+        
+    } catch (error) {
+        console.error('❌ External API test failed:', error.message);
+        console.error('❌ Error details:', {
+            status: error?.response?.status,
+            statusText: error?.response?.statusText,
+            data: error?.response?.data,
+            url: error?.config?.url
+        });
+        
+        res.status(500).json({
+            success: false,
+            message: 'External API test failed',
+            error: error.message,
+            details: {
+                status: error?.response?.status,
+                statusText: error?.response?.statusText,
+                url: error?.config?.url
+            }
+        });
+    }
+});
+
 export default router;

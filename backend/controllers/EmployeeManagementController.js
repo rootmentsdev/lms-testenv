@@ -153,13 +153,17 @@ export const getAllEmployeesWithTrainingDetailsV2 = async (req, res) => {
             try {
                 console.log(`📡 Fetching external employees (attempt ${retryCount + 1}/${maxRetries})...`);
                 
-                const response = await axios.post(`${BASE_URL}/api/employee_range`, {
+                // Fetch directly from external API (avoid self-referencing)
+                const ROOTMENTS_API_TOKEN = 'RootX-production-9d17d9485eb772e79df8564004d4a4d4';
+                const response = await axios.post('https://rootments.in/api/employee_range', {
                     startEmpId: 'EMP1',
                     endEmpId: 'EMP9999'
                 }, { 
                     timeout: 30000,
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${ROOTMENTS_API_TOKEN}`,
                     }
                 });
 
@@ -169,10 +173,19 @@ export const getAllEmployeesWithTrainingDetailsV2 = async (req, res) => {
             } catch (error) {
                 retryCount++;
                 console.error(`❌ External API attempt ${retryCount} failed:`, error.message);
+                console.error(`❌ External API error details:`, {
+                    status: error?.response?.status,
+                    statusText: error?.response?.statusText,
+                    url: error?.config?.url,
+                    timeout: error?.config?.timeout
+                });
                 
                 if (retryCount >= maxRetries) {
                     console.error('❌ All external API attempts failed, continuing with local data only');
                     externalEmployees = [];
+                } else {
+                    // Wait before retrying (exponential backoff)
+                    await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
                 }
             }
         }
@@ -502,11 +515,19 @@ export const autoSyncEmployees = async (req, res) => {
     try {
         console.log('🔄 Starting auto-sync of employees...');
 
-        // Fetch all employees from external API
-        const response = await axios.post(`${BASE_URL}/api/employee_range`, {
+        // Fetch all employees directly from external API (avoid self-referencing)
+        const ROOTMENTS_API_TOKEN = 'RootX-production-9d17d9485eb772e79df8564004d4a4d4';
+        const response = await axios.post('https://rootments.in/api/employee_range', {
             startEmpId: 'EMP1',
             endEmpId: 'EMP9999'
-        }, { timeout: 30000 });
+        }, { 
+            timeout: 30000,
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${ROOTMENTS_API_TOKEN}`,
+            }
+        });
 
         const externalEmployees = response.data?.data || [];
         console.log(`📡 Fetched ${externalEmployees.length} employees from external API`);
@@ -614,10 +635,27 @@ export const autoSyncEmployees = async (req, res) => {
 
     } catch (error) {
         console.error('❌ Error in auto-sync:', error);
+        console.error('❌ Error details:', {
+            message: error.message,
+            status: error?.response?.status,
+            statusText: error?.response?.statusText,
+            data: error?.response?.data,
+            config: {
+                url: error?.config?.url,
+                method: error?.config?.method,
+                timeout: error?.config?.timeout
+            }
+        });
+        
         res.status(500).json({
             success: false,
             message: 'Auto-sync failed',
-            error: error.message
+            error: error.message,
+            details: process.env.NODE_ENV === 'development' ? {
+                status: error?.response?.status,
+                statusText: error?.response?.statusText,
+                url: error?.config?.url
+            } : undefined
         });
     }
 };
