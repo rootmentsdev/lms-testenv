@@ -142,10 +142,19 @@ export const assignAssessmentToUser = async (req, res) => {
 // Helper function to fetch employee data from external API
 const fetchEmployeeData = async () => {
   try {
-    const response = await axios.post(`${process.env.BASE_URL || 'http://localhost:7000'}/api/employee_range`, {
+    // Fetch directly from external API (avoid self-referencing)
+    const ROOTMENTS_API_TOKEN = 'RootX-production-9d17d9485eb772e79df8564004d4a4d4';
+    const response = await axios.post('https://rootments.in/api/employee_range', {
       startEmpId: 'EMP1',
       endEmpId: 'EMP9999'
-    }, { timeout: 15000 });
+    }, { 
+      timeout: 15000,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${ROOTMENTS_API_TOKEN}`,
+      }
+    });
     
     return response.data?.data || [];
   } catch (error) {
@@ -179,12 +188,20 @@ export const GetAllTrainingWithCompletion = async (req, res) => {
       }
     });
 
-    // Fetch employee data from local API (like we fixed in mandatory training)
+    // Fetch employee data directly from external API (avoid self-referencing)
     let employeeData = [];
     try {
-      const response = await axios.post(`${process.env.BASE_URL || 'http://localhost:7000'}/api/employee_range`, {
+      const ROOTMENTS_API_TOKEN = 'RootX-production-9d17d9485eb772e79df8564004d4a4d4';
+      const response = await axios.post('https://rootments.in/api/employee_range', {
         startEmpId: 'EMP1',
         endEmpId: 'EMP9999'
+      }, {
+        timeout: 15000,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${ROOTMENTS_API_TOKEN}`,
+        }
       });
       
       employeeData = response.data?.data || [];

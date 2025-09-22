@@ -215,7 +215,7 @@ const assignMandatoryTrainingsToUser = async (user) => {
             const trainingProgress = new TrainingProgress({
                 userId: user._id,
                 trainingId: training._id,
-                trainingName: training.trainingName, // FIXED: Added missing trainingName field
+                trainingName: training.trainingName,
                 deadline: deadlineDate,
                 pass: false,
                 modules: training.modules.map(module => ({
@@ -274,11 +274,20 @@ export const GetAllUserDetailes = async (req, res) => {
             console.log('User not found in database, trying external API for empID:', empID);
             
             try {
-                // Fetch from external API
+                // Fetch directly from external API (avoid self-referencing)
                 const axios = (await import('axios')).default;
-                const response = await axios.post(`${process.env.BASE_URL || 'http://localhost:7000'}/api/employee_detail`, {
-                    empId: empID
-                }, { timeout: 15000 });
+                const ROOTMENTS_API_TOKEN = 'RootX-production-9d17d9485eb772e79df8564004d4a4d4';
+                const response = await axios.post('https://rootments.in/api/employee_range', {
+                    startEmpId: empID,
+                    endEmpId: empID
+                }, { 
+                    timeout: 15000,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${ROOTMENTS_API_TOKEN}`,
+                    }
+                });
                 
                 const externalEmployee = response.data?.data?.[0];
                 if (!externalEmployee) {

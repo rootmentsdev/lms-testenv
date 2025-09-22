@@ -571,6 +571,15 @@ export const autoSyncEmployees = async (req, res) => {
 
                     await user.save();
                     createdCount++;
+                    
+                    // Auto-assign mandatory trainings to newly created user
+                    try {
+                        await assignMandatoryTrainingsToUser(user);
+                        console.log(`✅ Assigned mandatory trainings to newly created user ${user.empID}`);
+                    } catch (error) {
+                        console.error(`❌ Failed to assign mandatory trainings to ${user.empID}:`, error.message);
+                        // Continue with other users even if training assignment fails
+                    }
                 } else {
                     // Update existing user with latest info from external API
                     let hasChanges = false;
@@ -604,6 +613,19 @@ export const autoSyncEmployees = async (req, res) => {
                     if (hasChanges) {
                         await user.save();
                         updatedCount++;
+                    }
+                    
+                    // Check if existing user has mandatory trainings assigned
+                    try {
+                        const existingProgress = await TrainingProgress.find({ userId: user._id });
+                        if (existingProgress.length === 0) {
+                            console.log(`🔍 Existing user ${user.empID} has no mandatory trainings, assigning them now...`);
+                            await assignMandatoryTrainingsToUser(user);
+                            console.log(`✅ Assigned mandatory trainings to existing user ${user.empID}`);
+                        }
+                    } catch (error) {
+                        console.error(`❌ Failed to check/assign trainings to existing user ${user.empID}:`, error.message);
+                        // Continue with other users even if training check fails
                     }
                 }
             } catch (error) {
