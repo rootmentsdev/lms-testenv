@@ -48,6 +48,18 @@ const CreateModuleData = () => {
         setCurrentVideo({ ...currentVideo, questions: updatedQuestions });
     };
 
+    // Remove Question
+    const removeQuestion = (qIndex) => {
+        if (currentVideo.questions.length <= 1) {
+            toast.warning("At least one question is required for each video.");
+            return;
+        }
+        
+        const updatedQuestions = currentVideo.questions.filter((_, index) => index !== qIndex);
+        setCurrentVideo({ ...currentVideo, questions: updatedQuestions });
+        toast.success("Question removed successfully!");
+    };
+
     // Validate if current video has at least one complete question
     const validateVideoQuestions = () => {
         if (!currentVideo.questions || currentVideo.questions.length === 0) {
@@ -289,6 +301,15 @@ const CreateModuleData = () => {
                                         ) : (
                                             <span className="text-orange-600 text-lg" title="Question is incomplete">⚠️</span>
                                         )}
+                                        {currentVideo.questions.length > 1 && (
+                                            <button
+                                                onClick={() => removeQuestion(qIndex)}
+                                                className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
+                                                title="Remove this question"
+                                            >
+                                                🗑️ Remove
+                                            </button>
+                                        )}
                                     </div>
 
                                 {q.options.map((option, oIndex) => (
@@ -309,9 +330,21 @@ const CreateModuleData = () => {
                                         />
                                     </div>
                                 ))}
-                                    <button onClick={addQuestion} className="p-2 bg-blue-500 text-white rounded-lg">
-                                        Add Question
+                                
+                                {/* Add Question Button */}
+                                <div className="flex justify-center pt-2">
+                                    <button 
+                                        onClick={addQuestion} 
+                                        className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
+                                    >
+                                        ➕ Add Question
                                     </button>
+                                </div>
+                                
+                                {/* Question Count Info */}
+                                <div className="text-center text-sm text-gray-600 mt-2">
+                                    {currentVideo.questions.length} question{currentVideo.questions.length !== 1 ? 's' : ''} added
+                                </div>
                                 </div>
                             );
                         })}
