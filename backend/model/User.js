@@ -33,6 +33,11 @@ const userSchema = new mongoose.Schema({
     empID: { type: String, required: true, unique: true }, // Employee ID
     designation: { type: String, required: true },
     workingBranch: { type: String, required: true }, // User's working branch
+    status: { 
+        type: String, 
+        enum: ['Active', 'Resigned', 'Terminated'], 
+        default: 'Active' 
+    }, // Employee status
     assignedModules: [assignedModuleSchema], // Array of assigned modules
     assignedAssessments: [assignedAssessmentSchema],
     training: [trainingSchema],// Array of assigned assessments

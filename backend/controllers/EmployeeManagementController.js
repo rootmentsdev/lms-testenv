@@ -217,18 +217,25 @@ export const getAllEmployeesWithTrainingDetailsV2 = async (req, res) => {
             console.log(`🌐 Global admin - showing all ${filteredExternalEmployees.length} external employees`);
         }
 
-        // Get local users in allowed branches
-        let localUsersQuery = {};
+        // Get local users in allowed branches (exclude resigned/terminated employees)
+        let localUsersQuery = {
+            status: { $ne: 'Resigned' } // Exclude resigned employees
+        };
         
         if (!isGlobalAdmin) {
             localUsersQuery = { 
-                $or: [
-                    { locCode: { $in: allowedLocCodes } },
-                    { workingBranch: 'No Store' },
-                    { workingBranch: 'NO STORE' },
-                    { workingBranch: 'no store' },
-                    { workingBranch: '' },
-                    { workingBranch: { $exists: false } }
+                $and: [
+                    { status: { $ne: 'Resigned' } }, // Exclude resigned employees
+                    {
+                        $or: [
+                            { locCode: { $in: allowedLocCodes } },
+                            { workingBranch: 'No Store' },
+                            { workingBranch: 'NO STORE' },
+                            { workingBranch: 'no store' },
+                            { workingBranch: '' },
+                            { workingBranch: { $exists: false } }
+                        ]
+                    }
                 ]
             };
         }
@@ -544,11 +551,16 @@ export const autoSyncEmployees = async (req, res) => {
                     continue;
                 }
 
-                // Check if user already exists
+                // Check if user already exists (but don't sync resigned employees)
                 let user = await User.findOne({
-                    $or: [
-                        { empID: emp.emp_code },
-                        { email: emp.email }
+                    $and: [
+                        {
+                            $or: [
+                                { empID: emp.emp_code },
+                                { email: emp.email }
+                            ]
+                        },
+                        { status: { $ne: 'Resigned' } } // Don't sync resigned employees
                     ]
                 });
 
@@ -678,6 +690,93 @@ export const autoSyncEmployees = async (req, res) => {
                 statusText: error?.response?.statusText,
                 url: error?.config?.url
             } : undefined
+        });
+    }
+};
+
+/**
+ * @swagger
+ * /api/employee/update-status:
+ *   patch:
+ *     summary: Update employee status (mark as resigned/active)
+ *     tags: [Employee Management]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               empID:
+ *                 type: string
+ *                 description: Employee ID
+ *               status:
+ *                 type: string
+ *                 enum: [Active, Resigned, Terminated]
+ *                 description: New status for the employee
+ *             required:
+ *               - empID
+ *               - status
+ *     responses:
+ *       200:
+ *         description: Employee status updated successfully
+ *       404:
+ *         description: Employee not found
+ *       500:
+ *         description: Internal server error
+ */
+export const updateEmployeeStatus = async (req, res) => {
+    try {
+        const { empID, status } = req.body;
+
+        // Validate input
+        if (!empID || !status) {
+            return res.status(400).json({
+                success: false,
+                message: 'Employee ID and status are required'
+            });
+        }
+
+        if (!['Active', 'Resigned', 'Terminated'].includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Status must be one of: Active, Resigned, Terminated'
+            });
+        }
+
+        // Find and update the employee
+        const user = await User.findOne({ empID });
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Employee not found'
+            });
+        }
+
+        // Update the status
+        user.status = status;
+        await user.save();
+
+        console.log(`✅ Updated employee ${empID} status to: ${status}`);
+
+        res.status(200).json({
+            success: true,
+            message: `Employee status updated to ${status} successfully`,
+            data: {
+                empID: user.empID,
+                username: user.username,
+                status: user.status,
+                updatedAt: user.updatedAt
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Error updating employee status:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update employee status',
+            error: error.message
         });
     }
 };

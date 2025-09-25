@@ -9,7 +9,8 @@ import {
 } from '../controllers/EmployeeController.js';
 import {
     getAllEmployeesWithTrainingDetailsV2,
-    autoSyncEmployees
+    autoSyncEmployees,
+    updateEmployeeStatus
 } from '../controllers/EmployeeManagementController.js';
 import { MiddilWare } from '../lib/middilWare.js';
 
@@ -367,5 +368,73 @@ router.get('/test-external-api', MiddilWare, async (req, res) => {
         });
     }
 });
+
+/**
+ * @swagger
+ * /api/employee/update-status:
+ *   patch:
+ *     tags: [Employee]
+ *     summary: Update employee status
+ *     description: Updates the status of an employee (Active, Resigned, Terminated)
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               empID:
+ *                 type: string
+ *                 description: Employee ID
+ *                 example: "EMP001"
+ *               status:
+ *                 type: string
+ *                 enum: [Active, Resigned, Terminated]
+ *                 description: New status for the employee
+ *                 example: "Resigned"
+ *             required:
+ *               - empID
+ *               - status
+ *     responses:
+ *       200:
+ *         description: Employee status updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Employee status updated to Resigned successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     empID:
+ *                       type: string
+ *                       example: "EMP001"
+ *                     username:
+ *                       type: string
+ *                       example: "John Doe"
+ *                     status:
+ *                       type: string
+ *                       example: "Resigned"
+ *                     updatedAt:
+ *                       type: string
+ *                       format: date-time
+ *       400:
+ *         description: Bad request - Invalid input
+ *       404:
+ *         description: Employee not found
+ *       401:
+ *         description: Unauthorized - Invalid token
+ *       500:
+ *         description: Internal server error
+ */
+router.patch('/update-status', MiddilWare, updateEmployeeStatus);
 
 export default router;

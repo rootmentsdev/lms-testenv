@@ -456,7 +456,8 @@ import SideNav from "../../components/SideNav/SideNav";
 import { HiDownload } from "react-icons/hi";
 import { BiChevronDown } from "react-icons/bi";
 import { HiRefresh } from "react-icons/hi";
-import baseUrl from "../../api/api";
+import { FaUserTimes } from "react-icons/fa";
+import baseUrl, { updateEmployeeStatus } from "../../api/api";
 import { Link } from "react-router-dom";
 
 /* ---------- Helpers (no brand merging here) ---------- */
@@ -492,6 +493,7 @@ const EmployeeData = () => {
   const [error, setError] = useState("");
   const [isMobile, setIsMobile] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [resigningEmployee, setResigningEmployee] = useState(null);
 
   // mobile viewport check
   useEffect(() => {
@@ -665,6 +667,42 @@ const EmployeeData = () => {
     }
   };
 
+  const handleMarkAsResigned = async (employee) => {
+    // Add confirmation dialog
+    const confirmed = window.confirm(
+      `Are you sure you want to mark ${employee.username} (${employee.empID}) as resigned?\n\nThis will:\n- Remove them from the active employee list\n- Preserve their training history\n- Prevent auto-sync from re-adding them\n\nThis action can be reversed by an admin.`
+    );
+    
+    if (!confirmed) return;
+
+    try {
+      setResigningEmployee(employee.empID);
+      
+      const result = await updateEmployeeStatus({
+        empID: employee.empID,
+        status: 'Resigned'
+      });
+
+      if (result.success) {
+        console.log(`✅ Employee ${employee.empID} marked as resigned`);
+        // Refresh the employee list to remove the resigned employee
+        await fetchEmployees();
+        setError(""); // Clear any previous errors
+        
+        // Show success message
+        alert(`✅ ${employee.username} has been successfully marked as resigned and removed from the active employee list.`);
+      } else {
+        throw new Error(result.message || "Failed to mark employee as resigned");
+      }
+    } catch (error) {
+      console.error("Failed to mark employee as resigned:", error.message);
+      setError(`Failed to mark ${employee.username} as resigned: ${error.message}`);
+      alert(`❌ Failed to mark ${employee.username} as resigned: ${error.message}`);
+    } finally {
+      setResigningEmployee(null);
+    }
+  };
+
   const exportToCSV = () => {
     const headers = [
       "Emp ID",
@@ -769,6 +807,20 @@ const EmployeeData = () => {
               <div className="text-gray-500">Overdue</div>
             </div>
           </div>
+        </div>
+
+        <div className="mt-3 pt-2 border-t border-gray-200">
+          <button
+            onClick={() => handleMarkAsResigned(employee)}
+            disabled={resigningEmployee === employee.empID}
+            className="w-full bg-red-600 text-white px-3 py-2 rounded-md hover:bg-red-700 transition-all duration-150 text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            title={`Mark ${employee.username} as resigned`}
+          >
+            <FaUserTimes size={14} />
+            <span>
+              {resigningEmployee === employee.empID ? 'Processing...' : 'Mark as Resigned'}
+            </span>
+          </button>
         </div>
       </div>
     </div>
@@ -964,6 +1016,7 @@ const EmployeeData = () => {
                       <th className="px-3 py-3 border-r border-[#014C3F] text-center font-semibold min-w-[100px] hidden md:table-cell">Assmt. Comp</th>
                       <th className="px-3 py-3 border-r border-[#014C3F] text-center font-semibold min-w-[110px] hidden xl:table-cell">Assmt. Overdue</th>
                       <th className="px-3 py-3 text-center font-semibold min-w-[70px]">View</th>
+                      <th className="px-3 py-3 text-center font-semibold min-w-[100px]">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white">
@@ -1016,11 +1069,24 @@ const EmployeeData = () => {
                               View
                             </Link>
                           </td>
+                          <td className="px-3 py-3 text-center">
+                            <button
+                              onClick={() => handleMarkAsResigned(employee)}
+                              disabled={resigningEmployee === employee.empID}
+                              className="bg-red-600 text-white px-3 py-1 rounded-md hover:bg-red-700 transition-all duration-150 text-xs font-medium flex items-center justify-center gap-1 mx-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                              title={`Mark ${employee.username} as resigned`}
+                            >
+                              <FaUserTimes size={12} />
+                              <span className="hidden sm:inline">
+                                {resigningEmployee === employee.empID ? 'Processing...' : 'Resign'}
+                              </span>
+                            </button>
+                          </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="11" className="text-center py-12 text-gray-500 bg-gray-50">
+                        <td colSpan="12" className="text-center py-12 text-gray-500 bg-gray-50">
                           <div className="flex flex-col items-center gap-3">
                             <span className="text-4xl">📋</span>
                             <span className="text-lg font-medium">No employees found</span>

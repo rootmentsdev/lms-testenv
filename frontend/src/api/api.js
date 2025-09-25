@@ -120,4 +120,18 @@ export const updateVideoProgress = async (params) => {
   });
 };
 
+/**
+ * Update employee status (mark as resigned/active/terminated)
+ * @param {Object} params - Parameters for updating employee status
+ * @param {string} params.empID - Employee ID
+ * @param {string} params.status - New status (Active, Resigned, Terminated)
+ * @returns {Promise<any>} - API response
+ */
+export const updateEmployeeStatus = async ({ empID, status }) => {
+  return await apiCall('api/employee/update-status', {
+    method: 'PATCH',
+    body: JSON.stringify({ empID, status }),
+  });
+};
+
 export default baseUrl;
