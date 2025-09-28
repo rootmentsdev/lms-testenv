@@ -316,6 +316,11 @@ import { MdOutlinePendingActions } from "react-icons/md";
 import { useEffect, useState } from "react";
 import baseUrl from "../../api/api";
 import HomeSkeleton from "../../components/Skeleton/HomeSkeleton";
+import HomeBarSkeleton from "../../components/Skeleton/HomeBarSkeleton";
+import TopEmployeeSkeleton from "../../components/Skeleton/TopEmployeeSkeleton";
+import QuickSkeleton from "../../components/Skeleton/QuickSkeleton";
+import NotificationSkeleton from "../../components/Skeleton/NotificationSkeleton";
+import LoadingScreen from "../../components/LoadingScreen/LoadingScreen";
 import SideNav from "../../components/SideNav/SideNav";
 import { Link } from "react-router-dom";
 import HomeBar from "../../components/HomeBar/HomeBar";
@@ -328,8 +333,10 @@ import LMSWebsiteLoginStats from "../../components/LMSWebsiteLoginStats/LMSWebsi
 
 const HomeData = ({ user }) => {
     const [data, setData] = useState([]);
-    const [loading, setLoading] = useState(true); // Loading state
+    const [loading, setLoading] = useState(true); // Main loading state
+    const [initialLoading, setInitialLoading] = useState(true); // Full screen loading
     const [employeeCount, setEmployeeCount] = useState(0);
+    const [componentsLoading, setComponentsLoading] = useState(true); // Component loading state
     const token = localStorage.getItem('token');
 
     useEffect(() => {
@@ -390,9 +397,11 @@ const HomeData = ({ user }) => {
                 }
                 
                 setLoading(false);
+                setInitialLoading(false);
             } catch (err) {
                 console.error('Error fetching dashboard data:', err);
                 setLoading(false);
+                setInitialLoading(false);
                 setData({
                     assessmentCount: 0,
                     branchCount: 0,
@@ -453,10 +462,19 @@ const HomeData = ({ user }) => {
         }
     }, [token]);
 
-
+    // Handle component loading state
+    useEffect(() => {
+        if (!loading && !initialLoading) {
+            // Load components immediately after main data is ready
+            setComponentsLoading(false);
+        }
+    }, [loading, initialLoading]);
 
     return (
         <div className=" mx-0 mb-[90px]" >
+            {/* Full Screen Loading Overlay */}
+            {initialLoading && <LoadingScreen message="Loading Dashboard..." />}
+            
             <div>
                 <Header name="Dashboard" />
             </div>
@@ -488,7 +506,7 @@ const HomeData = ({ user }) => {
                         </div>
                     )}
                     {!loading && (
-                        <div className="">
+                        <div className="fade-in">
                             {Object.keys(data).length === 0 && (
                                 <div className="text-center py-8 mb-4">
                                     <div className="text-red-600 text-lg font-semibold mb-2">
@@ -592,21 +610,19 @@ const HomeData = ({ user }) => {
                 </div>
             </div>
             <div className="flex gap-20">
-                <div>
-                    <HomeBar />
+                <div className="fade-in">
+                    {componentsLoading ? <HomeBarSkeleton /> : <HomeBar />}
                 </div>
-                <div className="h-[360px] w-[600px]  rounded-xl" >
-                    <TopEmployeeAndBranch />
-
-
+                <div className="h-[360px] w-[600px] rounded-xl fade-in" >
+                    {componentsLoading ? <TopEmployeeSkeleton /> : <TopEmployeeAndBranch />}
                 </div>
             </div>
             <div className="flex ml-[200px] gap-52">
-                <div>
-                    <Quick />
+                <div className="fade-in">
+                    {componentsLoading ? <QuickSkeleton /> : <Quick />}
                 </div>
-                <div>
-                    <Notification />
+                <div className="fade-in">
+                    {componentsLoading ? <NotificationSkeleton /> : <Notification />}
                 </div>
             </div>
 
