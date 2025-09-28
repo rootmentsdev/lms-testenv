@@ -9,6 +9,7 @@ import { GiProgression } from "react-icons/gi";
 import { HiOutlineBuildingOffice2 } from "react-icons/hi2";
 import { MdOutlinePendingActions } from "react-icons/md";
 import HomeSkeleton from "../../components/Skeleton/HomeSkeleton";
+import LoadingScreen from "../../components/LoadingScreen/LoadingScreen";
 import { Link } from "react-router-dom";
 
 import { RiIdCardLine } from "react-icons/ri";
@@ -103,15 +104,7 @@ const HomeDatacluster = ({ user }) => {
                 </div>
             </div>
             <div className="ml-[100px]">
-                {loading && (
-                    <div className="flex mb-[70px] gap-3 lg:gap-6 mx-10 lg:mx-15 md:flex-wrap flex-wrap sm:w-full md:gap-9 md:mx-10 md:justify-start mt-10 font-semibold">
-                        <HomeSkeleton />
-                        <HomeSkeleton />
-                        <HomeSkeleton />
-                        <HomeSkeleton />
-                        <HomeSkeleton />
-                    </div>
-                )}
+                {loading && <LoadingScreen />}
                 {!loading && (
                     <div className="">
                         <div className="flex mb-[70px] gap-3 lg:gap-6 mx-10 lg:mx-15 md:flex-wrap flex-wrap sm:w-full md:gap-9  md:mx-10 md:justify-start mt-10 font-semibold">

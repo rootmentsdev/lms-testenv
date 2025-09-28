@@ -6,7 +6,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import "@fontsource/poppins"
 import "@fontsource/poppins/500.css"
 import "@fontsource/poppins/700.css"
-import HashLoader from "react-spinners/HashLoader";
+import LoadingScreen from "./components/LoadingScreen/LoadingScreen";
 
 
 import { lazy, Suspense } from 'react';
@@ -108,9 +108,7 @@ function App() {
 
   return (
     <>
-      <Suspense fallback={<div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
-        <HashLoader color="#016E5B" size={50} />
-      </div>}>
+      <Suspense fallback={<LoadingScreen />}>
         <Routes>
           {/* Public Route */}
           <Route
