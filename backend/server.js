@@ -386,6 +386,10 @@ app.use('/api/user-login', UserLoginRouter)
 import LMSLoginRouter from './routes/LMSLoginRoute.js';
 app.use('/api/lms-login', LMSLoginRouter)
 
+// Google Form Management Routes
+import GoogleFormRouter from './routes/GoogleFormRoute.js';
+app.use('/api/google-form', GoogleFormRouter)
+
 console.log(new Date());
 
 cron.schedule("30 18 * * *", async () => {
