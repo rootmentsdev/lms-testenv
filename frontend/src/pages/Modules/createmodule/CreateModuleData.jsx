@@ -126,6 +126,18 @@ const CreateModuleData = () => {
         toast.success("Video saved successfully!");
     };
 
+    // Clear all form data
+    const clearForm = () => {
+        setModuleTitle("");
+        setModuleDescription("");
+        setVideos(null);
+        setCurrentVideo({
+            title: "",
+            videoUri: "",
+            questions: [{ questionText: "", options: ["", "", "", ""], correctAnswer: "" }],
+        });
+    };
+
     // Submit Module
     const handleSaveModule = async () => {
         if (!videos || videos.length === 0) {
@@ -207,6 +219,9 @@ const CreateModuleData = () => {
 
             const data = await response.json();
             toast.success(data.message);
+            
+            // Clear the form after successful submission
+            clearForm();
         } catch (error) {
             console.error('Network error:', error);
             toast.error(`Network error: ${error.message}`);
