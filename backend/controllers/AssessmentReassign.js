@@ -101,6 +101,9 @@ export const TrainingDetails = async (req, res) => {
                 const progress = await TrainingProgress.findOne({ userId: user._id, trainingId: id });
 
                 if (!progress) {
+                    // Filter user training details by specific ID
+                    const filteredTraining = user.training ? user.training.filter(t => t.trainingId.toString() === id) : [];
+                    
                     return {
                         userId: user._id,
                         userName: user.username || user.fullName,
@@ -109,7 +112,7 @@ export const TrainingDetails = async (req, res) => {
                         moduleCompletion: 0,
                         user: { 
                             ...user._doc, 
-                            training: user.training ? user.training.filter(t => t.trainingId.toString() === id) : []
+                            training: filteredTraining
                         },
                     };
                 }
@@ -146,7 +149,21 @@ export const TrainingDetails = async (req, res) => {
                 uniquedesignation.add(user.designation);
                 
                 // Filter user training details by specific ID
-                const filteredTraining = user.training ? user.training.filter(t => t.trainingId.toString() === id) : [];
+                let filteredTraining = user.training ? user.training.filter(t => t.trainingId.toString() === id) : [];
+                
+                // If no training found in user.training but we have progress (mandatory training),
+                // create a training object with deadline from TrainingProgress
+                if (filteredTraining.length === 0 && progress.deadline) {
+                    filteredTraining = [{
+                        trainingId: id,
+                        deadline: progress.deadline,
+                        pass: progress.pass || false,
+                        status: progress.pass ? 'Completed' : 'Pending'
+                    }];
+                } else if (filteredTraining.length > 0 && progress.deadline) {
+                    // Ensure the training has the deadline from TrainingProgress if it's missing
+                    filteredTraining[0].deadline = progress.deadline;
+                }
                 
                 return {
                     user: { ...user._doc, training: filteredTraining },

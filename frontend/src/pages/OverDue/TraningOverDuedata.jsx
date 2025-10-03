@@ -196,7 +196,7 @@ const TraningOverDuedata = () => {
                                                     .map((assessment, idx) => (
                                                         <div key={idx} className="flex flex-col">
                                                             <div className="text-left">
-                                                                {assessment.trainingId?.trainingName || 'Unknown Training'} (Due: {new Date(assessment.deadline).toLocaleDateString()})
+                                                                {assessment.trainingId?.trainingName || 'Unknown Training'} (Due: {assessment.deadline ? new Date(assessment.deadline).toLocaleDateString() : 'No deadline'})
                                                             </div>
                                                             {idx < employee.overdueAssessments.filter(a => a.trainingId).length - 1 && (
                                                                 <div className="border-t border-black w-full my-2"></div>

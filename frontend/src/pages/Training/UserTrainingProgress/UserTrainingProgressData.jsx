@@ -23,7 +23,10 @@ const UserTrainingProgressData = () => {
 
                 const data = await response.json();
                 setData(data); // Update state with fetched data
-                console.log(Data);
+                console.log("Training Details API Response:", data);
+                
+                console.log("Training loaded successfully");
+                
 
             } catch (error) {
                 console.error("Failed to fetch modules:", error.message);
@@ -128,9 +131,21 @@ const UserTrainingProgressData = () => {
                                 {Data?.progressDetails?.length > 0 ? (
                                     Data.progressDetails.map((employee, index) => {
                                         const training = employee.user?.training?.[0];
-                                        const deadline = new Date(training?.deadline);
-                                        const today = new Date();
-                                        const daysLeft = Math.ceil((deadline - today) / (1000 * 60 * 60 * 24)); // Calculate days left
+                                        
+                                        // Calculate days left with proper validation
+                                        let daysLeft = 'N/A';
+                                        if (training?.deadline) {
+                                            const deadline = new Date(training.deadline);
+                                            const today = new Date();
+                                            
+                                            
+                                            // Check if deadline is a valid date
+                                            if (!isNaN(deadline.getTime())) {
+                                                const timeDiff = deadline - today;
+                                                const calculatedDays = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+                                                daysLeft = calculatedDays;
+                                            }
+                                        }
 
                                         return (
                                             <tr key={index} className="border-b hover:bg-gray-100">
@@ -138,7 +153,15 @@ const UserTrainingProgressData = () => {
                                                 <td className="px-3 py-2 border-2 border-gray-300">{employee.user.username}</td>
                                                 <td className="px-3 py-2 border-2 border-gray-300">{employee.user.designation?.toUpperCase()}</td>
                                                 <td className="px-3 py-2 border-2 border-gray-300">{employee.user.workingBranch}</td>
-                                                <td className="px-3 py-2 border-2 border-gray-300">{employee.progress === 'Completed' && daysLeft > 0 ? 'complete' : daysLeft}</td>
+                                                <td className={`px-3 py-2 border-2 border-gray-300 ${
+                                                    typeof daysLeft === 'number' && daysLeft < 0 ? 'bg-red-100 text-red-800' : 
+                                                    typeof daysLeft === 'number' && daysLeft <= 3 ? 'bg-yellow-100 text-yellow-800' : ''
+                                                }`}>
+                                                    {employee.progress === 'Completed' && typeof daysLeft === 'number' && daysLeft > 0 ? 'Complete' : 
+                                                     typeof daysLeft === 'number' && daysLeft < 0 ? `Overdue (${Math.abs(daysLeft)} days)` : 
+                                                     typeof daysLeft === 'number' && daysLeft <= 3 ? `${daysLeft} days (Due Soon)` :
+                                                     daysLeft}
+                                                </td>
                                                 <td className="px-3 py-2 border-2 border-gray-300">{training?.status || 'N/A'}</td>
                                                 <td className="px-3 py-2 border-2 border-gray-300">{employee.progress || 0}%</td>
                                             </tr>
