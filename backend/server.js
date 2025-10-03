@@ -20,6 +20,7 @@ import FutterAssessment from './routes/FutterAssessment.js'
 import Whatsapprouter from './routes/WhatsappRouteZoho.js'
 import EmployeeRouter from './routes/EmployeeRoute.js'
 import DebugRouter from './routes/DebugRoute.js'
+import TrainingRouter from './routes/TrainingRoute.js'
 
 import { AlertNotification } from './lib/CornJob.js';
 import { startEmployeeAutoSync } from './lib/EmployeeAutoSync.js';
@@ -377,6 +378,7 @@ app.use('/api/user/assessment', FutterAssessment)
 app.use('/zoho', Whatsapprouter)
 app.use('/api/employee', EmployeeRouter)
 app.use('/api/debug', DebugRouter)
+app.use('/api/training', TrainingRouter)
 
 // User Login Tracking Routes
 import UserLoginRouter from './routes/UserLoginRoute.js';

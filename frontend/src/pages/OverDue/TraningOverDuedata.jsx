@@ -24,6 +24,8 @@ const TraningOverDuedata = () => {
     useEffect(() => {
         const fetchEmployees = async () => {
             try {
+                console.log('🔍 Fetching overdue training data from:', `${baseUrl.baseUrl}api/admin/overdue/Training`);
+                
                 const response = await fetch(`${baseUrl.baseUrl}api/admin/overdue/Training`, {
                     method: "GET",
                     headers: {
@@ -33,15 +35,25 @@ const TraningOverDuedata = () => {
                     credentials: "include",
                 });
 
+                console.log('📊 Response status:', response.status);
+
                 if (!response.ok) {
                     throw new Error(`${response.statusText}`);
                 }
 
                 const result = await response.json();
+                console.log('📋 Overdue training API response:', result);
+                console.log('👥 Number of employees with overdue trainings:', result.data?.length || 0);
+                
+                // Log sample data for debugging
+                if (result.data && result.data.length > 0) {
+                    console.log('📝 Sample employee data:', result.data[0]);
+                }
+                
                 setData(result.data);
                 setFilteredData(result.data);
             } catch (error) {
-                console.error("Failed to fetch employees:", error.message);
+                console.error("❌ Failed to fetch employees:", error.message);
                 setError("Failed to fetch employee data. Please try again later.");
             }
         };
