@@ -178,12 +178,12 @@ export const getLoginAnalytics = async (req, res) => {
         const uniqueUsers = await UserLoginSession.distinct('userId', dateFilter);
         const uniqueUserCount = uniqueUsers.length;
         
-        // Get recent logins with enhanced device info
+        // Get recent logins with enhanced device info and user details
         const recentLogins = await UserLoginSession.find(dateFilter)
             .sort({ loginTime: -1 })
             .limit(10)
-            .populate('userId', 'username email')
-            .select('-userAgent -ipAddress');
+            .populate('userId', 'username email workingBranch designation empID phoneNumber')
+            .select('-userAgent');
         
         // Get login trends by time period
         let loginTrends = [];
@@ -304,9 +304,9 @@ export const getUserLoginHistory = async (req, res) => {
 export const getActiveUsers = async (req, res) => {
     try {
         const activeSessions = await UserLoginSession.find({ isActive: true })
-            .populate('userId', 'username email')
+            .populate('userId', 'username email workingBranch designation empID phoneNumber')
             .sort({ loginTime: -1 })
-            .select('-userAgent -ipAddress');
+            .select('-userAgent');
         
         res.status(200).json({
             success: true,
