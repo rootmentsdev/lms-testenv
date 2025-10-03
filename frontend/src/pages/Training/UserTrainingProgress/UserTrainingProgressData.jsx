@@ -131,6 +131,7 @@ const UserTrainingProgressData = () => {
                                 {Data?.progressDetails?.length > 0 ? (
                                     Data.progressDetails.map((employee, index) => {
                                         const training = employee.user?.training?.[0];
+                                        const assessment = employee.user?.assignedAssessments?.[0];
                                         
                                         // Calculate days left with proper validation
                                         let daysLeft = 'N/A';
@@ -147,6 +148,9 @@ const UserTrainingProgressData = () => {
                                             }
                                         }
 
+                                        // Get assessment status - should be independent of training status
+                                        const assessmentStatus = assessment?.status || 'Pending';
+
                                         return (
                                             <tr key={index} className="border-b hover:bg-gray-100">
                                                 <td className="px-3 py-2 border-2 border-gray-300">{employee.user.empID}</td>
@@ -154,15 +158,16 @@ const UserTrainingProgressData = () => {
                                                 <td className="px-3 py-2 border-2 border-gray-300">{employee.user.designation?.toUpperCase()}</td>
                                                 <td className="px-3 py-2 border-2 border-gray-300">{employee.user.workingBranch}</td>
                                                 <td className={`px-3 py-2 border-2 border-gray-300 ${
+                                                    employee.progress === 'Completed' || employee.progress === 100 ? 'bg-green-100 text-green-800' :
                                                     typeof daysLeft === 'number' && daysLeft < 0 ? 'bg-red-100 text-red-800' : 
                                                     typeof daysLeft === 'number' && daysLeft <= 3 ? 'bg-yellow-100 text-yellow-800' : ''
                                                 }`}>
-                                                    {employee.progress === 'Completed' && typeof daysLeft === 'number' && daysLeft > 0 ? 'Complete' : 
+                                                    {employee.progress === 'Completed' || employee.progress === 100 ? 'Completed' : 
                                                      typeof daysLeft === 'number' && daysLeft < 0 ? `Overdue (${Math.abs(daysLeft)} days)` : 
                                                      typeof daysLeft === 'number' && daysLeft <= 3 ? `${daysLeft} days (Due Soon)` :
                                                      daysLeft}
                                                 </td>
-                                                <td className="px-3 py-2 border-2 border-gray-300">{training?.status || 'N/A'}</td>
+                                                <td className="px-3 py-2 border-2 border-gray-300">{assessmentStatus}</td>
                                                 <td className="px-3 py-2 border-2 border-gray-300">{employee.progress || 0}%</td>
                                             </tr>
                                         );

@@ -95,6 +95,13 @@ export const HomeBar = async (req, res) => {
             
             // Filter external employees by allowed location codes
             const filteredExternalEmployees = externalEmployees.filter(emp => {
+                const storeName = emp?.store_name?.toUpperCase();
+                
+                // Exclude employees with "No Store" - they should not be visible to anyone
+                if (storeName === 'NO STORE' || !storeName || storeName === '') {
+                    return false;
+                }
+                
                 const empLocCode = emp?.store_code || emp?.locCode;
                 return allowedLocCodes.includes(empLocCode);
             });
@@ -242,8 +249,21 @@ export const getTopUsers = async (req, res) => {
             externalEmployees = response.data?.data || [];
             console.log(`Fetched ${externalEmployees.length} external employees for getTopUsers`);
             
+            // Always exclude "No Store" employees for all admins
+            externalEmployees = externalEmployees.filter(emp => {
+                const storeName = emp?.store_name?.toUpperCase();
+                return !(storeName === 'NO STORE' || !storeName || storeName === '');
+            });
+            
             // Filter external employees by allowed location codes
             const filteredExternalEmployees = externalEmployees.filter(emp => {
+                const storeName = emp?.store_name?.toUpperCase();
+                
+                // Exclude employees with "No Store" - they should not be visible to anyone
+                if (storeName === 'NO STORE' || !storeName || storeName === '') {
+                    return false;
+                }
+                
                 const empLocCode = emp?.store_code || emp?.locCode;
                 return allowedLocCodes.includes(empLocCode);
             });
