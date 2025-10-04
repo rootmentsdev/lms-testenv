@@ -6,7 +6,8 @@ import {
     getUserLoginHistory,
     getActiveUsers,
     getDashboardLoginStats,
-    getPublicLoginStats
+    getPublicLoginStats,
+    debugLoginSessions
 } from '../controllers/UserLoginController.js';
 import { verifyJWT } from '../lib/JWT.js';
 
@@ -496,6 +497,7 @@ router.get('/analytics', verifyJWT, getLoginAnalytics);
  *         description: Internal server error
  */
 router.get('/dashboard-stats', verifyJWT, getDashboardLoginStats);
+router.get('/debug', verifyJWT, debugLoginSessions);
 
 /**
  * @swagger

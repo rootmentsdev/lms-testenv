@@ -185,6 +185,9 @@ export const getLoginAnalytics = async (req, res) => {
             .populate('userId', 'username email workingBranch designation empID phoneNumber')
             .select('-userAgent');
         
+        console.log('Recent logins found:', recentLogins.length);
+        console.log('Sample recent login:', recentLogins[0]);
+        
         // Get login trends by time period
         let loginTrends = [];
         if (groupBy === 'day') {
@@ -246,6 +249,7 @@ export const getLoginAnalytics = async (req, res) => {
                 browserEngineStats,
                 platformStats,
                 detailedDeviceStats,
+                recentLogins, // Add this missing field!
                 loginTrends,
                 period,
                 groupBy
@@ -307,6 +311,9 @@ export const getActiveUsers = async (req, res) => {
             .populate('userId', 'username email workingBranch designation empID phoneNumber')
             .sort({ loginTime: -1 })
             .select('-userAgent');
+        
+        console.log('Active sessions found:', activeSessions.length);
+        console.log('Sample active session:', activeSessions[0]);
         
         res.status(200).json({
             success: true,
@@ -466,6 +473,35 @@ export const getPublicLoginStats = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Failed to get login statistics',
+            error: error.message
+        });
+    }
+};
+
+// Debug endpoint to check login sessions
+export const debugLoginSessions = async (req, res) => {
+    try {
+        const totalSessions = await UserLoginSession.countDocuments();
+        const activeSessions = await UserLoginSession.countDocuments({ isActive: true });
+        const recentSessions = await UserLoginSession.find()
+            .sort({ loginTime: -1 })
+            .limit(5)
+            .populate('userId', 'username email workingBranch designation')
+            .select('-userAgent');
+        
+        res.status(200).json({
+            success: true,
+            debug: {
+                totalSessions,
+                activeSessions,
+                recentSessions,
+                message: 'Debug info for login sessions'
+            }
+        });
+    } catch (error) {
+        console.error('Debug error:', error);
+        res.status(500).json({
+            success: false,
             error: error.message
         });
     }

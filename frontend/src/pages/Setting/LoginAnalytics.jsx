@@ -34,7 +34,9 @@ const LoginAnalytics = () => {
             }
 
             const data = await response.json();
+            console.log('Analytics API Response:', data);
             if (data.success) {
+                console.log('Analytics Data:', data.data);
                 setAnalytics(data.data);
             } else {
                 throw new Error(data.message || 'Failed to fetch analytics');
@@ -59,8 +61,10 @@ const LoginAnalytics = () => {
 
             if (response.ok) {
                 const data = await response.json();
+                console.log('Active Users API Response:', data);
                 if (data.success) {
-                    setActiveUsers(data.data);
+                    console.log('Active Users Data:', data.data);
+                    setActiveUsers(data.data.activeUsers || data.data);
                 }
             }
         } catch (error) {
@@ -258,6 +262,12 @@ const LoginAnalytics = () => {
                                 <p className="text-sm text-green-800">
                                     <strong>✅ Live Data:</strong> Showing real login analytics from your dashboard users.
                                 </p>
+                                <details className="mt-2">
+                                    <summary className="text-xs text-gray-600 cursor-pointer">Debug: View Raw Data</summary>
+                                    <pre className="text-xs bg-gray-100 p-2 mt-1 rounded overflow-auto max-h-40">
+                                        {JSON.stringify(analytics, null, 2)}
+                                    </pre>
+                                </details>
                             </div>
                         )}
                         </div>

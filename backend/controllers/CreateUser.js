@@ -202,7 +202,8 @@ export const loginUser = async (req, res) => {
         email: user.email,
         ...deviceInfo,
         location,
-        ipAddress
+        ipAddress,
+        isActive: true // Ensure session is marked as active
       });
       
       await loginSession.save();
