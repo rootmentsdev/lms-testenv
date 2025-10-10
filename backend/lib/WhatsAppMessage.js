@@ -22,12 +22,23 @@ export const sendWhatsAppMessage = async (phone, message) => {
             }
         });
 
+        console.log(`✅ WhatsApp message sent successfully to ${phone}`);
         console.log(`WhatsApp response:`, JSON.stringify(response.data, null, 2));
-        console.log(`WhatsApp message sent to ${phone}:`, response.data);
-
+        
+        return {
+            success: true,
+            data: response.data,
+            phone: phone
+        };
 
     } catch (error) {
-        console.error('Error sending WhatsApp message:', JSON.stringify(error.response?.data || error.message, null, 2));
+        console.error('❌ Error sending WhatsApp message:', JSON.stringify(error.response?.data || error.message, null, 2));
+        
+        return {
+            success: false,
+            error: error.response?.data || error.message,
+            phone: phone
+        };
     }
 };
 

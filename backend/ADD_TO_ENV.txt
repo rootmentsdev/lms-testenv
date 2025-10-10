@@ -1,0 +1,11 @@
+# ========================================
+# IMPORTANT: Add these lines to your .env file
+# ========================================
+
+ESCALATION_TEST_MODE=true
+TEST_PHONE_NUMBER=918590292642
+ESCALATION_CRON_SCHEDULE=*/2 * * * *
+
+# ========================================
+# After adding, save the file and restart the server
+# ========================================

@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp API Tester - LMS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        input, textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+        
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        
+        .hint {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        .response-box {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+        }
+        
+        .response-box.success {
+            background: #d4edda;
+            border: 2px solid #28a745;
+            color: #155724;
+        }
+        
+        .response-box.error {
+            background: #f8d7da;
+            border: 2px solid #dc3545;
+            color: #721c24;
+        }
+        
+        .response-box.info {
+            background: #d1ecf1;
+            border: 2px solid #17a2b8;
+            color: #0c5460;
+        }
+        
+        .response-title {
+            font-weight: 700;
+            font-size: 16px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .response-content {
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        pre {
+            background: rgba(0,0,0,0.05);
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin-top: 10px;
+            font-size: 12px;
+        }
+        
+        .loader {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 20px;
+        }
+        
+        .status-badge.ready {
+            background: #d4edda;
+            color: #28a745;
+        }
+        
+        .status-badge.not-ready {
+            background: #f8d7da;
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 WhatsApp API Tester</h1>
+        <p class="subtitle">Test your WhatsApp Business API integration</p>
+        
+        <div id="configStatus"></div>
+        
+        <form id="whatsappForm">
+            <div class="form-group">
+                <label for="phoneNumber">Phone Number *</label>
+                <input 
+                    type="text" 
+                    id="phoneNumber" 
+                    placeholder="919876543210" 
+                    required
+                    pattern="[0-9]{10,15}"
+                >
+                <div class="hint">Include country code (e.g., 91 for India). No spaces or special characters.</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="message">Test Message (Optional)</label>
+                <textarea 
+                    id="message" 
+                    placeholder="Leave empty for default test message..."
+                ></textarea>
+                <div class="hint">If left empty, a default test message will be sent.</div>
+            </div>
+            
+            <div class="button-group">
+                <button type="submit" class="btn-primary" id="sendBtn">
+                    Send Test Message
+                </button>
+                <button type="button" class="btn-secondary" onclick="checkConfig()">
+                    Check Config
+                </button>
+            </div>
+        </form>
+        
+        <div id="responseBox" class="response-box">
+            <div class="response-title" id="responseTitle"></div>
+            <div class="response-content" id="responseContent"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:7000/api/test';
+        
+        // Check configuration on page load
+        window.addEventListener('DOMContentLoaded', checkConfig);
+        
+        // Form submission
+        document.getElementById('whatsappForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const phoneNumber = document.getElementById('phoneNumber').value.trim();
+            const message = document.getElementById('message').value.trim();
+            const sendBtn = document.getElementById('sendBtn');
+            const originalBtnText = sendBtn.innerHTML;
+            
+            // Disable button and show loading
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<span class="loader"></span> Sending...';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/whatsapp`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        phoneNumber: phoneNumber,
+                        message: message || undefined
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    showResponse('success', '✅ Success!', 
+                        `WhatsApp message sent successfully to ${data.phoneNumber}!<br>
+                        <strong>Message:</strong> ${data.sentMessage}<br>
+                        <strong>Time:</strong> ${new Date(data.timestamp).toLocaleString()}<br>
+                        <br><em>${data.note}</em>`
+                    );
+                } else {
+                    showResponse('error', '❌ Failed to Send', 
+                        `Error: ${data.message}<br>
+                        <pre>${JSON.stringify(data.details || data, null, 2)}</pre>`
+                    );
+                }
+            } catch (error) {
+                showResponse('error', '❌ Network Error', 
+                    `Failed to connect to the server.<br>
+                    <strong>Error:</strong> ${error.message}<br>
+                    <br>Make sure your backend server is running on ${API_BASE_URL}`
+                );
+            } finally {
+                // Re-enable button
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = originalBtnText;
+            }
+        });
+        
+        async function checkConfig() {
+            const statusDiv = document.getElementById('configStatus');
+            statusDiv.innerHTML = '<p style="color: #999;">Checking configuration...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/whatsapp/config`);
+                const data = await response.json();
+                
+                if (data.configured) {
+                    statusDiv.innerHTML = `
+                        <div class="status-badge ready">
+                            ${data.status}
+                        </div>
+                        <p style="font-size: 12px; color: #666; margin-top: 10px;">
+                            Phone Number ID: ${data.phoneNumberId} | 
+                            Access Token: ${data.hasAccessToken ? '✅ Set' : '❌ Not Set'}
+                        </p>
+                    `;
+                } else {
+                    statusDiv.innerHTML = `
+                        <div class="status-badge not-ready">
+                            ${data.status}
+                        </div>
+                        <p style="font-size: 12px; color: #dc3545; margin-top: 10px;">
+                            ${data.instructions}
+                        </p>
+                    `;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <div class="status-badge not-ready">
+                        ❌ Cannot connect to server
+                    </div>
+                    <p style="font-size: 12px; color: #dc3545; margin-top: 10px;">
+                        Make sure your backend is running at ${API_BASE_URL}
+                    </p>
+                `;
+            }
+        }
+        
+        function showResponse(type, title, content) {
+            const responseBox = document.getElementById('responseBox');
+            const responseTitle = document.getElementById('responseTitle');
+            const responseContent = document.getElementById('responseContent');
+            
+            responseBox.className = `response-box ${type}`;
+            responseBox.style.display = 'block';
+            responseTitle.innerHTML = title;
+            responseContent.innerHTML = content;
+            
+            // Scroll to response
+            responseBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    </script>
+</body>
+</html>
+

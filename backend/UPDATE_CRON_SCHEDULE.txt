@@ -1,0 +1,27 @@
+# ========================================
+# UPDATE YOUR .env FILE
+# ========================================
+
+# Change this line:
+ESCALATION_CRON_SCHEDULE=*/2 * * * *
+
+# To this (for 12:40 PM daily):
+ESCALATION_CRON_SCHEDULE=40 12 * * *
+
+# ========================================
+# CRON SCHEDULE FORMAT EXPLAINED
+# ========================================
+# Format: minute hour day month weekday
+# 40 12 * * * = At 12:40 PM every day
+
+# OTHER USEFUL SCHEDULES:
+# 40 12 * * * = Daily at 12:40 PM
+# 40 12,18 * * * = Daily at 12:40 PM and 6:40 PM
+# 40 */4 * * * = Every 4 hours at 40 minutes past the hour (12:40, 4:40, 8:40, etc.)
+# */2 * * * * = Every 2 minutes (for testing)
+# 0 9,12,15,18 * * * = At 9:00 AM, 12:00 PM, 3:00 PM, and 6:00 PM
+
+# ========================================
+# After updating, restart your server:
+# npm start
+# ========================================

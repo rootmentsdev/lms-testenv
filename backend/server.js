@@ -21,9 +21,13 @@ import Whatsapprouter from './routes/WhatsappRouteZoho.js'
 import EmployeeRouter from './routes/EmployeeRoute.js'
 import DebugRouter from './routes/DebugRoute.js'
 import TrainingRouter from './routes/TrainingRoute.js'
+import TestWhatsAppRouter from './routes/TestWhatsAppRoute.js'
+import ManagerEscalationTestRouter from './routes/ManagerEscalationTestRoute.js'
+import EscalationRouter from './routes/EscalationRoute.js'
 
 import { AlertNotification } from './lib/CornJob.js';
 import { startEmployeeAutoSync } from './lib/EmployeeAutoSync.js';
+import { startEscalationCron } from './lib/EscalationCronJob.js';
 import setupSwagger from './swagger.js';
 import { MiddilWare } from './lib/middilWare.js';
 import Admin from './model/Admin.js';
@@ -38,6 +42,9 @@ const ROOTMENTS_API_TOKEN = 'RootX-production-9d17d9485eb772e79df8564004d4a4d4';
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve static files (HTML, CSS, JS) from backend directory
+app.use(express.static('./backend'));
 
 // Enhanced CORS configuration for better preflight handling
 app.use(
@@ -506,6 +513,15 @@ app.use('/api/lms-login', LMSLoginRouter)
 import GoogleFormRouter from './routes/GoogleFormRoute.js';
 app.use('/api/google-form', GoogleFormRouter)
 
+// Test WhatsApp Routes
+app.use('/api/test', TestWhatsAppRouter)
+
+// Manager Escalation Test Routes
+app.use('/api/test', ManagerEscalationTestRouter)
+
+// Escalation Management Routes
+app.use('/api/escalation', EscalationRouter)
+
 console.log(new Date());
 
 cron.schedule("30 18 * * *", async () => {
@@ -527,6 +543,11 @@ connectMongoDB().then(() => {
     
     // Start existing notification cron job
     AlertNotification();
+    
+    // Start the escalation cron job (runs every 2 minutes for testing)
+    console.log('🚀 Starting Escalation System...');
+    startEscalationCron();
+    console.log('✅ Escalation cron job started - running every 2 minutes');
   });
 }).catch(err => {
   console.error('❌ MongoDB connection failed:', err);
