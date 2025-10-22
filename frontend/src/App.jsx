@@ -48,6 +48,7 @@ import PublicRoute from './components/PublicRoute';
 
 import baseUrl from './api/api';
 import { useDispatch } from 'react-redux';
+import 'bootstrap/dist/css/bootstrap.min.css';
 
 
 

@@ -1,0 +1,54 @@
+===========================================
+PRODUCTION MODE TEST INSTRUCTIONS
+===========================================
+
+STEP 1: Update .env file
+-----------------------------------------
+Open backend/.env and change this line:
+
+FROM:  ESCALATION_TEST_MODE=true
+TO:    ESCALATION_TEST_MODE=false
+
+Save the file.
+
+
+STEP 2: Restart the server
+-----------------------------------------
+Press Ctrl+C to stop the current server
+Then run: npm start
+
+
+STEP 3: Run this PowerShell command to test
+-----------------------------------------
+Copy and paste this entire command:
+
+Write-Host "`n=== PRODUCTION MODE TEST ===`n"; Write-Host "Testing escalation with REAL cluster manager numbers...`n"; Write-Host "📱 North Cluster (8590292642) - Will receive North stores data"; Write-Host "📱 South Cluster (9496649110) - Will receive South stores data`n"; Write-Host "Running escalation...`n"; Invoke-RestMethod -Uri "http://localhost:7000/api/escalation/run-manual" -Method POST | Out-Null; Start-Sleep -Seconds 3; Write-Host "✅ Escalation sent!`n"; Write-Host "🎯 CHECK BOTH PHONES NOW:"; Write-Host "   1. Phone 8590292642 (North Cluster)"; Write-Host "   2. Phone 9496649110 (South Cluster)`n"; Write-Host "Each phone should receive messages for THEIR stores only!"
+
+
+STEP 4: Verify messages received
+-----------------------------------------
+- Phone 8590292642 should receive: North stores overdue data
+- Phone 9496649110 should receive: South stores overdue data
+
+Each cluster manager will see ONLY their own stores!
+
+
+===========================================
+DATABASE STATUS: ✅ READY
+===========================================
+✅ North Cluster (athulp): 8590292642
+✅ South Cluster (lekshmi): 9496649110
+
+Next: Update .env and restart server!
+===========================================
+
+
+
+
+
+
+
+
+
+
+

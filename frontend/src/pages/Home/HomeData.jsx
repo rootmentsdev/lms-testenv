@@ -324,6 +324,7 @@ import Notification from "../../components/Notification/Notification";
 import Quick from "../../components/Quick/Quick";
 import { RiIdCardLine } from "react-icons/ri";
 import LMSWebsiteLoginStats from "../../components/LMSWebsiteLoginStats/LMSWebsiteLoginStats";
+import Cluster from "../../components/Cluster";
 
 
 const HomeData = ({ user }) => {
@@ -592,10 +593,16 @@ const HomeData = ({ user }) => {
                 </div>
             </div>
             <div className="flex gap-20">
+                
                 <div>
                     <HomeBar />
                 </div>
-                <div className="h-[360px] w-[600px]  rounded-xl" >
+                
+                <div className="   me-[-350px]" >
+                    <Cluster />
+                </div>
+               
+                <div className="h-[360px] w-[600px]  rounded-xl mt-[100px] ms-10 " >
                     <TopEmployeeAndBranch />
 
 
@@ -608,6 +615,7 @@ const HomeData = ({ user }) => {
                 <div>
                     <Notification />
                 </div>
+                
             </div>
 
 

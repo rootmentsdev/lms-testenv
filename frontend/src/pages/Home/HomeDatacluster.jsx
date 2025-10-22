@@ -17,6 +17,7 @@ import Quick from "../../components/Quick/Quick";
 import Notification from "../../components/Notification/Notification";
 import LMSWebsiteLoginStats from "../../components/LMSWebsiteLoginStats/LMSWebsiteLoginStats";
 
+
 const HomeDatacluster = ({ user }) => {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true); // Loading state
@@ -216,6 +217,7 @@ const HomeDatacluster = ({ user }) => {
                 <div>
                     <Notification />
                 </div>
+                
             </div>
 
         </div >
