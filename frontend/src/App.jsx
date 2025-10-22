@@ -7,6 +7,7 @@ import "@fontsource/poppins"
 import "@fontsource/poppins/500.css"
 import "@fontsource/poppins/700.css"
 import HashLoader from "react-spinners/HashLoader";
+import 'bootstrap/dist/css/bootstrap.min.css';
 
 
 import { lazy, Suspense } from 'react';

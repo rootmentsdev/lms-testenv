@@ -324,6 +324,8 @@ import Notification from "../../components/Notification/Notification";
 import Quick from "../../components/Quick/Quick";
 import { RiIdCardLine } from "react-icons/ri";
 import LMSWebsiteLoginStats from "../../components/LMSWebsiteLoginStats/LMSWebsiteLoginStats";
+import Cluster from "../../components/ClusterOfWeek";
+
 
 
 const HomeData = ({ user }) => {
@@ -459,6 +461,7 @@ const HomeData = ({ user }) => {
         <div className=" mx-0 mb-[90px]" >
             <div>
                 <Header name="Dashboard" />
+               
             </div>
             <div className="flex">
                 <div>
@@ -507,7 +510,7 @@ const HomeData = ({ user }) => {
                             )}
                             <div className="flex mb-[70px] gap-3 lg:gap-6 mx-10 lg:mx-15 md:flex-wrap flex-wrap sm:w-full md:gap-9  md:mx-10 md:justify-start mt-10 font-semibold">
                                 <Link to={'/employee'}>
-                                    <div className="lg:w-56 w-48 md:w-52 h-28 relative border-gray-300 border rounded-xl shadow-lg text-black flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
+                                    <div className="lg:w-56 w-48 md:w-52 h-28 bg-blue-100 relative border-gray-300 border rounded-xl shadow-lg text-black flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
                                         <div className="flex gap-3">
                                             <div className="text-xl absolute top-2 right-2 bg-slate-200 h-10 w-10 rounded-full flex items-center justify-center">
                                                 <RiIdCardLine />
@@ -522,7 +525,7 @@ const HomeData = ({ user }) => {
                                     </div>
                                 </Link>
                                 <Link to={'/training'}>
-                                    <div className="lg:w-56 w-48 md:w-52 h-28 relative border-gray-300 border rounded-xl shadow-lg text-black flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
+                                    <div className="lg:w-56 w-48 md:w-52 h-28 relative bg-orange-100 border-gray-300 border rounded-xl shadow-lg text-black flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
                                         <div className="flex gap-3">
                                             <div className="text-xl absolute top-2 right-2 bg-slate-200 h-10 w-10 rounded-full flex items-center justify-center">
                                                 <GiProgression />
@@ -537,7 +540,7 @@ const HomeData = ({ user }) => {
                                     </div>
                                 </Link>
                                 <Link to={'/branch'}>
-                                    <div className="lg:w-56 w-48 md:w-52 h-28 relative border-gray-300 border rounded-xl shadow-lg text-black flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
+                                    <div className="lg:w-56 w-48 md:w-52 h-28 relative bg-green-100 border-gray-300 border rounded-xl shadow-lg text-black flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
                                         <div className="flex gap-3">
                                             <div className="text-xl absolute top-2 right-2 bg-slate-200 h-10 w-10 rounded-full flex items-center justify-center">
                                                 <HiOutlineBuildingOffice2 />
@@ -554,7 +557,7 @@ const HomeData = ({ user }) => {
                                     </div>
                                 </Link>
                                 <Link to={'/admin/overdue/assessment'}>
-                                    <div className="lg:w-56 w-48  text-red-600 md:w-52 h-28 relative border-red-600 border-2 rounded-xl shadow-lg flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
+                                    <div className="lg:w-56 w-48  text-red-600 md:w-52 h-28 relative bg-purple-100 border-green-100 border-2 rounded-xl shadow-lg flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
                                         <div className="flex gap-3">
                                             <div className="text-xl absolute top-2 right-2 bg-slate-200 h-10 w-10 rounded-full flex items-center justify-center">
                                                 <MdOutlinePendingActions />
@@ -569,7 +572,7 @@ const HomeData = ({ user }) => {
                                     </div>
                                 </Link>
                                 <Link to={'/admin/overdue/training'}>
-                                    <div className="lg:w-56 w-48  text-red-600 md:w-52 h-28 relative border-red-600 border-2 rounded-xl shadow-lg flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
+                                    <div className="lg:w-56 w-48  text-red-600 md:w-52 h-28 relative bg-red-100 border-red-100 border-2 rounded-xl shadow-lg flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4 ">
                                         <div className="flex gap-3">
                                             <div className="text-xl absolute top-2 right-2 bg-slate-200 h-10 w-10 rounded-full flex items-center justify-center">
                                                 <MdOutlinePendingActions />
@@ -595,17 +598,21 @@ const HomeData = ({ user }) => {
                 <div>
                     <HomeBar />
                 </div>
-                <div className="h-[360px] w-[600px]  rounded-xl" >
+                <div className=" mt-[-100px]  w-[200px] h-[0px]  ms-[-100px]" >
+                    <Cluster />
+                </div>
+               
+                <div className="h-[350px] w-[50%]  rounded-xl mt-[270px] ms-[-200px] " >
                     <TopEmployeeAndBranch />
 
 
                 </div>
             </div>
-            <div className="flex ml-[200px] gap-52">
-                <div>
+            <div className="flex ml-[0px] gap-52 ms-[70px]">
+                <div className="ms-[150px]">
                     <Quick />
                 </div>
-                <div>
+                <div className=" ms-[50px] mt-[90px] h-[70px] w-[500px] ">
                     <Notification />
                 </div>
             </div>

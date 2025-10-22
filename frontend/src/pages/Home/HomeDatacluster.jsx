@@ -121,8 +121,10 @@ const HomeDatacluster = ({ user }) => {
                                         <div className="text-xl absolute top-2 right-2 bg-slate-200 h-10 w-10 rounded-full flex items-center justify-center">
                                             <RiIdCardLine />
                                         </div>
-                                        <div className="flex flex-col absolute top-5 left-2 w-10">
-                                            <p className="text-sm">Total employee</p>
+                                        <div style={{
+                                            backgroundColor:"#1a8cff",}}className="flex flex-col absolute top-5 left-2 w-10">
+                                            <p style={{
+                                            backgroundColor:"#1a8cff",}}className="text-sm">Total employee</p>
                                             <h2 className="md:text-2xl sm:text-lg font-bold text-[#016E5B]">
                                                 {employeeCount || data?.userCount || 0}
                                             </h2>
@@ -163,7 +165,7 @@ const HomeDatacluster = ({ user }) => {
                                 </div>
                             </Link>
                             <Link to={'/admin/overdue/assessment'}>
-                                <div className="lg:w-56 w-48  text-red-600 md:w-52 h-28 relative border-red-600 border-2 rounded-xl shadow-lg flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
+                                <div className="lg:w-56 w-48 bg-red-500 text-red-600 md:w-52 h-28 relative border-red-600 border-2 rounded-xl shadow-lg flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
                                     <div className="flex gap-3">
                                         <div className="text-xl absolute top-2 right-2 bg-slate-200 h-10 w-10 rounded-full flex items-center justify-center">
                                             <MdOutlinePendingActions />

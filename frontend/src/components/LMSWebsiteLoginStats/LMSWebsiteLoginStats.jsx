@@ -76,7 +76,7 @@ const LMSWebsiteLoginStats = () => {
     }
 
     return (
-        <div className="lg:w-56 w-48 md:w-52 h-28 relative border-green-600 border-2 rounded-xl shadow-lg text-black flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
+        <div className="lg:w-56 w-48 md:w-52 h-28 bg-yellow-100 relative border-yellow-100 border-2 rounded-xl shadow-lg text-black flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
             <div className="flex gap-3">
                 <div className="text-xl absolute top-2 right-2 bg-green-100 h-10 w-10 rounded-full flex items-center justify-center">
                     <FaGlobe />
