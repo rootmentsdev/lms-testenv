@@ -79,18 +79,17 @@ const Header = () => {
                 </div>
 
                 <div className="flex lg:gap-10 gap-3 items-center mt-4 relative">
-                    <div className="form-control relative lg:w-full hidden md:block">
-                        <IoIosSearch className="absolute left-3 text-2xl top-1/2 transform -translate-y-1/2 text-black" />
+                    <div className="relative hidden md:block">
+                        <IoIosSearch className="absolute left-3 text-lg top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none z-10" />
                         <input
-                            style={{ borderRadius: '10px' }}
                             value={search}
                             type="text"
                             onChange={(e) => setSearch(e.target.value)}
                             placeholder="Search by name, id or branch"
-                            className="border-[#C8C8C8] border p-2 bg-white lg:w-[400px] w-[250px] pl-10"
+                            className="border-[#C8C8C8] border rounded-[10px] py-2 px-3 bg-white lg:w-[400px] w-[250px] pl-10 text-sm placeholder:text-gray-400 focus:outline-none focus:border-[#016E5B] focus:ring-1 focus:ring-[#016E5B] transition-all"
                         />
                         {isSearching && (
-                            <div className="absolute top-full text-black left-0 w-full bg-white border shadow-md rounded-md mt-1 p-2 max-h-40 overflow-y-auto">
+                            <div className="absolute top-full text-black left-0 w-full bg-white border shadow-md rounded-md mt-1 p-2 max-h-40 overflow-y-auto z-20">
                                 <h2 className="text-[#016E5B]">USER</h2>
                                 {searchuser.length > 0 ? (
                                     searchuser.map((item) => (

@@ -2,7 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  /* Remove default link styling */
+  a {
+    text-decoration: none !important;
+    color: inherit !important;
+  }
 
+  a:hover {
+    text-decoration: none !important;
+  }
+
+  a:visited {
+    color: inherit !important;
+  }
+  
+  a:active {
+    color: inherit !important;
+  }
+  
+  a:link {
+    color: inherit !important;
+    text-decoration: none !important;
+  }
+}
 
 html, body {
   background-color: white;
