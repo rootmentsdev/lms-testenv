@@ -23,10 +23,31 @@ export const createUser = async (req, res) => {
       workingBranch,
     } = req.body;
 
-    // Check if the username or email already exists
-    const existingUser = await User.findOne({ $or: [{ email }] });
+    // Input validation
+    if (!username || !email || !empID || !designation) {
+      return res.status(400).json({ 
+        message: 'Required fields missing: username, email, empID, and designation are required.' 
+      });
+    }
+
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: 'Invalid email format.' });
+    }
+
+    // EmpID validation (assuming it should be alphanumeric)
+    const empIDRegex = /^[A-Za-z0-9]+$/;
+    if (!empIDRegex.test(empID)) {
+      return res.status(400).json({ message: 'Invalid empID format. Only alphanumeric characters allowed.' });
+    }
+
+    // Check if the username, email, or empID already exists
+    const existingUser = await User.findOne({ 
+      $or: [{ email }, { empID }, { username }] 
+    });
     if (existingUser) {
-      return res.status(400).json({ message: 'Username or email already exists.' });
+      return res.status(400).json({ message: 'Username, email, or employee ID already exists.' });
     }
 
     // Create a new user
