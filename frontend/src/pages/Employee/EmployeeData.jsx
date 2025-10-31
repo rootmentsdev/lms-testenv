@@ -492,6 +492,8 @@ const EmployeeData = () => {
   const [error, setError] = useState("");
   const [isMobile, setIsMobile] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // mobile viewport check
   useEffect(() => {
@@ -596,6 +598,7 @@ const EmployeeData = () => {
       return roleOk && branchOk;
     });
     setFilteredData(filtered);
+    setCurrentPage(1); // Reset to first page when filters change
   };
 
   const handleRoleChange = (role) => {
@@ -608,6 +611,23 @@ const EmployeeData = () => {
     setFilterBranch(branchRaw);
     filterData(filterRole, branchRaw);
     setIsBranchOpen(false);
+  };
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedData = filteredData.slice(startIndex, endIndex);
+
+  // Pagination handlers
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleItemsPerPageChange = (items) => {
+    setItemsPerPage(items);
+    setCurrentPage(1);
   };
 
   // Close dropdowns when clicking outside
@@ -904,20 +924,40 @@ const EmployeeData = () => {
             </div>
 
             {/* Results count */}
-            <div className="text-sm text-gray-600">
-              Showing {filteredData.length} of {data.length} employees
-              {(filterRole || filterBranch) && (
-                <button
-                  onClick={() => {
-                    setFilterRole("");
-                    setFilterBranch("");
-                    setFilteredData(data);
-                  }}
-                  className="ml-2 text-[#016E5B] hover:underline"
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div className="text-sm text-gray-600">
+                Showing {filteredData.length > 0 ? startIndex + 1 : 0} - {Math.min(endIndex, filteredData.length)} of {filteredData.length} employees
+                {(filterRole || filterBranch) && (
+                  <button
+                    onClick={() => {
+                      setFilterRole("");
+                      setFilterBranch("");
+                      setFilteredData(data);
+                      setCurrentPage(1);
+                    }}
+                    className="ml-2 text-[#016E5B] hover:underline"
+                  >
+                    Clear filters
+                  </button>
+                )}
+              </div>
+              
+              {/* Items per page selector */}
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <span>Show:</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                  className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:border-[#016E5B]"
                 >
-                  Clear filters
-                </button>
-              )}
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+                <span>per page</span>
+              </div>
             </div>
           </div>
         </div>
@@ -933,8 +973,8 @@ const EmployeeData = () => {
         <div className="mx-4 sm:mx-6 lg:mx-12">
           {isMobile ? (
             <div className="space-y-4">
-              {filteredData.length > 0 ? (
-                filteredData.map((employee, index) => (
+              {paginatedData.length > 0 ? (
+                paginatedData.map((employee, index) => (
                   <MobileEmployeeCard key={index} employee={employee} index={index} />
                 ))
               ) : (
@@ -967,8 +1007,8 @@ const EmployeeData = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white">
-                    {filteredData.length > 0 ? (
-                      filteredData.map((employee, index) => (
+                    {paginatedData.length > 0 ? (
+                      paginatedData.map((employee, index) => (
                         <tr
                           key={index}
                           className={`${index % 2 === 0 ? "bg-gray-50" : "bg-white"} hover:bg-blue-50 transition-all border-b border-gray-200`}
@@ -1031,6 +1071,65 @@ const EmployeeData = () => {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+
+          {/* Pagination Controls */}
+          {filteredData.length > 0 && totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 mb-6 px-4 sm:px-0">
+              <div className="text-sm text-gray-600">
+                Page {currentPage} of {totalPages}
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {/* Previous Button */}
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  Previous
+                </button>
+
+                {/* Page Numbers */}
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => handlePageChange(pageNum)}
+                        className={`px-3 py-2 text-sm font-medium rounded-md transition-all ${
+                          currentPage === pageNum
+                            ? "bg-[#016E5B] text-white"
+                            : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Next Button */}
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  Next
+                </button>
               </div>
             </div>
           )}
