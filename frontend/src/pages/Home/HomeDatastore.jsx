@@ -1,88 +1,28 @@
-
-
-
 import Header from "../../components/Header/Header";
-
-import { useEffect, useState } from "react";
-import baseUrl from "../../api/api";
 import SideNav from "../../components/SideNav/SideNav";
-
-// import { MdGroups2 } from "react-icons/md";
 import { GiProgression } from "react-icons/gi";
 import { HiOutlineBuildingOffice2 } from "react-icons/hi2";
 import { MdOutlinePendingActions } from "react-icons/md";
 import HomeSkeleton from "../../components/Skeleton/HomeSkeleton";
 import { Link } from "react-router-dom";
-
 import { RiIdCardLine } from "react-icons/ri";
-// import HomeBar from "../../components/HomeBar/HomeBar";
 import TopEmployeeAndBranch from "../../components/TopEmployeeAndBranch/TopEmployeeAndBranch";
-// import Quick from "../../components/Quick/Quick";
 import Notification from "../../components/Notification/Notification";
 import TrainingProgress from "../../components/StoreManager/TrainingProgress";
 import OverdueTrainings from "../../components/StoreManager/OverdueTrainings";
 import LMSWebsiteLoginStats from "../../components/LMSWebsiteLoginStats/LMSWebsiteLoginStats";
-
+import { useGetDashboardProgressQuery, useGetEmployeeCountQuery } from "../../features/dashboard/dashboardApi";
 
 
 const HomeDatastore = ({ user }) => {
-    const token = localStorage.getItem('token');
-    const [data, setData] = useState([]);
-    const [loading, setLoading] = useState(true); // Loading state
-    const [employeeCount, setEmployeeCount] = useState(0);
-
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const response = await fetch(baseUrl.baseUrl + 'api/get/progress', {
-                    method: "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                        'Authorization': `Bearer ${token}`,
-                    },
-                    credentials: "include",
-                });
-                if (!response.ok) {
-                    throw new Error('Failed to fetch data');
-                }
-                const result = await response.json(); // Parse JSON
-                setData(result.data); // Assuming the data you need is inside 'result.data'
-                setLoading(false); // Set loading to false
-                console.log(data);
-            } catch (err) {
-                console.error('Error fetching data:', err);
-                setLoading(false); // Stop loading
-            }
-        };
-
-        const fetchEmployeeCount = async () => {
-            try {
-                const response = await fetch(baseUrl.baseUrl + 'api/employee/management/with-training-details', {
-                    method: "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    },
-                    credentials: "include",
-                });
-                
-                if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`);
-                const json = await response.json();
-                
-                if (json?.success && json?.data && Array.isArray(json.data)) {
-                    setEmployeeCount(json.data.length);
-                    console.log('Employee count fetched:', json.data.length);
-                }
-            } catch (error) {
-                console.error('Failed to fetch employee count:', error.message);
-                // Fallback to data from progress API
-                setEmployeeCount(data?.userCount || 0);
-            }
-        };
-
-        fetchData();
-        fetchEmployeeCount();
-    }, [data, token]);
+    // Use RTK Query hooks with parallel fetching and automatic caching
+    const { data: progressData, isLoading: progressLoading } = useGetDashboardProgressQuery();
+    const { data: employeeData, isLoading: employeeLoading } = useGetEmployeeCountQuery();
+    
+    // Extract data from responses
+    const data = progressData?.data || {};
+    const employeeCount = employeeData?.data?.length || data?.userCount || 0;
+    const loading = progressLoading || employeeLoading;
 
 
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
     BarChart,
     Bar,
@@ -9,40 +9,14 @@ import {
     Legend,
     ResponsiveContainer,
 } from "recharts";
-import baseUrl from "../../api/api";
+import { useGetHomeProgressQuery } from "../../features/dashboard/dashboardApi";
 
 const HomeBar = () => {
     const [change, setChange] = useState(false); // Toggle between Assessment and Training
-    const [allData, setAllData] = useState([]); // Data from API
-    const token = localStorage.getItem('token');
-    const [loading, setLoading] = useState(false)
-
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-
-                const response = await fetch(`${baseUrl.baseUrl}api/admin/get/HomeProgressData`, {
-                    method: "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                        'Authorization': `Bearer ${token}`,
-                    },
-                    credentials: "include",
-                });
-                if (!response.ok) {
-                    throw new Error(`Error: ${response.status} ${response.statusText}`);
-                }
-                const result = await response.json();
-                setAllData(result.data);
-                setLoading(true)
-            } catch (error) {
-                setLoading(true)
-                console.error("Failed to fetch data:", error.message);
-            }
-        };
-
-        fetchData();
-    }, [token]);
+    
+    // Use RTK Query for automatic caching and loading
+    const { data: responseData, isLoading: loading } = useGetHomeProgressQuery();
+    const allData = responseData?.data || [];
 
     // Process data for recharts
     const chartData = allData.map((obj) => {
@@ -79,14 +53,32 @@ const HomeBar = () => {
         }
         return null;
     };
+    
+    // Handle empty data
+    if (!loading && chartData.length === 0) {
+        return (
+            <div>
+                <div className="md:ml-[150px] ml-10 w-[600px] h-[400px]">
+                    <div className="w-full h-full border border-gray-300 rounded-xl shadow-lg flex items-center justify-center">
+                        <p className="text-gray-500">No data available for chart</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <>
-
-            {
-                loading ? <div>
-                    <div className="md:ml-[150px] ml-10 w-[600px] h-[400px]"> {/* Increased height */}
-                        <div className="w-full h-full border border-gray-300 rounded-xl shadow-lg "> {/* Added padding */}
+            {loading ? (
+                <div>
+                    <div role="status" className="flex items-center justify-center md:ml-[150px] ml-10 w-[600px] h-[400px] shadow-xl bg-slate-100 rounded-lg animate-pulse d">
+                        <span className="sr-only">Loading...</span>
+                    </div>
+                </div>
+            ) : (
+                <div>
+                    <div className="md:ml-[150px] ml-10 w-[600px] h-[400px]">
+                        <div className="w-full h-full border border-gray-300 rounded-xl shadow-lg">
                             <div className="flex justify-end mt-3 mx-3 text-[#2E7D32]">
                                 <div className="flex gap-2 items-center">
                                     <label>Assessment</label>
@@ -99,33 +91,26 @@ const HomeBar = () => {
                                     <label>Training</label>
                                 </div>
                             </div>
-                            <ResponsiveContainer width="100%" height="95%"> {/* Adjusted height */}
+                            <ResponsiveContainer width="100%" height="95%">
                                 <BarChart
                                     data={chartData}
-                                    margin={{ top: 20, right: 30, left: 20, bottom: 30 }} // Increased bottom margin
+                                    margin={{ top: 20, right: 30, left: 20, bottom: 30 }}
                                     barSize={allData?.length < 10 ? 40 : 20}
                                 >
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis dataKey="name" />
                                     <YAxis tickFormatter={(value) => `${value}%`} />
                                     <Tooltip content={<CustomTooltip />} />
-                                    <Legend layout="horizontal" verticalAlign="bottom" align="center" /> {/* Ensures legend stays inside */}
+                                    <Legend layout="horizontal" verticalAlign="bottom" align="center" />
                                     <Bar dataKey="Completed" stackId="a" fill="#016E5B" />
                                     <Bar dataKey="Pending" stackId="a" fill="#E0E0E0" />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
                     </div>
-                </div> : <div>
-
-                    <div role="status" className="flex items-center justify-center md:ml-[150px] ml-10 w-[600px] h-[400px] shadow-xl bg-slate-100 rounded-lg animate-pulse d">
-
-                        <span className="sr-only">Loading...</span>
-                    </div>
-                </div >
-            }
+                </div>
+            )}
         </>
-
     );
 };
 

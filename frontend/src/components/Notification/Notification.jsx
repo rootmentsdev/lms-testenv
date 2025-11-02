@@ -1,36 +1,12 @@
-import { useEffect, useState } from "react";
 import { FaRegBell } from "react-icons/fa";
-import baseUrl from "../../api/api";
 import { Link } from "react-router-dom";
+import { useGetNotificationsQuery } from "../../features/dashboard/dashboardApi";
 
 const Notification = () => {
-    const [notifications, setNotifications] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-
-    useEffect(() => {
-        // Fetch notifications from the backend
-        const fetchNotifications = async () => {
-            try {
-                const response = await fetch(`${baseUrl.baseUrl}api/admin/home/notification`); // Adjust the endpoint URL
-                const data = await response.json();
-                console.log(data);
-                console.log("hi" + notifications);
-
-                if (response.ok) {
-                    setNotifications(data.notifications); // Update the state with fetched notifications
-                } else {
-                    throw new Error(data.message || "Failed to fetch notifications");
-                }
-            } catch (err) {
-                setError(err.message);
-            } finally {
-                setLoading(false); // Stop the loading spinner
-            }
-        };
-
-        fetchNotifications();
-    }, []);
+    // Use RTK Query for automatic caching and loading
+    const { data: responseData, isLoading: loading, isError } = useGetNotificationsQuery();
+    const notifications = responseData?.notifications || [];
+    const error = isError ? 'Failed to fetch notifications' : null;
 
     if (loading) return <div role="status" className="flex items-center justify-center h-[250px] w-[600px] shadow-xl bg-slate-100 rounded-lg animate-pulse d">
 

@@ -1,50 +1,17 @@
-import { useEffect, useState } from "react";
-import baseUrl from "../../api/api";
-// import { FaSortAmountDownAlt } from "react-icons/fa";
-// import { FaSortAmountUp } from "react-icons/fa";
+import { useState } from "react";
 import { BiSortAlt2 } from "react-icons/bi";
 import { useSelector } from "react-redux";
+import { useGetBestThreeUsersQuery } from "../../features/dashboard/dashboardApi";
 
 
 const TopEmployeeAndBranch = () => {
-    const [allData, setAllData] = useState({});
     const [view, setView] = useState("employees"); // "employees" or "branches"
     const [topData, setTopData] = useState("top"); // "top" or "last"
-    const [isLoading, setIsLoading] = useState(true); // For loading state
-    const token = localStorage.getItem('token');
     const user = useSelector((state) => state.auth.user); // Access user from Redux store
 
-
-    // Fetch data on component mount
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const response = await fetch(`${baseUrl.baseUrl}api/admin/get/bestThreeUser`, {
-                    method: "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                        'Authorization': `Bearer ${token}`,
-                    },
-                    credentials: "include",
-                });
-                if (!response.ok) {
-                    throw new Error(`Error: ${response.status} ${response.statusText}`);
-                }
-                const result = await response.json();
-                setAllData(result.data);
-                console.log('API Response:', result);
-                console.log('Top Branches:', result.data?.topBranches);
-                console.log('Last Branches:', result.data?.lastBranches);
-
-                setIsLoading(false); // Data is fetched, hide the loading state
-            } catch (error) {
-                console.error("Failed to fetch data:", error.message);
-                setIsLoading(false); // Set loading to false even on error
-            }
-        };
-
-        fetchData();
-    }, [token]);
+    // Use RTK Query for automatic caching and loading
+    const { data: responseData, isLoading } = useGetBestThreeUsersQuery();
+    const allData = responseData?.data || {};
 
     // Function to handle toggling between 'top' and 'last' data
     const handleTopDataToggle = (type) => {
