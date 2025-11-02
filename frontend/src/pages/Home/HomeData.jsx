@@ -10,11 +10,16 @@ import TopEmployeeAndBranch from "../../components/TopEmployeeAndBranch/TopEmplo
 import Notification from "../../components/Notification/Notification";
 import Quick from "../../components/Quick/Quick";
 import { RiIdCardLine } from "react-icons/ri";
+import { IoRefresh } from "react-icons/io5";
 import LMSWebsiteLoginStats from "../../components/LMSWebsiteLoginStats/LMSWebsiteLoginStats";
 import { useGetDashboardProgressQuery, useGetEmployeeCountQuery } from "../../features/dashboard/dashboardApi";
+import { useDispatch } from "react-redux";
+import { dashboardApi } from "../../features/dashboard/dashboardApi";
 
 
 const HomeData = ({ user }) => {
+    const dispatch = useDispatch();
+    
     // Use RTK Query hooks with parallel fetching and automatic caching
     const { data: progressData, isLoading: progressLoading } = useGetDashboardProgressQuery();
     const { data: employeeData, isLoading: employeeLoading } = useGetEmployeeCountQuery();
@@ -23,6 +28,12 @@ const HomeData = ({ user }) => {
     const data = progressData?.data || {};
     const employeeCount = employeeData?.data?.length || data?.userCount || 0;
     const loading = progressLoading || employeeLoading;
+
+    // Manual refresh function to force data refetch
+    const handleManualRefresh = () => {
+        // Invalidate all dashboard queries to force refetch
+        dispatch(dashboardApi.util.invalidateTags(['DashboardData', 'EmployeeCount', 'HomeProgress', 'BestUsers', 'Notifications', 'LMSStats']));
+    };
 
 
 
@@ -37,15 +48,25 @@ const HomeData = ({ user }) => {
                 </div>
                 <div className="md:ml-[100px] mt-[100px] ">
                     <div className="ml-12 text-black">
-                        <div className="flex items-center gap-3 mt-5 mb-4">
-                            <div className="flex items-center gap-2">
-                                <p className="text-lg font-medium text-gray-700">Hello,</p>
-                                <div className="bg-gradient-to-r from-[#016E5B] to-[#01997A] text-white px-4 py-2 rounded-full shadow-lg">
-                                    <span className="text-lg font-bold capitalize">
-                                        {user.role?.replace('_', ' ')}
-                                    </span>
+                        <div className="flex items-center justify-between mt-5 mb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2">
+                                    <p className="text-lg font-medium text-gray-700">Hello,</p>
+                                    <div className="bg-gradient-to-r from-[#016E5B] to-[#01997A] text-white px-4 py-2 rounded-full shadow-lg">
+                                        <span className="text-lg font-bold capitalize">
+                                            {user.role?.replace('_', ' ')}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
+                            <button 
+                                onClick={handleManualRefresh}
+                                className="flex items-center gap-2 px-4 py-2 bg-[#016E5B] text-white rounded-lg hover:bg-[#014f42] transition-colors duration-200 shadow-md"
+                                title="Refresh Dashboard Data"
+                            >
+                                <IoRefresh className={`text-lg ${loading ? 'animate-spin' : ''}`} />
+                                <span className="hidden md:inline">Refresh</span>
+                            </button>
                         </div>
                         <p className="text-sm md:text-lg">Your dashboard is ready, Let's create a productive learning environment!</p>
                     </div>

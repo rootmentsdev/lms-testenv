@@ -27,11 +27,12 @@ export const dashboardApi = createApi({
         headers: getAuthHeaders(),
       }),
       providesTags: ['DashboardData'],
-      // Extended cache for Render - 1 hour for localStorage persistence
-      keepUnusedDataFor: 3600,
-      refetchOnMountOrArgChange: false, // Use cached data to speed up Render loading
-      refetchOnFocus: false,
-      refetchOnReconnect: false, // Don't refetch on reconnect to use cache
+      // Cache for 1 minute, refetch automatically for fresh data
+      keepUnusedDataFor: 60,
+      pollingInterval: 60000, // Poll every 60 seconds for fresh data
+      refetchOnMountOrArgChange: true, // Always refetch on mount
+      refetchOnFocus: true, // Refetch when window regains focus
+      refetchOnReconnect: true, // Refetch on reconnection
     }),
 
     // Get employee count
@@ -42,10 +43,11 @@ export const dashboardApi = createApi({
         headers: getAuthHeaders(),
       }),
       providesTags: ['EmployeeCount'],
-      keepUnusedDataFor: 3600,
-      refetchOnMountOrArgChange: false,
-      refetchOnFocus: false,
-      refetchOnReconnect: false,
+      keepUnusedDataFor: 60,
+      pollingInterval: 60000,
+      refetchOnMountOrArgChange: true,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
     }),
 
     // Get home progress data (for charts)
@@ -56,10 +58,11 @@ export const dashboardApi = createApi({
         headers: getAuthHeaders(),
       }),
       providesTags: ['HomeProgress'],
-      keepUnusedDataFor: 3600,
-      refetchOnMountOrArgChange: false,
-      refetchOnFocus: false,
-      refetchOnReconnect: false,
+      keepUnusedDataFor: 60,
+      pollingInterval: 60000,
+      refetchOnMountOrArgChange: true,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
     }),
 
     // Get best three users
@@ -70,10 +73,11 @@ export const dashboardApi = createApi({
         headers: getAuthHeaders(),
       }),
       providesTags: ['BestUsers'],
-      keepUnusedDataFor: 3600,
-      refetchOnMountOrArgChange: false,
-      refetchOnFocus: false,
-      refetchOnReconnect: false,
+      keepUnusedDataFor: 60,
+      pollingInterval: 60000,
+      refetchOnMountOrArgChange: true,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
     }),
 
     // Get store manager data
@@ -84,10 +88,11 @@ export const dashboardApi = createApi({
         headers: getAuthHeaders(),
       }),
       providesTags: ['StoreManager'],
-      keepUnusedDataFor: 3600,
-      refetchOnMountOrArgChange: false,
-      refetchOnFocus: false,
-      refetchOnReconnect: false,
+      keepUnusedDataFor: 60,
+      pollingInterval: 60000,
+      refetchOnMountOrArgChange: true,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
     }),
 
     // Get store manager due data
@@ -98,10 +103,11 @@ export const dashboardApi = createApi({
         headers: getAuthHeaders(),
       }),
       providesTags: ['StoreManager'],
-      keepUnusedDataFor: 3600,
-      refetchOnMountOrArgChange: false,
-      refetchOnFocus: false,
-      refetchOnReconnect: false,
+      keepUnusedDataFor: 60,
+      pollingInterval: 60000,
+      refetchOnMountOrArgChange: true,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
     }),
 
     // Get notifications
@@ -112,10 +118,11 @@ export const dashboardApi = createApi({
         headers: getAuthHeaders(),
       }),
       providesTags: ['Notifications'],
-      keepUnusedDataFor: 3600,
-      refetchOnMountOrArgChange: false,
-      refetchOnFocus: false,
-      refetchOnReconnect: false,
+      keepUnusedDataFor: 60,
+      pollingInterval: 60000,
+      refetchOnMountOrArgChange: true,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
     }),
 
     // Get LMS login stats
@@ -126,10 +133,11 @@ export const dashboardApi = createApi({
         headers: getAuthHeaders(),
       }),
       providesTags: ['LMSStats'],
-      keepUnusedDataFor: 3600,
-      refetchOnMountOrArgChange: false,
-      refetchOnFocus: false,
-      refetchOnReconnect: false,
+      keepUnusedDataFor: 60,
+      pollingInterval: 60000,
+      refetchOnMountOrArgChange: true,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
     }),
   }),
 });
