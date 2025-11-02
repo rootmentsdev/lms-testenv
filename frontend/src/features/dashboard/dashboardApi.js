@@ -27,11 +27,11 @@ export const dashboardApi = createApi({
         headers: getAuthHeaders(),
       }),
       providesTags: ['DashboardData'],
-      // Extended cache for Render cold starts - 5 minutes
-      keepUnusedDataFor: 300,
+      // Extended cache for Render - 1 hour for localStorage persistence
+      keepUnusedDataFor: 3600,
       refetchOnMountOrArgChange: false, // Use cached data to speed up Render loading
       refetchOnFocus: false,
-      refetchOnReconnect: true,
+      refetchOnReconnect: false, // Don't refetch on reconnect to use cache
     }),
 
     // Get employee count
@@ -42,10 +42,10 @@ export const dashboardApi = createApi({
         headers: getAuthHeaders(),
       }),
       providesTags: ['EmployeeCount'],
-      keepUnusedDataFor: 300,
+      keepUnusedDataFor: 3600,
       refetchOnMountOrArgChange: false,
       refetchOnFocus: false,
-      refetchOnReconnect: true,
+      refetchOnReconnect: false,
     }),
 
     // Get home progress data (for charts)
@@ -56,10 +56,10 @@ export const dashboardApi = createApi({
         headers: getAuthHeaders(),
       }),
       providesTags: ['HomeProgress'],
-      keepUnusedDataFor: 300,
+      keepUnusedDataFor: 3600,
       refetchOnMountOrArgChange: false,
       refetchOnFocus: false,
-      refetchOnReconnect: true,
+      refetchOnReconnect: false,
     }),
 
     // Get best three users
@@ -70,10 +70,10 @@ export const dashboardApi = createApi({
         headers: getAuthHeaders(),
       }),
       providesTags: ['BestUsers'],
-      keepUnusedDataFor: 300,
+      keepUnusedDataFor: 3600,
       refetchOnMountOrArgChange: false,
       refetchOnFocus: false,
-      refetchOnReconnect: true,
+      refetchOnReconnect: false,
     }),
 
     // Get store manager data
@@ -84,10 +84,10 @@ export const dashboardApi = createApi({
         headers: getAuthHeaders(),
       }),
       providesTags: ['StoreManager'],
-      keepUnusedDataFor: 300,
+      keepUnusedDataFor: 3600,
       refetchOnMountOrArgChange: false,
       refetchOnFocus: false,
-      refetchOnReconnect: true,
+      refetchOnReconnect: false,
     }),
 
     // Get store manager due data
@@ -98,10 +98,10 @@ export const dashboardApi = createApi({
         headers: getAuthHeaders(),
       }),
       providesTags: ['StoreManager'],
-      keepUnusedDataFor: 300,
+      keepUnusedDataFor: 3600,
       refetchOnMountOrArgChange: false,
       refetchOnFocus: false,
-      refetchOnReconnect: true,
+      refetchOnReconnect: false,
     }),
 
     // Get notifications
@@ -112,10 +112,10 @@ export const dashboardApi = createApi({
         headers: getAuthHeaders(),
       }),
       providesTags: ['Notifications'],
-      keepUnusedDataFor: 300,
+      keepUnusedDataFor: 3600,
       refetchOnMountOrArgChange: false,
       refetchOnFocus: false,
-      refetchOnReconnect: true,
+      refetchOnReconnect: false,
     }),
 
     // Get LMS login stats
@@ -126,10 +126,10 @@ export const dashboardApi = createApi({
         headers: getAuthHeaders(),
       }),
       providesTags: ['LMSStats'],
-      keepUnusedDataFor: 300,
+      keepUnusedDataFor: 3600,
       refetchOnMountOrArgChange: false,
       refetchOnFocus: false,
-      refetchOnReconnect: true,
+      refetchOnReconnect: false,
     }),
   }),
 });
