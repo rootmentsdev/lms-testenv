@@ -1,31 +1,18 @@
-
+/**
+ * Notifications Page Component
+ * 
+ * Wrapper component for notifications management page
+ * Handles mobile navigation display
+ * 
+ * @returns {JSX.Element} - Notifications page component
+ */
 import ModileNav from "../../components/SideNav/ModileNav";
 import NotificationData from "./NotificationData";
 
-
-const Notifications = () => {
-
-
-    // Debugging: Inspect user data
-
-    return (
-        <>
-            <div style={styles.container} className="bg-white">
-                {/* Mobile Navigation */}
-                <div className="md:hidden sm:block">
-                    <ModileNav />
-                </div>
-
-                {/* Main Content */}
-                <div style={styles.middle}>
-                    <NotificationData /> 
-                </div>
-            </div>
-        </>
-    );
-};
-
-const styles = {
+/**
+ * Component styling constants
+ */
+const CONTAINER_STYLES = {
     container: {
         display: "flex",
         width: "100%",
@@ -40,5 +27,23 @@ const styles = {
     },
 };
 
-export default Notifications;
+/**
+ * Notifications Page Component
+ */
+const Notifications = () => {
+    return (
+        <div style={CONTAINER_STYLES.container} className="bg-white">
+            {/* Mobile Navigation */}
+            <div className="md:hidden sm:block">
+                <ModileNav />
+            </div>
 
+            {/* Main Content */}
+            <div style={CONTAINER_STYLES.middle}>
+                <NotificationData />
+            </div>
+        </div>
+    );
+};
+
+export default Notifications;

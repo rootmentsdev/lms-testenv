@@ -1,42 +1,49 @@
-// import SideNav from "../../components/SideNav/SideNav";
-import AddBranchData from "./AddBranchData";
+/**
+ * Add Branch Page Component
+ * 
+ * Wrapper component for add branch page
+ * Handles mobile navigation display
+ * 
+ * @returns {JSX.Element} - Add branch page component
+ */
 import ModileNav from "../../components/SideNav/ModileNav";
+import AddBranchData from "./AddBranchData";
 
-const AddBranch = () => {
-    return (
-        <>
-            <div style={styles.container} className="bg-white">
-                {/* <div style={styles.left} className="hidden md:block z-50">
-                    <SideNav />
-                </div> */}
-                <div className="md:hidden sm:block">
-                    <ModileNav />
-                </div>
-
-                <div style={styles.middle} className="">
-                    <AddBranchData />
-                </div>
-            </div>
-        </>
-    );
-}
-
-const styles = {
+/**
+ * Component styling constants
+ */
+const CONTAINER_STYLES = {
     container: {
         display: "flex",
         width: "100%",
-        minHeight: "100vh", // Ensure it takes the full height of the viewport
-        backgroundColor: "white", // Set background color to white for the entire container
-        overflowX: "hidden", // Prevent horizontal scrolling
-    },
-    left: {
-        // Adjust size as needed for the sidebar
+        minHeight: "100vh",
+        backgroundColor: "white",
+        overflowX: "hidden",
     },
     middle: {
         flex: 1,
-        width: "100%", // Ensure it takes the full width of the remaining space
-        minHeight: "100vh", // Ensure it stretches vertically
+        width: "100%",
+        minHeight: "100vh",
     },
 };
 
-export default AddBranch
+/**
+ * Add Branch Page Component
+ */
+const AddBranch = () => {
+    return (
+        <div style={CONTAINER_STYLES.container} className="bg-white">
+            {/* Mobile Navigation */}
+            <div className="md:hidden sm:block">
+                <ModileNav />
+            </div>
+
+            {/* Main Content */}
+            <div style={CONTAINER_STYLES.middle}>
+                <AddBranchData />
+            </div>
+        </div>
+    );
+};
+
+export default AddBranch;

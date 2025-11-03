@@ -1,123 +1,120 @@
-import { useState } from "react";
+/**
+ * Setting Data Component
+ * 
+ * Main settings page with tab navigation for different setting categories
+ * Manages routing between Permission, Create Notification, Create User, Subrole, and Escalation settings
+ * 
+ * @returns {JSX.Element} - Setting data component
+ */
+import { useState, useCallback } from "react";
+
 import Header from "../../components/Header/Header";
 import SideNav from "../../components/SideNav/SideNav";
 import PermissionSettings from "./PermissionSettings";
-// import Visibility from "./Visibility";
-// import NotificationSettings from "./Notificaton";
 import CreateCustomNotification from "./CreateNotification";
 import CreateUser from "./CreateAdmin";
 import SubroleCreation from "./SubroleCreation";
 import Escalation from "./Escalation";
 
-const SettingData = () => {
-    // State to manage active menu
-    const [activeTab, setActiveTab] = useState("permission");
+/**
+ * Available setting tabs
+ */
+const SETTING_TABS = {
+    PERMISSION: 'permission',
+    CREATE_NOTIFICATION: 'createNotification',
+    CREATE_USER: 'createUser',
+    SUBROLE: 'subrole',
+    ESCALATION: 'Escalation',
+};
 
-    // Function to render the active component
-    const renderActiveComponent = () => {
+/**
+ * Tab configuration with labels
+ */
+const TAB_CONFIG = [
+    { id: SETTING_TABS.PERMISSION, label: 'Permission' },
+    { id: SETTING_TABS.CREATE_NOTIFICATION, label: '+ Create Notification', indent: true },
+    { id: SETTING_TABS.CREATE_USER, label: '+ Create User', indent: true },
+    { id: SETTING_TABS.SUBROLE, label: '+ Add subrole', indent: true },
+    { id: SETTING_TABS.ESCALATION, label: 'Escalation', indent: true },
+];
+
+/**
+ * Setting Data Component
+ */
+const SettingData = () => {
+    const [activeTab, setActiveTab] = useState(SETTING_TABS.PERMISSION);
+
+    /**
+     * Handles tab change
+     * 
+     * @param {string} tabId - Tab identifier
+     */
+    const handleTabChange = useCallback((tabId) => {
+        setActiveTab(tabId);
+    }, []);
+
+    /**
+     * Gets active tab button className
+     * 
+     * @param {string} tabId - Tab identifier
+     * @returns {string} - CSS class names
+     */
+    const getTabClassName = useCallback((tabId) => {
+        const baseClasses = "text-gray-600 hover:text-black transition-colors";
+        return activeTab === tabId
+            ? `${baseClasses} text-green-600 font-medium`
+            : baseClasses;
+    }, [activeTab]);
+
+    /**
+     * Renders the active component based on selected tab
+     * 
+     * @returns {JSX.Element|null} - Rendered component or null
+     */
+    const renderActiveComponent = useCallback(() => {
         switch (activeTab) {
-            // case "visibility":
-            //     return <Visibility />;
-            case "permission":
+            case SETTING_TABS.PERMISSION:
                 return <PermissionSettings />;
-            // case "notification":
-            //     return <NotificationSettings />;
-            case "createNotification":
+            case SETTING_TABS.CREATE_NOTIFICATION:
                 return <CreateCustomNotification />;
-            case "createUser":
+            case SETTING_TABS.CREATE_USER:
                 return <CreateUser />;
-            case "subrole":
-                return <SubroleCreation />
-            case "Escalation":
-                return <Escalation />
+            case SETTING_TABS.SUBROLE:
+                return <SubroleCreation />;
+            case SETTING_TABS.ESCALATION:
+                return <Escalation />;
             default:
                 return null;
         }
-    };
+    }, [activeTab]);
 
     return (
         <div className="w-full h-full bg-white">
-            <div>
-                <Header name={"Settings"} />
-            </div>
+            <Header name="Settings" />
             <SideNav />
 
             <div className="md:ml-[100px] mt-[100px]">
                 <div className="flex">
-                    {/* Sidebar */}
+                    {/* Sidebar Navigation */}
                     <div className="w-64 bg-white shadow p-4 text-black fixed h-full md:left-28">
                         <h2 className="text-xl font-bold mb-6">Settings</h2>
                         <ul className="space-y-4">
-
-                            <li>
-                                <button
-                                    className={`text-gray-600 hover:text-black ${activeTab === "permission" ? "text-green-600 font-medium" : ""}`}
-                                    onClick={() => setActiveTab("permission")}
-                                >
-                                    Permission
-                                </button>
-                            </li>
-                            {/* <li>
-                                <button
-                                    className={`text-gray-600 hover:text-black ${activeTab === "notification" ? "text-green-600 font-medium" : ""}`}
-                                    onClick={() => setActiveTab("notification")}
-                                >
-                                    Notification Settings
-                                </button>
-                            </li> */}
-                            <li className="pl-4">
-                                <button
-                                    className={`text-gray-600 hover:text-black ${activeTab === "createNotification" ? "text-green-600 font-medium" : ""}`}
-                                    onClick={() => setActiveTab("createNotification")}
-                                >
-                                    + Create Notification
-                                </button>
-                            </li>
-                            <li className="pl-4">
-                                <button
-                                    className={`text-gray-600 hover:text-black ${activeTab === "createUser" ? "text-green-600 font-medium" : ""}`}
-                                    onClick={() => setActiveTab("createUser")}
-                                >
-                                    + Create User
-                                </button>
-
-                            </li>
-
-
-
-                            <li className="pl-4">
-                                <button
-                                    className={`text-gray-600 hover:text-black ${activeTab === "subrole" ? "text-green-600 font-medium" : ""}`}
-                                    onClick={() => setActiveTab("subrole")}
-                                >
-                                    + Add subrole
-                                </button>
-
-                            </li>
-
-                            <li className="pl-4">
-                                <button
-                                    className={`text-gray-600 hover:text-black ${activeTab === "Escalation" ? "text-green-600 font-medium" : ""}`}
-                                    onClick={() => setActiveTab("Escalation")}
-                                >
-                                    + Escalation
-                                </button>
-
-                            </li>
-
-                            <li>
-                                <a
-                                    href="/admin/login-analytics"
-                                    className="text-gray-600 hover:text-black flex items-center"
-                                >
-                                    🔍 Login Analytics
-                                </a>
-                            </li>
+                            {TAB_CONFIG.map((tab) => (
+                                <li key={tab.id} className={tab.indent ? 'pl-4' : ''}>
+                                    <button
+                                        type="button"
+                                        className={getTabClassName(tab.id)}
+                                        onClick={() => handleTabChange(tab.id)}
+                                    >
+                                        {tab.label}
+                                    </button>
+                                </li>
+                            ))}
                         </ul>
                     </div>
 
-                    {/* Main Content */}
-                    <div className="flex-1 p-4 md:ml-[300px]">
+                    {/* Main Content Area */}
+                    <div className="flex-1 md:ml-64">
                         {renderActiveComponent()}
                     </div>
                 </div>

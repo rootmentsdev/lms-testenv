@@ -1,25 +1,77 @@
-import { useEffect, useState } from "react";
-import baseUrl from "../../api/api";
+/**
+ * Escalation Levels Component
+ * 
+ * Manages escalation level configuration with editable number of days
+ * Supports fetching and saving escalation level data
+ * 
+ * @returns {JSX.Element} - Escalation levels component
+ */
+import { useEffect, useState, useCallback } from "react";
+import { toast } from "react-toastify";
 
+import API_CONFIG from "../../api/api";
+
+/**
+ * API endpoints
+ */
+const API_ENDPOINTS = {
+    GET_ESCALATION: 'api/admin/escalation/level/get',
+    SAVE_ESCALATION: 'api/admin/escalation/level',
+};
+
+/**
+ * Contexts that should not be editable
+ */
+const NON_EDITABLE_CONTEXTS = [
+    "On-the-day deadline alert",
+    "Recurring escalation every two days after the 5-day mark",
+];
+
+/**
+ * Checks if a row is editable based on its context
+ * 
+ * @param {string} context - Row context
+ * @returns {boolean} - True if row is editable
+ */
+const isRowEditable = (context) => {
+    return !NON_EDITABLE_CONTEXTS.includes(context);
+};
+
+/**
+ * Escalation Levels Component
+ */
 const Escalation = () => {
-    // Initial table data state
-    const [tableData, setTableData] = useState([
-    ]);
-
-    // Track the editable row ID
+    const [tableData, setTableData] = useState([]);
     const [editRowId, setEditRowId] = useState(null);
-
-    // Track the updated value for `numberOfDays`
     const [updatedValue, setUpdatedValue] = useState("");
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
 
-    // Start editing a specific row
-    const handleEdit = (id, currentValue) => {
+    /**
+     * Starts editing a specific row
+     * 
+     * @param {number} id - Row ID
+     * @param {string|number} currentValue - Current value to edit
+     */
+    const handleEdit = useCallback((id, currentValue) => {
         setEditRowId(id);
-        setUpdatedValue(currentValue);
-    };
+        setUpdatedValue(String(currentValue));
+    }, []);
 
-    // Save the updated value for a specific row
-    const handleSave = (id) => {
+    /**
+     * Cancels editing
+     */
+    const handleCancelEdit = useCallback(() => {
+        setEditRowId(null);
+        setUpdatedValue("");
+    }, []);
+
+    /**
+     * Saves the updated value for a specific row
+     * 
+     * @param {number} id - Row ID
+     */
+    const handleSave = useCallback((id) => {
         const updatedData = tableData.map((row) => {
             if (row.id === id) {
                 return { ...row, numberOfDays: updatedValue };
@@ -27,69 +79,79 @@ const Escalation = () => {
             return row;
         });
         setTableData(updatedData);
-        setEditRowId(null);
-        setUpdatedValue("");
-    };
+        handleCancelEdit();
+    }, [tableData, updatedValue, handleCancelEdit]);
 
-    // Save button at the bottom to log the table data
-    const handleFormSave = async () => {
-        console.log("Current Table Data:", tableData);
-
+    /**
+     * Fetches escalation levels from API
+     */
+    const fetchEscalationData = useCallback(async () => {
+        setIsLoading(true);
         try {
-            const response = await fetch(`${baseUrl.baseUrl}api/admin/escalation/level`, {
-                method: 'POST', // Set the method to POST
+            const response = await fetch(`${API_CONFIG.baseUrl}${API_ENDPOINTS.GET_ESCALATION}`);
+            
+            if (!response.ok) {
+                throw new Error("Failed to fetch escalation levels");
+            }
+
+            const data = await response.json();
+            const sortedData = (data.data || []).sort((a, b) => a.id - b.id);
+            setTableData(sortedData);
+        } catch (error) {
+            console.error("Error fetching escalation levels:", error.message);
+            toast.error("Failed to load data. Please try again.");
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    /**
+     * Saves escalation levels to API
+     */
+    const handleFormSave = useCallback(async () => {
+        setIsSaving(true);
+        try {
+            const response = await fetch(`${API_CONFIG.baseUrl}${API_ENDPOINTS.SAVE_ESCALATION}`, {
+                method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json', // Set the content type to JSON
+                    'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ tableData }), // Convert table data to a JSON string
+                body: JSON.stringify({ tableData }),
             });
 
-            // Handle the response
             if (!response.ok) {
                 const error = await response.json();
-                console.error("Error saving escalation levels:", error.message);
-                alert(`Failed to save data: ${error.message}`);
-                return;
+                throw new Error(error.message || "Failed to save data");
             }
 
             const data = await response.json();
             console.log("Data successfully saved:", data);
-            alert("Data successfully saved!");
+            toast.success("Escalation levels saved successfully!");
         } catch (error) {
-            // Catch network errors or other exceptions
-            console.error("Error in saving data:", error.message);
-            alert("An error occurred while saving data.");
+            console.error("Error saving escalation levels:", error.message);
+            toast.error(`Failed to save data: ${error.message}`);
+        } finally {
+            setIsSaving(false);
         }
-    };
+    }, [tableData]);
+
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const response = await fetch(`${baseUrl.baseUrl}api/admin/escalation/level/get`);
-                if (!response.ok) {
-                    throw new Error("Failed to fetch escalation levels");
-                }
-                const data = await response.json();
-                console.log(data.data);
-                const sortedData = data.data.sort((a, b) => a.id - b.id);
+        fetchEscalationData();
+    }, [fetchEscalationData]);
 
-                setTableData(sortedData)
-                    ; // Update the state with fetched data
-            } catch (error) {
-                console.error("Error fetching escalation levels:", error.message);
-                alert("Failed to load data. Please try again.");
-            }
-        };
-
-        fetchData();
-    }, []);
-
-    // Rows that should not be editable
-    const nonEditableRows = ["On-the-day deadline alert", "Recurring escalation every two days after the 5-day mark"];
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100">
+                <div className="text-lg">Loading escalation levels...</div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100">
             <div className="w-full max-w-4xl bg-white shadow-md rounded-lg p-6">
                 <h1 className="text-xl font-bold text-gray-800 mb-4">Escalation Levels</h1>
+                
                 <div className="overflow-x-auto">
                     <table className="min-w-full bg-white border border-gray-200">
                         <thead>
@@ -110,33 +172,53 @@ const Escalation = () => {
                         </thead>
                         <tbody>
                             {tableData.map((row) => (
-                                <tr key={row.id} className={row.id % 2 === 0 ? "bg-gray-50" : "bg-white"}>
-                                    <td className="px-4 py-2 border-b border-gray-200 text-sm text-gray-800">{row.level}</td>
-                                    <td className="px-4 py-2 border-b border-gray-200 text-sm text-gray-800">{row.context}</td>
+                                <tr 
+                                    key={row.id} 
+                                    className={row.id % 2 === 0 ? "bg-gray-50" : "bg-white"}
+                                >
+                                    <td className="px-4 py-2 border-b border-gray-200 text-sm text-gray-800">
+                                        {row.level}
+                                    </td>
+                                    <td className="px-4 py-2 border-b border-gray-200 text-sm text-gray-800">
+                                        {row.context}
+                                    </td>
                                     <td className="px-4 py-2 border-b border-gray-200 text-sm text-gray-800 relative">
                                         {editRowId === row.id ? (
                                             <input
-                                                type="text"
+                                                type="number"
                                                 value={updatedValue}
                                                 onChange={(e) => setUpdatedValue(e.target.value)}
                                                 className="px-2 py-1 border rounded bg-white w-[100px]"
+                                                min="0"
+                                                autoFocus
                                             />
                                         ) : (
                                             row.numberOfDays
                                         )}
                                     </td>
                                     <td className="px-4 py-2 border-b border-gray-200 text-sm text-gray-800">
-                                        {!nonEditableRows.includes(row.context) ? (
+                                        {isRowEditable(row.context) ? (
                                             editRowId === row.id ? (
-                                                <button
-                                                    className="px-4 py-1 bg-green-500 text-white rounded hover:bg-green-600"
-                                                    onClick={() => handleSave(row.id)}
-                                                >
-                                                    Done
-                                                </button>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        type="button"
+                                                        className="px-4 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                                                        onClick={() => handleSave(row.id)}
+                                                    >
+                                                        Done
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="px-4 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
+                                                        onClick={handleCancelEdit}
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </div>
                                             ) : (
                                                 <button
-                                                    className="px-4 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                                                    type="button"
+                                                    className="px-4 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
                                                     onClick={() => handleEdit(row.id, row.numberOfDays)}
                                                 >
                                                     Edit
@@ -151,11 +233,14 @@ const Escalation = () => {
                         </tbody>
                     </table>
                 </div>
+                
                 <button
-                    className="mt-4 px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                    type="button"
+                    className="mt-4 px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     onClick={handleFormSave}
+                    disabled={isSaving}
                 >
-                    Save Form
+                    {isSaving ? 'Saving...' : 'Save Form'}
                 </button>
             </div>
         </div>

@@ -1,10 +1,33 @@
+/**
+ * Logout Confirmation Modal Component
+ * 
+ * Displays a confirmation dialog before user logs out
+ * Provides cancel and confirm actions
+ * 
+ * @param {Object} props - Component props
+ * @param {boolean} props.isOpen - Whether the modal is open
+ * @param {Function} props.onClose - Callback function when modal is closed
+ * @param {Function} props.onConfirm - Callback function when logout is confirmed
+ * @returns {JSX.Element|null} - Modal component or null if not open
+ */
 import React from 'react';
 import { IoIosLogOut } from "react-icons/io";
 import { IoClose } from "react-icons/io5";
 
-const LogoutConfirmation = ({ isOpen, onClose, onConfirm }) => {
-    if (!isOpen) return null;
+/**
+ * Logout confirmation message
+ */
+const LOGOUT_MESSAGE = "Are you sure you want to log out? You will need to sign in again to access your account.";
 
+const LogoutConfirmation = ({ isOpen, onClose, onConfirm }) => {
+    if (!isOpen) {
+        return null;
+    }
+
+    /**
+     * Handles logout confirmation
+     * Calls both onConfirm and onClose to ensure modal closes after action
+     */
     const handleConfirm = () => {
         onConfirm();
         onClose();
@@ -24,6 +47,7 @@ const LogoutConfirmation = ({ isOpen, onClose, onConfirm }) => {
                     <button
                         onClick={onClose}
                         className="text-gray-400 hover:text-gray-600 transition-colors"
+                        aria-label="Close modal"
                     >
                         <IoClose className="text-xl" />
                     </button>
@@ -32,7 +56,7 @@ const LogoutConfirmation = ({ isOpen, onClose, onConfirm }) => {
                 {/* Content */}
                 <div className="mb-6">
                     <p className="text-gray-600">
-                        Are you sure you want to log out? You will need to sign in again to access your account.
+                        {LOGOUT_MESSAGE}
                     </p>
                 </div>
 

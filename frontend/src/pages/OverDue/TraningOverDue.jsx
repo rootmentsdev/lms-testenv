@@ -1,31 +1,18 @@
-
+/**
+ * Training Overdue Page Component
+ * 
+ * Wrapper component for training overdue page
+ * Handles mobile navigation display
+ * 
+ * @returns {JSX.Element} - Training overdue page component
+ */
 import ModileNav from "../../components/SideNav/ModileNav";
 import TraningOverDuedata from "./TraningOverDuedata";
 
-
-const TraningOverDue = () => {
-
-
-    // Debugging: Inspect user data
-
-    return (
-        <>
-            <div style={styles.container} className="bg-white">
-                {/* Mobile Navigation */}
-                <div className="md:hidden block z-10">
-                    <ModileNav />
-                </div>
-
-                {/* Main Content */}
-                <div style={styles.middle}>
-                    <TraningOverDuedata />
-                </div>
-            </div>
-        </>
-    );
-};
-
-const styles = {
+/**
+ * Component styling constants
+ */
+const CONTAINER_STYLES = {
     container: {
         display: "flex",
         width: "100%",
@@ -40,5 +27,23 @@ const styles = {
     },
 };
 
-export default TraningOverDue;
+/**
+ * Training Overdue Page Component
+ */
+const TraningOverDue = () => {
+    return (
+        <div style={CONTAINER_STYLES.container} className="bg-white">
+            {/* Mobile Navigation */}
+            <div className="md:hidden sm:block z-10">
+                <ModileNav />
+            </div>
 
+            {/* Main Content */}
+            <div style={CONTAINER_STYLES.middle}>
+                <TraningOverDuedata />
+            </div>
+        </div>
+    );
+};
+
+export default TraningOverDue;

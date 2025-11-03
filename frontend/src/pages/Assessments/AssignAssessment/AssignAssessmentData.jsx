@@ -1,284 +1,373 @@
-import { Link } from "react-router-dom";
-import Header from "../../../components/Header/Header";
+/**
+ * Assign Assessment Data Component
+ * 
+ * Allows assigning assessments to users, branches, or designations
+ * Supports filtering by assignment type and creating new assessment assignments
+ * 
+ * @returns {JSX.Element} - Assign assessment data component
+ */
+import { useEffect, useState, useCallback } from "react";
 import Select from "react-select";
 import { FaPlus } from "react-icons/fa";
-import { useEffect, useState } from "react";
-import baseUrl from "../../../api/api";
-import SideNav from "../../../components/SideNav/SideNav";
 import { toast } from "react-toastify";
 
+import Header from "../../../components/Header/Header";
+import SideNav from "../../../components/SideNav/SideNav";
+import API_CONFIG from "../../../api/api";
+
+/**
+ * API endpoints
+ */
+const API_ENDPOINTS = {
+    GET_ALL_ASSESSMENTS: 'api/user/get/AllAssessment',
+    GET_ALL_USERS: 'api/usercreate/getAllUser',
+    GET_BRANCHES: 'api/usercreate/getBranch',
+    GET_EMPLOYEES: 'api/employee_range',
+    CREATE_ASSESSMENT_ASSIGNMENT: 'api/user/post/createAssessment',
+};
+
+/**
+ * Assignment type options
+ */
+const ASSIGNMENT_TYPES = [
+    { value: 'user', label: 'Individual Users' },
+    { value: 'branch', label: 'Branches' },
+    { value: 'designation', label: 'Designations' },
+];
+
+/**
+ * Retrieves authentication token from localStorage safely
+ * 
+ * @returns {string|null} - Authentication token or null
+ */
+const getAuthToken = () => {
+    try {
+        return localStorage.getItem('token');
+    } catch (error) {
+        console.error('Failed to retrieve auth token:', error);
+        return null;
+    }
+};
+
+/**
+ * Builds authorization headers for API requests
+ * 
+ * @returns {Object} - Headers object
+ */
+const buildAuthHeaders = () => {
+    const token = getAuthToken();
+    return {
+        "Content-Type": "application/json",
+        ...(token && { Authorization: `Bearer ${token}` }),
+    };
+};
+
+/**
+ * Assign Assessment Data Component
+ */
 const AssignAssessmentData = () => {
-    const [modules, setModules] = useState([]);
+    const [assessments, setAssessments] = useState([]);
     const [users, setUsers] = useState([]);
-    const [selectedModules, setSelectedModules] = useState([]);
-    const [assignedTo, setAssignedTo] = useState([]); // Fixed missing state
-    const [days, setDays] = useState(""); // Track input days
+    const [selectedAssessments, setSelectedAssessments] = useState([]);
+    const [assignedTo, setAssignedTo] = useState([]);
+    const [days, setDays] = useState("");
     const [selectedOption, setSelectedOption] = useState("user");
-    const [Reassign, setReassign] = useState(true);
-    const token = localStorage.getItem('token');
+    const [shouldReassign, setShouldReassign] = useState(true);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState(null);
 
-    const checkfuntion = async () => {
-        const Assessment = {
-            assignedTo: assignedTo.map((item) => item.value), // Map assignedTo values
-            assessmentId: selectedModules.map((item) => item.value), // Map assessment values
-            selectedOption, // Ensure this is defined
-            days,
-            Reassign // Ensure this is defined
-        };
+    const token = getAuthToken();
 
-        console.log("Request Payload:", Assessment); // Debugging
-
+    /**
+     * Fetches assessments from API
+     */
+    const fetchAssessments = useCallback(async () => {
         try {
-            // Make sure `baseUrl.baseUrl` has the correct structure and trailing slash
-            const url = `${baseUrl.baseUrl}api/user/post/createAssessment`;
-
-            const RequestData = await fetch(url, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(Assessment),
+            const response = await fetch(`${API_CONFIG.baseUrl}${API_ENDPOINTS.GET_ALL_ASSESSMENTS}`, {
+                method: "GET",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
             });
 
-            // Check if the response is okay (status 200-299)
-            if (!RequestData.ok) {
-                throw new Error(`HTTP error! status: ${RequestData.status}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
 
-            const response = await RequestData.json(); // Parse JSON response
-            console.log("API Response:", response.message);
-            if (response.message === 'already Assigned') {
-                toast.error(response.message) // Log response message
+            const data = await response.json();
+            const assessmentOptions = (data?.data || []).map((assessment) => ({
+                value: assessment.assessmentId,
+                label: assessment.assessmentName,
+            }));
 
-            } else {
-                toast.success(response.message) // Log response message
-
-            }
+            setAssessments(assessmentOptions);
         } catch (error) {
-            console.error("Error in checkfuntion:", error);
-            toast.error("Error in Assign Assessment")// Log the error
+            console.error("Failed to fetch assessments:", error.message);
+            setError('Failed to load assessments');
+        } finally {
+            setIsLoading(false);
         }
-    };
+    }, []);
 
-    // Fetch modules (called once)
-    useEffect(() => {
-        const fetchModules = async () => {
-            try {
-                const response = await fetch(`${baseUrl.baseUrl}api/user/get/AllAssessment`, {
+    /**
+     * Fetches users based on selected assignment type
+     */
+    const fetchUsers = useCallback(async () => {
+        if (!token) return;
+
+        try {
+            let options = [];
+
+            if (selectedOption === "user") {
+                const response = await fetch(`${API_CONFIG.baseUrl}${API_ENDPOINTS.GET_ALL_USERS}`, {
                     method: "GET",
-                    headers: { "Content-Type": "application/json" },
+                    headers: buildAuthHeaders(),
                     credentials: "include",
                 });
 
-                if (!response.ok) throw new Error(`Error: ${response.statusText}`);
-                const data = await response.json();
-                console.log(data);
-
-
-                const options = data?.data.map((module) => ({
-                    value: module.assessmentId
-                    ,
-                    label: module.assessmentName
-                    ,
-                }));
-                setModules(options);
-            } catch (error) {
-                console.error("Failed to fetch modules:", error.message);
-            }
-        };
-        fetchModules();
-    }, []); // Runs only once
-
-    // Fetch users based on selected option
-    useEffect(() => {
-        const fetchUsers = async () => {
-            try {
-                let options = [];
-
-                if (selectedOption === "user") {
-                    // Get internal users
-                    const response = await fetch(`${baseUrl.baseUrl}api/usercreate/getAllUser`, {
-                        method: "GET",
-                        headers: {
-                            "Content-Type": "application/json",
-                            'Authorization': `Bearer ${token}`,
-                        },
-                        credentials: "include",
-                    });
-
-                    if (response.ok) {
-                        const data = await response.json();
-                        options = data.data.map((item) => ({
-                            value: item._id,
-                            label: item.username,
-                        }));
-                    }
-                } else if (selectedOption === "branch") {
-                    // Get branches
-                    const response = await fetch(`${baseUrl.baseUrl}api/usercreate/getBranch`, {
-                        method: "GET",
-                        headers: {
-                            "Content-Type": "application/json",
-                            'Authorization': `Bearer ${token}`,
-                        },
-                        credentials: "include",
-                    });
-
-                    if (response.ok) {
-                        const data = await response.json();
-                        options = data.data.map((item) => ({
-                            value: item.locCode,
-                            label: item.workingBranch,
-                        }));
-                    }
-                } else if (selectedOption === "designation") {
-                    // Get designations from external API
-                    const response = await fetch(`${baseUrl.baseUrl}api/employee_range`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        credentials: "include",
-                        body: JSON.stringify({ startEmpId: "EMP1", endEmpId: "EMP9999" }),
-                    });
-
-                    if (response.ok) {
-                        const data = await response.json();
-                        const uniqueDesignations = [...new Set(
-                            (data?.data || [])
-                                .map(emp => emp.role_name)
-                                .filter(Boolean)
-                        )].sort();
-
-                        options = uniqueDesignations.map((designation) => ({
-                            value: designation,
-                            label: designation,
-                        }));
-                    }
+                if (response.ok) {
+                    const data = await response.json();
+                    options = (data.data || []).map((item) => ({
+                        value: item._id,
+                        label: item.username || 'Unknown User',
+                    }));
                 }
+            } else if (selectedOption === "branch") {
+                const response = await fetch(`${API_CONFIG.baseUrl}${API_ENDPOINTS.GET_BRANCHES}`, {
+                    method: "GET",
+                    headers: buildAuthHeaders(),
+                    credentials: "include",
+                });
 
-                setUsers(options);
-            } catch (error) {
-                console.error("Failed to fetch users:", error.message);
-                setUsers([]);
+                if (response.ok) {
+                    const data = await response.json();
+                    options = (data.data || []).map((item) => ({
+                        value: item.locCode,
+                        label: item.workingBranch || 'Unknown Branch',
+                    }));
+                }
+            } else if (selectedOption === "designation") {
+                const response = await fetch(`${API_CONFIG.baseUrl}${API_ENDPOINTS.GET_EMPLOYEES}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify({ startEmpId: "EMP1", endEmpId: "EMP9999" }),
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const uniqueDesignations = [...new Set(
+                        (data?.data || [])
+                            .map(emp => emp.role_name)
+                            .filter(Boolean)
+                    )].sort();
+
+                    options = uniqueDesignations.map((designation) => ({
+                        value: designation,
+                        label: designation,
+                    }));
+                }
             }
-        };
-        fetchUsers();
+
+            setUsers(options);
+        } catch (error) {
+            console.error("Failed to fetch users:", error.message);
+            setError('Failed to load users');
+        }
     }, [selectedOption, token]);
 
-    return (
-        <div className="w-full h-full bg-white text-[#016E5B]">
-            <Header name="Assign Assessments" />
-            <SideNav />
-            <div className="md:ml-[100px] mt-[150px]">
+    useEffect(() => {
+        fetchAssessments();
+    }, [fetchAssessments]);
 
-                <div className="mt-20 mx-20">
-                    <div className="w-full flex  gap-10 md:flex-row flex-col">
-                        {/* Assessments Dropdown */}
-                        <div className="flex flex-col w-full">
-                            <label htmlFor="assessments" className="block text-gray-700 font-medium mb-2">
-                                Assessments
+    useEffect(() => {
+        fetchUsers();
+    }, [fetchUsers]);
+
+    /**
+     * Handles form submission
+     * 
+     * @param {React.FormEvent} e - Form submit event
+     */
+    const handleSubmit = useCallback(async (e) => {
+        e.preventDefault();
+
+        if (selectedAssessments.length === 0) {
+            toast.warning('Please select at least one assessment');
+            return;
+        }
+
+        if (assignedTo.length === 0) {
+            toast.warning('Please select at least one user, branch, or designation');
+            return;
+        }
+
+        if (!days || parseInt(days) <= 0) {
+            toast.warning('Please enter a valid number of days');
+            return;
+        }
+
+        setIsSubmitting(true);
+        setError(null);
+
+        try {
+            const payload = {
+                assignedTo: assignedTo.map((item) => item.value),
+                assessmentId: selectedAssessments.map((item) => item.value),
+                selectedOption,
+                days: parseInt(days),
+                Reassign: shouldReassign,
+            };
+
+            const response = await fetch(
+                `${API_CONFIG.baseUrl}${API_ENDPOINTS.CREATE_ASSESSMENT_ASSIGNMENT}`,
+                {
+                    method: "POST",
+                    headers: buildAuthHeaders(),
+                    body: JSON.stringify(payload),
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (result.message === 'already Assigned') {
+                toast.error(result.message);
+            } else {
+                toast.success(result.message || 'Assessment assigned successfully');
+                // Reset form
+                setSelectedAssessments([]);
+                setAssignedTo([]);
+                setDays("");
+            }
+        } catch (error) {
+            console.error("Error assigning assessment:", error);
+            toast.error(error.message || 'Failed to assign assessment');
+            setError(error.message || 'Failed to assign assessment');
+        } finally {
+            setIsSubmitting(false);
+        }
+    }, [selectedAssessments, assignedTo, days, selectedOption, shouldReassign]);
+
+    return (
+        <div className="w-full mb-[70px] h-full bg-white text-black">
+            <Header name="Assign Assessment" />
+            <SideNav />
+
+            <div className="md:ml-[100px] mt-[150px]">
+                <div className="mx-10">
+                    <h1 className="text-2xl font-semibold mb-6">Assign Assessment</h1>
+
+                    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+                        {/* Assessment Selection */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Select Assessment(s):
                             </label>
                             <Select
-                                placeholder="Select Assessments"
-                                id="assessments"
-                                options={modules}
+                                placeholder="Select assessments"
+                                options={assessments}
                                 isMulti
-                                value={selectedModules}
-                                onChange={setSelectedModules}
-                                className="w-full"
+                                value={selectedAssessments}
+                                onChange={setSelectedAssessments}
+                                isSearchable={true}
+                                isDisabled={isLoading || isSubmitting}
                             />
-
-                            <div className="flex w-56 border-2 justify-evenly items-center py-2 cursor-pointer mt-4">
-                                <Link to={"/create/Assessment"} className="flex justify-evenly items-center  cursor-pointer  ">
-                                    <FaPlus className="text-[#016E5B]" />
-                                    <h4 className="text-black">Create New Assessment</h4>
-                                </Link>
-                            </div>
-
                         </div>
 
-                        {/* Assign To Dropdown */}
-                        <div className="flex flex-col w-full gap-6">
-                            <div className="flex flex-col gap-4">
-                                <label htmlFor="assignToType" className="block text-gray-700 font-medium">
-                                    Assign To
-                                </label>
-                                <div className="flex gap-5">
-                                    <label>
+                        {/* Assignment Type Selection */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Assign To:
+                            </label>
+                            <div className="flex gap-4">
+                                {ASSIGNMENT_TYPES.map((type) => (
+                                    <label key={type.value} className="flex items-center gap-2 cursor-pointer">
                                         <input
                                             type="radio"
-                                            value="user"
-                                            checked={selectedOption === "user"}
-                                            onChange={() => setSelectedOption("user")}
-                                        />{" "}
-                                        User
+                                            value={type.value}
+                                            checked={selectedOption === type.value}
+                                            onChange={(e) => {
+                                                setSelectedOption(e.target.value);
+                                                setAssignedTo([]); // Clear selection when type changes
+                                            }}
+                                            disabled={isSubmitting}
+                                            className="text-[#016E5B]"
+                                        />
+                                        <span>{type.label}</span>
                                     </label>
-                                    <label>
-                                        <input
-                                            type="radio"
-                                            value="designation"
-                                            checked={selectedOption === "designation"}
-                                            onChange={() => setSelectedOption("designation")}
-                                        />{" "}
-                                        Designation
-                                    </label>
-                                    <label>
-                                        <input
-                                            type="radio"
-                                            value="branch"
-                                            checked={selectedOption === "branch"}
-                                            onChange={() => setSelectedOption("branch")}
-                                        />{" "}
-                                        Branch
-                                    </label>
-                                </div>
-                                <Select
-                                    placeholder="Select the users"
-                                    id="assignToUsers"
-                                    options={users}
-                                    isMulti
-                                    value={assignedTo}
-                                    onChange={setAssignedTo}
-                                    className="w-full"
-                                />
+                                ))}
                             </div>
-
-                            {/* Days Input */}
-                            <div className="flex flex-col w-full">
-                                <label htmlFor="days" className="block text-gray-700 font-medium mb-2">
-                                    How many days to complete this Assessment
-                                </label>
-                                <input
-                                    type="number"
-                                    id="days"
-                                    value={days}
-                                    onChange={(e) => {
-                                        const value = e.target.value
-                                        setDays(value);
-                                    }}
-                                    min="1"
-                                    className="w-full bg-white border-gray-500 border py-1 px-2"
-                                    placeholder="Enter the number of days"
-                                />
-                            </div>
-                            <div className="flex justify-end mt-10 gap-5">
-                                <div className="form-control">
-                                    <label className="label cursor-pointer flex gap-5">
-                                        <span className="label-text text-[#016E5B]">Reassign user</span>
-                                        <input type="checkbox" onClick={() => setReassign((prev) => !prev)} defaultChecked className="checkbox checkbox-success border  border-black" />
-                                    </label>
-                                </div>
-                                <button
-                                    className="bg-[#016E5B] text-white py-2 px-6 rounded hover:bg-[#014d43] transition duration-300"
-                                    onClick={checkfuntion} // Replace with your desired functionality
-                                >
-                                    Assign Assessment
-                                </button>
-
-                            </div>
-
                         </div>
-                    </div>
+
+                        {/* User/Branch/Designation Selection */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Select {selectedOption === 'user' ? 'Users' : selectedOption === 'branch' ? 'Branches' : 'Designations'}:
+                            </label>
+                            <Select
+                                placeholder={`Select ${selectedOption === 'user' ? 'users' : selectedOption === 'branch' ? 'branches' : 'designations'}`}
+                                options={users}
+                                isMulti
+                                value={assignedTo}
+                                onChange={setAssignedTo}
+                                isSearchable={true}
+                                isDisabled={isSubmitting || users.length === 0}
+                            />
+                            {users.length === 0 && (
+                                <p className="text-sm text-gray-500 mt-1">No {selectedOption} options available</p>
+                            )}
+                        </div>
+
+                        {/* Days Input */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Days to Complete:
+                            </label>
+                            <input
+                                type="number"
+                                min="1"
+                                value={days}
+                                onChange={(e) => setDays(e.target.value)}
+                                placeholder="Enter number of days"
+                                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#016E5B]"
+                                disabled={isSubmitting}
+                                required
+                            />
+                        </div>
+
+                        {/* Reassign Toggle */}
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                id="reassign"
+                                checked={shouldReassign}
+                                onChange={(e) => setShouldReassign(e.target.checked)}
+                                disabled={isSubmitting}
+                                className="w-4 h-4 text-[#016E5B] border-gray-300 rounded focus:ring-[#016E5B]"
+                            />
+                            <label htmlFor="reassign" className="text-sm text-gray-700 cursor-pointer">
+                                Reassign if already assigned
+                            </label>
+                        </div>
+
+                        {/* Submit Button */}
+                        <button
+                            type="submit"
+                            className="px-6 py-3 bg-[#016E5B] text-white rounded-md hover:bg-[#014C3F] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                            disabled={isSubmitting || selectedAssessments.length === 0 || assignedTo.length === 0 || !days}
+                        >
+                            <FaPlus />
+                            {isSubmitting ? 'Assigning...' : 'Assign Assessment'}
+                        </button>
+
+                        {error && (
+                            <div className="text-red-500 text-sm">{error}</div>
+                        )}
+                    </form>
                 </div>
             </div>
         </div>

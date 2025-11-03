@@ -1,4 +1,12 @@
-import { useState } from "react";
+/**
+ * Home Bar Chart Component
+ * 
+ * Displays progress bar chart for training and assessment completion by branch
+ * Allows toggling between Training and Assessment views
+ * 
+ * @returns {JSX.Element} - Bar chart component or loading/empty state
+ */
+import { useState, useMemo } from "react";
 import {
     BarChart,
     Bar,
@@ -11,106 +19,216 @@ import {
 } from "recharts";
 import { useGetHomeProgressQuery } from "../../features/dashboard/dashboardApi";
 
-const HomeBar = () => {
-    const [change, setChange] = useState(false); // Toggle between Assessment and Training
-    
-    // Use RTK Query for automatic caching and loading
-    const { data: responseData, isLoading: loading } = useGetHomeProgressQuery();
-    const allData = responseData?.data || [];
+/**
+ * Chart dimensions and styling constants
+ */
+const CHART_CONFIG = {
+    width: 600,
+    height: 400,
+    marginLeft: { mobile: 40, desktop: 150 },
+    barSize: {
+        small: 40,
+        large: 20,
+        threshold: 10,
+    },
+};
 
-    // Process data for recharts
-    const chartData = allData.map((obj) => {
-        const totalTraining = obj.completeTraining + obj.pendingTraining;
-        const totalAssessment = obj.completeAssessment + obj.pendingAssessment;
+/**
+ * Color constants
+ */
+const COLORS = {
+    completed: '#016E5B',
+    pending: '#E0E0E0',
+    toggle: '#2E7D32',
+    toggleHover: '#287468',
+};
 
-        // Calculate percentages for Training (using total for Training only)
-        const completedTraining = totalTraining ? (obj.completeTraining / totalTraining) * 100 : 0;
-        const pendingTraining = totalTraining ? (obj.pendingTraining / totalTraining) * 100 : 0;
+/**
+ * Toggle options
+ */
+const TOGGLE_OPTIONS = {
+    ASSESSMENT: 'assessment',
+    TRAINING: 'training',
+};
 
-        // Calculate percentages for Assessment (using total for Assessment only)
-        const completedAssessment = totalAssessment ? (obj.completeAssessment / totalAssessment) * 100 : 0;
-        const pendingAssessment = totalAssessment ? (obj.pendingAssessment / totalAssessment) * 100 : 0;
+/**
+ * Calculates percentage from parts and total
+ * 
+ * @param {number} part - Partial value
+ * @param {number} total - Total value
+ * @returns {number} - Percentage (0-100)
+ */
+const calculatePercentage = (part, total) => {
+    if (!total || total === 0) return 0;
+    return (part / total) * 100;
+};
+
+/**
+ * Formats percentage to 2 decimal places
+ * 
+ * @param {number} value - Percentage value
+ * @returns {string} - Formatted percentage string
+ */
+const formatPercentage = (value) => {
+    return value.toFixed(2);
+};
+
+/**
+ * Processes raw data for chart display
+ * 
+ * @param {Array} rawData - Raw data from API
+ * @param {boolean} isAssessment - Whether showing assessment view
+ * @returns {Array} - Processed chart data
+ */
+const processChartData = (rawData, isAssessment) => {
+    return rawData.map((item) => {
+        const totalTraining = item.completeTraining + item.pendingTraining;
+        const totalAssessment = item.completeAssessment + item.pendingAssessment;
+
+        const completedTraining = calculatePercentage(item.completeTraining, totalTraining);
+        const pendingTraining = calculatePercentage(item.pendingTraining, totalTraining);
+        const completedAssessment = calculatePercentage(item.completeAssessment, totalAssessment);
+        const pendingAssessment = calculatePercentage(item.pendingAssessment, totalAssessment);
 
         return {
-            name: obj.locCode,
-            Completed: change ? completedAssessment : completedTraining,
-            Pending: change ? pendingAssessment : pendingTraining,
-            customTooltipText: change
-                ? `Branch: ${obj.branchName}\nCompleted: ${completedAssessment.toFixed(2)}%\nPending: ${pendingAssessment.toFixed(2)}%`
-                : `Branch: ${obj.branchName}\nCompleted: ${completedTraining.toFixed(2)}%\nPending: ${pendingTraining.toFixed(2)}%`,
+            name: item.locCode,
+            Completed: isAssessment ? completedAssessment : completedTraining,
+            Pending: isAssessment ? pendingAssessment : pendingTraining,
+            customTooltipText: isAssessment
+                ? `Branch: ${item.branchName}\nCompleted: ${formatPercentage(completedAssessment)}%\nPending: ${formatPercentage(pendingAssessment)}%`
+                : `Branch: ${item.branchName}\nCompleted: ${formatPercentage(completedTraining)}%\nPending: ${formatPercentage(pendingTraining)}%`,
         };
     });
+};
 
-    // Tooltip Formatter
-    const CustomTooltip = ({ active, payload }) => {
-        if (active && payload && payload.length) {
-            const { customTooltipText } = payload[0].payload;
-            return (
-                <div className="p-3 bg-white border border-gray-200 rounded-lg shadow-lg">
-                    <p className="text-sm text-gray-700 whitespace-pre-line">{customTooltipText}</p>
-                </div>
-            );
-        }
+/**
+ * Custom tooltip component for chart
+ * 
+ * @param {Object} props - Tooltip props from recharts
+ * @param {boolean} props.active - Whether tooltip is active
+ * @param {Array} props.payload - Tooltip payload data
+ * @returns {JSX.Element|null} - Tooltip component or null
+ */
+const CustomTooltip = ({ active, payload }) => {
+    if (!active || !payload || payload.length === 0) {
         return null;
+    }
+
+    const { customTooltipText } = payload[0].payload;
+
+    return (
+        <div className="p-3 bg-white border border-gray-200 rounded-lg shadow-lg">
+            <p className="text-sm text-gray-700 whitespace-pre-line">
+                {customTooltipText}
+            </p>
+        </div>
+    );
+};
+
+/**
+ * Empty state component
+ */
+const EmptyState = () => (
+    <div className="md:ml-[150px] ml-10 w-[600px] h-[400px]">
+        <div className="w-full h-full border border-gray-300 rounded-xl shadow-lg flex items-center justify-center">
+            <p className="text-gray-500">No data available for chart</p>
+        </div>
+    </div>
+);
+
+/**
+ * Loading skeleton component
+ */
+const LoadingSkeleton = () => (
+    <div className="md:ml-[150px] ml-10 w-[600px] h-[400px]">
+        <div
+            role="status"
+            className="flex items-center justify-center w-full h-full shadow-xl bg-slate-100 rounded-lg animate-pulse"
+            aria-label="Loading chart data"
+        >
+            <span className="sr-only">Loading...</span>
+        </div>
+    </div>
+);
+
+/**
+ * Home Bar Chart Component
+ */
+const HomeBar = () => {
+    const [isShowingAssessment, setIsShowingAssessment] = useState(false);
+
+    // Fetch data using RTK Query
+    const { data: responseData, isLoading } = useGetHomeProgressQuery();
+    const rawData = responseData?.data || [];
+
+    /**
+     * Handles toggle between Assessment and Training views
+     */
+    const handleToggle = () => {
+        setIsShowingAssessment((prev) => !prev);
     };
-    
-    // Handle empty data
-    if (!loading && chartData.length === 0) {
-        return (
-            <div>
-                <div className="md:ml-[150px] ml-10 w-[600px] h-[400px]">
-                    <div className="w-full h-full border border-gray-300 rounded-xl shadow-lg flex items-center justify-center">
-                        <p className="text-gray-500">No data available for chart</p>
-                    </div>
-                </div>
-            </div>
-        );
+
+    /**
+     * Processed chart data using useMemo for performance
+     */
+    const chartData = useMemo(() => {
+        return processChartData(rawData, isShowingAssessment);
+    }, [rawData, isShowingAssessment]);
+
+    /**
+     * Determines bar size based on data length
+     */
+    const barSize = rawData.length < CHART_CONFIG.barSize.threshold
+        ? CHART_CONFIG.barSize.small
+        : CHART_CONFIG.barSize.large;
+
+    // Loading state
+    if (isLoading) {
+        return <LoadingSkeleton />;
+    }
+
+    // Empty state
+    if (chartData.length === 0) {
+        return <EmptyState />;
     }
 
     return (
-        <>
-            {loading ? (
-                <div>
-                    <div role="status" className="flex items-center justify-center md:ml-[150px] ml-10 w-[600px] h-[400px] shadow-xl bg-slate-100 rounded-lg animate-pulse d">
-                        <span className="sr-only">Loading...</span>
+        <div className="md:ml-[150px] ml-10 w-[600px] h-[400px]">
+            <div className="w-full h-full border border-gray-300 rounded-xl shadow-lg">
+                {/* Toggle Controls */}
+                <div className="flex justify-end mt-3 mx-3 text-[#2E7D32]">
+                    <div className="flex gap-2 items-center">
+                        <label htmlFor="view-toggle">Assessment</label>
+                        <input
+                            id="view-toggle"
+                            type="checkbox"
+                            className="toggle border-blue-500 bg-[#016E5B] [--tglbg:white] hover:bg-[#287468]"
+                            onClick={handleToggle}
+                            defaultChecked={!isShowingAssessment}
+                            aria-label="Toggle between Assessment and Training view"
+                        />
+                        <label htmlFor="view-toggle">Training</label>
                     </div>
                 </div>
-            ) : (
-                <div>
-                    <div className="md:ml-[150px] ml-10 w-[600px] h-[400px]">
-                        <div className="w-full h-full border border-gray-300 rounded-xl shadow-lg">
-                            <div className="flex justify-end mt-3 mx-3 text-[#2E7D32]">
-                                <div className="flex gap-2 items-center">
-                                    <label>Assessment</label>
-                                    <input
-                                        type="checkbox"
-                                        className="toggle border-blue-500 bg-[#016E5B] [--tglbg:white] hover:bg-[#287468]"
-                                        onClick={() => setChange((prev) => !prev)}
-                                        defaultChecked
-                                    />
-                                    <label>Training</label>
-                                </div>
-                            </div>
-                            <ResponsiveContainer width="100%" height="95%">
-                                <BarChart
-                                    data={chartData}
-                                    margin={{ top: 20, right: 30, left: 20, bottom: 30 }}
-                                    barSize={allData?.length < 10 ? 40 : 20}
-                                >
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis dataKey="name" />
-                                    <YAxis tickFormatter={(value) => `${value}%`} />
-                                    <Tooltip content={<CustomTooltip />} />
-                                    <Legend layout="horizontal" verticalAlign="bottom" align="center" />
-                                    <Bar dataKey="Completed" stackId="a" fill="#016E5B" />
-                                    <Bar dataKey="Pending" stackId="a" fill="#E0E0E0" />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </>
+
+                {/* Chart */}
+                <ResponsiveContainer width="100%" height="95%">
+                    <BarChart
+                        data={chartData}
+                        margin={{ top: 20, right: 30, left: 20, bottom: 30 }}
+                        barSize={barSize}
+                    >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis tickFormatter={(value) => `${value}%`} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Legend layout="horizontal" verticalAlign="bottom" align="center" />
+                        <Bar dataKey="Completed" stackId="a" fill={COLORS.completed} />
+                        <Bar dataKey="Pending" stackId="a" fill={COLORS.pending} />
+                    </BarChart>
+                </ResponsiveContainer>
+            </div>
+        </div>
     );
 };
 

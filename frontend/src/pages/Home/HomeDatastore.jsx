@@ -1,11 +1,23 @@
-import Header from "../../components/Header/Header";
-import SideNav from "../../components/SideNav/SideNav";
+/**
+ * Home Data Store Component (Store Admin Dashboard)
+ * 
+ * Dashboard page for store admin users
+ * Displays stat cards, training progress, overdue trainings, top performers, and notifications
+ * 
+ * @param {Object} props - Component props
+ * @param {Object} props.user - Current user object from Redux
+ * @returns {JSX.Element} - Store admin dashboard component
+ */
+import { useMemo } from "react";
+import { Link } from "react-router-dom";
 import { GiProgression } from "react-icons/gi";
 import { HiOutlineBuildingOffice2 } from "react-icons/hi2";
 import { MdOutlinePendingActions } from "react-icons/md";
-import HomeSkeleton from "../../components/Skeleton/HomeSkeleton";
-import { Link } from "react-router-dom";
 import { RiIdCardLine } from "react-icons/ri";
+
+import Header from "../../components/Header/Header";
+import SideNav from "../../components/SideNav/SideNav";
+import HomeSkeleton from "../../components/Skeleton/HomeSkeleton";
 import TopEmployeeAndBranch from "../../components/TopEmployeeAndBranch/TopEmployeeAndBranch";
 import Notification from "../../components/Notification/Notification";
 import TrainingProgress from "../../components/StoreManager/TrainingProgress";
@@ -13,164 +25,197 @@ import OverdueTrainings from "../../components/StoreManager/OverdueTrainings";
 import LMSWebsiteLoginStats from "../../components/LMSWebsiteLoginStats/LMSWebsiteLoginStats";
 import { useGetDashboardProgressQuery, useGetEmployeeCountQuery } from "../../features/dashboard/dashboardApi";
 
+/**
+ * Route path constants
+ */
+const ROUTE_PATHS = {
+    EMPLOYEE: '/employee',
+    TRAINING: '/training',
+    BRANCH: '/branch',
+    OVERDUE_ASSESSMENT: '/admin/overdue/assessment',
+    OVERDUE_TRAINING: '/admin/overdue/training',
+};
 
+/**
+ * Formats user role for display
+ * 
+ * @param {string} role - User role string
+ * @returns {string} - Formatted role string
+ */
+const formatUserRole = (role) => {
+    if (!role) return '';
+    return role.replace('_', ' ');
+};
+
+/**
+ * Rounds percentage value
+ * 
+ * @param {number} value - Percentage value
+ * @returns {number} - Rounded percentage
+ */
+const roundPercentage = (value) => {
+    return Math.round(value || 0);
+};
+
+/**
+ * Stat Card Component
+ */
+const StatCard = ({ icon: Icon, label, value, link, isOverdue = false }) => {
+    const cardClassName = isOverdue
+        ? "lg:w-56 w-48 text-red-600 md:w-52 h-28 relative border-red-600 border-2 rounded-xl shadow-lg flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4"
+        : "lg:w-56 w-48 md:w-52 h-28 relative border-gray-300 border rounded-xl shadow-lg text-black flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4";
+
+    const valueClassName = isOverdue
+        ? "md:text-2xl sm:text-lg font-bold"
+        : "md:text-2xl sm:text-lg font-bold text-[#016E5B]";
+
+    const cardContent = (
+        <div className={cardClassName}>
+            <div className="flex gap-3">
+                <div className="text-xl absolute top-2 right-2 bg-slate-200 h-10 w-10 rounded-full flex items-center justify-center">
+                    <Icon />
+                </div>
+                <div className="flex flex-col absolute top-5 left-2 w-10">
+                    <p className={`text-sm ${isOverdue ? 'text-black' : ''}`}>{label}</p>
+                    <h2 className={valueClassName}>{value}</h2>
+                </div>
+            </div>
+        </div>
+    );
+
+    if (link) {
+        return <Link to={link}>{cardContent}</Link>;
+    }
+
+    return cardContent;
+};
+
+/**
+ * Loading skeleton row
+ */
+const LoadingSkeletons = () => (
+    <div className="flex mb-[70px] gap-3 lg:gap-6 mx-10 lg:mx-15 md:flex-wrap flex-wrap sm:w-full md:gap-9 md:mx-10 md:justify-start mt-10 font-semibold">
+        <HomeSkeleton />
+        <HomeSkeleton />
+        <HomeSkeleton />
+        <HomeSkeleton />
+        <HomeSkeleton />
+    </div>
+);
+
+/**
+ * Home Data Store Component
+ */
 const HomeDatastore = ({ user }) => {
-    // Use RTK Query hooks with parallel fetching and automatic caching
+    // Fetch data using RTK Query
     const { data: progressData, isLoading: progressLoading } = useGetDashboardProgressQuery();
     const { data: employeeData, isLoading: employeeLoading } = useGetEmployeeCountQuery();
-    
-    // Extract data from responses
-    const data = progressData?.data || {};
-    const employeeCount = employeeData?.data?.length || data?.userCount || 0;
-    const loading = progressLoading || employeeLoading;
 
+    // Extract and process data
+    const dashboardData = progressData?.data || {};
+    const employeeCount = employeeData?.data?.length || dashboardData?.userCount || 0;
+    const isLoading = progressLoading || employeeLoading;
 
+    /**
+     * Stat cards configuration
+     */
+    const statCards = useMemo(() => [
+        {
+            id: 'employee',
+            icon: RiIdCardLine,
+            label: 'Total employee',
+            value: employeeCount,
+            link: ROUTE_PATHS.EMPLOYEE,
+        },
+        {
+            id: 'training',
+            icon: GiProgression,
+            label: 'Training progress',
+            value: `${roundPercentage(dashboardData?.averageProgress)}%`,
+            link: ROUTE_PATHS.TRAINING,
+        },
+        {
+            id: 'branch',
+            icon: HiOutlineBuildingOffice2,
+            label: 'Total Branches',
+            value: dashboardData?.branchCount || 0,
+            link: ROUTE_PATHS.BRANCH,
+        },
+        {
+            id: 'overdue-assessment',
+            icon: MdOutlinePendingActions,
+            label: 'Overdue Assessment',
+            value: dashboardData?.assessmentProgress || 0,
+            link: ROUTE_PATHS.OVERDUE_ASSESSMENT,
+            isOverdue: true,
+        },
+        {
+            id: 'overdue-training',
+            icon: MdOutlinePendingActions,
+            label: 'Overdue Training',
+            value: dashboardData?.trainingPending || 0,
+            link: ROUTE_PATHS.OVERDUE_TRAINING,
+            isOverdue: true,
+        },
+    ], [employeeCount, dashboardData]);
 
     return (
-        <div className=" mx-0 mb-[90px]" >
-            <div>
-                <Header name="Dashboard" />
-            </div>
+        <div className="mx-0 mb-[90px]">
+            <Header name="Dashboard" />
+
             <div className="flex">
-                <div>
-                    <SideNav />
-                </div>
-                <div className="md:ml-[100px] mt-[100px] ">
+                <SideNav />
+
+                <div className="md:ml-[100px] mt-[100px]">
+                    {/* Greeting Section */}
                     <div className="ml-12 text-black">
                         <div className="flex items-center gap-3 mt-5 mb-4">
                             <div className="flex items-center gap-2">
                                 <p className="text-lg font-medium text-gray-700">Hello,</p>
                                 <div className="bg-gradient-to-r from-[#016E5B] to-[#01997A] text-white px-4 py-2 rounded-full shadow-lg">
                                     <span className="text-lg font-bold capitalize">
-                                        {!loading && user.role?.replace('_', ' ')}
+                                        {!isLoading && formatUserRole(user?.role)}
                                     </span>
                                 </div>
                             </div>
                         </div>
-                        <p className="text-sm md:text-lg">Your dashboard is ready, Let’s create a productive learning environment!</p>
+                        <p className="text-sm md:text-lg">
+                            Your dashboard is ready, Let's create a productive learning environment!
+                        </p>
                     </div>
                 </div>
             </div>
+
+            {/* Stats Section */}
             <div className="ml-[100px]">
-                {loading && (
+                {isLoading && <LoadingSkeletons />}
+
+                {!isLoading && (
                     <div className="flex mb-[70px] gap-3 lg:gap-6 mx-10 lg:mx-15 md:flex-wrap flex-wrap sm:w-full md:gap-9 md:mx-10 md:justify-start mt-10 font-semibold">
-                        <HomeSkeleton />
-                        <HomeSkeleton />
-                        <HomeSkeleton />
-                        <HomeSkeleton />
-                        <HomeSkeleton />
-                    </div>
-                )}
-                {!loading && (
-                    <div className="">
-                        <div className="flex mb-[70px] gap-3 lg:gap-6 mx-10 lg:mx-15 md:flex-wrap flex-wrap sm:w-full md:gap-9  md:mx-10 md:justify-start mt-10 font-semibold">
-                            <Link to={'/employee'}>
-                                <div className="lg:w-56 w-48 md:w-52 h-28 relative border-gray-300 border rounded-xl shadow-lg text-black flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
-                                    <div className="flex gap-3">
-                                        <div className="text-xl absolute top-2 right-2 bg-slate-200 h-10 w-10 rounded-full flex items-center justify-center">
-                                            <RiIdCardLine />
-                                        </div>
-                                        <div className="flex flex-col absolute top-5 left-2 w-10">
-                                            <p className="text-sm">Total employee</p>
-                                            <h2 className="md:text-2xl sm:text-lg font-bold text-[#016E5B]">
-                                                {employeeCount || data?.userCount || 0}
-                                            </h2>
-                                        </div>
-                                    </div>
-                                </div>
-                            </Link>
-                            <Link to={'/training'}>
-                                <div className="lg:w-56 w-48 md:w-52 h-28 relative border-gray-300 border rounded-xl shadow-lg text-black flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
-                                    <div className="flex gap-3">
-                                        <div className="text-xl absolute top-2 right-2 bg-slate-200 h-10 w-10 rounded-full flex items-center justify-center">
-                                            <GiProgression />
-                                        </div>
-                                        <div className="flex flex-col absolute top-5 left-2 w-10">
-                                            <p className="text-sm">Training progress</p>
-                                            <h2 className="md:text-2xl sm:text-lg font-bold text-[#016E5B]">
-                                                {Math.round(data?.averageProgress)}%
-                                            </h2>
-                                        </div>
-                                    </div>
-                                </div>
-                            </Link>
-                            <Link to={'/branch'}>
-                                <div className="lg:w-56 w-48 md:w-52 h-28 relative border-gray-300 border rounded-xl shadow-lg text-black flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
-                                    <div className="flex gap-3">
-                                        <div className="text-xl absolute top-2 right-2 bg-slate-200 h-10 w-10 rounded-full flex items-center justify-center">
-                                            <HiOutlineBuildingOffice2 />
-                                        </div>
-                                        <div className="flex flex-col absolute top-5 left-2 w-10">
-                                            <p className="text-sm">Total
-                                                Branches</p>
-                                            <h2 className="md:text-2xl sm:text-lg font-bold text-[#016E5B]">
-                                                {data?.branchCount}
-                                            </h2>
-
-                                        </div>
-                                    </div>
-                                </div>
-                            </Link>
-                            <Link to={'/admin/overdue/assessment'}>
-                                <div className="lg:w-56 w-48  text-red-600 md:w-52 h-28 relative border-red-600 border-2 rounded-xl shadow-lg flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
-                                    <div className="flex gap-3">
-                                        <div className="text-xl absolute top-2 right-2 bg-slate-200 h-10 w-10 rounded-full flex items-center justify-center">
-                                            <MdOutlinePendingActions />
-                                        </div>
-                                        <div className="flex flex-col absolute top-5 left-2 w-10">
-                                            <p className="text-sm text-black">Overdue Assessment </p>
-                                            <h2 className="md:text-2xl sm:text-lg font-bold ">
-                                                {data?.assessmentProgress}
-                                            </h2>
-                                        </div>
-                                    </div>
-                                </div>
-                            </Link>
-                            <Link to={'/admin/overdue/training'}>
-                                <div className="lg:w-56 w-48  text-red-600 md:w-52 h-28 relative border-red-600 border-2 rounded-xl shadow-lg flex flex-col justify-center items-center gap-3 cursor-pointer sm:mr-4">
-                                    <div className="flex gap-3">
-                                        <div className="text-xl absolute top-2 right-2 bg-slate-200 h-10 w-10 rounded-full flex items-center justify-center">
-                                            <MdOutlinePendingActions />
-                                        </div>
-                                        <div className="flex flex-col absolute top-5 left-2 w-10">
-                                            <p className="text-sm text-black">Overdue Training</p>
-                                            <h2 className="md:text-2xl sm:text-lg font-bold ">
-                                                {data?.trainingPending}
-                                            </h2>
-
-                                        </div>
-                                    </div>
-                                </div>
-                            </Link>
-                            {/* LMS Website Login Statistics Box */}
-                            <LMSWebsiteLoginStats />
-                        </div>
+                        {statCards.map((card) => (
+                            <StatCard key={card.id} {...card} />
+                        ))}
+                        <LMSWebsiteLoginStats />
                     </div>
                 )}
             </div>
+
+            {/* Charts and Progress Section */}
             <div className="flex flex-wrap gap-10">
                 <div className="ml-[150px]">
                     <TrainingProgress />
                 </div>
-                <div className="h-[360px] w-[600px]  rounded-xl" >
+                <div className="h-[360px] w-[600px] rounded-xl">
                     <TopEmployeeAndBranch />
-
-
                 </div>
-
                 <div className="ml-[150px] mt-[-100px]">
                     <Notification />
                 </div>
-
                 <div className="ml-[-100px] mt-10">
                     <OverdueTrainings />
                 </div>
             </div>
-
-
-
-
-        </div >
+        </div>
     );
 };
 

@@ -1,57 +1,118 @@
-import Header from "../../components/Header/Header";
-import { FaPlus, FaExternalLinkAlt } from "react-icons/fa";
-import { useEffect, useState } from "react";
-import RoundProgressBarAssessment from "../../components/RoundBar/RoundAssessment";
+/**
+ * Assessments Data Component
+ * 
+ * Displays all assessments with completion statistics
+ * Supports creating new assessments, assigning assessments, and managing Google Forms
+ * 
+ * @returns {JSX.Element} - Assessments data component
+ */
+import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
-import baseUrl from "../../api/api";
-import SideNav from "../../components/SideNav/SideNav";
-import GoogleFormManager from "../../components/GoogleFormManager/GoogleFormManager";
+import { FaPlus, FaExternalLinkAlt } from "react-icons/fa";
 
+import Header from "../../components/Header/Header";
+import SideNav from "../../components/SideNav/SideNav";
+import RoundProgressBarAssessment from "../../components/RoundBar/RoundAssessment";
+import GoogleFormManager from "../../components/GoogleFormManager/GoogleFormManager";
+import API_CONFIG from "../../api/api";
+
+/**
+ * API endpoints
+ */
+const API_ENDPOINTS = {
+    GET_ALL_ASSESSMENTS: 'api/user/get/AllAssessment',
+    GET_ACTIVE_GOOGLE_FORM: 'api/google-form/active',
+    DEACTIVATE_GOOGLE_FORM: 'api/google-form/deactivate',
+    UPDATE_GOOGLE_FORM: 'api/google-form',
+};
+
+/**
+ * Route paths
+ */
+const ROUTE_PATHS = {
+    CREATE_ASSESSMENT: '/create/Assessment',
+    ASSIGN_ASSESSMENT: '/assign/Assessment',
+    ASSESSMENT_ASSIGN: (assessmentId) => `/Assessment/Assign/${assessmentId}`,
+};
+
+/**
+ * Retrieves authentication token from localStorage safely
+ * 
+ * @returns {string|null} - Authentication token or null
+ */
+const getAuthToken = () => {
+    try {
+        return localStorage.getItem('token');
+    } catch (error) {
+        console.error('Failed to retrieve auth token:', error);
+        return null;
+    }
+};
+
+/**
+ * Builds authorization headers for API requests
+ * 
+ * @returns {Object} - Headers object
+ */
+const buildAuthHeaders = () => {
+    const token = getAuthToken();
+    return {
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` }),
+    };
+};
+
+/**
+ * Assessments Data Component
+ */
 const AssessmentsData = () => {
-    const [data, setData] = useState([]);
-    const [error, setError] = useState(null); // Error handling
-    const [loading, setLoading] = useState(true); // Loading indicator
+    const [assessments, setAssessments] = useState([]);
+    const [error, setError] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
     const [showGoogleFormManager, setShowGoogleFormManager] = useState(false);
     const [activeGoogleForm, setActiveGoogleForm] = useState(null);
+    const [isTogglingForm, setIsTogglingForm] = useState(false);
 
-    const token = localStorage.getItem('token');
+    /**
+     * Fetches all assessments data
+     */
+    const fetchAssessments = useCallback(async () => {
+        setIsLoading(true);
+        setError(null);
 
-    // Fetch Assessments Data
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const response = await fetch(`${baseUrl.baseUrl}api/user/get/AllAssessment`);
-                if (!response.ok) throw new Error('Failed to fetch data');
-
-                const result = await response.json();
-
-                // Sort data by completionPercentage in descending order
-                const sortedData = result.data.sort(
-                    (a, b) => a.completionPercentage - b.completionPercentage
-                );
-
-                setData(sortedData);
-                console.log(sortedData);
-
-            } catch (error) {
-                console.error('Error fetching data:', error);
-                setError('Failed to load assessments'); // Set error state
-            } finally {
-                setLoading(false); // Stop loading indicator
+        try {
+            const response = await fetch(`${API_CONFIG.baseUrl}${API_ENDPOINTS.GET_ALL_ASSESSMENTS}`);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
-        };
 
-        fetchData();
-        fetchActiveGoogleForm();
+            const result = await response.json();
+            
+            // Sort data by completionPercentage in ascending order
+            const sortedData = (result.data || []).sort(
+                (a, b) => (a.completionPercentage || 0) - (b.completionPercentage || 0)
+            );
+
+            setAssessments(sortedData);
+        } catch (error) {
+            console.error('Error fetching assessments:', error);
+            setError('Failed to load assessments');
+        } finally {
+            setIsLoading(false);
+        }
     }, []);
 
-    // Fetch Active Google Form Link
-    const fetchActiveGoogleForm = async () => {
+    /**
+     * Fetches active Google Form data
+     */
+    const fetchActiveGoogleForm = useCallback(async () => {
+        const token = getAuthToken();
+        if (!token) return;
+
         try {
-            const response = await fetch(`${baseUrl.baseUrl}api/google-form/active`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
+            const response = await fetch(`${API_CONFIG.baseUrl}${API_ENDPOINTS.GET_ACTIVE_GOOGLE_FORM}`, {
+                headers: buildAuthHeaders(),
             });
 
             if (response.ok) {
@@ -63,86 +124,111 @@ const AssessmentsData = () => {
         } catch (error) {
             console.error('Error fetching active Google Form:', error);
         }
-    };
+    }, []);
 
-    // Toggle Active/Inactive status
-    const handleToggleActive = async () => {
+    /**
+     * Toggles active/inactive status of Google Form
+     */
+    const handleToggleActive = useCallback(async () => {
         if (!activeGoogleForm) return;
+
+        setIsTogglingForm(true);
+        const token = getAuthToken();
 
         try {
             if (activeGoogleForm.isActive) {
                 // Deactivate the form
-                const response = await fetch(`${baseUrl.baseUrl}api/google-form/deactivate`, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                    },
-                });
+                const response = await fetch(
+                    `${API_CONFIG.baseUrl}${API_ENDPOINTS.DEACTIVATE_GOOGLE_FORM}`,
+                    {
+                        method: 'PUT',
+                        headers: buildAuthHeaders(),
+                    }
+                );
 
                 if (response.ok) {
                     const result = await response.json();
                     if (result.success) {
-                        // Update local state
-                        setActiveGoogleForm(prev => ({
+                        setActiveGoogleForm((prev) => ({
                             ...prev,
-                            isActive: false
+                            isActive: false,
                         }));
                     }
                 }
             } else {
                 // Reactivate the form by updating it
-                const response = await fetch(`${baseUrl.baseUrl}api/google-form`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({
-                        title: activeGoogleForm.title,
-                        url: activeGoogleForm.url,
-                        description: activeGoogleForm.description
-                    }),
-                });
+                const response = await fetch(
+                    `${API_CONFIG.baseUrl}${API_ENDPOINTS.UPDATE_GOOGLE_FORM}`,
+                    {
+                        method: 'POST',
+                        headers: buildAuthHeaders(),
+                        body: JSON.stringify({
+                            title: activeGoogleForm.title,
+                            url: activeGoogleForm.url,
+                            description: activeGoogleForm.description,
+                        }),
+                    }
+                );
 
                 if (response.ok) {
                     const result = await response.json();
                     if (result.success) {
-                        // Update local state
-                        setActiveGoogleForm(prev => ({
+                        setActiveGoogleForm((prev) => ({
                             ...prev,
-                            isActive: true
+                            isActive: true,
                         }));
                     }
                 }
             }
         } catch (error) {
             console.error('Error toggling form status:', error);
+        } finally {
+            setIsTogglingForm(false);
         }
-    };
+    }, [activeGoogleForm]);
+
+    /**
+     * Handles Google Form Manager modal close
+     */
+    const handleGoogleFormManagerClose = useCallback(() => {
+        setShowGoogleFormManager(false);
+        fetchActiveGoogleForm();
+    }, [fetchActiveGoogleForm]);
+
+    useEffect(() => {
+        fetchAssessments();
+        fetchActiveGoogleForm();
+    }, [fetchAssessments, fetchActiveGoogleForm]);
 
     return (
         <div className="w-full h-full bg-white">
-            {/* Header */}
-            <Header name='Assessments' />
+            <Header name="Assessments" />
             <SideNav />
-            {/* Top Bar */}
+
             <div className="md:ml-[100px] mt-[150px]">
+                {/* Top Bar Actions */}
                 <div className="flex md:mx-10 justify-between mt-10">
-                    {/* Create Assessment */}
-                    <Link to={'/create/Assessment'}>
-                        <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer">
-                            <div className="text-[#016E5B]"><FaPlus /></div>
-                            <h4 className="text-black">Create New Assessment</h4>
+                    <Link to={ROUTE_PATHS.CREATE_ASSESSMENT}>
+                        <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer hover:bg-gray-50 transition-colors">
+                            <div className="text-[#016E5B]">
+                                <FaPlus />
+                            </div>
+                            <h4 className="text-black font-medium">Create New Assessment</h4>
                         </div>
                     </Link>
-                    <Link to={'/assign/Assessment'}>
-                        <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer">
-                            <div className="text-[#016E5B]"><FaPlus /></div>
-                            <h4 className="text-black">Assign Assessment</h4>
+                    
+                    <Link to={ROUTE_PATHS.ASSIGN_ASSESSMENT}>
+                        <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer hover:bg-gray-50 transition-colors">
+                            <div className="text-[#016E5B]">
+                                <FaPlus />
+                            </div>
+                            <h4 className="text-black font-medium">Assign Assessment</h4>
                         </div>
                     </Link>
-                    {/* Google Form Management */}
+
+                    {/* Google Form Management Button */}
                     <button
+                        type="button"
                         onClick={() => setShowGoogleFormManager(true)}
                         className="group flex w-56 border-2 border-green-600 justify-evenly items-center py-3 ml-10 cursor-pointer bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 transition-all duration-200 rounded-lg shadow-sm hover:shadow-md transform hover:-translate-y-0.5"
                     >
@@ -157,22 +243,29 @@ const AssessmentsData = () => {
 
                 {/* Assessment Cards */}
                 <div className="mt-10 ml-10 flex flex-wrap gap-3">
-                    {loading ? (
-                        <div>Loading...</div>
+                    {isLoading ? (
+                        <div className="w-full text-center py-8 text-gray-500">Loading assessments...</div>
                     ) : error ? (
-                        <div className="text-red-500">{error}</div>
+                        <div className="w-full text-center py-8 text-red-500">{error}</div>
+                    ) : assessments.length === 0 ? (
+                        <div className="w-full text-center py-8 text-gray-500">
+                            No assessments found. Create your first assessment!
+                        </div>
                     ) : (
-                        data.map((item) => (
-                            <Link to={`/Assessment/Assign/${item?.assessmentId}`} key={item.assessmentId}>
+                        assessments.map((assessment) => (
+                            <Link 
+                                to={ROUTE_PATHS.ASSESSMENT_ASSIGN(assessment?.assessmentId)} 
+                                key={assessment.assessmentId}
+                            >
                                 <div className="mt-5">
                                     <RoundProgressBarAssessment
-                                        initialProgress={item.completionPercentage}
-                                        deadline={`${item?.assessmentdeadline} days`}
-                                        user={item.totalAssigned}
-                                        duration={item.assessmentduration}
-                                        Module={`Number of questions: ${item?.assessment}`}
-                                        title={` ${item?.assessmentName}`}
-                                        complete={`Complete rate ${item.completionPercentage}`}
+                                        initialProgress={assessment.completionPercentage || 0}
+                                        deadline={`${assessment?.assessmentdeadline || 0} days`}
+                                        user={assessment.totalAssigned || 0}
+                                        duration={assessment.assessmentduration || 0}
+                                        Module={`Number of questions: ${assessment?.assessment || 0}`}
+                                        title={assessment?.assessmentName || 'Untitled Assessment'}
+                                        complete={`Complete rate ${assessment.completionPercentage || 0}%`}
                                     />
                                 </div>
                             </Link>
@@ -211,18 +304,26 @@ const AssessmentsData = () => {
                                 <div className="space-y-3">
                                     <div>
                                         <label className="text-sm font-medium text-gray-600">Form Title</label>
-                                        <p className="text-lg font-semibold text-gray-900 mt-1">{activeGoogleForm.title}</p>
+                                        <p className="text-lg font-semibold text-gray-900 mt-1">
+                                            {activeGoogleForm.title || 'Untitled Form'}
+                                        </p>
                                     </div>
                                     <div>
                                         <label className="text-sm font-medium text-gray-600">Description</label>
-                                        <p className="text-gray-700 mt-1">{activeGoogleForm.description}</p>
+                                        <p className="text-gray-700 mt-1">
+                                            {activeGoogleForm.description || 'No description provided'}
+                                        </p>
                                     </div>
                                 </div>
                                 
                                 <div className="space-y-3">
                                     <div>
                                         <label className="text-sm font-medium text-gray-600">Created Date</label>
-                                        <p className="text-gray-700 mt-1">{new Date(activeGoogleForm.createdAt).toLocaleDateString()}</p>
+                                        <p className="text-gray-700 mt-1">
+                                            {activeGoogleForm.createdAt 
+                                                ? new Date(activeGoogleForm.createdAt).toLocaleDateString()
+                                                : 'N/A'}
+                                        </p>
                                     </div>
                                     <div>
                                         <label className="text-sm font-medium text-gray-600">Status</label>
@@ -250,23 +351,26 @@ const AssessmentsData = () => {
                                                 checked={activeGoogleForm.isActive}
                                                 onChange={handleToggleActive}
                                                 className="sr-only peer"
+                                                disabled={isTogglingForm}
                                             />
-                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600 disabled:opacity-50"></div>
                                             <span className="ml-3 text-sm font-medium text-gray-700">
                                                 {activeGoogleForm.isActive ? 'Active' : 'Inactive'}
                                             </span>
                                         </label>
                                     </div>
                                 </div>
-                                <a
-                                    href={activeGoogleForm.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white rounded-xl transition-all duration-200 font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                                >
-                                    <FaExternalLinkAlt className="text-sm" />
-                                    Open Google Form
-                                </a>
+                                {activeGoogleForm.url && (
+                                    <a
+                                        href={activeGoogleForm.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white rounded-xl transition-all duration-200 font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                                    >
+                                        <FaExternalLinkAlt className="text-sm" />
+                                        Open Google Form
+                                    </a>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -275,12 +379,7 @@ const AssessmentsData = () => {
 
             {/* Google Form Manager Modal */}
             {showGoogleFormManager && (
-                <GoogleFormManager 
-                    onClose={() => {
-                        setShowGoogleFormManager(false);
-                        fetchActiveGoogleForm(); // Refresh the active form data
-                    }}
-                />
+                <GoogleFormManager onClose={handleGoogleFormManagerClose} />
             )}
         </div>
     );

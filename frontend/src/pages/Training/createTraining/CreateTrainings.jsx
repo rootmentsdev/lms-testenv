@@ -1,53 +1,49 @@
-// import SideNav from "../../../components/SideNav/SideNav";
-
+/**
+ * Create Trainings Page Component
+ * 
+ * Wrapper component for create trainings page
+ * Handles mobile navigation display
+ * 
+ * @returns {JSX.Element} - Create trainings page component
+ */
 import ModileNav from "../../../components/SideNav/ModileNav";
-
 import CreateTrainingDatas from "./CreateTrainingDatas";
 
-const CreateTrainings = () => {
-    return (
-        <>
-            <div style={styles.container}>
-                {/* <div style={styles.left} className=" hidden lg:block z-50">
-                    <SideNav />
-                </div> */}
-                <div className="md:hidden sm:block">
-                    <ModileNav />
-                </div>
-
-
-                <div style={styles.middle} className="">
-                    < CreateTrainingDatas />
-                </div>
-
-
-
-            </div>
-        </>
-    )
-}
-
-
-const styles = {
+/**
+ * Component styling constants
+ */
+const CONTAINER_STYLES = {
     container: {
         display: "flex",
         width: "100%",
         minHeight: "100vh",
-
-    },
-    left: {
-        // Adjust size
-
-
-
-
-
+        backgroundColor: "white",
+        overflowX: "hidden",
     },
     middle: {
         flex: 1,
-        width: 100
-    }
-
-
+        width: "100%",
+        minHeight: "100vh",
+    },
 };
-export default CreateTrainings
+
+/**
+ * Create Trainings Page Component
+ */
+const CreateTrainings = () => {
+    return (
+        <div style={CONTAINER_STYLES.container} className="bg-white">
+            {/* Mobile Navigation */}
+            <div className="md:hidden sm:block">
+                <ModileNav />
+            </div>
+
+            {/* Main Content */}
+            <div style={CONTAINER_STYLES.middle}>
+                <CreateTrainingDatas />
+            </div>
+        </div>
+    );
+};
+
+export default CreateTrainings;
