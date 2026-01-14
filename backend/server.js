@@ -30,7 +30,7 @@ import Admin from './model/Admin.js';
 
 const app = express();
 setupSwagger(app);
-const port = process.env.PORT || 7000;
+const port = process.env.PORT || 7001;
 
 // ✅ Hardcode the upstream token EXACTLY as provided
 const ROOTMENTS_API_TOKEN = 'RootX-production-9d17d9485eb772e79df8564004d4a4d4';
@@ -45,7 +45,7 @@ app.use(
     origin: function (origin, callback) {
       // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) return callback(null, true);
-      
+
       const allowedOrigins = [
         'https://unicode-mu.vercel.app',
         'https://lms.rootments.live',
@@ -61,12 +61,12 @@ app.use(
         'https://trainingweb-gamma.vercel.app',
         'https://learn.rootments.live'
       ];
-      
+
       // Allow Vercel domains
       if (origin.endsWith('.vercel.app')) {
         return callback(null, true);
       }
-      
+
       if (allowedOrigins.indexOf(origin) !== -1) {
         callback(null, true);
       } else {
@@ -102,7 +102,7 @@ app.get('/debug/database', async (req, res) => {
   try {
     const currentUri = process.env.MONGODB_URI;
     // const fallbackUri = 'mongodb+srv://abhirambca2021_db_user:Root@cluster0.5rf3i8g.mongodb.net/Rootments?retryWrites=true&w=majority&appName=Cluster0';
-    
+
     const connectionState = mongoose.connection.readyState;
     const connectionStates = {
       0: 'disconnected',
@@ -218,18 +218,18 @@ app.post('/api/employee_range/filtered', MiddilWare, async (req, res) => {
     );
 
     let filteredData = data?.data || [];
-    
+
     // Always exclude "No Store" employees for all admins
     filteredData = filteredData.filter(emp => {
-        const storeName = emp?.store_name?.toUpperCase();
-        return !(storeName === 'NO STORE' || !storeName || storeName === '');
+      const storeName = emp?.store_name?.toUpperCase();
+      return !(storeName === 'NO STORE' || !storeName || storeName === '');
     });
-    
+
     // Filter by allowed branches if not global admin
     if (!isGlobalAdmin && allowedLocCodes.length > 0) {
       filteredData = filteredData.filter(emp => {
         const storeName = emp?.store_name?.toUpperCase();
-        
+
         // Store name to locCode mapping
         const storeNameToLocCode = {
           'GROOMS TRIVANDRUM': '5',
@@ -272,13 +272,13 @@ app.post('/api/employee_range/filtered', MiddilWare, async (req, res) => {
           'SUITOR GUY KALPETTA': '20',
           'SUITOR GUY KANNUR': '21'
         };
-        
+
         const mappedLocCode = storeNameToLocCode[storeName];
-        
+
         if (mappedLocCode && allowedLocCodes.includes(mappedLocCode)) {
           return true;
         }
-        
+
         const empLocCode = emp?.store_code || emp?.locCode;
         return allowedLocCodes.includes(empLocCode);
       });
@@ -287,7 +287,7 @@ app.post('/api/employee_range/filtered', MiddilWare, async (req, res) => {
     console.log('↘️  /employee_range/filtered items:',
       `${filteredData.length} (from ${data?.data?.length || 0} total)`
     );
-    
+
     return res.status(200).json({
       status: "success",
       data: filteredData
@@ -352,12 +352,12 @@ app.post('/api/verify_employee', async (req, res) => {
   try {
     console.log('🌐 /api/verify_employee accessed from:', req.headers.origin);
     console.log('📝 Request headers:', req.headers);
-    
+
     const { employeeId, password } = req.body || {};
     if (!employeeId || !password) {
-      return res.status(400).json({ 
-        status: 'fail', 
-        message: 'employeeId and password are required' 
+      return res.status(400).json({
+        status: 'fail',
+        message: 'employeeId and password are required'
       });
     }
     console.log('↗️  /api/verify_employee', { employeeId });
@@ -395,11 +395,11 @@ app.post('/api/verify_employee', async (req, res) => {
 app.post('/api/video_progress', async (req, res) => {
   try {
     const { userId, trainingId, moduleId, videoId, watchTime, totalDuration, watchPercentage } = req.body || {};
-    
+
     if (!userId || !trainingId || !moduleId || !videoId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'userId, trainingId, moduleId, and videoId are required' 
+      return res.status(400).json({
+        success: false,
+        message: 'userId, trainingId, moduleId, and videoId are required'
       });
     }
 
@@ -409,39 +409,39 @@ app.post('/api/video_progress', async (req, res) => {
     const { default: TrainingProgress } = await import('./model/Trainingprocessschema.js');
 
     // Find the training progress
-    const trainingProgress = await TrainingProgress.findOne({ 
-      userId, 
-      trainingId 
+    const trainingProgress = await TrainingProgress.findOne({
+      userId,
+      trainingId
     });
 
     if (!trainingProgress) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: "Training progress not found for this user and training" 
+        message: "Training progress not found for this user and training"
       });
     }
 
     // Find the module in the training progress
-    const module = trainingProgress.modules.find(mod => 
+    const module = trainingProgress.modules.find(mod =>
       mod.moduleId.toString() === moduleId
     );
 
     if (!module) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: "Module not found in this training progress" 
+        message: "Module not found in this training progress"
       });
     }
 
     // Find the video in the module
-    const video = module.videos.find(v => 
+    const video = module.videos.find(v =>
       v.videoId.toString() === videoId
     );
 
     if (!video) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: "Video not found in this module" 
+        message: "Video not found in this module"
       });
     }
 
@@ -474,10 +474,10 @@ app.post('/api/video_progress', async (req, res) => {
 
   } catch (err) {
     console.error('❌ /api/video_progress error:', err);
-    return res.status(500).json({ 
+    return res.status(500).json({
       success: false,
       message: 'Failed to update video progress',
-      error: err.message 
+      error: err.message
     });
   }
 });
@@ -521,10 +521,10 @@ cron.schedule("30 18 * * *", async () => {
 connectMongoDB().then(() => {
   app.listen(port, () => {
     console.log(`✅ Server running on port ${port}`);
-    
+
     // Start the employee auto-sync scheduler
     startEmployeeAutoSync();
-    
+
     // Start existing notification cron job
     AlertNotification();
   });
@@ -535,6 +535,6 @@ connectMongoDB().then(() => {
 
 
 
-  
+
 });
 
