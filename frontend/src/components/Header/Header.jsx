@@ -3,7 +3,7 @@ import { GoBell } from "react-icons/go";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { useState, useEffect } from "react";
-import baseUrl from "../../api/api.js";
+import baseUrl, { setToken, getToken } from "../../api/api.js";
 import { IoPersonCircleSharp } from "react-icons/io5";
 import LogoutConfirmation from "../LogoutConfirmation/LogoutConfirmation";
 import { logout } from "../../features/auth/authSlice";
@@ -21,7 +21,7 @@ const Header = () => {
 
     const [isSearching, setIsSearching] = useState(false);
     const user = useSelector((state) => state.auth.user);
-    const token = localStorage.getItem('token');
+    const token = getToken();
 
     const handleLogoutClick = () => {
         setShowLogoutConfirmation(true);
@@ -29,6 +29,7 @@ const Header = () => {
 
     const handleLogoutConfirm = () => {
         localStorage.removeItem('token');
+        setToken(null);
         dispatch(logout());
         navigate('/login');
     };

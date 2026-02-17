@@ -45,6 +45,7 @@ import { setUser } from './features/auth/authSlice.js';
 // Custom Components
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
+import DashboardShell from './components/DashboardShell/DashboardShell';
 
 import baseUrl from './api/api';
 import { useDispatch } from 'react-redux';
@@ -61,6 +62,7 @@ function App() {
     if (!token) {
       navigate('/login');
     } else {
+      import('./pages/Home/Home');
       const verifyToken = async () => {
         try {
           console.log('Verifying token:', token ? 'Token exists' : 'No token');
@@ -106,58 +108,62 @@ function App() {
     }
   }, [dispatch, navigate]);
 
+  const pageLoaderFallback = (
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+      <HashLoader color="#016E5B" size={50} />
+    </div>
+  );
+
   return (
     <>
-      <Suspense fallback={<div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
-        <HashLoader color="#016E5B" size={50} />
-      </div>}>
-        <Routes>
-          {/* Public Route */}
-          <Route
-            path="/login"
-            element={
-              <PublicRoute>
+      <Routes>
+        {/* Public Route */}
+        <Route
+          path="/login"
+          element={
+            <PublicRoute>
+              <Suspense fallback={pageLoaderFallback}>
                 <Login />
-              </PublicRoute>
-            }
-          />
+              </Suspense>
+            </PublicRoute>
+          }
+        />
 
-          {/* Protected Routes */}
-          <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-          <Route path="/assessments" element={<ProtectedRoute><Assessments /></ProtectedRoute>} />
+        {/* Protected Routes */}
+          <Route path="/" element={<ProtectedRoute><Suspense fallback={<DashboardShell />}><Home /></Suspense></ProtectedRoute>} />
+          <Route path="/assessments" element={<ProtectedRoute><Suspense fallback={pageLoaderFallback}><Assessments /></Suspense></ProtectedRoute>} />
 
-          <Route path="/branch" element={<ProtectedRoute><Branch /></ProtectedRoute>} />
-          <Route path="/Addbranch" element={<ProtectedRoute><AddBranch /></ProtectedRoute>} />
+          <Route path="/branch" element={<ProtectedRoute><Suspense fallback={pageLoaderFallback}><Branch /></Suspense></ProtectedRoute>} />
+          <Route path="/Addbranch" element={<ProtectedRoute><Suspense fallback={pageLoaderFallback}><AddBranch /></Suspense></ProtectedRoute>} />
 
-          <Route path="/employee" element={<ProtectedRoute><Employee /></ProtectedRoute>} />
-          <Route path="/module" element={<ProtectedRoute><Module /></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><Setting /></ProtectedRoute>} />
-          <Route path="/alltraining" element={<ProtectedRoute><Training /></ProtectedRoute>} />
-          <Route path="/training" element={<ProtectedRoute><CreateTraining /></ProtectedRoute>} />
-          <Route path="/assigdata" element={<ProtectedRoute><AssignedTrainings /></ProtectedRoute>} />
-          <Route path="/assigtraining/:id" element={<ProtectedRoute><AssingOrdelete /></ProtectedRoute>} />
-          <Route path="/createmodule" element={<ProtectedRoute><CreateModule /></ProtectedRoute>} />
-          <Route path="/createnewtraining" element={<ProtectedRoute><CreateTrainings /></ProtectedRoute>} />
-          <Route path="/reassign/:id" element={<ProtectedRoute><Reassign /></ProtectedRoute>} />
-          <Route path="/create/mandatorytraining" element={<ProtectedRoute><MandatoryTraining /></ProtectedRoute>} />
-          <Route path="/trainingdetails/:id" element={<ProtectedRoute><UserTrainingProgress /></ProtectedRoute>} />
-          <Route path="/create/assessment" element={<ProtectedRoute><CreateAssessment /></ProtectedRoute>} />
-          <Route path="/assessment/assign/:id" element={<ProtectedRoute><AssessmentsAssign /></ProtectedRoute>} />
-          <Route path="/assign/assessment" element={<ProtectedRoute><AssignAssessment /></ProtectedRoute>} />
+          <Route path="/employee" element={<ProtectedRoute><Suspense fallback={pageLoaderFallback}><Employee /></Suspense></ProtectedRoute>} />
+          <Route path="/module" element={<ProtectedRoute><Suspense fallback={pageLoaderFallback}><Module /></Suspense></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><Suspense fallback={pageLoaderFallback}><Setting /></Suspense></ProtectedRoute>} />
+          <Route path="/alltraining" element={<ProtectedRoute><Suspense fallback={pageLoaderFallback}><Training /></Suspense></ProtectedRoute>} />
+          <Route path="/training" element={<ProtectedRoute><Suspense fallback={pageLoaderFallback}><CreateTraining /></Suspense></ProtectedRoute>} />
+          <Route path="/assigdata" element={<ProtectedRoute><Suspense fallback={pageLoaderFallback}><AssignedTrainings /></Suspense></ProtectedRoute>} />
+          <Route path="/assigtraining/:id" element={<ProtectedRoute><Suspense fallback={pageLoaderFallback}><AssingOrdelete /></Suspense></ProtectedRoute>} />
+          <Route path="/createmodule" element={<ProtectedRoute><Suspense fallback={pageLoaderFallback}><CreateModule /></Suspense></ProtectedRoute>} />
+          <Route path="/createnewtraining" element={<ProtectedRoute><Suspense fallback={pageLoaderFallback}><CreateTrainings /></Suspense></ProtectedRoute>} />
+          <Route path="/reassign/:id" element={<ProtectedRoute><Suspense fallback={pageLoaderFallback}><Reassign /></Suspense></ProtectedRoute>} />
+          <Route path="/create/mandatorytraining" element={<ProtectedRoute><Suspense fallback={pageLoaderFallback}><MandatoryTraining /></Suspense></ProtectedRoute>} />
+          <Route path="/trainingdetails/:id" element={<ProtectedRoute><Suspense fallback={pageLoaderFallback}><UserTrainingProgress /></Suspense></ProtectedRoute>} />
+          <Route path="/create/assessment" element={<ProtectedRoute><Suspense fallback={pageLoaderFallback}><CreateAssessment /></Suspense></ProtectedRoute>} />
+          <Route path="/assessment/assign/:id" element={<ProtectedRoute><Suspense fallback={pageLoaderFallback}><AssessmentsAssign /></Suspense></ProtectedRoute>} />
+          <Route path="/assign/assessment" element={<ProtectedRoute><Suspense fallback={pageLoaderFallback}><AssignAssessment /></Suspense></ProtectedRoute>} />
           {/* Test route removed - no longer needed */}
-          <Route path="/admin/Notification" element={<ProtectedRoute>< Notifications /></ProtectedRoute>} />
+          <Route path="/admin/Notification" element={<ProtectedRoute><Suspense fallback={pageLoaderFallback}><Notifications /></Suspense></ProtectedRoute>} />
 
-          <Route path="/admin/overdue/assessment" element={<ProtectedRoute>< AssessmentOverDuedata /></ProtectedRoute>} />
-          <Route path="/admin/overdue/training" element={<ProtectedRoute>< TraningOverDuedata /></ProtectedRoute>} />
-          <Route path="/detailed/:id" element={<ProtectedRoute>< EmployeeDetaile /></ProtectedRoute>} />
+          <Route path="/admin/overdue/assessment" element={<ProtectedRoute><Suspense fallback={pageLoaderFallback}><AssessmentOverDuedata /></Suspense></ProtectedRoute>} />
+          <Route path="/admin/overdue/training" element={<ProtectedRoute><Suspense fallback={pageLoaderFallback}><TraningOverDuedata /></Suspense></ProtectedRoute>} />
+          <Route path="/detailed/:id" element={<ProtectedRoute><Suspense fallback={pageLoaderFallback}><EmployeeDetaile /></Suspense></ProtectedRoute>} />
 
-          <Route path="/branch/detailed/:id" element={<ProtectedRoute>< BranchDetails /></ProtectedRoute>} />
-          <Route path="/admin/profile" element={<ProtectedRoute>< Profile /></ProtectedRoute>} />
-          <Route path="/admin/login-analytics" element={<ProtectedRoute>< LoginAnalytics /></ProtectedRoute>} />
+          <Route path="/branch/detailed/:id" element={<ProtectedRoute><Suspense fallback={pageLoaderFallback}><BranchDetails /></Suspense></ProtectedRoute>} />
+          <Route path="/admin/profile" element={<ProtectedRoute><Suspense fallback={pageLoaderFallback}><Profile /></Suspense></ProtectedRoute>} />
+          <Route path="/admin/login-analytics" element={<ProtectedRoute><Suspense fallback={pageLoaderFallback}><LoginAnalytics /></Suspense></ProtectedRoute>} />
           {/* APITest route removed - no longer needed */}
 
         </Routes>
-      </Suspense>
       <ToastContainer />
     </>
   );

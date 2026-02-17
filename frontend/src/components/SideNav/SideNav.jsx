@@ -8,6 +8,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { useState } from "react";
 import LogoutConfirmation from "../LogoutConfirmation/LogoutConfirmation";
 import { logout } from "../../features/auth/authSlice";
+import { setToken } from "../../api/api";
 
 
 const SideNav = () => {
@@ -23,6 +24,7 @@ const SideNav = () => {
     const handleLogoutConfirm = () => {
         // Remove token from localStorage
         localStorage.removeItem('token');
+        setToken(null);
         // Dispatch logout action to clear Redux state
         dispatch(logout());
         // Redirect to login page

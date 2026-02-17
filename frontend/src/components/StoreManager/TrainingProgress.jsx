@@ -1,3 +1,4 @@
+import React from 'react';
 import { PieChart, Pie, Cell } from 'recharts';
 import { useGetStoreManagerDataQuery } from '../../features/dashboard/dashboardApi';
 
@@ -81,4 +82,4 @@ const TrainingProgress = () => {
     );
 };
 
-export default TrainingProgress;
+export default React.memo(TrainingProgress);

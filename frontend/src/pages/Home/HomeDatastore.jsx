@@ -11,6 +11,7 @@ import Notification from "../../components/Notification/Notification";
 import TrainingProgress from "../../components/StoreManager/TrainingProgress";
 import OverdueTrainings from "../../components/StoreManager/OverdueTrainings";
 import LMSWebsiteLoginStats from "../../components/LMSWebsiteLoginStats/LMSWebsiteLoginStats";
+import DeferredMount from "../../components/DeferredMount/DeferredMount";
 import { useGetDashboardProgressQuery, useGetEmployeeCountQuery } from "../../features/dashboard/dashboardApi";
 
 
@@ -22,7 +23,12 @@ const HomeDatastore = ({ user }) => {
     // Extract data from responses
     const data = progressData?.data || {};
     const employeeCount = employeeData?.data?.length || data?.userCount || 0;
-    const loading = progressLoading || employeeLoading;
+    const loading = progressLoading && employeeLoading;
+    const employeeCountDisplay = employeeData?.data?.length ?? data?.userCount ?? null;
+    const averageProgressDisplay = (data?.averageProgress != null && !Number.isNaN(Number(data.averageProgress))) ? Math.round(Number(data.averageProgress)) : null;
+    const branchCountDisplay = data?.branchCount ?? null;
+    const assessmentProgressDisplay = data?.assessmentProgress ?? null;
+    const trainingPendingDisplay = data?.trainingPending ?? null;
 
 
 
@@ -72,8 +78,8 @@ const HomeDatastore = ({ user }) => {
                                         </div>
                                         <div className="flex flex-col absolute top-5 left-2 w-10">
                                             <p className="text-sm">Total employee</p>
-                                            <h2 className="md:text-2xl sm:text-lg font-bold text-[#016E5B]">
-                                                {employeeCount || data?.userCount || 0}
+                                            <h2 className="md:text-2xl sm:text-lg font-bold text-[#016E5B] min-h-[1.75rem]">
+                                                {employeeCountDisplay ?? "--"}
                                             </h2>
                                         </div>
                                     </div>
@@ -87,8 +93,8 @@ const HomeDatastore = ({ user }) => {
                                         </div>
                                         <div className="flex flex-col absolute top-5 left-2 w-10">
                                             <p className="text-sm">Training progress</p>
-                                            <h2 className="md:text-2xl sm:text-lg font-bold text-[#016E5B]">
-                                                {Math.round(data?.averageProgress)}%
+                                            <h2 className="md:text-2xl sm:text-lg font-bold text-[#016E5B] min-h-[1.75rem]">
+                                                {averageProgressDisplay != null ? `${averageProgressDisplay}%` : "--"}
                                             </h2>
                                         </div>
                                     </div>
@@ -103,8 +109,8 @@ const HomeDatastore = ({ user }) => {
                                         <div className="flex flex-col absolute top-5 left-2 w-10">
                                             <p className="text-sm">Total
                                                 Branches</p>
-                                            <h2 className="md:text-2xl sm:text-lg font-bold text-[#016E5B]">
-                                                {data?.branchCount}
+                                            <h2 className="md:text-2xl sm:text-lg font-bold text-[#016E5B] min-h-[1.75rem]">
+                                                {branchCountDisplay ?? "--"}
                                             </h2>
 
                                         </div>
@@ -119,8 +125,8 @@ const HomeDatastore = ({ user }) => {
                                         </div>
                                         <div className="flex flex-col absolute top-5 left-2 w-10">
                                             <p className="text-sm text-black">Overdue Assessment </p>
-                                            <h2 className="md:text-2xl sm:text-lg font-bold ">
-                                                {data?.assessmentProgress}
+                                            <h2 className="md:text-2xl sm:text-lg font-bold min-h-[1.75rem]">
+                                                {assessmentProgressDisplay ?? "--"}
                                             </h2>
                                         </div>
                                     </div>
@@ -134,8 +140,8 @@ const HomeDatastore = ({ user }) => {
                                         </div>
                                         <div className="flex flex-col absolute top-5 left-2 w-10">
                                             <p className="text-sm text-black">Overdue Training</p>
-                                            <h2 className="md:text-2xl sm:text-lg font-bold ">
-                                                {data?.trainingPending}
+                                            <h2 className="md:text-2xl sm:text-lg font-bold min-h-[1.75rem]">
+                                                {trainingPendingDisplay ?? "--"}
                                             </h2>
 
                                         </div>
@@ -143,7 +149,7 @@ const HomeDatastore = ({ user }) => {
                                 </div>
                             </Link>
                             {/* LMS Website Login Statistics Box */}
-                            <LMSWebsiteLoginStats />
+                            <DeferredMount><LMSWebsiteLoginStats /></DeferredMount>
                         </div>
                     </div>
                 )}
@@ -159,7 +165,7 @@ const HomeDatastore = ({ user }) => {
                 </div>
 
                 <div className="ml-[150px] mt-[-100px]">
-                    <Notification />
+                    <DeferredMount><Notification /></DeferredMount>
                 </div>
 
                 <div className="ml-[-100px] mt-10">

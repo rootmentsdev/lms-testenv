@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { BiSortAlt2 } from "react-icons/bi";
 import { useSelector } from "react-redux";
 import { useGetBestThreeUsersQuery } from "../../features/dashboard/dashboardApi";
@@ -146,4 +146,4 @@ const TopEmployeeAndBranch = () => {
     );
 };
 
-export default TopEmployeeAndBranch;
+export default React.memo(TopEmployeeAndBranch);

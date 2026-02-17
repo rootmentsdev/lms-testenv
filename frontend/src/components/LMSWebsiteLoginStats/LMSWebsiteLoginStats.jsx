@@ -1,3 +1,4 @@
+import React from "react";
 import { FaGlobe } from "react-icons/fa";
 import { useGetLMSStatsQuery } from "../../features/dashboard/dashboardApi";
 
@@ -42,4 +43,4 @@ const LMSWebsiteLoginStats = () => {
     );
 };
 
-export default LMSWebsiteLoginStats;
+export default React.memo(LMSWebsiteLoginStats);

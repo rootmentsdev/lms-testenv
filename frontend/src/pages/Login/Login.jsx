@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import baseUrl from '../../api/api';
+import baseUrl, { setToken } from '../../api/api';
 import { useDispatch } from 'react-redux';
 import { setUser } from '../../features/auth/authSlice';
+import { store } from '../../store/store';
+import { dashboardApi } from '../../features/dashboard/dashboardApi';
 import { FaEye } from "react-icons/fa";
 import { FaEyeSlash } from "react-icons/fa";
 
@@ -47,9 +49,16 @@ const Login = () => {
         setLoading(true)
         // Store JWT in localStorage
         localStorage.setItem('token', data.token);
+        setToken(data.token);
+
+        // Warm dashboard cache so data is ready when Home mounts
+        store.dispatch(dashboardApi.util.prefetch('getDashboardProgress', undefined, { force: true }));
+        store.dispatch(dashboardApi.util.prefetch('getEmployeeCount', undefined, { force: true }));
 
         // Display success message and redirect
         toast.success('Login successful');
+        const preloadHome = () => import('../Home/Home');
+        preloadHome();
         navigate('/'); // Redirect to the desired route
       } else {
         setLoading(true)

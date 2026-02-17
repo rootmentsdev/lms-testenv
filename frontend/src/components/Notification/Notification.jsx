@@ -1,3 +1,4 @@
+import React from "react";
 import { FaRegBell } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import { useGetNotificationsQuery } from "../../features/dashboard/dashboardApi";
@@ -52,4 +53,4 @@ const Notification = () => {
     );
 };
 
-export default Notification;
+export default React.memo(Notification);

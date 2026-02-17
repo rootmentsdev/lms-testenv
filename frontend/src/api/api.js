@@ -6,6 +6,14 @@ const baseUrl = {
     //  baseUrl: "http://localhost:7000/",
 };
 
+let cachedToken = null;
+
+export const setToken = (token) => {
+  cachedToken = token;
+};
+
+export const getToken = () => cachedToken ?? localStorage.getItem('token');
+
 /**
  * Generic API call function with error handling and CORS fallback
  * @param {string} endpoint - API endpoint (without base URL)
@@ -35,7 +43,7 @@ export const apiCall = async (endpoint, options = {}) => {
   };
 
   // Add auth token if available
-  const token = localStorage.getItem('token');
+  const token = getToken();
   if (token) {
     finalOptions.headers.Authorization = `Bearer ${token}`;
   }

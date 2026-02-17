@@ -1,3 +1,4 @@
+import React from "react";
 import { useGetStoreManagerDueDataQuery } from "../../features/dashboard/dashboardApi";
 
 const OverdueTrainings = () => {
@@ -44,4 +45,4 @@ const OverdueTrainings = () => {
     );
 };
 
-export default OverdueTrainings;
+export default React.memo(OverdueTrainings);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import {
     BarChart,
     Bar,
@@ -114,4 +114,4 @@ const HomeBar = () => {
     );
 };
 
-export default HomeBar;
+export default React.memo(HomeBar);
