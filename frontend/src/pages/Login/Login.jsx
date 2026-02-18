@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import baseUrl, { setToken } from '../../api/api';
@@ -13,14 +13,18 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [EmpId, setEmpId] = useState('');
   const [Open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   // const [user, setUsers] = useState([])
   const dispatch = useDispatch(); // Initialize useDispatch
   const navigate = useNavigate(); // Initialize useNavigate
 
+  // Wake up Render backend on cold start (free tier spins down after inactivity)
+  useEffect(() => {
+    fetch(baseUrl.baseUrl, { method: 'GET' }).catch(() => {});
+  }, []);
 
   const handleSubmit = async (e) => {
-    setLoading(false)
+    setIsSubmitting(true)
     e.preventDefault();
     console.log({ email, EmpId });
 
@@ -46,7 +50,7 @@ const Login = () => {
           userId: data.user?.userId, // Adjust based on the API response structure
           role: data.user?.role,     // Adjust based on the API response structure
         }));
-        setLoading(true)
+        setIsSubmitting(false)
         // Store JWT in localStorage
         localStorage.setItem('token', data.token);
         setToken(data.token);
@@ -61,13 +65,13 @@ const Login = () => {
         preloadHome();
         navigate('/'); // Redirect to the desired route
       } else {
-        setLoading(true)
+        setIsSubmitting(false)
         // Handle non-200 responses
         console.error("Login failed:", data.message);
         toast.error('Login failed: ' + (data.message || 'Unknown error'));
       }
     } catch (error) {
-      setLoading(true)
+      setIsSubmitting(false)
       // Handle fetch or network errors
       console.error('Error during login:', error);
       toast.error('An error occurred during login');
@@ -117,17 +121,22 @@ const Login = () => {
 
           {/* Submit Button */}
           <div className='flex justify-center items-center'>
-            {loading ? <button
-              type="submit"
-              className="w-[50%] bg-[#016E5B] text-white py-2 rounded-lg hover:bg-[#014f42] mt-[50px]"
-            >
-              Login
-            </button> : <p
-              type="submit"
-              className="w-[50%] bg-[#016E5B] text-white text-center py-2 rounded-lg  mt-[50px]"
-            >
-              Loading
-            </p>}
+            {!isSubmitting ? (
+              <button
+                type="submit"
+                className="w-[50%] bg-[#016E5B] text-white py-2 rounded-lg hover:bg-[#014f42] mt-[50px]"
+              >
+                Login
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="w-[50%] bg-[#016E5B] text-white py-2 rounded-lg mt-[50px] opacity-80 cursor-not-allowed"
+              >
+                Signing in...
+              </button>
+            )}
 
           </div>
         </form>
