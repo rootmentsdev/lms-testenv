@@ -23,7 +23,7 @@ const HomeDatastore = ({ user }) => {
     // Extract data from responses
     const data = progressData?.data || {};
     const employeeCount = employeeData?.data?.length || data?.userCount || 0;
-    const loading = progressLoading && employeeLoading;
+    const loading = progressLoading || employeeLoading;
     const employeeCountDisplay = employeeData?.data?.length ?? data?.userCount ?? null;
     const averageProgressDisplay = (data?.averageProgress != null && !Number.isNaN(Number(data.averageProgress))) ? Math.round(Number(data.averageProgress)) : null;
     const branchCountDisplay = data?.branchCount ?? null;

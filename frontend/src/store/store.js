@@ -27,6 +27,7 @@ export const store = configureStore({
             serializableCheck: {
                 ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE'],
             },
+            immutableCheck: false, // Reduces dev-mode lag from state validation
         }).concat(dashboardApi.middleware),
 });
 
