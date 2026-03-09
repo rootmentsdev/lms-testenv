@@ -1,9 +1,9 @@
 const baseUrl = {
-    // Production URL (Render deployment)
-    baseUrl: "https://lms-testenv.onrender.com/",
-    
-    // Development URL (for local development)
-    //  baseUrl: "http://localhost:7000/",
+  // Production URL (Render deployment)
+  // baseUrl: "https://lms-testenv.onrender.com/",
+
+  // Development URL (for local development)
+  baseUrl: "/",
 };
 
 let cachedToken = null;
@@ -22,14 +22,14 @@ export const getToken = () => cachedToken ?? localStorage.getItem('token');
  */
 export const apiCall = async (endpoint, options = {}) => {
   const url = `${baseUrl.baseUrl}${endpoint}`;
-  
+
   // Default options
   const defaultOptions = {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
     },
-    credentials: 'include',
+    credentials: 'same-origin',
   };
 
   // Merge options
@@ -50,41 +50,41 @@ export const apiCall = async (endpoint, options = {}) => {
 
   try {
     console.log(`Making API call to: ${url}`, finalOptions);
-    
+
     const response = await fetch(url, finalOptions);
-    
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
+
     const data = await response.json();
     console.log(`API call successful:`, data);
     return data;
-    
+
   } catch (error) {
     console.error('API call failed:', error);
-    
+
     // Try CORS proxy as fallback for development
     if (process.env.NODE_ENV === 'development') {
       try {
         console.log('Trying CORS proxy...');
         const corsProxyUrl = `https://cors-anywhere.herokuapp.com/${url}`;
         const response = await fetch(corsProxyUrl, finalOptions);
-        
+
         if (!response.ok) {
           throw new Error(`CORS proxy failed: ${response.status}`);
         }
-        
+
         const data = await response.json();
         console.log('CORS proxy successful:', data);
         return data;
-        
+
       } catch (corsError) {
         console.error('CORS proxy also failed:', corsError);
         throw corsError;
       }
     }
-    
+
     throw error;
   }
 };

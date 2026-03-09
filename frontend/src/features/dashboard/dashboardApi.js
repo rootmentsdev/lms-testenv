@@ -12,12 +12,12 @@ const getAuthHeaders = () => {
 
 export const dashboardApi = createApi({
   reducerPath: 'dashboardApi',
-  baseQuery: fetchBaseQuery({ 
+  baseQuery: fetchBaseQuery({
     baseUrl: baseUrl.baseUrl,
-    credentials: 'include',
+    credentials: 'same-origin',
   }),
   tagTypes: ['DashboardData', 'EmployeeCount', 'HomeProgress', 'BestUsers', 'StoreManager', 'Notifications', 'LMSStats'],
-  
+
   endpoints: (builder) => ({
     // Get main dashboard progress data
     getDashboardProgress: builder.query({
@@ -126,10 +126,6 @@ export const dashboardApi = createApi({
         headers: getAuthHeaders(),
       }),
       providesTags: ['LMSStats'],
-      keepUnusedDataFor: 3600,
-      refetchOnMountOrArgChange: false,
-      refetchOnFocus: false,
-      refetchOnReconnect: false,
     }),
   }),
 });
