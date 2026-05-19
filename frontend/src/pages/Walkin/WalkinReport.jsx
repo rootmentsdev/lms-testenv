@@ -65,7 +65,7 @@ const WalkinReport = () => {
     const [formData, setFormData] = useState({
         startDate: new Date().toISOString().split('T')[0],
         endDate: new Date().toISOString().split('T')[0],
-        store: '',
+        store: 'All', // Default to All to prevent blank UI on slow network load
         employee: ''
     });
 
@@ -117,7 +117,8 @@ const WalkinReport = () => {
                         const myStore = branchList[0]?.workingBranch || '';
                         setFormData(prev => ({ ...prev, store: myStore }));
                     } else {
-                        setFormData(prev => ({ ...prev, store: branchList[0]?.workingBranch || '' }));
+                        // Ensure it stays 'All' for cluster/super admins instead of forcing first store
+                        setFormData(prev => ({ ...prev, store: 'All' }));
                     }
                 }
             } catch (err) {
@@ -188,6 +189,7 @@ const WalkinReport = () => {
     // Filter employees dropdown list based on current Store selection to enforce dynamic role rules
     const getEmployeesForSelectedStore = (storeName) => {
         if (!storeName) return [];
+        if (storeName === 'All') return employees;
         const normSelectedStore = locationKey(storeName);
         
         return employees.filter(emp => {
@@ -214,7 +216,7 @@ const WalkinReport = () => {
                 let filtered = json.data || [];
 
                 // Filter by Store
-                if (formData.store) {
+                if (formData.store && formData.store !== 'All') {
                     filtered = filtered.filter(w => locationKey(w.store) === locationKey(formData.store));
                 }
 
@@ -323,6 +325,9 @@ const WalkinReport = () => {
                                     onChange={handleInputChange}
                                     className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 bg-white disabled:bg-gray-50 cursor-pointer font-medium"
                                 >
+                                    {user?.role !== 'store_admin' && (
+                                        <option value="All">All Stores</option>
+                                    )}
                                     {branches.map((b, idx) => (
                                         <option key={idx} value={b.workingBranch}>{b.workingBranch}</option>
                                     ))}
