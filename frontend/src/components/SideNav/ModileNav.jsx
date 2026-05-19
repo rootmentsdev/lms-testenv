@@ -3,6 +3,7 @@ import { MdModelTraining, MdOutlineStoreMallDirectory, MdOutlineAssessment } fro
 // import { IoIosLogOut } from "react-icons/io";
 import { FaRegIdCard } from "react-icons/fa";
 import { IoSettingsOutline } from "react-icons/io5";
+import { IoChatbubblesOutline } from "react-icons/io5";
 import { useSelector } from "react-redux";
 
 const SideNav = () => {
@@ -34,6 +35,14 @@ const SideNav = () => {
                                 d="M5 4h4a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1m0 12h4a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1m10-4h4a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1m0-8h4a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1"
                             />
                         </svg>
+                    </div>
+                </Link>
+
+                {/* Walk-In Section */}
+                <Link to={'/walkin/list'}>
+                    <div className={`flex flex-col items-center space-y-1 transition-all duration-200 
+                        ${isActive('/walkin/list') || isActive('/walkin/report') ? 'text-[#016E5B]' : ''}`}>
+                        <IoChatbubblesOutline className="text-xl" />
                     </div>
                 </Link>
 

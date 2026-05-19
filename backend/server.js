@@ -21,6 +21,7 @@ import Whatsapprouter from './routes/WhatsappRouteZoho.js'
 import EmployeeRouter from './routes/EmployeeRoute.js'
 import DebugRouter from './routes/DebugRoute.js'
 import TrainingRouter from './routes/TrainingRoute.js'
+import WalkinRouter from './routes/WalkinRoute.js'
 
 import { AlertNotification } from './lib/CornJob.js';
 import { startEmployeeAutoSync } from './lib/EmployeeAutoSync.js';
@@ -493,6 +494,7 @@ app.use('/zoho', Whatsapprouter)
 app.use('/api/employee', EmployeeRouter)
 app.use('/api/debug', DebugRouter)
 app.use('/api/training', TrainingRouter)
+app.use('/api/walkin', WalkinRouter)
 
 // User Login Tracking Routes
 import UserLoginRouter from './routes/UserLoginRoute.js';

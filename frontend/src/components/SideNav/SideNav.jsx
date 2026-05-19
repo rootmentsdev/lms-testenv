@@ -5,7 +5,9 @@ import { FaRegIdCard } from "react-icons/fa";
 import { IoSettingsOutline } from "react-icons/io5";
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from "react-redux";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { IoChatbubblesOutline } from "react-icons/io5";
+import { MdKeyboardArrowDown } from "react-icons/md";
 import LogoutConfirmation from "../LogoutConfirmation/LogoutConfirmation";
 import { logout } from "../../features/auth/authSlice";
 
@@ -14,7 +16,18 @@ const SideNav = () => {
     const navigate = useNavigate();
     const dispatch = useDispatch();
     const user = useSelector((state) => state.auth.user);
+    const location = useLocation(); // Get the current route path
     const [showLogoutConfirmation, setShowLogoutConfirmation] = useState(false);
+    
+    const isActive = (path) => location.pathname === path;
+    const isWalkinActive = isActive('/walkin/list') || isActive('/walkin/report');
+    const [isWalkinOpen, setIsWalkinOpen] = useState(isWalkinActive);
+
+    useEffect(() => {
+        if (isWalkinActive) {
+            setIsWalkinOpen(true);
+        }
+    }, [location.pathname, isWalkinActive]);
 
     const handleLogoutClick = () => {
         setShowLogoutConfirmation(true);
@@ -28,10 +41,6 @@ const SideNav = () => {
         // Redirect to login page
         navigate('/login');
     };
-    const location = useLocation(); // Get the current route path
-
-    // Helper function to check if the link is active
-    const isActive = (path) => location.pathname === path;
 
     return (
         <div className="fixed hidden md:flex top-36 z-40 left-5 bg-[#F4F4F4] items-center rounded-2xl  flex-col transition-all md:w-[90px]  group lg:w-[90px] lg:hover:w-64  duration-500">
@@ -59,6 +68,32 @@ const SideNav = () => {
                         <div className="hidden lg:group-hover:block">Dashboard</div>
                     </div>
                 </Link>
+
+                {/* Walk-In Section */}
+                <div className="flex flex-col cursor-pointer">
+                    <div 
+                        className={`flex justify-center lg:justify-start items-center space-x-4 p-2 rounded-lg transition-all duration-500
+                        ${isWalkinActive && !isWalkinOpen ? 'bg-[#016E5B] text-white' : 'hover:bg-[#016E5B] hover:text-white'}`}
+                        onClick={() => setIsWalkinOpen(!isWalkinOpen)}
+                    >
+                        <IoChatbubblesOutline className="text-xl" />
+                        <div className="hidden lg:group-hover:flex flex-1 items-center justify-between">
+                            <span>Walk-In</span>
+                            <MdKeyboardArrowDown className={`transition-transform duration-200 ${isWalkinOpen ? 'rotate-180' : ''}`} />
+                        </div>
+                    </div>
+                    
+                    {isWalkinOpen && (
+                        <div className="hidden lg:group-hover:flex flex-col ml-8 mt-2 space-y-2">
+                            <Link to={'/walkin/list'} className={`text-sm hover:text-[#016E5B] ${isActive('/walkin/list') ? 'text-[#016E5B] font-semibold' : 'text-gray-500'}`}>
+                                Walkin List
+                            </Link>
+                            <Link to={'/walkin/report'} className={`text-sm hover:text-[#016E5B] ${isActive('/walkin/report') ? 'text-[#016E5B] font-semibold' : 'text-gray-500'}`}>
+                                Walkin Report
+                            </Link>
+                        </div>
+                    )}
+                </div>
 
                 {/* Employee Section */}
                 <Link to={'/employee'}>
