@@ -116,9 +116,9 @@ export const saveWalkin = async (req, res) => {
         const trimmedContact = contact.trim();
         const todayStr = date || new Date().toISOString().split('T')[0];
 
-        let walkinRecord = await Walkin.findOne({ contact: trimmedContact });
+        let walkinRecord = await Walkin.findOne({ contact: trimmedContact }).sort({ createdAt: -1 });
 
-        if (walkinRecord) {
+        if (walkinRecord && status !== 'New Walkin') {
             // Update existing record to avoid duplicates
             walkinRecord.repeatCount += 1;
             walkinRecord.customerName = customerName.trim();
@@ -149,7 +149,7 @@ export const saveWalkin = async (req, res) => {
                 subCategory: subCategory ? subCategory.trim() : '-',
                 remarks: remarks ? remarks.trim() : '-',
                 status: status ? status.trim() : 'New Walkin',
-                repeatCount: 1,
+                repeatCount: walkinRecord ? walkinRecord.repeatCount + 1 : 1,
                 date: todayStr
             });
             await newWalkin.save();

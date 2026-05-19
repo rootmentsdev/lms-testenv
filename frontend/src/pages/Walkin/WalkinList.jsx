@@ -52,6 +52,15 @@ const STATUS_OPTIONS = [
     'New Walkin'
 ];
 
+const UPDATE_STATUS_OPTIONS = [
+    'Rentout',
+    'Return',
+    'Trial',
+    'Reissue',
+    'Revisit Booking',
+    'New Walkin'
+];
+
 const WalkinList = () => {
     const user = useSelector((state) => state.auth.user);
     const token = localStorage.getItem('token');
@@ -75,6 +84,7 @@ const WalkinList = () => {
 
     // Customer Exists detection
     const [customerExistsNotification, setCustomerExistsNotification] = useState(false);
+    const [customerData, setCustomerData] = useState(null);
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
@@ -91,7 +101,7 @@ const WalkinList = () => {
         category: '-',
         subCategory: '-',
         remarks: '',
-        status: 'Booked'
+        status: 'New Walkin'
     });
 
     // Fetch walkins dynamically from live API
@@ -241,6 +251,8 @@ const WalkinList = () => {
                 checkCustomer(cleanVal);
             } else {
                 setCustomerExistsNotification(false);
+                setCustomerData(null);
+                setFormData(prev => ({ ...prev, status: 'New Walkin' }));
             }
             return;
         }
@@ -267,14 +279,21 @@ const WalkinList = () => {
             const json = await res.json();
             if (json.success && json.exists) {
                 setCustomerExistsNotification(true);
+                setCustomerData(json.data);
                 // Pre-populate fields automatically
                 setFormData(prev => ({
                     ...prev,
                     customerName: json.data.customerName || prev.customerName,
-                    functionDate: json.data.functionDate || prev.functionDate
+                    functionDate: json.data.functionDate || prev.functionDate,
+                    status: '' // Prompt selection of status
                 }));
             } else {
                 setCustomerExistsNotification(false);
+                setCustomerData(null);
+                setFormData(prev => ({
+                    ...prev,
+                    status: 'New Walkin'
+                }));
             }
         } catch (err) {
             console.error("Error checking customer existence:", err);
@@ -286,6 +305,10 @@ const WalkinList = () => {
         e.preventDefault();
         if (!formData.customerName || !formData.contact || !formData.store) {
             alert('Please fill out all required fields.');
+            return;
+        }
+        if (customerExistsNotification && (!formData.status || formData.status === '')) {
+            alert('Please select a Walk-in Status.');
             return;
         }
 
@@ -327,9 +350,10 @@ const WalkinList = () => {
                     category: '-',
                     subCategory: '-',
                     remarks: '',
-                    status: 'Booked'
+                    status: 'New Walkin'
                 });
                 setCustomerExistsNotification(false);
+                setCustomerData(null);
                 setShowAddView(false);
             } else {
                 alert(`Error: ${json.message}`);
@@ -381,6 +405,7 @@ const WalkinList = () => {
                         <button
                             onClick={() => {
                                 setCustomerExistsNotification(false);
+                                setCustomerData(null);
                                 setShowAddView(false);
                             }}
                             className="flex items-center gap-2 text-gray-500 hover:text-gray-800 font-bold text-sm mb-4 transition-colors bg-transparent border-0 cursor-pointer"
@@ -393,11 +418,6 @@ const WalkinList = () => {
                         {/* Premium White form card matching mockup exactly */}
                         <div className="bg-white rounded-lg border border-gray-150 p-6 sm:p-8 shadow-xs">
                             <form onSubmit={handleFormSubmit} className="space-y-6">
-                                {customerExistsNotification && (
-                                    <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-3 text-xs font-semibold flex items-center gap-2 animate-pulse mb-4">
-                                        ⚠️ Customer already exists in database! Name and Function Date pre-loaded.
-                                    </div>
-                                )}
 
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
@@ -415,8 +435,13 @@ const WalkinList = () => {
                                             value={formData.contact}
                                             onChange={handleInputChange}
                                             onBlur={(e) => checkCustomer(e.target.value)}
-                                            className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 font-semibold"
+                                            className={`w-full border ${customerExistsNotification ? 'border-blue-300 bg-blue-50' : 'border-gray-300 bg-white'} rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 font-semibold`}
                                         />
+                                        {customerExistsNotification && customerData && (
+                                            <span className="text-red-500 text-xs font-bold mt-1 block">
+                                                Existing customer. Repeat today: {customerData.repeatCount || 1}
+                                            </span>
+                                        )}
                                     </div>
 
                                     {/* Customer Name */}
@@ -435,43 +460,76 @@ const WalkinList = () => {
                                         />
                                     </div>
 
-                                    {/* Function Date */}
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">
-                                            Function Date <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                            type="date"
-                                            name="functionDate"
-                                            required
-                                            value={formData.functionDate}
-                                            onChange={handleInputChange}
-                                            className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 font-semibold cursor-pointer"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-
-                                    {/* Store select (shown only for Super Admin and Cluster Manager to define the store map) */}
-                                    {(user?.role === 'super_admin' || user?.role === 'cluster_admin') ? (
+                                    {/* Conditional Column 3: Function Date or Walk-in Status */}
+                                    {!customerExistsNotification ? (
                                         <div>
                                             <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">
-                                                Store <span className="text-red-500">*</span>
+                                                Function Date <span className="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="date"
+                                                name="functionDate"
+                                                required
+                                                value={formData.functionDate}
+                                                onChange={handleInputChange}
+                                                className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 font-semibold cursor-pointer"
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">
+                                                Walk-in Status
                                             </label>
                                             <select
-                                                name="store"
-                                                required
-                                                value={formData.store}
+                                                name="status"
+                                                value={formData.status}
                                                 onChange={handleInputChange}
                                                 className="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 bg-white cursor-pointer font-semibold"
                                             >
-                                                {branches.map((b, idx) => (
-                                                    <option key={idx} value={b.workingBranch}>{b.workingBranch}</option>
+                                                <option value="" disabled>Select status</option>
+                                                {UPDATE_STATUS_OPTIONS.map((opt) => (
+                                                    <option key={opt} value={opt}>{opt}</option>
                                                 ))}
                                             </select>
                                         </div>
-                                    ) : null}
+                                    )}
+
+                                    {/* Conditional Row 2 items for existing customers */}
+                                    {customerExistsNotification && (
+                                        <>
+                                            {/* Remarks */}
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">
+                                                    Remarks
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    name="remarks"
+                                                    placeholder="Enter any remarks"
+                                                    value={formData.remarks}
+                                                    onChange={handleInputChange}
+                                                    className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 font-semibold"
+                                                />
+                                            </div>
+
+                                            {/* Function Date */}
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">
+                                                    Function Date <span className="text-red-500">*</span>
+                                                </label>
+                                                <input
+                                                    type="date"
+                                                    name="functionDate"
+                                                    required
+                                                    value={formData.functionDate}
+                                                    onChange={handleInputChange}
+                                                    className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 font-semibold cursor-pointer"
+                                                />
+                                            </div>
+                                        </>
+                                    )}
+
+
 
                                     {/* Creating as * (Employee Dropdown selector) */}
                                     <div>
@@ -491,89 +549,7 @@ const WalkinList = () => {
                                             ))}
                                         </select>
                                     </div>
-                                </div>
 
-                                {/* Secondary collapse/section for optional fields to preserve database completeness */}
-                                <div className="border-t border-gray-100 pt-6 mt-4">
-                                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Fitting Details (Optional)</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-                                        {/* Date of Visit */}
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">
-                                                Visit Date
-                                            </label>
-                                            <input
-                                                type="date"
-                                                name="date"
-                                                value={formData.date}
-                                                onChange={handleInputChange}
-                                                className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 font-semibold cursor-pointer"
-                                            />
-                                        </div>
-
-                                        {/* Category */}
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">
-                                                Category
-                                            </label>
-                                            <input
-                                                type="text"
-                                                name="category"
-                                                placeholder="e.g. Groom"
-                                                value={formData.category}
-                                                onChange={handleInputChange}
-                                                className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700"
-                                            />
-                                        </div>
-
-                                        {/* Sub Category */}
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">
-                                                Sub Category
-                                            </label>
-                                            <input
-                                                type="text"
-                                                name="subCategory"
-                                                placeholder="e.g. 2PCS Suit"
-                                                value={formData.subCategory}
-                                                onChange={handleInputChange}
-                                                className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700"
-                                            />
-                                        </div>
-
-                                        {/* Status */}
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">
-                                                Status
-                                            </label>
-                                            <select
-                                                name="status"
-                                                value={formData.status}
-                                                onChange={handleInputChange}
-                                                className="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 bg-white cursor-pointer font-semibold"
-                                            >
-                                                {STATUS_OPTIONS.map((opt) => (
-                                                    <option key={opt} value={opt}>{opt}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-
-                                        {/* Remarks */}
-                                        <div className="md:col-span-2">
-                                            <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">
-                                                Remarks
-                                            </label>
-                                            <textarea
-                                                name="remarks"
-                                                rows={1}
-                                                placeholder="Enter fit remarks, style details..."
-                                                value={formData.remarks}
-                                                onChange={handleInputChange}
-                                                className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700"
-                                            />
-                                        </div>
-                                    </div>
                                 </div>
 
                                 {/* Save Button centered matching mockup screenshot exactly */}
