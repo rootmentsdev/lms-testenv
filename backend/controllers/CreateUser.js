@@ -378,53 +378,52 @@ export const GetBranch = async (req, res) => {
       branchesCount: AdminBranch.branches?.length || 0
     });
 
-    // Check if admin has branches
-    if (!AdminBranch.branches || AdminBranch.branches.length === 0) {
-      console.log("⚠️ Admin has no branches assigned");
+    // For super_admin, ALWAYS get all branches regardless of assignment
+    if (AdminBranch.role === 'super_admin') {
+      console.log("🔄 Super admin detected, fetching all branches");
+      const allBranches = await Branch.find({});
       
-      // For super_admin, get all branches
-      if (AdminBranch.role === 'super_admin') {
-        console.log("🔄 Super admin detected, fetching all branches");
-        const allBranches = await Branch.find({});
-        
-        if (allBranches.length === 0) {
-          return res.status(404).json({ 
-            message: "No branches exist in the system",
-            debug: { adminRole: AdminBranch.role }
-          });
-        }
-
-        // Calculate counts for all branches
-        const branchesWithCounts = await Promise.all(allBranches.map(async (branch) => {
-          // Convert branch.locCode to string for consistent matching with User collection
-          // (User collection stores locCode as string, Branch might store as number)
-          const branchLocCode = String(branch.locCode);
-          const userCount = await User.countDocuments({ locCode: branchLocCode });
-          const usersInBranch = await User.find({ locCode: branchLocCode });
-
-          let totalTrainingCount = 0;
-          let totalAssessmentCount = 0;
-          
-          for (let user of usersInBranch) {
-            totalTrainingCount += user.training.length;
-            totalAssessmentCount += user.assignedAssessments.length;
-          }
-
-          return {
-            ...branch.toObject(),
-            userCount,
-            totalTrainingCount,
-            totalAssessmentCount
-          };
-        }));
-
-        console.log("✅ Returning all branches for super_admin:", branchesWithCounts.length);
-        return res.status(200).json({
-          message: "Data found (all branches for super_admin)",
-          data: branchesWithCounts
+      if (allBranches.length === 0) {
+        return res.status(404).json({ 
+          message: "No branches exist in the system",
+          debug: { adminRole: AdminBranch.role }
         });
       }
-      
+
+      // Calculate counts for all branches
+      const branchesWithCounts = await Promise.all(allBranches.map(async (branch) => {
+        // Convert branch.locCode to string for consistent matching with User collection
+        // (User collection stores locCode as string, Branch might store as number)
+        const branchLocCode = String(branch.locCode);
+        const userCount = await User.countDocuments({ locCode: branchLocCode });
+        const usersInBranch = await User.find({ locCode: branchLocCode });
+
+        let totalTrainingCount = 0;
+        let totalAssessmentCount = 0;
+        
+        for (let user of usersInBranch) {
+          totalTrainingCount += user.training.length;
+          totalAssessmentCount += user.assignedAssessments.length;
+        }
+
+        return {
+          ...branch.toObject(),
+          userCount,
+          totalTrainingCount,
+          totalAssessmentCount
+        };
+      }));
+
+      console.log("✅ Returning all branches for super_admin:", branchesWithCounts.length);
+      return res.status(200).json({
+        message: "Data found (all branches for super_admin)",
+        data: branchesWithCounts
+      });
+    }
+
+    // Check if non-super admin has branches
+    if (!AdminBranch.branches || AdminBranch.branches.length === 0) {
+      console.log("⚠️ Admin has no branches assigned");
       return res.status(404).json({ 
         message: "Admin has no branches assigned",
         debug: { adminRole: AdminBranch.role, adminId: AdminId }
