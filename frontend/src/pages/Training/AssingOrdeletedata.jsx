@@ -57,7 +57,7 @@ const AssingOrdeletedata = () => {
         <div className="w-full h-full bg-white">
             <div><Header name='Assign or Delete training' /></div>
             <SideNav />
-            <div className="md:ml-[120px] mt-[100px]">
+            <div className="md:ml-[120px] mt-[104px]">
                 <Link to={'/training'}>
                     <div className=" flex items-center gap-1 m-5 text-black cursor-pointer">
                         <IoIosArrowBack />

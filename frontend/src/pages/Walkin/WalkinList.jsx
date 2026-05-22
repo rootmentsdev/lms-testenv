@@ -372,7 +372,7 @@ const WalkinList = () => {
             </div>
 
             {/* Layout Grid Container matching standard dashboard spacing perfectly */}
-            <div className="md:ml-[120px] mt-[160px] sm:mt-[140px] px-4 sm:px-6 lg:px-12 transition-all duration-300">
+            <div className="md:ml-[120px] mt-[104px] sm:mt-[104px] px-4 sm:px-6 lg:px-12 transition-all duration-300">
                 {showAddView ? (
                     /* ADD WALKIN FORM VIEW MATCHING SECOND SCREENSHOT */
                     <div className="mt-8 mb-6 max-w-5xl mx-auto">

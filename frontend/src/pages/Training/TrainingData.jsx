@@ -63,7 +63,7 @@ const TrainingData = () => {
         <div className="w-full h-full bg-white mb-[70px]">
             <div><Header name='All Training' /></div>
             <SideNav />
-            <div className="md:ml-[120px] mt-[150px]">
+            <div className="md:ml-[120px] mt-[104px]">
                 <div>
                     <div className="flex mx-10 justify-between mt-10">
                         <div className="md:flex hidden">

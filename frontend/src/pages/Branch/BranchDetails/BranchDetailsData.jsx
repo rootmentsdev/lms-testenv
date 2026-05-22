@@ -86,7 +86,7 @@ const BranchDetailsData = () => {
             <div className="mb-[70px]">
                 <Header name='Edit Branch' />
                 <SideNav />
-                <div className="p-6 mt-[150px] mx-10 bg-gray-50 min-h-screen ml-[120px] text-[#016E5B]">
+                <div className="p-6 mt-[104px] mx-10 bg-gray-50 min-h-screen ml-[120px] text-[#016E5B]">
                     <button className="text-sm text-gray-500 hover:underline mb-4">Back</button>
                     <div className="grid grid-cols-2 gap-6">
                         {Object.keys(data).map((key) => (

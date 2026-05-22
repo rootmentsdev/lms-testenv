@@ -779,7 +779,7 @@ const EmployeeData = () => {
       <Header name="Employee" />
       <SideNav />
 
-      <div className="md:ml-[120px] mt-[160px] sm:mt-[140px]">
+      <div className="md:ml-[120px] mt-[104px] sm:mt-[104px]">
         <div className="px-4 sm:px-6 lg:px-12">
           <div className="flex flex-col gap-4 mt-8 sm:mt-12 lg:mt-16 mb-6">
             <h1 className="text-[#212121] text-xl sm:text-2xl font-semibold">Employee Management</h1>

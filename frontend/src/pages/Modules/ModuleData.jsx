@@ -40,7 +40,7 @@ const ModuleData = () => {
         <div className="w-full h-full bg-white">
             <div><Header name='Modules' /></div>
             <SideNav />
-            <div className="md:ml-[120px]  mt-[150px] mx-auto max-w-[1400px] w-full mb-[70px]">
+            <div className="md:ml-[120px]  mt-[104px] mx-auto max-w-[1400px] w-full mb-[70px]">
                 <div>
 
 

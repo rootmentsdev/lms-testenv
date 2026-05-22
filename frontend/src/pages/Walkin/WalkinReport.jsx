@@ -270,7 +270,7 @@ const WalkinReport = () => {
             </div>
 
             {/* Layout Container matching standard dashboard spacing perfectly */}
-            <div className="md:ml-[120px] mt-[160px] sm:mt-[140px] px-4 sm:px-6 lg:px-12 transition-all duration-300 print:mx-0 print:mt-0 print:p-0">
+            <div className="md:ml-[120px] mt-[104px] sm:mt-[104px] px-4 sm:px-6 lg:px-12 transition-all duration-300 print:mx-0 print:mt-0 print:p-0">
                 
                 {/* Header Row matching second mockup image exactly */}
                 <div className="mt-8 mb-6 print:hidden">

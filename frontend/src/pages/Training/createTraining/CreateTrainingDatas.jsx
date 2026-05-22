@@ -175,7 +175,7 @@ const CreateTrainingDatas = () => {
             </div>
             <SideNav />
 
-            <div className=" md:ml-[120px] mt-[150px]">
+            <div className=" md:ml-[120px] mt-[104px]">
                 <form onSubmit={handleSubmit} className="text-black w-[800px] mt-10">
                     {/* Training Name */}
                     <div className="flex flex-col gap-5 mx-20 mt-5">

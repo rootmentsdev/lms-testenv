@@ -533,7 +533,7 @@ const BranchData = () => {
       <div className="mb-[70px]">
         <Header name="Branch" />
         <SideNav />
-        <div className="md:ml-[120px] mt-[160px] px-4 sm:px-6 lg:px-12">
+        <div className="md:ml-[120px] mt-[104px] px-4 sm:px-6 lg:px-12">
           <div className="flex justify-center items-center py-20">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#016E5B]"></div>
           </div>
@@ -546,7 +546,7 @@ const BranchData = () => {
     <div className="mb-[70px]">
       <Header name="Branch" />
       <SideNav />
-      <div className="md:ml-[120px] mt-[160px] sm:mt-[140px]">
+      <div className="md:ml-[120px] mt-[104px] sm:mt-[104px]">
         <div className="px-4 sm:px-6 lg:px-12">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mt-8 sm:mt-12 mb-6">
             <h1 className="text-[#212121] text-xl sm:text-2xl font-semibold">Branch Management</h1>

@@ -123,7 +123,7 @@ const ReassignData = () => {
             <div><Header name='Reassign Training' /></div>
             <SideNav />
 
-            <div className="md:ml-[120px] mt-[150px]">
+            <div className="md:ml-[120px] mt-[104px]">
                 <div className="text-xl mt-10  ">
                     <div className="flex justify-evenly">
                         <p>Training Name: <span className="text-[#016E5B]">{training?.data.trainingName}</span></p>
