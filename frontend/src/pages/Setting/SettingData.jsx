@@ -42,7 +42,7 @@ const SettingData = () => {
             </div>
             <SideNav />
 
-            <div className="md:ml-[100px] mt-[100px]">
+            <div className="md:ml-[120px] mt-[100px]">
                 <div className="flex">
                     {/* Sidebar */}
                     <div className="w-64 bg-white shadow p-4 text-black fixed h-full md:left-28">

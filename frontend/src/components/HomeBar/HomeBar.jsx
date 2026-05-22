@@ -58,7 +58,7 @@ const HomeBar = () => {
     if (!loading && chartData.length === 0) {
         return (
             <div>
-                <div className="md:ml-[150px] ml-10 w-[600px] h-[400px]">
+                <div className="ml-10 w-[600px] h-[400px]">
                     <div className="w-full h-full border border-gray-300 rounded-xl shadow-lg flex items-center justify-center">
                         <p className="text-gray-500">No data available for chart</p>
                     </div>
@@ -71,13 +71,13 @@ const HomeBar = () => {
         <>
             {loading ? (
                 <div>
-                    <div role="status" className="flex items-center justify-center md:ml-[150px] ml-10 w-[600px] h-[400px] shadow-xl bg-slate-100 rounded-lg animate-pulse d">
+                    <div role="status" className="flex items-center justify-center ml-10 w-[600px] h-[400px] shadow-xl bg-slate-100 rounded-lg animate-pulse d">
                         <span className="sr-only">Loading...</span>
                     </div>
                 </div>
             ) : (
                 <div>
-                    <div className="md:ml-[150px] ml-10 w-[600px] h-[400px]">
+                    <div className="ml-10 w-[600px] h-[400px]">
                         <div className="w-full h-full border border-gray-300 rounded-xl shadow-lg">
                             <div className="flex justify-end mt-3 mx-3 text-[#2E7D32]">
                                 <div className="flex gap-2 items-center">

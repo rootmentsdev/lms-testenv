@@ -203,7 +203,7 @@ const AssignedTrainingsData = () => {
                     <Header name="Assigned Training" />
                 </div>
                 <SideNav />
-                <div className="md:ml-[100px] mt-[100px]">
+                <div className="md:ml-[120px] mt-[100px]">
                     <div>
                         <div className="flex justify-end mr-20">
                             <Link to={"/Alltraining"}>

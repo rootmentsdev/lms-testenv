@@ -67,7 +67,7 @@ const Header = () => {
 
     return (
         <div className="w-full">
-            <div className="flex justify-between border[#C8C8C8] bg-white fixed top-0 w-full z-10 border-b pb-6">
+            <div className="flex justify-between border[#C8C8C8] bg-white fixed top-0 w-full z-10 border-b pb-6 pl-[110px]">
                 <div className="flex mt-6 lg:justify-evenly items-center ml-5 gap-2">
                     <img src="/Rootments.jpg" alt="Logo" className="rounded-full" />
                     <Link to={'/'}>

@@ -126,7 +126,7 @@ const AssessmentsData = () => {
             <Header name='Assessments' />
             <SideNav />
             {/* Top Bar */}
-            <div className="md:ml-[100px] mt-[150px]">
+            <div className="md:ml-[120px] mt-[150px]">
                 <div className="flex md:mx-10 justify-between mt-10">
                     {/* Create Assessment */}
                     <Link to={'/create/Assessment'}>

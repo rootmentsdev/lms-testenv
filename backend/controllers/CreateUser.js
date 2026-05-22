@@ -354,168 +354,70 @@ export const createBranch = async (req, res) => {
 
 export const GetBranch = async (req, res) => {
   try {
-    const AdminId = req.admin?.userId;
-    console.log("🔍 GetBranch called - Admin ID:", AdminId);
-    
-    if (!AdminId) {
-      console.log("❌ No Admin ID found in request");
-      return res.status(400).json({ message: "Admin ID not found in request" });
+    // Public access (no token) — return all branches for signup dropdown
+    if (!req.admin?.userId) {
+      const allBranches = await Branch.find({}).select('locCode workingBranch location').lean();
+      return res.status(200).json({ message: 'Data found', data: allBranches });
     }
 
-    // Find admin and get branches
-    console.log("🔍 Looking for admin with ID:", AdminId);
+    const AdminId = req.admin.userId;
     const AdminBranch = await Admin.findById(AdminId).populate('branches').lean();
-    
+
     if (!AdminBranch) {
-      console.log("❌ Admin not found in database");
       return res.status(404).json({ message: "Admin not found" });
     }
-    
-    console.log("✅ Admin found:", {
-      id: AdminBranch._id,
-      name: AdminBranch.name,
-      role: AdminBranch.role,
-      branchesCount: AdminBranch.branches?.length || 0
-    });
 
-    // Check if admin has branches
-    if (!AdminBranch.branches || AdminBranch.branches.length === 0) {
-      console.log("⚠️ Admin has no branches assigned");
-      
-      // For super_admin, get all branches
-      if (AdminBranch.role === 'super_admin') {
-        console.log("🔄 Super admin detected, fetching all branches");
-        const allBranches = await Branch.find({});
-        
-        if (allBranches.length === 0) {
-          return res.status(404).json({ 
-            message: "No branches exist in the system",
-            debug: { adminRole: AdminBranch.role }
-          });
-        }
+    // Super admin or admin with no branches assigned — return all branches
+    if (!AdminBranch.branches || AdminBranch.branches.length === 0 || AdminBranch.role === 'super_admin') {
+      const allBranches = await Branch.find({});
 
-        // Calculate counts for all branches
-        const branchesWithCounts = await Promise.all(allBranches.map(async (branch) => {
-          // Convert branch.locCode to string for consistent matching with User collection
-          // (User collection stores locCode as string, Branch might store as number)
-          const branchLocCode = String(branch.locCode);
-          const userCount = await User.countDocuments({ locCode: branchLocCode });
-          const usersInBranch = await User.find({ locCode: branchLocCode });
-
-          let totalTrainingCount = 0;
-          let totalAssessmentCount = 0;
-          
-          for (let user of usersInBranch) {
-            totalTrainingCount += user.training.length;
-            totalAssessmentCount += user.assignedAssessments.length;
-          }
-
-          return {
-            ...branch.toObject(),
-            userCount,
-            totalTrainingCount,
-            totalAssessmentCount
-          };
-        }));
-
-        console.log("✅ Returning all branches for super_admin:", branchesWithCounts.length);
-        return res.status(200).json({
-          message: "Data found (all branches for super_admin)",
-          data: branchesWithCounts
-        });
-      }
-      
-      return res.status(404).json({ 
-        message: "Admin has no branches assigned",
-        debug: { adminRole: AdminBranch.role, adminId: AdminId }
-      });
-    }
-
-    const allowedLocCodes = AdminBranch.branches.map(branch => branch.locCode);
-    console.log("🔍 Allowed location codes:", allowedLocCodes);
-
-    // Convert location codes to both strings and numbers for proper matching
-    // (Branch.locCode might be stored as number or string in database)
-    const allowedLocCodesAsStrings = allowedLocCodes.map(code => String(code));
-    const allowedLocCodesAsNumbers = allowedLocCodes.map(code => Number(code)).filter(code => !isNaN(code));
-    const allowedLocCodesBoth = [...allowedLocCodesAsStrings, ...allowedLocCodesAsNumbers];
-    
-    console.log("🔍 Allowed location codes as strings:", allowedLocCodesAsStrings);
-    console.log("🔍 Allowed location codes as numbers:", allowedLocCodesAsNumbers);
-
-    // Debug: Test a simple query first
-    const totalBranchCount = await Branch.countDocuments({});
-    console.log("🔍 Total branches in database:", totalBranchCount);
-    
-    // Fetch branches based on allowed location codes (both string and number formats)
-    const branches = await Branch.find({ locCode: { $in: allowedLocCodesBoth } });
-    console.log("✅ Found branches:", branches.length);
-    
-    if (branches.length === 0) {
-      // Debug: Check what's in the database vs what we're searching for
-      console.log("🔍 DEBUG: No branches found, investigating...");
-      const allBranchesInDb = await Branch.find({}).select('locCode workingBranch');
-      console.log("🔍 All branches in DB:", allBranchesInDb.map(b => `${b.workingBranch}(${b.locCode})`));
-      console.log("🔍 Searching for locCodes:", allowedLocCodesAsStrings);
-      
-      // Test individual queries
-      console.log("🔍 Testing individual locCode queries:");
-      for (const locCode of allowedLocCodesAsStrings.slice(0, 3)) {
-        const testBranch = await Branch.findOne({ locCode: locCode });
-        console.log(`  - locCode "${locCode}": ${testBranch ? `Found ${testBranch.workingBranch}` : 'Not found'}`);
-      }
-    }
-
-    if (branches.length > 0) {
-      const branchesWithUserAndTrainingCount = await Promise.all(branches.map(async (branch) => {
-        // Convert branch.locCode to string for consistent matching with User collection
-        // (User collection stores locCode as string, Branch might store as number)
+      const branchesWithCounts = await Promise.all(allBranches.map(async (branch) => {
         const branchLocCode = String(branch.locCode);
-        
-        // Count users based on locCode for each branch
         const userCount = await User.countDocuments({ locCode: branchLocCode });
-
-        // Fetch all users for the current branch to count their training modules
         const usersInBranch = await User.find({ locCode: branchLocCode });
-
-        // Count total training modules for each user
         let totalTrainingCount = 0;
-        for (let user of usersInBranch) {
-          totalTrainingCount += user.training.length;
-        }
         let totalAssessmentCount = 0;
-        for (let user of usersInBranch) {
+        for (const user of usersInBranch) {
+          totalTrainingCount += user.training.length;
           totalAssessmentCount += user.assignedAssessments.length;
         }
-
-        return {
-          ...branch.toObject(), // Include all branch data
-          userCount, // Add the user count based on locCode
-          totalTrainingCount, // Add the total training count for users in this branch
-          totalAssessmentCount
-        };
+        return { ...branch.toObject(), userCount, totalTrainingCount, totalAssessmentCount };
       }));
 
-      console.log("✅ Returning branches with counts:", branchesWithUserAndTrainingCount.length);
-      res.status(200).json({
-        message: "Data found",
-        data: branchesWithUserAndTrainingCount
-      });
-    } else {
-      console.log("❌ No branches found matching location codes");
-      res.status(404).json({ 
-        message: "No branches found matching admin's location codes",
-        debug: { allowedLocCodes }
-      });
+      return res.status(200).json({ message: "Data found", data: branchesWithCounts });
     }
+
+    // Filtered admin — only their assigned branches
+    const allowedLocCodes = AdminBranch.branches.map(b => b.locCode);
+    const allowedBoth = [
+      ...allowedLocCodes.map(c => String(c)),
+      ...allowedLocCodes.map(c => Number(c)).filter(c => !isNaN(c))
+    ];
+
+    const branches = await Branch.find({ locCode: { $in: allowedBoth } });
+
+    if (branches.length === 0) {
+      return res.status(404).json({ message: "No branches found matching admin's location codes" });
+    }
+
+    const branchesWithCounts = await Promise.all(branches.map(async (branch) => {
+      const branchLocCode = String(branch.locCode);
+      const userCount = await User.countDocuments({ locCode: branchLocCode });
+      const usersInBranch = await User.find({ locCode: branchLocCode });
+      let totalTrainingCount = 0;
+      let totalAssessmentCount = 0;
+      for (const user of usersInBranch) {
+        totalTrainingCount += user.training.length;
+        totalAssessmentCount += user.assignedAssessments.length;
+      }
+      return { ...branch.toObject(), userCount, totalTrainingCount, totalAssessmentCount };
+    }));
+
+    return res.status(200).json({ message: "Data found", data: branchesWithCounts });
 
   } catch (error) {
     console.error('❌ Error in GetBranch:', error);
-    res.status(500).json({ 
-      message: "Internal server error", 
-      error: error.message,
-      debug: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
+    res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };
 

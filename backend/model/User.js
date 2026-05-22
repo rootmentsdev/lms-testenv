@@ -45,6 +45,19 @@ userSchema.pre('save', function (next) {
     next();
 });
 
+// Frequently queried by locCode (branch filtering across all controllers)
+userSchema.index({ locCode: 1 });
+// Queried by designation for mandatory training assignment
+userSchema.index({ designation: 1 });
+// Compound: locCode + designation used together in branch+role queries
+userSchema.index({ locCode: 1, designation: 1 });
+// Sub-document queries on assigned trainings
+userSchema.index({ 'training.trainingId': 1 });
+// Sub-document queries on assigned assessments
+userSchema.index({ 'assignedAssessments.assessmentId': 1 });
+// Sub-document queries on assigned modules
+userSchema.index({ 'assignedModules.moduleId': 1 });
+
 const User = mongoose.model('User', userSchema);
 export default User;
 

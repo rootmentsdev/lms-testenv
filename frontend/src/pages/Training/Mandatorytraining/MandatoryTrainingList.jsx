@@ -211,7 +211,7 @@ const MandatoryTrainingList = () => {
                     <Header name="Mandatory Training List" />
                 </div>
                 <SideNav />
-                <div className="md:ml-[100px] mt-[100px]">
+                <div className="md:ml-[120px] mt-[100px]">
                     <div>
                         <div className="flex justify-end mr-20">
                             <Link to={"/training"}>

@@ -34,6 +34,9 @@ const branchSchema = new mongoose.Schema({
     timestamps: true,
 });
 
+// locCode is already unique (acts as index), add workingBranch for name-based lookups
+branchSchema.index({ workingBranch: 1 });
+
 const Branch = mongoose.model('Branch', branchSchema);
 
-export default Branch;  // Using default export
+export default Branch;

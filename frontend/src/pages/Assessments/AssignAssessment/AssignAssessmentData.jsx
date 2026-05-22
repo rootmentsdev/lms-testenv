@@ -169,7 +169,7 @@ const AssignAssessmentData = () => {
         <div className="w-full h-full bg-white text-[#016E5B]">
             <Header name="Assign Assessments" />
             <SideNav />
-            <div className="md:ml-[100px] mt-[150px]">
+            <div className="md:ml-[120px] mt-[150px]">
 
                 <div className="mt-20 mx-20">
                     <div className="w-full flex  gap-10 md:flex-row flex-col">

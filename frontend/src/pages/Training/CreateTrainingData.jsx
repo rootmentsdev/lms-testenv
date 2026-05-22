@@ -84,7 +84,7 @@ const CreateTrainingData = () => {
     <div className="w-full mb-[70px] h-full bg-white">
       <Header name="Mandatory Training" />
       <SideNav />
-      <div className="md:ml-[100px] mt-[100px]">
+      <div className="md:ml-[120px] mt-[100px]">
         {/* Header Section */}
         <div className="flex justify-end mr-20">
           <Link to="/Alltraining">

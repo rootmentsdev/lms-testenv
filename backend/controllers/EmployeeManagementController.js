@@ -10,8 +10,6 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:7000';
 // Helper function to assign mandatory trainings to a user
 const assignMandatoryTrainingsToUser = async (user) => {
     try {
-        console.log(`🔄 Checking mandatory trainings for user: ${user.empID} with designation: ${user.designation}`);
-        
         // Function to flatten a string (remove spaces and lowercase)
         const flatten = (str) => str.toLowerCase().replace(/\s+/g, '');
         
@@ -31,7 +29,6 @@ const assignMandatoryTrainingsToUser = async (user) => {
         console.log(`📚 Found ${mandatoryTraining.length} mandatory trainings for designation: ${user.designation}`);
         
         if (mandatoryTraining.length === 0) {
-            console.log(`ℹ️  No mandatory trainings found for designation: ${user.designation}`);
             return;
         }
         
@@ -46,7 +43,6 @@ const assignMandatoryTrainingsToUser = async (user) => {
             });
             
             if (existingProgress) {
-                console.log(`ℹ️  User ${user.empID} already has training ${training.trainingName} assigned`);
                 return;
             }
             
@@ -68,12 +64,9 @@ const assignMandatoryTrainingsToUser = async (user) => {
             });
             
             await trainingProgress.save();
-            console.log(`✅ Assigned mandatory training "${training.trainingName}" to user ${user.empID}`);
         });
         
-        // Wait for all training assignments to complete
         await Promise.all(trainingAssignments);
-        console.log(`🎯 Successfully assigned ${mandatoryTraining.length} mandatory trainings to user ${user.empID}`);
         
     } catch (error) {
         console.error(`❌ Error assigning mandatory trainings to user ${user.empID}:`, error);
@@ -481,10 +474,7 @@ export const getAllEmployeesWithTrainingDetailsV2 = async (req, res) => {
             return aNum - bNum;
         });
 
-        console.log(`✅ Processed ${processedEmployees.length} total employees`);
-        console.log(`📈 Employees with training data: ${employeesWithTraining}`);
-        console.log(`📊 Local users in database: ${localUsers.length}`);
-        console.log(`🌐 External employees: ${filteredExternalEmployees.length}`);
+        console.log(`✅ Processed ${processedEmployees.length} employees (${employeesWithTraining} with training data)`);
 
         res.status(200).json({
             success: true,
@@ -517,7 +507,6 @@ export const getAllEmployeesWithTrainingDetailsV2 = async (req, res) => {
 export const autoSyncEmployees = async (req, res) => {
     try {
         console.log('🔄 Starting auto-sync of employees...');
-
         // Fetch all employees directly from external API (avoid self-referencing)
         const ROOTMENTS_API_TOKEN = 'RootX-production-9d17d9485eb772e79df8564004d4a4d4';
         const response = await axios.post('https://rootments.in/api/employee_range', {
@@ -578,7 +567,6 @@ export const autoSyncEmployees = async (req, res) => {
                     // Auto-assign mandatory trainings to newly created user
                     try {
                         await assignMandatoryTrainingsToUser(user);
-                        console.log(`✅ Assigned mandatory trainings to newly created user ${user.empID}`);
                     } catch (error) {
                         console.error(`❌ Failed to assign mandatory trainings to ${user.empID}:`, error.message);
                         // Continue with other users even if training assignment fails
@@ -622,9 +610,7 @@ export const autoSyncEmployees = async (req, res) => {
                     try {
                         const existingProgress = await TrainingProgress.find({ userId: user._id });
                         if (existingProgress.length === 0) {
-                            console.log(`🔍 Existing user ${user.empID} has no mandatory trainings, assigning them now...`);
                             await assignMandatoryTrainingsToUser(user);
-                            console.log(`✅ Assigned mandatory trainings to existing user ${user.empID}`);
                         }
                     } catch (error) {
                         console.error(`❌ Failed to check/assign trainings to existing user ${user.empID}:`, error.message);
@@ -639,13 +625,7 @@ export const autoSyncEmployees = async (req, res) => {
 
         const finalCount = await User.countDocuments();
 
-        console.log('🎉 Auto-sync completed!');
-        console.log(`📊 Results:`);
-        console.log(`   • Created: ${createdCount} new users`);
-        console.log(`   • Updated: ${updatedCount} existing users`);
-        console.log(`   • Skipped: ${skippedCount} users`);
-        console.log(`   • Total users in database: ${finalCount}`);
-
+        console.log(`✅ Auto-sync complete — created: ${createdCount}, updated: ${updatedCount}, skipped: ${skippedCount}, total: ${finalCount}`);
         res.status(200).json({
             success: true,
             message: 'Employee auto-sync completed successfully',
