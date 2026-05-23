@@ -81,7 +81,6 @@ const MandatoryTrainingList = () => {
                 alert(`Successfully deleted ${selectedTrainings.size} training(s)`);
             }
         } catch (error) {
-            console.error('Error deleting trainings:', error);
             alert('An error occurred while deleting trainings. Please try again.');
         } finally {
             setIsDeleting(false);
@@ -119,7 +118,6 @@ const MandatoryTrainingList = () => {
                 setData(mandatoryTrainings);
                 setFilteredData(mandatoryTrainings);
             } catch (error) {
-                console.error("Error fetching data:", error);
             } finally {
                 setLoading(false);
             }
@@ -429,7 +427,6 @@ const MandatoryTrainingList = () => {
                                                     window.location.reload(); // Refresh to show updated data
                                                 }
                                             } catch (error) {
-                                                console.error('Error deleting all trainings:', error);
                                                 alert('An error occurred while deleting all trainings. Please try again.');
                                             }
                                         }

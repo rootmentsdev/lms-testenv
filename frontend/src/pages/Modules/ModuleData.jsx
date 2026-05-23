@@ -25,7 +25,6 @@ const ModuleData = () => {
                 const data = await response.json();
                 setData(data); // Update state with fetched data
             } catch (error) {
-                console.error("Failed to fetch modules:", error.message);
             }
         };
 
@@ -34,7 +33,6 @@ const ModuleData = () => {
     }, []);
 
     useEffect(() => {
-        console.log(Data);
     }, [Data]);
     return (
         <div className="w-full h-full bg-white">

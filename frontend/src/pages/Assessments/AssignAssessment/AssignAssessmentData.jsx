@@ -47,7 +47,6 @@ const AssignAssessmentData = () => {
             }
 
             const response = await RequestData.json(); // Parse JSON response
-            console.log("API Response:", response.message);
             if (response.message === 'already Assigned') {
                 toast.error(response.message) // Log response message
 
@@ -56,7 +55,6 @@ const AssignAssessmentData = () => {
 
             }
         } catch (error) {
-            console.error("Error in checkfuntion:", error);
             toast.error("Error in Assign Assessment")// Log the error
         }
     };
@@ -73,9 +71,6 @@ const AssignAssessmentData = () => {
 
                 if (!response.ok) throw new Error(`Error: ${response.statusText}`);
                 const data = await response.json();
-                console.log(data);
-
-
                 const options = data?.data.map((module) => ({
                     value: module.assessmentId
                     ,
@@ -84,7 +79,6 @@ const AssignAssessmentData = () => {
                 }));
                 setModules(options);
             } catch (error) {
-                console.error("Failed to fetch modules:", error.message);
             }
         };
         fetchModules();
@@ -158,7 +152,6 @@ const AssignAssessmentData = () => {
 
                 setUsers(options);
             } catch (error) {
-                console.error("Failed to fetch users:", error.message);
                 setUsers([]);
             }
         };

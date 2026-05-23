@@ -23,13 +23,7 @@ const UserTrainingProgressData = () => {
 
                 const data = await response.json();
                 setData(data); // Update state with fetched data
-                console.log("Training Details API Response:", data);
-                
-                console.log("Training loaded successfully");
-                
-
             } catch (error) {
-                console.error("Failed to fetch modules:", error.message);
             }
         };
 

@@ -37,7 +37,6 @@ const ProfileData = () => {
             setData(selectedData);
             setEditData(selectedData);
         } catch (error) {
-            console.error(error);
         }
     };
 
@@ -70,7 +69,6 @@ const ProfileData = () => {
     const handleSave = () => {
         setData(editData); // Update the profile data with the edited values
         setIsModalOpen(false); // Close the modal
-        console.log("Updated Profile:", editData);
         UpdataData()
     };
 

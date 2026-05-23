@@ -5,22 +5,17 @@ import storage from 'redux-persist/lib/storage';
 import authReducer from '../features/auth/authSlice.js';
 import { dashboardApi } from '../features/dashboard/dashboardApi.js';
 
-// Create persisted reducer for auth
+// Only persist auth (user session) — never cache API responses
 const persistedAuthReducer = persistReducer(
     { key: 'auth', storage, whitelist: ['user'] },
     authReducer
 );
 
-// Create persisted reducer for dashboard API - persist queries cache
-const persistedDashboardReducer = persistReducer(
-    { key: dashboardApi.reducerPath, storage },
-    dashboardApi.reducer
-);
-
 export const store = configureStore({
     reducer: {
         auth: persistedAuthReducer,
-        [dashboardApi.reducerPath]: persistedDashboardReducer,
+        // dashboardApi uses its own in-memory cache only (not persisted to localStorage)
+        [dashboardApi.reducerPath]: dashboardApi.reducer,
     },
     middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware({

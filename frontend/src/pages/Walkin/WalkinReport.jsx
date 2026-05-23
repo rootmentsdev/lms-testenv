@@ -6,543 +6,290 @@ import ModileNav from "../../components/SideNav/ModileNav";
 import baseUrl from "../../api/api";
 import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 
-/* ---------- Normalization and Spelling fixes helpers ---------- */
+/* ── helpers ─────────────────────────────────────────────────────────────── */
 const BRAND_TOKENS = new Set(["zorucci", "grooms", "suitor", "guy", "sg"]);
-
 function canonFixes(s) {
-  return s
-    .replace(/\bedap{1,2}a?l{1,3}y\b/g, "edappally")
-    .replace(/\bedap{1,2}a?l{1,3}i\b/g, "edappally")
-    .replace(/\bmanjeri\b/g, "manjery")
-    .replace(/\bperinthalmana\b/g, "perinthalmanna")
-    .replace(/\bkottakal\b/g, "kottakkal")
-    .replace(/\bkalpeta\b/g, "kalpetta")
-    .replace(/\bzoruc+i\b/g, "zorucci");
+  return s.replace(/\bedap{1,2}a?l{1,3}y\b/g,"edappally").replace(/\bedap{1,2}a?l{1,3}i\b/g,"edappally")
+    .replace(/\bmanjeri\b/g,"manjery").replace(/\bperinthalmana\b/g,"perinthalmanna")
+    .replace(/\bkottakal\b/g,"kottakkal").replace(/\bkalpeta\b/g,"kalpetta").replace(/\bzoruc+i\b/g,"zorucci");
 }
-
 function norm(s) {
-  const x = String(s || "")
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-  return canonFixes(x);
+  return canonFixes(String(s||"").normalize("NFKD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim());
 }
+function locationKey(name) { return norm(name).split(" ").filter(t=>t&&!BRAND_TOKENS.has(t)).join(" "); }
 
-function locationKey(name) {
-  const tokens = norm(name)
-    .split(" ")
-    .filter((t) => t && !BRAND_TOKENS.has(t));
-  return tokens.join(" ");
-}
+const STATUS_OPTIONS = ['Booked','Rentout','Return','Trial','Loss','Enquiry','Booking & Rentout','Reissue','New Booking','Revisit Booking','Revisit Loss','New Walkin'];
 
-const STATUS_OPTIONS = [
-    'Booked',
-    'Rentout',
-    'Return',
-    'Trial',
-    'Loss',
-    'Enquiry',
-    'Booking & Rentout',
-    'Reissue',
-    'New Booking',
-    'Revisit Booking',
-    'Revisit Loss',
-    'New Walkin'
-];
+const STATUS_COLORS = {
+  'Booked':            { bg:'#dcfce7', color:'#16a34a' },
+  'New Booking':       { bg:'#dcfce7', color:'#16a34a' },
+  'Revisit Booking':   { bg:'#dcfce7', color:'#16a34a' },
+  'Rentout':           { bg:'#fce7f3', color:'#be185d' },
+  'Rent Out':          { bg:'#fce7f3', color:'#be185d' },
+  'Booking & Rentout': { bg:'#fce7f3', color:'#be185d' },
+  'Return':            { bg:'#fef3c7', color:'#d97706' },
+  'Trial':             { bg:'#e0e7ff', color:'#4338ca' },
+  'Loss':              { bg:'#fee2e2', color:'#dc2626' },
+  'Revisit Loss':      { bg:'#fee2e2', color:'#dc2626' },
+  'Enquiry':           { bg:'#f3f4f6', color:'#6b7280' },
+  'New Walkin':        { bg:'#dbeafe', color:'#2563eb' },
+  'Reissue':           { bg:'#ede9fe', color:'#7c3aed' },
+};
+
+/* ── Export to CSV ───────────────────────────────────────────────────────── */
+const exportCSV = (data) => {
+  const headers = ['#','Date','Customer','Contact','Function Date','Staff','Status','Category','Sub Category','Repeat Count','Remarks'];
+  const rows = data.map((w,i) => [i+1,w.date,w.customerName,w.contact,w.functionDate,w.staff,w.status,w.category,w.subCategory,w.repeatCount,w.remarks||'–']);
+  const csv = [headers, ...rows].map(r => r.map(c => `"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type:'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='walkin-report.csv'; a.click();
+  URL.revokeObjectURL(url);
+};
 
 const WalkinReport = () => {
-    const user = useSelector((state) => state.auth.user);
-    const token = localStorage.getItem('token');
+  const user  = useSelector(s => s.auth.user);
+  const token = localStorage.getItem('token');
 
-    // Dependencies
-    const [branches, setBranches] = useState([]);
-    const [employees, setEmployees] = useState([]);
-    const [loading, setLoading] = useState(true);
+  const today = new Date().toISOString().split('T')[0];
 
-    // Form inputs matching second mockup image exactly
-    const [formData, setFormData] = useState({
-        startDate: new Date().toISOString().split('T')[0],
-        endDate: new Date().toISOString().split('T')[0],
-        store: 'All', // Default to All to prevent blank UI on slow network load
-        employee: ''
-    });
+  const [branches,  setBranches]  = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [loading,   setLoading]   = useState(true);
 
-    // Custom multi-select dropdown state matching screenshot exactly
-    const [selectedStatuses, setSelectedStatuses] = useState([]);
-    const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const [formData, setFormData] = useState({ startDate: today, endDate: today, store: 'All', employee: '' });
+  const [selectedStatus, setSelectedStatus] = useState('');
 
-    // Generated report state
-    const [reportGenerated, setReportGenerated] = useState(false);
-    const [reportData, setReportData] = useState([]);
+  const [reportGenerated, setReportGenerated] = useState(false);
+  const [reportData,      setReportData]      = useState([]);
+  const [tableSearch,     setTableSearch]     = useState('');
+  const [tableStatus,     setTableStatus]     = useState('All');
+  const [currentPage,     setCurrentPage]     = useState(1);
+  const itemsPerPage = 7;
 
-    // Pagination State
-    const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(10);
-
-    // Fetch branches and employees to match admin roles
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            try {
-                // Fetch branches (GET)
-                const branchRes = await fetch(`${baseUrl.baseUrl}api/usercreate/getBranch`, {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-                
-                // Fetch employees (GET)
-                const empRes = await fetch(`${baseUrl.baseUrl}api/employee/management/with-training-details`, {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                const branchJson = await branchRes.json();
-                const empJson = await empRes.json();
-
-                const branchList = Array.isArray(branchJson?.data) ? branchJson.data : [];
-                const empList = Array.isArray(empJson) ? empJson : (Array.isArray(empJson?.data) ? empJson.data : []);
-
-                setBranches(branchList);
-                setEmployees(empList);
-
-                // Set default store based on role constraints
-                if (branchList.length > 0) {
-                    if (user?.role === 'store_admin') {
-                        const myStore = branchList[0]?.workingBranch || '';
-                        setFormData(prev => ({ ...prev, store: myStore }));
-                    } else {
-                        // Ensure it stays 'All' for cluster/super admins instead of forcing first store
-                        setFormData(prev => ({ ...prev, store: 'All' }));
-                    }
-                }
-            } catch (err) {
-                console.error("Error loading Walk-in dependencies in Report:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        if (token) {
-            fetchData();
-        }
-    }, [token, user?.role]);
-
-    // Close status dropdown when clicking outside matching premium standards
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            const container = document.getElementById('status-dropdown-container');
-            if (container && !container.contains(event.target)) {
-                setShowStatusDropdown(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    // Handle input change
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: value
-        }));
-
-        if (name === 'store') {
-            setFormData(prev => ({
-                ...prev,
-                store: value,
-                employee: ''
-            }));
-        }
+  /* load branches only (employees loaded lazily) */
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res  = await fetch(`${baseUrl.baseUrl}api/usercreate/getBranch`, { headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` } });
+        const json = await res.json();
+        const list = Array.isArray(json?.data) ? json.data : [];
+        setBranches(list);
+        if (user?.role === 'store_admin' && list.length > 0) setFormData(p=>({...p, store: list[0].workingBranch}));
+      } catch(e){ console.error(e); }
+      finally { setLoading(false); }
     };
+    if (token) load();
+  }, [token, user?.role]);
 
-    // Multi-select status handlers matching mockup layout
-    const handleStatusToggle = (status) => {
-        if (selectedStatuses.includes(status)) {
-            setSelectedStatuses(selectedStatuses.filter(s => s !== status));
-        } else {
-            setSelectedStatuses([...selectedStatuses, status]);
-        }
+  /* load employees when store changes */
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res  = await fetch(`${baseUrl.baseUrl}api/employee/management/with-training-details`, { headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` } });
+        const json = await res.json();
+        setEmployees(Array.isArray(json) ? json : (Array.isArray(json?.data) ? json.data : []));
+      } catch(e){ console.error(e); }
     };
+    if (token) load();
+  }, [token]);
 
-    const handleSelectAllStatusToggle = () => {
-        if (selectedStatuses.length === STATUS_OPTIONS.length) {
-            setSelectedStatuses([]);
-        } else {
-            setSelectedStatuses([...STATUS_OPTIONS]);
-        }
-    };
+  const storeEmployees = formData.store === 'All' ? employees : employees.filter(e => locationKey(e.store_name||e.workingBranch||'') === locationKey(formData.store));
 
-    const getStatusDisplayText = () => {
-        if (selectedStatuses.length === 0) return 'Select Options';
-        if (selectedStatuses.length === STATUS_OPTIONS.length) return 'Select All Status';
-        if (selectedStatuses.length <= 2) return selectedStatuses.join(', ');
-        return `${selectedStatuses.length} Statuses Selected`;
-    };
+  const handleGenerate = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const res  = await fetch(`${baseUrl.baseUrl}api/walkin/list?startDate=${formData.startDate}&endDate=${formData.endDate}`, { headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` } });
+      const json = await res.json();
+      if (json.success) {
+        let data = json.data || [];
+        if (formData.store && formData.store !== 'All') data = data.filter(w => locationKey(w.store) === locationKey(formData.store));
+        if (formData.employee) data = data.filter(w => w.staff === formData.employee);
+        if (selectedStatus) data = data.filter(w => w.status === selectedStatus);
+        setReportData(data);
+        setReportGenerated(true);
+        setCurrentPage(1);
+        setTableSearch('');
+        setTableStatus('All');
+      }
+    } catch(e){ console.error(e); }
+    finally { setLoading(false); }
+  };
 
-    // Filter employees dropdown list based on current Store selection to enforce dynamic role rules
-    const getEmployeesForSelectedStore = (storeName) => {
-        if (!storeName) return [];
-        if (storeName === 'All') return employees;
-        const normSelectedStore = locationKey(storeName);
-        
-        return employees.filter(emp => {
-            const empStore = emp.store_name || emp.workingBranch || '';
-            return locationKey(empStore) === normSelectedStore;
-        });
-    };
+  /* table-level filter */
+  const displayed = reportData.filter(w => {
+    const q = tableSearch.toLowerCase();
+    const matchSearch = !q || w.customerName?.toLowerCase().includes(q) || w.contact?.includes(q) || w.staff?.toLowerCase().includes(q);
+    const matchStatus = tableStatus === 'All' || w.status === tableStatus;
+    return matchSearch && matchStatus;
+  });
 
-    const currentStoreEmployees = getEmployeesForSelectedStore(formData.store);
+  const totalPages   = Math.ceil(displayed.length / itemsPerPage);
+  const indexFirst   = (currentPage - 1) * itemsPerPage;
+  const currentItems = displayed.slice(indexFirst, indexFirst + itemsPerPage);
 
-    // Save/Submit Form to generate report from database API
-    const handleGenerateReport = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        try {
-            const res = await fetch(`${baseUrl.baseUrl}api/walkin/list?startDate=${formData.startDate}&endDate=${formData.endDate}`, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            const json = await res.json();
-            if (json.success) {
-                let filtered = json.data || [];
+  /* ── input style ── */
+  const inp = { border:'1px solid #e5e7eb', borderRadius:'8px', padding:'7px 12px', fontSize:'12px', color:'#374151', outline:'none', background:'#fff', width:'100%', boxSizing:'border-box', fontFamily:"'DM Sans', sans-serif" };
+  const lbl = { fontSize:'11px', fontWeight:600, color:'#374151', marginBottom:'4px', display:'block' };
 
-                // Filter by Store
-                if (formData.store && formData.store !== 'All') {
-                    filtered = filtered.filter(w => locationKey(w.store) === locationKey(formData.store));
-                }
+  return (
+    <div style={{ minHeight:'100vh', background:'#f9fafb', fontFamily:"'DM Sans', sans-serif" }}>
+      <Header />
+      <SideNav />
+      <div className="md:hidden sm:block"><ModileNav /></div>
 
-                // Filter by Employee (Optional)
-                if (formData.employee) {
-                    filtered = filtered.filter(w => w.staff === formData.employee);
-                }
+      <div style={{ marginLeft:'120px', paddingTop:'80px', paddingLeft:'24px', paddingRight:'24px', paddingBottom:'40px' }}>
 
-                // Filter by custom Multi-Selected Statuses
-                if (selectedStatuses.length > 0) {
-                    filtered = filtered.filter(w => selectedStatuses.includes(w.status));
-                }
+        {/* Page title */}
+        <h1 style={{ fontSize:'22px', fontWeight:700, color:'#111827', margin:'0 0 20px' }}>Walk In Report</h1>
 
-                setReportData(filtered);
-                setReportGenerated(true);
-                setCurrentPage(1); // Reset page to 1 on search
-            }
-        } catch (err) {
-            console.error("Error generating Walk-in report:", err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Pagination calculations
-    const indexOfLastItem = currentPage * itemsPerPage;
-    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-    const currentItems = reportData.slice(indexOfFirstItem, indexOfLastItem);
-    const totalPages = Math.ceil(reportData.length / itemsPerPage);
-
-    const handlePageChange = (pageNumber) => {
-        if (pageNumber >= 1 && pageNumber <= totalPages) {
-            setCurrentPage(pageNumber);
-        }
-    };
-
-    // Sort Arrows double-indicator icon matching mockup image exactly
-    const SortArrow = () => (
-        <span className="inline-flex flex-col ml-1.5 align-middle text-[8px] text-gray-300">
-            <span>▲</span>
-            <span className="-mt-1">▼</span>
-        </span>
-    );
-
-    return (
-        <div className="mb-[70px] text-[14px] bg-white min-h-screen">
-            <Header name="Walk-In Report" />
-            <SideNav />
-            <div className="md:hidden sm:block">
-                <ModileNav />
-            </div>
-
-            {/* Layout Container matching standard dashboard spacing perfectly */}
-            <div className="md:ml-[120px] mt-[104px] sm:mt-[104px] px-4 sm:px-6 lg:px-12 transition-all duration-300 print:mx-0 print:mt-0 print:p-0">
-                
-                {/* Header Row matching second mockup image exactly */}
-                <div className="mt-8 mb-6 print:hidden">
-                    <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Walk-In Report</h1>
+        {/* Filter card */}
+        <div style={{ background:'#fff', borderRadius:'16px', border:'1px solid #f0f0f0', boxShadow:'0 1px 4px rgba(0,0,0,0.05)', padding:'20px', marginBottom:'20px', width:'100%', boxSizing:'border-box' }}>
+          <form onSubmit={handleGenerate}>
+            {/* Row 1 */}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'12px', marginBottom:'12px' }}>
+              <div>
+                <label style={lbl}>Start Date <span style={{color:'#ef4444'}}>*</span></label>
+                <div style={{ position:'relative' }}>
+                  <input type="date" name="startDate" required value={formData.startDate} onChange={e=>setFormData(p=>({...p,startDate:e.target.value}))} style={inp} />
                 </div>
-
-                {/* Main Content White Container Card matching mockup exactly */}
-                <div className="bg-white rounded-lg shadow-sm p-6 sm:p-8 border border-gray-150 mb-6 print:hidden">
-                    <form onSubmit={handleGenerateReport} className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            
-                            {/* Start Date */}
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    Start Date <span className="text-red-500">*</span>
-                                </label>
-                                <input 
-                                    type="date"
-                                    name="startDate"
-                                    required
-                                    value={formData.startDate}
-                                    onChange={handleInputChange}
-                                    className="w-full border border-gray-300 bg-white rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 cursor-pointer"
-                                />
-                            </div>
-
-                            {/* End Date */}
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    End Date <span className="text-red-500">*</span>
-                                </label>
-                                <input 
-                                    type="date"
-                                    name="endDate"
-                                    required
-                                    value={formData.endDate}
-                                    onChange={handleInputChange}
-                                    className="w-full border border-gray-300 bg-white rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 cursor-pointer"
-                                />
-                            </div>
-
-                            {/* Store */}
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    Store <span className="text-red-500">*</span>
-                                </label>
-                                <select
-                                    name="store"
-                                    required
-                                    disabled={user?.role === 'store_admin'}
-                                    value={formData.store}
-                                    onChange={handleInputChange}
-                                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 bg-white disabled:bg-gray-50 cursor-pointer font-medium"
-                                >
-                                    {user?.role !== 'store_admin' && (
-                                        <option value="All">All Stores</option>
-                                    )}
-                                    {branches.map((b, idx) => (
-                                        <option key={idx} value={b.workingBranch}>{b.workingBranch}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* Employees (Optional) */}
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    Employees (Optional)
-                                </label>
-                                <select
-                                    name="employee"
-                                    value={formData.employee}
-                                    onChange={handleInputChange}
-                                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 bg-white cursor-pointer font-medium"
-                                >
-                                    <option value="">Select Employees</option>
-                                    {currentStoreEmployees.map((emp, idx) => (
-                                        <option key={idx} value={emp.username}>{emp.username}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* Custom Checkbox Multi-Select Status Dropdown matching screenshot exactly */}
-                            <div className="relative" id="status-dropdown-container">
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    Status <span className="text-red-500">*</span>
-                                </label>
-                                
-                                {/* Status select display header box */}
-                                <div 
-                                    onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                                    className={`w-full border rounded-md px-3 py-2 text-sm text-gray-700 bg-white cursor-pointer font-semibold flex justify-between items-center transition-all ${
-                                        showStatusDropdown ? 'border-blue-400 ring-2 ring-blue-100' : 'border-gray-300'
-                                    }`}
-                                >
-                                    <span className="truncate">{getStatusDisplayText()}</span>
-                                    <span className="text-gray-500 text-xs transition-transform duration-200">
-                                        ▼
-                                    </span>
-                                </div>
-
-                                {/* Custom dropdown popup matching screenshot exactly */}
-                                {showStatusDropdown && (
-                                    <div className="absolute left-0 right-0 z-50 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl py-2 max-h-[280px] overflow-y-auto transition-all transform origin-top scale-100">
-                                        
-                                        {/* Select All Status option */}
-                                        <div 
-                                            onClick={handleSelectAllStatusToggle}
-                                            className="px-4 py-2 hover:bg-gray-50 cursor-pointer flex items-center gap-3 transition-colors"
-                                        >
-                                            <input 
-                                                type="checkbox"
-                                                checked={selectedStatuses.length === STATUS_OPTIONS.length}
-                                                onChange={() => {}} // handled by click on container
-                                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                                            />
-                                            <span className="font-bold text-gray-700 text-xs tracking-wide">Select All Status</span>
-                                        </div>
-
-                                        {/* Divider line matching screenshot exactly */}
-                                        <div className="border-t border-gray-100 my-1"></div>
-
-                                        {/* Rest of the checkbox options */}
-                                        {STATUS_OPTIONS.map((status) => (
-                                            <div 
-                                                key={status}
-                                                onClick={() => handleStatusToggle(status)}
-                                                className="px-4 py-2.5 hover:bg-gray-50 cursor-pointer flex items-center gap-3 transition-colors"
-                                            >
-                                                <input 
-                                                    type="checkbox"
-                                                    checked={selectedStatuses.includes(status)}
-                                                    onChange={() => {}} // handled by click on container
-                                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                                                />
-                                                <span className="font-bold text-gray-600 text-xs tracking-wide">{status}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Note text matching mockup screenshot exactly */}
-                        <p className="text-xs text-gray-500">
-                            <span className="text-red-500 font-semibold">Note:</span> To view all employee data, do not select any employee from the dropdown.
-                        </p>
-
-                        {/* Save Button centered, matches layout and styling exactly */}
-                        <div className="flex justify-center pt-2">
-                            <button 
-                                type="submit"
-                                className="bg-[#2A2A2A] hover:bg-black text-white px-10 py-2.5 rounded-md transition-all duration-200 font-bold shadow-md hover:shadow-lg transform active:scale-95 text-center min-w-[120px] cursor-pointer"
-                            >
-                                Save
-                            </button>
-                        </div>
-                    </form>
-                </div>
-
-                {/* Generated Paginated Table matching the layout rules exactly */}
-                {reportGenerated && (
-                    <div className="bg-white rounded-lg shadow-sm p-5 border border-gray-150 transition-all duration-500">
-                        <div className="flex justify-between items-center mb-4 border-b border-gray-100 pb-3 print:hidden">
-                            <h3 className="text-gray-800 font-bold text-base">Report Results</h3>
-                            <button 
-                                onClick={() => window.print()}
-                                className="text-xs bg-gray-100 text-gray-600 border border-gray-300 px-3 py-1.5 rounded hover:bg-gray-200 transition-all font-semibold"
-                            >
-                                Print Report
-                            </button>
-                        </div>
-
-                        {loading ? (
-                            <div className="flex justify-center items-center py-12">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-800"></div>
-                            </div>
-                        ) : reportData.length === 0 ? (
-                            <div className="text-center py-12 text-gray-400">
-                                No walk-in records found matching your active filter criteria.
-                            </div>
-                        ) : (
-                            <>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-left text-sm text-gray-600 border-collapse">
-                                        <thead className="text-xs text-gray-500 uppercase bg-gray-50/50 border-b border-gray-100 font-bold">
-                                            <tr>
-                                                <th className="px-4 py-4 text-center border-b border-gray-150">#</th>
-                                                <th className="px-4 py-4 border-b border-gray-150 whitespace-nowrap">DATE<SortArrow /></th>
-                                                <th className="px-4 py-4 border-b border-gray-150 whitespace-nowrap">CUSTOMER NAME<SortArrow /></th>
-                                                <th className="px-4 py-4 border-b border-gray-150 whitespace-nowrap">CONTACT<SortArrow /></th>
-                                                <th className="px-4 py-4 border-b border-gray-150 whitespace-nowrap">FUNCTION DATE<SortArrow /></th>
-                                                <th className="px-4 py-4 border-b border-gray-150 whitespace-nowrap">STORE<SortArrow /></th>
-                                                <th className="px-4 py-4 border-b border-gray-150 whitespace-nowrap">STAFF<SortArrow /></th>
-                                                <th className="px-4 py-4 border-b border-gray-150 whitespace-nowrap">CATEGORY<SortArrow /></th>
-                                                <th className="px-4 py-4 border-b border-gray-150 whitespace-nowrap">SUB CATEGORY<SortArrow /></th>
-                                                <th className="px-4 py-4 border-b border-gray-150 whitespace-nowrap">REMARKS<SortArrow /></th>
-                                                <th className="px-4 py-4 text-center border-b border-gray-150 whitespace-nowrap">REPEAT COUNT<SortArrow /></th>
-                                                <th className="px-4 py-4 text-center border-b border-gray-150 whitespace-nowrap">STATUS<SortArrow /></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {currentItems.map((w, index) => (
-                                                <tr 
-                                                    key={w._id || w.id} 
-                                                    className={`border-b border-gray-100 hover:bg-gray-50/30 ${
-                                                        index % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'
-                                                    }`}
-                                                >
-                                                    <td className="px-4 py-3.5 text-center text-gray-400 font-semibold">{indexOfFirstItem + index + 1}</td>
-                                                    <td className="px-4 py-3.5 whitespace-nowrap text-gray-700 font-medium">{w.date}</td>
-                                                    <td className="px-4 py-3.5 text-gray-900 font-semibold">{w.customerName}</td>
-                                                    <td className="px-4 py-3.5 whitespace-nowrap text-gray-600 font-semibold">{w.contact}</td>
-                                                    <td className="px-4 py-3.5 whitespace-nowrap text-gray-500">{w.functionDate}</td>
-                                                    <td className="px-4 py-3.5 text-gray-700 font-medium">{w.store}</td>
-                                                    <td className="px-4 py-3.5 whitespace-nowrap text-gray-700 font-medium">{w.staff}</td>
-                                                    <td className="px-4 py-3.5 whitespace-nowrap text-gray-600">{w.category}</td>
-                                                    <td className="px-4 py-3.5 whitespace-nowrap text-gray-600">{w.subCategory}</td>
-                                                    <td className="px-4 py-3.5 text-gray-500 max-w-[150px] truncate" title={w.remarks}>{w.remarks}</td>
-                                                    <td className="px-4 py-3.5 text-center text-gray-400 font-semibold">{w.repeatCount}</td>
-                                                    <td className="px-4 py-3.5 text-center whitespace-nowrap text-gray-800 font-medium">{w.status}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                {/* Pagination Controls */}
-                                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6 pt-4 border-t border-gray-100 text-xs text-gray-500 print:hidden">
-                                    <div>
-                                        Showing <span className="font-semibold text-gray-700">{indexOfFirstItem + 1}</span> to{' '}
-                                        <span className="font-semibold text-gray-700">
-                                            {Math.min(indexOfLastItem, reportData.length)}
-                                        </span>{' '}
-                                        of <span className="font-semibold text-gray-700">{reportData.length}</span> entries
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                        <button
-                                            onClick={() => handlePageChange(currentPage - 1)}
-                                            disabled={currentPage === 1}
-                                            className="p-2 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-600 transition-colors"
-                                        >
-                                            <FaChevronLeft size={10} />
-                                        </button>
-                                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                                            <button
-                                                key={page}
-                                                onClick={() => handlePageChange(page)}
-                                                className={`px-3 py-1.5 border rounded-md font-semibold transition-colors ${
-                                                    currentPage === page
-                                                        ? 'bg-[#2A2A2A] text-white border-[#2A2A2A]'
-                                                        : 'border-gray-300 text-gray-600 hover:bg-gray-50'
-                                                }`}
-                                            >
-                                                {page}
-                                            </button>
-                                        ))}
-                                        <button
-                                            onClick={() => handlePageChange(currentPage + 1)}
-                                            disabled={currentPage === totalPages}
-                                            className="p-2 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-600 transition-colors"
-                                        >
-                                            <FaChevronRight size={10} />
-                                        </button>
-                                    </div>
-                                </div>
-                            </>
-                        )}
-                    </div>
-                )}
+              </div>
+              <div>
+                <label style={lbl}>End Date <span style={{color:'#ef4444'}}>*</span></label>
+                <input type="date" name="endDate" required value={formData.endDate} onChange={e=>setFormData(p=>({...p,endDate:e.target.value}))} style={inp} />
+              </div>
+              <div>
+                <label style={lbl}>Store Name <span style={{color:'#ef4444'}}>*</span></label>
+                <select value={formData.store} disabled={user?.role==='store_admin'} onChange={e=>setFormData(p=>({...p,store:e.target.value,employee:''}))} style={{...inp,cursor:'pointer',appearance:'auto'}}>
+                  {user?.role !== 'store_admin' && <option value="All">Select Store</option>}
+                  {branches.map((b,i)=><option key={i} value={b.workingBranch}>{b.workingBranch}</option>)}
+                </select>
+              </div>
             </div>
+            {/* Row 2 */}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'12px', marginBottom:'14px' }}>
+              <div>
+                <label style={lbl}>Employee <span style={{color:'#9ca3af', fontWeight:400}}>(Optional)</span></label>
+                <select value={formData.employee} onChange={e=>setFormData(p=>({...p,employee:e.target.value}))} style={{...inp,cursor:'pointer',appearance:'auto'}}>
+                  <option value="">All Employees</option>
+                  {storeEmployees.map((e,i)=><option key={i} value={e.username}>{e.username}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={lbl}>Status <span style={{color:'#9ca3af', fontWeight:400}}>(Optional)</span></label>
+                <select value={selectedStatus} onChange={e=>setSelectedStatus(e.target.value)} style={{...inp,cursor:'pointer',appearance:'auto'}}>
+                  <option value="">Choose Status</option>
+                  {STATUS_OPTIONS.map(s=><option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+            </div>
+            <button type="submit" style={{ background:'#111827', color:'#fff', border:'none', borderRadius:'8px', padding:'8px 20px', fontSize:'12px', fontWeight:600, cursor:'pointer' }}>
+              {loading ? 'Loading...' : 'Show Report'}
+            </button>
+          </form>
         </div>
-    );
+
+        {/* Results table */}
+        {reportGenerated && (
+          <div style={{ background:'#fff', borderRadius:'16px', border:'1px solid #f0f0f0', boxShadow:'0 1px 4px rgba(0,0,0,0.05)', overflow:'hidden' }}>
+
+            {/* Table toolbar */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 20px', borderBottom:'1px solid #f3f4f6' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+                {/* Status pill dropdown */}
+                <div style={{ display:'flex', alignItems:'center', gap:'6px', border:'1px solid #e5e7eb', borderRadius:'8px', padding:'6px 12px', fontSize:'13px', color:'#374151', background:'#fff', cursor:'pointer' }}>
+                  <span>Status : </span>
+                  <select value={tableStatus} onChange={e=>{setTableStatus(e.target.value);setCurrentPage(1);}} style={{ border:'none', outline:'none', fontSize:'13px', color:'#374151', background:'transparent', cursor:'pointer' }}>
+                    <option value="All">All</option>
+                    {STATUS_OPTIONS.map(s=><option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                {/* Search */}
+                <div style={{ display:'flex', alignItems:'center', gap:'8px', border:'1px solid #e5e7eb', borderRadius:'8px', padding:'6px 12px', background:'#fff' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <input type="text" placeholder="Search" value={tableSearch} onChange={e=>{setTableSearch(e.target.value);setCurrentPage(1);}} style={{ border:'none', outline:'none', fontSize:'13px', color:'#374151', background:'transparent', width:'180px' }} />
+                </div>
+              </div>
+              {/* Export buttons */}
+              <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                <button onClick={()=>exportCSV(displayed)} style={{ display:'flex', alignItems:'center', gap:'6px', border:'1px solid #e5e7eb', borderRadius:'8px', padding:'7px 14px', fontSize:'13px', fontWeight:500, color:'#374151', background:'#f9fafb', cursor:'pointer' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Export
+                </button>
+                <button onClick={()=>exportCSV(displayed)} style={{ width:'34px', height:'34px', background:'#16a34a', border:'none', borderRadius:'8px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8" fill="none" stroke="white" strokeWidth="2"/></svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Table */}
+            {loading ? (
+              <div style={{ display:'flex', justifyContent:'center', padding:'48px' }}>
+                <div style={{ width:'28px', height:'28px', border:'2px solid #e5e7eb', borderTopColor:'#111827', borderRadius:'50%', animation:'report-spin 0.7s linear infinite' }} />
+              </div>
+            ) : displayed.length === 0 ? (
+              <div style={{ textAlign:'center', padding:'48px', color:'#9ca3af', fontSize:'13px' }}>No records found.</div>
+            ) : (
+              <div style={{ overflowX:'auto' }}>
+                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'12px', fontFamily:"'DM Sans', sans-serif" }}>
+                  <thead>
+                    <tr style={{ background:'#f9fafb', borderBottom:'1px solid #f3f4f6' }}>
+                      {['#','DATE','CUSTOMER','CONTACT','FUNCTION DATE','STAFF','STATUS','CATEGORY','SUB CATEGORY','REPEAT COUNT','REMARKS'].map(h=>(
+                        <th key={h} style={{ padding:'10px 14px', textAlign:(h==='#'||h==='REPEAT COUNT')?'center':'left', fontSize:'10px', fontWeight:600, color:'#9ca3af', letterSpacing:'0.06em', whiteSpace:'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentItems.map((w,i)=>{
+                      const sc = STATUS_COLORS[w.status] || { bg:'#f3f4f6', color:'#6b7280' };
+                      return (
+                        <tr key={w._id||i} style={{ borderBottom:'1px solid #f9fafb', background:'#fff' }}
+                          onMouseEnter={e=>e.currentTarget.style.background='#fafafa'}
+                          onMouseLeave={e=>e.currentTarget.style.background='#fff'}
+                        >
+                          <td style={{ padding:'12px 14px', textAlign:'center', color:'#9ca3af' }}>{indexFirst+i+1}</td>
+                          <td style={{ padding:'12px 14px', whiteSpace:'nowrap', color:'#374151' }}>{w.date}</td>
+                          <td style={{ padding:'12px 14px', color:'#111827', fontWeight:500, whiteSpace:'nowrap' }}>{w.customerName}</td>
+                          <td style={{ padding:'12px 14px', whiteSpace:'nowrap', color:'#374151' }}>+91 {w.contact}</td>
+                          <td style={{ padding:'12px 14px', whiteSpace:'nowrap', color:'#374151' }}>{w.functionDate}</td>
+                          <td style={{ padding:'12px 14px', whiteSpace:'nowrap', color:'#374151' }}>{w.staff}</td>
+                          <td style={{ padding:'12px 14px' }}>
+                            <span style={{ background:sc.bg, color:sc.color, borderRadius:'20px', padding:'3px 10px', fontSize:'10px', fontWeight:700, whiteSpace:'nowrap', display:'inline-block' }}>
+                              {w.status?.toUpperCase()}
+                            </span>
+                          </td>
+                          <td style={{ padding:'12px 14px', whiteSpace:'nowrap', color:'#374151' }}>{w.category||'–'}</td>
+                          <td style={{ padding:'12px 14px', whiteSpace:'nowrap', color:'#374151' }}>{w.subCategory||'–'}</td>
+                          <td style={{ padding:'12px 14px', textAlign:'center', color:'#374151' }}>{w.repeatCount}</td>
+                          <td style={{ padding:'12px 14px', color:'#6b7280', maxWidth:'140px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }} title={w.remarks}>{w.remarks||'–'}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Pagination */}
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'14px 20px', borderTop:'1px solid #f3f4f6', fontSize:'13px', color:'#6b7280' }}>
+              <span>Showing {String(Math.min(indexFirst + itemsPerPage, displayed.length)).padStart(2,'0')} of {displayed.length}</span>
+              <div style={{ display:'flex', gap:'6px' }}>
+                <button onClick={()=>setCurrentPage(p=>Math.max(1,p-1))} disabled={currentPage===1} style={{ width:'30px', height:'30px', border:'1px solid #e5e7eb', borderRadius:'6px', background:'#fff', cursor:currentPage===1?'not-allowed':'pointer', opacity:currentPage===1?0.4:1, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <FaChevronLeft size={10} />
+                </button>
+                <button onClick={()=>setCurrentPage(p=>Math.min(totalPages,p+1))} disabled={currentPage===totalPages||totalPages===0} style={{ width:'30px', height:'30px', border:'1px solid #e5e7eb', borderRadius:'6px', background:'#fff', cursor:(currentPage===totalPages||totalPages===0)?'not-allowed':'pointer', opacity:(currentPage===totalPages||totalPages===0)?0.4:1, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <FaChevronRight size={10} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      <style>{`@keyframes report-spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
 };
 
 export default WalkinReport;

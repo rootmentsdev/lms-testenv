@@ -552,14 +552,10 @@ const EmployeeData = () => {
         setData(normalized);
         setFilteredData(normalized);
         setError("");
-        
-        console.log(`✅ Loaded ${normalized.length} employees with training details`);
-        console.log(`📊 Employees with training data: ${json.employeesWithTraining}`);
       } else {
         throw new Error(json.message || "Invalid response format");
       }
     } catch (error) {
-      console.error("Failed to fetch employees:", error.message);
       setError("Failed to fetch employee data. Please try again later.");
       setData([]);
       setFilteredData([]);
@@ -644,7 +640,6 @@ const EmployeeData = () => {
       const result = await response.json();
 
       if (result.success) {
-        console.log('✅ Auto-sync completed:', result.results);
         // Refresh the employee list after sync
         await fetchEmployees();
         
@@ -653,12 +648,10 @@ const EmployeeData = () => {
         setError(""); // Clear any previous errors
         
         // You could add a toast notification here if you have one
-        console.log(message);
       } else {
         throw new Error(result.message || "Auto-sync failed");
       }
     } catch (error) {
-      console.error("Auto-sync failed:", error.message);
       setError(`Auto-sync failed: ${error.message}`);
     } finally {
       setIsRefreshing(false);

@@ -462,7 +462,6 @@ const BranchData = () => {
         });
 
         if (Object.keys(unmatched).length) {
-          console.warn("[Branch headcount] Unmatched store names:", unmatched);
         }
 
         // Merge computed counts (preserve backend fallback when computed = 0)
@@ -475,7 +474,6 @@ const BranchData = () => {
         setBranch(merged);
         setError("");
       } catch (err) {
-        console.error(err);
         setError("Failed to load branch/employee data. Please try again later.");
         setBranch([]);
       } finally {

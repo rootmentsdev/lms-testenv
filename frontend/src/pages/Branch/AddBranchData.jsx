@@ -27,7 +27,6 @@ const BranchForm = () => {
 
     const handleFormSubmit = async () => {
         alert("Branch details saved!");
-        console.log(branch);
         try {
             const response = await fetch(`${baseUrl.baseUrl}api/usercreate/create/branch`, {
                 method: 'POST', // Assuming you use a PUT request to update the data

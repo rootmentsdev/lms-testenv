@@ -42,9 +42,6 @@ const Visibility = () => {
                     }))
                     : [],
             }));
-
-            console.log("Saved Data:", training);
-
             // Send data to the backend
             const response = await fetch(baseUrl.baseUrl + 'api/admin/setting/visibility', {
                 method: "POST",
@@ -61,7 +58,6 @@ const Visibility = () => {
             console.log("Response from backend:", result); // Debugging log
             toast.success("Visibility settings updated successfully!");
         } catch (error) {
-            console.error("Error saving changes:", error.message);
             alert("An error occurred while saving changes. Please try again.");
         }
     };
@@ -73,10 +69,6 @@ const Visibility = () => {
                 const request = await fetch(baseUrl.baseUrl + 'api/admin/get/setting/visibility')
                 const response = await request.json()
                 setVisibilityData(response.Data[0])
-                console.log(response.Data[0]);
-
-
-
             } catch (error) {
                 throw new Error(error)
             }

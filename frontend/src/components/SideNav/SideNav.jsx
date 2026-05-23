@@ -14,6 +14,7 @@ const Icon = ({ d, size = 22 }) => (
 const ICONS = {
   dashboard:  "M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10",
   walkin:     ["M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"],
+  task:       ["M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2", "M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z", "M9 12l2 2 4-4"],
   employee:   ["M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2", "M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"],
   training:   ["M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z", "M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"],
   assessment: ["M9 11l3 3L22 4", "M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"],
@@ -194,6 +195,17 @@ const SideNav = () => {
             items={[
               { to: '/walkin/list',   label: 'Walkin List',   active: is('/walkin/list') },
               { to: '/walkin/report', label: 'Walkin Report', active: is('/walkin/report') },
+            ]}
+          />
+
+          {/* Task — portal flyout on hover */}
+          <FlyoutNavItem
+            icon="task"
+            label="Task"
+            active={is('/task') || is('/task/create')}
+            items={[
+              { to: '/task',        label: 'Create Task',      active: is('/task') },
+              { to: '/task/create', label: 'Task Management',  active: is('/task/create') },
             ]}
           />
 

@@ -200,8 +200,6 @@ const CreateModuleData = () => {
                 questions: video.questions || []
             }))
         };
-        console.log('Submitting module:', newModule);
-
         try {
             const response = await fetch(`${baseUrl.baseUrl}api/modules`, {
                 method: "POST",
@@ -212,7 +210,6 @@ const CreateModuleData = () => {
 
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('Server error:', response.status, errorText);
                 toast.error(`Failed to create module: ${response.status} ${response.statusText}`);
                 return;
             }
@@ -223,7 +220,6 @@ const CreateModuleData = () => {
             // Clear the form after successful submission
             clearForm();
         } catch (error) {
-            console.error('Network error:', error);
             toast.error(`Network error: ${error.message}`);
         }
     };

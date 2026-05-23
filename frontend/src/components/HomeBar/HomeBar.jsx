@@ -22,28 +22,6 @@ const getTierLabel = (pct) => {
 };
 
 /* ── Mock data shown when real data is empty or all-zero ─────────────────── */
-const MOCK_DATA = [
-  { name: "S-PKD",  branchName: "Kozhikode",      pct: 82, employees: 18 },
-  { name: "S-KTKL", branchName: "Kottakkal",      pct: 67, employees: 14 },
-  { name: "S-KTYM", branchName: "Kottayam",       pct: 71, employees: 22 },
-  { name: "S-TSR",  branchName: "Thrissur",        pct: 58, employees: 16 },
-  { name: "S-PRBR", branchName: "Perumbavoor",    pct: 91, employees: 20 },
-  { name: "S-PLMN", branchName: "Palakkad Main",  pct: 53, employees: 12 },
-  { name: "S-EDLY", branchName: "Edapally",       pct: 57, employees: 19 },
-  { name: "S-EDPL", branchName: "Edappal",        pct: 76, employees: 15 },
-  { name: "S-MGR",  branchName: "Manjery",        pct: 32, employees: 11 },
-  { name: "S-KNR",  branchName: "Kannur",         pct: 65, employees: 17 },
-  { name: "S-MJRY", branchName: "Manjery 2",      pct: 97, employees: 23 },
-  { name: "S-CVKD", branchName: "Chavakkad",      pct: 93, employees: 21 },
-  { name: "S-VDKR", branchName: "Vadakara",       pct: 74, employees: 13 },
-  { name: "S-TVM",  branchName: "Trivandrum",     pct: 14, employees: 9  },
-  { name: "S-CLKT", branchName: "Calicut 2",      pct: 66, employees: 18 },
-  { name: "S-KLPT", branchName: "Kalpetta",       pct: 62, employees: 10 },
-  { name: "Z-TKTL", branchName: "Zorucci Kottakkal", pct: 88, employees: 16 },
-  { name: "Z-PRMN", branchName: "Zorucci Perinthalmanna", pct: 31, employees: 8 },
-  { name: "Z-EDPY", branchName: "Zorucci Edapally",  pct: 95, employees: 20 },
-  { name: "Z-MJRY", branchName: "Zorucci Manjery",   pct: 68, employees: 14 },
-].map(d => ({ ...d, tier: getTierLabel(d.pct), color: getTierColor(d.pct) }));
 const CustomTooltip = ({ active, payload }) => {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
@@ -108,11 +86,8 @@ const HomeBar = () => {
       };
     }), [allData]);
 
-  // Use mock data if real data has no variety (all same tier or all low)
-  const isDataMeaningful = realChartData.length > 0 && 
-    realChartData.some(d => d.pct >= 45) &&
-    realChartData.some(d => d.pct >= 65);
-  const chartData = isDataMeaningful ? realChartData : MOCK_DATA;
+  // Always use real API data — no mock fallback
+  const chartData = realChartData;
 
   const filtered = useMemo(() => {
     if (filter === "on-track")  return chartData.filter(d => d.tier === "on-track");

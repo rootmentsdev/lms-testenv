@@ -41,13 +41,10 @@ const AssessmentOverDuedata = () => {
         if (!response.ok) {
           throw new Error(`${response.statusText}`);
         }
-        console.log(error);
-
         const result = await response.json();
         setData(result.data);
         setFilteredData(result.data);
       } catch (error) {
-        console.error("Failed to fetch employees:", error.message);
         setError("Failed to fetch employee data. Please try again later.");
       }
     };

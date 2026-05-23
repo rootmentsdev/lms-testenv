@@ -26,8 +26,6 @@ const assignMandatoryTrainingsToUser = async (user) => {
             training.Assignedfor.some(role => flatten(role) === flatDesignation)
         );
         
-        console.log(`📚 Found ${mandatoryTraining.length} mandatory trainings for designation: ${user.designation}`);
-        
         if (mandatoryTraining.length === 0) {
             return;
         }
@@ -119,548 +117,193 @@ const storeNameToLocCode = {
 
 export const getAllEmployeesWithTrainingDetailsV2 = async (req, res) => {
     try {
-        console.log('🔄 Starting enhanced employee data fetch...');
-        
-        // Get admin permissions and branches
         const admin = await Admin.findById(req?.admin?.userId).populate('branches');
-        if (!admin) {
-            return res.status(401).json({
-                success: false,
-                message: 'Admin not found'
-            });
-        }
+        if (!admin) return res.status(401).json({ success: false, message: 'Admin not found' });
 
-        // Extract allowed location codes from admin's branches
         const allowedLocCodes = admin.branches.map(branch => branch.locCode);
         const isGlobalAdmin = admin.role === 'super_admin' || allowedLocCodes.length === 0;
-        
-        console.log(`👤 Admin: ${admin.name} (Role: ${admin.role})`);
-        console.log(`🏢 Admin branches: ${admin.branches.length}`);
-        console.log(`🔐 Allowed location codes: ${isGlobalAdmin ? 'ALL (Super Admin)' : allowedLocCodes.join(', ')}`);
 
-        // Fetch external employees with retry logic
+        // Fetch external employees — single attempt, short timeout
         let externalEmployees = [];
-        let retryCount = 0;
-        const maxRetries = 3;
-
-        while (retryCount < maxRetries) {
-            try {
-                console.log(`📡 Fetching external employees (attempt ${retryCount + 1}/${maxRetries})...`);
-                
-                // Fetch directly from external API (avoid self-referencing)
-                const ROOTMENTS_API_TOKEN = 'RootX-production-9d17d9485eb772e79df8564004d4a4d4';
-                const response = await axios.post('https://rootments.in/api/employee_range', {
-                    startEmpId: 'EMP1',
-                    endEmpId: 'EMP9999'
-                }, { 
-                    timeout: 30000,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'Authorization': `Bearer ${ROOTMENTS_API_TOKEN}`,
-                    }
-                });
-
-                externalEmployees = response.data?.data || [];
-                console.log(`✅ Fetched ${externalEmployees.length} external employees`);
-                break;
-            } catch (error) {
-                retryCount++;
-                console.error(`❌ External API attempt ${retryCount} failed:`, error.message);
-                console.error(`❌ External API error details:`, {
-                    status: error?.response?.status,
-                    statusText: error?.response?.statusText,
-                    url: error?.config?.url,
-                    timeout: error?.config?.timeout
-                });
-                
-                if (retryCount >= maxRetries) {
-                    console.error('❌ All external API attempts failed, continuing with local data only');
-                    externalEmployees = [];
-                } else {
-                    // Wait before retrying (exponential backoff)
-                    await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-                }
-            }
+        try {
+            const ROOTMENTS_API_TOKEN = 'RootX-production-9d17d9485eb772e79df8564004d4a4d4';
+            const response = await axios.post('https://rootments.in/api/employee_range', {
+                startEmpId: 'EMP1', endEmpId: 'EMP9999'
+            }, {
+                timeout: 10000,
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': `Bearer ${ROOTMENTS_API_TOKEN}` }
+            });
+            externalEmployees = response.data?.data || [];
+        } catch (error) {
+            // Silent fallback to local data only
         }
 
-        // Always exclude "No Store" employees for all admins
+        // Filter out "No Store" employees
         let filteredExternalEmployees = externalEmployees.filter(emp => {
             const storeName = emp?.store_name?.toUpperCase();
-            return !(storeName === 'NO STORE' || !storeName || storeName === '');
+            return storeName && storeName !== 'NO STORE' && storeName !== '';
         });
-        
-        // Filter by permissions (only if not global admin)
+
         if (!isGlobalAdmin) {
             filteredExternalEmployees = filteredExternalEmployees.filter(emp => {
                 const storeName = emp?.store_name?.toUpperCase();
-                
                 const mappedLocCode = storeNameToLocCode[storeName];
-                
-                if (mappedLocCode && allowedLocCodes.includes(mappedLocCode)) {
-                    return true;
-                }
-                
+                if (mappedLocCode && allowedLocCodes.includes(mappedLocCode)) return true;
                 const empLocCode = emp?.store_code || emp?.locCode;
                 return allowedLocCodes.includes(empLocCode);
             });
-            
-            console.log(`🔍 Filtered external employees: ${filteredExternalEmployees.length} (from ${externalEmployees.length})`);
-        } else {
-            console.log(`🌐 Global admin - showing all ${filteredExternalEmployees.length} external employees`);
         }
 
-        // Get local users in allowed branches
-        let localUsersQuery = {};
-        
-        if (!isGlobalAdmin && allowedLocCodes.length > 0) {
-            localUsersQuery = { 
-                $and: [
-                    { locCode: { $in: allowedLocCodes } },
-                    { 
-                        $nor: [
-                            { workingBranch: 'No Store' },
-                            { workingBranch: 'NO STORE' },
-                            { workingBranch: 'no store' },
-                            { workingBranch: '' }
-                        ]
-                    }
-                ]
-            };
-        }
-
+        // Get local users
+        const localUsersQuery = (!isGlobalAdmin && allowedLocCodes.length > 0)
+            ? { $and: [{ locCode: { $in: allowedLocCodes } }, { $nor: [{ workingBranch: 'No Store' }, { workingBranch: 'NO STORE' }, { workingBranch: '' }] }] }
+            : {};
         const localUsers = await User.find(localUsersQuery);
-        console.log(`👥 Local users: ${localUsers.length}`);
-        
-        // Create employee synchronization map
+
+        // Build employee map
         const employeeDataMap = new Map();
-        
-        // Add external employees to map and auto-create local users if needed
         const newUsersToCreate = [];
+
         for (const emp of filteredExternalEmployees) {
-            if (emp.emp_code) {
-                employeeDataMap.set(emp.emp_code, {
-                    empID: emp.emp_code,
-                    username: emp.name || '',
-                    designation: emp.role_name || '',
-                    workingBranch: emp.store_name || '',
-                    email: emp.email || '',
-                    phoneNumber: emp.phone || '',
-                    isLocalUser: false,
-                    hasTrainingData: false,
-                    externalData: emp
+            if (!emp.emp_code) continue;
+            employeeDataMap.set(emp.emp_code, {
+                empID: emp.emp_code, username: emp.name || '', designation: emp.role_name || '',
+                workingBranch: emp.store_name || '', email: emp.email || '', phoneNumber: emp.phone || '',
+                isLocalUser: false, hasTrainingData: false, externalData: emp
+            });
+            if (!localUsers.find(u => u.empID === emp.emp_code)) {
+                let locCode = emp.store_code || (emp.store_name ? storeNameToLocCode[emp.store_name.toUpperCase()] : '') || '1';
+                newUsersToCreate.push({
+                    empID: emp.emp_code, username: emp.name || '', email: emp.email || `${emp.emp_code}@company.com`,
+                    designation: emp.role_name || '', workingBranch: emp.store_name || '', locCode,
+                    phoneNumber: emp.phone || '', training: [], assignedAssessments: []
                 });
-                
-                // Check if this external employee needs to be created locally
-                const existingLocalUser = localUsers.find(user => user.empID === emp.emp_code);
-                if (!existingLocalUser) {
-                    // Determine locCode from store_code or store name mapping
-                    let locCode = emp.store_code || '';
-                    if (!locCode && emp.store_name) {
-                        locCode = storeNameToLocCode[emp.store_name.toUpperCase()] || '1'; // Default to '1' if not found
-                    }
-                    if (!locCode) {
-                        locCode = '1'; // Final fallback
-                    }
-                    
-                    newUsersToCreate.push({
-                        empID: emp.emp_code,
-                        username: emp.name || '',
-                        email: emp.email || `${emp.emp_code}@company.com`,
-                        designation: emp.role_name || '',
-                        workingBranch: emp.store_name || '',
-                        locCode: locCode,
-                        phoneNumber: emp.phone || '',
-                        training: [],
-                        assignedAssessments: []
-                    });
-                }
-            }
-        }
-        
-        // Create new local users for external employees
-        if (newUsersToCreate.length > 0) {
-            console.log(`🔄 Creating ${newUsersToCreate.length} new local users from external data...`);
-            
-            try {
-                const createdUsers = await User.insertMany(newUsersToCreate);
-                console.log(`✅ Created ${createdUsers.length} new local users`);
-                
-                // Auto-assign mandatory trainings to new users
-                for (const newUser of createdUsers) {
-                    try {
-                        await assignMandatoryTrainingsToUser(newUser);
-                        console.log(`✅ Assigned mandatory trainings to ${newUser.empID}`);
-                    } catch (error) {
-                        console.error(`❌ Failed to assign trainings to ${newUser.empID}:`, error.message);
-                        // Continue with other users even if one fails
-                    }
-                }
-                
-                // Also check existing users for missing mandatory trainings
-                console.log(`🔍 Checking existing users for missing mandatory trainings...`);
-                for (const existingUser of localUsers.filter(u => !newUsersToCreate.find(nu => nu.empID === u.empID))) {
-                    try {
-                        await assignMandatoryTrainingsToUser(existingUser);
-                    } catch (error) {
-                        console.error(`❌ Failed to check/assign trainings to existing user ${existingUser.empID}:`, error.message);
-                        // Continue with other users even if one fails
-                    }
-                }
-                
-                // Update localUsers array to include new users
-                localUsers.push(...createdUsers);
-                console.log(`👥 Updated local users count: ${localUsers.length}`);
-                
-            } catch (error) {
-                console.error('❌ Error creating new local users:', error.message);
             }
         }
 
-        // Add/Update with local user data
+        // Create missing local users (no per-user mandatory training assignment here — done by cron)
+        if (newUsersToCreate.length > 0) {
+            try {
+                const created = await User.insertMany(newUsersToCreate, { ordered: false });
+                localUsers.push(...created);
+            } catch (e) { /* ignore duplicate key errors */ }
+        }
+
         localUsers.forEach(user => {
             const existing = employeeDataMap.get(user.empID);
-            if (existing) {
-                // Update external data with local user info
-                existing.isLocalUser = true;
-                existing.hasTrainingData = true;
-                existing.localUser = user;
-            } else {
-                // Add local-only user
-                employeeDataMap.set(user.empID, {
-                    empID: user.empID,
-                    username: user.username || '',
-                    designation: user.designation || '',
-                    workingBranch: user.workingBranch || '',
-                    email: user.email || '',
-                    phoneNumber: user.phoneNumber || '',
-                    isLocalUser: true,
-                    hasTrainingData: true,
-                    localUser: user,
-                    externalData: null
-                });
-            }
+            if (existing) { existing.isLocalUser = true; existing.hasTrainingData = true; existing.localUser = user; }
+            else { employeeDataMap.set(user.empID, { empID: user.empID, username: user.username || '', designation: user.designation || '', workingBranch: user.workingBranch || '', email: user.email || '', phoneNumber: user.phoneNumber || '', isLocalUser: true, hasTrainingData: true, localUser: user, externalData: null }); }
         });
 
-        // Pre-fetch all training progress records to avoid N+1 queries
-        const allUserIds = localUsers.map(user => user._id);
-        const allTrainingProgress = await TrainingProgress.find({ 
-            userId: { $in: allUserIds } 
-        });
-        
-        // Create a map of userId -> training progress records
+        // Bulk fetch training progress
+        const allUserIds = localUsers.map(u => u._id);
+        const allTrainingProgress = await TrainingProgress.find({ userId: { $in: allUserIds } });
         const trainingProgressMap = new Map();
-        allTrainingProgress.forEach(progress => {
-            const userId = progress.userId.toString();
-            if (!trainingProgressMap.has(userId)) {
-                trainingProgressMap.set(userId, []);
-            }
-            trainingProgressMap.get(userId).push(progress);
+        allTrainingProgress.forEach(p => {
+            const key = p.userId.toString();
+            if (!trainingProgressMap.has(key)) trainingProgressMap.set(key, []);
+            trainingProgressMap.get(key).push(p);
         });
-        
-        console.log(`📊 Pre-fetched ${allTrainingProgress.length} training progress records`);
 
-        // Process all employees to add training/assessment details
         const processedEmployees = [];
-        let employeesWithTraining = 0;
-
-        for (const [empID, employeeData] of employeeDataMap) {
+        for (const [, employeeData] of employeeDataMap) {
             const localUser = employeeData.localUser;
-            
-            let trainingCount = 0;
-            let passCountTraining = 0;
-            let trainingDue = 0;
-            let assignedAssessmentsCount = 0;
-            let passCountAssessment = 0;
-            let assessmentDue = 0;
-            let trainingCompletionPercentage = 0;
-            let assessmentCompletionPercentage = 0;
-            
+            let trainingCount = 0, passCountTraining = 0, trainingDue = 0;
+            let assignedAssessmentsCount = 0, passCountAssessment = 0, assessmentDue = 0;
+
             if (localUser) {
-                // Calculate training statistics
-                let assignedTrainingCount = 0;
-                let assignedPassCount = 0;
-                let assignedOverdueCount = 0;
-                
-                let mandatoryTrainingCount = 0;
-                let mandatoryPassCount = 0;
-                let mandatoryOverdueCount = 0;
-                
-                // Count assigned trainings from user.training array
-                if (localUser.training && Array.isArray(localUser.training)) {
-                    assignedTrainingCount = localUser.training.length;
-                    assignedPassCount = localUser.training.filter(t => t.pass).length;
-                    
-                    // Calculate overdue assigned trainings
-                    const today = new Date();
-                    assignedOverdueCount = localUser.training.filter(t => 
-                        new Date(t.deadline) < today && !t.pass
-                    ).length;
-                }
-                
-                // Count mandatory trainings from TrainingProgress collection
-                const userTrainingProgress = trainingProgressMap.get(localUser._id.toString()) || [];
-                
-                // Get assigned training IDs to avoid duplicates
-                const assignedTrainingIds = localUser.training ? 
-                    localUser.training.map(t => t.trainingId.toString()) : [];
-                
-                // Filter out mandatory trainings that are already in assigned trainings
-                const uniqueMandatoryTrainings = userTrainingProgress.filter(tp => 
-                    !assignedTrainingIds.includes(tp.trainingId.toString())
-                );
-                
-                mandatoryTrainingCount = uniqueMandatoryTrainings.length;
-                mandatoryPassCount = uniqueMandatoryTrainings.filter(tp => tp.pass).length;
-                
-                // Calculate overdue mandatory trainings
+                const assignedTrainingIds = localUser.training ? localUser.training.map(t => t.trainingId.toString()) : [];
+                const userMandatoryTrainings = (trainingProgressMap.get(localUser._id.toString()) || []).filter(tp => !assignedTrainingIds.includes(tp.trainingId.toString()));
                 const today = new Date();
-                mandatoryOverdueCount = uniqueMandatoryTrainings.filter(tp => 
-                    new Date(tp.deadline) < today && !tp.pass
-                ).length;
-                
-                // Combine both types of trainings (no duplicates)
-                trainingCount = assignedTrainingCount + mandatoryTrainingCount;
-                passCountTraining = assignedPassCount + mandatoryPassCount;
-                trainingDue = assignedOverdueCount + mandatoryOverdueCount;
-                
-                trainingCompletionPercentage = trainingCount > 0 ? 
-                    Math.round((passCountTraining / trainingCount) * 100) : 0;
-                
-                // Calculate assessment data
-                if (localUser.assignedAssessments && Array.isArray(localUser.assignedAssessments)) {
+
+                if (localUser.training?.length) {
+                    trainingCount += localUser.training.length;
+                    passCountTraining += localUser.training.filter(t => t.pass).length;
+                    trainingDue += localUser.training.filter(t => new Date(t.deadline) < today && !t.pass).length;
+                }
+                trainingCount += userMandatoryTrainings.length;
+                passCountTraining += userMandatoryTrainings.filter(t => t.pass).length;
+                trainingDue += userMandatoryTrainings.filter(t => new Date(t.deadline) < today && !t.pass).length;
+
+                if (localUser.assignedAssessments?.length) {
                     assignedAssessmentsCount = localUser.assignedAssessments.length;
                     passCountAssessment = localUser.assignedAssessments.filter(a => a.pass).length;
-                    
-                    // Calculate overdue assessments
-                    const today = new Date();
-                    assessmentDue = localUser.assignedAssessments.filter(a => 
-                        new Date(a.deadline) < today && !a.pass
-                    ).length;
-                    
-                    assessmentCompletionPercentage = assignedAssessmentsCount > 0 ? 
-                        Math.round((passCountAssessment / assignedAssessmentsCount) * 100) : 0;
-                }
-
-                if (trainingCount > 0 || assignedAssessmentsCount > 0) {
-                    employeesWithTraining++;
+                    assessmentDue = localUser.assignedAssessments.filter(a => new Date(a.deadline) < today && !a.pass).length;
                 }
             }
-            
+
             processedEmployees.push({
-                empID: employeeData.empID,
-                username: employeeData.username,
-                designation: employeeData.designation,
-                workingBranch: employeeData.workingBranch,
-                email: employeeData.email,
-                phoneNumber: employeeData.phoneNumber,
-                trainingCount,
-                passCountTraining,
-                trainingDue,
-                trainingCompletionPercentage,
-                assignedAssessmentsCount,
-                passCountAssessment,
-                assessmentDue,
-                assessmentCompletionPercentage,
-                isLocalUser: employeeData.isLocalUser,
-                hasTrainingData: employeeData.hasTrainingData
+                empID: employeeData.empID, username: employeeData.username, designation: employeeData.designation,
+                workingBranch: employeeData.workingBranch, email: employeeData.email, phoneNumber: employeeData.phoneNumber,
+                trainingCount, passCountTraining, trainingDue,
+                trainingCompletionPercentage: trainingCount > 0 ? Math.round((passCountTraining / trainingCount) * 100) : 0,
+                assignedAssessmentsCount, passCountAssessment, assessmentDue,
+                assessmentCompletionPercentage: assignedAssessmentsCount > 0 ? Math.round((passCountAssessment / assignedAssessmentsCount) * 100) : 0,
+                isLocalUser: employeeData.isLocalUser, hasTrainingData: employeeData.hasTrainingData,
             });
         }
 
-        // Sort employees by empID for consistent ordering
-        processedEmployees.sort((a, b) => {
-            const aNum = parseInt(a.empID.replace(/\D/g, '')) || 0;
-            const bNum = parseInt(b.empID.replace(/\D/g, '')) || 0;
-            return aNum - bNum;
-        });
+        processedEmployees.sort((a, b) => (parseInt(a.empID.replace(/\D/g,''))||0) - (parseInt(b.empID.replace(/\D/g,''))||0));
 
-        console.log(`✅ Processed ${processedEmployees.length} employees (${employeesWithTraining} with training data)`);
-
-        res.status(200).json({
-            success: true,
-            message: 'Employee data with training details fetched successfully',
-            data: processedEmployees,
-            employeesWithTraining,
-            totalEmployees: processedEmployees.length,
-            localUsers: localUsers.length,
-            externalEmployees: filteredExternalEmployees.length,
-            isGlobalAdmin
-        });
-
+        res.status(200).json({ success: true, message: 'Employee data fetched successfully', data: processedEmployees, totalEmployees: processedEmployees.length, isGlobalAdmin });
     } catch (error) {
-        console.error('❌ Error in getAllEmployeesWithTrainingDetailsV2:', error);
-        
-        // Return a more informative error response
-        res.status(500).json({
-            success: false,
-            message: 'Failed to fetch employee data',
-            error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
-            details: process.env.NODE_ENV === 'development' ? {
-                stack: error.stack,
-                name: error.name
-            } : undefined
-        });
+        res.status(500).json({ success: false, message: 'Failed to fetch employee data', error: error.message });
     }
 };
 
 // Auto-sync function to keep database updated with external API
 export const autoSyncEmployees = async (req, res) => {
     try {
-        console.log('🔄 Starting auto-sync of employees...');
-        // Fetch all employees directly from external API (avoid self-referencing)
         const ROOTMENTS_API_TOKEN = 'RootX-production-9d17d9485eb772e79df8564004d4a4d4';
         const response = await axios.post('https://rootments.in/api/employee_range', {
-            startEmpId: 'EMP1',
-            endEmpId: 'EMP9999'
-        }, { 
+            startEmpId: 'EMP1', endEmpId: 'EMP9999'
+        }, {
             timeout: 30000,
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'Authorization': `Bearer ${ROOTMENTS_API_TOKEN}`,
-            }
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': `Bearer ${ROOTMENTS_API_TOKEN}` }
         });
 
         const externalEmployees = response.data?.data || [];
-        console.log(`📡 Fetched ${externalEmployees.length} employees from external API`);
-
-        let createdCount = 0;
-        let updatedCount = 0;
-        let skippedCount = 0;
+        let createdCount = 0, updatedCount = 0, skippedCount = 0;
 
         for (const emp of externalEmployees) {
             try {
-                // Skip employees with missing critical data
-                if (!emp.emp_code || !emp.email) {
-                    skippedCount++;
-                    continue;
-                }
+                if (!emp.emp_code || !emp.email) { skippedCount++; continue; }
 
-                // Check if user already exists
-                let user = await User.findOne({
-                    $or: [
-                        { empID: emp.emp_code },
-                        { email: emp.email }
-                    ]
-                });
+                let user = await User.findOne({ $or: [{ empID: emp.emp_code }, { email: emp.email }] });
 
                 if (!user) {
-                    // Create new user
                     const locCode = storeNameToLocCode[emp.store_name] || emp.store_code || 'Unknown';
-                    
                     user = new User({
-                        username: emp.name || emp.emp_code || 'Unknown',
-                        email: emp.email,
-                        empID: emp.emp_code,
-                        designation: emp.role_name || 'Unknown',
-                        locCode: locCode,
-                        workingBranch: emp.store_name || 'Unknown',
-                        phoneNumber: emp.phone || '',
-                        assignedModules: [],
-                        assignedAssessments: [],
-                        training: []
+                        username: emp.name || emp.emp_code || 'Unknown', email: emp.email, empID: emp.emp_code,
+                        designation: emp.role_name || 'Unknown', locCode, workingBranch: emp.store_name || 'Unknown',
+                        phoneNumber: emp.phone || '', assignedModules: [], assignedAssessments: [], training: []
                     });
-
                     await user.save();
                     createdCount++;
-                    
-                    // Auto-assign mandatory trainings to newly created user
-                    try {
-                        await assignMandatoryTrainingsToUser(user);
-                    } catch (error) {
-                        console.error(`❌ Failed to assign mandatory trainings to ${user.empID}:`, error.message);
-                        // Continue with other users even if training assignment fails
-                    }
+                    try { await assignMandatoryTrainingsToUser(user); } catch (e) { /* silent */ }
                 } else {
-                    // Update existing user with latest info from external API
                     let hasChanges = false;
-                    
-                    if (user.username !== emp.name && emp.name) {
-                        user.username = emp.name;
-                        hasChanges = true;
-                    }
-                    
-                    if (user.designation !== emp.role_name && emp.role_name) {
-                        user.designation = emp.role_name;
-                        hasChanges = true;
-                    }
-                    
-                    if (user.workingBranch !== emp.store_name && emp.store_name) {
-                        user.workingBranch = emp.store_name;
-                        hasChanges = true;
-                    }
-                    
-                    if (user.phoneNumber !== emp.phone && emp.phone) {
-                        user.phoneNumber = emp.phone;
-                        hasChanges = true;
-                    }
-
-                    // Only update locCode if it's currently 'Unknown' or empty
+                    if (emp.name && user.username !== emp.name) { user.username = emp.name; hasChanges = true; }
+                    if (emp.role_name && user.designation !== emp.role_name) { user.designation = emp.role_name; hasChanges = true; }
+                    if (emp.store_name && user.workingBranch !== emp.store_name) { user.workingBranch = emp.store_name; hasChanges = true; }
+                    if (emp.phone && user.phoneNumber !== emp.phone) { user.phoneNumber = emp.phone; hasChanges = true; }
                     if ((!user.locCode || user.locCode === 'Unknown') && emp.store_name && storeNameToLocCode[emp.store_name]) {
-                        user.locCode = storeNameToLocCode[emp.store_name];
-                        hasChanges = true;
+                        user.locCode = storeNameToLocCode[emp.store_name]; hasChanges = true;
                     }
-
-                    if (hasChanges) {
-                        await user.save();
-                        updatedCount++;
-                    }
-                    
-                    // Check if existing user has mandatory trainings assigned
+                    if (hasChanges) { await user.save(); updatedCount++; }
                     try {
-                        const existingProgress = await TrainingProgress.find({ userId: user._id });
-                        if (existingProgress.length === 0) {
-                            await assignMandatoryTrainingsToUser(user);
-                        }
-                    } catch (error) {
-                        console.error(`❌ Failed to check/assign trainings to existing user ${user.empID}:`, error.message);
-                        // Continue with other users even if training check fails
-                    }
+                        const existing = await TrainingProgress.countDocuments({ userId: user._id });
+                        if (existing === 0) await assignMandatoryTrainingsToUser(user);
+                    } catch (e) { /* silent */ }
                 }
-            } catch (error) {
-                console.error(`❌ Error processing employee ${emp.emp_code}:`, error.message);
-                skippedCount++;
-            }
+            } catch (e) { skippedCount++; }
         }
 
-        const finalCount = await User.countDocuments();
-
-        console.log(`✅ Auto-sync complete — created: ${createdCount}, updated: ${updatedCount}, skipped: ${skippedCount}, total: ${finalCount}`);
         res.status(200).json({
-            success: true,
-            message: 'Employee auto-sync completed successfully',
-            results: {
-                created: createdCount,
-                updated: updatedCount,
-                skipped: skippedCount,
-                totalInDatabase: finalCount,
-                externalApiCount: externalEmployees.length
-            }
+            success: true, message: 'Employee auto-sync completed',
+            results: { created: createdCount, updated: updatedCount, skipped: skippedCount, totalInDatabase: await User.countDocuments(), externalApiCount: externalEmployees.length }
         });
-
     } catch (error) {
-        console.error('❌ Error in auto-sync:', error);
-        console.error('❌ Error details:', {
-            message: error.message,
-            status: error?.response?.status,
-            statusText: error?.response?.statusText,
-            data: error?.response?.data,
-            config: {
-                url: error?.config?.url,
-                method: error?.config?.method,
-                timeout: error?.config?.timeout
-            }
-        });
-        
-        res.status(500).json({
-            success: false,
-            message: 'Auto-sync failed',
-            error: error.message,
-            details: process.env.NODE_ENV === 'development' ? {
-                status: error?.response?.status,
-                statusText: error?.response?.statusText,
-                url: error?.config?.url
-            } : undefined
-        });
+        res.status(500).json({ success: false, message: 'Auto-sync failed', error: error.message });
     }
 };

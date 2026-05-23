@@ -56,6 +56,17 @@ const WalkinList = () => {
     const user = useSelector((state) => state.auth.user);
     const token = localStorage.getItem('token');
 
+    // Inject DM Sans font from Google Fonts
+    useEffect(() => {
+        if (!document.getElementById('dm-sans-font')) {
+            const link = document.createElement('link');
+            link.id = 'dm-sans-font';
+            link.rel = 'stylesheet';
+            link.href = 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap';
+            document.head.appendChild(link);
+        }
+    }, []);
+
     // State for walkins list
     const [walkins, setWalkins] = useState([]);
     const [filteredWalkins, setFilteredWalkins] = useState([]);
@@ -108,7 +119,6 @@ const WalkinList = () => {
                 setWalkins(walkinJson.data || []);
             }
         } catch (err) {
-            console.error("Error loading Walk-in logs:", err);
         }
     };
 
@@ -116,55 +126,46 @@ const WalkinList = () => {
         const fetchData = async () => {
             setLoading(true);
             try {
-                // Fetch branches (GET)
-                const branchRes = await fetch(`${baseUrl.baseUrl}api/usercreate/getBranch`, {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                // Fetch employees (GET)
-                const empRes = await fetch(`${baseUrl.baseUrl}api/employee/management/with-training-details`, {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
+                // Fetch branches and walkins in parallel — skip employees until form is opened
+                const [branchRes] = await Promise.all([
+                    fetch(`${baseUrl.baseUrl}api/usercreate/getBranch`, {
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+                    }),
+                ]);
 
                 const branchJson = await branchRes.json();
-                const empJson = await empRes.json();
-
                 const branchList = Array.isArray(branchJson?.data) ? branchJson.data : [];
-                const empList = Array.isArray(empJson) ? empJson : (Array.isArray(empJson?.data) ? empJson.data : []);
-
                 setBranches(branchList);
-                setEmployees(empList);
 
-                // Set default store based on role constraints
                 if (branchList.length > 0) {
-                    if (user?.role === 'store_admin') {
-                        const defaultStore = branchList[0]?.workingBranch || '';
-                        setFormData(prev => ({ ...prev, store: defaultStore }));
-                    } else {
-                        setFormData(prev => ({ ...prev, store: branchList[0]?.workingBranch || '' }));
-                    }
+                    setFormData(prev => ({ ...prev, store: branchList[0]?.workingBranch || '' }));
                 }
 
-                // Fetch live walk-in logs
+                // Fetch walkins immediately
                 await loadWalkinsList();
 
             } catch (err) {
-                console.error("Error loading Walk-in dependencies:", err);
             } finally {
                 setLoading(false);
             }
         };
 
-        if (token) {
-            fetchData();
-        }
+        if (token) fetchData();
     }, [token, user?.role]);
+
+    // Load employees lazily only when the add form is opened
+    const loadEmployees = async () => {
+        if (employees.length > 0) return; // already loaded
+        try {
+            const empRes = await fetch(`${baseUrl.baseUrl}api/employee/management/with-training-details`, {
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+            });
+            const empJson = await empRes.json();
+            const empList = Array.isArray(empJson) ? empJson : (Array.isArray(empJson?.data) ? empJson.data : []);
+            setEmployees(empList);
+        } catch (err) {
+        }
+    };
 
     // Handle dynamically filtering walk-in list and binding to dynamic dropdown rules
     useEffect(() => {
@@ -277,7 +278,6 @@ const WalkinList = () => {
                 setCustomerExistsNotification(false);
             }
         } catch (err) {
-            console.error("Error checking customer existence:", err);
         }
     };
 
@@ -335,7 +335,6 @@ const WalkinList = () => {
                 alert(`Error: ${json.message}`);
             }
         } catch (err) {
-            console.error("Error saving walk-in to DB:", err);
             alert("Connection error while attempting to save walk-in.");
         } finally {
             setLoading(false);
@@ -364,7 +363,7 @@ const WalkinList = () => {
     );
 
     return (
-        <div className="mb-[70px] text-[14px] bg-white min-h-screen">
+        <div className="mb-[70px] text-[14px] bg-white min-h-screen" style={{ fontFamily: "'DM Sans', sans-serif" }}>
             <Header name={showAddView ? "Add Walk-In" : "Walk-In List"} />
             <SideNav />
             <div className="md:hidden sm:block">
@@ -372,7 +371,7 @@ const WalkinList = () => {
             </div>
 
             {/* Layout Grid Container matching standard dashboard spacing perfectly */}
-            <div className="md:ml-[120px] mt-[104px] sm:mt-[104px] px-4 sm:px-6 lg:px-12 transition-all duration-300">
+            <div className="md:ml-[120px] mt-[68px] sm:mt-[68px] px-4 sm:px-6 lg:px-12 transition-all duration-300">
                 {showAddView ? (
                     /* ADD WALKIN FORM VIEW MATCHING SECOND SCREENSHOT */
                     <div className="mt-8 mb-6 max-w-5xl mx-auto">
@@ -400,189 +399,68 @@ const WalkinList = () => {
                                 )}
 
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-                                    {/* Customer mobile number */}
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">
-                                            Customer mobile number <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                            type="tel"
-                                            name="contact"
-                                            required
-                                            maxLength={10}
-                                            placeholder="Enter Mobile Number"
-                                            value={formData.contact}
-                                            onChange={handleInputChange}
-                                            onBlur={(e) => checkCustomer(e.target.value)}
-                                            className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 font-semibold"
-                                        />
+                                        <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Customer Mobile Number <span className="text-red-500">*</span></label>
+                                        <input type="tel" name="contact" required maxLength={10} placeholder="Enter Mobile Number" value={formData.contact} onChange={handleInputChange} onBlur={(e) => checkCustomer(e.target.value)} className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 font-semibold" />
                                     </div>
-
-                                    {/* Customer Name */}
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">
-                                            Customer Name <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                            type="text"
-                                            name="customerName"
-                                            required
-                                            placeholder="Enter Customer Name"
-                                            value={formData.customerName}
-                                            onChange={handleInputChange}
-                                            className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 font-semibold"
-                                        />
+                                        <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Customer Name <span className="text-red-500">*</span></label>
+                                        <input type="text" name="customerName" required placeholder="Enter Customer Name" value={formData.customerName} onChange={handleInputChange} className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 font-semibold" />
                                     </div>
-
-                                    {/* Function Date */}
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">
-                                            Function Date <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                            type="date"
-                                            name="functionDate"
-                                            required
-                                            value={formData.functionDate}
-                                            onChange={handleInputChange}
-                                            className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 font-semibold cursor-pointer"
-                                        />
+                                        <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Function Date <span className="text-red-500">*</span></label>
+                                        <input type="date" name="functionDate" required value={formData.functionDate} onChange={handleInputChange} className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 font-semibold cursor-pointer" />
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-
-                                    {/* Store select (shown only for Super Admin and Cluster Manager to define the store map) */}
-                                    {(user?.role === 'super_admin' || user?.role === 'cluster_admin') ? (
+                                    {(user?.role === 'super_admin' || user?.role === 'cluster_admin') && (
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">
-                                                Store <span className="text-red-500">*</span>
-                                            </label>
-                                            <select
-                                                name="store"
-                                                required
-                                                value={formData.store}
-                                                onChange={handleInputChange}
-                                                className="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 bg-white cursor-pointer font-semibold"
-                                            >
-                                                {branches.map((b, idx) => (
-                                                    <option key={idx} value={b.workingBranch}>{b.workingBranch}</option>
-                                                ))}
+                                            <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Store <span className="text-red-500">*</span></label>
+                                            <select name="store" required value={formData.store} onChange={handleInputChange} className="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 bg-white cursor-pointer font-semibold">
+                                                {branches.map((b, idx) => (<option key={idx} value={b.workingBranch}>{b.workingBranch}</option>))}
                                             </select>
                                         </div>
-                                    ) : null}
-
-                                    {/* Creating as * (Employee Dropdown selector) */}
+                                    )}
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">
-                                            Creating as <span className="text-red-500">*</span>
-                                        </label>
-                                        <select
-                                            name="staff"
-                                            required
-                                            value={formData.staff}
-                                            onChange={handleInputChange}
-                                            className="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 bg-white cursor-pointer font-semibold"
-                                        >
+                                        <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Creating as <span className="text-red-500">*</span></label>
+                                        <select name="staff" required value={formData.staff} onChange={handleInputChange} className="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 bg-white cursor-pointer font-semibold">
                                             <option value="">Select</option>
-                                            {currentStoreEmployees.map((emp, idx) => (
-                                                <option key={idx} value={emp.username}>{emp.username}</option>
-                                            ))}
+                                            {currentStoreEmployees.map((emp, idx) => (<option key={idx} value={emp.username}>{emp.username}</option>))}
                                         </select>
                                     </div>
                                 </div>
 
-                                {/* Secondary collapse/section for optional fields to preserve database completeness */}
                                 <div className="border-t border-gray-100 pt-6 mt-4">
                                     <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Fitting Details (Optional)</h4>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-                                        {/* Date of Visit */}
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">
-                                                Visit Date
-                                            </label>
-                                            <input
-                                                type="date"
-                                                name="date"
-                                                value={formData.date}
-                                                onChange={handleInputChange}
-                                                className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 font-semibold cursor-pointer"
-                                            />
+                                            <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Visit Date</label>
+                                            <input type="date" name="date" value={formData.date} onChange={handleInputChange} className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 font-semibold cursor-pointer" />
                                         </div>
-
-                                        {/* Category */}
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">
-                                                Category
-                                            </label>
-                                            <input
-                                                type="text"
-                                                name="category"
-                                                placeholder="e.g. Groom"
-                                                value={formData.category}
-                                                onChange={handleInputChange}
-                                                className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700"
-                                            />
+                                            <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Category</label>
+                                            <input type="text" name="category" placeholder="e.g. Groom" value={formData.category} onChange={handleInputChange} className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700" />
                                         </div>
-
-                                        {/* Sub Category */}
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">
-                                                Sub Category
-                                            </label>
-                                            <input
-                                                type="text"
-                                                name="subCategory"
-                                                placeholder="e.g. 2PCS Suit"
-                                                value={formData.subCategory}
-                                                onChange={handleInputChange}
-                                                className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700"
-                                            />
+                                            <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Sub Category</label>
+                                            <input type="text" name="subCategory" placeholder="e.g. 2PCS Suit" value={formData.subCategory} onChange={handleInputChange} className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700" />
                                         </div>
-
-                                        {/* Status */}
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">
-                                                Status
-                                            </label>
-                                            <select
-                                                name="status"
-                                                value={formData.status}
-                                                onChange={handleInputChange}
-                                                className="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 bg-white cursor-pointer font-semibold"
-                                            >
-                                                {STATUS_OPTIONS.map((opt) => (
-                                                    <option key={opt} value={opt}>{opt}</option>
-                                                ))}
+                                            <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Status</label>
+                                            <select name="status" value={formData.status} onChange={handleInputChange} className="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 bg-white cursor-pointer font-semibold">
+                                                {STATUS_OPTIONS.map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
                                             </select>
                                         </div>
-
-                                        {/* Remarks */}
                                         <div className="md:col-span-2">
-                                            <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">
-                                                Remarks
-                                            </label>
-                                            <textarea
-                                                name="remarks"
-                                                rows={1}
-                                                placeholder="Enter fit remarks, style details..."
-                                                value={formData.remarks}
-                                                onChange={handleInputChange}
-                                                className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700"
-                                            />
+                                            <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Remarks</label>
+                                            <textarea name="remarks" rows={1} placeholder="Enter fit remarks, style details..." value={formData.remarks} onChange={handleInputChange} className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700" />
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Save Button centered matching mockup screenshot exactly */}
                                 <div className="flex justify-center pt-8 border-t border-gray-100">
-                                    <button
-                                        type="submit"
-                                        disabled={loading}
-                                        className="bg-[#2A2A2A] hover:bg-black text-white px-16 py-3 rounded-md transition-all duration-200 font-bold shadow-md hover:shadow-lg transform active:scale-95 text-center min-w-[180px] cursor-pointer text-sm"
-                                    >
+                                    <button type="submit" disabled={loading} className="bg-[#2A2A2A] hover:bg-black text-white px-16 py-3 rounded-md transition-all duration-200 font-bold shadow-md hover:shadow-lg transform active:scale-95 text-center min-w-[180px] cursor-pointer text-sm">
                                         {loading ? 'Saving...' : 'Save'}
                                     </button>
                                 </div>
@@ -590,157 +468,114 @@ const WalkinList = () => {
                         </div>
                     </div>
                 ) : (
-                    /* WALK-IN LIST VIEW PAGE */
+                    /* ── WALK-IN LIST VIEW ── */
                     <>
-                        {/* Header Row matching first mockup image exactly */}
-                        <div className="flex justify-between items-center mt-8 mb-6">
-                            <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Walk-In List</h1>
+                        {/* Header */}
+                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:'24px', marginBottom:'16px' }}>
+                            <h1 style={{ fontSize:'22px', fontWeight:700, color:'#111827', margin:0 }}>Walk In List</h1>
                             <button
-                                onClick={() => {
-                                    // Seed default store to avoid blank selector on init
-                                    if (branches.length > 0) {
-                                        setFormData(prev => ({
-                                            ...prev,
-                                            store: branches[0]?.workingBranch || ''
-                                        }));
-                                    }
-                                    setShowAddView(true);
-                                }}
-                                className="bg-white border border-gray-300 px-5 py-1.5 rounded-full text-xs font-semibold text-gray-700 hover:bg-gray-50 flex items-center gap-1 shadow-sm transition-colors cursor-pointer"
+                                onClick={() => { if(branches.length>0){setFormData(prev=>({...prev,store:branches[0]?.workingBranch||''}))} loadEmployees(); setShowAddView(true); }}
+                                style={{ background:'#111827', color:'#fff', border:'none', borderRadius:'10px', padding:'9px 18px', fontSize:'13px', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:'6px' }}
                             >
-                                + Add Walkin
+                                + New Walk In
                             </button>
                         </div>
 
-                        {/* Main Content White Container Card matching first mockup exactly */}
-                        <div className="bg-white rounded-lg shadow-sm p-5 border border-gray-150">
-
-                            {/* Filters Toolbar matching mockup exactly */}
-                            <div className="flex gap-0 mb-4 max-w-lg border border-gray-300 rounded-md overflow-hidden bg-white">
-                                <select
-                                    className="bg-white px-3 py-2 text-sm text-gray-600 focus:outline-none border-r border-gray-300 cursor-pointer"
-                                    value={statusFilter}
-                                    onChange={(e) => setStatusFilter(e.target.value)}
-                                >
-                                    <option value="All">All</option>
-                                    {STATUS_OPTIONS.map((opt) => (
-                                        <option key={opt} value={opt}>{opt}</option>
-                                    ))}
+                        {/* Filters */}
+                        <div style={{ display:'flex', gap:'10px', marginBottom:'16px', alignItems:'center', flexWrap:'wrap' }}>
+                            <input
+                                type="text"
+                                placeholder="Search customer, contact, store..."
+                                value={searchQuery}
+                                onChange={e=>setSearchQuery(e.target.value)}
+                                style={{ border:'1px solid #e5e7eb', borderRadius:'8px', padding:'7px 12px', fontSize:'13px', color:'#374151', outline:'none', width:'260px', background:'#fff' }}
+                            />
+                            <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} style={{ border:'1px solid #e5e7eb', borderRadius:'8px', padding:'7px 12px', fontSize:'13px', color:'#374151', outline:'none', background:'#fff', cursor:'pointer' }}>
+                                <option value="All">All Status</option>
+                                {STATUS_OPTIONS.map(opt=><option key={opt} value={opt}>{opt}</option>)}
+                            </select>
+                            {(user?.role==='super_admin'||user?.role==='cluster_admin') && (
+                                <select value={storeFilter} onChange={e=>setStoreFilter(e.target.value)} style={{ border:'1px solid #e5e7eb', borderRadius:'8px', padding:'7px 12px', fontSize:'13px', color:'#374151', outline:'none', background:'#fff', cursor:'pointer' }}>
+                                    <option value="All">All Stores</option>
+                                    {branches.map((b,i)=><option key={i} value={b.workingBranch}>{b.workingBranch}</option>)}
                                 </select>
-                                <input
-                                    type="text"
-                                    placeholder="Search"
-                                    className="px-3 py-2 text-sm flex-1 focus:outline-none text-gray-700"
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                />
-                            </div>
-
-                            {/* Filter by Stores (Only visible for Super Admin and Cluster Managers) */}
-                            {(user?.role === 'super_admin' || user?.role === 'cluster_admin') && (
-                                <div className="flex items-center gap-2 mb-4 bg-gray-50/50 p-2.5 rounded-lg max-w-md border border-gray-100">
-                                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Filtered Store:</span>
-                                    <select
-                                        value={storeFilter}
-                                        onChange={(e) => setStoreFilter(e.target.value)}
-                                        className="bg-white border border-gray-200 rounded px-2 py-1 text-xs text-gray-700 focus:outline-none font-medium cursor-pointer"
-                                    >
-                                        <option value="All">All Stores</option>
-                                        {branches.map((b, idx) => (
-                                            <option key={idx} value={b.workingBranch}>{b.workingBranch}</option>
-                                        ))}
-                                    </select>
-                                </div>
                             )}
+                        </div>
 
+                        {/* Table card */}
+                        <div style={{ background:'#fff', borderRadius:'14px', border:'1px solid #f0f0f0', boxShadow:'0 1px 4px rgba(0,0,0,0.05)', overflow:'hidden', marginBottom:'32px' }}>
                             {loading ? (
-                                <div className="flex justify-center items-center py-12">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-800"></div>
+                                <div style={{ display:'flex', justifyContent:'center', padding:'48px' }}>
+                                    <div style={{ width:'28px', height:'28px', border:'2px solid #e5e7eb', borderTopColor:'#111827', borderRadius:'50%', animation:'walkin-spin 0.7s linear infinite' }} />
                                 </div>
-                            ) : filteredWalkins.length === 0 ? (
-                                <div className="text-center py-12 text-gray-400">
-                                    No walk-in logs found matching your active filter criteria.
-                                </div>
+                            ) : filteredWalkins.length===0 ? (
+                                <div style={{ textAlign:'center', padding:'48px', color:'#9ca3af', fontSize:'13px' }}>No walk-in records found.</div>
                             ) : (
                                 <>
-                                    {/* Scrollable Table matching mockup exactly */}
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full text-left text-sm text-gray-600 border-collapse">
-                                            <thead className="text-xs text-gray-500 uppercase bg-gray-50/30 border-b border-gray-150 font-bold">
-                                                <tr>
-                                                    <th className="px-4 py-4 text-center border-b border-gray-150">#</th>
-                                                    <th className="px-4 py-4 border-b border-gray-150 whitespace-nowrap">DATE<SortArrow /></th>
-                                                    <th className="px-4 py-4 border-b border-gray-150 whitespace-nowrap">CUSTOMER NAME<SortArrow /></th>
-                                                    <th className="px-4 py-4 border-b border-gray-150 whitespace-nowrap">CONTACT<SortArrow /></th>
-                                                    <th className="px-4 py-4 border-b border-gray-150 whitespace-nowrap">FUNCTION DATE<SortArrow /></th>
-                                                    <th className="px-4 py-4 border-b border-gray-150 whitespace-nowrap">STORE<SortArrow /></th>
-                                                    <th className="px-4 py-4 border-b border-gray-150 whitespace-nowrap">STAFF<SortArrow /></th>
-                                                    <th className="px-4 py-4 border-b border-gray-150 whitespace-nowrap">CATEGORY<SortArrow /></th>
-                                                    <th className="px-4 py-4 border-b border-gray-150 whitespace-nowrap">SUB CATEGORY<SortArrow /></th>
-                                                    <th className="px-4 py-4 border-b border-gray-150 whitespace-nowrap">REMARKS<SortArrow /></th>
-                                                    <th className="px-4 py-4 text-center border-b border-gray-150 whitespace-nowrap">REPEAT COUNT<SortArrow /></th>
-                                                    <th className="px-4 py-4 text-center border-b border-gray-150 whitespace-nowrap">STATUS<SortArrow /></th>
+                                    <div style={{ overflowX:'auto' }}>
+                                        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'12px', fontFamily:"'DM Sans', sans-serif" }}>
+                                            <thead>
+                                                <tr style={{ borderBottom:'1px solid #f3f4f6', background:'#fafafa' }}>
+                                                    {['#','DATE','CUSTOMER','CONTACT','FUNCTION DATE','STORE','STAFF','CATEGORY','SUB CATEGORY','REMARKS','REPEAT COUNT','STATUS'].map(h=>(
+                                                        <th key={h} style={{ padding:'8px 12px', textAlign:(h==='#'||h==='REPEAT COUNT'||h==='STATUS')?'center':'left', fontSize:'10px', fontWeight:600, color:'#9ca3af', letterSpacing:'0.06em', whiteSpace:'nowrap' }}>{h}</th>
+                                                    ))}
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {currentItems.map((w, index) => (
-                                                    <tr
-                                                        key={w._id || w.id}
-                                                        className={`border-b border-gray-100 hover:bg-gray-50/30 transition-colors ${index % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'
-                                                            }`}
-                                                    >
-                                                        <td className="px-4 py-3.5 text-center text-gray-400 font-semibold">{indexOfFirstItem + index + 1}</td>
-                                                        <td className="px-4 py-3.5 whitespace-nowrap text-gray-700 font-medium">{w.date}</td>
-                                                        <td className="px-4 py-3.5 text-gray-900 font-semibold">{w.customerName}</td>
-                                                        <td className="px-4 py-3.5 whitespace-nowrap text-gray-600 font-semibold">{w.contact}</td>
-                                                        <td className="px-4 py-3.5 whitespace-nowrap text-gray-500">{w.functionDate}</td>
-                                                        <td className="px-4 py-3.5 text-gray-700 font-medium">{w.store}</td>
-                                                        <td className="px-4 py-3.5 whitespace-nowrap text-gray-700 font-medium">{w.staff}</td>
-                                                        <td className="px-4 py-3.5 whitespace-nowrap text-gray-600">{w.category}</td>
-                                                        <td className="px-4 py-3.5 whitespace-nowrap text-gray-600">{w.subCategory}</td>
-                                                        <td className="px-4 py-3.5 text-gray-500 max-w-[150px] truncate" title={w.remarks}>{w.remarks}</td>
-                                                        <td className="px-4 py-3.5 text-center text-gray-400 font-semibold">{w.repeatCount}</td>
-                                                        <td className="px-4 py-3.5 text-center whitespace-nowrap text-gray-800 font-medium">{w.status}</td>
-                                                    </tr>
-                                                ))}
+                                                {currentItems.map((w,index)=>{
+                                                    const statusColors = {
+                                                        'Booked':            { bg:'#dcfce7', color:'#16a34a' },
+                                                        'New Booking':       { bg:'#dcfce7', color:'#16a34a' },
+                                                        'Revisit Booking':   { bg:'#dcfce7', color:'#16a34a' },
+                                                        'Rentout':           { bg:'#fce7f3', color:'#be185d' },
+                                                        'Rent Out':          { bg:'#fce7f3', color:'#be185d' },
+                                                        'Booking & Rentout': { bg:'#fce7f3', color:'#be185d' },
+                                                        'Return':            { bg:'#fef3c7', color:'#d97706' },
+                                                        'Trial':             { bg:'#e0e7ff', color:'#4338ca' },
+                                                        'Loss':              { bg:'#fee2e2', color:'#dc2626' },
+                                                        'Revisit Loss':      { bg:'#fee2e2', color:'#dc2626' },
+                                                        'Enquiry':           { bg:'#f3f4f6', color:'#6b7280' },
+                                                        'New Walkin':        { bg:'#dbeafe', color:'#2563eb' },
+                                                        'Reissue':           { bg:'#ede9fe', color:'#7c3aed' },
+                                                    };
+                                                    const sc = statusColors[w.status] || { bg:'#f3f4f6', color:'#6b7280' };
+                                                    return (
+                                                        <tr key={w._id||index}
+                                                            style={{ borderBottom:'1px solid #f9fafb', background:'#fff', transition:'background 0.1s' }}
+                                                            onMouseEnter={e=>e.currentTarget.style.background='#fafafa'}
+                                                            onMouseLeave={e=>e.currentTarget.style.background='#fff'}
+                                                        >
+                                                            <td style={{ padding:'11px 12px', textAlign:'center', color:'#9ca3af' }}>{indexOfFirstItem+index+1}</td>
+                                                            <td style={{ padding:'11px 12px', whiteSpace:'nowrap', color:'#374151' }}>{w.date}</td>
+                                                            <td style={{ padding:'11px 12px', color:'#111827', fontWeight:500, whiteSpace:'nowrap' }}>{w.customerName}</td>
+                                                            <td style={{ padding:'11px 12px', whiteSpace:'nowrap', color:'#374151' }}>+91 {w.contact}</td>
+                                                            <td style={{ padding:'11px 12px', whiteSpace:'nowrap', color:'#374151' }}>{w.functionDate}</td>
+                                                            <td style={{ padding:'11px 12px', whiteSpace:'nowrap', color:'#374151' }}>{w.store}</td>
+                                                            <td style={{ padding:'11px 12px', whiteSpace:'nowrap', color:'#374151' }}>{w.staff}</td>
+                                                            <td style={{ padding:'11px 12px', whiteSpace:'nowrap', color:'#374151' }}>{w.category}</td>
+                                                            <td style={{ padding:'11px 12px', whiteSpace:'nowrap', color:'#374151' }}>{w.subCategory}</td>
+                                                            <td style={{ padding:'11px 12px', color:'#6b7280', maxWidth:'120px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }} title={w.remarks}>{w.remarks||'–'}</td>
+                                                            <td style={{ padding:'11px 12px', textAlign:'center', color:'#374151' }}>{w.repeatCount}</td>
+                                                            <td style={{ padding:'11px 12px', textAlign:'center' }}>
+                                                                <span style={{ background:sc.bg, color:sc.color, borderRadius:'20px', padding:'2px 8px', fontSize:'10px', fontWeight:600, whiteSpace:'nowrap', display:'inline-block' }}>
+                                                                    {w.status?.toUpperCase()}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
                                             </tbody>
                                         </table>
                                     </div>
 
-                                    {/* Pagination Controls */}
-                                    <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6 pt-4 border-t border-gray-100 text-xs text-gray-500">
-                                        <div>
-                                            Showing <span className="font-semibold text-gray-700">{indexOfFirstItem + 1}</span> to{' '}
-                                            <span className="font-semibold text-gray-700">
-                                                {Math.min(indexOfLastItem, filteredWalkins.length)}
-                                            </span>{' '}
-                                            of <span className="font-semibold text-gray-700">{filteredWalkins.length}</span> entries
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            <button
-                                                onClick={() => handlePageChange(currentPage - 1)}
-                                                disabled={currentPage === 1}
-                                                className="p-2 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-600 transition-colors"
-                                            >
+                                    {/* Pagination */}
+                                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'14px 20px', borderTop:'1px solid #f3f4f6', fontSize:'13px', color:'#6b7280' }}>
+                                        <span>Showing {String(Math.min(indexOfLastItem, filteredWalkins.length)).padStart(2,'0')} of {filteredWalkins.length}</span>
+                                        <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+                                            <button onClick={()=>handlePageChange(currentPage-1)} disabled={currentPage===1} style={{ width:'30px', height:'30px', border:'1px solid #e5e7eb', borderRadius:'6px', background:'#fff', cursor:currentPage===1?'not-allowed':'pointer', opacity:currentPage===1?0.4:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#374151' }}>
                                                 <FaChevronLeft size={10} />
                                             </button>
-                                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                                                <button
-                                                    key={page}
-                                                    onClick={() => handlePageChange(page)}
-                                                    className={`px-3 py-1.5 border rounded-md font-semibold transition-colors ${currentPage === page
-                                                            ? 'bg-[#2A2A2A] text-white border-[#2A2A2A]'
-                                                            : 'border-gray-300 text-gray-600 hover:bg-gray-50'
-                                                        }`}
-                                                >
-                                                    {page}
-                                                </button>
-                                            ))}
-                                            <button
-                                                onClick={() => handlePageChange(currentPage + 1)}
-                                                disabled={currentPage === totalPages}
-                                                className="p-2 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-600 transition-colors"
-                                            >
+                                            <button onClick={()=>handlePageChange(currentPage+1)} disabled={currentPage===totalPages||totalPages===0} style={{ width:'30px', height:'30px', border:'1px solid #e5e7eb', borderRadius:'6px', background:'#fff', cursor:(currentPage===totalPages||totalPages===0)?'not-allowed':'pointer', opacity:(currentPage===totalPages||totalPages===0)?0.4:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#374151' }}>
                                                 <FaChevronRight size={10} />
                                             </button>
                                         </div>
@@ -748,6 +583,7 @@ const WalkinList = () => {
                                 </>
                             )}
                         </div>
+                        <style>{`@keyframes walkin-spin{to{transform:rotate(360deg)}}`}</style>
                     </>
                 )}
             </div>

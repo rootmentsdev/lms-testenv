@@ -38,8 +38,6 @@ const CreateUser = () => {
     const userRole =
       selectedOption === "user" ? "super_admin" :
         selectedOption === "designation" ? "cluster_admin" : "store_admin";
-    console.log(assignedTo);
-
     const updatedForm = {
       ...form,
       userRole,
@@ -55,9 +53,6 @@ const CreateUser = () => {
       toast.warning("Please fill in all required fields.");
       return;
     }
-
-    console.log("User Form Data:", updatedForm);
-
     try {
       const response = await fetch(`${baseUrl.baseUrl}api/admin/admin/createadmin`, {
         method: "POST",
@@ -72,9 +67,7 @@ const CreateUser = () => {
 
       const result = await response.json();
       toast.success("User created successfully!");
-      console.log("Response from backend:", result);
     } catch (error) {
-      console.error("Error saving user:", error.message);
       toast.error("An error occurred while saving the user. Please try again.");
     }
   };
@@ -100,7 +93,6 @@ const CreateUser = () => {
           }))
         );
       } catch (error) {
-        console.error("Error fetching branches:", error.message);
         toast.error("Failed to fetch branch data.");
       }
     };
@@ -109,12 +101,6 @@ const CreateUser = () => {
       try {
         const response = await fetch(`${baseUrl.baseUrl}api/admin/getSubrole`)
         if (response.ok) {
-          console.log("subrole find")
-        }
-        const data = await response.json()
-        GetSubRole(data.subrole)
-        console.log(Subrole);
-
       } catch (error) {
         throw new Error(error)
       }

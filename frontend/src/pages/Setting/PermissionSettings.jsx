@@ -46,9 +46,6 @@ const PermissionSettings = () => {
         if (!result.data || result.data.length < 3) {
           throw new Error("Invalid permission data received");
         }
-        console.log(result.data);
-
-
         setPermissions({
           admin: {
             training: [
@@ -88,7 +85,6 @@ const PermissionSettings = () => {
           },
         });
       } catch (error) {
-        console.error("Error fetching permissions:", error);
         toast.error("Failed to load permissions");
       }
     };
@@ -104,9 +100,6 @@ const PermissionSettings = () => {
       };
       return acc;
     }, {});
-
-    console.log("Formatted Permissions:", formattedPermissions);
-
     try {
       const response = await fetch(`${baseUrl.baseUrl}api/admin/permission/controller`, {
         method: "POST",
@@ -124,7 +117,6 @@ const PermissionSettings = () => {
 
       toast.success("Permissions successfully updated!");
     } catch (error) {
-      console.error("Error saving permissions:", error);
       toast.error("Failed to save permissions");
     }
   };

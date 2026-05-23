@@ -27,11 +27,10 @@ export const dashboardApi = createApi({
         headers: getAuthHeaders(),
       }),
       providesTags: ['DashboardData'],
-      // Extended cache for Render - 1 hour for localStorage persistence
-      keepUnusedDataFor: 3600,
-      refetchOnMountOrArgChange: false, // Use cached data to speed up Render loading
+      keepUnusedDataFor: 60,
+      refetchOnMountOrArgChange: true,
       refetchOnFocus: false,
-      refetchOnReconnect: false, // Don't refetch on reconnect to use cache
+      refetchOnReconnect: true,
     }),
 
     // Get employee count
@@ -42,10 +41,10 @@ export const dashboardApi = createApi({
         headers: getAuthHeaders(),
       }),
       providesTags: ['EmployeeCount'],
-      keepUnusedDataFor: 3600,
-      refetchOnMountOrArgChange: false,
+      keepUnusedDataFor: 60,
+      refetchOnMountOrArgChange: true,
       refetchOnFocus: false,
-      refetchOnReconnect: false,
+      refetchOnReconnect: true,
     }),
 
     // Get home progress data (for charts)
@@ -56,10 +55,10 @@ export const dashboardApi = createApi({
         headers: getAuthHeaders(),
       }),
       providesTags: ['HomeProgress'],
-      keepUnusedDataFor: 3600,
-      refetchOnMountOrArgChange: false,
+      keepUnusedDataFor: 60,
+      refetchOnMountOrArgChange: true,
       refetchOnFocus: false,
-      refetchOnReconnect: false,
+      refetchOnReconnect: true,
     }),
 
     // Get best three users

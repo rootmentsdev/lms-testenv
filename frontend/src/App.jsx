@@ -40,6 +40,7 @@ const Profile = lazy(() => import('./pages/profile/Profile.jsx'))
 const LoginAnalytics = lazy(() => import('./pages/Setting/LoginAnalytics.jsx'))
 const WalkinList = lazy(() => import('./pages/Walkin/WalkinList.jsx'))
 const WalkinReport = lazy(() => import('./pages/Walkin/WalkinReport.jsx'))
+const CreateTask = lazy(() => import('./pages/Task/CreateTask.jsx'))
 
 import { setUser } from './features/auth/authSlice.js';
 
@@ -157,6 +158,8 @@ function App() {
           <Route path="/admin/login-analytics" element={<ProtectedRoute>< LoginAnalytics /></ProtectedRoute>} />
           <Route path="/walkin/list" element={<ProtectedRoute>< WalkinList /></ProtectedRoute>} />
           <Route path="/walkin/report" element={<ProtectedRoute>< WalkinReport /></ProtectedRoute>} />
+          <Route path="/task" element={<ProtectedRoute>< CreateTask /></ProtectedRoute>} />
+          <Route path="/task/create" element={<ProtectedRoute>< CreateTask /></ProtectedRoute>} />
           {/* APITest route removed - no longer needed */}
 
         </Routes>

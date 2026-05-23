@@ -81,7 +81,6 @@ const AssignedTrainingsData = () => {
                 alert(`Successfully deleted ${selectedTrainings.size} training(s)`);
             }
         } catch (error) {
-            console.error('Error deleting trainings:', error);
             alert('An error occurred while deleting trainings. Please try again.');
         } finally {
             setIsDeleting(false);

@@ -39,7 +39,6 @@ const BranchDetailsData = () => {
             };
             setData(selectedData);
         } catch (error) {
-            console.error("Error fetching data:", error);
         }
     };
 
@@ -53,8 +52,6 @@ const BranchDetailsData = () => {
 
     const handleSave = async () => {
         try {
-            console.log(data);
-
             const response = await fetch(`${baseUrl.baseUrl}api/admin/put/update/branch/${id}`, {
                 method: 'PUT',
                 headers: {
@@ -76,7 +73,6 @@ const BranchDetailsData = () => {
             setIsEditing(false);
 
         } catch (error) {
-            console.error("Error updating data:", error);
             toast.error("An error occurred while updating");
         }
     };

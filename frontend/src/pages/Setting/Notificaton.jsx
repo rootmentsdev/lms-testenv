@@ -28,7 +28,6 @@ const NotificationSettings = () => {
   };
 
   const handleSubmit = () => {
-    console.log("Notification Settings (JSON):", JSON.stringify(settings, null, 2));
   };
 
   return (

@@ -18,8 +18,6 @@ const SubroleCreation = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Form Data Submitted:', formData);
-  
     try {
       const response = await fetch(`${baseUrl.baseUrl}api/admin/subroles`, {
         method: "POST",
@@ -34,12 +32,9 @@ const SubroleCreation = () => {
       }
   
       const data = await response.json(); // Parse JSON response
-      console.log('Server Response:', data);
-  
       // Optionally, handle success (e.g., show a success message)
       alert('Subrole created successfully!');
     } catch (error) {
-      console.error('Error submitting form:', error);
       // Optionally, handle errors (e.g., show an error message)
       alert('Failed to create subrole. Please try again.');
     }

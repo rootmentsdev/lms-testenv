@@ -37,7 +37,6 @@ const TrainingData = () => {
                 setData(result.data);
                 setloading(false);
             } catch (error) {
-                console.error('Error fetching data:', error);
             }
         };
 
@@ -166,7 +165,6 @@ const TrainingData = () => {
                                             window.location.reload(); // Refresh to show updated data
                                         }
                                     } catch (error) {
-                                        console.error('Error deleting all trainings:', error);
                                         alert('An error occurred while deleting all trainings. Please try again.');
                                     }
                                 }

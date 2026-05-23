@@ -22,10 +22,7 @@ const AssingOrdeletedata = () => {
                 }
                 const result = await response.json();
                 setTraining(result);
-                console.log(result);
-
             } catch (err) {
-                console.error(err);
             }
         };
 
@@ -45,7 +42,6 @@ const AssingOrdeletedata = () => {
             // Redirect to the 'AssigData' page after successful deletion
             navigate('/training');
         } catch (err) {
-            console.error('Error deleting training:', err);
         }
     };
     const handleReassign = () => {
@@ -100,17 +96,12 @@ const AssingOrdeletedata = () => {
                             // Ensure averageCompletedModule exists
                             // const userModule = training?.data?.averageCompletedModule?.find((mod) => mod.moduleId === item._id);
                             {
-                                console.log(training?.data?.averageCompletedModule.moduleId
-                                );
-
                                 const dataPre = training?.data?.averageCompletedModule.map((item) => {
                                     return {
                                         completionPercentage: item.completionPercentage,
                                         moduleId: item.moduleId
                                     };
                                 });
-
-                                console.log(dataPre);
                                 const userModules = dataPre?.find((mod) => mod.moduleId === item._id);
 
                                 return (

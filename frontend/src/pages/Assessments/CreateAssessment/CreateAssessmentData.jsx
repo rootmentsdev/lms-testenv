@@ -58,9 +58,6 @@ const CreateAssessmentData = () => {
             deadline: moduleDescriptions,
             questions,
         };
-
-        console.log(assessmentData);
-
         try {
             const response = await fetch(`${baseUrl.baseUrl}api/assessments`, {
                 method: "POST",

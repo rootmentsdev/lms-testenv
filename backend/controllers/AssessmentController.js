@@ -760,244 +760,86 @@ export const calculateProgress = async (req, res) => {
     try {
         const AdminID = req.admin.userId;
         const AdminData = await Admin.findById(AdminID).populate('branches');
-        const allowedLocCodes = AdminData.branches.map(branch => branch.locCode);
+        const isSuperAdmin = AdminData.role === 'super_admin';
+        
+        // Super admin sees all branches
+        const allBranches = isSuperAdmin ? await Branch.find({}) : AdminData.branches;
+        const allowedLocCodes = allBranches.map(branch => branch.locCode);
         const day = new Date();
 
-        // Count documents
-        const assessmentCount = await Assessment.countDocuments();
-        const userCount = await User.find({ locCode: { $in: allowedLocCodes } });
-        console.log('Allowed location codes:', allowedLocCodes);
-
-        // Fetch external employee data to get total employee count
-        let totalEmployeeCount = userCount.length; // Default to local user count
-        let externalEmployees = [];
-        
-        try {
-            const response = await axios.post(`${process.env.BASE_URL || 'http://localhost:7000'}/api/employee_range`, {
-                startEmpId: 'EMP1',
-                endEmpId: 'EMP9999'
-            }, { timeout: 15000 });
-            
-            externalEmployees = response.data?.data || [];
-            console.log(`Fetched ${externalEmployees.length} external employees`);
-            
-            // Create mapping from store names to location codes
-            const storeNameToLocCode = {
-                'GROOMS TRIVANDRUM': '5',
-                'GROOMS PALAKKAD': '19',
-                'GROOMS EDAPALLY': '3',
-                'GROOMS KOTTAYAM': '9',
-                'GROOMS PERUMBAVOOR': '10',
-                'GROOMS THRISSUR': '11',
-                'GROOMS CHAVAKKAD': '12',
-                'GROOMS EDAPPAL': '15',
-                'GROOMS VATAKARA': '14',
-                'GROOMS PERINTHALMANNA': '16',
-                'GROOMS MANJERY': '18',
-                'GROOMS KOTTAKKAL': '17',
-                'GROOMS KOZHIKODE': '13',
-                'GROOMS CALICUT': '13', // Map CALICUT to KOZHIKODE
-                'GROOMS KANNUR': '21',
-                'GROOMS KALPETTA': '20',
-                'ZORUCCI EDAPPAL': '6',
-                'ZORUCCI KOTTAKKAL': '8',
-                'ZORUCCI PERINTHALMANNA': '7',
-                'ZORUCCI EDAPPALLY': '1',
-                // Map SUITOR GUY stores to GROOMS equivalents
-                'SUITOR GUY TRIVANDRUM': '5',
-                'SUITOR GUY PALAKKAD': '19',
-                'SUITOR GUY EDAPPALLY': '3',
-                'SUITOR GUY KOTTAYAM': '9',
-                'SUITOR GUY PERUMBAVOOR': '10',
-                'SUITOR GUY THRISSUR': '11',
-                'SUITOR GUY CHAVAKKAD': '12',
-                'SUITOR GUY EDAPPAL': '15',
-                'SUITOR GUY VATAKARA': '14',
-                'SUITOR GUY PERINTHALMANNA': '16',
-                'SUITOR GUY MANJERI': '18',
-                'SUITOR GUY KOTTAKKAL': '17',
-                'SUITOR GUY CALICUT': '13',
-                'SUITOR GUY KALPETTA': '20', // Add missing mappings
-                'SUITOR GUY KANNUR': '21'
-            };
-            
-            // Filter external employees by allowed location codes using store name mapping
-            const filteredExternalEmployees = externalEmployees.filter(emp => {
-                const storeName = emp?.store_name?.toUpperCase();
-                const mappedLocCode = storeNameToLocCode[storeName];
-                
-                if (mappedLocCode && allowedLocCodes.includes(mappedLocCode)) {
-                    return true;
-                }
-                
-                // Also check direct location code if available
-                const empLocCode = emp?.store_code || emp?.locCode;
-                return allowedLocCodes.includes(empLocCode);
-            });
-            
-            totalEmployeeCount = filteredExternalEmployees.length;
-            console.log(`Filtered external employees for allowed locations: ${totalEmployeeCount}`);
-            console.log(`External employees breakdown by store:`);
-            
-            // Log breakdown by store
-            const storeBreakdown = {};
-            filteredExternalEmployees.forEach(emp => {
-                const storeName = emp?.store_name?.toUpperCase();
-                storeBreakdown[storeName] = (storeBreakdown[storeName] || 0) + 1;
-            });
-            
-            Object.entries(storeBreakdown).forEach(([store, count]) => {
-                const locCode = storeNameToLocCode[store] || 'Unknown';
-                console.log(`   - ${store} (${locCode}): ${count} employees`);
-            });
-            
-        } catch (error) {
-            console.error('Error fetching external employee data:', error.message);
-            // Continue with local user count
-        }
-
-        // Fetch users once instead of multiple times
+        // Single user fetch (removed duplicate query)
         const users = await User.find({ locCode: { $in: allowedLocCodes } });
-        const userID = users.map(id => id._id)
+        const userID = users.map(id => id._id);
+        const totalEmployeeCount = users.length;
 
-        // Calculate average progress from both user.training records AND mandatory trainings (TrainingProgress)
-        let totalUserTrainings = 0;
-        let completedUserTrainings = 0;
-        
-        // Pre-fetch all training progress records for these users
-        const allTrainingProgress = await TrainingProgress.find({ 
-            userId: { $in: userID } 
-        });
-        
-        // Create a map of userId -> training progress records
+        // Pre-fetch all training progress records in bulk
+        const allTrainingProgress = await TrainingProgress.find({ userId: { $in: userID } });
         const trainingProgressMap = new Map();
         allTrainingProgress.forEach(progress => {
-            const userId = progress.userId.toString();
-            if (!trainingProgressMap.has(userId)) {
-                trainingProgressMap.set(userId, []);
-            }
-            trainingProgressMap.get(userId).push(progress);
+            const key = progress.userId.toString();
+            if (!trainingProgressMap.has(key)) trainingProgressMap.set(key, []);
+            trainingProgressMap.get(key).push(progress);
         });
-        
-        users.forEach(user => {
-            // Count assigned trainings from user.training array
-            if (user.training && Array.isArray(user.training)) {
-                totalUserTrainings += user.training.length;
-                completedUserTrainings += user.training.filter(training => training.pass).length;
-            }
-            
-            // Count mandatory trainings from TrainingProgress collection (avoid duplicates)
-            const userTrainingProgress = trainingProgressMap.get(user._id.toString()) || [];
-            
-            // Get assigned training IDs to avoid duplicates
-            const assignedTrainingIds = user.training ? 
-                user.training.map(t => t.trainingId.toString()) : [];
-            
-            // Filter out mandatory trainings that are already in assigned trainings
-            const uniqueMandatoryTrainings = userTrainingProgress.filter(tp => 
-                !assignedTrainingIds.includes(tp.trainingId.toString())
-            );
-            
-            totalUserTrainings += uniqueMandatoryTrainings.length;
-            completedUserTrainings += uniqueMandatoryTrainings.filter(tp => tp.pass).length;
-        });
-        
-        // Calculate average progress from user training records
-        const averageProgress = totalUserTrainings > 0 ? (completedUserTrainings / totalUserTrainings) * 100 : 0;
-        
-        console.log(`🔍 Dashboard calculation debug:`);
-        console.log(`   - Admin allowed branches: ${allowedLocCodes.length}`);
-        console.log(`   - Users in allowed branches: ${users.length}`);
-        console.log(`   - Total user trainings: ${totalUserTrainings}`);
-        console.log(`   - Completed user trainings: ${completedUserTrainings}`);
-        console.log(`   - Average progress: ${averageProgress.toFixed(2)}%`);
-        
-        const finalAverageProgress = parseFloat(averageProgress.toFixed(2));
 
-        // Calculate assessment progress
+        let totalUserTrainings = 0;
+        let completedUserTrainings = 0;
         let totalAssessments = 0;
         let passedAssessments = 0;
         let trainingpend = 0;
 
         users.forEach(user => {
+            const assignedTrainingIds = user.training ? user.training.map(t => t.trainingId.toString()) : [];
+            const userTrainingProgress = trainingProgressMap.get(user._id.toString()) || [];
+            const uniqueMandatoryTrainings = userTrainingProgress.filter(tp => !assignedTrainingIds.includes(tp.trainingId.toString()));
+
+            if (user.training && Array.isArray(user.training)) {
+                totalUserTrainings += user.training.length;
+                completedUserTrainings += user.training.filter(t => t.pass).length;
+                trainingpend += user.training.filter(t => day > t.deadline && !t.pass).length;
+            }
+
+            totalUserTrainings += uniqueMandatoryTrainings.length;
+            completedUserTrainings += uniqueMandatoryTrainings.filter(tp => tp.pass).length;
+            trainingpend += uniqueMandatoryTrainings.filter(tp => day > tp.deadline && !tp.pass).length;
+
             if (Array.isArray(user.assignedAssessments)) {
                 totalAssessments += user.assignedAssessments.length;
-                passedAssessments += user.assignedAssessments.filter(
-                    item => day > item.deadline && item.pass === false
-                ).length;
+                passedAssessments += user.assignedAssessments.filter(a => day > a.deadline && !a.pass).length;
             }
-
-            // Count overdue assigned trainings from user.training array
-            if (Array.isArray(user.training)) {
-                trainingpend += user.training.filter(
-                    item => day > item.deadline && item.pass === false
-                ).length;
-            }
-            
-            // Count overdue mandatory trainings from TrainingProgress collection (avoid duplicates)
-            const userTrainingProgress = trainingProgressMap.get(user._id.toString()) || [];
-            
-            // Get assigned training IDs to avoid duplicates
-            const assignedTrainingIds = user.training ? 
-                user.training.map(t => t.trainingId.toString()) : [];
-            
-            // Filter out mandatory trainings that are already in assigned trainings
-            const uniqueMandatoryTrainings = userTrainingProgress.filter(tp => 
-                !assignedTrainingIds.includes(tp.trainingId.toString())
-            );
-            
-            trainingpend += uniqueMandatoryTrainings.filter(tp => 
-                day > tp.deadline && tp.pass === false
-            ).length;
         });
 
-        // Get login statistics
-        const uniqueLoginUsers = await UserLoginSession.distinct('userId');
-        const uniqueLoginUserCount = uniqueLoginUsers.length;
-        const totalLogins = await UserLoginSession.countDocuments();
-        
-        // Get device breakdown
-        const deviceStats = await UserLoginSession.aggregate([
-            { $group: { _id: '$deviceOS', count: { $sum: 1 } } },
-            { $sort: { count: -1 } }
+        const averageProgress = totalUserTrainings > 0 ? (completedUserTrainings / totalUserTrainings) * 100 : 0;
+        const finalAverageProgress = parseFloat(averageProgress.toFixed(2));
+
+        // Login stats
+        const [uniqueLoginUsers, totalLogins, deviceStats] = await Promise.all([
+            UserLoginSession.distinct('userId'),
+            UserLoginSession.countDocuments(),
+            UserLoginSession.aggregate([{ $group: { _id: '$deviceOS', count: { $sum: 1 } } }, { $sort: { count: -1 } }]),
         ]);
-        
-        // Calculate login percentage based on total employee count
-        const loginPercentage = totalEmployeeCount > 0 ? Math.round((uniqueLoginUserCount / totalEmployeeCount) * 100) : 0;
-        
-        // Return results with proper structure
+        const loginPercentage = totalEmployeeCount > 0 ? Math.round((uniqueLoginUsers.length / totalEmployeeCount) * 100) : 0;
+
         res.status(200).json({
             success: true,
             data: {
-                assessmentCount,
-                branchCount: AdminData.branches.length,
-                userCount: totalEmployeeCount, // Use total employee count from external API
-                localUserCount: userCount.length, // Keep local user count for reference
+                assessmentCount: await Assessment.countDocuments(),
+                branchCount: allBranches.length,
+                userCount: totalEmployeeCount,
+                localUserCount: totalEmployeeCount,
                 averageProgress: finalAverageProgress,
                 assessmentProgress: passedAssessments,
                 trainingPending: trainingpend,
-                // Login statistics
-                uniqueLoginUserCount,
+                uniqueLoginUserCount: uniqueLoginUsers.length,
                 totalLogins,
                 loginPercentage,
                 deviceStats,
-                // Additional info for debugging
-                externalEmployeesFetched: externalEmployees.length,
-                allowedLocCodes: allowedLocCodes
+                allowedLocCodes,
             },
         });
     } catch (error) {
-        console.error('Error calculating progress:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Internal Server Error',
-            error: error.message,
-        });
+        res.status(500).json({ success: false, message: 'Internal Server Error', error: error.message });
     }
 };
-
-
-
 
 export const createMandatoryTraining = async (req, res) => {
     const { trainingName, modules, days, workingBranch } = req.body;
