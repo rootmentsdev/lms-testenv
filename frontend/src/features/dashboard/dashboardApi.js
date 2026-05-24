@@ -1,148 +1,81 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import baseUrl from '../../api/api';
+import { last7Days } from './dashboardUtils';
 
-// Helper function to get auth headers
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
-  return {
-    'Content-Type': 'application/json',
-    ...(token && { Authorization: `Bearer ${token}` }),
-  };
-};
+const CACHE_TTL = 300; // 5 minutes — dashboard data does not need constant refetch
 
 export const dashboardApi = createApi({
   reducerPath: 'dashboardApi',
-  baseQuery: fetchBaseQuery({ 
+  baseQuery: fetchBaseQuery({
     baseUrl: baseUrl.baseUrl,
     credentials: 'include',
+    prepareHeaders: (headers) => {
+      const token = localStorage.getItem('token');
+      if (token) headers.set('Authorization', `Bearer ${token}`);
+      headers.set('Content-Type', 'application/json');
+      return headers;
+    },
   }),
-  tagTypes: ['DashboardData', 'EmployeeCount', 'HomeProgress', 'BestUsers', 'StoreManager', 'Notifications', 'LMSStats'],
-  
+  tagTypes: ['HomeProgress', 'Walkins', 'BestUsers', 'StoreManager', 'Notifications', 'LMSStats'],
+
   endpoints: (builder) => ({
-    // Get main dashboard progress data
-    getDashboardProgress: builder.query({
-      query: () => ({
-        url: 'api/get/progress',
-        method: 'GET',
-        headers: getAuthHeaders(),
-      }),
-      providesTags: ['DashboardData'],
-      keepUnusedDataFor: 60,
-      refetchOnMountOrArgChange: true,
-      refetchOnFocus: false,
-      refetchOnReconnect: true,
-    }),
-
-    // Get employee count
-    getEmployeeCount: builder.query({
-      query: () => ({
-        url: 'api/employee/management/with-training-details',
-        method: 'GET',
-        headers: getAuthHeaders(),
-      }),
-      providesTags: ['EmployeeCount'],
-      keepUnusedDataFor: 60,
-      refetchOnMountOrArgChange: true,
-      refetchOnFocus: false,
-      refetchOnReconnect: true,
-    }),
-
-    // Get home progress data (for charts)
+    // Single source of truth for dashboard stats + charts (per-branch progress)
     getHomeProgress: builder.query({
-      query: () => ({
-        url: 'api/admin/get/HomeProgressData',
-        method: 'GET',
-        headers: getAuthHeaders(),
-      }),
+      query: () => 'api/admin/get/HomeProgressData',
       providesTags: ['HomeProgress'],
-      keepUnusedDataFor: 60,
-      refetchOnMountOrArgChange: true,
-      refetchOnFocus: false,
-      refetchOnReconnect: true,
+      keepUnusedDataFor: CACHE_TTL,
     }),
 
-    // Get best three users
+    // Weekly walk-ins for chart + overview card (shared cache)
+    getWeeklyWalkins: builder.query({
+      query: () => {
+        const days = last7Days();
+        const start = days[0].toISOString().split('T')[0];
+        const end = days[days.length - 1].toISOString().split('T')[0];
+        return `api/walkin/list?startDate=${start}&endDate=${end}`;
+      },
+      providesTags: ['Walkins'],
+      keepUnusedDataFor: CACHE_TTL,
+    }),
+
     getBestThreeUsers: builder.query({
-      query: () => ({
-        url: 'api/admin/get/bestThreeUser',
-        method: 'GET',
-        headers: getAuthHeaders(),
-      }),
+      query: () => 'api/admin/get/bestThreeUser',
       providesTags: ['BestUsers'],
       keepUnusedDataFor: 3600,
-      refetchOnMountOrArgChange: false,
-      refetchOnFocus: false,
-      refetchOnReconnect: false,
     }),
 
-    // Get store manager data
     getStoreManagerData: builder.query({
-      query: () => ({
-        url: 'api/admin/get/storemanagerData',
-        method: 'GET',
-        headers: getAuthHeaders(),
-      }),
+      query: () => 'api/admin/get/storemanagerData',
       providesTags: ['StoreManager'],
       keepUnusedDataFor: 3600,
-      refetchOnMountOrArgChange: false,
-      refetchOnFocus: false,
-      refetchOnReconnect: false,
     }),
 
-    // Get store manager due data
     getStoreManagerDueData: builder.query({
-      query: () => ({
-        url: 'api/admin/get/storemanagerduedata',
-        method: 'GET',
-        headers: getAuthHeaders(),
-      }),
+      query: () => 'api/admin/get/storemanagerduedata',
       providesTags: ['StoreManager'],
       keepUnusedDataFor: 3600,
-      refetchOnMountOrArgChange: false,
-      refetchOnFocus: false,
-      refetchOnReconnect: false,
     }),
 
-    // Get notifications
     getNotifications: builder.query({
-      query: () => ({
-        url: 'api/admin/home/notification',
-        method: 'GET',
-        headers: getAuthHeaders(),
-      }),
+      query: () => 'api/admin/home/notification',
       providesTags: ['Notifications'],
       keepUnusedDataFor: 3600,
-      refetchOnMountOrArgChange: false,
-      refetchOnFocus: false,
-      refetchOnReconnect: false,
     }),
 
-    // Get LMS login stats
     getLMSStats: builder.query({
-      query: () => ({
-        url: 'api/lms-login/count-simple',
-        method: 'GET',
-        headers: getAuthHeaders(),
-      }),
+      query: () => 'api/lms-login/count-simple',
       providesTags: ['LMSStats'],
       keepUnusedDataFor: 3600,
-      refetchOnMountOrArgChange: false,
-      refetchOnFocus: false,
-      refetchOnReconnect: false,
     }),
   }),
 });
 
 export const {
-  useGetDashboardProgressQuery,
-  useGetEmployeeCountQuery,
   useGetHomeProgressQuery,
+  useGetWeeklyWalkinsQuery,
   useGetBestThreeUsersQuery,
   useGetStoreManagerDataQuery,
   useGetStoreManagerDueDataQuery,
   useGetNotificationsQuery,
   useGetLMSStatsQuery,
-  useLazyGetDashboardProgressQuery,
-  useLazyGetEmployeeCountQuery,
 } = dashboardApi;
-

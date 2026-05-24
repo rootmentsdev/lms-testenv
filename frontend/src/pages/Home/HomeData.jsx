@@ -5,7 +5,7 @@ import DailyWalkings from "../../components/DailyWalkings/DailyWalkings";
 import TaskOverview from "../../components/TaskOverview/TaskOverview";
 import HomeBar from "../../components/HomeBar/HomeBar";
 
-const HomeData = ({ user }) => {
+const HomeData = () => {
     return (
         <div className="mx-0 mb-[90px]">
             <Header name="Dashboard" />
@@ -13,7 +13,7 @@ const HomeData = ({ user }) => {
                 <SideNav />
                 <div className="md:ml-[120px] mt-[68px] w-full">
                     <div className="px-6 mt-6">
-                        <DashboardOverview user={user} />
+                        <DashboardOverview />
                     </div>
 
                     {/* Daily Walkings + Task Overview row */}

@@ -40,42 +40,29 @@ export const apiCall = async (endpoint, options = {}) => {
   }
 
   try {
-    console.log(`Making API call to: ${url}`, finalOptions);
-    
     const response = await fetch(url, finalOptions);
-    
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
-    const data = await response.json();
-    console.log(`API call successful:`, data);
-    return data;
-    
+
+    return await response.json();
   } catch (error) {
-    console.error('API call failed:', error);
-    
-    // Try CORS proxy as fallback for development
     if (process.env.NODE_ENV === 'development') {
       try {
-        console.log('Trying CORS proxy...');
         const corsProxyUrl = `https://cors-anywhere.herokuapp.com/${url}`;
         const response = await fetch(corsProxyUrl, finalOptions);
-        
+
         if (!response.ok) {
           throw new Error(`CORS proxy failed: ${response.status}`);
         }
-        
-        const data = await response.json();
-        console.log('CORS proxy successful:', data);
-        return data;
-        
+
+        return await response.json();
       } catch (corsError) {
-        console.error('CORS proxy also failed:', corsError);
         throw corsError;
       }
     }
-    
+
     throw error;
   }
 };

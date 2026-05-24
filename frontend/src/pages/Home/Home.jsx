@@ -1,10 +1,7 @@
-import { useSelector } from 'react-redux';
 import ModileNav from "../../components/SideNav/ModileNav";
 import HomeData from "./HomeData";
 
 const Home = () => {
-    const user = useSelector((state) => state.auth.user);
-
     return (
         <>
             <div style={styles.container} className="bg-white">
@@ -12,7 +9,7 @@ const Home = () => {
                     <ModileNav />
                 </div>
                 <div style={styles.middle}>
-                    <HomeData user={user} />
+                    <HomeData />
                 </div>
             </div>
         </>

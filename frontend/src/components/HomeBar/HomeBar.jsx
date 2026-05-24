@@ -4,6 +4,7 @@ import {
   Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
 import { useGetHomeProgressQuery } from "../../features/dashboard/dashboardApi";
+import { normalizeBranchProgress } from "../../features/dashboard/dashboardUtils";
 import { Link } from "react-router-dom";
 
 /* ── Colour tiers (matching the reference image) ─────────────────────────── */
@@ -67,10 +68,10 @@ const HomeBar = () => {
   const [filter, setFilter] = useState("all");
   const { data: responseData, isLoading, refetch } = useGetHomeProgressQuery();
 
-  const allData = useMemo(() => {
-    const raw = responseData?.data;
-    return Array.isArray(raw) ? raw : raw ? Object.values(raw) : [];
-  }, [responseData]);
+  const allData = useMemo(
+    () => normalizeBranchProgress(responseData),
+    [responseData]
+  );
 
   const realChartData = useMemo(() =>
     allData.map((obj) => {

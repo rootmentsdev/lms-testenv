@@ -1,25 +1,14 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ReferenceLine,
 } from "recharts";
-import baseUrl from "../../api/api";
+import { useGetWeeklyWalkinsQuery } from "../../features/dashboard/dashboardApi";
+import { last7Days, dateKey } from "../../features/dashboard/dashboardUtils";
 
-/* ── helpers ─────────────────────────────────────────────────────────────── */
 const fmt = (d) =>
   d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
-const last7Days = () => {
-  const days = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    days.push(d);
-  }
-  return days;
-};
-
-/* ── Custom tooltip ──────────────────────────────────────────────────────── */
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
@@ -38,77 +27,37 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
-/* ── Main component ──────────────────────────────────────────────────────── */
 const DailyWalkings = () => {
-  const [data, setData]         = useState([]);
-  const [loading, setLoading]   = useState(true);
   const [activeIdx, setActiveIdx] = useState(null);
+  const { data: walkinResponse, isLoading } = useGetWeeklyWalkinsQuery();
 
-  const days = last7Days();
+  const days = useMemo(() => last7Days(), []);
   const rangeLabel = `${fmt(days[0])} – ${fmt(days[days.length - 1])}, ${days[0].getFullYear()}`;
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        const start = days[0].toISOString().split("T")[0];
-        const end   = days[days.length - 1].toISOString().split("T")[0];
+  const data = useMemo(() => {
+    const walkins = walkinResponse?.data || [];
+    const grouped = {};
+    days.forEach((d) => {
+      grouped[d.toISOString().split("T")[0]] = { walkings: 0, completed: 0 };
+    });
 
-        const res  = await fetch(
-          `${baseUrl.baseUrl}api/walkin/list?startDate=${start}&endDate=${end}`,
-          { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } }
-        );
-        const json = await res.json();
-        const walkins = json.data || [];
-
-        // Group by date
-        const grouped = {};
-        days.forEach((d) => { grouped[d.toISOString().split("T")[0]] = { walkings: 0, completed: 0 }; });
-
-        walkins.forEach((w) => {
-          const raw = w.date || w.createdAt;
-          if (!raw) return;
-          // normalise dd-mm-yyyy or yyyy-mm-dd
-          let key;
-          const parts = String(raw).split("-");
-          if (parts.length === 3 && parts[2].length === 4) {
-            key = `${parts[2]}-${parts[1].padStart(2,"0")}-${parts[0].padStart(2,"0")}`;
-          } else {
-            key = String(raw).split("T")[0];
-          }
-          if (grouped[key] !== undefined) {
-            grouped[key].walkings += 1;
-            if (w.status === "Completed" || w.status === "Booking") grouped[key].completed += 1;
-          }
-        });
-
-        const chartData = days.map((d) => {
-          const key = d.toISOString().split("T")[0];
-          return { name: fmt(d), ...grouped[key] };
-        });
-
-        // Use mock data if real data is sparse (total walkings < 50 across the week)
-        const totalWalkings = chartData.reduce((s, d) => s + d.walkings, 0);
-        const hasRichData = totalWalkings >= 50;
-        if (!hasRichData) {
-          const mockWalkings  = [412, 598, 487, 654, 521, 578, 493];
-          const mockCompleted = [310, 445, 362, 578, 398, 421, 367];
-          setData(days.map((d, i) => ({
-            name: fmt(d),
-            walkings:  mockWalkings[i],
-            completed: mockCompleted[i],
-          })));
-        } else {
-          setData(chartData);
+    walkins.forEach((w) => {
+      const key = dateKey(w.date || w.createdAt);
+      if (key && grouped[key] !== undefined) {
+        grouped[key].walkings += 1;
+        if (w.status === "Completed" || w.status === "Booking") {
+          grouped[key].completed += 1;
         }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
       }
-    };
-    fetchData();
-  }, []);
+    });
+
+    return days.map((d) => {
+      const key = d.toISOString().split("T")[0];
+      return { name: fmt(d), ...grouped[key] };
+    });
+  }, [walkinResponse, days]);
+
+  const loading = isLoading;
 
   return (
     <div style={{
@@ -125,32 +74,26 @@ const DailyWalkings = () => {
       flexDirection: "column",
       boxSizing: "border-box",
     }}>
-      {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
         <div>
           <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#111827", margin: 0 }}>Daily Walkings</h3>
           <p style={{ fontSize: "12px", color: "#9ca3af", margin: "2px 0 0" }}>{rangeLabel}</p>
         </div>
-        {/* Date Range button */}
-        <button style={{
+        <button type="button" style={{
           display: "flex", alignItems: "center", gap: "6px",
           border: "1px solid #e5e7eb", borderRadius: "8px",
           padding: "6px 12px", fontSize: "13px", fontWeight: 500,
-          color: "#374151", background: "#fff", cursor: "pointer",
+          color: "#374151", background: "#fff", cursor: "default",
         }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
             <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
             <line x1="3" y1="10" x2="21" y2="10"/>
           </svg>
-          Date Range
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="6 9 12 15 18 9"/>
-          </svg>
+          Last 7 days
         </button>
       </div>
 
-      {/* Chart */}
       <div style={{ flex: 1, minHeight: 0 }}>
         {loading ? (
           <div style={{ width: "100%", height: "100%", background: "#f9fafb", borderRadius: "10px", animation: "pulse 1.5s infinite" }} />

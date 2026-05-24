@@ -14,7 +14,7 @@ const HomeDatastore = ({ user }) => {
                 <SideNav />
                 <div className="md:ml-[120px] mt-[104px] w-full">
                     <div className="px-6 mt-6">
-                        <DashboardOverview user={user} />
+                        <DashboardOverview />
                     </div>
                 </div>
             </div>

@@ -204,8 +204,8 @@ const SideNav = () => {
             label="Task"
             active={is('/task') || is('/task/create')}
             items={[
-              { to: '/task',        label: 'Create Task',      active: is('/task') },
-              { to: '/task/create', label: 'Task Management',  active: is('/task/create') },
+              { to: '/task',        label: 'Task Management', active: is('/task') && !is('/task/create') },
+              { to: '/task/create', label: 'Create Task',     active: is('/task/create') },
             ]}
           />
 

@@ -1,5 +1,10 @@
-import { useGetDashboardProgressQuery, useGetEmployeeCountQuery } from "../../features/dashboard/dashboardApi";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
+import { useGetHomeProgressQuery, useGetWeeklyWalkinsQuery } from "../../features/dashboard/dashboardApi";
+import {
+  normalizeBranchProgress,
+  countFromPercent,
+} from "../../features/dashboard/dashboardUtils";
 
 /* ── Individual stat card ─────────────────────────────────────────────────── */
 const StatCard = ({ title, value, subtitle, icon, iconBg }) => (
@@ -23,7 +28,6 @@ const StatCard = ({ title, value, subtitle, icon, iconBg }) => (
       boxSizing:      'border-box',
     }}
   >
-    {/* Top row: title + icon */}
     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
       <span style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', lineHeight: '1.3', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</span>
       <div
@@ -32,16 +36,11 @@ const StatCard = ({ title, value, subtitle, icon, iconBg }) => (
         {icon}
       </div>
     </div>
-
-    {/* Value */}
     <div className="text-[26px] font-bold text-gray-900 leading-none">{value}</div>
-
-    {/* Subtitle */}
     <div className="text-[11px] text-gray-400 leading-tight">{subtitle}</div>
   </div>
 );
 
-/* ── Icons ────────────────────────────────────────────────────────────────── */
 const WalkinIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -76,73 +75,84 @@ const AssessmentIcon = () => (
   </svg>
 );
 
-/* ── Main component ───────────────────────────────────────────────────────── */
-const DashboardOverview = ({ user }) => {
-  const { data: progressData } = useGetDashboardProgressQuery();
-  const { data: empData }      = useGetEmployeeCountQuery();
+const DashboardOverview = () => {
+  const { data: progressResponse } = useGetHomeProgressQuery();
+  const { data: walkinResponse } = useGetWeeklyWalkinsQuery();
 
-  // ── Derive stats from API data ──
-  const employees    = Array.isArray(empData?.data) ? empData.data : [];
-  const totalEmp     = employees.length;
-  const inTraining   = employees.filter(e => e.trainingStatus === 'in_progress' || e.pendingTraining > 0).length;
+  const stats = useMemo(() => {
+    const branches = normalizeBranchProgress(progressResponse);
+    const totalBranches = branches.length;
 
-  const rawProgress  = progressData?.data;
-  const progress     = Array.isArray(rawProgress) ? rawProgress : (rawProgress ? Object.values(rawProgress) : []);
-  const totalBranches = progress.length;
+    const totalEmp = branches.reduce((sum, b) => sum + (b.totalEmployees || 0), 0);
+    const inTraining = branches.reduce(
+      (sum, b) => sum + countFromPercent(b.pendingTraining, b.totalTraining),
+      0
+    );
 
-  // Avg training progress across all branches
-  const avgTraining = progress.length
-    ? Math.round(
-        progress.reduce((sum, b) => {
-          const total = (b.completeTraining || 0) + (b.pendingTraining || 0);
-          return sum + (total ? ((b.completeTraining || 0) / total) * 100 : 0);
-        }, 0) / progress.length
-      )
-    : 0;
+    const avgTraining = totalBranches
+      ? Math.round(branches.reduce((sum, b) => sum + (b.completeTraining || 0), 0) / totalBranches)
+      : 0;
 
-  // Total walk-ins (sum across branches)
-  const totalWalkins = progress.reduce((sum, b) => sum + (b.totalWalkin || 0), 0);
+    const completedAssessments = branches.reduce(
+      (sum, b) => sum + countFromPercent(b.completeAssessment, b.totalAssessment),
+      0
+    );
+    const overdueCount = branches.reduce(
+      (sum, b) => sum + countFromPercent(b.pendingAssessment, b.totalAssessment),
+      0
+    );
+    const totalAssessments = completedAssessments + overdueCount;
 
-  // Overdue / pending assessments
-  const overdueCount = progress.reduce((sum, b) => sum + (b.pendingAssessment || 0), 0);
+    const walkins = walkinResponse?.data;
+    const totalWalkins = Array.isArray(walkins) ? walkins.length : 0;
 
-  // Completed assessments
-  const completedAssessments = progress.reduce((sum, b) => sum + (b.completeAssessment || 0), 0);
-  const totalAssessments     = completedAssessments + overdueCount;
+    return {
+      totalBranches,
+      totalEmp,
+      inTraining,
+      avgTraining,
+      completedAssessments,
+      overdueCount,
+      totalAssessments,
+      totalWalkins,
+    };
+  }, [progressResponse, walkinResponse]);
 
   const cards = [
     {
       title:    'Total Walk Ins',
-      value:    totalWalkins || '—',
-      subtitle: `Across all ${totalBranches} stores`,
+      value:    stats.totalWalkins || '—',
+      subtitle: `Last 7 days · ${stats.totalBranches} stores`,
       icon:     <WalkinIcon />,
       iconBg:   '#EDE9FE',
     },
     {
       title:    'Completed Assessments',
-      value:    completedAssessments || '—',
-      subtitle: totalAssessments ? `${Math.round((completedAssessments / totalAssessments) * 100)}% of ${totalAssessments} total` : 'No assessments yet',
+      value:    stats.completedAssessments || '—',
+      subtitle: stats.totalAssessments
+        ? `${Math.round((stats.completedAssessments / stats.totalAssessments) * 100)}% of ${stats.totalAssessments} total`
+        : 'No assessments yet',
       icon:     <AssessmentIcon />,
       iconBg:   '#DBEAFE',
     },
     {
       title:    'Overdue Tasks',
-      value:    overdueCount || '0',
-      subtitle: overdueCount > 0 ? 'Require immediate action' : 'All tasks on track',
+      value:    stats.overdueCount || '0',
+      subtitle: stats.overdueCount > 0 ? 'Require immediate action' : 'All tasks on track',
       icon:     <TaskIcon />,
       iconBg:   '#FFEDD5',
     },
     {
       title:    'Avg Training Progress',
-      value:    `${avgTraining}%`,
-      subtitle: `${totalEmp}/128 employees`,
+      value:    `${stats.avgTraining}%`,
+      subtitle: `${stats.totalEmp} employees`,
       icon:     <TrainingIcon />,
       iconBg:   '#FEF3C7',
     },
     {
       title:    'Employees in Training',
-      value:    inTraining || totalEmp || '—',
-      subtitle: `Across ${totalBranches} Stores`,
+      value:    stats.inTraining || stats.totalEmp || '—',
+      subtitle: `Across ${stats.totalBranches} stores`,
       icon:     <EmployeeIcon />,
       iconBg:   '#DCFCE7',
     },
@@ -150,7 +160,6 @@ const DashboardOverview = ({ user }) => {
 
   return (
     <div style={{ marginBottom: '24px' }}>
-      {/* Header row */}
       <div className="flex items-start justify-between mb-5">
         <div>
           <h2 className="text-[17px] font-bold text-gray-900 leading-tight">Dashboard Overview</h2>
@@ -163,10 +172,9 @@ const DashboardOverview = ({ user }) => {
         </Link>
       </div>
 
-      {/* Cards row — single line, all 5 equal width */}
       <div style={{ display: 'flex', gap: '12px', flexWrap: 'nowrap' }}>
-        {cards.map((card, i) => (
-          <StatCard key={i} {...card} />
+        {cards.map((card) => (
+          <StatCard key={card.title} {...card} />
         ))}
       </div>
     </div>

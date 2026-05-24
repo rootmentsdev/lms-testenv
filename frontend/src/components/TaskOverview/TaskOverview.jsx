@@ -1,6 +1,11 @@
+import { useMemo } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
-import { useGetDashboardProgressQuery } from "../../features/dashboard/dashboardApi";
 import { Link } from "react-router-dom";
+import { useGetHomeProgressQuery } from "../../features/dashboard/dashboardApi";
+import {
+  normalizeBranchProgress,
+  countFromPercent,
+} from "../../features/dashboard/dashboardUtils";
 
 const COLORS = {
   Completed:  "#22c55e",
@@ -20,49 +25,48 @@ const LegendRow = ({ color, label, count }) => (
 );
 
 const TaskOverview = () => {
-  const { data: progressData } = useGetDashboardProgressQuery();
+  const { data: progressResponse } = useGetHomeProgressQuery();
 
-  const rawProgress = progressData?.data;
-  const progress    = Array.isArray(rawProgress) ? rawProgress : (rawProgress ? Object.values(rawProgress) : []);
+  const { completed, inProgress, overdue, pending, total, pct, pieData } = useMemo(() => {
+    const branches = normalizeBranchProgress(progressResponse);
 
-  const rawCompleted  = progress.reduce((s, b) => s + (b.completeTraining  || 0), 0);
-  const rawInProgress = progress.reduce((s, b) => s + (b.pendingTraining   || 0), 0);
-  const rawOverdue    = progress.reduce((s, b) => s + (b.pendingAssessment || 0), 0);
-  const rawPending    = progress.reduce((s, b) => s + (b.completeAssessment|| 0), 0);
-
-  const hasRealData = (rawCompleted + rawInProgress + rawOverdue + rawPending) > 0;
-
-  const completed  = hasRealData ? rawCompleted  : 54;
-  const inProgress = hasRealData ? rawInProgress : 6;
-  const overdue    = hasRealData ? rawOverdue    : 4;
-  const pending    = hasRealData ? rawPending    : 12;
-
-  const total = completed + inProgress + overdue + pending;
-  const pct   = total ? Math.round((completed / total) * 100) : 0;
-
-  const pieData = [
-    { name: "Completed",   value: completed  },
-    { name: "In Progress", value: inProgress },
-    { name: "Overdue",     value: overdue    },
-    { name: "Pending",     value: pending    },
-  ].filter(d => d.value > 0);
-
-  /* Custom centre label */
-  const renderCentreLabel = ({ viewBox }) => {
-    const { cx, cy } = viewBox;
-    return (
-      <g>
-        <text x={cx} y={cy - 8} textAnchor="middle" dominantBaseline="middle"
-          style={{ fontSize: "26px", fontWeight: 700, fill: "#111827" }}>
-          {pct}%
-        </text>
-        <text x={cx} y={cy + 18} textAnchor="middle" dominantBaseline="middle"
-          style={{ fontSize: "12px", fill: "#9ca3af" }}>
-          Done
-        </text>
-      </g>
+    const done = branches.reduce(
+      (s, b) => s + countFromPercent(b.completeTraining, b.totalTraining),
+      0
     );
-  };
+    const active = branches.reduce(
+      (s, b) => s + countFromPercent(b.pendingTraining, b.totalTraining),
+      0
+    );
+    const late = branches.reduce(
+      (s, b) => s + countFromPercent(b.pendingAssessment, b.totalAssessment),
+      0
+    );
+    const doneAssess = branches.reduce(
+      (s, b) => s + countFromPercent(b.completeAssessment, b.totalAssessment),
+      0
+    );
+
+    const sum = done + active + late + doneAssess;
+    const percent = sum ? Math.round((done / sum) * 100) : 0;
+
+    const slices = [
+      { name: "Completed",   value: done },
+      { name: "In Progress", value: active },
+      { name: "Overdue",     value: late },
+      { name: "Pending",     value: doneAssess },
+    ].filter((d) => d.value > 0);
+
+    return {
+      completed: done,
+      inProgress: active,
+      overdue: late,
+      pending: doneAssess,
+      total: sum,
+      pct: percent,
+      pieData: slices,
+    };
+  }, [progressResponse]);
 
   return (
     <div style={{
@@ -79,7 +83,6 @@ const TaskOverview = () => {
       justifyContent: "space-between",
       boxSizing: "border-box",
     }}>
-      {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
         <div>
           <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#111827", margin: 0 }}>Task Overview</h3>
@@ -97,7 +100,6 @@ const TaskOverview = () => {
         </Link>
       </div>
 
-      {/* Donut chart */}
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <ResponsiveContainer width={150} height={150}>
           <PieChart>
@@ -113,7 +115,6 @@ const TaskOverview = () => {
                 <Cell key={entry.name} fill={COLORS[entry.name] || "#d1d5db"} strokeWidth={0} />
               ))}
             </Pie>
-            {/* Centre text overlay */}
             <text x="50%" y="46%" textAnchor="middle" dominantBaseline="middle"
               style={{ fontSize: "26px", fontWeight: 700, fill: "#111827" }}>
               {pct}%
@@ -130,7 +131,6 @@ const TaskOverview = () => {
         </ResponsiveContainer>
       </div>
 
-      {/* Legend */}
       <div style={{ borderTop: "1px solid #f3f4f6" }}>
         <LegendRow color={COLORS["Completed"]}   label="Completed"   count={completed}  />
         <LegendRow color={COLORS["In Progress"]} label="In Progress" count={inProgress} />
