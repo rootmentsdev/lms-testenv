@@ -55,6 +55,8 @@ const router = express.Router();
  *         description: Internal server error.
  */
 router.post('/create-user', createUser);
+// Backward-compatible alias for older clients.
+router.post('/createUser', createUser);
 
 /**
  * @swagger
@@ -98,6 +100,8 @@ router.post('/create-user', createUser);
  *         description: Internal server error.
  */
 router.post('/user-login', loginUser);
+// Backward-compatible alias for older clients.
+router.post('/userLogin', loginUser);
 
 /**
  * @swagger
