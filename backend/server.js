@@ -25,6 +25,7 @@ import TaskRouter from './routes/TaskRoute.js'
 
 import { AlertNotification } from './lib/CornJob.js';
 import { startEmployeeAutoSync } from './lib/EmployeeAutoSync.js';
+import { refreshExternalEmployees } from './lib/employeeCache.js';
 import setupSwagger from './swagger.js';
 import { MiddilWare } from './lib/middilWare.js';
 import Admin from './model/Admin.js';
@@ -484,6 +485,9 @@ connectMongoDB().then(() => {
     
     // Start the employee auto-sync scheduler
     startEmployeeAutoSync();
+
+    // Warm external employee cache in background (non-blocking)
+    refreshExternalEmployees().catch(() => {});
     
     // Start existing notification cron job
     AlertNotification();
