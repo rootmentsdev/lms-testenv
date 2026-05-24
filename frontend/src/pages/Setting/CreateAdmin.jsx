@@ -101,6 +101,8 @@ const CreateUser = () => {
       try {
         const response = await fetch(`${baseUrl.baseUrl}api/admin/getSubrole`)
         if (response.ok) {
+          // subrole fetch placeholder
+        }
       } catch (error) {
         throw new Error(error)
       }

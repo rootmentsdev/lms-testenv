@@ -80,7 +80,6 @@ const NotificationData = () => {
             </div>
         </div>
     );
-    );
 };
 
 export default NotificationData;
