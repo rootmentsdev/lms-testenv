@@ -1,84 +1,300 @@
-import { Link } from "react-router-dom";
-import Header from "../../components/Header/Header"
-import RoundModule from "../../components/RoundBar/RoundModule"
-import { FaPlus } from "react-icons/fa";
 import { useEffect, useState } from "react";
-import baseUrl from "../../api/api";
+import { Link } from "react-router-dom";
+import Header from "../../components/Header/Header";
 import SideNav from "../../components/SideNav/SideNav";
+import baseUrl from "../../api/api";
+import { FaPlus, FaSearch } from "react-icons/fa";
+import { LuClock, LuBookOpen, LuUsers, LuCircleCheck, LuEye, LuArrowLeft, LuX } from "react-icons/lu";
 
-const ModuleData = () => {
-    const [Data, setData] = useState([]); // State to store fetched data
+/* ─────────────────────────────────────────────────────────── */
+/*  Detail Modal                                               */
+/* ─────────────────────────────────────────────────────────── */
+const ModuleDetailModal = ({ module, onClose }) => {
+  if (!module) return null;
 
-    useEffect(() => {
-        const fetchModules = async () => {
-            try {
-                const response = await fetch(`${baseUrl.baseUrl}api/modules`, {
-                    method: "GET",
-                    headers: { "Content-Type": "application/json" },
-                    credentials: "include",
-                });
+  const videoCount = module.videos?.length ?? 0;
+  const createdDate = module.createdAt
+    ? new Date(module.createdAt).toLocaleDateString("en-GB").replace(/\//g, ".")
+    : "—";
+  const createdBy = module.createdBy || module.adminName || "—";
 
-                if (!response.ok) { // Check for HTTP errors
-                    throw new Error(`Error: ${response.statusText}`);
-                }
+  // close on backdrop click
+  const handleBackdrop = (e) => {
+    if (e.target === e.currentTarget) onClose();
+  };
 
-                const data = await response.json();
-                setData(data); // Update state with fetched data
-            } catch (error) {
-                console.error("Failed to fetch modules:", error.message);
-            }
-        };
-
-        fetchModules(); // Invoke the function
-
-    }, []);
-
-    useEffect(() => {
-        console.log(Data);
-    }, [Data]);
-    return (
-        <div className="w-full h-full bg-white">
-            <div><Header name='Modules' /></div>
-            <SideNav />
-            <div className="md:ml-[200px]  mt-[150px] mx-auto max-w-[1400px] w-full mb-[70px]">
-                <div>
-
-
-                    <div className="flex mx-10 justify-between mt-10 ">
-                        <Link to={'/createModule'}>
-                            <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer
-                    ">
-                                <div className="text-[#016E5B]">
-                                    <FaPlus />
-                                </div>
-                                <h4 className="text-black">Add New Module</h4>
-                            </div>
-                        </Link>
-                    </div>
-
-
-
-                </div>
-
-                <div className="mt-10 ml-5 mx-auto flex mr-5 w-full flex-wrap gap-5 ">
-                    {Data?.length > 0 && Data.map((item) => {
-                        const videoCount = item.videos ? item.videos.length : 0; // Handle undefined videos
-                        const completionRate = item.overallCompletionPercentage || 0; // Handle undefined completion rate
-                        return (
-                            <RoundModule
-                                key={item.moduleId}
-                                initialProgress={completionRate.toString()}
-                                title={item.moduleName}
-                                Module={`No. of videos: ${videoCount}`}
-                               
-                                complete={`Completion Rate: ${completionRate}%`}
-                            />
-                        );
-                    })}
-                </div>
-            </div>
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+      onClick={handleBackdrop}
+    >
+      <div
+        className="relative w-full max-w-[420px] rounded-[16px] bg-white shadow-2xl"
+        style={{ fontFamily: "'DM Sans', sans-serif", maxHeight: "85vh", display: "flex", flexDirection: "column" }}
+      >
+        {/* ── Modal header ── */}
+        <div className="flex items-center gap-3 px-6 pt-6 pb-4 border-b border-gray-100">
+          <button
+            onClick={onClose}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100 transition-colors text-gray-600"
+          >
+            <LuArrowLeft size={18} />
+          </button>
+          <h2 className="text-[18px] font-bold text-gray-900 flex-1 leading-tight">
+            {module.moduleName || "Module Name"}
+          </h2>
+          <button
+            onClick={onClose}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100 transition-colors text-gray-400"
+          >
+            <LuX size={16} />
+          </button>
         </div>
-    )
-}
 
-export default ModuleData
+        {/* ── Meta info ── */}
+        <div className="px-6 py-4 border-b border-gray-100 space-y-2">
+          <MetaRow label="No. of videos" value={`${videoCount} Videos`} />
+          <MetaRow label="Module Created" value={createdDate} />
+          <MetaRow label="Created By" value={createdBy} bold />
+        </div>
+
+        {/* ── Video list ── */}
+        <div className="px-6 py-4 overflow-y-auto flex-1">
+          {module.videos?.length > 0 ? (
+            <div className="space-y-3">
+              {module.videos.map((video, idx) => (
+                <div
+                  key={idx}
+                  className="rounded-[10px] border border-gray-200 px-4 py-3"
+                >
+                  <p className="text-[14px] font-semibold text-gray-900">
+                    {video.title || `Video ${idx + 1}`}
+                  </p>
+                  <p className="mt-0.5 text-[12px] text-gray-500 truncate">
+                    URL : {video.videoUri || video.url || "—"}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[13px] text-gray-400 text-center py-6">No videos added yet.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const MetaRow = ({ label, value, bold }) => (
+  <div className="flex items-center justify-between">
+    <span className="text-[13px] text-gray-500">{label}</span>
+    <span className={`text-[13px] ${bold ? "font-bold text-gray-900" : "text-gray-700"}`}>
+      {value}
+    </span>
+  </div>
+);
+
+/* ─────────────────────────────────────────────────────────── */
+/*  Main Page                                                  */
+/* ─────────────────────────────────────────────────────────── */
+const ModuleData = () => {
+  const [modules, setModules] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [selectedModule, setSelectedModule] = useState(null);
+
+  useEffect(() => {
+    if (!document.getElementById("dm-sans-font")) {
+      const link = document.createElement("link");
+      link.id = "dm-sans-font";
+      link.rel = "stylesheet";
+      link.href =
+        "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap";
+      document.head.appendChild(link);
+    }
+  }, []);
+
+  useEffect(() => {
+    const fetchModules = async () => {
+      try {
+        const res = await fetch(`${baseUrl.baseUrl}api/modules`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error(res.statusText);
+        const data = await res.json();
+        setModules(Array.isArray(data) ? data : []);
+      } catch {
+        setModules([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchModules();
+  }, []);
+
+  const filtered = modules.filter((m) =>
+    (m.moduleName || "").toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div
+      className="min-h-screen bg-[#f9fafb]"
+      style={{ fontFamily: "'DM Sans', sans-serif" }}
+    >
+      <Header name="Modules" />
+      <SideNav />
+
+      {/* Detail modal */}
+      {selectedModule && (
+        <ModuleDetailModal
+          module={selectedModule}
+          onClose={() => setSelectedModule(null)}
+        />
+      )}
+
+      <div className="md:ml-[120px] mt-[104px] px-6 pb-12">
+        {/* ── Page header ── */}
+        <div className="flex items-start justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-[22px] font-bold text-gray-900 leading-tight">
+              Module Management
+            </h1>
+            <p className="mt-1 text-[13px] text-gray-500">
+              Monitor module engagement and performance across all trainings
+            </p>
+          </div>
+          <Link to="/createmodule">
+            <button className="inline-flex items-center gap-2 bg-[#111111] hover:bg-[#333] text-white text-[13px] font-semibold px-4 py-2.5 rounded-[10px] transition-colors whitespace-nowrap">
+              <FaPlus size={12} />
+              Add New Module
+            </button>
+          </Link>
+        </div>
+
+        {/* ── Search ── */}
+        <div className="relative mb-6 max-w-[340px]">
+          <FaSearch
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            size={13}
+          />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by Training"
+            style={{ fontFamily: "'DM Sans', sans-serif" }}
+            className="w-full h-10 pl-9 pr-4 rounded-[8px] border border-gray-200 bg-white text-[13px] text-gray-700 outline-none placeholder:text-gray-400 focus:border-gray-400"
+          />
+        </div>
+
+        {/* ── Loading ── */}
+        {loading && (
+          <div className="flex justify-center items-center py-20">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-gray-800" />
+          </div>
+        )}
+
+        {/* ── Empty ── */}
+        {!loading && filtered.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+            <LuBookOpen size={40} className="mb-3 opacity-40" />
+            <p className="text-[14px] font-medium">No modules found</p>
+            <p className="text-[12px] mt-1">
+              {search
+                ? "Try a different search term"
+                : "Get started by adding a new module"}
+            </p>
+          </div>
+        )}
+
+        {/* ── Grid ── */}
+        {!loading && filtered.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filtered.map((item) => (
+              <ModuleCard
+                key={item._id || item.moduleId}
+                module={item}
+                onViewDetails={() => setSelectedModule(item)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────────────────── */
+/*  Module Card                                                */
+/* ─────────────────────────────────────────────────────────── */
+const ModuleCard = ({ module, onViewDetails }) => {
+  const videoCount = module.videos?.length ?? 0;
+  const completion = Math.round(module.overallCompletionPercentage ?? 0);
+  const staffCount = module.assignedCount ?? module.staffCount ?? 0;
+  const hours = module.durationHours
+    ? `${module.durationHours} hours`
+    : videoCount > 0
+    ? `${Math.max(1, Math.round(videoCount * 0.5))} hours`
+    : "—";
+  const done = module.completedCount ?? Math.round((completion / 100) * (staffCount || 34));
+  const total = module.totalCount ?? staffCount ?? 34;
+
+  return (
+    <div className="bg-white rounded-[12px] border border-gray-200 p-5 flex flex-col gap-3 shadow-[0_1px_4px_rgba(0,0,0,0.05)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-shadow">
+      {/* Title + description */}
+      <div>
+        <h2 className="text-[16px] font-bold text-gray-900 leading-snug">
+          {module.moduleName || "Untitled Module"}
+        </h2>
+        <p className="mt-1 text-[13px] text-gray-500 line-clamp-1">
+          {module.description || "Customer Service Excellence"}
+        </p>
+      </div>
+
+      {/* Progress bar */}
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-[13px] font-semibold text-gray-800">
+            Progress ({done}/{total})
+          </span>
+          <span className="text-[13px] font-bold text-gray-900">{completion}%</span>
+        </div>
+        <div className="h-[6px] w-full rounded-full bg-gray-200 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-gray-900 transition-all duration-500"
+            style={{ width: `${Math.min(completion, 100)}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-y-2 gap-x-4">
+        <StatItem icon={<LuClock size={14} />} label={hours} />
+        <StatItem icon={<LuBookOpen size={14} />} label={`${videoCount} Modules`} />
+        <StatItem icon={<LuUsers size={14} />} label={`${staffCount} Staffs`} />
+        <StatItem icon={<LuCircleCheck size={14} />} label={`${completion}% Completed`} />
+      </div>
+
+      {/* View Details */}
+      <div className="flex justify-end mt-1">
+        <button
+          onClick={onViewDetails}
+          className="inline-flex items-center gap-2 bg-[#f5f5f5] hover:bg-gray-200 text-gray-800 text-[13px] font-medium px-4 py-2 rounded-[8px] transition-colors"
+        >
+          <LuEye size={14} />
+          View Details
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const StatItem = ({ icon, label }) => (
+  <div className="flex items-center gap-1.5 text-[12px] text-gray-600">
+    <span className="text-gray-500">{icon}</span>
+    {label}
+  </div>
+);
+
+export default ModuleData;

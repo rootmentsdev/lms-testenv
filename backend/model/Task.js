@@ -1,0 +1,36 @@
+import mongoose from 'mongoose';
+
+const taskSchema = new mongoose.Schema({
+  taskCode: { type: String, unique: true, index: true },
+  title: { type: String, required: true, trim: true },
+  category: { type: String, required: true, trim: true },
+  subCategory: { type: String, required: true, trim: true },
+  assignedTo: { type: String, required: true, trim: true },
+  assignedToLabel: { type: String, trim: true },
+  mode: { type: String, enum: ['task', 'auto'], default: 'task' },
+  startDate: { type: String, required: true },
+  startTime: { type: String, default: '' },
+  endDate: { type: String, default: '' },
+  endTime: { type: String, default: '' },
+  description: { type: String, default: '' },
+  additionalInfo: { type: String, default: '' },
+  priority: { type: String, required: true, trim: true },
+  status: {
+    type: String,
+    enum: ['PENDING', 'IN PROGRESS', 'COMPLETED', 'OVERDUE'],
+    default: 'PENDING',
+  },
+  storeName: { type: String, default: '' },
+  storeCode: { type: String, default: '', index: true },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', required: true },
+  assignedByName: { type: String, default: '' },
+  assignedByRole: { type: String, default: '' },
+}, { timestamps: true });
+
+taskSchema.index({ createdAt: -1 });
+taskSchema.index({ category: 1 });
+taskSchema.index({ priority: 1 });
+taskSchema.index({ status: 1 });
+
+const Task = mongoose.model('Task', taskSchema);
+export default Task;

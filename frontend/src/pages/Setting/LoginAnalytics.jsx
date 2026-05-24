@@ -201,7 +201,7 @@ const LoginAnalytics = () => {
                 </div>
 
                 {/* Main Content */}
-                <div className="md:ml-64">
+                <div className="md:ml-[120px]">
                     <Header />
                     
                     <div className="p-6">

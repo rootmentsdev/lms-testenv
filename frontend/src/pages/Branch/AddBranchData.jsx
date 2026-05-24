@@ -27,7 +27,6 @@ const BranchForm = () => {
 
     const handleFormSubmit = async () => {
         alert("Branch details saved!");
-        console.log(branch);
         try {
             const response = await fetch(`${baseUrl.baseUrl}api/usercreate/create/branch`, {
                 method: 'POST', // Assuming you use a PUT request to update the data
@@ -55,7 +54,7 @@ const BranchForm = () => {
         <div className="mb-[70px]">
             <Header name="Add Branch" />
             <SideNav />
-            <div className="p-6 mt-[150px] mx-10 bg-gray-50 min-h-screen ml-[200px] text-[#016E5B]">
+            <div className="p-6 mt-[104px] mx-10 bg-gray-50 min-h-screen ml-[120px] text-[#016E5B]">
                 <button className="text-sm text-gray-500 hover:underline mb-4">Back</button>
 
                 <div className="grid grid-cols-2 gap-6">

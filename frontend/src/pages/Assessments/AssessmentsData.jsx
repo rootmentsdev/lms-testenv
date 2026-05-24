@@ -31,10 +31,7 @@ const AssessmentsData = () => {
                 );
 
                 setData(sortedData);
-                console.log(sortedData);
-
             } catch (error) {
-                console.error('Error fetching data:', error);
                 setError('Failed to load assessments'); // Set error state
             } finally {
                 setLoading(false); // Stop loading indicator
@@ -61,7 +58,6 @@ const AssessmentsData = () => {
                 }
             }
         } catch (error) {
-            console.error('Error fetching active Google Form:', error);
         }
     };
 
@@ -116,7 +112,6 @@ const AssessmentsData = () => {
                 }
             }
         } catch (error) {
-            console.error('Error toggling form status:', error);
         }
     };
 
@@ -126,7 +121,7 @@ const AssessmentsData = () => {
             <Header name='Assessments' />
             <SideNav />
             {/* Top Bar */}
-            <div className="md:ml-[100px] mt-[150px]">
+            <div className="md:ml-[120px] mt-[104px]">
                 <div className="flex md:mx-10 justify-between mt-10">
                     {/* Create Assessment */}
                     <Link to={'/create/Assessment'}>

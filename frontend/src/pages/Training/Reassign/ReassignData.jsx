@@ -49,8 +49,6 @@ const ReassignData = () => {
                 }
 
                 const data = await response.json();
-                console.log('External employee data:', data);
-
                 // Map external employee data to options required by react-select
                 const options = (data?.data || []).map((employee) => ({
                     value: employee.emp_code, // Use emp_code as the value
@@ -70,7 +68,6 @@ const ReassignData = () => {
                 setAvailableRoles(roles);
 
             } catch (error) {
-                console.error("Failed to fetch users:", error.message);
             }
         };
         fetchTrainingDetails();
@@ -101,7 +98,6 @@ const ReassignData = () => {
 
     const HandleSubmit = async (e) => {
         e.preventDefault()
-        console.log(assignedTo, id);
         // setAssignedTo({ ...assignedTo, id: id })
 
         try {
@@ -123,7 +119,7 @@ const ReassignData = () => {
             <div><Header name='Reassign Training' /></div>
             <SideNav />
 
-            <div className="md:ml-[100px] mt-[150px]">
+            <div className="md:ml-[120px] mt-[104px]">
                 <div className="text-xl mt-10  ">
                     <div className="flex justify-evenly">
                         <p>Training Name: <span className="text-[#016E5B]">{training?.data.trainingName}</span></p>

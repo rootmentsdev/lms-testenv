@@ -37,7 +37,6 @@ const TrainingData = () => {
                 setData(result.data);
                 setloading(false);
             } catch (error) {
-                console.error('Error fetching data:', error);
             }
         };
 
@@ -63,7 +62,7 @@ const TrainingData = () => {
         <div className="w-full h-full bg-white mb-[70px]">
             <div><Header name='All Training' /></div>
             <SideNav />
-            <div className="md:ml-[100px] mt-[150px]">
+            <div className="md:ml-[120px] mt-[104px]">
                 <div>
                     <div className="flex mx-10 justify-between mt-10">
                         <div className="md:flex hidden">
@@ -166,7 +165,6 @@ const TrainingData = () => {
                                             window.location.reload(); // Refresh to show updated data
                                         }
                                     } catch (error) {
-                                        console.error('Error deleting all trainings:', error);
                                         alert('An error occurred while deleting all trainings. Please try again.');
                                     }
                                 }

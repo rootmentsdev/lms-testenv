@@ -37,12 +37,9 @@ const CreateTrainingData = () => {
         });
 
         setUniqueItems([...items]);
-        console.log(":hi" + uniqueItems);
-
         setFilteredData(result.data);
 
       } catch (error) {
-        console.error("Error fetching data:", error);
       } finally {
         setLoading(false);
       }
@@ -84,7 +81,7 @@ const CreateTrainingData = () => {
     <div className="w-full mb-[70px] h-full bg-white">
       <Header name="Mandatory Training" />
       <SideNav />
-      <div className="md:ml-[100px] mt-[100px]">
+      <div className="md:ml-[120px] mt-[104px]">
         {/* Header Section */}
         <div className="flex justify-end mr-20">
           <Link to="/Alltraining">

@@ -193,6 +193,9 @@ router.post('/create/branch', createBranch);
  */
 router.get('/getBranch', MiddilWare, GetBranch);
 
+// Public endpoint — used on signup page before user has a token
+router.get('/getBranch/public', GetBranch);
+
 /**
  * @swagger
  * /api/usercreate/create/designation:

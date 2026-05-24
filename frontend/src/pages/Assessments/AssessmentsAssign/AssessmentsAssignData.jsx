@@ -83,7 +83,7 @@ const AssessmentsAssignData = () => {
     <div className="w-full h-full bg-white text-[#016E5B]">
       <Header name="Assessments Details" />
       <SideNav />
-      <div className="md:ml-[100px] mt-[150px]">
+      <div className="md:ml-[120px] mt-[104px]">
         <div className="flex justify-between mx-10">
           <Link to={'/assign/Assessment'}>
             <div className="flex w-56 border-2 justify-evenly items-center py-2 ml-10 cursor-pointer">

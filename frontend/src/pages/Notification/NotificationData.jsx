@@ -42,14 +42,10 @@ const NotificationData = () => {
 
     return (
         <div className=" mx-0 mb-[90px]" >
-            <div>
-                <Header name="Notification" />
-            </div>
-            <div className="flex md:ml-[160px] ml-0">
-                <div>
-                    <SideNav />
-                </div>
-                <div className="flex justify-center items-center min-h-screen  mt-28">
+            <Header name="Notification" />
+            <SideNav />
+            <div className="md:ml-[120px] mt-[104px]">
+                <div className="flex justify-center items-center min-h-screen">
                     <div className="bg-white w-full  shadow-lg rounded-lg p-6">
                         <h2 className="text-lg font-semibold mb-4 text-black">Notifications</h2>
                         <ul className="space-y-4">
@@ -81,13 +77,9 @@ const NotificationData = () => {
                         </ul>
                     </div>
                 </div>
-
-
             </div>
-
-
-
-        </div >
+        </div>
+    );
     );
 };
 

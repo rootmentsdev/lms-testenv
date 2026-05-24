@@ -58,9 +58,6 @@ const CreateAssessmentData = () => {
             deadline: moduleDescriptions,
             questions,
         };
-
-        console.log(assessmentData);
-
         try {
             const response = await fetch(`${baseUrl.baseUrl}api/assessments`, {
                 method: "POST",
@@ -83,7 +80,7 @@ const CreateAssessmentData = () => {
         <div className="w-full mb-[70px] h-full bg-white text-black">
             <Header name="Create a new Assessments" />
             <SideNav />
-            <div className="md:ml-[100px] mt-[150px]">
+            <div className="md:ml-[120px] mt-[104px]">
                 <div>
                     <Link to={"/assessments"}>
                         <div className="flex items-center gap-1 m-5 text-black cursor-pointer">

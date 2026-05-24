@@ -101,7 +101,6 @@ const CreateCustomNotification = () => {
 
         setUsers(options);
       } catch (error) {
-        console.error("Failed to fetch users:", error.message);
         setUsers([]);
       }
     };
@@ -113,7 +112,6 @@ const CreateCustomNotification = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Notification Form Data:", form);
     try {
       const response = await fetch(`${baseUrl.baseUrl}api/admin/notification/create`, {
         method: "POST",
@@ -135,8 +133,6 @@ const CreateCustomNotification = () => {
 
 
     } catch (error) {
-      console.error("Failed to send notification:", error.message);
-
     }
   };
 

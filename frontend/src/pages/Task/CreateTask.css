@@ -1,0 +1,83 @@
+.create-task-toggle {
+  position: relative;
+  display: inline-flex;
+  background: #f3f4f6;
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.create-task-toggle__pill {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  border-radius: 8px;
+  background: #111827;
+  transition:
+    transform 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    width 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.create-task-toggle__btn {
+  position: relative;
+  z-index: 1;
+  padding: 6px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  background: transparent;
+  color: #6b7280;
+  transition: color 0.28s ease;
+  white-space: nowrap;
+}
+
+.create-task-toggle__btn:disabled {
+  cursor: default;
+}
+
+.create-task-toggle__btn--active {
+  color: #fff;
+}
+
+.create-task-form-body {
+  overflow: hidden;
+  transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.create-task-form-panel {
+  transition:
+    opacity 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.create-task-form-panel--enter {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.create-task-form-panel--exit {
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+}
+
+.create-task-save-btn {
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease;
+}
+
+.create-task-save-btn--exit {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+.create-task-file-field {
+  height: 40px;
+  min-height: 40px;
+  box-sizing: border-box;
+}

@@ -273,7 +273,6 @@ const EmployeeDetaileData = () => {
       await FetchUserData(); // refresh
       setIsEditing(false);
     } catch (error) {
-      console.error("Error updating data:", error);
       toast.error("Error updating data");
     }
   };
@@ -331,7 +330,6 @@ const EmployeeDetaileData = () => {
           setfullData(userdetail.data || {});
         }
       } catch (progressError) {
-        console.error("Error fetching training progress:", progressError);
         setfullData(userdetail.data || {});
       }
 
@@ -378,7 +376,6 @@ const EmployeeDetaileData = () => {
       setData(selectedData);
       setIsExternal(true);
     } catch (error) {
-      console.error("Error fetching external data:", error);
       toast.error("Failed to load employee details");
       setfullData({ training: [], assignedAssessments: [] });
       setData({});

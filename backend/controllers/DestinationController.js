@@ -70,10 +70,16 @@ export const HomeBar = async (req, res) => {
         const Admin1 = req.admin.userId;
 
         const AdminData = await Admin.findById(Admin1).populate('branches');
-        const allowedLocCodes = AdminData.branches.map(branch => branch.locCode);
-
-        // Fetch all branches and users
-        const branches = await Branch.find({ _id: { $in: AdminData.branches } });
+        const isSuperAdmin = AdminData.role === 'super_admin';
+        
+        // Super admin sees all branches; others see only their assigned branches
+        const branches = isSuperAdmin
+            ? await Branch.find({})
+            : await Branch.find({ _id: { $in: AdminData.branches } });
+        
+        const allowedLocCodes = isSuperAdmin
+            ? branches.map(b => b.locCode)
+            : AdminData.branches.map(branch => branch.locCode);
         const users = await User.find({ locCode: { $in: allowedLocCodes } });
         
         // Fetch mandatory training data for all users
@@ -82,75 +88,28 @@ export const HomeBar = async (req, res) => {
             userId: { $in: userIds } 
         }).populate('trainingId');
 
-        // Fetch external employee data
-        let externalEmployees = [];
-        try {
-            const response = await axios.post(`${process.env.BASE_URL || 'http://localhost:7000'}/api/employee_range`, {
-                startEmpId: 'EMP1',
-                endEmpId: 'EMP9999'
-            }, { timeout: 15000 });
-            
-            externalEmployees = response.data?.data || [];
-            console.log(`Fetched ${externalEmployees.length} external employees for HomeBar`);
-            
-            // Filter external employees by allowed location codes
-            const filteredExternalEmployees = externalEmployees.filter(emp => {
-                const storeName = emp?.store_name?.toUpperCase();
-                
-                // Exclude employees with "No Store" - they should not be visible to anyone
-                if (storeName === 'NO STORE' || !storeName || storeName === '') {
-                    return false;
-                }
-                
-                const empLocCode = emp?.store_code || emp?.locCode;
-                return allowedLocCodes.includes(empLocCode);
-            });
-            
-            console.log(`Filtered external employees for allowed locations: ${filteredExternalEmployees.length}`);
-        } catch (error) {
-            console.error('Error fetching external employee data for HomeBar:', error.message);
-        }
-
-        // Create a map of locCode to users for quick lookup
+        // Build lookup maps
         const userMap = new Map();
         for (const user of users) {
-            if (!userMap.has(user.locCode)) {
-                userMap.set(user.locCode, []);
-            }
+            if (!userMap.has(user.locCode)) userMap.set(user.locCode, []);
             userMap.get(user.locCode).push(user);
         }
         
-        // Create a map of userId to mandatory trainings for quick lookup
         const mandatoryTrainingMap = new Map();
         for (const training of mandatoryTrainings) {
-            if (!mandatoryTrainingMap.has(training.userId.toString())) {
-                mandatoryTrainingMap.set(training.userId.toString(), []);
-            }
-            mandatoryTrainingMap.get(training.userId.toString()).push(training);
-        }
-
-        // Create a map of locCode to external employees for quick lookup
-        const externalUserMap = new Map();
-        for (const emp of externalEmployees) {
-            const empLocCode = emp?.store_code || emp?.locCode;
-            if (allowedLocCodes.includes(empLocCode)) {
-                if (!externalUserMap.has(empLocCode)) {
-                    externalUserMap.set(empLocCode, []);
-                }
-                externalUserMap.get(empLocCode).push(emp);
-            }
+            const key = training.userId.toString();
+            if (!mandatoryTrainingMap.has(key)) mandatoryTrainingMap.set(key, []);
+            mandatoryTrainingMap.get(key).push(training);
         }
 
         const allData = branches.map((branch) => {
             const branchUsers = userMap.get(branch.locCode) || [];
-            const branchExternalUsers = externalUserMap.get(branch.locCode) || [];
             
             let trainingCount = 0;
             let trainingCountPending = 0;
             let assessmentCount = 0;
             let assessmentCountPending = 0;
 
-            // Calculate counts for the branch (local users only for now)
             branchUsers.forEach((user) => {
                 // Assigned training data
                 const assignedTrainings = user.training || [];
@@ -167,10 +126,6 @@ export const HomeBar = async (req, res) => {
                 assessmentCountPending += user.assignedAssessments.filter((item) => item.pass === false).length;
             });
 
-            // For external employees, we don't have training/assessment data yet
-            // So we'll show 0 for now, but include the count for reference
-            const totalEmployeesInBranch = branchUsers.length + branchExternalUsers.length;
-
             return {
                 totalTraining: trainingCount,
                 totalAssessment: assessmentCount,
@@ -180,9 +135,7 @@ export const HomeBar = async (req, res) => {
                 completeAssessment: ((assessmentCount - assessmentCountPending) / assessmentCount) * 100 || 0,
                 locCode: branch.locCode,
                 branchName: branch.workingBranch,
-                totalEmployees: totalEmployeesInBranch,
-                localEmployees: branchUsers.length,
-                externalEmployees: branchExternalUsers.length
+                totalEmployees: branchUsers.length,
             };
         });
 

@@ -81,7 +81,6 @@ const AssignedTrainingsData = () => {
                 alert(`Successfully deleted ${selectedTrainings.size} training(s)`);
             }
         } catch (error) {
-            console.error('Error deleting trainings:', error);
             alert('An error occurred while deleting trainings. Please try again.');
         } finally {
             setIsDeleting(false);
@@ -203,7 +202,7 @@ const AssignedTrainingsData = () => {
                     <Header name="Assigned Training" />
                 </div>
                 <SideNav />
-                <div className="md:ml-[100px] mt-[100px]">
+                <div className="md:ml-[120px] mt-[104px]">
                     <div>
                         <div className="flex justify-end mr-20">
                             <Link to={"/Alltraining"}>

@@ -40,6 +40,8 @@ const Profile = lazy(() => import('./pages/profile/Profile.jsx'))
 const LoginAnalytics = lazy(() => import('./pages/Setting/LoginAnalytics.jsx'))
 const WalkinList = lazy(() => import('./pages/Walkin/WalkinList.jsx'))
 const WalkinReport = lazy(() => import('./pages/Walkin/WalkinReport.jsx'))
+const TaskManagement = lazy(() => import('./pages/Task/TaskManagement.jsx'))
+const CreateTask = lazy(() => import('./pages/Task/CreateTask.jsx'))
 
 import { setUser } from './features/auth/authSlice.js';
 
@@ -64,25 +66,19 @@ function App() {
     } else {
       const verifyToken = async () => {
         try {
-          console.log('Verifying token:', token ? 'Token exists' : 'No token');
-          
           const response = await fetch(`${baseUrl.baseUrl}api/admin/admin/verifyToken`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
             },
           });
-          
-          console.log('Token verification response status:', response.status);
-          
+
           if (!response.ok) {
-            console.error('Token verification failed:', response.status);
             navigate('/login');
             return;
           }
 
-          const request = await response.json()
-          console.log('Token verification response:', request);
+          const request = await response.json();
 
           if (request.user) {
             dispatch(setUser({
@@ -157,6 +153,8 @@ function App() {
           <Route path="/admin/login-analytics" element={<ProtectedRoute>< LoginAnalytics /></ProtectedRoute>} />
           <Route path="/walkin/list" element={<ProtectedRoute>< WalkinList /></ProtectedRoute>} />
           <Route path="/walkin/report" element={<ProtectedRoute>< WalkinReport /></ProtectedRoute>} />
+          <Route path="/task" element={<ProtectedRoute><TaskManagement /></ProtectedRoute>} />
+          <Route path="/task/create" element={<ProtectedRoute><CreateTask /></ProtectedRoute>} />
           {/* APITest route removed - no longer needed */}
 
         </Routes>

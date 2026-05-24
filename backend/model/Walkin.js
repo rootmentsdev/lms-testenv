@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 const walkinSchema = new mongoose.Schema({
     date: {
-        type: String, // stored as DD-MM-YYYY or ISO string depending on input, let's make it flexible
+        type: String,
         required: true
     },
     customerName: {
@@ -14,7 +14,7 @@ const walkinSchema = new mongoose.Schema({
         type: String,
         required: true,
         trim: true,
-        index: true
+        index: true          // unique customer lookup
     },
     functionDate: {
         type: String,
@@ -58,6 +58,15 @@ const walkinSchema = new mongoose.Schema({
 }, {
     timestamps: true
 });
+
+// Role-based filtering queries by store
+walkinSchema.index({ store: 1 });
+// Dashboard date-range filtering
+walkinSchema.index({ createdAt: -1 });
+// Status filter (New Walkin, Booked, etc.)
+walkinSchema.index({ status: 1 });
+// Compound: store + createdAt — the most common dashboard query
+walkinSchema.index({ store: 1, createdAt: -1 });
 
 const Walkin = mongoose.model('Walkin', walkinSchema);
 

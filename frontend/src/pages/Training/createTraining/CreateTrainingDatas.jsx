@@ -29,8 +29,6 @@ const CreateTrainingDatas = () => {
                 }
 
                 const data = await response.json();
-                console.log(data);
-
                 // Map modules to options required by react-select
                 const options = data.map((module) => ({
                     value: module.moduleId,
@@ -39,7 +37,6 @@ const CreateTrainingDatas = () => {
 
                 setModules(options);
             } catch (error) {
-                console.error("Failed to fetch modules:", error.message);
             }
         };
 
@@ -58,9 +55,6 @@ const CreateTrainingDatas = () => {
                 }
 
                 const data = await response.json();
-                console.log('External employee data:', data);
-                console.log('Selected option:', selectedOption);
-
                 const employeeData = data?.data || [];
 
                 // Map users to options based on selected option
@@ -91,7 +85,6 @@ const CreateTrainingDatas = () => {
                     setUsers(options);
                 }
             } catch (error) {
-                console.error("Failed to fetch users:", error.message);
             }
         };
 
@@ -130,11 +123,6 @@ const CreateTrainingDatas = () => {
         };
 
         try {
-            console.log("=== TRAINING CREATION DEBUG ===");
-            console.log("Training Data being sent:", trainingData);
-            console.log("AssignedTo array:", assignedTo);
-            console.log("WorkingBranch values:", trainingData.workingBranch);
-            console.log("Modules selected:", trainingData.modules);
             toast("Form Submitted Successfully!");
             // POST request (uncomment to use)
             const response = await fetch(`${baseUrl.baseUrl}api/trainings`, {
@@ -149,12 +137,9 @@ const CreateTrainingDatas = () => {
             const data = await response.json();
             
             if (!response.ok) {
-                console.error("Server error:", data);
                 toast.error(data.message || "Failed to create training");
                 return;
             }
-            
-            console.log("Training created successfully:", data);
             toast.success(data.message || "Training created successfully!");
             
             // Clear form after successful creation
@@ -163,7 +148,6 @@ const CreateTrainingDatas = () => {
             setAssignedTo([]);
             setDays("");
         } catch (error) {
-            console.error("Failed to submit training:", error.message);
             toast.error("Error submitting training.");
         }
     };
@@ -175,7 +159,7 @@ const CreateTrainingDatas = () => {
             </div>
             <SideNav />
 
-            <div className=" md:ml-[100px] mt-[150px]">
+            <div className=" md:ml-[120px] mt-[104px]">
                 <form onSubmit={handleSubmit} className="text-black w-[800px] mt-10">
                     {/* Training Name */}
                     <div className="flex flex-col gap-5 mx-20 mt-5">

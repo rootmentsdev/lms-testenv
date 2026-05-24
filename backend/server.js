@@ -19,12 +19,13 @@ import AdminData from './routes/AdminRoute.js'
 import FutterAssessment from './routes/FutterAssessment.js'
 import Whatsapprouter from './routes/WhatsappRouteZoho.js'
 import EmployeeRouter from './routes/EmployeeRoute.js'
-import DebugRouter from './routes/DebugRoute.js'
 import TrainingRouter from './routes/TrainingRoute.js'
 import WalkinRouter from './routes/WalkinRoute.js'
+import TaskRouter from './routes/TaskRoute.js'
 
 import { AlertNotification } from './lib/CornJob.js';
 import { startEmployeeAutoSync } from './lib/EmployeeAutoSync.js';
+import { refreshExternalEmployees } from './lib/employeeCache.js';
 import setupSwagger from './swagger.js';
 import { MiddilWare } from './lib/middilWare.js';
 import Admin from './model/Admin.js';
@@ -98,49 +99,7 @@ app.get('/', (req, res) => {
   res.send('✅ API is working');
 });
 
-// Debug endpoint to check database connection
-app.get('/debug/database', async (req, res) => {
-  try {
-    const currentUri = process.env.MONGODB_URI;
-    // const fallbackUri = 'mongodb+srv://abhirambca2021_db_user:Root@cluster0.5rf3i8g.mongodb.net/Rootments?retryWrites=true&w=majority&appName=Cluster0';
-    
-    const connectionState = mongoose.connection.readyState;
-    const connectionStates = {
-      0: 'disconnected',
-      1: 'connected',
-      2: 'connecting',
-      3: 'disconnecting'
-    };
 
-    const debugInfo = {
-      environment: process.env.NODE_ENV || 'development',
-      currentMongoUri: currentUri ? currentUri.substring(0, 50) + '...' : 'NOT SET',
-      fallbackUri: fallbackUri.substring(0, 50) + '...',
-      connectionState: connectionStates[connectionState],
-      connectionReadyState: connectionState,
-      databaseName: mongoose.connection.db?.databaseName || 'Not connected',
-      host: mongoose.connection.host || 'Not connected',
-      port: mongoose.connection.port || 'Not connected',
-      timestamp: new Date().toISOString()
-    };
-
-    console.log('=== DATABASE DEBUG INFO ===');
-    console.log(debugInfo);
-    console.log('===========================');
-
-    res.status(200).json({
-      message: 'Database debug info',
-      data: debugInfo
-    });
-
-  } catch (error) {
-    console.error('Debug endpoint error:', error);
-    res.status(500).json({
-      message: 'Debug endpoint error',
-      error: error.message
-    });
-  }
-});
 
 // Handle preflight OPTIONS requests for all routes
 app.options('*', (req, res) => {
@@ -492,9 +451,9 @@ app.use('/api/admin', AdminData)
 app.use('/api/user/assessment', FutterAssessment)
 app.use('/zoho', Whatsapprouter)
 app.use('/api/employee', EmployeeRouter)
-app.use('/api/debug', DebugRouter)
 app.use('/api/training', TrainingRouter)
 app.use('/api/walkin', WalkinRouter)
+app.use('/api/task', TaskRouter)
 
 // User Login Tracking Routes
 import UserLoginRouter from './routes/UserLoginRoute.js';
@@ -526,6 +485,9 @@ connectMongoDB().then(() => {
     
     // Start the employee auto-sync scheduler
     startEmployeeAutoSync();
+
+    // Warm external employee cache in background (non-blocking)
+    refreshExternalEmployees().catch(() => {});
     
     // Start existing notification cron job
     AlertNotification();

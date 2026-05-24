@@ -20,6 +20,11 @@ const adminSchema = new mongoose.Schema({
     branches: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Branch' }],
 }, { timestamps: true });
 
+// Queried by role to find super_admins and filter by admin type
+adminSchema.index({ role: 1 });
+// EmpId lookups during sync
+adminSchema.index({ EmpId: 1 });
+
 const Admin = mongoose.model('Admin', adminSchema);
 
 export default Admin;
