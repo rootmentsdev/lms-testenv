@@ -9,7 +9,8 @@ import {
 } from '../controllers/EmployeeController.js';
 import {
     getAllEmployeesWithTrainingDetailsV2,
-    autoSyncEmployees
+    autoSyncEmployees,
+    getAllAppRegisteredEmployees,
 } from '../controllers/EmployeeManagementController.js';
 import { MiddilWare } from '../lib/middilWare.js';
 
@@ -253,6 +254,10 @@ router.delete('/:id', deleteEmployee);
  *         description: Internal server error
  */
 router.get('/management/with-training-details', MiddilWare, getAllEmployeesWithTrainingDetailsV2);
+
+// ── App-registered employees only (no external API) ──
+// GET /api/employee/app-users?page=&limit=&search=&store=&role=
+router.get('/app-users', MiddilWare, getAllAppRegisteredEmployees);
 
 /**
  * @swagger

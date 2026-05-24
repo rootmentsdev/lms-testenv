@@ -21,6 +21,7 @@ export const createUser = async (req, res) => {
       designation,
       location,
       workingBranch,
+      phoneNumber,
     } = req.body;
 
     // Check if the username or email already exists
@@ -38,6 +39,7 @@ export const createUser = async (req, res) => {
       locCode,
       designation,
       workingBranch,
+      phoneNumber: phoneNumber || "",
     });
 
 

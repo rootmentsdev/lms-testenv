@@ -86,7 +86,7 @@ const EmployeeData = () => {
         role: roleFilter,
       });
       const res = await fetch(
-        `${baseUrl.baseUrl}api/employee/management/with-training-details?${params}`,
+        `${baseUrl.baseUrl}api/employee/app-users?${params}`,
         { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } }
       );
       const json = await res.json();
@@ -122,7 +122,7 @@ const EmployeeData = () => {
       role: roleFilter,
     });
     const res = await fetch(
-      `${baseUrl.baseUrl}api/employee/management/with-training-details?${params}`,
+      `${baseUrl.baseUrl}api/employee/app-users?${params}`,
       { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } }
     );
     const json = await res.json();

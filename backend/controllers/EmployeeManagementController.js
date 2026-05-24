@@ -486,3 +486,136 @@ export const autoSyncEmployees = async (req, res) => {
     }
   }
 };
+
+/* ============================================================
+   getAllAppRegisteredEmployees
+   Returns ONLY users who registered through the Flutter app
+   (i.e. local MongoDB User collection — no external API).
+   Includes training + assessment stats per user.
+   GET /api/employee/app-users?page=&limit=&search=&store=&role=
+============================================================ */
+export const getAllAppRegisteredEmployees = async (req, res) => {
+  try {
+    const admin = await Admin.findById(req?.admin?.userId).populate('branches');
+    if (!admin) return res.status(401).json({ success: false, message: 'Admin not found' });
+
+    const page  = Math.max(1, parseInt(req.query.page,  10) || 1);
+    const limit = Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 7));
+    const search = (req.query.search || '').trim().toLowerCase();
+    const store  = req.query.store || 'All';
+    const role   = req.query.role  || 'All';
+
+    const allowedLocCodes = admin.branches.map((b) => b.locCode);
+    const isGlobalAdmin   = admin.role === 'super_admin' || allowedLocCodes.length === 0;
+
+    // ── 1. Build base query (branch-scoped for non-super admins) ──
+    const baseQuery = isGlobalAdmin
+      ? {}
+      : { locCode: { $in: allowedLocCodes } };
+
+    // ── 2. Load all matching users ──
+    const allUsers = await User.find(baseQuery)
+      .select('empID username designation workingBranch email phoneNumber locCode training assignedAssessments createdAt')
+      .lean();
+
+    // ── 3. Load TrainingProgress for mandatory trainings ──
+    const userIds = allUsers.map((u) => u._id);
+    const allProgress = userIds.length
+      ? await TrainingProgress.find({ userId: { $in: userIds } })
+          .select('userId trainingId pass deadline')
+          .lean()
+      : [];
+
+    const progressMap = new Map();
+    allProgress.forEach((p) => {
+      const key = p.userId.toString();
+      if (!progressMap.has(key)) progressMap.set(key, []);
+      progressMap.get(key).push(p);
+    });
+
+    // ── 4. Build enriched employee list ──
+    const today = new Date();
+
+    const employees = allUsers.map((user) => {
+      const assignedTrainingIds = new Set(
+        (user.training || []).map((t) => String(t.trainingId))
+      );
+
+      // Mandatory trainings (from TrainingProgress, not in user.training)
+      const mandatoryProgress = (progressMap.get(user._id.toString()) || []).filter(
+        (tp) => !assignedTrainingIds.has(String(tp.trainingId))
+      );
+
+      // Training stats
+      const assignedTrainings      = user.training || [];
+      const trainingCount          = assignedTrainings.length + mandatoryProgress.length;
+      const passCountTraining      = assignedTrainings.filter((t) => t.pass).length
+                                   + mandatoryProgress.filter((t) => t.pass).length;
+      const trainingDue            = assignedTrainings.filter((t) => new Date(t.deadline) < today && !t.pass).length
+                                   + mandatoryProgress.filter((t) => new Date(t.deadline) < today && !t.pass).length;
+
+      // Assessment stats
+      const assignedAssessments        = user.assignedAssessments || [];
+      const assignedAssessmentsCount   = assignedAssessments.length;
+      const passCountAssessment        = assignedAssessments.filter((a) => a.pass).length;
+      const assessmentDue              = assignedAssessments.filter((a) => new Date(a.deadline) < today && !a.pass).length;
+
+      return {
+        empID:      user.empID,
+        username:   user.username,
+        designation: user.designation,
+        workingBranch: user.workingBranch,
+        email:      user.email,
+        phoneNumber: user.phoneNumber,
+        locCode:    user.locCode,
+        joinedAt:   user.createdAt,
+        trainingCount,
+        passCountTraining,
+        trainingDue,
+        trainingCompletionPercentage: trainingCount > 0
+          ? Math.round((passCountTraining / trainingCount) * 100) : 0,
+        assignedAssessmentsCount,
+        passCountAssessment,
+        assessmentDue,
+        assessmentCompletionPercentage: assignedAssessmentsCount > 0
+          ? Math.round((passCountAssessment / assignedAssessmentsCount) * 100) : 0,
+      };
+    });
+
+    // ── 5. Apply search / store / role filters ──
+    const filtered = employees.filter((e) => {
+      const matchSearch = !search || [e.username, e.empID, e.workingBranch, e.designation, e.email]
+        .some((v) => String(v || '').toLowerCase().includes(search));
+      const matchStore = store === 'All' || e.workingBranch === store;
+      const matchRole  = role  === 'All' || e.designation   === role;
+      return matchSearch && matchStore && matchRole;
+    });
+
+    // ── 6. Build filter options ──
+    const stores = ['All', ...new Set(employees.map((e) => e.workingBranch).filter(Boolean))].sort((a, b) => a === 'All' ? -1 : a.localeCompare(b));
+    const roles  = ['All', ...new Set(employees.map((e) => e.designation).filter(Boolean))].sort((a, b) => a === 'All' ? -1 : a.localeCompare(b));
+
+    // ── 7. Paginate ──
+    const totalEmployees = filtered.length;
+    const totalPages     = Math.max(1, Math.ceil(totalEmployees / limit));
+    const safePage       = Math.min(page, totalPages);
+    const data           = filtered.slice((safePage - 1) * limit, safePage * limit);
+
+    res.status(200).json({
+      success: true,
+      message: 'App-registered employees fetched successfully',
+      data,
+      totalEmployees,
+      page: safePage,
+      limit,
+      totalPages,
+      filters: { stores, roles },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch app-registered employees',
+      error: error.message,
+    });
+  }
+};
