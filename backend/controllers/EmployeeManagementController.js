@@ -53,7 +53,7 @@ const storeNameToLocCode = {
   'SUITOR GUY KANNUR': '21',
 };
 
-const USER_FIELDS = 'empID username designation workingBranch email phoneNumber training assignedAssessments locCode';
+const USER_FIELDS = 'empID username designation workingBranch email phoneNumber training assignedAssessments locCode source';
 const PROGRESS_FIELDS = 'userId trainingId pass deadline';
 
 function filterExternalByBranch(externalEmployees, allowedLocCodes, isGlobalAdmin) {
@@ -410,6 +410,7 @@ export const autoSyncEmployees = async (req, res) => {
             locCode,
             workingBranch: emp.store_name || 'Unknown',
             phoneNumber: emp.phone || '',
+            source: 'external-sync',
             assignedModules: [],
             assignedAssessments: [],
             training: [],
@@ -437,6 +438,10 @@ export const autoSyncEmployees = async (req, res) => {
           }
           if (emp.phone && user.phoneNumber !== emp.phone) {
             user.phoneNumber = emp.phone;
+            hasChanges = true;
+          }
+          if (user.source !== 'external-sync') {
+            user.source = 'external-sync';
             hasChanges = true;
           }
           if ((!user.locCode || user.locCode === 'Unknown') && emp.store_name) {
@@ -509,13 +514,14 @@ export const getAllAppRegisteredEmployees = async (req, res) => {
     const isGlobalAdmin   = admin.role === 'super_admin' || allowedLocCodes.length === 0;
 
     // ── 1. Build base query (branch-scoped for non-super admins) ──
+    const appUserSourceQuery = { source: { $in: ['app', 'admin'] } };
     const baseQuery = isGlobalAdmin
-      ? {}
-      : { locCode: { $in: allowedLocCodes } };
+      ? appUserSourceQuery
+      : { $and: [{ locCode: { $in: allowedLocCodes } }, appUserSourceQuery] };
 
     // ── 2. Load all matching users ──
     const allUsers = await User.find(baseQuery)
-      .select('empID username designation workingBranch email phoneNumber locCode training assignedAssessments createdAt')
+      .select('empID username designation workingBranch email phoneNumber locCode training assignedAssessments createdAt source')
       .lean();
 
     // ── 3. Load TrainingProgress for mandatory trainings ──

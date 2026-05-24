@@ -483,8 +483,13 @@ connectMongoDB().then(() => {
   app.listen(port, () => {
     console.log(`✅ Server running on port ${port}`);
     
-    // Start the employee auto-sync scheduler
-    startEmployeeAutoSync();
+    // Keep the legacy employee sync opt-in so old external API data does not
+    // overwrite app-created users or appear on the Employee page by default.
+    if (process.env.ENABLE_EMPLOYEE_AUTO_SYNC === 'true') {
+      startEmployeeAutoSync();
+    } else {
+      console.log('Employee auto-sync disabled. Set ENABLE_EMPLOYEE_AUTO_SYNC=true to enable it.');
+    }
 
     // Warm external employee cache in background (non-blocking)
     refreshExternalEmployees().catch(() => {});

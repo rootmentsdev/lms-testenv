@@ -1,4 +1,4 @@
-import mongoose, { trusted } from 'mongoose';
+import mongoose from 'mongoose';
 
 // Define schema for assigned modules
 const assignedModuleSchema = new mongoose.Schema({
@@ -33,6 +33,12 @@ const userSchema = new mongoose.Schema({
     empID: { type: String, required: true, unique: true }, // Employee ID
     designation: { type: String, required: true },
     workingBranch: { type: String, required: true }, // User's working branch
+    source: {
+        type: String,
+        enum: ['app', 'admin', 'external-sync'],
+        default: 'app',
+        index: true,
+    },
     assignedModules: [assignedModuleSchema], // Array of assigned modules
     assignedAssessments: [assignedAssessmentSchema],
     training: [trainingSchema],// Array of assigned assessments

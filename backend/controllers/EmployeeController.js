@@ -197,6 +197,7 @@ export const createEmployee = async (req, res) => {
                     designation: designation,
                     workingBranch: department, // Using department as working branch
                     phoneNumber: phoneNumber,
+                    source: 'admin',
                     assignedModules: [],
                     assignedAssessments: [],
                     training: []

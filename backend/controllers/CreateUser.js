@@ -40,6 +40,7 @@ export const createUser = async (req, res) => {
       designation,
       workingBranch,
       phoneNumber: phoneNumber || "",
+      source: 'app',
     });
 
 

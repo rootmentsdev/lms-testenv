@@ -355,6 +355,7 @@ export const GetAllUserDetailes = async (req, res) => {
                     workingBranch: externalEmployee.store_name || 'No Store',
                     locCode: locCode,
                     phoneNumber: externalEmployee.phone || '',
+                    source: 'external-sync',
                     training: [],
                     assignedAssessments: []
                 });

@@ -494,6 +494,7 @@ export const createTraining = async (req, res) => {
                     locCode: emp.store_name || 'Unknown',
                     workingBranch: emp.store_name || 'Unknown',
                     phoneNumber: emp.phone || '',
+                    source: 'external-sync',
                 });
                 await user.save();
                 console.log('Created new user for employee:', emp.emp_code);
@@ -1046,6 +1047,7 @@ export const createMandatoryTraining = async (req, res) => {
                         locCode: emp.store_code || '1', // Default to '1' if no store_code
                         designation: emp.role_name || '',
                         workingBranch: emp.store_name || 'DEFAULT',
+                        source: 'external-sync',
                     });
                     await user.save();
                     console.log(`Created new user: ${user.username} with designation: ${user.designation}`);

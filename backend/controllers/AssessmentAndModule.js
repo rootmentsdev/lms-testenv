@@ -411,6 +411,7 @@ export const ReassignTraining = async (req, res) => {
           empID: empCode,
           designation: employeeInfo.role_name || '',
           workingBranch: employeeInfo.store_name || '',
+          source: 'external-sync',
           assignedModules: [],
           assignedAssessments: [],
           training: []
