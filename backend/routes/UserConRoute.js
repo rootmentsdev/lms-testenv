@@ -1,5 +1,5 @@
 import express from 'express';
-import { loginUser } from '../controllers/CreateUser.js'; // Import the login controller
+import { flutterLogin, loginUser } from '../controllers/CreateUser.js'; // Import the login controller
 
 const router = express.Router();
 
@@ -32,6 +32,7 @@ const router = express.Router();
  *         description: Bad request, missing parameters or incorrect data
  */
 router.post('/login', loginUser);
+router.post('/flutter-login', flutterLogin);
 
 /**
  * @swagger

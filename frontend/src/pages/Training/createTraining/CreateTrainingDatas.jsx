@@ -31,7 +31,7 @@ const CreateTrainingDatas = () => {
                 const data = await response.json();
                 // Map modules to options required by react-select
                 const options = data.map((module) => ({
-                    value: module.moduleId,
+                    value: module.moduleId || module._id,
                     label: module.moduleName,
                 }));
 
@@ -42,25 +42,29 @@ const CreateTrainingDatas = () => {
 
         const fetchUsers = async () => {
             try {
-                // Always fetch from external employee API
-                const response = await fetch(`${baseUrl.baseUrl}api/employee_range`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    credentials: "include",
-                    body: JSON.stringify({ startEmpId: "EMP1", endEmpId: "EMP9999" }),
-                });
+                // Reuse the same employee source as the Employee page
+                const response = await fetch(
+                    `${baseUrl.baseUrl}api/employee/app-users?page=1&limit=500`,
+                    {
+                        method: "GET",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${token}`,
+                        },
+                    }
+                );
 
                 if (!response.ok) {
                     throw new Error(`Error: ${response.statusText}`);
                 }
 
                 const data = await response.json();
-                const employeeData = data?.data || [];
+                const employeeData = Array.isArray(data?.data) ? data.data : [];
 
                 // Map users to options based on selected option
                 if (selectedOption === 'branch') {
                     // Get unique branches from employee data
-                    const uniqueBranches = [...new Set(employeeData.map(emp => emp.store_name).filter(Boolean))];
+                    const uniqueBranches = [...new Set(employeeData.map(emp => emp.workingBranch).filter(Boolean))];
                     const options = uniqueBranches.map((branch) => ({
                         value: branch,
                         label: branch,
@@ -70,14 +74,14 @@ const CreateTrainingDatas = () => {
                 else if (selectedOption === 'user') {
                     // Get individual users from employee data
                     const options = employeeData.map((employee) => ({
-                        value: employee.emp_code,
-                        label: `EmpId: ${employee.emp_code || 'N/A'} | Name: ${employee.name || 'N/A'} | Role: ${employee.role_name || 'N/A'}`,
+                        value: employee.empID,
+                        label: `EmpId: ${employee.empID || 'N/A'} | Name: ${employee.username || 'N/A'} | Role: ${employee.designation || 'N/A'}`,
                     }));
                     setUsers(options);
                 }
                 else if (selectedOption === 'designation') {
                     // Get unique designations/roles from employee data
-                    const uniqueRoles = [...new Set(employeeData.map(emp => emp.role_name).filter(Boolean))];
+                    const uniqueRoles = [...new Set(employeeData.map(emp => emp.designation).filter(Boolean))];
                     const options = uniqueRoles.map((role) => ({
                         value: role,
                         label: role,

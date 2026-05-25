@@ -245,280 +245,39 @@ export const createTraining = async (req, res) => {
             deadline: savedTraining.deadline
         });
 
-        // First, fetch external employee data to get the list of employees
-        console.log("Fetching employee data from local API...");
-        let externalEmployees = [];
-        
-        // Retry mechanism for external API
-        let retryCount = 0;
-        const maxRetries = 2;
-        
-        while (retryCount <= maxRetries) {
-            try {
-                console.log(`Attempt ${retryCount + 1} to fetch employee data...`);
-                
-                const response = await axios.post(`${process.env.BASE_URL || 'http://localhost:7000'}/api/employee_range`, {
-                    startEmpId: "EMP1",
-                    endEmpId: "EMP9999"
-                }, {
-                    timeout: 30000, // Increased timeout to 30 seconds
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    }
-                });
+        // Resolve recipients from the local User collection only.
+        console.log("Resolving training recipients from local users...");
+        let usersInBranch = [];
 
-                            console.log("API response status:", response.status);
-                console.log("API response data length:", response.data?.data?.length || 0);
-
-                if (!response.data || !response.data.data) {
-                    console.error("Invalid API response:", response.data);
-                    return res.status(500).json({ message: "Failed to fetch external employee data" });
-                }
-
-                externalEmployees = response.data.data;
-                console.log(`Fetched ${externalEmployees.length} employees from API`);
-                break; // Success, exit the retry loop
-                
-            } catch (error) {
-                retryCount++;
-                console.error(`Attempt ${retryCount} failed:`, error.message);
-                
-                if (retryCount > maxRetries) {
-                    console.log("Max retries reached, proceeding with fallback...");
-                    break; // Exit retry loop and proceed to fallback
-                }
-                
-                // Wait before retrying (exponential backoff)
-                const waitTime = Math.pow(2, retryCount) * 1000; // 2s, 4s
-                console.log(`Waiting ${waitTime}ms before retry...`);
-                await new Promise(resolve => setTimeout(resolve, waitTime));
-                continue; // Try again
-            }
-        }
-        
-        // If we still don't have external employees after retries, proceed to fallback
-        if (externalEmployees.length === 0) {
-            console.log("No external employee data available, attempting to work with internal users based on selection...");
-                
-                let internalUsers = [];
-                
-                if (selectedOption === 'user' && workingBranch && workingBranch.length > 0) {
-                    // For user selection: find by employee codes
-                    console.log("Looking for internal users with employee codes:", workingBranch);
-                    internalUsers = await User.find({
-                        empID: { $in: workingBranch }
-                    });
-                    
-                } else if (selectedOption === 'designation' && workingBranch && workingBranch.length > 0) {
-                    // For designation selection: find by roles
-                    console.log("Looking for internal users with designations:", workingBranch);
-                    internalUsers = await User.find({
-                        designation: { $in: workingBranch }
-                    });
-                    
-                } else if (selectedOption === 'branch' && workingBranch && workingBranch.length > 0) {
-                    // For branch selection: find by working branch
-                    console.log("Looking for internal users with branches:", workingBranch);
-                    internalUsers = await User.find({
-                        workingBranch: { $in: workingBranch }
-                    });
-                }
-                
-                if (internalUsers.length > 0) {
-                    console.log(`Found ${internalUsers.length} internal users, proceeding without external API`);
-                    
-                    // Assign training directly to internal users
-                    const updatedUsers = internalUsers.map(async (user) => {
-                        console.log(`Assigning training to internal user: ${user.username} (${user.empID}) - Role: ${user.designation} - Branch: ${user.workingBranch}`);
-                        
-                        // Add training details to user
-                        user.training.push({
-                            trainingId: newTraining._id,
-                            deadline: deadlineDate,
-                            pass: false,
-                            status: 'Pending',
-                        });
-
-                        // Create training progress for each user
-                        const trainingProgress = new TrainingProgress({
-                            userId: user._id,
-                            trainingId: newTraining._id,
-                            trainingName: trainingName,
-                            deadline: deadlineDate,
-                            pass: false,
-                            modules: moduleDetails.map(module => ({
-                                moduleId: module._id,
-                                pass: false,
-                                videos: module.videos.map(video => ({
-                                    videoId: video._id,
-                                    pass: false,
-                                })),
-                            })),
-                        });
-
-                        await trainingProgress.save();
-                        console.log(`Training progress saved for internal user: ${user.username}`);
-                        return user.save();
-                    });
-
-                    await Promise.all(updatedUsers);
-                    
-                    // Create notification based on selection type
-                    let notificationData = {
-                        title: `New training Created : ${trainingName}`,
-                        body: `${trainingName} has been successfully created. Created by ${admin?.name}. The training is scheduled to be completed in ${days} days.`,
-                        useradmin: admin?.name,
-                    };
-                    
-                    if (selectedOption === 'user') {
-                        const userObjectIds = internalUsers.map(user => user._id);
-                        notificationData.user = userObjectIds;
-                    } else if (selectedOption === 'designation') {
-                        notificationData.Role = workingBranch;
-                    } else if (selectedOption === 'branch') {
-                        notificationData.branch = workingBranch;
-                    }
-                    
-                    const newNotification = await Notification.create(notificationData);
-                    
-                    console.log("=== TRAINING CREATION COMPLETED (INTERNAL USERS ONLY) ===");
-                    return res.status(201).json({ 
-                        message: `Training created and assigned successfully to ${internalUsers.length} internal users (external API unavailable)`, 
-                        training: newTraining,
-                        assignedUsers: internalUsers.length,
-                        selectionType: selectedOption,
-                        note: "External employee API was unavailable, used internal users based on your selection criteria"
-                    });
-                }
-                
-                // If no internal users found, provide helpful error message
-                let errorMessage = "Employee API is currently unavailable and no matching internal users found.";
-                if (selectedOption === 'user') {
-                    errorMessage += ` No users found with employee codes: ${workingBranch.join(', ')}`;
-                } else if (selectedOption === 'designation') {
-                    errorMessage += ` No users found with designations: ${workingBranch.join(', ')}`;
-                } else if (selectedOption === 'branch') {
-                    errorMessage += ` No users found with branches: ${workingBranch.join(', ')}`;
-                }
-                errorMessage += ". Please try again later or check if the selected criteria match existing internal users.";
-                
-                return res.status(500).json({ 
-                    message: errorMessage,
-                    error: "API_TIMEOUT_NO_INTERNAL_USERS",
-                    selectedOption,
-                    workingBranch
-                });
-        }
-        
-        let filteredEmployees = [];
-
-        // Filter external employees based on the selectedOption
         if (selectedOption === 'user') {
-            if (!workingBranch || workingBranch.length === 0) {
-                return res.status(400).json({ message: "User IDs are required when selectedOption is 'user'" });
-            }
-            console.log("Filtering by user IDs:", workingBranch);
-            // Filter by employee codes
-            filteredEmployees = externalEmployees.filter(emp => 
-                workingBranch.includes(emp.emp_code)
-            );
-            console.log(`Found ${filteredEmployees.length} employees matching user IDs`);
-
+            usersInBranch = await User.find({ empID: { $in: workingBranch } });
         } else if (selectedOption === 'designation') {
-            if (!workingBranch || workingBranch.length === 0) {
-                return res.status(400).json({ message: "Designation is required when selectedOption is 'designation'" });
-            }
-            console.log("Filtering by designations:", workingBranch);
-            // Filter by role names
-            filteredEmployees = externalEmployees.filter(emp => 
-                workingBranch.includes(emp.role_name)
-            );
-            console.log(`Found ${filteredEmployees.length} employees matching designations`);
-
+            usersInBranch = await User.find({ designation: { $in: workingBranch } });
         } else if (selectedOption === 'branch') {
-            if (!workingBranch || workingBranch.length === 0) {
-                return res.status(400).json({ message: "Working branch is required when selectedOption is 'branch'" });
-            }
-            console.log("Filtering by branches:", workingBranch);
-            // Filter by store names
-            filteredEmployees = externalEmployees.filter(emp => 
-                workingBranch.includes(emp.store_name)
-            );
-            console.log(`Found ${filteredEmployees.length} employees matching branches`);
-
+            usersInBranch = await User.find({ workingBranch: { $in: workingBranch } });
         } else {
             return res.status(400).json({ message: "Invalid selected option" });
         }
 
-        console.log("Filtered employees sample:", filteredEmployees.slice(0, 3));
+        console.log(`Matched ${usersInBranch.length} local users from Employee page source`);
+        console.log("Matched users sample:", usersInBranch.slice(0, 3).map((user) => ({
+            empID: user.empID,
+            username: user.username,
+            designation: user.designation,
+            workingBranch: user.workingBranch,
+        })));
 
-        if (filteredEmployees.length === 0) {
-            console.error("No employees found matching criteria");
-            console.error("Available employee data sample:", externalEmployees.slice(0, 3).map(emp => ({
-                emp_code: emp.emp_code,
-                role_name: emp.role_name,
-                store_name: emp.store_name
-            })));
-            return res.status(404).json({ message: "No employees found matching the criteria from external API" });
+        if (usersInBranch.length === 0) {
+            const errorMessage =
+                selectedOption === 'user'
+                    ? `No local users found with employee IDs: ${workingBranch.join(', ')}`
+                    : selectedOption === 'designation'
+                        ? `No local users found with designations: ${workingBranch.join(', ')}`
+                        : `No local users found with branches: ${workingBranch.join(', ')}`;
+            return res.status(404).json({ message: errorMessage });
         }
 
-        // Now find or create corresponding users in the internal database
-        let usersInBranch = [];
-        console.log("Starting user creation/update process...");
-        
-        for (const emp of filteredEmployees) {
-            console.log(`Processing employee: ${emp.emp_code} - ${emp.name}`);
-            
-            if (!emp.emp_code || !emp.email) {
-                console.log('Skipping employee with missing emp_code or email:', emp);
-                continue;
-            }
-
-            // Try to find existing user by empID or email
-            let user = await User.findOne({
-                $or: [
-                    { empID: emp.emp_code },
-                    { email: emp.email }
-                ]
-            });
-
-            if (!user) {
-                console.log(`Creating new user for employee: ${emp.emp_code}`);
-                // Create new user if doesn't exist
-                user = new User({
-                    username: emp.name || emp.emp_code || 'Unknown',
-                    email: emp.email,
-                    empID: emp.emp_code,
-                    designation: emp.role_name || 'Unknown',
-                    locCode: emp.store_name || 'Unknown',
-                    workingBranch: emp.store_name || 'Unknown',
-                    phoneNumber: emp.phone || '',
-                    source: 'external-sync',
-                });
-                await user.save();
-                console.log('Created new user for employee:', emp.emp_code);
-                
-                // IMPORTANT: Assign existing mandatory trainings to new external employee
-                await assignExistingMandatoryTrainingsToUser(user);
-                console.log(`Assigned existing mandatory trainings to new external employee: ${emp.emp_code}`);
-            } else {
-                console.log(`Updating existing user for employee: ${emp.emp_code}`);
-                // Update existing user with latest info from external API
-                user.username = emp.name || user.username;
-                user.designation = emp.role_name || user.designation;
-                // IMPORTANT: Don't update locCode from external API to preserve our branch mapping fix
-                // user.locCode = emp.store_name || user.locCode; // COMMENTED OUT
-                user.workingBranch = emp.store_name || user.workingBranch;
-                user.phoneNumber = emp.phone || user.phoneNumber;
-                await user.save();
-                console.log('Updated existing user for employee:', emp.emp_code);
-            }
-
-            usersInBranch.push(user);
-        }
-
-        console.log(`Total users processed: ${usersInBranch.length}`);
+        console.log("Starting training assignment to users...");
 
         if (usersInBranch.length === 0) {
             return res.status(404).json({ message: "No users found matching the criteria" });

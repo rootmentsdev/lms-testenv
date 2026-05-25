@@ -1,6 +1,7 @@
 import User from '../model/User.js';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
 import Branch from '../model/Branch.js';
 import TrainingProgress from '../model/Trainingprocessschema.js';
 import Module from '../model/Module.js';
@@ -17,6 +18,7 @@ export const createUser = async (req, res) => {
       username,
       email,
       empID,
+      password,
       locCode,
       designation,
       location,
@@ -35,6 +37,7 @@ export const createUser = async (req, res) => {
       username,
       email,
       empID,
+      password: password ? await bcrypt.hash(password, 10) : "",
       location,
       locCode,
       designation,
@@ -153,12 +156,12 @@ export const createUser = async (req, res) => {
 
 
 export const loginUser = async (req, res) => {
-  const { email, empID } = req.body;
+  const { email, empID, password } = req.body;
 
   try {
     // Input validation
-    if (!email || !empID) {
-      return res.status(400).json({ message: 'Email and Employee ID are required' });
+    if (!email || !empID || !password) {
+      return res.status(400).json({ message: 'Email, Employee ID and password are required' });
     }
 
     // Check if user exists
@@ -167,9 +170,9 @@ export const loginUser = async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // Compare empID (Consider hashing for better security)
-    const isMatch = empID === user.empID;
-    if (!isMatch) {
+    const isEmpMatch = empID === user.empID;
+    const isPasswordMatch = user.password ? await bcrypt.compare(password, user.password) : false;
+    if (!isEmpMatch || !isPasswordMatch) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
@@ -243,6 +246,97 @@ export const loginUser = async (req, res) => {
     }
   } catch (error) {
     console.error('Login error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const flutterLogin = async (req, res) => {
+  const { empID, password, email } = req.body;
+
+  try {
+    if (!empID || !password) {
+      return res.status(400).json({ message: 'Employee ID and password are required' });
+    }
+
+    const query = { empID: String(empID).trim() };
+    if (email) query.email = String(email).trim().toLowerCase();
+
+    const user = await User.findOne(query);
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    if (!user.password) {
+      return res.status(400).json({ message: 'Password is not set for this employee. Please update the account first.' });
+    }
+
+    const isPasswordMatch = await bcrypt.compare(password, user.password);
+    if (!isPasswordMatch) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT secret is not defined in environment variables');
+    }
+
+    const token = jwt.sign(
+      { userId: user._id, email: user.email, empID: user.empID, role: user.role || 'user' },
+      process.env.JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    try {
+      const { detectDeviceInfo, getLocationFromIP } = await import('../utils/deviceDetection.js');
+      const userAgent = req.headers['user-agent'] || 'Unknown';
+      const ipAddress = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] || 'Unknown';
+      const deviceInfo = detectDeviceInfo(userAgent, ipAddress);
+      const location = await getLocationFromIP(ipAddress);
+      const UserLoginSession = (await import('../model/UserLoginSession.js')).default;
+
+      const loginSession = new UserLoginSession({
+        userId: user._id,
+        username: user.username,
+        email: user.email,
+        ...deviceInfo,
+        location,
+        ipAddress,
+        loginSource: 'flutter-app',
+      });
+
+      await loginSession.save();
+
+      return res.status(200).json({
+        message: 'Flutter login successful',
+        token,
+        sessionId: loginSession._id,
+        user: {
+          id: user._id,
+          username: user.username,
+          email: user.email,
+          empID: user.empID,
+          designation: user.designation,
+          workingBranch: user.workingBranch,
+          source: user.source,
+        },
+      });
+    } catch (trackingError) {
+      console.error('Error tracking flutter login:', trackingError);
+      return res.status(200).json({
+        message: 'Flutter login successful',
+        token,
+        user: {
+          id: user._id,
+          username: user.username,
+          email: user.email,
+          empID: user.empID,
+          designation: user.designation,
+          workingBranch: user.workingBranch,
+          source: user.source,
+        },
+      });
+    }
+  } catch (error) {
+    console.error('Flutter login error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 };
