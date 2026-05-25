@@ -89,7 +89,11 @@ const BranchDetailsData = () => {
     fetchBranch();
   }, [fetchBranch]);
 
-  const branchTitle = data.workingBranch || "Branch";
+  const branchTitle = (() => {
+    const raw = String(data.workingBranch || "");
+    if (/^grooms\s+/i.test(raw)) return raw.replace(/^grooms\s+/i, "Suitor Guy ");
+    return raw || "Branch";
+  })();
   const branchBrand = useMemo(() => {
     const n = String(data.workingBranch || "").toLowerCase();
     if (n.includes("zorucci")) return "Zorucci";

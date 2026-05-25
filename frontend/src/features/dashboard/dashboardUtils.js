@@ -1,7 +1,64 @@
 /** Normalize HomeProgress API payload to a branch array. */
 export function normalizeBranchProgress(responseData) {
   const raw = responseData?.data;
-  return Array.isArray(raw) ? raw : raw ? Object.values(raw) : [];
+  const rows = Array.isArray(raw) ? raw : raw ? Object.values(raw) : [];
+
+  // Branches hidden from all views (legacy duplicates)
+  const hiddenBranches = new Set([
+    "suitor guy kochi",
+    "grooms kochi",
+    "sg kochi",
+    "suitor guy calicut",
+    "grooms calicut",
+    "sg calicut",
+  ]);
+
+  return rows
+    .map((row) => {
+      const branchName = String(row?.branchName || row?.branch || "").trim();
+
+      // Normalise brand prefixes → short codes used in the chart
+      const normalizedBranchName = /^grooms\s+/i.test(branchName)
+        ? branchName.replace(/^grooms\s+/i, "SG ")
+        : /^suitor\s+guy\s+/i.test(branchName)
+          ? branchName.replace(/^suitor\s+guy\s+/i, "SG ")
+          : /^zorrucci\s+/i.test(branchName)
+            ? branchName.replace(/^zorrucci\s+/i, "ZR ")
+            : /^zorucci\s+/i.test(branchName)
+              ? branchName.replace(/^zorucci\s+/i, "ZR ")
+              : branchName;
+
+      // Location part with a short brand prefix for the X-axis tick label
+      // SG branches → plain location name, ZR branches → "Z-<location>"
+      const locationOnly = normalizedBranchName.replace(/^(SG|ZR)\s+/i, "").trim();
+      const shortBranchName = /^ZR\s+/i.test(normalizedBranchName)
+        ? `Z-${locationOnly}`
+        : locationOnly;
+
+      return {
+        ...row,
+        branchName: normalizedBranchName,
+        branch: normalizedBranchName,
+        shortBranchName,
+      };
+    })
+    .filter((row) => {
+      const name = String(row?.branchName || row?.branch || "").toLowerCase().trim();
+
+      // Keep Suitor Guy / Grooms branches (prefix "SG ...")
+      const isSuitorGuy = name.startsWith("sg ") || name.includes("suitor guy") || name.includes("grooms");
+      // Keep Zorucci / Zorrucci branches (prefix "ZR ...")
+      const isZorucci   = name.startsWith("zr ") || name.includes("zorucci") || name.includes("zorrucci");
+
+      return (isSuitorGuy || isZorucci) && !hiddenBranches.has(name);
+    })
+    // SG branches first, ZR (Zorucci) branches last
+    .sort((a, b) => {
+      const aIsZR = String(a?.branchName || "").toUpperCase().startsWith("ZR ");
+      const bIsZR = String(b?.branchName || "").toUpperCase().startsWith("ZR ");
+      if (aIsZR === bIsZR) return 0;
+      return aIsZR ? 1 : -1;
+    });
 }
 
 /** Last 7 calendar days (oldest first). */

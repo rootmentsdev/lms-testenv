@@ -32,7 +32,7 @@ const CustomTooltip = ({ active, payload }) => {
       borderRadius: "10px", padding: "10px 14px",
       boxShadow: "0 4px 16px rgba(0,0,0,0.12)", fontSize: "13px", minWidth: "140px",
     }}>
-      <p style={{ fontWeight: 700, marginBottom: 4, color: "#111827" }}>{d.branchName || d.name}</p>
+      <p style={{ fontWeight: 700, marginBottom: 4, color: "#111827" }}>{d.fullBranchName || d.branchName || d.name}</p>
       <p style={{ color: getTierColor(d.pct), margin: "2px 0" }}>Progress: <b>{d.pct}%</b></p>
       <p style={{ color: "#6b7280", margin: "2px 0" }}>{d.employees} Employees</p>
     </div>
@@ -63,6 +63,25 @@ const Tab = ({ label, active, onClick }) => (
   </button>
 );
 
+const BranchTick = ({ x, y, payload }) => {
+  const label = String(payload?.value || "");
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text
+        x={0}
+        y={0}
+        dy={14}
+        textAnchor="end"
+        transform="rotate(-28)"
+        fontSize={10}
+        fill="#9ca3af"
+      >
+        {label}
+      </text>
+    </g>
+  );
+};
+
 /* ── Main component ──────────────────────────────────────────────────────── */
 const HomeBar = () => {
   const [filter, setFilter] = useState("all");
@@ -78,8 +97,9 @@ const HomeBar = () => {
       const total = (obj.completeTraining || 0) + (obj.pendingTraining || 0);
       const pct   = total ? Math.round((obj.completeTraining / total) * 100) : 0;
       return {
-        name:       obj.locCode,
-        branchName: obj.branchName || obj.locCode,
+        name:       obj.branchName || obj.branch || obj.locCode,
+        branchName: obj.shortBranchName || obj.branchName || obj.locCode,
+        fullBranchName: obj.branchName || obj.locCode,
         pct,
         employees:  obj.totalEmployees || obj.employees || 0,
         tier:       getTierLabel(pct),
@@ -200,9 +220,12 @@ const HomeBar = () => {
             >
               <CartesianGrid strokeDasharray="4 4" stroke="#f0f0f0" vertical={false} />
               <XAxis
-                dataKey="name"
-                tick={{ fontSize: 11, fill: "#9ca3af" }}
-                axisLine={false} tickLine={false}
+                dataKey="branchName"
+                tick={<BranchTick />}
+                axisLine={false}
+                tickLine={false}
+                interval={0}
+                height={70}
               />
               <YAxis
                 tickFormatter={(v) => `${v}%`}

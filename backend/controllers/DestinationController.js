@@ -228,22 +228,22 @@ export const getTopUsers = async (req, res) => {
 
         // Branch name mapping - map user workingBranch to actual branch names
         const branchNameMapping = {
-            // SUITOR GUY branches → GROOMS branches
-            "SUITOR GUY KOTTAYAM": "GROOMS Kottayam",
-            "SUITOR GUY THRISSUR": "GROOMS Thrissur", 
-            "SUITOR GUY EDAPPALLY": "GROOMS Edapally",
-            "SUITOR GUY PERUMBAVOOR": "GROOMS Perumbavoor",
-            "SUITOR GUY CHAVAKKAD": "GROOMS Chavakkad",
-            "SUITOR GUY PALAKKAD": "GROOMS Palakkad",
-            "SUITOR GUY KOTTAKKAL": "GROOMS Kottakkal",
-            "SUITOR GUY EDAPPAL": "GROOMS Edappal",
-            "SUITOR GUY MANJERI": "GROOMS Manjery",
-            "SUITOR GUY VATAKARA": "GROOMS Vatakara",
-            "SUITOR GUY KALPETTA": "GROOMS Kalpetta",
-            "SUITOR GUY CALICUT": "GROOMS Kozhikode",
-            "SUITOR GUY KANNUR": "GROOMS Kannur",
-            "SUITOR GUY PERINTHALMANNA": "GROOMS Perinthalmanna",
-            "SUITOR GUY TRIVANDRUM": "GROOMS Trivandrum",
+            // Suitor Guy branches → display names
+            "SUITOR GUY KOTTAYAM": "Suitor Guy Kottayam",
+            "SUITOR GUY THRISSUR": "Suitor Guy Thrissur", 
+            "SUITOR GUY EDAPPALLY": "Suitor Guy Edappally",
+            "SUITOR GUY PERUMBAVOOR": "Suitor Guy Perumbavoor",
+            "SUITOR GUY CHAVAKKAD": "Suitor Guy Chavakkad",
+            "SUITOR GUY PALAKKAD": "Suitor Guy Palakkad",
+            "SUITOR GUY KOTTAKKAL": "Suitor Guy Kottakkal",
+            "SUITOR GUY EDAPPAL": "Suitor Guy Edappal",
+            "SUITOR GUY MANJERI": "Suitor Guy Manjery",
+            "SUITOR GUY VATAKARA": "Suitor Guy Vatakara",
+            "SUITOR GUY KALPETTA": "Suitor Guy Kalpetta",
+            "SUITOR GUY CALICUT": "Suitor Guy Kozhikode",
+            "SUITOR GUY KANNUR": "Suitor Guy Kannur",
+            "SUITOR GUY PERINTHALMANNA": "Suitor Guy Perinthalmanna",
+            "SUITOR GUY TRIVANDRUM": "Suitor Guy Trivandrum",
             
             // ZORUCCI branches
             "ZORUCCI EDAPPALLY": "Zorucci Edappally",
@@ -427,10 +427,14 @@ export const getTopUsers = async (req, res) => {
             .sort((a, b) => b.averageTrainingProgress - a.averageTrainingProgress);
 
         // Get top 3 branches
-        const topBranches = sortedBranches.slice(0, 3);
+        const suitorBranches = sortedBranches.filter((branch) =>
+            String(branch?.branch || "").toLowerCase().includes("suitor guy")
+        );
+
+        const topBranches = suitorBranches.slice(0, 3);
 
         // Get last 3 branches (sorted by ascending training completion percentage)
-        const lastBranches = sortedBranches.slice(-3);
+        const lastBranches = suitorBranches.slice(-3);
 
         console.log('All branches:', sortedBranches);
         console.log('Top branches:', topBranches);

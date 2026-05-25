@@ -368,6 +368,26 @@ function brandKey(name) {
   return ""; // unknown/none
 }
 
+function displayBranchName(name) {
+  const raw = String(name || "");
+  if (/^grooms\s+/i.test(raw)) {
+    return raw.replace(/^grooms\s+/i, "Suitor Guy ");
+  }
+  return raw;
+}
+
+function isHiddenBranch(name) {
+  const normalized = norm(name);
+  return (
+    normalized === norm("Suitor Guy Kochi") ||
+    normalized === norm("GROOMS Kochi") ||
+    normalized === norm("Grooms Kochi") ||
+    normalized === norm("Suitor Guy Calicut") ||
+    normalized === norm("GROOMS Calicut") ||
+    normalized === norm("Grooms Calicut")
+  );
+}
+
 const BranchData = () => {
   const [branch, setBranch] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -410,7 +430,8 @@ const BranchData = () => {
         const branchList = Array.isArray(branchJson?.data) ? branchJson.data : [];
 
         // Paint the page immediately with branch metadata.
-        setBranch(branchList);
+        const visibleBranches = branchList.filter((b) => !isHiddenBranch(b?.workingBranch));
+        setBranch(visibleBranches);
         setError("");
         setLoading(false);
 
@@ -432,7 +453,7 @@ const BranchData = () => {
         const byFull = {};
         const byLocBrand = {};
 
-        branchList.forEach((b, i) => {
+        visibleBranches.forEach((b, i) => {
           const full = norm(b?.workingBranch);
           const loc = locationKey(b?.workingBranch);
           const brand = brandKey(b?.workingBranch);
@@ -444,7 +465,7 @@ const BranchData = () => {
           }
         });
 
-        const counts = new Array(branchList.length).fill(0);
+        const counts = new Array(visibleBranches.length).fill(0);
 
         employees.forEach((e) => {
           const raw = e?.store_name || e?.workingBranch || "";
@@ -744,7 +765,7 @@ const BranchData = () => {
                     {pagedRows.map((b, i) => (
                       <tr key={b?.locCode || i} className="border-b border-gray-100 transition hover:bg-slate-50">
                         <td className="px-4 py-3">
-                          <div className="font-medium text-gray-900">{b?.workingBranch || "N/A"}</div>
+                          <div className="font-medium text-gray-900">{displayBranchName(b?.workingBranch) || "N/A"}</div>
                           <div className="text-xs text-gray-500">{b?.roleLabel}</div>
                         </td>
                         <td className="px-4 py-3 text-center font-medium text-gray-700">{b?.locCode || "N/A"}</td>
