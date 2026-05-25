@@ -37,7 +37,7 @@ export const createUser = async (req, res) => {
       username,
       email,
       empID,
-      password: password ? await bcrypt.hash(password, 10) : "",
+      password: password ? await bcrypt.hash(String(password).trim(), 10) : "",
       location,
       locCode,
       designation,
@@ -159,19 +159,23 @@ export const loginUser = async (req, res) => {
   const { email, empID, password } = req.body;
 
   try {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const normalizedEmpID = String(empID || '').trim().toLowerCase();
+    const normalizedPassword = String(password || '').trim();
+
     // Input validation
-    if (!email || !empID || !password) {
+    if (!normalizedEmail || !normalizedEmpID || !normalizedPassword) {
       return res.status(400).json({ message: 'Email, Employee ID and password are required' });
     }
 
     // Check if user exists
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const isEmpMatch = empID === user.empID;
-    const isPasswordMatch = user.password ? await bcrypt.compare(password, user.password) : false;
+    const isEmpMatch = String(user.empID || '').trim().toLowerCase() === normalizedEmpID;
+    const isPasswordMatch = user.password ? await bcrypt.compare(normalizedPassword, user.password) : false;
     if (!isEmpMatch || !isPasswordMatch) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
@@ -254,25 +258,32 @@ export const flutterLogin = async (req, res) => {
   const { empID, password, email } = req.body;
 
   try {
-    if (!empID || !password) {
+    const rawEmpID = String(empID || '').trim();
+    const normalizedEmpID = rawEmpID.toLowerCase();
+    const normalizedPassword = String(password || '').trim();
+    const normalizedEmail = email ? String(email).trim().toLowerCase() : "";
+
+    if (!normalizedEmpID || !normalizedPassword) {
       return res.status(400).json({ message: 'Employee ID and password are required' });
     }
 
-    const query = { empID: String(empID).trim() };
-    if (email) query.email = String(email).trim().toLowerCase();
+    const query = {
+      empID: { $regex: `^${rawEmpID.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' }
+    };
+    if (normalizedEmail) query.email = normalizedEmail;
 
     const user = await User.findOne(query);
     if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'Employee ID not found' });
     }
 
     if (!user.password) {
       return res.status(400).json({ message: 'Password is not set for this employee. Please update the account first.' });
     }
 
-    const isPasswordMatch = await bcrypt.compare(password, user.password);
+    const isPasswordMatch = await bcrypt.compare(normalizedPassword, user.password);
     if (!isPasswordMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'Incorrect password' });
     }
 
     if (!process.env.JWT_SECRET) {
