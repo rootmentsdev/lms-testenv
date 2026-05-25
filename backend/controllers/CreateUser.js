@@ -160,21 +160,28 @@ export const loginUser = async (req, res) => {
 
   try {
     const normalizedEmail = String(email || '').trim().toLowerCase();
-    const normalizedEmpID = String(empID || '').trim().toLowerCase();
+    const rawEmpID = String(empID || '').trim();
+    const normalizedEmpID = rawEmpID.toLowerCase();
     const normalizedPassword = String(password || '').trim();
 
     // Input validation
-    if (!normalizedEmail || !normalizedEmpID || !normalizedPassword) {
-      return res.status(400).json({ message: 'Email, Employee ID and password are required' });
+    if ((!normalizedEmail && !normalizedEmpID) || !normalizedPassword) {
+      return res.status(400).json({ message: 'Employee ID or email and password are required' });
     }
 
     // Check if user exists
-    const user = await User.findOne({ email: normalizedEmail });
+    const user = normalizedEmail
+      ? await User.findOne({ email: normalizedEmail })
+      : await User.findOne({
+          empID: { $regex: `^${rawEmpID.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' }
+        });
     if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'Employee not found' });
     }
 
-    const isEmpMatch = String(user.empID || '').trim().toLowerCase() === normalizedEmpID;
+    const isEmpMatch = normalizedEmpID
+      ? String(user.empID || '').trim().toLowerCase() === normalizedEmpID
+      : true;
     const isPasswordMatch = user.password ? await bcrypt.compare(normalizedPassword, user.password) : false;
     if (!isEmpMatch || !isPasswordMatch) {
       return res.status(401).json({ message: 'Invalid credentials' });
