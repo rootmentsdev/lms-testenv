@@ -74,6 +74,21 @@ const router = express.Router();
  */
 router.get('/check/:contact', checkCustomerExists);
 
+import jwt from 'jsonwebtoken';
+
+const OptionalMiddilWare = (req, res, next) => {
+    try {
+        const token = req.headers['authorization']?.split(' ')[1];
+        if (token) {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            req.admin = decoded;
+        }
+        next();
+    } catch (error) {
+        next();
+    }
+};
+
 /**
  * @swagger
  * /api/walkin/save:
@@ -114,6 +129,12 @@ router.get('/check/:contact', checkCustomerExists);
  *                 type: string
  *                 description: The employee assigned to this lead (Optional)
  *                 example: "Jane Doe"
+ *               storeId:
+ *                 type: string
+ *                 description: Store ID (Required for admin web)
+ *               employeeId:
+ *                 type: string
+ *                 description: Employee ID (Required for admin web)
  *               category:
  *                 type: string
  *                 example: "Groom"
@@ -138,7 +159,7 @@ router.get('/check/:contact', checkCustomerExists);
  *       500:
  *         description: Internal server error
  */
-router.post('/save', saveWalkin);
+router.post('/save', OptionalMiddilWare, saveWalkin);
 
 /**
  * @swagger

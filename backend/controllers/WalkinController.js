@@ -1,5 +1,7 @@
 import Walkin from '../model/Walkin.js';
 import Admin from '../model/Admin.js';
+import User from '../model/User.js';
+import { validateStoreAccess, validateEmployeeAccess } from '../lib/permissions.js';
 
 /* ---------- Location Name Normalization helpers ---------- */
 const BRAND_TOKENS = new Set(["zorucci", "grooms", "suitor", "guy", "sg"]);
@@ -93,12 +95,14 @@ export const checkCustomerExists = async (req, res) => {
  */
 export const saveWalkin = async (req, res) => {
     try {
-        const {
+        let {
             customerName,
             contact,
             functionDate,
             store,
             staff,
+            storeId,
+            employeeId,
             category,
             subCategory,
             remarks,
@@ -116,6 +120,37 @@ export const saveWalkin = async (req, res) => {
         const trimmedContact = contact.trim();
         const todayStr = date || new Date().toISOString().split('T')[0];
 
+        // Process token / Role-based overrides
+        let finalStore = store ? store.trim() : '-';
+        let finalStaff = staff ? staff.trim() : 'None';
+        let finalStoreId = storeId;
+        let finalEmployeeId = employeeId;
+        let createdBy = null;
+
+        if (req.admin) {
+            createdBy = req.admin.userId;
+            if (req.admin.role === 'user' || !req.admin.role) {
+                // Employee app user
+                const user = await User.findById(req.admin.userId);
+                if (user) {
+                    finalStore = user.workingBranch || finalStore;
+                    finalStaff = user.username || finalStaff;
+                    // You might map user.locCode to storeId if your DB supports it
+                    finalEmployeeId = user._id;
+                }
+            } else if (!req.admin.isSystem) {
+                // Admin user, validate explicit storeId and employeeId if provided
+                const adminId = req.admin.userId;
+                
+                if (finalStoreId) {
+                    await validateStoreAccess(adminId, finalStoreId);
+                }
+                if (finalEmployeeId) {
+                    await validateEmployeeAccess(adminId, finalEmployeeId);
+                }
+            }
+        }
+
         let walkinRecord = await Walkin.findOne({ contact: trimmedContact }).sort({ createdAt: -1 });
 
         if (walkinRecord && status !== 'New Walkin') {
@@ -123,12 +158,15 @@ export const saveWalkin = async (req, res) => {
             walkinRecord.repeatCount += 1;
             walkinRecord.customerName = customerName.trim();
             if (functionDate) walkinRecord.functionDate = functionDate.trim();
-            if (store) walkinRecord.store = store.trim();
-            if (staff) walkinRecord.staff = staff.trim();
+            if (finalStore) walkinRecord.store = finalStore;
+            if (finalStaff) walkinRecord.staff = finalStaff;
+            if (finalStoreId) walkinRecord.storeId = finalStoreId;
+            if (finalEmployeeId) walkinRecord.employeeId = finalEmployeeId;
             if (category) walkinRecord.category = category.trim();
             if (subCategory) walkinRecord.subCategory = subCategory.trim();
             if (remarks) walkinRecord.remarks = remarks.trim();
             if (status) walkinRecord.status = status.trim();
+            if (createdBy) walkinRecord.createdBy = createdBy;
             walkinRecord.date = todayStr; // Update to latest visit date
             
             await walkinRecord.save();
@@ -138,13 +176,16 @@ export const saveWalkin = async (req, res) => {
                 data: walkinRecord
             });
         } else {
-            // Create new record
+            // ALWAYS Create new record if status is 'New Walkin', but preserve repeatCount sequence
             const newWalkin = new Walkin({
                 customerName: customerName.trim(),
                 contact: trimmedContact,
                 functionDate: functionDate ? functionDate.trim() : '-',
-                store: store ? store.trim() : '-',
-                staff: staff ? staff.trim() : 'None',
+                store: finalStore,
+                staff: finalStaff,
+                storeId: finalStoreId || undefined,
+                employeeId: finalEmployeeId || undefined,
+                createdBy: createdBy || undefined,
                 category: category ? category.trim() : '-',
                 subCategory: subCategory ? subCategory.trim() : '-',
                 remarks: remarks ? remarks.trim() : '-',
@@ -183,8 +224,14 @@ export const getWalkins = async (req, res) => {
         // 1. Build Base Query based on date/frontend filters
         let baseQuery = {};
         
-        if (storeId) baseQuery.storeId = storeId;
-        if (employeeId) baseQuery.employeeId = employeeId;
+        if (storeId) {
+            await validateStoreAccess(adminId, storeId);
+            baseQuery.storeId = storeId;
+        }
+        if (employeeId) {
+            await validateEmployeeAccess(adminId, employeeId);
+            baseQuery.employeeId = employeeId;
+        }
 
         // Date Range Filter
         if (startDate && endDate) {

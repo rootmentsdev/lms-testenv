@@ -279,3 +279,10 @@ The mobile app login system now securely authenticates users and auto-provisions
 - **Strict Store Code Mapping:** Maps literal external `store_name` strings (like `Z-Edapally1`) to exact integer Location Codes (`locCode`) via a 24-store mapping dictionary. This ensures that new users show up accurately scoped to Cluster Admins and Store Admins.
 - **Global Visibility:** Registers the auto-synced user with `source: 'app'` so they correctly appear for Super Admins and HR Admins in the `getAllAppRegisteredEmployees` endpoints.
 
+### Walk-In Role-Based Access & App Flow
+The Walk-in system integrates both mobile app lead capture and web dashboard management:
+- **Mobile App:** Submits leads via `/api/walkin/save`. Uses an optional auth middleware to identify the employee. If the user token is present, the backend securely overrides `store` and `staff` from the logged-in profile. If the status is "New Walkin", it ensures a fresh record is created rather than overwriting.
+- **Web Dashboard:** Managed via `WalkinList.jsx`. 
+  - Dynamic store and employee dropdowns are governed by the `api/admin/accessible-stores` and `api/admin/accessible-employees` endpoints.
+  - Passes explicit `storeId` and `employeeId` during save. The backend heavily validates these against the logged-in Admin's scope using `validateStoreAccess` and `validateEmployeeAccess`.
+- **Database & RBAC:** `getWalkins` dynamically wraps all DB queries with `buildWalkinFilter` to strictly segregate data for Cluster Admins and Store Admins, preventing manual ID overrides.

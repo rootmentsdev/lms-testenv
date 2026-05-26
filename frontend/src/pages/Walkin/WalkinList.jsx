@@ -61,6 +61,14 @@ const UPDATE_STATUS_OPTIONS = [
     'New Walkin'
 ];
 
+const HARDCODED_STORES = [
+    'Z-Edapally1', 'G-Edappally', 'SG-Trivandrum', 'Z- Edappal', 'Z.Perinthalmanna',
+    'Z.Kottakkal', 'G.Kottayam', 'G.Perumbavoor', 'G.Thrissur', 'G.Chavakkad',
+    'G.Calicut', 'G.Vadakara', 'G.Edappal', 'G.Perinthalmanna', 'G.Kottakkal',
+    'G.Manjeri', 'G.Palakkad', 'G.Kalpetta', 'G.Kannur', 'G.MG Road',
+    'Dappr Squad', 'office', 'production', 'WAREHOUSE'
+];
+
 const WalkinList = () => {
     const user = useSelector((state) => state.auth.user);
     const token = localStorage.getItem('token');
@@ -108,7 +116,9 @@ const WalkinList = () => {
         contact: '',
         functionDate: new Date().toISOString().split('T')[0],
         store: '',
+        storeId: '',
         staff: '',
+        employeeId: '',
         category: '-',
         subCategory: '-',
         remarks: '',
@@ -144,7 +154,16 @@ const WalkinList = () => {
                 ]);
 
                 const branchJson = await branchRes.json();
-                const branchList = Array.isArray(branchJson?.stores) ? branchJson.stores : (Array.isArray(branchJson?.data) ? branchJson.data : []);
+                let branchList = Array.isArray(branchJson?.stores) ? branchJson.stores : (Array.isArray(branchJson?.data) ? branchJson.data : []);
+
+                if (user?.role === 'super_admin' || user?.role === 'hr_admin') {
+                    // Force the dropdown to show the hardcoded stores to ensure it's not empty,
+                    // and merge any DB ones to prevent duplicates.
+                    const existing = new Set(branchList.map(b => b.workingBranch));
+                    const missing = HARDCODED_STORES.filter(s => !existing.has(s));
+                    branchList = [...missing.map(name => ({ workingBranch: name })), ...branchList];
+                }
+
                 setBranches(branchList);
 
                 if (branchList.length > 0) {
@@ -163,15 +182,17 @@ const WalkinList = () => {
         if (token) fetchData();
     }, [token, user?.role]);
 
-    // Load employees lazily only when the add form is opened
-    const loadEmployees = async () => {
-        if (employees.length > 0) return; // already loaded
+    // Load employees dynamically based on storeId
+    const loadEmployees = async (storeId) => {
         try {
-            const empRes = await fetch(`${baseUrl.baseUrl}api/employee/management/with-training-details`, {
+            const url = storeId 
+                ? `${baseUrl.baseUrl}api/admin/accessible-employees?storeId=${storeId}` 
+                : `${baseUrl.baseUrl}api/admin/accessible-employees`;
+            const empRes = await fetch(url, {
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
             });
             const empJson = await empRes.json();
-            const empList = Array.isArray(empJson) ? empJson : (Array.isArray(empJson?.data) ? empJson.data : []);
+            const empList = Array.isArray(empJson?.employees) ? empJson.employees : [];
             setEmployees(empList);
         } catch (err) {
         }
@@ -264,10 +285,26 @@ const WalkinList = () => {
         }));
 
         if (name === 'store') {
+            const selectedBranch = branches.find(b => b.workingBranch === value);
+            const branchId = selectedBranch ? selectedBranch._id : '';
             setFormData(prev => ({
                 ...prev,
                 store: value,
-                staff: ''
+                storeId: branchId,
+                staff: '',
+                employeeId: ''
+            }));
+            if (branchId) {
+                loadEmployees(branchId);
+            } else {
+                setEmployees([]);
+            }
+        } else if (name === 'staff') {
+            const selectedEmp = employees.find(e => e.username === value);
+            setFormData(prev => ({
+                ...prev,
+                staff: value,
+                employeeId: selectedEmp ? selectedEmp._id : ''
             }));
         }
     };
@@ -325,7 +362,9 @@ const WalkinList = () => {
                     contact: formData.contact,
                     functionDate: formData.functionDate,
                     store: formData.store,
+                    storeId: formData.storeId || undefined,
                     staff: formData.staff || 'None',
+                    employeeId: formData.employeeId || undefined,
                     category: formData.category,
                     subCategory: formData.subCategory,
                     remarks: formData.remarks || '-',
@@ -346,7 +385,9 @@ const WalkinList = () => {
                     contact: '',
                     functionDate: new Date().toISOString().split('T')[0],
                     store: branches[0]?.workingBranch || '',
+                    storeId: branches[0]?._id || '',
                     staff: '',
+                    employeeId: '',
                     category: '-',
                     subCategory: '-',
                     remarks: '',
@@ -365,18 +406,7 @@ const WalkinList = () => {
         }
     };
 
-    // Dynamic employee listing based on selected store to enforce role mapping rules
-    const getEmployeesForSelectedStore = (storeName) => {
-        if (!storeName) return [];
-        const normSelectedStore = locationKey(storeName);
-
-        return employees.filter(emp => {
-            const empStore = emp.store_name || emp.workingBranch || '';
-            return locationKey(empStore) === normSelectedStore;
-        });
-    };
-
-    const currentStoreEmployees = getEmployeesForSelectedStore(formData.store);
+    const currentStoreEmployees = employees; // Already filtered by loadEmployees API
 
     // Sort Arrows double-indicator icon matching mockup image exactly
     const SortArrow = () => (
@@ -434,7 +464,7 @@ const WalkinList = () => {
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-                                    {(user?.role === 'super_admin' || user?.role === 'cluster_admin') && (
+                                    {(user?.role === 'super_admin' || user?.role === 'hr_admin' || user?.role === 'cluster_admin') && (
                                         <div>
                                             <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Store <span className="text-red-500">*</span></label>
                                             <select name="store" required value={formData.store} onChange={handleInputChange} className="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 bg-white cursor-pointer font-semibold">
@@ -494,7 +524,7 @@ const WalkinList = () => {
                         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:'24px', marginBottom:'16px' }}>
                             <h1 style={{ fontSize:'22px', fontWeight:700, color:'#111827', margin:0 }}>Walk In List</h1>
                             <button
-                                onClick={() => { if(branches.length>0){setFormData(prev=>({...prev,store:branches[0]?.workingBranch||''}))} loadEmployees(); setShowAddView(true); }}
+                                onClick={() => { if(branches.length>0){setFormData(prev=>({...prev,store:branches[0]?.workingBranch||'',storeId:branches[0]?._id||''})); loadEmployees(branches[0]?._id);} setShowAddView(true); }}
                                 style={{ background:'#111827', color:'#fff', border:'none', borderRadius:'10px', padding:'9px 18px', fontSize:'13px', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:'6px' }}
                             >
                                 + New Walk In
@@ -514,7 +544,7 @@ const WalkinList = () => {
                                 <option value="All">All Status</option>
                                 {STATUS_OPTIONS.map(opt=><option key={opt} value={opt}>{opt}</option>)}
                             </select>
-                            {(user?.role==='super_admin'||user?.role==='cluster_admin') && (
+                            {(user?.role==='super_admin'||user?.role==='hr_admin'||user?.role==='cluster_admin') && (
                                 <select value={storeFilter} onChange={e=>setStoreFilter(e.target.value)} style={{ border:'1px solid #e5e7eb', borderRadius:'8px', padding:'7px 12px', fontSize:'13px', color:'#374151', outline:'none', background:'#fff', cursor:'pointer' }}>
                                     <option value="All">All Stores</option>
                                     {branches.map((b,i)=><option key={i} value={b.workingBranch}>{b.workingBranch}</option>)}
