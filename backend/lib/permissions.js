@@ -27,7 +27,7 @@ export const getAccessibleStoreIds = async (adminId) => {
         // Can access all stores in their assigned clusters, plus any individually assigned stores
         const clusterIds = admin.assignedClusters.map(c => c._id);
         const clusterBranches = await Branch.find({ clusterId: { $in: clusterIds }, isActive: true }).select('_id');
-        
+
         const branchIds = new Set([
             ...clusterBranches.map(b => b._id.toString()),
             ...admin.branches.map(b => (b._id || b).toString())
@@ -57,21 +57,32 @@ export const validateStoreAccess = async (adminId, storeId) => {
 /**
  * Gets an array of accessible employee ObjectIds based on admin role
  */
-export const getAccessibleEmployeeIds = async (adminId) => {
+export const getAccessibleEmployeeIds = async (adminId, storeId = null) => {
     const admin = await Admin.findById(adminId);
     if (!admin) return [];
 
+    let accessibleStoreIds = [];
     if (isFullAccessAdmin(admin.role)) {
-        // Full access: can see all employees
-        const allEmployees = await Employee.find({ status: 'Active' }).select('_id');
-        return allEmployees.map(e => e._id.toString());
+        // Full access: all stores are accessible
+        const allBranches = await Branch.find({ isActive: true }).select('_id');
+        accessibleStoreIds = allBranches.map(b => b._id.toString());
+    } else {
+        accessibleStoreIds = await getAccessibleStoreIds(adminId);
     }
 
-    const accessibleStoreIds = await getAccessibleStoreIds(adminId);
-    
-    // For non-full access, get employees that belong to accessible stores
-    const accessibleEmployees = await Employee.find({ 
-        storeId: { $in: accessibleStoreIds } 
+    // If a specific store is requested, validate it's within accessible stores
+    if (storeId) {
+        if (!accessibleStoreIds.includes(storeId.toString())) {
+            return []; // Access denied to this specific store
+        }
+        // Restrict to just the requested store
+        accessibleStoreIds = [storeId.toString()];
+    }
+
+    // Get employees that belong to accessible stores
+    const accessibleEmployees = await Employee.find({
+        storeId: { $in: accessibleStoreIds },
+        status: 'Active'
     }).select('_id');
 
     return accessibleEmployees.map(e => e._id.toString());
@@ -100,11 +111,11 @@ export const buildWalkinFilter = async (adminId, baseQuery = {}) => {
     }
 
     const accessibleStoreIds = await getAccessibleStoreIds(adminId);
-    
+
     const branches = await Branch.find({ _id: { $in: accessibleStoreIds } });
     const locCodes = branches.map(b => b.locCode);
     const workingBranches = branches.map(b => b.workingBranch);
-    
+
     return {
         ...baseQuery,
         $or: [
@@ -126,7 +137,7 @@ export const buildTaskFilter = async (adminId, baseQuery = {}) => {
     }
 
     const accessibleStoreIds = await getAccessibleStoreIds(adminId);
-    
+
     // Note: Task model currently uses storeCode instead of storeId, so we map to locCodes
     const branches = await Branch.find({ _id: { $in: accessibleStoreIds } });
     const locCodes = branches.map(b => b.locCode);
