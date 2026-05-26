@@ -140,7 +140,7 @@ function buildEmployeeStats(localUser, mandatoryTrainings) {
 
 async function buildProcessedEmployees(admin) {
   const allowedLocCodes = admin.branches.map((branch) => branch.locCode);
-  const isGlobalAdmin = admin.role === 'super_admin' || allowedLocCodes.length === 0;
+  const isGlobalAdmin = admin.role === 'super_admin' || admin.role === 'hr_admin' || allowedLocCodes.length === 0;
   const cacheKey = getProcessedCacheKey(admin._id.toString(), allowedLocCodes, isGlobalAdmin);
 
   const cached = getProcessedEmployees(cacheKey);
@@ -511,7 +511,7 @@ export const getAllAppRegisteredEmployees = async (req, res) => {
     const role   = req.query.role  || 'All';
 
     const allowedLocCodes = admin.branches.map((b) => b.locCode);
-    const isGlobalAdmin   = admin.role === 'super_admin' || allowedLocCodes.length === 0;
+    const isGlobalAdmin   = admin.role === 'super_admin' || admin.role === 'hr_admin' || allowedLocCodes.length === 0;
 
     // ── 1. Build base query (branch-scoped for non-super admins) ──
     const appUserSourceQuery = { source: { $in: ['app', 'admin'] } };

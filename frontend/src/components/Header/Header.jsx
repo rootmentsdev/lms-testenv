@@ -89,15 +89,15 @@ const Header = () => {
             >
                 {/* ── Left: Logo + brand name ── */}
                 <Link to="/" className="flex items-center gap-3 no-underline select-none">
-                    <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 border border-gray-100">
-                        <img src="/Rootments.jpg" alt="Rootments" className="w-full h-full object-cover" />
+                    <div className="w-14 h-14 overflow-hidden rounded-full border-4 shadow-sm">
+                        <img src="/Brynex.jpeg" alt="Brynex LMS" className="w-full h-full object-cover" />
                     </div>
-                    <div className="flex flex-col leading-tight">
-                        <span className="text-[15px] font-black tracking-widest uppercase text-gray-900" style={{ letterSpacing: '0.12em' }}>
-                            Rootments
-                        </span>
+                    <div className="flex flex-col ml-3">
+                        <h1 className="text-xl font-bold text-gray-800 tracking-wide">
+                            BRYNEX LMS
+                        </h1>
                         <span className="text-[9px] font-medium tracking-widest uppercase text-gray-400" style={{ letterSpacing: '0.18em' }}>
-                            Apparel Pvt. Ltd.
+                            BRYNEX APPAREL PVT.LTD
                         </span>
                     </div>
                 </Link>

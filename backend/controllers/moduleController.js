@@ -230,8 +230,8 @@ export const getVisibility = async (req, res) => {
 };
 
 export const AdminLogin = async (req, res) => {
-    const { EmpId, email } = req.body;
-    console.log('Login Attempt:', { EmpId, email });
+    const { EmpId, email, role } = req.body;
+    console.log('Login Attempt:', { EmpId, email, role });
 
     try {
         // Find user by email
@@ -241,6 +241,11 @@ export const AdminLogin = async (req, res) => {
         }
 
         console.log('User Found:', user);
+
+        // Verify role against database if role is provided
+        if (role && user.role !== role) {
+            return res.status(403).json({ message: `Role mismatch: Cannot log in as ${role}` });
+        }
 
         // Compare entered EmpId (as password) with the stored hashed password
         if (!user.password) {

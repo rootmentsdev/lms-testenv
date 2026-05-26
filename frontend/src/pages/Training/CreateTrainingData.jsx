@@ -27,7 +27,11 @@ const CreateTrainingData = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const response = await fetch(`${baseUrl.baseUrl}api/get/mandatory/allusertraining`);
+        const response = await fetch(`${baseUrl.baseUrl}api/get/mandatory/allusertraining`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
         if (!response.ok) throw new Error("Failed to fetch data");
         const result = await response.json();
         setData(result.data);

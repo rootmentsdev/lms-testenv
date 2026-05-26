@@ -1,0 +1,138 @@
+import Admin from '../model/Admin.js';
+import Branch from '../model/Branch.js';
+import Employee from '../model/Employee.js';
+import Cluster from '../model/Cluster.js';
+
+/**
+ * Validates if the user is a super admin or hr admin (full access)
+ */
+export const isFullAccessAdmin = (adminRole) => {
+    return ['super_admin', 'hr_admin'].includes(adminRole);
+};
+
+/**
+ * Gets an array of accessible store ObjectIds based on admin role
+ */
+export const getAccessibleStoreIds = async (adminId) => {
+    const admin = await Admin.findById(adminId).populate('branches assignedClusters');
+    if (!admin) return [];
+
+    if (isFullAccessAdmin(admin.role)) {
+        // Full access: return all branch IDs
+        const allBranches = await Branch.find({ isActive: true }).select('_id');
+        return allBranches.map(b => b._id.toString());
+    }
+
+    if (admin.role === 'cluster_admin') {
+        // Can access all stores in their assigned clusters, plus any individually assigned stores
+        const clusterIds = admin.assignedClusters.map(c => c._id);
+        const clusterBranches = await Branch.find({ clusterId: { $in: clusterIds }, isActive: true }).select('_id');
+        
+        const branchIds = new Set([
+            ...clusterBranches.map(b => b._id.toString()),
+            ...admin.branches.map(b => (b._id || b).toString())
+        ]);
+        return Array.from(branchIds);
+    }
+
+    if (admin.role === 'store_admin') {
+        // Can access only specifically assigned stores
+        return admin.branches.map(b => (b._id || b).toString());
+    }
+
+    return [];
+};
+
+/**
+ * Validates if an admin has access to a specific store
+ */
+export const validateStoreAccess = async (adminId, storeId) => {
+    const accessibleStoreIds = await getAccessibleStoreIds(adminId);
+    if (!accessibleStoreIds.includes(storeId.toString())) {
+        throw new Error('Access denied: You do not have permission to access this store.');
+    }
+    return true;
+};
+
+/**
+ * Gets an array of accessible employee ObjectIds based on admin role
+ */
+export const getAccessibleEmployeeIds = async (adminId) => {
+    const admin = await Admin.findById(adminId);
+    if (!admin) return [];
+
+    if (isFullAccessAdmin(admin.role)) {
+        // Full access: can see all employees
+        const allEmployees = await Employee.find({ status: 'Active' }).select('_id');
+        return allEmployees.map(e => e._id.toString());
+    }
+
+    const accessibleStoreIds = await getAccessibleStoreIds(adminId);
+    
+    // For non-full access, get employees that belong to accessible stores
+    const accessibleEmployees = await Employee.find({ 
+        storeId: { $in: accessibleStoreIds } 
+    }).select('_id');
+
+    return accessibleEmployees.map(e => e._id.toString());
+};
+
+/**
+ * Validates if an admin has access to a specific employee
+ */
+export const validateEmployeeAccess = async (adminId, employeeId) => {
+    const accessibleEmployeeIds = await getAccessibleEmployeeIds(adminId);
+    if (!accessibleEmployeeIds.includes(employeeId.toString())) {
+        throw new Error('Access denied: You do not have permission to access this employee.');
+    }
+    return true;
+};
+
+/**
+ * Builds a MongoDB query filter for walk-ins based on admin role
+ */
+export const buildWalkinFilter = async (adminId, baseQuery = {}) => {
+    const admin = await Admin.findById(adminId);
+    if (!admin) return { _id: null }; // Return impossible query if admin not found
+
+    if (isFullAccessAdmin(admin.role)) {
+        return baseQuery;
+    }
+
+    const accessibleStoreIds = await getAccessibleStoreIds(adminId);
+    
+    const branches = await Branch.find({ _id: { $in: accessibleStoreIds } });
+    const locCodes = branches.map(b => b.locCode);
+    const workingBranches = branches.map(b => b.workingBranch);
+    
+    return {
+        ...baseQuery,
+        $or: [
+            { storeId: { $in: accessibleStoreIds } },
+            { store: { $in: [...locCodes, ...workingBranches] } }
+        ]
+    };
+};
+
+/**
+ * Builds a MongoDB query filter for tasks based on admin role
+ */
+export const buildTaskFilter = async (adminId, baseQuery = {}) => {
+    const admin = await Admin.findById(adminId);
+    if (!admin) return { _id: null };
+
+    if (isFullAccessAdmin(admin.role)) {
+        return baseQuery;
+    }
+
+    const accessibleStoreIds = await getAccessibleStoreIds(adminId);
+    
+    // Note: Task model currently uses storeCode instead of storeId, so we map to locCodes
+    const branches = await Branch.find({ _id: { $in: accessibleStoreIds } });
+    const locCodes = branches.map(b => b.locCode);
+
+    return {
+        ...baseQuery,
+        storeCode: { $in: locCodes }
+    };
+};

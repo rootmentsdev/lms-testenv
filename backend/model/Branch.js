@@ -29,6 +29,14 @@ const branchSchema = new mongoose.Schema({
         type: String,
         default: "",
         required: true
+    },
+    clusterId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Cluster'
+    },
+    isActive: {
+        type: Boolean,
+        default: true
     }
 }, {
     timestamps: true,

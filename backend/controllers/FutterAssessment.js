@@ -7,6 +7,7 @@ import TrainingProgress from "../model/Trainingprocessschema.js";
 import { Training } from "../model/Traning.js";
 import User from "../model/User.js";
 import mongoose from 'mongoose';
+import { getAccessibleStoreIds, isFullAccessAdmin } from '../lib/permissions.js';
 
 export const UserAssessmentGet = async (req, res) => {
     try {
@@ -614,8 +615,8 @@ export const GetStoreManager = async (req, res) => {
         const AdminId = req.admin.userId;
         console.log('GetStoreManager called for AdminId:', AdminId);
 
-        // Step 1: Find the Admin and populate branches
-        const AdminData = await Admin.findById(AdminId).populate('branches');
+        // Step 1: Find the Admin
+        const AdminData = await Admin.findById(AdminId);
         console.log('AdminData found:', AdminData ? 'Yes' : 'No');
 
         if (!AdminData) {
@@ -628,43 +629,33 @@ export const GetStoreManager = async (req, res) => {
             });
         }
 
-        // Step 2: Extract locCodes from the populated branches
-        const locCodes = AdminData.branches.map(branch => branch.locCode);
-        console.log('Admin branches:', AdminData.branches.length);
-        console.log('LocCodes found:', locCodes);
+        // Step 2: Use RBAC to get accessible locCodes and branchNames
+        const accessibleStoreIds = await getAccessibleStoreIds(AdminId);
+        const accessibleBranches = await Branch.find({ _id: { $in: accessibleStoreIds } });
+        const locCodes = accessibleBranches.map(branch => branch.locCode).filter(Boolean);
+        const branchNames = accessibleBranches.map(branch => branch.branchName || branch.workingBranch).filter(Boolean);
 
-        // Step 3: Find all users - always return data regardless of matching
+        console.log('Accessible branches count:', accessibleBranches.length);
+
+        // Step 3: Find all users based on RBAC
         let users = [];
         
-        if (AdminData.role === 'super_admin') {
-            // Super admin can see all users
+        if (isFullAccessAdmin(AdminData.role)) {
+            // Super admin & HR admin can see all users
             users = await User.find({});
-            console.log('Super admin - all users found:', users.length);
+            console.log('Full access admin - all users found:', users.length);
         } else {
-            // For other admin types, try to find users by branch locCodes
-            users = await User.find({ locCode: { $in: locCodes } });
-            console.log('Users found for locCodes:', users.length);
-            
-            // If no users found, try alternative matching
-            if (users.length === 0) {
-                // Try to find users by branch names or other criteria
-                const branchNames = AdminData.branches.map(branch => branch.branchName || branch.workingBranch).filter(Boolean);
-                if (branchNames.length > 0) {
-                    users = await User.find({
-                        $or: [
-                            { workingBranch: { $in: branchNames } },
-                            { locCode: { $regex: branchNames.join('|'), $options: 'i' } }
-                        ]
-                    });
-                    console.log('Users found by branch names:', users.length);
-                }
+            // Cluster/Store admin
+            if (locCodes.length > 0 || branchNames.length > 0) {
+                users = await User.find({
+                    $or: [
+                        { locCode: { $in: locCodes } },
+                        { workingBranch: { $in: branchNames } },
+                        { locCode: { $regex: branchNames.join('|'), $options: 'i' } }
+                    ]
+                });
             }
-            
-            // If still no users found, get all users for this admin type
-            if (users.length === 0) {
-                users = await User.find({});
-                console.log('Fallback - all users found:', users.length);
-            }
+            console.log('Users found for accessible locCodes/branches:', users.length);
         }
 
         // Step 4: Filter trainings for these users
@@ -718,8 +709,8 @@ export const GetStoreManagerDueDate = async (req, res) => {
         const AdminId = req.admin.userId;
         console.log('GetStoreManagerDueDate called for AdminId:', AdminId);
 
-        // Step 1: Find the Admin and populate branches
-        const AdminData = await Admin.findById(AdminId).populate("branches");
+        // Step 1: Find the Admin
+        const AdminData = await Admin.findById(AdminId);
         console.log('AdminData found:', AdminData ? 'Yes' : 'No');
 
         if (!AdminData) {
@@ -730,43 +721,33 @@ export const GetStoreManagerDueDate = async (req, res) => {
             });
         }
 
-        // Step 2: Extract locCodes from the populated branches
-        const locCodes = AdminData.branches.map((branch) => branch.locCode);
-        console.log('Admin branches:', AdminData.branches.length);
-        console.log('LocCodes found:', locCodes);
+        // Step 2: Use RBAC to get accessible locCodes and branchNames
+        const accessibleStoreIds = await getAccessibleStoreIds(AdminId);
+        const accessibleBranches = await Branch.find({ _id: { $in: accessibleStoreIds } });
+        const locCodes = accessibleBranches.map(branch => branch.locCode).filter(Boolean);
+        const branchNames = accessibleBranches.map(branch => branch.branchName || branch.workingBranch).filter(Boolean);
 
-        // Step 3: Find all users - always return data regardless of matching
+        console.log('Accessible branches count:', accessibleBranches.length);
+
+        // Step 3: Find all users based on RBAC
         let users = [];
         
-        if (AdminData.role === 'super_admin') {
-            // Super admin can see all users
+        if (isFullAccessAdmin(AdminData.role)) {
+            // Super admin & HR admin can see all users
             users = await User.find({});
-            console.log('Super admin - all users found:', users.length);
+            console.log('Full access admin - all users found:', users.length);
         } else {
-            // For other admin types, try to find users by branch locCodes
-            users = await User.find({ locCode: { $in: locCodes } });
-            console.log('Users found for locCodes:', users.length);
-            
-            // If no users found, try alternative matching
-            if (users.length === 0) {
-                // Try to find users by branch names or other criteria
-                const branchNames = AdminData.branches.map(branch => branch.branchName || branch.workingBranch).filter(Boolean);
-                if (branchNames.length > 0) {
-                    users = await User.find({
-                        $or: [
-                            { workingBranch: { $in: branchNames } },
-                            { locCode: { $regex: branchNames.join('|'), $options: 'i' } }
-                        ]
-                    });
-                    console.log('Users found by branch names:', users.length);
-                }
+            // Cluster/Store admin
+            if (locCodes.length > 0 || branchNames.length > 0) {
+                users = await User.find({
+                    $or: [
+                        { locCode: { $in: locCodes } },
+                        { workingBranch: { $in: branchNames } },
+                        { locCode: { $regex: branchNames.join('|'), $options: 'i' } }
+                    ]
+                });
             }
-            
-            // If still no users found, get all users for this admin type
-            if (users.length === 0) {
-                users = await User.find({});
-                console.log('Fallback - all users found:', users.length);
-            }
+            console.log('Users found for accessible locCodes/branches:', users.length);
         }
 
         // Step 4: Filter overdue users

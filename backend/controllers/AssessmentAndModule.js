@@ -163,8 +163,26 @@ const fetchEmployeeData = async () => {
   }
 };
 
+import { getAccessibleStoreIds, isFullAccessAdmin } from '../lib/permissions.js';
+import Branch from "../model/Branch.js";
+
 export const GetAllTrainingWithCompletion = async (req, res) => {
   try {
+    const AdminId = req.admin?.userId;
+    if (!AdminId) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const AdminData = await Admin.findById(AdminId);
+    if (!AdminData) {
+        return res.status(404).json({ message: "Admin not found" });
+    }
+
+    const accessibleStoreIds = await getAccessibleStoreIds(AdminId);
+    const branches = await Branch.find({ _id: { $in: accessibleStoreIds } });
+    const allowedLocCodes = branches.map(branch => branch.locCode).filter(Boolean);
+    const branchNames = branches.map(branch => branch.branchName || branch.workingBranch).filter(Boolean);
+
     // Fetch all trainings that have been assigned to users (have progress records)
     // We'll find trainings by looking at TrainingProgress records
     const progressRecords = await TrainingProgress.find().populate('trainingId', 'trainingName modules Trainingtype Assignedfor deadline');
@@ -294,8 +312,20 @@ export const GetAllTrainingWithCompletion = async (req, res) => {
             username: record.userId?.username || '',
             designation: record.userId?.designation || '',
             workingBranch: record.userId?.workingBranch || '',
+            locCode: record.userId?.locCode || '',
             email: record.userId?.email || ''
           };
+
+          // Check RBAC before pushing the record
+          if (!isFullAccessAdmin(AdminData.role)) {
+              const isAccessible = allowedLocCodes.includes(finalUserData.locCode) ||
+                  branchNames.includes(finalUserData.workingBranch) ||
+                  branchNames.some(name => new RegExp(name, 'i').test(finalUserData.locCode));
+                  
+              if (!isAccessible) {
+                  return; // Skip if user is not in admin's scope
+              }
+          }
 
           // Add unique branches and designations from local API data
           if (finalUserData.workingBranch) uniqueBranches.add(finalUserData.workingBranch);
@@ -894,6 +924,21 @@ export const getUserTrainingProgress = async (req, res) => {
 
 export const MandatoryGetAllTrainingWithCompletion = async (req, res) => {
   try {
+    const AdminId = req.admin?.userId;
+    if (!AdminId) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const AdminData = await Admin.findById(AdminId);
+    if (!AdminData) {
+        return res.status(404).json({ message: "Admin not found" });
+    }
+
+    const accessibleStoreIds = await getAccessibleStoreIds(AdminId);
+    const branches = await Branch.find({ _id: { $in: accessibleStoreIds } });
+    const allowedLocCodes = branches.map(branch => branch.locCode).filter(Boolean);
+    const branchNames = branches.map(branch => branch.branchName || branch.workingBranch).filter(Boolean);
+
     console.log("Entered");
 
     // Fetch all mandatory trainings
@@ -919,6 +964,19 @@ export const MandatoryGetAllTrainingWithCompletion = async (req, res) => {
           if (!record.userId) {
             console.warn(`TrainingProgress record with null userId for trainingId: ${training._id}`);
             continue; // Skip this record if userId is null
+          }
+
+          // Check RBAC
+          if (!isFullAccessAdmin(AdminData.role)) {
+              const userLocCode = record.userId.locCode || '';
+              const userWorkingBranch = record.userId.workingBranch || '';
+              const isAccessible = allowedLocCodes.includes(userLocCode) ||
+                  branchNames.includes(userWorkingBranch) ||
+                  branchNames.some(name => new RegExp(name, 'i').test(userLocCode));
+                  
+              if (!isAccessible) {
+                  continue; // Skip if user is not in admin's scope
+              }
           }
 
           totalUsers++;

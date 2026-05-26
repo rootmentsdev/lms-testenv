@@ -212,7 +212,7 @@ router.get('/trainings/:id?', GetTrainingById);
  *       500:
  *         description: Internal server error
  */
-router.get('/get/allusertraining', GetAllTrainingWithCompletion);
+router.get('/get/allusertraining', MiddilWare, GetAllTrainingWithCompletion);
 
 /**
  * @swagger
@@ -226,7 +226,7 @@ router.get('/get/allusertraining', GetAllTrainingWithCompletion);
  *       500:
  *         description: Internal server error
  */
-router.get('/get/mandatory/allusertraining', MandatoryGetAllTrainingWithCompletion);
+router.get('/get/mandatory/allusertraining', MiddilWare, MandatoryGetAllTrainingWithCompletion);
 
 /**
  * @swagger

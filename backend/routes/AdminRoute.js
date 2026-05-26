@@ -1,18 +1,95 @@
 import express from 'express';
 import mongoose from 'mongoose';
-import { handlePermissions, CreatingAdminUsers, getTopUsers, HomeBar, } from '../controllers/DestinationController.js';
+import { handlePermissions, CreatingAdminUsers, getTopUsers, HomeBar, getAccessibleStores, getAccessibleEmployees } from '../controllers/DestinationController.js';
 import { AdminLogin, ChangeVisibility, getAllNotifications, getEscalationLevel, getNotifications, GetSubroles, getVisibility, Subroles, upsertEscalationLevel } from '../controllers/moduleController.js';
 import { VerifyToken } from '../lib/VerifyJwt.js';
 import { CreateNotification, FindOverDueAssessment, FindOverDueTraining, SendNotification, SendNotificationAssessment } from '../controllers/AssessmentReassign.js';
 import { MiddilWare } from '../lib/middilWare.js';
 import { GetAllUserDetailes, GetBranchDetailes, GetCurrentAdmin, GetPermissionController, GetSearchDataController, GetStoreManager, GetStoreManagerDueDate, PermissionController, UpdateAdminDetaile, UpdateBranchDetails, UpdateOneUserDetailes } from '../controllers/FutterAssessment.js';
+import { createCluster, getClusters } from '../controllers/ClusterController.js';
 import User from '../model/User.js';
 
 const router = express.Router();
 
+// RBAC Routes
+/**
+ * @swagger
+ * /api/admin/accessible-stores:
+ *   get:
+ *     tags: [Admin]
+ *     summary: Retrieve accessible stores for admin
+ *     description: Returns a list of stores accessible to the logged-in admin based on their role and assigned branches.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: A list of stores
+ */
+router.get('/accessible-stores', MiddilWare, getAccessibleStores);
 
+/**
+ * @swagger
+ * /api/admin/accessible-employees:
+ *   get:
+ *     tags: [Admin]
+ *     summary: Retrieve accessible employees for admin
+ *     description: Returns a list of employees accessible to the logged-in admin based on their role and assigned branches.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: storeId
+ *         schema:
+ *           type: string
+ *         description: Optional store ID to filter employees
+ *     responses:
+ *       200:
+ *         description: A list of employees
+ */
+router.get('/accessible-employees', MiddilWare, getAccessibleEmployees);
 
+/**
+ * @swagger
+ * /api/admin/cluster/create:
+ *   post:
+ *     tags: [Admin]
+ *     summary: Create a new cluster
+ *     description: Creates a new cluster and assigns stores to it. Only accessible by super_admin or hr_admin.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               clusterName:
+ *                 type: string
+ *               stores:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       201:
+ *         description: Cluster created successfully
+ */
+router.post('/cluster/create', MiddilWare, createCluster);
 
+/**
+ * @swagger
+ * /api/admin/cluster:
+ *   get:
+ *     tags: [Admin]
+ *     summary: Get all clusters
+ *     description: Retrieves a list of all clusters.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: A list of clusters
+ */
+router.get('/cluster', MiddilWare, getClusters);
 /**
  * @swagger
  * /api/admin/get/bestThreeUser:
