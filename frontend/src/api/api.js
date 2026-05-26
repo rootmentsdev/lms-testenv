@@ -1,8 +1,8 @@
 const baseUrl = {
-    // Automatically switch between local development and production Render URL!
-    baseUrl: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        ? "http://localhost:7001/"
-        : "https://lms-testenv.onrender.com/",
+  // Automatically switch between local development and production Render URL!
+  baseUrl: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? "http://localhost:7001/"
+    : "https://lms-testenv-v0w5.onrender.com",
 };
 
 /**
@@ -13,7 +13,7 @@ const baseUrl = {
  */
 export const apiCall = async (endpoint, options = {}) => {
   const url = `${baseUrl.baseUrl}${endpoint}`;
-  
+
   // Default options
   const defaultOptions = {
     method: 'GET',
