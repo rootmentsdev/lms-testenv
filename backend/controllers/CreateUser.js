@@ -304,38 +304,78 @@ export const flutterLogin = async (req, res) => {
           isAuthenticated = true;
           
           if (!user) {
-            // 2. User authenticated externally but doesn't exist locally! Fetch details to create them.
-            const detailsRes = await axios.post(
-              'https://rootments.in/api/employee_range',
-              { startEmpId: rawEmpID, endEmpId: rawEmpID },
-              {
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${ROOTMENTS_API_TOKEN}`,
-                },
-              }
-            );
+            const verifyData = verifyRes.data.data || {};
+            const storeNameToLocCode = {
+              'Z-EDAPALLY1': '144',
+              'G-EDAPPALLY': '702',
+              'SG-TRIVANDRUM': '700',
+              'Z- EDAPPAL': '100',
+              'Z.PERINTHALMANNA': '133',
+              'Z.KOTTAKKAL': '122',
+              'G.KOTTAYAM': '701',
+              'G.PERUMBAVOOR': '703',
+              'G.THRISSUR': '704',
+              'G.CHAVAKKAD': '706',
+              'G.CALICUT': '712',
+              'G.VADAKARA': '708',
+              'G.EDAPPAL': '707',
+              'G.PERINTHALMANNA': '709',
+              'G.KOTTAKKAL': '711',
+              'G.MANJERI': '710',
+              'G.PALAKKAD': '705',
+              'G.KALPETTA': '717',
+              'G.KANNUR': '716',
+              'G.MG ROAD': '718',
+              'DAPPR SQUAD': '555',
+              'OFFICE': '102',
+              'PRODUCTION': '101',
+              'WAREHOUSE': '103',
+              'NO STORE': '102' // Assigning telecallers/no store to office
+            };
 
-            const externalEmployee = detailsRes.data?.data?.[0];
-            if (externalEmployee) {
-              // Create the user
-              user = new User({
-                username: externalEmployee.name || rawEmpID,
-                email: externalEmployee.email || `${rawEmpID}@company.com`,
-                empID: rawEmpID,
-                designation: externalEmployee.role_name || '',
-                workingBranch: externalEmployee.store_name || 'No Store',
-                locCode: externalEmployee.store_code || '1',
-                phoneNumber: externalEmployee.phone || '',
-                source: 'external-sync-login',
-                password: await bcrypt.hash(normalizedPassword, 10),
-              });
-              await user.save();
-            } else {
-              return res.status(401).json({ message: 'Could not fetch employee details from external system' });
+            const storeName = (verifyData.Store || '').toUpperCase();
+            let locCode = storeNameToLocCode[storeName] || '1';
+
+            let email = `${rawEmpID.toLowerCase()}@company.com`;
+            let phone = '';
+
+            // Attempt to get additional details like email/phone, but don't fail if it doesn't work
+            try {
+              const detailsRes = await axios.post(
+                'https://rootments.in/api/employee_range',
+                { startEmpId: rawEmpID, endEmpId: rawEmpID },
+                {
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${ROOTMENTS_API_TOKEN}`,
+                  },
+                }
+              );
+              const extEmp = detailsRes.data?.data?.[0];
+              if (extEmp) {
+                if (extEmp.email) email = extEmp.email;
+                if (extEmp.phone) phone = extEmp.phone;
+                if (extEmp.store_code) locCode = extEmp.store_code;
+              }
+            } catch (e) {
+              console.log("Could not fetch extra details, using verify response data");
             }
+
+            // Create the user with lowercase empID and 'app' source
+            user = new User({
+              username: verifyData.name || rawEmpID,
+              email: email,
+              empID: rawEmpID.toLowerCase(), // Ensure it is lowercase
+              designation: verifyData.role || '',
+              workingBranch: verifyData.Store || 'No Store',
+              locCode: locCode,
+              phoneNumber: phone,
+              source: 'app', // Set to 'app' so it shows up in Admin dashboard
+              password: await bcrypt.hash(normalizedPassword, 10),
+            });
+            await user.save();
           } else {
-            // 3. User exists locally but didn't have a password. Save it for next time.
+            // User exists locally but didn't have a password. Save it for next time.
             user.password = await bcrypt.hash(normalizedPassword, 10);
             await user.save();
           }
