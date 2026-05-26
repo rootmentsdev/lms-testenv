@@ -170,58 +170,41 @@ export const saveWalkin = async (req, res) => {
     }
 };
 
+import { buildWalkinFilter } from '../lib/permissions.js';
+
 /**
  * Get all walk-in records with role-based filtering and date range support
  */
 export const getWalkins = async (req, res) => {
     try {
-        const { startDate, endDate } = req.query;
-
-        // 1. Fetch user/admin info from JWT token
+        const { startDate, endDate, storeId, employeeId } = req.query;
         const adminId = req.admin.userId;
-        const loggedAdmin = await Admin.findById(adminId).populate('branches');
 
-        if (!loggedAdmin) {
-            return res.status(404).json({ success: false, message: 'Admin account not found' });
-        }
+        // 1. Build Base Query based on date/frontend filters
+        let baseQuery = {};
+        
+        if (storeId) baseQuery.storeId = storeId;
+        if (employeeId) baseQuery.employeeId = employeeId;
 
-        const allowedBranches = loggedAdmin.branches || [];
-        const role = loggedAdmin.role;
-
-        // 2. Fetch all walkins from MongoDB
-        let query = {};
-        const allWalkins = await Walkin.find({}).sort({ createdAt: -1 });
-
-        // 3. Filter walkins by Role-Based Constraints
-        let filtered = allWalkins;
-        if (role !== 'super_admin') {
-            filtered = allWalkins.filter(w => isStoreAllowed(w.store, allowedBranches));
-        }
-
-        // 4. Date Range Filter
+        // Date Range Filter
         if (startDate && endDate) {
-            const parseDate = (dStr) => {
-                if (!dStr) return new Date();
-                const parts = dStr.split('-');
-                if (parts.length === 3) {
-                    if (parts[2].length === 4) {
-                        return new Date(parts[2], parts[1] - 1, parts[0]);
-                    }
-                    return new Date(parts[0], parts[1] - 1, parts[2]);
-                }
-                return new Date(dStr);
-            };
-
             const start = new Date(startDate);
             start.setHours(0, 0, 0, 0);
             const end = new Date(endDate);
             end.setHours(23, 59, 59, 999);
-
-            filtered = filtered.filter(w => {
-                const wDate = parseDate(w.date);
-                return wDate >= start && wDate <= end;
-            });
+            
+            // Assuming we also want to filter by createdAt in the DB
+            baseQuery.createdAt = { $gte: start, $lte: end };
         }
+
+        // 2. Wrap with RBAC
+        const secureQuery = await buildWalkinFilter(adminId, baseQuery);
+        if (secureQuery._id === null) {
+            return res.status(403).json({ success: false, message: 'Admin not found or access denied' });
+        }
+
+        // 3. Fetch filtered walkins directly from MongoDB
+        const filtered = await Walkin.find(secureQuery).sort({ createdAt: -1 });
 
         return res.status(200).json({
             success: true,

@@ -138,13 +138,13 @@ const WalkinList = () => {
             try {
                 // Fetch branches and walkins in parallel — skip employees until form is opened
                 const [branchRes] = await Promise.all([
-                    fetch(`${baseUrl.baseUrl}api/usercreate/getBranch`, {
+                    fetch(`${baseUrl.baseUrl}api/admin/accessible-stores`, {
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
                     }),
                 ]);
 
                 const branchJson = await branchRes.json();
-                const branchList = Array.isArray(branchJson?.data) ? branchJson.data : [];
+                const branchList = Array.isArray(branchJson?.stores) ? branchJson.stores : (Array.isArray(branchJson?.data) ? branchJson.data : []);
                 setBranches(branchList);
 
                 if (branchList.length > 0) {

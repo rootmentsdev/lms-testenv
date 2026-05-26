@@ -425,7 +425,11 @@ const Mandatorytrainingdata = () => {
                   if (confirm('Are you absolutely sure you want to delete ALL mandatory trainings? This action cannot be undone!')) {
                     try {
                       // Fetch all mandatory trainings first
-                      const response = await fetch(`${baseUrl.baseUrl}api/get/mandatory/allusertraining`);
+                      const response = await fetch(`${baseUrl.baseUrl}api/get/mandatory/allusertraining`, {
+                          headers: {
+                              'Authorization': `Bearer ${localStorage.getItem('token')}`
+                          }
+                      });
                       if (!response.ok) throw new Error("Failed to fetch trainings");
                       
                       const result = await response.json();

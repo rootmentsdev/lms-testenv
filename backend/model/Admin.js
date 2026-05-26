@@ -7,7 +7,7 @@ const adminSchema = new mongoose.Schema({
     EmpId: { type: String, required: true },
     role: {
         type: String,
-        enum: ['super_admin', 'cluster_admin', 'store_admin'],
+        enum: ['super_admin', 'hr_admin', 'cluster_admin', 'store_admin'],
         required: true,
     },
     subRole: {
@@ -18,6 +18,9 @@ const adminSchema = new mongoose.Schema({
     password: { type: String, min: 6, },
     permissions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Permission' }],
     branches: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Branch' }],
+    assignedClusters: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Cluster' }],
+    employeeId: { type: String, default: "" },
+    isActive: { type: Boolean, default: true },
 }, { timestamps: true });
 
 // Queried by role to find super_admins and filter by admin type

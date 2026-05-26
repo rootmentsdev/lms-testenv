@@ -54,6 +54,18 @@ const walkinSchema = new mongoose.Schema({
         type: String,
         default: 'New Walkin',
         trim: true
+    },
+    storeId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Branch'
+    },
+    employeeId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Employee'
+    },
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Admin'
     }
 }, {
     timestamps: true

@@ -7,8 +7,7 @@ import { setUser } from '../../features/auth/authSlice';
 
 const ROLES = [
   { value: 'super_admin',   label: 'Super Admin' },
-  { value: 'cluster_admin', label: 'Cluster Admin' },
-  { value: 'store_admin',   label: 'Store Admin' },
+  { value: 'hr_admin',      label: 'HR Admin' },
 ];
 
 /* ── Animated face SVG ─────────────────────────────────────────────────────── */

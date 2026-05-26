@@ -69,18 +69,22 @@ export const HomeBar = async (req, res) => {
     try {
         const Admin1 = req.admin.userId;
 
-        const AdminData = await Admin.findById(Admin1).populate('branches');
-        const isSuperAdmin = AdminData.role === 'super_admin';
+        const AdminData = await Admin.findById(Admin1);
+        if (!AdminData) return res.status(404).json({ message: "Admin not found" });
+
+        // Step 1: Use RBAC to get accessible stores
+        const accessibleStoreIds = await getAccessibleStoreIds(Admin1);
+        const branches = await Branch.find({ _id: { $in: accessibleStoreIds } });
         
-        // Super admin sees all branches; others see only their assigned branches
-        const branches = isSuperAdmin
-            ? await Branch.find({})
-            : await Branch.find({ _id: { $in: AdminData.branches } });
+        const allowedLocCodes = branches.map(b => b.locCode);
         
-        const allowedLocCodes = isSuperAdmin
-            ? branches.map(b => b.locCode)
-            : AdminData.branches.map(branch => branch.locCode);
-        const users = await User.find({ locCode: { $in: allowedLocCodes } });
+        // Step 2: Find all users based on RBAC
+        let users = [];
+        if (isFullAccessAdmin(AdminData.role)) {
+            users = await User.find({});
+        } else {
+            users = await User.find({ locCode: { $in: allowedLocCodes } });
+        }
         
         // Fetch mandatory training data for all users
         const userIds = users.map(user => user._id);
@@ -488,39 +492,68 @@ export const CreatingAdminUsers = async (req, res) => {
         }
 
         // Check if role is valid
-        const validRoles = ['super_admin', 'cluster_admin', 'store_admin'];
+        const validRoles = ['super_admin', 'hr_admin', 'cluster_admin', 'store_admin'];
         if (!validRoles.includes(role)) {
             return res.status(400).json({
-                message: "Invalid role provided. Valid roles are: super_admin, cluster_admin, store_admin.",
+                message: "Invalid role provided. Valid roles are: super_admin, hr_admin, cluster_admin, store_admin.",
+            });
+        }
+
+        // Public signup restrict to super_admin and hr_admin
+        // If they want to create cluster/store admin, they must be authenticated
+        if (!req.admin && ['cluster_admin', 'store_admin'].includes(role)) {
+            return res.status(403).json({
+                message: "Public signup is only allowed for super_admin and hr_admin. To create cluster/store admins, please log in first.",
             });
         }
 
         // Fetch permissions for the role from the Permission collection
-        const rolePermissions = await Permission.findOne({ role });
+        let rolePermissions = await Permission.findOne({ role });
         if (!rolePermissions) {
-            return res.status(400).json({
-                message: `Permissions not found for the role: ${role}`,
+            console.log(`Permissions not found for role ${role}. Auto-creating default permissions...`);
+            const isSuper = (role === 'super_admin' || role === 'hr_admin');
+            rolePermissions = new Permission({
+                role: role,
+                permissions: {
+                    canCreateTraining: isSuper,
+                    canCreateAssessment: isSuper,
+                    canReassignTraining: isSuper,
+                    canReassignAssessment: isSuper,
+                    canDeleteTraining: isSuper,
+                    canDeleteAssessment: isSuper
+                }
             });
+            await rolePermissions.save();
         }
         console.log('Role permissions:', rolePermissions._id);
 
-        // Determine branches for the admin
+        // Determine branches/clusters for the admin
         let finalBranches = [];
-        if (role === 'super_admin') {
+        let finalClusters = [];
+        if (role === 'super_admin' || role === 'hr_admin') {
             const allBranches = await Branch.find();
-            if (allBranches.length === 0) {
-                return res.status(404).json({
-                    message: "No branches found to assign to the super admin.",
-                });
-            }
             finalBranches = allBranches.map((branch) => branch._id);
+            // No need to explicitly set finalClusters as they have full access anyway
         } else {
-            if (!branches || branches.length === 0) {
-                return res.status(400).json({
-                    message: `Branches must be provided for the role: ${role}.`,
-                });
+            // For store_admin and cluster_admin
+            if (role === 'store_admin') {
+                if (!branches || branches.length === 0) {
+                    return res.status(400).json({
+                        message: `Branches must be provided for the role: ${role}.`,
+                    });
+                }
+                finalBranches = branches;
+            } else if (role === 'cluster_admin') {
+                // We'll map the `Branch` field from frontend to `assignedClusters` for now, 
+                // or assume frontend passes `clusters` array. Let's look for `req.body.clusters`.
+                const { clusters } = req.body;
+                if (!clusters || clusters.length === 0) {
+                    return res.status(400).json({
+                        message: `Clusters must be provided for the role: ${role}.`,
+                    });
+                }
+                finalClusters = clusters;
             }
-            finalBranches = branches;
         }
 
         // Create the admin user with the fetched permissions
@@ -533,6 +566,7 @@ export const CreatingAdminUsers = async (req, res) => {
             role,
             permissions: rolePermissions._id, // Assuming permissions are stored as an ObjectId
             branches: finalBranches,
+            assignedClusters: finalClusters,
         });
 
         // Save the admin user
@@ -582,6 +616,52 @@ const upsertPermissions = async (role, permissions) => {
         }
     } catch (error) {
         console.error('Error adding or updating permissions:', error);
+    }
+};
+import { getAccessibleStoreIds, getAccessibleEmployeeIds, isFullAccessAdmin } from '../lib/permissions.js';
+import Employee from '../model/Employee.js';
+
+export const getAccessibleStores = async (req, res) => {
+    try {
+        if (!req.admin) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+        
+        const storeIds = await getAccessibleStoreIds(req.admin.userId);
+        const stores = await Branch.find({ _id: { $in: storeIds }, isActive: true });
+        
+        res.status(200).json({ stores });
+    } catch (error) {
+        console.error("Error fetching accessible stores:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+export const getAccessibleEmployees = async (req, res) => {
+    try {
+        if (!req.admin) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+        
+        // Optional storeId filter
+        const { storeId } = req.query;
+        let employeeIds = await getAccessibleEmployeeIds(req.admin.userId);
+        
+        let query = { _id: { $in: employeeIds }, status: 'Active' };
+        
+        if (storeId) {
+            const accessibleStoreIds = await getAccessibleStoreIds(req.admin.userId);
+            if (!accessibleStoreIds.includes(storeId)) {
+                return res.status(403).json({ message: "Access denied to this store's employees" });
+            }
+            query.storeId = storeId;
+        }
+
+        const employees = await Employee.find(query);
+        res.status(200).json({ employees });
+    } catch (error) {
+        console.error("Error fetching accessible employees:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
     }
 };
 

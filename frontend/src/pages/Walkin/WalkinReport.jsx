@@ -72,9 +72,9 @@ const WalkinReport = () => {
     const load = async () => {
       setLoading(true);
       try {
-        const res  = await fetch(`${baseUrl.baseUrl}api/usercreate/getBranch`, { headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` } });
+        const res  = await fetch(`${baseUrl.baseUrl}api/admin/accessible-stores`, { headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` } });
         const json = await res.json();
-        const list = Array.isArray(json?.data) ? json.data : [];
+        const list = Array.isArray(json?.stores) ? json.stores : (Array.isArray(json?.data) ? json.data : []);
         setBranches(list);
         if (user?.role === 'store_admin' && list.length > 0) setFormData(p=>({...p, store: list[0].workingBranch}));
       } catch(e){ console.error(e); }

@@ -182,27 +182,39 @@ export const createTask = async (req, res) => {
   }
 };
 
+import { buildTaskFilter } from '../lib/permissions.js';
+
 export const getTasks = async (req, res) => {
   try {
-    const admin = await Admin.findById(req.admin.userId).populate('branches');
-    if (!admin) {
-      return res.status(404).json({ success: false, message: 'Admin not found' });
+    const adminId = req.admin.userId;
+    const { search, category, priority, status, storeId, employeeId } = req.query;
+    
+    // 1. Build Base Query
+    let baseQuery = {};
+    if (storeId) {
+        baseQuery.storeCode = storeId;
+    }
+    if (employeeId) {
+        baseQuery.assignedTo = employeeId;
+    }
+    if (category && category !== 'All') {
+      baseQuery.category = { $regex: new RegExp(category, 'i') };
+    }
+    if (priority && priority !== 'All') {
+      baseQuery.priority = priority;
+    }
+    if (status && status !== 'All') {
+      baseQuery.status = status;
     }
 
-    const { search, category, priority, status } = req.query;
-    let tasks = await Task.find({}).sort({ createdAt: -1 }).lean();
-
-    if (admin.role !== 'super_admin') {
-      const allowedCodes = (admin.branches || []).map((b) => b.locCode).filter(Boolean);
-      const allowedNames = (admin.branches || []).map((b) => b.workingBranch).filter(Boolean);
-
-      tasks = tasks.filter((t) => {
-        if (t.createdBy?.toString() === admin._id.toString()) return true;
-        if (t.storeCode && allowedCodes.some((c) => t.storeCode.includes(c))) return true;
-        if (t.storeName && allowedNames.includes(t.storeName)) return true;
-        return assignedToMatchesRole(t.assignedTo, admin.role);
-      });
+    // 2. Wrap with RBAC Filter
+    const secureQuery = await buildTaskFilter(adminId, baseQuery);
+    if (secureQuery._id === null) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
     }
+
+    // 3. Fetch filtered tasks directly from MongoDB
+    let tasks = await Task.find(secureQuery).sort({ createdAt: -1 }).lean();
 
     let mapped = tasks.map((t) => mapTaskForClient(t));
 
