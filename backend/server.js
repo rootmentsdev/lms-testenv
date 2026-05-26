@@ -479,7 +479,7 @@ cron.schedule("30 18 * * *", async () => {
 }, { timezone: "Asia/Kolkata" });
 
 connectMongoDB().then(() => {
-  app.listen(port, () => {
+  app.listen(port, '0.0.0.0', () => {
     console.log(`✅ Server running on port ${port}`);
     
     // Keep the legacy employee sync opt-in so old external API data does not
