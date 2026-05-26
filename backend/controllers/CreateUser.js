@@ -279,18 +279,84 @@ export const flutterLogin = async (req, res) => {
     };
     if (normalizedEmail) query.email = normalizedEmail;
 
-    const user = await User.findOne(query);
-    if (!user) {
-      return res.status(401).json({ message: 'Employee ID not found' });
+    let user = await User.findOne(query);
+    let isAuthenticated = false;
+
+    if (!user || !user.password) {
+      // User doesn't exist locally, OR doesn't have a password. Fallback to external API.
+      const axios = (await import('axios')).default;
+      const ROOTMENTS_API_TOKEN = 'RootX-production-9d17d9485eb772e79df8564004d4a4d4';
+      
+      try {
+        // 1. Verify credentials with external API
+        const verifyRes = await axios.post(
+          'https://rootments.in/api/verify_employee',
+          { employeeId: rawEmpID, password: normalizedPassword },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${ROOTMENTS_API_TOKEN}`,
+            },
+          }
+        );
+
+        if (verifyRes.data && verifyRes.data.status === 'success') {
+          isAuthenticated = true;
+          
+          if (!user) {
+            // 2. User authenticated externally but doesn't exist locally! Fetch details to create them.
+            const detailsRes = await axios.post(
+              'https://rootments.in/api/employee_range',
+              { startEmpId: rawEmpID, endEmpId: rawEmpID },
+              {
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${ROOTMENTS_API_TOKEN}`,
+                },
+              }
+            );
+
+            const externalEmployee = detailsRes.data?.data?.[0];
+            if (externalEmployee) {
+              // Create the user
+              user = new User({
+                username: externalEmployee.name || rawEmpID,
+                email: externalEmployee.email || `${rawEmpID}@company.com`,
+                empID: rawEmpID,
+                designation: externalEmployee.role_name || '',
+                workingBranch: externalEmployee.store_name || 'No Store',
+                locCode: externalEmployee.store_code || '1',
+                phoneNumber: externalEmployee.phone || '',
+                source: 'external-sync-login',
+                password: await bcrypt.hash(normalizedPassword, 10),
+              });
+              await user.save();
+            } else {
+              return res.status(401).json({ message: 'Could not fetch employee details from external system' });
+            }
+          } else {
+            // 3. User exists locally but didn't have a password. Save it for next time.
+            user.password = await bcrypt.hash(normalizedPassword, 10);
+            await user.save();
+          }
+        } else {
+          return res.status(401).json({ message: 'Incorrect password' });
+        }
+      } catch (err) {
+        console.error('External authentication error:', err.message);
+        return res.status(401).json({ message: 'Authentication failed (external service error)' });
+      }
+    } else {
+      // User exists locally and HAS a password. Verify normally.
+      const isPasswordMatch = await bcrypt.compare(normalizedPassword, user.password);
+      if (!isPasswordMatch) {
+        return res.status(401).json({ message: 'Incorrect password' });
+      }
+      isAuthenticated = true;
     }
 
-    if (!user.password) {
-      return res.status(400).json({ message: 'Password is not set for this employee. Please update the account first.' });
-    }
-
-    const isPasswordMatch = await bcrypt.compare(normalizedPassword, user.password);
-    if (!isPasswordMatch) {
-      return res.status(401).json({ message: 'Incorrect password' });
+    if (!isAuthenticated || !user) {
+      return res.status(401).json({ message: 'Authentication failed' });
     }
 
     if (!process.env.JWT_SECRET) {
