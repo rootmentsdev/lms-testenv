@@ -269,3 +269,13 @@ LICENSE
 -------
 MIT License - Rootments
 
+
+## Recent Updates (May 2026)
+### Mobile App Login Auto-Provisioning (`flutterLogin`)
+The mobile app login system now securely authenticates users and auto-provisions them from the external HR system if they have a fresh or empty database.
+- **External Data Fallback:** If the user is missing or lacks a password, the system verifies their password directly against `rootments.in/api/verify_employee`. 
+- **Auto-Saving Users:** By utilizing the `verifyRes.data.data` as the primary source of truth, it ensures new users are successfully saved into the LMS MongoDB even if secondary APIs fail.
+- **Lowercase Enforcement:** Forces all `empID`s to save in lowercase (e.g. `emp188`) regardless of how the user types them, ensuring there are no duplicate accounts.
+- **Strict Store Code Mapping:** Maps literal external `store_name` strings (like `Z-Edapally1`) to exact integer Location Codes (`locCode`) via a 24-store mapping dictionary. This ensures that new users show up accurately scoped to Cluster Admins and Store Admins.
+- **Global Visibility:** Registers the auto-synced user with `source: 'app'` so they correctly appear for Super Admins and HR Admins in the `getAllAppRegisteredEmployees` endpoints.
+
