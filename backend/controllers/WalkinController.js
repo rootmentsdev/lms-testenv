@@ -1,6 +1,7 @@
 import Walkin from '../model/Walkin.js';
 import Admin from '../model/Admin.js';
 import User from '../model/User.js';
+import Branch from '../model/Branch.js';
 import { validateStoreAccess, validateEmployeeAccess, buildWalkinFilter } from '../lib/permissions.js';
 
 /* ---------- Location Name Normalization helpers ---------- */
@@ -139,8 +140,18 @@ export const saveWalkin = async (req, res) => {
                 if (user) {
                     finalStore = user.workingBranch || finalStore;
                     finalStaff = user.username || finalStaff;
-                    // You might map user.locCode to storeId if your DB supports it
                     finalEmployeeId = user._id;
+                    
+                    // Automatically resolve the storeId from Branch table
+                    const branch = await Branch.findOne({
+                        $or: [
+                            { locCode: user.locCode },
+                            { workingBranch: user.workingBranch }
+                        ]
+                    });
+                    if (branch) {
+                        finalStoreId = branch._id;
+                    }
                 }
             } else if (!req.admin.isSystem) {
                 // Admin user, validate explicit storeId and employeeId if provided
@@ -163,7 +174,8 @@ export const saveWalkin = async (req, res) => {
         let walkinRecord = await Walkin.findOne(query).sort({ createdAt: -1 });
 
         if (walkinRecord && status !== 'New Walkin') {
-            // Update existing record to avoid duplicates (do NOT increment repeatCount during update)
+            // Update existing record to avoid duplicates and increment repeatCount
+            walkinRecord.repeatCount += 1;
             walkinRecord.customerName = customerName.trim();
             if (functionDate) walkinRecord.functionDate = functionDate.trim();
             if (finalStore) walkinRecord.store = finalStore;
