@@ -657,7 +657,42 @@ export const getAccessibleEmployees = async (req, res) => {
             query.storeId = storeId;
         }
 
-        const employees = await Employee.find(query);
+        let employees = await Employee.find(query);
+
+        // Fallback: If no employees are found in employeedata, query User collection and map them
+        if (employees.length === 0) {
+            const accessibleStoreIds = await getAccessibleStoreIds(req.admin.userId);
+            const branches = await Branch.find({ _id: { $in: accessibleStoreIds } });
+            
+            let userQuery = {};
+            if (storeId) {
+                const targetBranch = branches.find(b => b._id.toString() === storeId.toString());
+                if (targetBranch) {
+                    userQuery.locCode = targetBranch.locCode;
+                } else {
+                    userQuery.locCode = "NON_EXISTENT";
+                }
+            } else {
+                const locCodes = branches.map(b => b.locCode);
+                userQuery.locCode = { $in: locCodes };
+            }
+            
+            const users = await User.find(userQuery).lean();
+            employees = users.map(u => ({
+                _id: u._id,
+                employeeId: u.empID,
+                username: u.username,
+                firstName: u.username.split(' ')[0] || '',
+                lastName: u.username.split(' ').slice(1).join(' ') || '',
+                email: u.email,
+                phoneNumber: u.phoneNumber,
+                designation: u.designation,
+                workingBranch: u.workingBranch,
+                locCode: u.locCode,
+                status: 'Active'
+            }));
+        }
+
         res.status(200).json({ employees });
     } catch (error) {
         console.error("Error fetching accessible employees:", error);

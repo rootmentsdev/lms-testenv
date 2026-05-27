@@ -1,5 +1,4 @@
-
-
+// Triggering nodemon restart for MONGODB_URI update
 import dotenv from 'dotenv';
 dotenv.config();
 

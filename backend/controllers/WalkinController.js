@@ -1,7 +1,8 @@
 import Walkin from '../model/Walkin.js';
 import Admin from '../model/Admin.js';
 import User from '../model/User.js';
-import { validateStoreAccess, validateEmployeeAccess } from '../lib/permissions.js';
+import Branch from '../model/Branch.js';
+import { validateStoreAccess, validateEmployeeAccess, buildWalkinFilter } from '../lib/permissions.js';
 
 /* ---------- Location Name Normalization helpers ---------- */
 const BRAND_TOKENS = new Set(["zorucci", "grooms", "suitor", "guy", "sg"]);
@@ -55,8 +56,19 @@ export const checkCustomerExists = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Contact phone number is required' });
         }
 
+        let query = { contact: contact.trim() };
+
+        // Apply role-based filtering if admin token is present
+        if (req.admin) {
+            const adminId = req.admin.userId;
+            query = await buildWalkinFilter(adminId, query);
+            if (query._id === null) {
+                return res.status(403).json({ success: false, message: 'Admin not found or access denied' });
+            }
+        }
+
         // Find the latest walkin record for this customer
-        const latestWalkin = await Walkin.findOne({ contact: contact.trim() })
+        const latestWalkin = await Walkin.findOne(query)
             .sort({ createdAt: -1 });
 
         if (latestWalkin) {
@@ -64,14 +76,7 @@ export const checkCustomerExists = async (req, res) => {
                 success: true,
                 exists: true,
                 message: 'Customer exists',
-                data: {
-                    customerName: latestWalkin.customerName,
-                    contact: latestWalkin.contact,
-                    functionDate: latestWalkin.functionDate,
-                    remarks: latestWalkin.remarks,
-                    status: latestWalkin.status,
-                    repeatCount: latestWalkin.repeatCount
-                }
+                data: latestWalkin
             });
         }
 
@@ -135,8 +140,18 @@ export const saveWalkin = async (req, res) => {
                 if (user) {
                     finalStore = user.workingBranch || finalStore;
                     finalStaff = user.username || finalStaff;
-                    // You might map user.locCode to storeId if your DB supports it
                     finalEmployeeId = user._id;
+                    
+                    // Automatically resolve the storeId from Branch table
+                    const branch = await Branch.findOne({
+                        $or: [
+                            { locCode: user.locCode },
+                            { workingBranch: user.workingBranch }
+                        ]
+                    });
+                    if (branch) {
+                        finalStoreId = branch._id;
+                    }
                 }
             } else if (!req.admin.isSystem) {
                 // Admin user, validate explicit storeId and employeeId if provided
@@ -151,10 +166,15 @@ export const saveWalkin = async (req, res) => {
             }
         }
 
-        let walkinRecord = await Walkin.findOne({ contact: trimmedContact }).sort({ createdAt: -1 });
+        let query = { contact: trimmedContact };
+        if (req.admin) {
+            const adminId = req.admin.userId;
+            query = await buildWalkinFilter(adminId, query);
+        }
+        let walkinRecord = await Walkin.findOne(query).sort({ createdAt: -1 });
 
         if (walkinRecord && status !== 'New Walkin') {
-            // Update existing record to avoid duplicates
+            // Update existing record to avoid duplicates and increment repeatCount
             walkinRecord.repeatCount += 1;
             walkinRecord.customerName = customerName.trim();
             if (functionDate) walkinRecord.functionDate = functionDate.trim();
@@ -200,7 +220,6 @@ export const saveWalkin = async (req, res) => {
                 data: newWalkin
             });
         }
-
     } catch (error) {
         console.error('Error saving walk-in:', error);
         return res.status(500).json({
@@ -210,8 +229,6 @@ export const saveWalkin = async (req, res) => {
         });
     }
 };
-
-import { buildWalkinFilter } from '../lib/permissions.js';
 
 /**
  * Get all walk-in records with role-based filtering and date range support

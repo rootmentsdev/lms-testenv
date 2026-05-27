@@ -231,33 +231,45 @@ export const getVisibility = async (req, res) => {
 
 export const AdminLogin = async (req, res) => {
     const { EmpId, email, role } = req.body;
-    console.log('Login Attempt:', { EmpId, email, role });
+    console.log('🔓 [LOGIN] Attempt:', { email, role: role || 'not specified' });
 
     try {
+        // Validate required fields
+        if (!email || !EmpId) {
+            console.log('❌ [LOGIN] Missing required fields');
+            return res.status(400).json({ message: 'Email and password are required' });
+        }
+
         // Find user by email
         const user = await Admin.findOne({ email });
+        
         if (!user) {
+            console.log('❌ [LOGIN] Admin not found:', email);
             return res.status(400).json({ message: 'User not found' });
         }
 
-        console.log('User Found:', user);
+        console.log('✅ [LOGIN] Admin found:', user.name);
 
         // Verify role against database if role is provided
         if (role && user.role !== role) {
+            console.log('❌ [LOGIN] Role mismatch - expected:', user.role, 'got:', role);
             return res.status(403).json({ message: `Role mismatch: Cannot log in as ${role}` });
         }
 
         // Compare entered EmpId (as password) with the stored hashed password
         if (!user.password) {
+            console.log('❌ [LOGIN] Password not set in database for:', email);
             return res.status(500).json({ message: 'User password is not set in the database.' });
         }
 
         const isPasswordValid = await bcrypt.compare(EmpId, user.password);
-        console.log('Password Validation:', isPasswordValid);
 
         if (!isPasswordValid) {
+            console.log('❌ [LOGIN] Invalid password for:', email);
             return res.status(401).json({ message: 'Invalid credentials' });
         }
+
+        console.log('✅ [LOGIN] Password valid for:', email);
 
         // Create payload for the JWT
         const payload = {
@@ -268,11 +280,12 @@ export const AdminLogin = async (req, res) => {
 
         // Sign the JWT token with secret key
         const token = jwt.sign(payload, process.env.JWT_SECRET);
+        console.log('✅ [LOGIN] Token generated for:', email);
 
         // Send the token in the response
         res.json({ token, user: payload });
     } catch (err) {
-        console.error('Error during login:', err);
+        console.error('❌ [LOGIN] Server error:', err.message);
         res.status(500).json({ message: 'Server error', error: err.message });
     }
 };

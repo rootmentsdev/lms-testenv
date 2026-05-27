@@ -2,6 +2,7 @@ import Admin from '../model/Admin.js';
 import Branch from '../model/Branch.js';
 import Employee from '../model/Employee.js';
 import Cluster from '../model/Cluster.js';
+import User from '../model/User.js';
 
 /**
  * Validates if the user is a super admin or hr admin (full access)
@@ -15,7 +16,20 @@ export const isFullAccessAdmin = (adminRole) => {
  */
 export const getAccessibleStoreIds = async (adminId) => {
     const admin = await Admin.findById(adminId).populate('branches assignedClusters');
-    if (!admin) return [];
+    if (!admin) {
+        // Fallback: Check if this is a regular User (employee)
+        const user = await User.findById(adminId);
+        if (!user) return [];
+        
+        // Find the Branch matching the user's locCode/workingBranch
+        const branch = await Branch.findOne({ 
+            $or: [
+                { locCode: user.locCode },
+                { workingBranch: user.workingBranch }
+            ]
+        });
+        return branch ? [branch._id.toString()] : [];
+    }
 
     if (isFullAccessAdmin(admin.role)) {
         // Full access: return all branch IDs
@@ -59,15 +73,28 @@ export const validateStoreAccess = async (adminId, storeId) => {
  */
 export const getAccessibleEmployeeIds = async (adminId, storeId = null) => {
     const admin = await Admin.findById(adminId);
-    if (!admin) return [];
-
     let accessibleStoreIds = [];
-    if (isFullAccessAdmin(admin.role)) {
-        // Full access: all stores are accessible
-        const allBranches = await Branch.find({ isActive: true }).select('_id');
-        accessibleStoreIds = allBranches.map(b => b._id.toString());
+    
+    if (!admin) {
+        // Fallback: Check if this is a regular User (employee)
+        const user = await User.findById(adminId);
+        if (!user) return [];
+        
+        const branch = await Branch.findOne({ 
+            $or: [
+                { locCode: user.locCode },
+                { workingBranch: user.workingBranch }
+            ]
+        });
+        accessibleStoreIds = branch ? [branch._id.toString()] : [];
     } else {
-        accessibleStoreIds = await getAccessibleStoreIds(adminId);
+        if (isFullAccessAdmin(admin.role)) {
+            // Full access: all stores are accessible
+            const allBranches = await Branch.find({ isActive: true }).select('_id');
+            accessibleStoreIds = allBranches.map(b => b._id.toString());
+        } else {
+            accessibleStoreIds = await getAccessibleStoreIds(adminId);
+        }
     }
 
     // If a specific store is requested, validate it's within accessible stores
@@ -85,7 +112,17 @@ export const getAccessibleEmployeeIds = async (adminId, storeId = null) => {
         status: 'Active'
     }).select('_id');
 
-    return accessibleEmployees.map(e => e._id.toString());
+    // Also get users that belong to accessible stores from User collection (fallback/merge)
+    const branches = await Branch.find({ _id: { $in: accessibleStoreIds } });
+    const locCodes = branches.map(b => b.locCode);
+    const users = await User.find({ locCode: { $in: locCodes } }).select('_id');
+
+    const allIds = new Set([
+        ...accessibleEmployees.map(e => e._id.toString()),
+        ...users.map(u => u._id.toString())
+    ]);
+
+    return Array.from(allIds);
 };
 
 /**
@@ -104,7 +141,30 @@ export const validateEmployeeAccess = async (adminId, employeeId) => {
  */
 export const buildWalkinFilter = async (adminId, baseQuery = {}) => {
     const admin = await Admin.findById(adminId);
-    if (!admin) return { _id: null }; // Return impossible query if admin not found
+    if (!admin) {
+        // Fallback: Check if this is a regular User (employee)
+        const user = await User.findById(adminId);
+        if (!user) return { _id: null }; // Return impossible query if admin or user not found
+        
+        // Find the Branch matching the user's locCode/workingBranch
+        const branch = await Branch.findOne({ 
+            $or: [
+                { locCode: user.locCode },
+                { workingBranch: user.workingBranch }
+            ]
+        });
+        const accessibleStoreIds = branch ? [branch._id.toString()] : [];
+        const locCodes = [user.locCode];
+        const workingBranches = [user.workingBranch];
+        
+        return {
+            ...baseQuery,
+            $or: [
+                { storeId: { $in: accessibleStoreIds } },
+                { store: { $in: [...locCodes, ...workingBranches].filter(Boolean) } }
+            ]
+        };
+    }
 
     if (isFullAccessAdmin(admin.role)) {
         return baseQuery;

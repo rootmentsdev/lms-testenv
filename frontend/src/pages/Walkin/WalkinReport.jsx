@@ -83,19 +83,34 @@ const WalkinReport = () => {
     if (token) load();
   }, [token, user?.role]);
 
-  /* load employees when store changes */
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const res  = await fetch(`${baseUrl.baseUrl}api/employee/management/with-training-details`, { headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` } });
-        const json = await res.json();
-        setEmployees(Array.isArray(json) ? json : (Array.isArray(json?.data) ? json.data : []));
-      } catch(e){ console.error(e); }
-    };
-    if (token) load();
-  }, [token]);
+  // Load employees dynamically based on selected store
+  const loadEmployeesForStore = async (storeName) => {
+    try {
+      let url = `${baseUrl.baseUrl}api/admin/accessible-employees`;
+      if (storeName && storeName !== 'All') {
+        const selectedBranch = branches.find(b => b.workingBranch === storeName);
+        if (selectedBranch && selectedBranch._id) {
+          url += `?storeId=${selectedBranch._id}`;
+        }
+      }
+      const res = await fetch(url, {
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+      });
+      const json = await res.json();
+      const list = Array.isArray(json?.employees) ? json.employees : [];
+      setEmployees(list);
+    } catch (e) {
+      console.error('Error loading employees:', e);
+    }
+  };
 
-  const storeEmployees = formData.store === 'All' ? employees : employees.filter(e => locationKey(e.store_name||e.workingBranch||'') === locationKey(formData.store));
+  useEffect(() => {
+    if (token && branches.length > 0) {
+      loadEmployeesForStore(formData.store);
+    }
+  }, [token, formData.store, branches]);
+
+  const storeEmployees = employees;
 
   const handleGenerate = async (e) => {
     e.preventDefault();

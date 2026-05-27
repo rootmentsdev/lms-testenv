@@ -72,8 +72,6 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.get('/check/:contact', checkCustomerExists);
-
 import jwt from 'jsonwebtoken';
 
 const OptionalMiddilWare = (req, res, next) => {
@@ -89,16 +87,25 @@ const OptionalMiddilWare = (req, res, next) => {
     }
 };
 
+router.get('/check/:contact', OptionalMiddilWare, checkCustomerExists);
+
+
 /**
  * @swagger
  * /api/walkin/save:
  *   post:
  *     tags: [Walkin]
- *     summary: Save a new walk-in / lead record (Used by Mobile App)
+ *     summary: Save a new walk-in / lead record (Used by Mobile App & Web Dashboard)
  *     description: >
- *       **Where to use:** Use this API in the mobile app to submit the final lead creation form.
+ *       **Where to use:** Use this API in the mobile app or web app to submit the lead creation/edit form.
  *       
- *       **What it does:** Stores a new walk-in entry in the database. It automatically computes and increments the `repeatCount` in the background if the customer's phone number already exists in the system.
+ *       **What it does:** Stores a new walk-in entry or updates an existing one. Automatically resolves staff/username, store, storeId, employeeId, and date from the authentication token if they are not provided explicitly.
+ *       
+ *       **Update/Create logic:**
+ *       - If an existing walk-in record with the same contact number is found within the user's role/store limits:
+ *         - If the status is `'New Walkin'`, a new record is created with `repeatCount = existing + 1`.
+ *         - Otherwise, the existing record is updated and its `repeatCount` is incremented.
+ *       - If no existing walk-in matches, a brand-new record is created.
  *     requestBody:
  *       required: true
  *       content:
@@ -109,7 +116,6 @@ const OptionalMiddilWare = (req, res, next) => {
  *               - customerName
  *               - contact
  *               - functionDate
- *               - store
  *             properties:
  *               customerName:
  *                 type: string
@@ -123,18 +129,18 @@ const OptionalMiddilWare = (req, res, next) => {
  *                 example: "2026-06-25"
  *               store:
  *                 type: string
- *                 description: The name of the store generating the lead
+ *                 description: The name of the store generating the lead (Optional: automatically resolved from token)
  *                 example: "GROOMS Kochi"
  *               staff:
  *                 type: string
- *                 description: The employee assigned to this lead (Optional)
+ *                 description: The employee assigned to this lead (Optional: automatically resolved from token)
  *                 example: "Jane Doe"
  *               storeId:
  *                 type: string
- *                 description: Store ID (Required for admin web)
+ *                 description: Store ID (Optional: automatically resolved from token)
  *               employeeId:
  *                 type: string
- *                 description: Employee ID (Required for admin web)
+ *                 description: Employee ID (Optional: automatically resolved from token)
  *               category:
  *                 type: string
  *                 example: "Groom"

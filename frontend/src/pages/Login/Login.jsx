@@ -300,6 +300,7 @@ const Login = () => {
                       type={showPassword ? 'text' : 'password'}
                       placeholder="••••••••"
                       value={password} required
+                      autoComplete="off"
                       onChange={(e) => setPassword(e.target.value)}
                       onFocus={() => setPasswordFocused(true)}
                       onBlur={() => setPasswordFocused(false)}
@@ -383,6 +384,7 @@ const Login = () => {
                       type={showPassword ? 'text' : 'password'}
                       placeholder="Password"
                       value={signup.password} required
+                      autoComplete="off"
                       onChange={set('password')}
                       onFocus={() => setPasswordFocused(true)}
                       onBlur={() => setPasswordFocused(false)}
