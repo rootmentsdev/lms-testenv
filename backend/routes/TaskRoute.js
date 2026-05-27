@@ -1,16 +1,55 @@
 import express from 'express';
-import { createTask, getTasks, getTaskById } from '../controllers/TaskController.js';
+import { createTask, getTasks, getTaskById, getTaskAssignees } from '../controllers/TaskController.js';
 import { MiddilWare } from '../lib/middilWare.js';
 
 const router = express.Router();
 
 /**
  * @swagger
- * /api/tasks/save:
+ * /api/task/assignees:
+ *   get:
+ *     tags: [Tasks]
+ *     summary: Retrieve assignable users and groups
+ *     description: Returns a list of generic role-based group options (e.g. All Employees) and individual admins/employees based on the logged-in user's role.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of assignees retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       value:
+ *                         type: string
+ *                       label:
+ *                         type: string
+ *                       type:
+ *                         type: string
+ *                       role:
+ *                         type: string
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/assignees', MiddilWare, getTaskAssignees);
+
+/**
+ * @swagger
+ * /api/task/save:
  *   post:
  *     tags: [Tasks]
  *     summary: Create a new task
- *     description: Create a task assigned to a store or employee. Secured with role-based restrictions.
+ *     description: Create a task assigned to a store, employee, or generic group. Secured with role-based restrictions.
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -28,22 +67,39 @@ const router = express.Router();
  *                 type: string
  *               assignedTo:
  *                 type: string
+ *               assignedToLabel:
+ *                 type: string
  *               mode:
  *                 type: string
+ *                 enum: [task, auto]
  *               startDate:
  *                 type: string
+ *                 description: Start date in YYYY-MM-DD format
  *               startTime:
  *                 type: string
+ *                 description: Start time, e.g. "11:20am"
  *               endDate:
  *                 type: string
+ *                 description: End date in YYYY-MM-DD format
  *               endTime:
  *                 type: string
+ *                 description: End time, e.g. "11:20am"
  *               description:
  *                 type: string
  *               additionalInfo:
  *                 type: string
  *               priority:
  *                 type: string
+ *                 enum: [Urgent, High, Normal, Low]
+ *               fileAttachment:
+ *                 type: object
+ *                 properties:
+ *                   name:
+ *                     type: string
+ *                     description: Original filename
+ *                   base64:
+ *                     type: string
+ *                     description: Base64 data URI string of the file
  *     responses:
  *       201:
  *         description: Task created successfully
@@ -56,11 +112,11 @@ router.post('/save', MiddilWare, createTask);
 
 /**
  * @swagger
- * /api/tasks/list:
+ * /api/task/list:
  *   get:
  *     tags: [Tasks]
  *     summary: Retrieve list of tasks
- *     description: Get tasks assigned to the admin's scope using RBAC filters.
+ *     description: Get tasks assigned to the logged-in user or admin's scope using RBAC filters.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -104,7 +160,7 @@ router.get('/list', MiddilWare, getTasks);
 
 /**
  * @swagger
- * /api/tasks/{id}:
+ * /api/task/{id}:
  *   get:
  *     tags: [Tasks]
  *     summary: Retrieve a single task by ID

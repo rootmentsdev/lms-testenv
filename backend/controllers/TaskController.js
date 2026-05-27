@@ -1,5 +1,15 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import Task from '../model/Task.js';
 import Admin from '../model/Admin.js';
+import Employee from '../model/Employee.js';
+import User from '../model/User.js';
+import Branch from '../model/Branch.js';
+import { getAccessibleEmployeeIds, getAccessibleStoreIds } from '../lib/permissions.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const ASSIGNED_TO_LABELS = {
   store_admin: 'Store Admin',
@@ -98,6 +108,8 @@ const mapTaskForClient = (doc) => {
     endDateDetail: task.endDate ? formatDetailDate(task.endDate) : '—',
     mode: task.mode,
     additionalInfo: task.additionalInfo,
+    attachment: task.attachment || '',
+    attachmentName: task.attachmentName || '',
     createdAt: task.createdAt,
   };
 };
@@ -109,9 +121,14 @@ const nextTaskCode = async () => {
 
 export const createTask = async (req, res) => {
   try {
-    const admin = await Admin.findById(req.admin.userId).populate('branches');
-    if (!admin) {
-      return res.status(404).json({ success: false, message: 'Admin not found' });
+    let creator = await Admin.findById(req.admin.userId).populate('branches');
+    let isCreatorAdmin = true;
+    if (!creator) {
+      creator = await User.findById(req.admin.userId);
+      isCreatorAdmin = false;
+      if (!creator) {
+        return res.status(404).json({ success: false, message: 'Creator not found' });
+      }
     }
 
     const {
@@ -119,6 +136,7 @@ export const createTask = async (req, res) => {
       category,
       subCategory,
       assignedTo,
+      assignedToLabel,
       mode = 'task',
       startDate,
       startTime = '',
@@ -127,6 +145,7 @@ export const createTask = async (req, res) => {
       description = '',
       additionalInfo = '',
       priority = 'Normal',
+      fileAttachment,
     } = req.body;
 
     if (!title || !category || !subCategory || !assignedTo || !startDate) {
@@ -136,41 +155,162 @@ export const createTask = async (req, res) => {
       });
     }
 
-    const branch = admin.branches?.[0];
-    const storeName = branch?.workingBranch || '';
-    const storeCode = branch?.locCode ? `Z-${branch.locCode}` : '';
+    let attachment = '';
+    let attachmentName = '';
+    if (fileAttachment && fileAttachment.base64) {
+      try {
+        const base64Data = fileAttachment.base64.replace(/^data:.*;base64,/, "");
+        const uploadDir = path.join(__dirname, '..', 'uploads', 'tasks');
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = path.extname(fileAttachment.name) || '';
+        const safeName = path.basename(fileAttachment.name, ext).replace(/[^a-zA-Z0-9]/g, '_');
+        const filename = `${safeName}-${uniqueSuffix}${ext}`;
+        const filePath = path.join(uploadDir, filename);
+        
+        fs.writeFileSync(filePath, base64Data, 'base64');
+        attachment = `/uploads/tasks/${filename}`;
+        attachmentName = fileAttachment.name;
+      } catch (err) {
+        console.error('Error saving task attachment:', err);
+      }
+    }
 
-    const taskCode = await nextTaskCode();
-    const roleLabel = ROLE_LABELS[admin.role] || admin.role;
-    const subRole = admin.subRole && admin.subRole !== 'NR' ? admin.subRole : '';
+    const branch = isCreatorAdmin ? creator.branches?.[0] : null;
+    let storeName = '';
+    let storeCode = '';
 
-    const task = await Task.create({
-      taskCode,
-      title: title.trim(),
-      category: category.trim(),
-      subCategory: subCategory.trim(),
-      assignedTo,
-      assignedToLabel: ASSIGNED_TO_LABELS[assignedTo] || assignedTo,
-      mode,
-      startDate,
-      startTime,
-      endDate: mode === 'auto' ? startDate : endDate,
-      endTime: mode === 'auto' ? startTime : endTime,
-      description,
-      additionalInfo,
-      priority,
-      status: 'PENDING',
-      storeName,
-      storeCode,
-      createdBy: admin._id,
-      assignedByName: admin.name,
-      assignedByRole: subRole ? `${roleLabel} · ${subRole}` : roleLabel,
-    });
+    if (isCreatorAdmin) {
+      storeName = branch?.workingBranch || '';
+      storeCode = branch?.locCode ? `Z-${branch.locCode}` : '';
+    } else {
+      storeName = creator.workingBranch || '';
+      storeCode = creator.locCode ? `Z-${creator.locCode}` : '';
+    }
+
+    const roleLabel = isCreatorAdmin ? (ROLE_LABELS[creator.role] || creator.role) : 'Staff';
+    const subRole = isCreatorAdmin && creator.subRole && creator.subRole !== 'NR' ? creator.subRole : '';
+
+    // Resolve all target assignees
+    const targets = [];
+
+    if (assignedTo === 'all_employees') {
+      const storeIds = await getAccessibleStoreIds(creator._id);
+      let employeeIds = await getAccessibleEmployeeIds(creator._id);
+      
+      const dbEmployees = await Employee.find({ _id: { $in: employeeIds }, storeId: { $in: storeIds }, status: 'Active' }).populate('storeId');
+      const branchesList = await Branch.find({ _id: { $in: storeIds } });
+      const locCodes = branchesList.map(b => b.locCode);
+      const users = await User.find({ locCode: { $in: locCodes } }).lean();
+
+      const combinedList = [];
+      dbEmployees.forEach(emp => {
+        const name = emp.firstName ? `${emp.firstName} ${emp.lastName || ''}`.trim() : (emp.username || 'Employee');
+        const designation = emp.designation || 'Staff';
+        const storeNameVal = (emp.storeId && emp.storeId.workingBranch) || emp.workingBranch || 'Store';
+        combinedList.push({
+          id: emp._id.toString(),
+          label: `${name} - ${designation} - ${storeNameVal}`
+        });
+      });
+      users.forEach(u => {
+        if (!combinedList.some(item => item.id === u._id.toString())) {
+          combinedList.push({
+            id: u._id.toString(),
+            label: `${u.username || 'Employee'} - ${u.designation || 'Staff'} - ${u.workingBranch || 'Store'}`
+          });
+        }
+      });
+
+      targets.push(...combinedList);
+    } 
+    else if (assignedTo === 'all_store_admins') {
+      const storeIds = await getAccessibleStoreIds(creator._id);
+      const adminQuery = { role: 'store_admin', branches: { $in: storeIds }, isActive: true };
+      const adminsList = await Admin.find(adminQuery).populate('branches');
+      adminsList.forEach(ad => {
+        const storeNameVal = ad.branches?.[0]?.workingBranch || 'Store';
+        targets.push({
+          id: ad._id.toString(),
+          label: `${ad.name} - Store Admin - ${storeNameVal}`
+        });
+      });
+    }
+    else if (assignedTo === 'all_cluster_admins') {
+      const adminsList = await Admin.find({ role: 'cluster_admin', isActive: true });
+      adminsList.forEach(ad => {
+        targets.push({
+          id: ad._id.toString(),
+          label: `${ad.name} - Cluster Admin - Cluster`
+        });
+      });
+    }
+    else if (assignedTo === 'all_hr_admins') {
+      const adminsList = await Admin.find({ role: 'hr_admin', isActive: true });
+      adminsList.forEach(ad => {
+        targets.push({
+          id: ad._id.toString(),
+          label: `${ad.name} - HR Admin - Admin`
+        });
+      });
+    }
+    else {
+      targets.push({
+        id: assignedTo,
+        label: assignedToLabel || ASSIGNED_TO_LABELS[assignedTo] || assignedTo
+      });
+    }
+
+    if (targets.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No employees or admins match this group selection',
+      });
+    }
+
+    const createdTasks = [];
+    const baseTaskCode = await nextTaskCode();
+    let index = 0;
+
+    for (const target of targets) {
+      const taskCode = targets.length > 1
+        ? `${baseTaskCode}-${index + 1}`
+        : baseTaskCode;
+
+      const task = await Task.create({
+        taskCode,
+        title: title.trim(),
+        category: category.trim(),
+        subCategory: subCategory.trim(),
+        assignedTo: target.id,
+        assignedToLabel: target.label,
+        mode,
+        startDate,
+        startTime,
+        endDate: mode === 'auto' ? startDate : endDate,
+        endTime: mode === 'auto' ? startTime : endTime,
+        description,
+        additionalInfo,
+        priority,
+        status: 'PENDING',
+        storeName,
+        storeCode,
+        createdBy: creator._id,
+        assignedByName: isCreatorAdmin ? creator.name : creator.username,
+        assignedByRole: subRole ? `${roleLabel} · ${subRole}` : roleLabel,
+        attachment,
+        attachmentName,
+      });
+      createdTasks.push(task);
+      index++;
+    }
 
     return res.status(201).json({
       success: true,
       message: 'Task created successfully',
-      data: mapTaskForClient(task),
+      data: mapTaskForClient(createdTasks[0]),
     });
   } catch (error) {
     console.error('Error creating task:', error);
@@ -282,6 +422,183 @@ export const getTaskById = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch task',
+      error: error.message,
+    });
+  }
+};
+
+export const getTaskAssignees = async (req, res) => {
+  try {
+    if (!req.admin) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const adminId = req.admin.userId;
+    let user = await Admin.findById(adminId);
+    let role = user ? user.role : '';
+    let isUserAdmin = true;
+
+    if (!user) {
+      user = await User.findById(adminId);
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'User or Admin not found' });
+      }
+      role = 'user';
+      isUserAdmin = false;
+    }
+
+    // 1. Build generic options list based on role
+    const genericOptions = [];
+    if (role === 'super_admin') {
+      genericOptions.push(
+        { value: 'all_employees', label: 'All Employees', type: 'group' },
+        { value: 'all_hr_admins', label: 'All HR Admins', type: 'group' },
+        { value: 'all_cluster_admins', label: 'All Cluster Admins', type: 'group' },
+        { value: 'all_store_admins', label: 'All Store Admins', type: 'group' }
+      );
+    } else if (role === 'hr_admin') {
+      genericOptions.push(
+        { value: 'all_employees', label: 'All Employees', type: 'group' },
+        { value: 'all_cluster_admins', label: 'All Cluster Admins', type: 'group' },
+        { value: 'all_store_admins', label: 'All Store Admins', type: 'group' }
+      );
+    } else if (role === 'cluster_admin') {
+      genericOptions.push(
+        { value: 'all_employees', label: 'All Employees', type: 'group' },
+        { value: 'all_store_admins', label: 'All Store Admins', type: 'group' }
+      );
+    } else if (role === 'store_admin' || role === 'user') {
+      genericOptions.push(
+        { value: 'all_employees', label: 'All Employees', type: 'group' }
+      );
+    }
+
+    // 2. Fetch accessible stores for the logged-in admin/user
+    const accessibleStoreIds = await getAccessibleStoreIds(adminId);
+
+    // 3. Get Accessible Employees under these stores
+    let employeeIds = await getAccessibleEmployeeIds(adminId);
+
+    // 4. Fetch Accessible Admins based on logged-in user's role
+    let adminQuery = { isActive: true };
+    if (role === 'super_admin') {
+      adminQuery.role = { $in: ['hr_admin', 'cluster_admin', 'store_admin', 'super_admin'] };
+    } else if (role === 'hr_admin') {
+      adminQuery.role = { $in: ['cluster_admin', 'store_admin', 'hr_admin'] };
+    } else if (role === 'cluster_admin') {
+      adminQuery.role = 'store_admin';
+      adminQuery.branches = { $in: accessibleStoreIds };
+    } else if (role === 'store_admin') {
+      adminQuery = null;
+    } else if (role === 'user') {
+      // Regular employees can assign to their store admin
+      adminQuery.role = 'store_admin';
+      adminQuery.branches = { $in: accessibleStoreIds };
+    }
+
+    let admins = [];
+    if (adminQuery) {
+      admins = await Admin.find(adminQuery).populate('branches');
+    }
+
+    // 5. Format individual lists
+    const individualAssignees = [];
+
+    // Add Admins
+    admins.forEach(ad => {
+      const designation = ad.subRole && ad.subRole !== 'NR' 
+        ? ad.subRole 
+        : (ad.role === 'super_admin' ? 'Super Admin' : (ad.role === 'hr_admin' ? 'HR Admin' : (ad.role === 'cluster_admin' ? 'Cluster Admin' : 'Store Admin')));
+      
+      const storeName = ad.branches && ad.branches.length > 0 
+        ? ad.branches[0].workingBranch 
+        : (ad.role === 'super_admin' || ad.role === 'hr_admin' ? 'Admin' : 'Store');
+
+      individualAssignees.push({
+        value: ad._id.toString(),
+        label: `${ad.name} - ${designation} - ${storeName}`,
+        type: 'admin',
+        role: ad.role,
+      });
+    });
+
+    // Make sure logged-in admin is in the list
+    if (isUserAdmin && !individualAssignees.some(ad => ad.value === adminId.toString())) {
+      const designation = user.subRole && user.subRole !== 'NR'
+        ? user.subRole
+        : (user.role === 'super_admin' ? 'Super Admin' : (user.role === 'hr_admin' ? 'HR Admin' : (user.role === 'cluster_admin' ? 'Cluster Admin' : 'Store Admin')));
+      const storeName = user.branches && user.branches.length > 0
+        ? user.branches[0].workingBranch
+        : (user.role === 'super_admin' || user.role === 'hr_admin' ? 'Admin' : 'Store');
+
+      individualAssignees.push({
+        value: user._id.toString(),
+        label: `${user.name} - ${designation} - ${storeName}`,
+        type: 'admin',
+        role: user.role,
+      });
+    }
+
+    // Add Employees from Employee collection
+    const dbEmployees = await Employee.find({ _id: { $in: employeeIds }, storeId: { $in: accessibleStoreIds }, status: 'Active' }).populate('storeId');
+    dbEmployees.forEach(emp => {
+      if (!individualAssignees.some(item => item.value === emp._id.toString())) {
+        const name = emp.firstName ? `${emp.firstName} ${emp.lastName || ''}`.trim() : (emp.username || 'Employee');
+        const designation = emp.designation || 'Staff';
+        const storeNameVal = (emp.storeId && emp.storeId.workingBranch) || emp.workingBranch || 'Store';
+
+        individualAssignees.push({
+          value: emp._id.toString(),
+          label: `${name} - ${designation} - ${storeNameVal}`,
+          type: 'employee',
+        });
+      }
+    });
+
+    // Add Users from User collection
+    const branches = await Branch.find({ _id: { $in: accessibleStoreIds } });
+    const locCodes = branches.map(b => b.locCode);
+    const dbUsers = await User.find({ _id: { $in: employeeIds }, locCode: { $in: locCodes } }).lean();
+    dbUsers.forEach(u => {
+      if (!individualAssignees.some(item => item.value === u._id.toString())) {
+        const designation = u.designation || 'Staff';
+        const storeNameVal = u.workingBranch || 'Store';
+
+        individualAssignees.push({
+          value: u._id.toString(),
+          label: `${u.username || 'Employee'} - ${designation} - ${storeNameVal}`,
+          type: 'employee',
+        });
+      }
+    });
+
+    // Make sure logged-in regular user is in the list
+    if (!isUserAdmin && !individualAssignees.some(emp => emp.value === adminId.toString())) {
+      const designation = user.designation || 'Staff';
+      const storeNameVal = user.workingBranch || 'Store';
+
+      individualAssignees.push({
+        value: user._id.toString(),
+        label: `${user.username || 'Employee'} - ${designation} - ${storeNameVal}`,
+        type: 'employee',
+      });
+    }
+
+    // Sort individual options alphabetically by label
+    individualAssignees.sort((a, b) => a.label.localeCompare(b.label));
+
+    // Combine generic group options with individual options
+    const finalOptions = [...genericOptions, ...individualAssignees];
+
+    return res.status(200).json({
+      success: true,
+      data: finalOptions,
+    });
+  } catch (error) {
+    console.error('Error fetching task assignees:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch task assignees',
       error: error.message,
     });
   }

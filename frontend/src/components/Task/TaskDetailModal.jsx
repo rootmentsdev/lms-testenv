@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import baseUrl from '../../api/api';
 import './TaskDetailModal.css';
 
 const PRIORITY_COLOR = {
@@ -121,6 +122,24 @@ const TaskDetailModal = ({ task, onClose }) => {
             </span>
           </DetailField>
         </div>
+
+        {task.attachment ? (
+          <>
+            <div className="task-detail-divider" />
+            <div className="task-detail-row">
+              <DetailField label="ATTACHMENT">
+                <a
+                  href={`${baseUrl.baseUrl.replace(/\/$/, '')}${task.attachment}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#3b82f6', textDecoration: 'underline', fontWeight: 500 }}
+                >
+                  {task.attachmentName || 'View Attachment'}
+                </a>
+              </DetailField>
+            </div>
+          </>
+        ) : null}
       </div>
     </div>
   );

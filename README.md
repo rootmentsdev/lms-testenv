@@ -184,9 +184,57 @@ The Brynex LMS features a comprehensively documented backend. Swagger UI is avai
 - `GET /api/admin/get/searchdata`: Global search endpoint for dashboard.
 
 ### 6. Tasks
-- `POST /api/tasks/save`: Create a task assigned to a store or employee.
-- `GET /api/tasks/list`: Fetch tasks. Supports `storeId` and `employeeId` query parameters. RBAC scoped securely.
-- `GET /api/tasks/:id`: Fetch task by ID.
+* **GET /api/task/assignees**: Returns the list of assignable targets (roles, groups, and individuals) dynamically scoped to the logged-in user's role.
+  * **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+  * **Response Format:**
+    ```json
+    {
+      "success": true,
+      "data": [
+        { "value": "all_employees", "label": "All Employees", "type": "group" },
+        { "value": "651a2b3c4d5e6f7a8b9c0d1e", "label": "John Doe - Staff - Edapally Store", "type": "employee" },
+        { "value": "651a2b3c4d5e6f7a8b9c0d2f", "label": "Jane Smith - Store Admin - Edapally Store", "type": "admin", "role": "store_admin" }
+      ]
+    }
+    ```
+* **POST /api/task/save**: Creates a new task. If assigned to a generic group (like `all_employees`), the backend auto-expands it and creates a separate task record per user. Supports creators from both the `Admin` and `User` (employee) collections.
+  * **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+  * **Request Body:**
+    ```json
+    {
+      "title": "Ceiling Cracked",
+      "category": "MAINTENANCE",
+      "subCategory": "CLEANING",
+      "assignedTo": "651a2b3c4d5e6f7a8b9c0d1e",
+      "assignedToLabel": "John Doe - Staff - Edapally Store",
+      "mode": "task",
+      "startDate": "2026-05-20",
+      "startTime": "10:00am",
+      "endDate": "2026-05-20",
+      "endTime": "10:00am",
+      "description": "Repair it ASAP",
+      "additionalInfo": "",
+      "priority": "Urgent",
+      "fileAttachment": {
+        "name": "photo.jpg",
+        "base64": "data:image/jpeg;base64,/9j/4AAQSkZJRg..."
+      }
+    }
+    ```
+* **GET /api/task/list**: Retrieves tasks matching the query parameters, wrapped in role-based scope restrictions.
+  * **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+  * **Query Parameters:**
+    * `search`: String (optional search on title, category, description, etc.)
+    * `category`: String (e.g. `MAINTENANCE`)
+    * `priority`: String (e.g. `Urgent`)
+    * `status`: String (e.g. `PENDING`, `COMPLETED`)
+    * `storeId`: String (Branch Location Code, e.g. `Z-Edapally1`)
+    * `employeeId`: String (Employee/User ID)
+  * **Role-Based Rules:**
+    * **Employees (`User` collection):** Returns tasks assigned directly to their `User` ID or their branch's location code.
+    * **Admins (`Admin` collection):** Returns tasks belonging to stores/branches within their allowed boundary (e.g., store admin sees their store, cluster admin sees their cluster's stores, super/hr admin sees all stores).
+* **GET /api/task/:id**: Retrieves task details for a single task by its Mongo ID or human-readable `taskCode`.
+
 
 ### 7. Walk-ins & Leads
 - `GET /api/walkin/check/:contact`: Checks if a customer exists by contact phone number (Mobile App lookup).
