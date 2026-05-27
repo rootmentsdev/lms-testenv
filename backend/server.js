@@ -8,6 +8,8 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import axios from 'axios';                           // ✅ needed
 import mongoose from 'mongoose';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 import connectMongoDB from './db/database.js';
 import ModuleRouter from './routes/ModuleRoute.js';
@@ -36,9 +38,13 @@ const port = process.env.PORT || 7000;
 // ✅ Hardcode the upstream token EXACTLY as provided
 const ROOTMENTS_API_TOKEN = 'RootX-production-9d17d9485eb772e79df8564004d4a4d4';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Enhanced CORS configuration for better preflight handling
 app.use(

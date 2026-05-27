@@ -190,7 +190,19 @@ export const buildWalkinFilter = async (adminId, baseQuery = {}) => {
  */
 export const buildTaskFilter = async (adminId, baseQuery = {}) => {
     const admin = await Admin.findById(adminId);
-    if (!admin) return { _id: null };
+    if (!admin) {
+        // Fallback: Check if this is a regular User (employee)
+        const user = await User.findById(adminId);
+        if (!user) return { _id: null };
+
+        return {
+            ...baseQuery,
+            $or: [
+                { assignedTo: user._id.toString() },
+                { storeCode: `Z-${user.locCode}` }
+            ]
+        };
+    }
 
     if (isFullAccessAdmin(admin.role)) {
         return baseQuery;

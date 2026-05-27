@@ -25,6 +25,8 @@ const taskSchema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', required: true },
   assignedByName: { type: String, default: '' },
   assignedByRole: { type: String, default: '' },
+  attachment: { type: String, default: '' },
+  attachmentName: { type: String, default: '' },
 }, { timestamps: true });
 
 taskSchema.index({ createdAt: -1 });

@@ -1,19 +1,45 @@
 import { useState, useRef, useLayoutEffect, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import Select, { components } from 'react-select';
 import Header from '../../components/Header/Header';
 import SideNav from '../../components/SideNav/SideNav';
 import { createTask } from '../../features/task/taskApi';
+import baseUrl from '../../api/api';
 import './CreateTask.css';
 
-const CATEGORIES = ['Store Operations', 'Training', 'Compliance', 'Maintenance', 'HR', 'Other'];
+const CATEGORIES = [
+  'REPORTS&PERFORMANCE',
+  'STORE HYGIENE&CLEANING',
+  'INVENTORY AUDIT&MANAGEMENT',
+  'EMPLOYEE MANAGEMENT&DEVELOPMENT',
+  'MAINTENANCE'
+];
 const SUB_CATEGORIES = {
-  'Store Operations': ['Opening', 'Closing', 'Stock Check', 'Display'],
-  'Training':         ['Onboarding', 'Product Knowledge', 'Soft Skills'],
-  'Compliance':       ['Audit', 'Documentation', 'Safety'],
-  'Maintenance':      ['Electrical', 'Plumbing', 'Cleaning'],
-  'HR':               ['Attendance', 'Leave', 'Appraisal'],
-  'Other':            ['General', 'Miscellaneous'],
+  'REPORTS&PERFORMANCE': [
+    'POS REPORTS',
+    'PERFORMANCE REPORTS',
+    'RECORDS&DOCUMENTS'
+  ],
+  'STORE HYGIENE&CLEANING': [
+    'DEEP CLEANING',
+    'VISUAL MERCHANDISING',
+    'PRODUCT CLEANING'
+  ],
+  'INVENTORY AUDIT&MANAGEMENT': [
+    'STOCK VALUATION&VERIFICATION',
+    'INTER STORE STOCK TRANSFER'
+  ],
+  'EMPLOYEE MANAGEMENT&DEVELOPMENT': [
+    'EMPLOYEE TRAININGS',
+    'EMPLOYEE PERFORMANCE REVIEW',
+    'EMPLOYEE SPECIFIC TASK'
+  ],
+  'MAINTENANCE': [
+    'ELECTRICAL',
+    'PLUMBING',
+    'CLEANING'
+  ]
 };
 const TIMES = ['12:00am','12:30am','1:00am','1:30am','2:00am','2:30am','3:00am','3:30am','4:00am','4:30am','5:00am','5:30am','6:00am','6:30am','7:00am','7:30am','8:00am','8:30am','9:00am','9:30am','10:00am','10:30am','11:00am','11:30am','12:00pm','12:30pm','1:00pm','1:30pm','2:00pm','2:30pm','3:00pm','3:30pm','4:00pm','4:30pm','5:00pm','5:30pm','6:00pm','6:30pm','7:00pm','7:30pm','8:00pm','8:30pm','9:00pm','9:30pm','10:00pm','10:30pm','11:00pm','11:30pm'];
 const PRIORITIES = [
@@ -22,6 +48,81 @@ const PRIORITIES = [
   { label: 'Normal', color: '#3b82f6' },
   { label: 'Low',    color: '#9ca3af' },
 ];
+
+const CheckboxOption = (props) => {
+  return (
+    <components.Option {...props}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
+        <input
+          type="checkbox"
+          checked={props.isSelected}
+          onChange={() => null}
+          style={{
+            cursor: 'pointer',
+            width: '14px',
+            height: '14px',
+            accentColor: '#111827',
+          }}
+        />
+        <span style={{ fontSize: '13px', color: '#374151', fontFamily: "'DM Sans', sans-serif" }}>{props.label}</span>
+      </div>
+    </components.Option>
+  );
+};
+
+const selectStyles = {
+  control: (base, state) => ({
+    ...base,
+    border: '1px solid #e5e7eb',
+    borderRadius: '10px',
+    minHeight: '40px',
+    boxShadow: 'none',
+    borderColor: state.isFocused ? '#111827' : '#e5e7eb',
+    '&:hover': {
+      borderColor: state.isFocused ? '#111827' : '#e5e7eb',
+    },
+    fontFamily: "'DM Sans', sans-serif",
+    fontSize: '13px',
+    color: '#374151',
+  }),
+  valueContainer: (base) => ({
+    ...base,
+    padding: '0 8px',
+  }),
+  option: (base, state) => ({
+    ...base,
+    backgroundColor: state.isSelected ? '#f3f4f6' : state.isFocused ? '#f9fafb' : '#fff',
+    color: '#374151',
+    fontFamily: "'DM Sans', sans-serif",
+    fontSize: '13px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    padding: '8px 12px',
+    '&:active': {
+      backgroundColor: '#f3f4f6',
+    },
+  }),
+  multiValue: (base) => ({
+    ...base,
+    backgroundColor: '#f3f4f6',
+    borderRadius: '6px',
+  }),
+  multiValueLabel: (base) => ({
+    ...base,
+    color: '#374151',
+    fontFamily: "'DM Sans', sans-serif",
+    fontSize: '12px',
+  }),
+  multiValueRemove: (base) => ({
+    ...base,
+    color: '#9ca3af',
+    '&:hover': {
+      backgroundColor: '#e5e7eb',
+      color: '#374151',
+    },
+  }),
+};
 
 const inp = {
   border: '1px solid #e5e7eb',
@@ -254,13 +355,40 @@ const CreateTask = () => {
   const [bodyHeight, setBodyHeight] = useState(undefined);
   const switchTimer = useRef(null);
 
+  const [assigneeOptions, setAssigneeOptions] = useState([]);
+  const [loadingAssignees, setLoadingAssignees] = useState(false);
+  const token = localStorage.getItem('token');
+
+  useEffect(() => {
+    const fetchAssignees = async () => {
+      setLoadingAssignees(true);
+      try {
+        const response = await fetch(`${baseUrl.baseUrl}api/task/assignees`, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        });
+        if (response.ok) {
+          const json = await response.json();
+          setAssigneeOptions(json.data || []);
+        }
+      } catch (err) {
+        console.error('Error fetching assignees:', err);
+      } finally {
+        setLoadingAssignees(false);
+      }
+    };
+    fetchAssignees();
+  }, [token]);
+
   const [submitting, setSubmitting] = useState(false);
 
   const [form, setForm] = useState({
     title: '',
     category: '',
     subCategory: '',
-    assignedTo: '',
+    assignedTo: [],
     startDate: '',
     startTime: '11:20am',
     endDate: '',
@@ -305,24 +433,138 @@ const CreateTask = () => {
     }, SWITCH_MS);
   };
 
+  const handleAssigneeChange = (selected, actionMeta) => {
+    const nextSelected = [...(selected || [])];
+    const { action, option } = actionMeta;
+
+    if (action === 'select-option' && option) {
+      if (option.type === 'group') {
+        if (option.value === 'all_employees') {
+          assigneeOptions.forEach(opt => {
+            if (opt.type === 'employee' && !nextSelected.some(s => s.value === opt.value)) {
+              nextSelected.push(opt);
+            }
+          });
+        } else if (option.value === 'all_hr_admins') {
+          assigneeOptions.forEach(opt => {
+            if (opt.type === 'admin' && opt.role === 'hr_admin' && !nextSelected.some(s => s.value === opt.value)) {
+              nextSelected.push(opt);
+            }
+          });
+        } else if (option.value === 'all_cluster_admins') {
+          assigneeOptions.forEach(opt => {
+            if (opt.type === 'admin' && opt.role === 'cluster_admin' && !nextSelected.some(s => s.value === opt.value)) {
+              nextSelected.push(opt);
+            }
+          });
+        } else if (option.value === 'all_store_admins') {
+          assigneeOptions.forEach(opt => {
+            if (opt.type === 'admin' && opt.role === 'store_admin' && !nextSelected.some(s => s.value === opt.value)) {
+              nextSelected.push(opt);
+            }
+          });
+        }
+      }
+    } else if ((action === 'deselect-option' || action === 'remove-value') && option) {
+      if (option.type === 'group') {
+        if (option.value === 'all_employees') {
+          return set('assignedTo', nextSelected.filter(s => s.type !== 'employee' && s.value !== 'all_employees'));
+        } else if (option.value === 'all_hr_admins') {
+          return set('assignedTo', nextSelected.filter(s => !(s.type === 'admin' && s.role === 'hr_admin') && s.value !== 'all_hr_admins'));
+        } else if (option.value === 'all_cluster_admins') {
+          return set('assignedTo', nextSelected.filter(s => !(s.type === 'admin' && s.role === 'cluster_admin') && s.value !== 'all_cluster_admins'));
+        } else if (option.value === 'all_store_admins') {
+          return set('assignedTo', nextSelected.filter(s => !(s.type === 'admin' && s.role === 'store_admin') && s.value !== 'all_store_admins'));
+        }
+      } else {
+        if (option.type === 'employee') {
+          const idx = nextSelected.findIndex(s => s.value === 'all_employees');
+          if (idx !== -1) nextSelected.splice(idx, 1);
+        } else if (option.type === 'admin') {
+          if (option.role === 'hr_admin') {
+            const idx = nextSelected.findIndex(s => s.value === 'all_hr_admins');
+            if (idx !== -1) nextSelected.splice(idx, 1);
+          } else if (option.role === 'cluster_admin') {
+            const idx = nextSelected.findIndex(s => s.value === 'all_cluster_admins');
+            if (idx !== -1) nextSelected.splice(idx, 1);
+          } else if (option.role === 'store_admin') {
+            const idx = nextSelected.findIndex(s => s.value === 'all_store_admins');
+            if (idx !== -1) nextSelected.splice(idx, 1);
+          }
+        }
+      }
+    } else if (action === 'clear') {
+      return set('assignedTo', []);
+    }
+
+    const employees = assigneeOptions.filter(opt => opt.type === 'employee');
+    const hrAdmins = assigneeOptions.filter(opt => opt.type === 'admin' && opt.role === 'hr_admin');
+    const clusterAdmins = assigneeOptions.filter(opt => opt.type === 'admin' && opt.role === 'cluster_admin');
+    const storeAdmins = assigneeOptions.filter(opt => opt.type === 'admin' && opt.role === 'store_admin');
+
+    const hasAllEmployees = employees.length > 0 && employees.every(emp => nextSelected.some(s => s.value === emp.value));
+    const hasAllHrAdmins = hrAdmins.length > 0 && hrAdmins.every(admin => nextSelected.some(s => s.value === admin.value));
+    const hasAllClusterAdmins = clusterAdmins.length > 0 && clusterAdmins.every(admin => nextSelected.some(s => s.value === admin.value));
+    const hasAllStoreAdmins = storeAdmins.length > 0 && storeAdmins.every(admin => nextSelected.some(s => s.value === admin.value));
+
+    const groupAllEmployeesOpt = assigneeOptions.find(opt => opt.value === 'all_employees');
+    const groupAllHrAdminsOpt = assigneeOptions.find(opt => opt.value === 'all_hr_admins');
+    const groupAllClusterAdminsOpt = assigneeOptions.find(opt => opt.value === 'all_cluster_admins');
+    const groupAllStoreAdminsOpt = assigneeOptions.find(opt => opt.value === 'all_store_admins');
+
+    if (hasAllEmployees && groupAllEmployeesOpt && !nextSelected.some(s => s.value === 'all_employees')) {
+      nextSelected.push(groupAllEmployeesOpt);
+    }
+    if (hasAllHrAdmins && groupAllHrAdminsOpt && !nextSelected.some(s => s.value === 'all_hr_admins')) {
+      nextSelected.push(groupAllHrAdminsOpt);
+    }
+    if (hasAllClusterAdmins && groupAllClusterAdminsOpt && !nextSelected.some(s => s.value === 'all_cluster_admins')) {
+      nextSelected.push(groupAllClusterAdminsOpt);
+    }
+    if (hasAllStoreAdmins && groupAllStoreAdminsOpt && !nextSelected.some(s => s.value === 'all_store_admins')) {
+      nextSelected.push(groupAllStoreAdminsOpt);
+    }
+
+    set('assignedTo', nextSelected);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const individualAssignees = (form.assignedTo || []).filter(assignee => assignee.type !== 'group');
+    if (individualAssignees.length === 0) {
+      toast.error('Please select at least one assignee.');
+      return;
+    }
     setSubmitting(true);
     try {
-      await createTask({
-        mode: isAuto ? 'auto' : 'task',
-        title: form.title,
-        category: form.category,
-        subCategory: form.subCategory,
-        assignedTo: form.assignedTo,
-        startDate: form.startDate,
-        startTime: form.startTime,
-        endDate: isAuto ? form.startDate : form.endDate,
-        endTime: isAuto ? form.startTime : form.endTime,
-        description: form.description,
-        additionalInfo: form.additionalInfo,
-        priority: form.priority,
-      });
+      let fileAttachment = null;
+      if (form.file) {
+        fileAttachment = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(form.file);
+          reader.onload = () => resolve({ name: form.file.name, base64: reader.result });
+          reader.onerror = (err) => reject(err);
+        });
+      }
+
+      for (const assignee of individualAssignees) {
+        await createTask({
+          mode: isAuto ? 'auto' : 'task',
+          title: form.title,
+          category: form.category,
+          subCategory: form.subCategory,
+          assignedTo: assignee.value,
+          assignedToLabel: assignee.label,
+          startDate: form.startDate,
+          startTime: form.startTime,
+          endDate: isAuto ? form.startDate : form.endDate,
+          endTime: isAuto ? form.startTime : form.endTime,
+          description: form.description,
+          additionalInfo: form.additionalInfo,
+          priority: form.priority,
+          fileAttachment,
+        });
+      }
       toast.success(isAuto ? 'Auto task saved successfully!' : 'Task saved successfully!');
       navigate('/task');
     } catch (err) {
@@ -383,12 +625,17 @@ const CreateTask = () => {
               </div>
               <div>
                 <label style={lbl}>Assigned To <span style={req}>*</span></label>
-                <select value={form.assignedTo} onChange={(e) => set('assignedTo', e.target.value)} required style={{ ...inp, cursor: 'pointer' }}>
-                  <option value="">Select Options</option>
-                  <option value="store_admin">Store Admin</option>
-                  <option value="cluster_admin">Cluster Admin</option>
-                  <option value="all_stores">All Stores</option>
-                </select>
+                <Select
+                  isMulti
+                  closeMenuOnSelect={false}
+                  hideSelectedOptions={false}
+                  components={{ Option: CheckboxOption }}
+                  options={assigneeOptions}
+                  value={form.assignedTo}
+                  onChange={handleAssigneeChange}
+                  placeholder={loadingAssignees ? "Loading options..." : "Select Options"}
+                  styles={selectStyles}
+                />
               </div>
             </div>
 
