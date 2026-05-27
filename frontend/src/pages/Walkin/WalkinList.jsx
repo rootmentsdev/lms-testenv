@@ -122,7 +122,8 @@ const WalkinList = () => {
         category: '-',
         subCategory: '-',
         remarks: '',
-        status: 'New Walkin'
+        status: 'New Walkin',
+        repeatCount: 1
     });
 
     // Fetch walkins dynamically from live API
@@ -274,7 +275,7 @@ const WalkinList = () => {
             } else {
                 setCustomerExistsNotification(false);
                 setCustomerData(null);
-                setFormData(prev => ({ ...prev, status: 'New Walkin' }));
+                setFormData(prev => ({ ...prev, status: 'New Walkin', repeatCount: 1 }));
             }
             return;
         }
@@ -313,24 +314,48 @@ const WalkinList = () => {
     const checkCustomer = async (contactVal) => {
         if (!contactVal || contactVal.trim().length < 5) return;
         try {
-            const res = await fetch(`${baseUrl.baseUrl}api/walkin/check/${contactVal.trim()}`);
+            const res = await fetch(`${baseUrl.baseUrl}api/walkin/check/${contactVal.trim()}`, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
             const json = await res.json();
             if (json.success && json.exists) {
                 setCustomerExistsNotification(true);
                 setCustomerData(json.data);
+
+                const targetStore = json.data.store;
+                const foundBranch = branches.find(b => b.workingBranch === targetStore);
+                const storeIdToLoad = json.data.storeId || (foundBranch ? foundBranch._id : '');
+
                 // Pre-populate fields automatically
                 setFormData(prev => ({
                     ...prev,
                     customerName: json.data.customerName || prev.customerName,
                     functionDate: json.data.functionDate || prev.functionDate,
-                    status: '' // Prompt selection of status
+                    store: json.data.store || prev.store,
+                    storeId: storeIdToLoad || prev.storeId,
+                    staff: json.data.staff || prev.staff,
+                    employeeId: json.data.employeeId || prev.employeeId,
+                    category: json.data.category || prev.category,
+                    subCategory: json.data.subCategory || prev.subCategory,
+                    remarks: json.data.remarks || prev.remarks,
+                    status: json.data.status || prev.status,
+                    repeatCount: json.data.repeatCount || 1,
+                    date: json.data.date || prev.date
                 }));
+
+                if (storeIdToLoad) {
+                    loadEmployees(storeIdToLoad);
+                }
             } else {
                 setCustomerExistsNotification(false);
                 setCustomerData(null);
                 setFormData(prev => ({
                     ...prev,
-                    status: 'New Walkin'
+                    status: 'New Walkin',
+                    repeatCount: 1
                 }));
             }
         } catch (err) {
@@ -391,7 +416,8 @@ const WalkinList = () => {
                     category: '-',
                     subCategory: '-',
                     remarks: '',
-                    status: 'New Walkin'
+                    status: 'New Walkin',
+                    repeatCount: 1
                 });
                 setCustomerExistsNotification(false);
                 setCustomerData(null);
@@ -448,7 +474,19 @@ const WalkinList = () => {
                         <div className="bg-white rounded-lg border border-gray-150 p-6 sm:p-8 shadow-xs">
                             <form onSubmit={handleFormSubmit} className="space-y-6">
 
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {customerExistsNotification && (
+                                    <div className="mb-6 p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-md flex items-start gap-3 animate-fade-in">
+                                        <span className="text-amber-600 text-lg">⚠️</span>
+                                        <div>
+                                            <h4 className="text-sm font-bold text-amber-800">Existing Customer Found (Walk-in Count: {formData.repeatCount || 1})</h4>
+                                            <p className="text-xs text-amber-700 mt-1">
+                                                The customer details have been pre-filled. You can update them. Saving with any status other than <span className="font-bold">"New Walkin"</span> will update the existing record. Setting status to <span className="font-bold">"New Walkin"</span> will log a new visit.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                                     <div>
                                         <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Customer Mobile Number <span className="text-red-500">*</span></label>
                                         <input type="tel" name="contact" required maxLength={10} placeholder="Enter Mobile Number" value={formData.contact} onChange={handleInputChange} onBlur={(e) => checkCustomer(e.target.value)} className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 font-semibold" />
@@ -460,6 +498,10 @@ const WalkinList = () => {
                                     <div>
                                         <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Function Date <span className="text-red-500">*</span></label>
                                         <input type="date" name="functionDate" required value={formData.functionDate} onChange={handleInputChange} className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 font-semibold cursor-pointer" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Repeat Count</label>
+                                        <input type="number" name="repeatCount" readOnly value={formData.repeatCount || 1} className="w-full border border-gray-300 bg-gray-50 rounded-md px-3.5 py-2.5 text-sm focus:outline-none text-gray-500 font-semibold cursor-not-allowed" />
                                     </div>
                                 </div>
 

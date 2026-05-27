@@ -2,6 +2,7 @@ import Admin from '../model/Admin.js';
 import Branch from '../model/Branch.js';
 import Employee from '../model/Employee.js';
 import Cluster from '../model/Cluster.js';
+import User from '../model/User.js';
 
 /**
  * Validates if the user is a super admin or hr admin (full access)
@@ -85,7 +86,17 @@ export const getAccessibleEmployeeIds = async (adminId, storeId = null) => {
         status: 'Active'
     }).select('_id');
 
-    return accessibleEmployees.map(e => e._id.toString());
+    // Also get users that belong to accessible stores from User collection (fallback/merge)
+    const branches = await Branch.find({ _id: { $in: accessibleStoreIds } });
+    const locCodes = branches.map(b => b.locCode);
+    const users = await User.find({ locCode: { $in: locCodes } }).select('_id');
+
+    const allIds = new Set([
+        ...accessibleEmployees.map(e => e._id.toString()),
+        ...users.map(u => u._id.toString())
+    ]);
+
+    return Array.from(allIds);
 };
 
 /**

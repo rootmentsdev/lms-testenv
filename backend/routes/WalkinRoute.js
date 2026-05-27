@@ -72,8 +72,6 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.get('/check/:contact', checkCustomerExists);
-
 import jwt from 'jsonwebtoken';
 
 const OptionalMiddilWare = (req, res, next) => {
@@ -88,6 +86,9 @@ const OptionalMiddilWare = (req, res, next) => {
         next();
     }
 };
+
+router.get('/check/:contact', OptionalMiddilWare, checkCustomerExists);
+
 
 /**
  * @swagger
