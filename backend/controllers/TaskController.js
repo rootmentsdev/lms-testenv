@@ -603,3 +603,69 @@ export const getTaskAssignees = async (req, res) => {
     });
   }
 };
+
+export const updateTaskStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    let { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json({ success: false, message: 'status is required' });
+    }
+
+    const normalizedStatus = status.trim().toUpperCase();
+    const validStatuses = ['PENDING', 'IN PROGRESS', 'COMPLETED', 'OVERDUE'];
+    if (!validStatuses.includes(normalizedStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
+      });
+    }
+
+    // Find the task by Mongo ID or taskCode
+    const task = await Task.findOne({
+      $or: [{ taskCode: id }, ...(id.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: id }] : [])],
+    });
+
+    if (!task) {
+      return res.status(404).json({ success: false, message: 'Task not found' });
+    }
+
+    // Role-based validation
+    const userId = req.admin.userId;
+    const userRole = req.admin.role;
+    const isUserAdmin = userRole && userRole !== 'employee' && userRole !== 'user';
+
+    if (!isUserAdmin) {
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'User not found' });
+      }
+      const isAssignedToMe = task.assignedTo === user._id.toString();
+      const isMyStore = task.storeCode === `Z-${user.locCode}`;
+      if (!isAssignedToMe && !isMyStore) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You are not authorized to update this task',
+        });
+      }
+    }
+
+    task.status = normalizedStatus;
+    await task.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Task status updated successfully',
+      data: mapTaskForClient(task),
+    });
+  } catch (error) {
+    console.error('Error updating task status:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update task status',
+      error: error.message,
+    });
+  }
+};
+
