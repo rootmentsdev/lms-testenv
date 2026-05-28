@@ -234,7 +234,7 @@ The Brynex LMS features a comprehensively documented backend. Swagger UI is avai
     * **Employees (`User` collection):** Returns tasks assigned directly to their `User` ID or their branch's location code.
     * **Admins (`Admin` collection):** Returns tasks belonging to stores/branches within their allowed boundary (e.g., store admin sees their store, cluster admin sees their cluster's stores, super/hr admin sees all stores).
 * **GET /api/task/:id**: Retrieves task details for a single task by its Mongo ID or human-readable `taskCode`.
-* **PUT /api/task/:id/status**: Updates the status of an existing task. Valid statuses are `PENDING`, `IN PROGRESS`, `COMPLETED`, and `OVERDUE`.
+* **PUT /api/task/:id/status**: Updates the status of an existing task. Valid statuses are `PENDING`, `IN PROGRESS`, `COMPLETED`, `OVERDUE`, and `ON HOLD`.
   * **Headers:** `Authorization: Bearer <JWT_TOKEN>`
   * **Request Body:**
     ```json

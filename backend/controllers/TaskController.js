@@ -47,6 +47,7 @@ const parseDateParts = (dateStr) => {
 const computeStatus = (task) => {
   if (task.status === 'COMPLETED') return 'COMPLETED';
   if (task.status === 'IN PROGRESS') return 'IN PROGRESS';
+  if (task.status === 'ON HOLD') return 'ON HOLD';
 
   const end = parseDateParts(task.endDate);
   if (end) {
@@ -614,7 +615,7 @@ export const updateTaskStatus = async (req, res) => {
     }
 
     const normalizedStatus = status.trim().toUpperCase();
-    const validStatuses = ['PENDING', 'IN PROGRESS', 'COMPLETED', 'OVERDUE'];
+    const validStatuses = ['PENDING', 'IN PROGRESS', 'COMPLETED', 'OVERDUE', 'ON HOLD'];
     if (!validStatuses.includes(normalizedStatus)) {
       return res.status(400).json({
         success: false,
