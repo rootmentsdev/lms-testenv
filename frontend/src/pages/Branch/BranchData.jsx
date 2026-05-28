@@ -476,11 +476,11 @@ const BranchData = () => {
           let idx = byFull[full];
           if (idx === undefined && loc && byLocBrand[loc]) {
             const map = byLocBrand[loc];
+            // Only assign if we can confirm the brand — never fall back on location alone,
+            // as that would assign employees from unrelated stores (e.g. external "no store"
+            // employees) to the only branch that shares a location name.
             if (brand && map[brand] !== undefined) {
               idx = map[brand];
-            } else {
-              const indices = Object.values(map);
-              if (indices.length === 1) idx = indices[0];
             }
           }
 

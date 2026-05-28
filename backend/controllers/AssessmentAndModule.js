@@ -165,6 +165,7 @@ const fetchEmployeeData = async () => {
 
 import { getAccessibleStoreIds, isFullAccessAdmin } from '../lib/permissions.js';
 import Branch from "../model/Branch.js";
+import Admin from "../model/Admin.js";
 
 export const GetAllTrainingWithCompletion = async (req, res) => {
   try {
