@@ -209,7 +209,7 @@ router.get('/:id', MiddilWare, getTaskById);
  *             properties:
  *               status:
  *                 type: string
- *                 enum: [PENDING, IN PROGRESS, COMPLETED, OVERDUE]
+ *                 enum: [PENDING, IN PROGRESS, COMPLETED, OVERDUE, ON HOLD]
  *                 description: The new status value
  *             required:
  *               - status
