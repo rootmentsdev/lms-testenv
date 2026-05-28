@@ -1,5 +1,5 @@
 import express from 'express';
-import { createTask, getTasks, getTaskById, getTaskAssignees } from '../controllers/TaskController.js';
+import { createTask, getTasks, getTaskById, getTaskAssignees, updateTaskStatus } from '../controllers/TaskController.js';
 import { MiddilWare } from '../lib/middilWare.js';
 
 const router = express.Router();
@@ -183,5 +183,48 @@ router.get('/list', MiddilWare, getTasks);
  *         description: Internal server error
  */
 router.get('/:id', MiddilWare, getTaskById);
+
+/**
+ * @swagger
+ * /api/task/{id}/status:
+ *   put:
+ *     tags: [Tasks]
+ *     summary: Update task status
+ *     description: Update the status of an existing task. Secured with RBAC and assignee boundaries.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Task ID or taskCode to update
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [PENDING, IN PROGRESS, COMPLETED, OVERDUE]
+ *                 description: The new status value
+ *             required:
+ *               - status
+ *     responses:
+ *       200:
+ *         description: Task status successfully updated
+ *       400:
+ *         description: Invalid input or missing status
+ *       403:
+ *         description: Access denied – unauthorized to update this task
+ *       404:
+ *         description: Task not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/:id/status', MiddilWare, updateTaskStatus);
 
 export default router;
