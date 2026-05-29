@@ -1,265 +1,400 @@
 import { useEffect, useState } from "react";
-import Select from "react-select"; // Import react-select
-import Header from "../../../components/Header/Header";
-import baseUrl from "../../../api/api";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import { FiArrowLeft, FiClock, FiBook } from "react-icons/fi";
+import baseUrl from "../../../api/api";
 import SideNav from "../../../components/SideNav/SideNav";
 
+const ASSIGN_OPTIONS = [
+  { value: "all", label: "All Employees" },
+  { value: "designation", label: "Role" },
+  { value: "user", label: "Individual" },
+  { value: "new", label: "New Employees" },
+];
+
+const TRAINING_TYPES = [
+  { value: "Assigned", label: "Assigned" },
+  { value: "Mandatory", label: "Mandatory" },
+];
+
+const CATEGORY_OPTIONS = [
+  { value: "Onboarding", label: "Onboarding" },
+  { value: "Compliance", label: "Compliance" },
+  { value: "Technical", label: "Technical" },
+  { value: "Soft Skills", label: "Soft Skills" },
+  { value: "Leadership", label: "Leadership" },
+  { value: "Product", label: "Product" },
+  { value: "Other", label: "Other" },
+];
+
 const CreateTrainingDatas = () => {
-    const [modules, setModules] = useState([]); // Module options
-    const [users, setUsers] = useState([]);     // Users options
-    const [trainingName, setTrainingName] = useState("");
-    const [assignedTo, setAssignedTo] = useState([]); // Multi-select values
-    const [selectedModules, setSelectedModules] = useState([]); // Multi-select values
-    const [days, setDays] = useState("");
-    const [selectedOption, setSelectedOption] = useState("user"); // Radio button state
-    const token = localStorage.getItem('token');
-    // Fetch Modules
-    useEffect(() => {
-        const fetchModules = async () => {
-            try {
-                const response = await fetch(`${baseUrl.baseUrl}api/modules`, {
-                    method: "GET",
-                    headers: { "Content-Type": "application/json" },
-                    credentials: "include",
-                });
+  const navigate = useNavigate();
+  const token = localStorage.getItem("token");
 
-                if (!response.ok) {
-                    throw new Error(`Error: ${response.statusText}`);
-                }
+  // Form state
+  const [trainingName, setTrainingName] = useState("");
+  const [category, setCategory] = useState("");
+  const [description, setDescription] = useState("");
+  const [trainingType, setTrainingType] = useState("Assigned");
+  const [assignType, setAssignType] = useState("all");
+  const [assignedTo, setAssignedTo] = useState([]);
+  const [assignOptions, setAssignOptions] = useState([]);
+  const [modules, setModules] = useState([]);
+  const [selectedModules, setSelectedModules] = useState([]);
+  const [days, setDays] = useState("");
+  const [loading, setLoading] = useState(false);
 
-                const data = await response.json();
-                // Map modules to options required by react-select
-                const options = data.map((module) => ({
-                    value: module.moduleId || module._id,
-                    label: module.moduleName,
-                }));
+  // Fetch modules
+  useEffect(() => {
+    const fetchModules = async () => {
+      try {
+        const res = await fetch(`${baseUrl.baseUrl}api/modules`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        setModules(data);
+      } catch (_) {}
+    };
+    fetchModules();
+  }, []);
 
-                setModules(options);
-            } catch (error) {
-            }
-        };
+  // Fetch assign-to options based on assignType
+  useEffect(() => {
+    if (assignType === "all" || assignType === "new") {
+      setAssignOptions([]);
+      setAssignedTo([]);
+      return;
+    }
 
-        const fetchUsers = async () => {
-            try {
-                // Reuse the same employee source as the Employee page
-                const response = await fetch(
-                    `${baseUrl.baseUrl}api/employee/app-users?page=1&limit=500`,
-                    {
-                        method: "GET",
-                        headers: {
-                            "Content-Type": "application/json",
-                            Authorization: `Bearer ${token}`,
-                        },
-                    }
-                );
+    const fetchOptions = async () => {
+      try {
+        const res = await fetch(
+          `${baseUrl.baseUrl}api/employee/app-users?page=1&limit=500`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        const employees = Array.isArray(data?.data) ? data.data : [];
 
-                if (!response.ok) {
-                    throw new Error(`Error: ${response.statusText}`);
-                }
-
-                const data = await response.json();
-                const employeeData = Array.isArray(data?.data) ? data.data : [];
-
-                // Map users to options based on selected option
-                if (selectedOption === 'branch') {
-                    // Get unique branches from employee data
-                    const uniqueBranches = [...new Set(employeeData.map(emp => emp.workingBranch).filter(Boolean))];
-                    const options = uniqueBranches.map((branch) => ({
-                        value: branch,
-                        label: branch,
-                    }));
-                    setUsers(options);
-                }
-                else if (selectedOption === 'user') {
-                    // Get individual users from employee data
-                    const options = employeeData.map((employee) => ({
-                        value: employee.empID,
-                        label: `EmpId: ${employee.empID || 'N/A'} | Name: ${employee.username || 'N/A'} | Role: ${employee.designation || 'N/A'}`,
-                    }));
-                    setUsers(options);
-                }
-                else if (selectedOption === 'designation') {
-                    // Get unique designations/roles from employee data
-                    const uniqueRoles = [...new Set(employeeData.map(emp => emp.designation).filter(Boolean))];
-                    const options = uniqueRoles.map((role) => ({
-                        value: role,
-                        label: role,
-                    }));
-                    setUsers(options);
-                }
-            } catch (error) {
-            }
-        };
-
-        fetchModules();
-        fetchUsers();
-    }, [selectedOption, token]);
-
-    // Submit handler
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-
-        // Validate form data before submission
-        if (!trainingName.trim()) {
-            toast.error("Training name is required");
-            return;
+        if (assignType === "user") {
+          setAssignOptions(
+            employees.map((e) => ({
+              value: e.empID,
+              label: `${e.empID || "N/A"} — ${e.username || "N/A"} (${e.designation || "N/A"})`,
+            }))
+          );
+        } else if (assignType === "designation") {
+          const unique = [...new Set(employees.map((e) => e.designation).filter(Boolean))];
+          setAssignOptions(unique.map((r) => ({ value: r, label: r })));
         }
-        if (selectedModules.length === 0) {
-            toast.error("Please select at least one module");
-            return;
-        }
-        if (!days || days <= 0) {
-            toast.error("Please enter a valid number of days");
-            return;
-        }
-        if (assignedTo.length === 0) {
-            toast.error("Please select at least one user/role/branch to assign the training to");
-            return;
-        }
-
-        const trainingData = {
-            trainingName,
-            workingBranch: assignedTo.map((item) => item.value), // Extract values
-            modules: selectedModules.map((item) => item.value), // Extract values
-            days,
-            selectedOption
-        };
-
-        try {
-            toast("Form Submitted Successfully!");
-            // POST request (uncomment to use)
-            const response = await fetch(`${baseUrl.baseUrl}api/trainings`, {
-                method: "POST",
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify(trainingData),
-            });
-            
-            const data = await response.json();
-            
-            if (!response.ok) {
-                toast.error(data.message || "Failed to create training");
-                return;
-            }
-            toast.success(data.message || "Training created successfully!");
-            
-            // Clear form after successful creation
-            setTrainingName("");
-            setSelectedModules([]);
-            setAssignedTo([]);
-            setDays("");
-        } catch (error) {
-            toast.error("Error submitting training.");
-        }
+      } catch (_) {}
     };
 
-    return (
-        <div>
-            <div className="w-full h-full bg-white">
-                <Header name="Assign new Training" />
-            </div>
-            <SideNav />
+    fetchOptions();
+    setAssignedTo([]);
+  }, [assignType, token]);
 
-            <div className=" md:ml-[120px] mt-[104px]">
-                <form onSubmit={handleSubmit} className="text-black w-[800px] mt-10">
-                    {/* Training Name */}
-                    <div className="flex flex-col gap-5 mx-20 mt-5">
-                        <div className="flex flex-col gap-5">
-                            <p>Training Name</p>
-                            <input
-                                type="text"
-                                placeholder="Training title"
-                                className="bg-white border p-1 w-full rounded-lg border-black"
-                                value={trainingName}
-                                onChange={(e) => setTrainingName(e.target.value)}
-                                required
-                            />
-                        </div>
-                    </div>
-
-                    {/* Days */}
-                    <div className="flex flex-col gap-5 mx-20 mt-5">
-                        <div className="flex flex-col gap-5">
-                            <p>Days</p>
-                            <input
-                                type="text"
-                                placeholder="Number of days"
-                                className="bg-white w-full border p-1 rounded-lg border-black"
-                                value={days}
-                                onChange={(e) => setDays(e.target.value)}
-                                required
-                            />
-                        </div>
-                    </div>
-
-                    {/* Modules Dropdown */}
-                    <div className="flex flex-col gap-5 mx-20 mt-5">
-                        <p>Modules</p>
-                        <Select
-                            options={modules}
-                            isMulti
-                            value={selectedModules}
-                            onChange={setSelectedModules}
-                            className="w-full"
-                        />
-                    </div>
-
-                    {/* Assign To Dropdown */}
-                    <div className="flex flex-col gap-1 mx-20 mt-5">
-                        <p>Assign To</p>
-                        <div className="flex flex-col gap-5 mx-20 mt-5">
-                            <div className="flex gap-5">
-                                <label>
-                                    <input
-                                        type="radio"
-                                        value="user"
-                                        checked={selectedOption === "user"}
-                                        onChange={() => setSelectedOption("user")}
-                                    /> User
-                                </label>
-                                <label>
-                                    <input
-                                        type="radio"
-                                        value="designation"
-                                        checked={selectedOption === "designation"}
-                                        onChange={() => setSelectedOption("designation")}
-                                    /> Designation
-                                </label>
-                                <label>
-                                    <input
-                                        type="radio"
-                                        value="branch"
-                                        checked={selectedOption === "branch"}
-                                        onChange={() => setSelectedOption("branch")}
-                                    /> Branch
-                                </label>
-                            </div>
-                        </div>
-                        <Select
-                            options={users}
-                            isMulti
-                            value={assignedTo}
-                            onChange={setAssignedTo} // Updates state
-                            className="w-full "
-                        />
-                    </div>
-
-                    {/* Submit Button */}
-                    <div className="mt-10 mx-20">
-                        <button
-                            type="submit"
-                            className="border border-black p-2 px-6 rounded-lg bg-[#016E5B] hover:bg-[#017E5B] text-white"
-                        >
-                            Assign Training
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
+  const toggleModule = (mod) => {
+    setSelectedModules((prev) =>
+      prev.some((m) => m._id === mod._id)
+        ? prev.filter((m) => m._id !== mod._id)
+        : [...prev, mod]
     );
+  };
+
+  const handleSubmit = async () => {
+    if (!trainingName.trim()) return toast.error("Training title is required");
+    if (!category) return toast.error("Please select a category");
+    if (!days || Number(days) <= 0) return toast.error("Please enter valid number of days");
+    if (selectedModules.length === 0) return toast.error("Please select at least one module");
+
+    // Build assignedfor array
+    let assignedfor = [];
+    if (assignType === "all") assignedfor = ["All"];
+    else if (assignType === "new") assignedfor = ["New"];
+    else assignedfor = assignedTo.map((x) => x.value);
+
+    if ((assignType === "user" || assignType === "designation") && assignedfor.length === 0) {
+      return toast.error("Please select at least one assignee");
+    }
+
+    const payload = {
+      trainingName: trainingName.trim(),
+      description: description.trim(),
+      modules: selectedModules.map((m) => m._id),
+      deadline: Number(days),
+      Trainingtype: trainingType,
+      Assignedfor: assignedfor,
+      selectedOption: assignType,
+      workingBranch: assignedfor,
+      category,
+    };
+
+    try {
+      setLoading(true);
+      const res = await fetch(`${baseUrl.baseUrl}api/trainings`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) return toast.error(data.message || "Failed to create training");
+      toast.success(data.message || "Training created successfully!");
+      navigate(-1);
+    } catch (_) {
+      toast.error("Error submitting training.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex min-h-screen bg-[#f5f5f5]">
+      <SideNav />
+
+      <div className="flex-1 md:ml-[120px] p-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate(-1)}
+              className="p-1 hover:bg-gray-200 rounded-full transition"
+            >
+              <FiArrowLeft size={22} />
+            </button>
+            <h1 className="text-[22px] font-bold leading-tight text-gray-900">Create New Training</h1>
+          </div>
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="bg-gray-900 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-gray-700 transition disabled:opacity-60"
+          >
+            {loading ? "Saving..." : "Save Training"}
+          </button>
+        </div>
+
+        {/* Top form card */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm mb-5">
+          {/* Row 1: Title, Category, Description */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Training Title <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Enter Training title"
+                value={trainingName}
+                onChange={(e) => setTrainingName(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Category <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white"
+              >
+                <option value="">Select Category</option>
+                {CATEGORY_OPTIONS.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Description
+              </label>
+              <input
+                type="text"
+                placeholder="Enter Description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+              />
+            </div>
+          </div>
+
+          {/* Row 2: Days, Training Type, Assign To */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* Days */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Deadline (Days) <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                placeholder="Number of days"
+                value={days}
+                min={1}
+                onChange={(e) => setDays(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+              />
+            </div>
+
+            {/* Training Type */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Training Type <span className="text-red-500">*</span>
+              </label>
+              <div className="flex gap-4 mt-1">
+                {TRAINING_TYPES.map((t) => (
+                  <label key={t.value} className="flex items-center gap-2 cursor-pointer text-sm">
+                    <input
+                      type="radio"
+                      name="trainingType"
+                      value={t.value}
+                      checked={trainingType === t.value}
+                      onChange={() => setTrainingType(t.value)}
+                      className="accent-gray-900"
+                    />
+                    {t.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Assign To */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Assign to <span className="text-red-500">*</span>
+              </label>
+              <div className="flex flex-wrap gap-3">
+                {ASSIGN_OPTIONS.map((opt) => (
+                  <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer text-sm">
+                    <input
+                      type="radio"
+                      name="assignType"
+                      value={opt.value}
+                      checked={assignType === opt.value}
+                      onChange={() => setAssignType(opt.value)}
+                      className="accent-gray-900"
+                    />
+                    {opt.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Conditional assignee selector */}
+          {(assignType === "user" || assignType === "designation") && (
+            <div className="mt-5">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Select {assignType === "user" ? "Employees" : "Roles"}
+              </label>
+              <div className="border border-gray-300 rounded-lg p-3 max-h-40 overflow-y-auto bg-gray-50">
+                {assignOptions.length === 0 ? (
+                  <p className="text-sm text-gray-400">Loading options...</p>
+                ) : (
+                  assignOptions.map((opt) => (
+                    <label key={opt.value} className="flex items-center gap-2 py-1 cursor-pointer text-sm hover:bg-gray-100 px-1 rounded">
+                      <input
+                        type="checkbox"
+                        checked={assignedTo.some((a) => a.value === opt.value)}
+                        onChange={() =>
+                          setAssignedTo((prev) =>
+                            prev.some((a) => a.value === opt.value)
+                              ? prev.filter((a) => a.value !== opt.value)
+                              : [...prev, opt]
+                          )
+                        }
+                        className="accent-gray-900"
+                      />
+                      {opt.label}
+                    </label>
+                  ))
+                )}
+              </div>
+              {assignedTo.length > 0 && (
+                <p className="text-xs text-gray-500 mt-1">{assignedTo.length} selected</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Modules card */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm">
+          <h2 className="text-base font-semibold text-gray-800 mb-4">Select training Modules</h2>
+
+          {modules.length === 0 ? (
+            <p className="text-sm text-gray-400">No modules available.</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {modules.map((mod) => {
+                const isSelected = selectedModules.some((m) => m._id === mod._id);
+                const videoCount = mod.videos?.length ?? 0;
+                // Estimate duration: assume ~15 mins per video
+                const totalMins = videoCount * 15;
+                const hrs = Math.floor(totalMins / 60).toString().padStart(2, "0");
+                const mins = (totalMins % 60).toString().padStart(2, "0");
+
+                return (
+                  <div
+                    key={mod._id}
+                    onClick={() => toggleModule(mod)}
+                    className={`flex items-start gap-3 border rounded-2xl p-4 cursor-pointer transition-all ${
+                      isSelected
+                        ? "border-gray-900 bg-gray-50 shadow-sm"
+                        : "border-gray-200 hover:border-gray-400"
+                    }`}
+                  >
+                    {/* Checkbox */}
+                    <div
+                      className={`mt-0.5 w-5 h-5 flex-shrink-0 rounded border-2 flex items-center justify-center transition-colors ${
+                        isSelected ? "bg-gray-900 border-gray-900" : "border-gray-400"
+                      }`}
+                    >
+                      {isSelected && (
+                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900 text-sm truncate">{mod.moduleName}</p>
+                      <div className="flex items-center gap-4 mt-1.5 text-gray-500 text-xs">
+                        <span className="flex items-center gap-1">
+                          <FiClock size={12} />
+                          {hrs} hr {mins} mins
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <FiBook size={12} />
+                          {videoCount} {videoCount === 1 ? "Video" : "Videos"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {selectedModules.length > 0 && (
+            <p className="text-xs text-gray-500 mt-4">
+              {selectedModules.length} module{selectedModules.length > 1 ? "s" : ""} selected
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default CreateTrainingDatas;

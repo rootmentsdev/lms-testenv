@@ -115,7 +115,7 @@ const CreateUser = () => {
   return (
     <div className="p-6 bg-gray-50 min-h-screen flex text-black justify-center items-center">
       <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl">
-        <h1 className="text-2xl font-bold mb-6">Create User/Admin</h1>
+        <h1 className="text-2xl font-extrabold mb-6">Create User/Admin</h1>
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* User ID */}
           <div>

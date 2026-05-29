@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from "react";
-import Header from "../../components/Header/Header";
 import SideNav from "../../components/SideNav/SideNav";
 import baseUrl from "../../api/api";
 import { Link } from "react-router-dom";
@@ -29,13 +28,13 @@ const ProgressBar = ({ pct }) => {
       <div style={{ flex: 1, height: "6px", background: "#f3f4f6", borderRadius: "99px", overflow: "hidden" }}>
         <div style={{ width: `${Math.min(pct, 100)}%`, height: "100%", background: color, borderRadius: "99px", transition: "width 0.3s" }} />
       </div>
-      <span style={{ fontSize: "12px", fontWeight: 600, color, minWidth: "34px" }}>{pct}%</span>
+      <span style={{ fontSize: "11px", fontWeight: 600, color, minWidth: "34px" }}>{pct}%</span>
     </div>
   );
 };
 
 const StatCell = ({ done, total, overdue }) => (
-  <div style={{ fontSize: "12px", lineHeight: "1.4" }}>
+  <div style={{ fontSize: "11px", lineHeight: "1.4" }}>
     <div style={{ color: "#111827", fontWeight: 500 }}>{done}/{total}</div>
     {overdue > 0
       ? <div style={{ color: "#ef4444", fontWeight: 500 }}>Overdue : {overdue}</div>
@@ -136,13 +135,12 @@ const EmployeeData = () => {
 
   return (
     <div style={{ minHeight:"100vh", background:"#f9fafb", fontFamily:"'DM Sans', sans-serif" }}>
-      <Header />
       <SideNav />
 
-      <div style={{ marginLeft:"120px", paddingTop:"80px", paddingLeft:"24px", paddingRight:"24px", paddingBottom:"40px" }}>
+      <div style={{ marginLeft:"120px", paddingTop:"24px", paddingLeft:"24px", paddingRight:"24px", paddingBottom:"40px" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"20px" }}>
           <div>
-            <h1 style={{ fontSize:"22px", fontWeight:700, color:"#111827", margin:0 }}>Employee Management</h1>
+            <h1 style={{ fontSize:"22px", fontWeight:700, lineHeight:1.2, color:"#111827", margin:0 }}>Employee Management</h1>
             <p style={{ fontSize:"12px", color:"#9ca3af", margin:"4px 0 0" }}>Store walkings, tasks, and training progress across all locations</p>
           </div>
           <Link to="/training">

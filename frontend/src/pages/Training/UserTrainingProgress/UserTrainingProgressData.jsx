@@ -1,6 +1,5 @@
 
 import { useParams } from "react-router-dom";
-import Header from "../../../components/Header/Header"
 import baseUrl from "../../../api/api";
 import SideNav from "../../../components/SideNav/SideNav";
 import { useEffect, useState } from "react";
@@ -34,10 +33,8 @@ const UserTrainingProgressData = () => {
 
     return (
         <div className="w-full mb-[70px] h-full bg-white">
-            <div><Header name='Training Details' /></div>
-
             <SideNav />
-            <div className="md:ml-[120px] mt-[104px]">
+            <div className="md:ml-[120px]">
 
                 <div className="px-4 md:px-10 mt-10 text-2xl text-black">
                     <div className="text-2xl text-black flex gap-2 flex-col">

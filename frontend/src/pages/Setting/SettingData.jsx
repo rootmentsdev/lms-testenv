@@ -1,5 +1,4 @@
 import { useState } from "react";
-import Header from "../../components/Header/Header";
 import SideNav from "../../components/SideNav/SideNav";
 import PermissionSettings from "./PermissionSettings";
 // import Visibility from "./Visibility";
@@ -37,16 +36,13 @@ const SettingData = () => {
 
     return (
         <div className="w-full h-full bg-white">
-            <div>
-                <Header name={"Settings"} />
-            </div>
             <SideNav />
 
-            <div className="md:ml-[120px] mt-[104px]">
+            <div className="md:ml-[120px]">
                 <div className="flex">
                     {/* Sidebar */}
                     <div className="w-64 bg-white shadow p-4 text-black fixed h-full md:left-28">
-                        <h2 className="text-xl font-bold mb-6">Settings</h2>
+                        <h2 className="text-xl font-extrabold mb-6">Settings</h2>
                         <ul className="space-y-4">
 
                             <li>

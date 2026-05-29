@@ -1,4 +1,3 @@
-import Header from "../../components/Header/Header";
 import SideNav from "../../components/SideNav/SideNav";
 import DashboardOverview from "../../components/DashboardOverview/DashboardOverview";
 import DailyWalkings from "../../components/DailyWalkings/DailyWalkings";
@@ -8,10 +7,9 @@ import HomeBar from "../../components/HomeBar/HomeBar";
 const HomeData = () => {
     return (
         <div className="mx-0 mb-[90px]">
-            <Header name="Dashboard" />
             <div className="flex">
                 <SideNav />
-                <div className="md:ml-[120px] mt-[68px] w-full">
+                <div className="md:ml-[120px] w-full">
                     <div className="px-6 mt-6">
                         <DashboardOverview />
                     </div>

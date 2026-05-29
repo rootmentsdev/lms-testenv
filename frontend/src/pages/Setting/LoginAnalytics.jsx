@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import Header from '../../components/Header/Header';
 import SideNav from '../../components/SideNav/SideNav';
 import ModileNav from '../../components/SideNav/ModileNav';
 
@@ -202,11 +201,10 @@ const LoginAnalytics = () => {
 
                 {/* Main Content */}
                 <div className="md:ml-[120px]">
-                    <Header />
                     
                     <div className="p-6">
                         <div className="mb-6">
-                            <h1 className="text-3xl font-bold text-gray-900 mb-2">🔍 Login Analytics Dashboard</h1>
+                            <h1 className="text-3xl font-extrabold text-gray-900 mb-2">🔍 Login Analytics Dashboard</h1>
                             <p className="text-gray-600">Monitor user login activity, devices, and real-time sessions</p>
                             <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                                 <p className="text-sm text-blue-800">

@@ -123,7 +123,7 @@ const PermissionSettings = () => {
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen w-full text-black">
-      <h1 className="text-2xl font-bold mb-6">Permission Settings</h1>
+      <h1 className="text-2xl font-extrabold mb-6">Permission Settings</h1>
       <div className="bg-white p-6 rounded-lg shadow">
         <h2 className="text-lg font-bold mb-4">Role-Based Permissions</h2>
         <div className="overflow-x-auto">

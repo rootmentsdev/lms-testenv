@@ -2,7 +2,6 @@ import { useState, useRef, useLayoutEffect, useCallback, useEffect } from 'react
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import Select, { components } from 'react-select';
-import Header from '../../components/Header/Header';
 import SideNav from '../../components/SideNav/SideNav';
 import { createTask } from '../../features/task/taskApi';
 import baseUrl from '../../api/api';
@@ -576,10 +575,9 @@ const CreateTask = () => {
 
   return (
     <div style={{ minHeight: '100vh', background: '#f9fafb', fontFamily: "'DM Sans', sans-serif" }}>
-      <Header name="Tasks" />
       <SideNav />
 
-      <div style={{ marginLeft: '120px', paddingTop: '80px', paddingLeft: '24px', paddingRight: '24px', paddingBottom: '40px' }}>
+      <div style={{ marginLeft: '120px', paddingTop: '24px', paddingLeft: '24px', paddingRight: '24px', paddingBottom: '40px' }}>
         <button
           type="button"
           onClick={() => navigate('/task')}
@@ -597,7 +595,7 @@ const CreateTask = () => {
         <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid #f0f0f0', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', padding: '28px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '28px' }}>
             <div>
-              <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', margin: 0 }}>Create & Assign New Task</h2>
+              <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#111827', margin: 0 }}>Create & Assign New Task</h2>
               <p style={{ fontSize: '12px', color: '#9ca3af', margin: '4px 0 0' }}>Track and manage all operational tasks across stores</p>
             </div>
             <ModeToggle mode={mode} onChange={switchMode} disabled={isSwitching} />

@@ -162,7 +162,7 @@ const DashboardOverview = () => {
     <div style={{ marginBottom: '24px' }}>
       <div className="flex items-start justify-between mb-5">
         <div>
-          <h2 className="text-[17px] font-bold text-gray-900 leading-tight">Dashboard Overview</h2>
+          <h2 className="text-[22px] font-bold text-gray-900 leading-tight">Dashboard Overview</h2>
           <p className="text-[12px] text-gray-400 mt-0.5">Store walkings, tasks, and training progress across all locations</p>
         </div>
         <Link to="/walkin/list">

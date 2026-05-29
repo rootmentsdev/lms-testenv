@@ -1,4 +1,3 @@
-import Header from "../../components/Header/Header";
 import SideNav from "../../components/SideNav/SideNav";
 import { FaRegIdCard } from "react-icons/fa";
 import { CiMail } from "react-icons/ci";
@@ -74,9 +73,8 @@ const ProfileData = () => {
 
     return (
         <div className="mb-[70px]">
-            <Header name="Employee" />
             <SideNav />
-            <div className="flex mt-[104px] ml-[120px] w-[1300px] bg-gray-100">
+            <div className="flex ml-[120px] w-[1300px] bg-gray-100">
                 <div className="bg-white rounded-2xl w-full shadow-md p-6">
                     <div className="flex gap-10 items-start space-y-4 relative">
                         <div className="w-[150px]">

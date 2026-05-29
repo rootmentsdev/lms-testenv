@@ -232,7 +232,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import SideNav from "../../../components/SideNav/SideNav";
-import Header from "../../../components/Header/Header";
 import { GoPencil } from "react-icons/go";
 import { FaRegTrashCan } from "react-icons/fa6";
 import baseUrl from "../../../api/api.js";
@@ -397,18 +396,17 @@ const EmployeeDetaileData = () => {
 
   return (
     <div className="mb-[70px]">
-      <Header name="Employee" />
       <SideNav />
 
       <div>
-        <div className="p-6 bg-white max-w-4xl mx-auto mt-32 text-black">
+        <div className="p-6 bg-white max-w-4xl mx-auto mt-6 text-black">
           <Link to={'/employee'}>
             <button className="text-gray-500 mb-4 flex items-center" onClick={() => setIsEditing(false)}>
               <span className="mr-2">←</span> Back
             </button>
           </Link>
 
-          <h1 className="text-xl font-semibold text-gray-800 mb-2">Employee Details</h1>
+          <h1 className="text-[22px] font-bold text-gray-800 leading-tight mb-2">Employee Details</h1>
           
           {/* Refresh Button */}
           <div className="mb-4 flex justify-between items-center">

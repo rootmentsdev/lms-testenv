@@ -6,7 +6,7 @@
 
 .task-mgmt-content {
   margin-left: 120px;
-  padding: 80px 24px 40px;
+  padding: 24px 24px 40px;
 }
 
 .task-mgmt-header {
@@ -17,11 +17,15 @@
 }
 
 .task-mgmt-title {
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 22px;
+  font-weight: 600;
   color: #111827;
   margin: 0;
-  line-height: 1.3;
+  line-height: 1.2;
+}
+
+.task-mgmt-title--heavy {
+  font-weight: 700;
 }
 
 .task-mgmt-subtitle {

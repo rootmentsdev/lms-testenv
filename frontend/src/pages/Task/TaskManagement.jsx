@@ -1,7 +1,6 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import Header from '../../components/Header/Header';
 import SideNav from '../../components/SideNav/SideNav';
 import TaskDetailModal from '../../components/Task/TaskDetailModal';
 import { fetchTasks } from '../../features/task/taskApi';
@@ -100,13 +99,12 @@ const TaskManagement = () => {
 
   return (
     <div className="task-mgmt-page">
-      <Header />
       <SideNav />
 
       <div className="task-mgmt-content">
         <div className="task-mgmt-header">
           <div>
-            <h1 className="task-mgmt-title">Task Management</h1>
+            <h1 className="task-mgmt-title task-mgmt-title--heavy">Task Management</h1>
             <p className="task-mgmt-subtitle">Track and manage all operational tasks across stores</p>
           </div>
           <Link to="/task/create" className="task-mgmt-new-btn">

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
-import Header from "../../../components/Header/Header";
 import SideNav from "../../../components/SideNav/SideNav";
 import { useParams } from "react-router-dom";
 import baseUrl from "../../../api/api";
@@ -104,9 +103,8 @@ const BranchDetailsData = () => {
   if (loading) {
     return (
       <div className="mb-[70px]">
-        <Header name="Branch Details" />
         <SideNav />
-        <div className="md:ml-[120px] mt-[104px] px-4 sm:px-6 lg:px-6">
+        <div className="md:ml-[120px] px-4 sm:px-6 lg:px-6">
           <div className="flex justify-center items-center py-20">
             <div className="h-10 w-10 animate-spin rounded-full border-2 border-gray-200 border-t-[#111111]" />
           </div>
@@ -117,10 +115,9 @@ const BranchDetailsData = () => {
 
   return (
     <div className="mb-[70px] bg-[#f7f7f7] min-h-screen">
-      <Header name="Branch Details" />
       <SideNav />
 
-      <div className="md:ml-[120px] mt-[104px] px-4 sm:px-6 lg:px-6 pb-10">
+      <div className="md:ml-[120px] px-4 sm:px-6 lg:px-6 pb-10">
         <div className="mx-auto max-w-[1720px]">
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
@@ -131,7 +128,7 @@ const BranchDetailsData = () => {
               >
                 <FaChevronLeft size={14} />
               </button>
-              <h1 className="text-[20px] font-medium leading-tight text-gray-900">{branchTitle}</h1>
+              <h1 className="text-[20px] font-semibold leading-tight text-gray-900">{branchTitle}</h1>
               {branchBrand && <p className="mt-1 text-[13px] text-[#2563eb]">{branchBrand}</p>}
             </div>
 

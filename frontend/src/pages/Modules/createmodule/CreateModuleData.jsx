@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import Header from "../../../components/Header/Header";
 import { IoIosArrowBack } from "react-icons/io";
 import baseUrl from "../../../api/api";
 import { toast } from "react-toastify";
@@ -333,10 +332,9 @@ const CreateModuleData = () => {
 
   return (
     <div className="min-h-screen bg-[#f9fafb] text-black" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-      <Header name="Modules" />
       <SideNav />
 
-      <div className="md:ml-[120px] mt-[104px] px-6 pb-10">
+      <div className="md:ml-[120px] px-6 pb-10">
         <div className="max-w-[860px]">
 
           {/* ── Header + basic info (no card, sits on grey bg) ── */}

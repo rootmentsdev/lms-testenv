@@ -1,4 +1,3 @@
-import Header from "../../components/Header/Header";
 import SideNav from "../../components/SideNav/SideNav";
 import TopEmployeeAndBranch from "../../components/TopEmployeeAndBranch/TopEmployeeAndBranch";
 import Notification from "../../components/Notification/Notification";
@@ -9,10 +8,9 @@ import DashboardOverview from "../../components/DashboardOverview/DashboardOverv
 const HomeDatastore = ({ user }) => {
     return (
         <div className="mx-0 mb-[90px]">
-            <Header name="Dashboard" />
             <div className="flex">
                 <SideNav />
-                <div className="md:ml-[120px] mt-[104px] w-full">
+                <div className="md:ml-[120px] w-full">
                     <div className="px-6 mt-6">
                         <DashboardOverview />
                     </div>

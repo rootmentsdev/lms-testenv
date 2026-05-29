@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "../../components/Header/Header";
 import SideNav from "../../components/SideNav/SideNav";
 import baseUrl from "../../api/api";
 import { toast } from "react-toastify";
@@ -8,7 +7,7 @@ import { toast } from "react-toastify";
 /* ── Field component ─────────────────────────────────────────────────────── */
 const Field = ({ label, required, children }) => (
   <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-    <label style={{ fontSize: "12px", fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+    <label style={{ fontSize: "11px", fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>
       {label}{required && <span style={{ color: "#ef4444", marginLeft: 2 }}>*</span>}
     </label>
     {children}
@@ -78,10 +77,9 @@ const BranchForm = () => {
 
   return (
     <div style={{ minHeight: "100vh", background: "#f9fafb", fontFamily: "'DM Sans', sans-serif" }}>
-      <Header />
       <SideNav />
 
-      <div style={{ marginLeft: "120px", paddingTop: "80px", paddingLeft: "24px", paddingRight: "24px", paddingBottom: "40px" }}>
+      <div style={{ marginLeft: "120px", paddingTop: "24px", paddingLeft: "24px", paddingRight: "24px", paddingBottom: "24px" }}>
 
         {/* ── Page header ── */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" }}>
@@ -95,8 +93,8 @@ const BranchForm = () => {
               </svg>
               Back to Branches
             </button>
-            <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#111827", margin: 0 }}>Add New Branch</h1>
-            <p style={{ fontSize: "12px", color: "#9ca3af", margin: "4px 0 0" }}>Fill in the details below to register a new branch</p>
+            <h1 style={{ fontSize: "22px", fontWeight: 700, lineHeight: 1.2, color: "#111827", margin: 0 }}>Add New Branch</h1>
+            <p style={{ fontSize: "11px", color: "#9ca3af", margin: "4px 0 0" }}>Fill in the details below to register a new branch</p>
           </div>
         </div>
 
@@ -112,7 +110,7 @@ const BranchForm = () => {
             </div>
             <div>
               <p style={{ fontSize: "14px", fontWeight: 600, color: "#111827", margin: 0 }}>Branch Information</p>
-              <p style={{ fontSize: "12px", color: "#9ca3af", margin: 0 }}>Basic details about the branch</p>
+              <p style={{ fontSize: "11px", color: "#9ca3af", margin: 0 }}>Basic details about the branch</p>
             </div>
           </div>
 

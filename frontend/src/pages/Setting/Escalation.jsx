@@ -82,7 +82,7 @@ const Escalation = () => {
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100">
             <div className="w-full max-w-4xl bg-white shadow-md rounded-lg p-6">
-                <h1 className="text-xl font-bold text-gray-800 mb-4">Escalation Levels</h1>
+                <h1 className="text-xl font-extrabold text-gray-800 mb-4">Escalation Levels</h1>
                 <div className="overflow-x-auto">
                     <table className="min-w-full bg-white border border-gray-200">
                         <thead>

@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import RoundProgressBar from "../../components/RoundBar/RoundBar";
-import Header from "../../components/Header/Header";
 import { FaPlus } from "react-icons/fa";
 import { CiFilter } from "react-icons/ci";
 import { FaTrashAlt } from "react-icons/fa";
@@ -202,11 +201,8 @@ const AssignedTrainingsData = () => {
     return (
         <>
             <div className="mb-[70px] w-full h-full bg-white">
-                <div>
-                    <Header name="Assigned Training" />
-                </div>
                 <SideNav />
-                <div className="md:ml-[120px] mt-[104px]">
+                <div className="md:ml-[120px]">
                     <div>
                         <div className="flex justify-end mr-20">
                             <Link to={"/Alltraining"}>

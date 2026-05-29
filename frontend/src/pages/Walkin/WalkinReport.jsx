@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import Header from "../../components/Header/Header";
 import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
 import baseUrl from "../../api/api";
@@ -151,14 +150,13 @@ const WalkinReport = () => {
 
   return (
     <div style={{ minHeight:'100vh', background:'#f9fafb', fontFamily:"'DM Sans', sans-serif" }}>
-      <Header />
       <SideNav />
       <div className="md:hidden sm:block"><ModileNav /></div>
 
-      <div style={{ marginLeft:'120px', paddingTop:'80px', paddingLeft:'24px', paddingRight:'24px', paddingBottom:'40px' }}>
+      <div style={{ marginLeft:'120px', paddingTop:'24px', paddingLeft:'24px', paddingRight:'24px', paddingBottom:'40px' }}>
 
         {/* Page title */}
-        <h1 style={{ fontSize:'22px', fontWeight:700, color:'#111827', margin:'0 0 20px' }}>Walk In Report</h1>
+        <h1 style={{ fontSize:'22px', fontWeight:700, lineHeight:1.2, color:'#111827', margin:'0 0 20px' }}>Walk In Report</h1>
 
         {/* Filter card */}
         <div style={{ background:'#fff', borderRadius:'16px', border:'1px solid #f0f0f0', boxShadow:'0 1px 4px rgba(0,0,0,0.05)', padding:'20px', marginBottom:'20px', width:'100%', boxSizing:'border-box' }}>

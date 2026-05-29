@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { FaTrashAlt, FaPlus } from "react-icons/fa";
 import { CiFilter } from "react-icons/ci";
 import baseUrl from "../../../api/api";
-import Header from "../../../components/Header/Header";
 import SideNav from "../../../components/SideNav/SideNav";
 import RoundProgressBar from "../../../components/RoundBar/RoundBar";
 import Card from "../../../components/Skeleton/Card";
@@ -209,11 +208,8 @@ const MandatoryTrainingList = () => {
     return (
         <>
             <div className="mb-[70px] w-full h-full bg-white">
-                <div>
-                    <Header name="Mandatory Training List" />
-                </div>
                 <SideNav />
-                <div className="md:ml-[120px] mt-[104px]">
+                <div className="md:ml-[120px]">
                     <div>
                         <div className="flex justify-end mr-20">
                             <Link to={"/training"}>

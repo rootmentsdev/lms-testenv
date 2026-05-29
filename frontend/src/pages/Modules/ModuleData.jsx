@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import Header from "../../components/Header/Header";
 import SideNav from "../../components/SideNav/SideNav";
 import baseUrl from "../../api/api";
 import { FaPlus, FaSearch } from "react-icons/fa";
@@ -87,7 +86,7 @@ const ModuleDetailModal = ({ module, onClose }) => {
 
 const MetaRow = ({ label, value, bold }) => (
   <div className="flex items-center justify-between">
-    <span className="text-[13px] text-gray-500">{label}</span>
+    <span className="text-[12px] text-gray-500">{label}</span>
     <span className={`text-[13px] ${bold ? "font-bold text-gray-900" : "text-gray-700"}`}>
       {value}
     </span>
@@ -143,7 +142,6 @@ const ModuleData = () => {
       className="min-h-screen bg-[#f9fafb]"
       style={{ fontFamily: "'DM Sans', sans-serif" }}
     >
-      <Header name="Modules" />
       <SideNav />
 
       {/* Detail modal */}
@@ -154,14 +152,14 @@ const ModuleData = () => {
         />
       )}
 
-      <div className="md:ml-[120px] mt-[104px] px-6 pb-12">
+      <div className="md:ml-[120px] px-6 pb-6">
         {/* ── Page header ── */}
-        <div className="flex items-start justify-between gap-4 mb-6">
+        <div className="flex items-start justify-between gap-4 mb-5">
           <div>
-            <h1 className="text-[22px] font-bold text-gray-900 leading-tight">
+            <h1 className="text-[22px] font-bold text-gray-900 mt-5 leading-tight">
               Module Management
             </h1>
-            <p className="mt-1 text-[13px] text-gray-500">
+            <p className="mt-1 text-[12px] text-gray-500">
               Monitor module engagement and performance across all trainings
             </p>
           </div>
@@ -174,7 +172,7 @@ const ModuleData = () => {
         </div>
 
         {/* ── Search ── */}
-        <div className="relative mb-6 max-w-[340px]">
+        <div className="relative mb-5 max-w-[340px]">
           <FaSearch
             className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
             size={13}
@@ -190,14 +188,14 @@ const ModuleData = () => {
 
         {/* ── Loading ── */}
         {loading && (
-          <div className="flex justify-center items-center py-20">
+          <div className="flex justify-center items-center py-14">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-gray-800" />
           </div>
         )}
 
         {/* ── Empty ── */}
         {!loading && filtered.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+          <div className="flex flex-col items-center justify-center py-14 text-gray-400">
             <LuBookOpen size={40} className="mb-3 opacity-40" />
             <p className="text-[14px] font-medium">No modules found</p>
             <p className="text-[12px] mt-1">
@@ -247,7 +245,7 @@ const ModuleCard = ({ module, onViewDetails }) => {
         <h2 className="text-[16px] font-bold text-gray-900 leading-snug">
           {module.moduleName || "Untitled Module"}
         </h2>
-        <p className="mt-1 text-[13px] text-gray-500 line-clamp-1">
+        <p className="mt-1 text-[12px] text-gray-500 line-clamp-1">
           {module.description || "Customer Service Excellence"}
         </p>
       </div>

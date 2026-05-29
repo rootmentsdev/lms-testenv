@@ -48,9 +48,18 @@ import { setUser } from './features/auth/authSlice.js';
 // Custom Components
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
+import Header from './components/Header/Header';
 
 import baseUrl from './api/api';
 import { useDispatch } from 'react-redux';
+
+// Layout wrapper that adds the global header to all protected pages
+const ProtectedLayout = ({ children }) => (
+  <ProtectedRoute>
+    <Header />
+    <div style={{ paddingTop: '60px' }}>{children}</div>
+  </ProtectedRoute>
+);
 
 
 
@@ -120,42 +129,41 @@ function App() {
           />
 
           {/* Protected Routes */}
-          <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-          <Route path="/assessments" element={<ProtectedRoute><Assessments /></ProtectedRoute>} />
+          <Route path="/" element={<ProtectedLayout><Home /></ProtectedLayout>} />
+          <Route path="/assessments" element={<ProtectedLayout><Assessments /></ProtectedLayout>} />
 
-          <Route path="/branch" element={<ProtectedRoute><Branch /></ProtectedRoute>} />
-          <Route path="/Addbranch" element={<ProtectedRoute><AddBranch /></ProtectedRoute>} />
+          <Route path="/branch" element={<ProtectedLayout><Branch /></ProtectedLayout>} />
+          <Route path="/Addbranch" element={<ProtectedLayout><AddBranch /></ProtectedLayout>} />
 
-          <Route path="/employee" element={<ProtectedRoute><Employee /></ProtectedRoute>} />
-          <Route path="/module" element={<ProtectedRoute><Module /></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><Setting /></ProtectedRoute>} />
-          <Route path="/alltraining" element={<ProtectedRoute><Training /></ProtectedRoute>} />
-          <Route path="/training" element={<ProtectedRoute><CreateTraining /></ProtectedRoute>} />
-          <Route path="/assigdata" element={<ProtectedRoute><AssignedTrainings /></ProtectedRoute>} />
-          <Route path="/assigtraining/:id" element={<ProtectedRoute><AssingOrdelete /></ProtectedRoute>} />
-          <Route path="/createmodule" element={<ProtectedRoute><CreateModule /></ProtectedRoute>} />
-          <Route path="/createnewtraining" element={<ProtectedRoute><CreateTrainings /></ProtectedRoute>} />
-          <Route path="/reassign/:id" element={<ProtectedRoute><Reassign /></ProtectedRoute>} />
-          <Route path="/create/mandatorytraining" element={<ProtectedRoute><MandatoryTraining /></ProtectedRoute>} />
-          <Route path="/trainingdetails/:id" element={<ProtectedRoute><UserTrainingProgress /></ProtectedRoute>} />
-          <Route path="/create/assessment" element={<ProtectedRoute><CreateAssessment /></ProtectedRoute>} />
-          <Route path="/assessment/assign/:id" element={<ProtectedRoute><AssessmentsAssign /></ProtectedRoute>} />
-          <Route path="/assign/assessment" element={<ProtectedRoute><AssignAssessment /></ProtectedRoute>} />
+          <Route path="/employee" element={<ProtectedLayout><Employee /></ProtectedLayout>} />
+          <Route path="/module" element={<ProtectedLayout><Module /></ProtectedLayout>} />
+          <Route path="/settings" element={<ProtectedLayout><Setting /></ProtectedLayout>} />
+          <Route path="/alltraining" element={<ProtectedLayout><Training /></ProtectedLayout>} />
+          <Route path="/training" element={<ProtectedLayout><CreateTraining /></ProtectedLayout>} />
+          <Route path="/assigdata" element={<ProtectedLayout><AssignedTrainings /></ProtectedLayout>} />
+          <Route path="/assigtraining/:id" element={<ProtectedLayout><AssingOrdelete /></ProtectedLayout>} />
+          <Route path="/createmodule" element={<ProtectedLayout><CreateModule /></ProtectedLayout>} />
+          <Route path="/createnewtraining" element={<ProtectedLayout><CreateTrainings /></ProtectedLayout>} />
+          <Route path="/reassign/:id" element={<ProtectedLayout><Reassign /></ProtectedLayout>} />
+          <Route path="/create/mandatorytraining" element={<ProtectedLayout><MandatoryTraining /></ProtectedLayout>} />
+          <Route path="/trainingdetails/:id" element={<ProtectedLayout><UserTrainingProgress /></ProtectedLayout>} />
+          <Route path="/create/assessment" element={<ProtectedLayout><CreateAssessment /></ProtectedLayout>} />
+          <Route path="/assessment/assign/:id" element={<ProtectedLayout><AssessmentsAssign /></ProtectedLayout>} />
+          <Route path="/assign/assessment" element={<ProtectedLayout><AssignAssessment /></ProtectedLayout>} />
           {/* Test route removed - no longer needed */}
-          <Route path="/admin/Notification" element={<ProtectedRoute>< Notifications /></ProtectedRoute>} />
+          <Route path="/admin/Notification" element={<ProtectedLayout><Notifications /></ProtectedLayout>} />
 
-          <Route path="/admin/overdue/assessment" element={<ProtectedRoute>< AssessmentOverDuedata /></ProtectedRoute>} />
-          <Route path="/admin/overdue/training" element={<ProtectedRoute>< TraningOverDuedata /></ProtectedRoute>} />
-          <Route path="/detailed/:id" element={<ProtectedRoute>< EmployeeDetaile /></ProtectedRoute>} />
+          <Route path="/admin/overdue/assessment" element={<ProtectedLayout><AssessmentOverDuedata /></ProtectedLayout>} />
+          <Route path="/admin/overdue/training" element={<ProtectedLayout><TraningOverDuedata /></ProtectedLayout>} />
+          <Route path="/detailed/:id" element={<ProtectedLayout><EmployeeDetaile /></ProtectedLayout>} />
 
-          <Route path="/branch/detailed/:id" element={<ProtectedRoute>< BranchDetails /></ProtectedRoute>} />
-          <Route path="/admin/profile" element={<ProtectedRoute>< Profile /></ProtectedRoute>} />
-          <Route path="/admin/login-analytics" element={<ProtectedRoute>< LoginAnalytics /></ProtectedRoute>} />
-          <Route path="/walkin/list" element={<ProtectedRoute>< WalkinList /></ProtectedRoute>} />
-          <Route path="/walkin/report" element={<ProtectedRoute>< WalkinReport /></ProtectedRoute>} />
-          <Route path="/task" element={<ProtectedRoute><TaskManagement /></ProtectedRoute>} />
-          <Route path="/task/create" element={<ProtectedRoute><CreateTask /></ProtectedRoute>} />
-          {/* APITest route removed - no longer needed */}
+          <Route path="/branch/detailed/:id" element={<ProtectedLayout><BranchDetails /></ProtectedLayout>} />
+          <Route path="/admin/profile" element={<ProtectedLayout><Profile /></ProtectedLayout>} />
+          <Route path="/admin/login-analytics" element={<ProtectedLayout><LoginAnalytics /></ProtectedLayout>} />
+          <Route path="/walkin/list" element={<ProtectedLayout><WalkinList /></ProtectedLayout>} />
+          <Route path="/walkin/report" element={<ProtectedLayout><WalkinReport /></ProtectedLayout>} />
+          <Route path="/task" element={<ProtectedLayout><TaskManagement /></ProtectedLayout>} />
+          <Route path="/task/create" element={<ProtectedLayout><CreateTask /></ProtectedLayout>} />
 
         </Routes>
       </Suspense>

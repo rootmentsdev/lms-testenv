@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Select from "react-select";
 import baseUrl from "../../../api/api";
-import Header from "../../../components/Header/Header";
 import { toast } from "react-toastify";
 import SideNav from "../../../components/SideNav/SideNav";
 
@@ -332,11 +331,10 @@ const Mandatorytrainingdata = () => {
   return (
     <div>
       <div className="w-full h-full bg-white">
-        <Header name="Mandatory training" />
       </div>
       <SideNav />
 
-      <div className="md:ml-[120px] mt-[104px]">
+      <div className="md:ml-[120px]">
         <form onSubmit={handleSubmit} className="text-black w-[800px] mt-10">
           {/* Training Name */}
           <div className="flex flex-col gap-5 mx-20 mt-5">

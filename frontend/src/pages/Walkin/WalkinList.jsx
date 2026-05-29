@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import Header from "../../components/Header/Header";
 import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
 import baseUrl from "../../api/api";
@@ -444,14 +443,13 @@ const WalkinList = () => {
 
     return (
         <div className="mb-[70px] text-[14px] bg-white min-h-screen" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-            <Header name={showAddView ? "Add Walk-In" : "Walk-In List"} />
             <SideNav />
             <div className="md:hidden sm:block">
                 <ModileNav />
             </div>
 
             {/* Layout Grid Container matching standard dashboard spacing perfectly */}
-            <div className="md:ml-[120px] mt-[68px] sm:mt-[68px] px-4 sm:px-6 lg:px-12 transition-all duration-300">
+            <div className="md:ml-[120px] px-4 sm:px-6 lg:px-12 transition-all duration-300">
                 {showAddView ? (
                     /* ADD WALKIN FORM VIEW MATCHING SECOND SCREENSHOT */
                     <div className="mt-8 mb-6 max-w-5xl mx-auto">
@@ -564,7 +562,7 @@ const WalkinList = () => {
                     <>
                         {/* Header */}
                         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:'24px', marginBottom:'16px' }}>
-                            <h1 style={{ fontSize:'22px', fontWeight:700, color:'#111827', margin:0 }}>Walk In List</h1>
+                            <h1 style={{ fontSize:'22px', fontWeight:700, lineHeight:1.2, color:'#111827', margin:0 }}>Walk In List</h1>
                             <button
                                 onClick={() => { if(branches.length>0){setFormData(prev=>({...prev,store:branches[0]?.workingBranch||'',storeId:branches[0]?._id||''})); loadEmployees(branches[0]?._id);} setShowAddView(true); }}
                                 style={{ background:'#111827', color:'#fff', border:'none', borderRadius:'10px', padding:'9px 18px', fontSize:'13px', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:'6px' }}

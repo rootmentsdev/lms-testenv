@@ -1,4 +1,3 @@
-import Header from "../../components/Header/Header";
 import { IoIosArrowBack } from "react-icons/io";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import RoundModule from "../../components/RoundBar/RoundModule";
@@ -51,9 +50,8 @@ const AssingOrdeletedata = () => {
     }
     return (
         <div className="w-full h-full bg-white">
-            <div><Header name='Assign or Delete training' /></div>
             <SideNav />
-            <div className="md:ml-[120px] mt-[104px]">
+            <div className="md:ml-[120px]">
                 <Link to={'/training'}>
                     <div className=" flex items-center gap-1 m-5 text-black cursor-pointer">
                         <IoIosArrowBack />

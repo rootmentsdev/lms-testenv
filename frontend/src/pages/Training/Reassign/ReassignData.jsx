@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import baseUrl from "../../../api/api";
 import Select from "react-select";
 import { useParams } from "react-router-dom";
-import Header from "../../../components/Header/Header";
 import SideNav from '../../../components/SideNav/SideNav';
 // Users options
 
@@ -116,10 +115,9 @@ const ReassignData = () => {
     }
     return (
         <div className="w-full h-full bg-white text-black">
-            <div><Header name='Reassign Training' /></div>
             <SideNav />
 
-            <div className="md:ml-[120px] mt-[104px]">
+            <div className="md:ml-[120px]">
                 <div className="text-xl mt-10  ">
                     <div className="flex justify-evenly">
                         <p>Training Name: <span className="text-[#016E5B]">{training?.data.trainingName}</span></p>

@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import Header from "../../../components/Header/Header";
 import Select from "react-select";
 import { FaPlus } from "react-icons/fa";
 import { useEffect, useState } from "react";
@@ -160,9 +159,8 @@ const AssignAssessmentData = () => {
 
     return (
         <div className="w-full h-full bg-white text-[#016E5B]">
-            <Header name="Assign Assessments" />
             <SideNav />
-            <div className="md:ml-[120px] mt-[104px]">
+            <div className="md:ml-[120px]">
 
                 <div className="mt-20 mx-20">
                     <div className="w-full flex  gap-10 md:flex-row flex-col">
