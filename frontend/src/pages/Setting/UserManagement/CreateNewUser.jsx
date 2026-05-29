@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Select from "react-select";
 import { toast } from "react-toastify";
-import { FaArrowLeft } from "react-icons/fa";
+import { FaArrowLeft, FaEye, FaEyeSlash } from "react-icons/fa";
 import baseUrl from "../../../api/api";
 import SideNav from "../../../components/SideNav/SideNav";
 import ModileNav from "../../../components/SideNav/ModileNav";
@@ -13,6 +13,7 @@ const CreateNewUser = () => {
     const [selectedBranches, setSelectedBranches] = useState([]);
     const [employees, setEmployees] = useState([]);
     const [selectedEmployee, setSelectedEmployee] = useState(null);
+    const [showPassword, setShowPassword] = useState(false);
     const token = localStorage.getItem("token");
 
     const [form, setForm] = useState({
@@ -49,6 +50,7 @@ const CreateNewUser = () => {
 
         const fetchEmployees = async () => {
             try {
+                // Fetch all admins + employees from the Admin model (combined list)
                 const response = await fetch(`${baseUrl.baseUrl}api/admin/admin/list`, {
                     method: "GET",
                     headers: {
@@ -58,9 +60,8 @@ const CreateNewUser = () => {
                 });
                 if (response.ok) {
                     const data = await response.json();
-                    // Filter to only display employees (ordinary app/admin created employees)
-                    const empList = (data.data || []).filter(u => u.isEmployee || u.role === 'employee');
-                    setEmployees(empList);
+                    // Show all employees — admins and ordinary users alike
+                    setEmployees(data.data || []);
                 }
             } catch (error) {
                 console.error("Error fetching employees:", error);
@@ -85,24 +86,38 @@ const CreateNewUser = () => {
             return;
         }
 
+        // Find by EmpId (Admin model field)
         const emp = employees.find(e => e.EmpId === option.value);
         if (emp) {
             setSelectedEmployee(emp);
             setForm({
                 userName: emp.name || "",
                 email: emp.email || "",
-                phoneNumber: emp.phoneNumber ? (emp.phoneNumber.startsWith("+91 ") ? emp.phoneNumber : `+91 ${emp.phoneNumber}`) : "+91 ",
+                phoneNumber: emp.phoneNumber
+                    ? emp.phoneNumber.startsWith("+91 ")
+                        ? emp.phoneNumber
+                        : `+91 ${emp.phoneNumber}`
+                    : "+91 ",
                 password: "",
-                userRole: "super_admin", // Default to promoting to super_admin or let them select
+                userRole: "",
             });
-
-            // Map branches
+            // Pre-fill branches if already assigned
             const mappedBranches = (emp.branches || []).map(b => ({
                 value: b._id,
-                label: b.workingBranch
+                label: b.workingBranch,
             }));
             setSelectedBranches(mappedBranches);
         }
+    };
+
+    // Custom filter: search by name OR emp ID
+    const employeeFilterOption = (option, inputValue) => {
+        if (!inputValue) return true;
+        const q = inputValue.toLowerCase();
+        return (
+            option.label.toLowerCase().includes(q) ||
+            (option.data.empId || "").toLowerCase().includes(q)
+        );
     };
 
     const handleInputChange = (e) => {
@@ -231,17 +246,20 @@ const CreateNewUser = () => {
                                 Select Employee (Optional)
                             </label>
                             <Select
-                                placeholder="Search & select an employee to promote/assign role"
+                                placeholder="Search by name or Emp ID…"
                                 options={employees.map(emp => ({
                                     value: emp.EmpId,
-                                    label: `${emp.name} (${emp.EmpId}) - ${emp.email}`
+                                    label: `${emp.name} (${emp.EmpId}) — ${emp.email}`,
+                                    empId: emp.EmpId || "",
                                 }))}
+                                filterOption={employeeFilterOption}
                                 isClearable
                                 onChange={handleSelectEmployee}
                                 styles={customSelectStyles}
+                                noOptionsMessage={() => "No employees found"}
                             />
                             <p className="text-xs text-gray-400 mt-1">
-                                Selecting an employee will auto-fill and link their username, email, and phone number.
+                                Selecting an employee will auto-fill their name, email, and phone number.
                             </p>
                         </div>
 
@@ -305,14 +323,25 @@ const CreateNewUser = () => {
                                 <label className="block text-[13px] font-medium text-gray-700 mb-2">
                                     Create Password<span className="text-red-500">*</span>
                                 </label>
-                                <input
-                                    type="password"
-                                    name="password"
-                                    value={form.password}
-                                    onChange={handleInputChange}
-                                    placeholder="Enter New Password"
-                                    className="w-full h-[45px] px-4 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-black transition-all bg-white text-gray-900 placeholder-gray-400"
-                                />
+                                <div className="relative">
+                                    <input
+                                        type={showPassword ? "text" : "password"}
+                                        name="password"
+                                        value={form.password}
+                                        onChange={handleInputChange}
+                                        placeholder="Enter New Password"
+                                        className="w-full h-[45px] px-4 pr-11 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-black transition-all bg-white text-gray-900 placeholder-gray-400"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(v => !v)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 transition-colors focus:outline-none"
+                                        tabIndex={-1}
+                                        aria-label={showPassword ? "Hide password" : "Show password"}
+                                    >
+                                        {showPassword ? <FaEyeSlash size={16} /> : <FaEye size={16} />}
+                                    </button>
+                                </div>
                             </div>
                         </div>
 

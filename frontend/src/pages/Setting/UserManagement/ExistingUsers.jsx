@@ -26,6 +26,7 @@ const ExistingUsers = () => {
 
     // Edit modal form states
     const [editSelectedBranches, setEditSelectedBranches] = useState([]);
+    const [editRole, setEditRole] = useState("");
 
     const token = localStorage.getItem("token");
 
@@ -122,6 +123,8 @@ const ExistingUsers = () => {
     // Open Edit Modal from View Modal
     const handleOpenEditModal = () => {
         setIsViewModalOpen(false);
+        // Initialise role from current user
+        setEditRole(selectedUser.role || "employee");
         const userBranches = selectedUser.branches || [];
         const mappedBranches = userBranches.map((b) => {
             const branchId = b._id || b;
@@ -130,7 +133,7 @@ const ExistingUsers = () => {
                 value: branchId,
                 label: found?.workingBranch || b.workingBranch || "Store",
             };
-        }).filter((b) => b.label && b.label !== "Store" || true); // keep all
+        }).filter((b) => b.label && b.label !== "Store" || true);
         setEditSelectedBranches(mappedBranches);
         setIsEditModalOpen(true);
     };
@@ -180,7 +183,7 @@ const ExistingUsers = () => {
                 name: selectedUser.name,
                 email: selectedUser.email,
                 phoneNumber: selectedUser.phoneNumber,
-                role: selectedUser.role,
+                role: editRole,
                 Branch: editSelectedBranches.map((b) => b.value),
             };
 
@@ -594,13 +597,45 @@ const ExistingUsers = () => {
                             </div>
                         </div>
 
+                        {/* Role Change Dropdown */}
+                        <div className="mb-5">
+                            <label className="block text-[13px] font-medium text-gray-700 mb-2">
+                                Role
+                            </label>
+                            <div className="relative">
+                                <select
+                                    value={editRole}
+                                    onChange={(e) => {
+                                        setEditRole(e.target.value);
+                                        // Clear stores when switching to full-access roles
+                                        if (e.target.value === "super_admin" || e.target.value === "hr_admin") {
+                                            setEditSelectedBranches([]);
+                                        }
+                                    }}
+                                    className="w-full h-[45px] pl-4 pr-10 border border-gray-200 rounded-xl text-sm font-semibold focus:outline-none focus:border-black transition-all bg-white text-gray-900 appearance-none cursor-pointer"
+                                >
+                                    <option value="super_admin">Super Admin</option>
+                                    <option value="hr_admin">HR Admin</option>
+                                    <option value="cluster_admin">Cluster Admin</option>
+                                    <option value="store_admin">Store Admin</option>
+                                    <option value="employee">Employee</option>
+                                </select>
+                                <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={11} />
+                            </div>
+                            {editRole !== selectedUser.role && (
+                                <p className="text-xs text-amber-600 mt-1.5 font-medium">
+                                    ⚠ Role will change from <span className="font-bold">{formatRole(selectedUser.role)}</span> → <span className="font-bold">{formatRole(editRole)}</span>
+                                </p>
+                            )}
+                        </div>
+
                         {/* Stores Assignment Multi-Select Dropdown */}
                         <div className="mb-8">
                             <div className="flex items-center justify-between mb-2">
                                 <label className="block text-[13px] font-medium text-gray-700">
                                     Stores<span className="text-red-500">*</span>
                                 </label>
-                                {selectedUser.role !== "super_admin" && selectedUser.role !== "hr_admin" && (
+                            {editRole !== "super_admin" && editRole !== "hr_admin" && (
                                     <div className="flex gap-3 text-xs font-semibold">
                                         <button
                                             type="button"
@@ -625,7 +660,7 @@ const ExistingUsers = () => {
                                 )}
                             </div>
 
-                            {selectedUser.role === "super_admin" || selectedUser.role === "hr_admin" ? (
+                            {editRole === "super_admin" || editRole === "hr_admin" ? (
                                 <div className="flex items-center gap-2 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl">
                                     <span className="text-sm font-semibold text-gray-700">All Stores Assigned</span>
                                     <span className="ml-auto text-xs text-gray-400 italic">(auto-assigned for this role)</span>
@@ -645,7 +680,7 @@ const ExistingUsers = () => {
                             )}
 
                             {/* Count badge */}
-                            {selectedUser.role !== "super_admin" && selectedUser.role !== "hr_admin" && editSelectedBranches.length > 0 && (
+                            {editRole !== "super_admin" && editRole !== "hr_admin" && editSelectedBranches.length > 0 && (
                                 <p className="text-xs text-gray-400 mt-2">
                                     {editSelectedBranches.length} store{editSelectedBranches.length > 1 ? "s" : ""} selected
                                 </p>
