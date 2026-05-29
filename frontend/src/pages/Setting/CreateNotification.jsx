@@ -225,26 +225,26 @@ const CreateCustomNotification = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen text-gray-800">
-      {/* Main card matching settings/create user layout */}
-      <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 max-w-6xl w-full mx-auto">
-        {/* Header with inline back arrow */}
-        <div className="flex items-center gap-4 mb-8">
+    <div className="min-h-screen bg-[#f7f8fb] text-gray-800">
+      <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">
+          <div className="mb-6 flex items-center gap-3">
           <Link
             to="/settings/users"
-            className="text-gray-900 hover:text-black transition-colors"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
           >
-            <FaArrowLeft size={20} />
+            <FaArrowLeft size={16} />
           </Link>
-          <h1 className="text-2xl font-semibold text-gray-900">Create Custom Notification</h1>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-950">Create Custom Notification</h1>
+            <p className="mt-1 text-sm text-slate-500">Send a notification to employees, stores, roles, or individual users.</p>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Row 1: Title and Message Content side-by-side */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Left: Title */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <div>
-              <label className="block text-[13px] font-medium text-gray-700 mb-2">
+              <label className="mb-2 block text-[13px] font-medium text-slate-700">
                 Notification Title/ Subject<span className="text-red-500">*</span>
               </label>
               <input
@@ -252,13 +252,12 @@ const CreateCustomNotification = () => {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Enter notification title, subject"
-                className="w-full h-[45px] px-4 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-black transition-all bg-white text-gray-900 placeholder-gray-400"
+                className="h-[48px] w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-[#016E5B] focus:ring-4 focus:ring-emerald-100"
               />
             </div>
 
-            {/* Right: Message Content */}
             <div>
-              <label className="block text-[13px] font-medium text-gray-700 mb-2">
+              <label className="mb-2 block text-[13px] font-medium text-slate-700">
                 Message Content<span className="text-red-500">*</span>
               </label>
               <textarea
@@ -266,18 +265,17 @@ const CreateCustomNotification = () => {
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Type your message here..."
                 rows="1"
-                className="w-full h-[45px] px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-black transition-all bg-white text-gray-900 placeholder-gray-400 resize-none"
+                className="h-[48px] w-full resize-none rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-[#016E5B] focus:ring-4 focus:ring-emerald-100"
               ></textarea>
             </div>
           </div>
 
-          {/* Row 2: Assign to */}
-          <div>
-            <label className="block text-[13px] font-medium text-gray-700 mb-3">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+            <label className="mb-3 block text-[13px] font-semibold text-slate-700">
               Assign to <span className="text-red-500">*</span>
             </label>
-            <div className="flex flex-wrap gap-12 items-center">
-              <label className="flex items-center gap-3 text-sm text-gray-800 cursor-pointer">
+            <div className="flex flex-wrap gap-4 sm:gap-8 items-center">
+              <label className="flex items-center gap-3 rounded-full border border-transparent px-3 py-2 text-sm text-slate-700 cursor-pointer hover:bg-white">
                 <input
                   type="radio"
                   name="assignTo"
@@ -288,7 +286,7 @@ const CreateCustomNotification = () => {
                 />
                 <span>All Employees</span>
               </label>
-              <label className="flex items-center gap-3 text-sm text-gray-800 cursor-pointer">
+              <label className="flex items-center gap-3 rounded-full border border-transparent px-3 py-2 text-sm text-slate-700 cursor-pointer hover:bg-white">
                 <input
                   type="radio"
                   name="assignTo"
@@ -299,7 +297,7 @@ const CreateCustomNotification = () => {
                 />
                 <span>Store</span>
               </label>
-              <label className="flex items-center gap-3 text-sm text-gray-800 cursor-pointer">
+              <label className="flex items-center gap-3 rounded-full border border-transparent px-3 py-2 text-sm text-slate-700 cursor-pointer hover:bg-white">
                 <input
                   type="radio"
                   name="assignTo"
@@ -310,7 +308,7 @@ const CreateCustomNotification = () => {
                 />
                 <span>Role</span>
               </label>
-              <label className="flex items-center gap-3 text-sm text-gray-800 cursor-pointer">
+              <label className="flex items-center gap-3 rounded-full border border-transparent px-3 py-2 text-sm text-slate-700 cursor-pointer hover:bg-white">
                 <input
                   type="radio"
                   name="assignTo"
@@ -324,11 +322,9 @@ const CreateCustomNotification = () => {
             </div>
           </div>
 
-          {/* Row 3: Dropdown Selection + Deadline */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Left: Conditional Dropdown Selection */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <div>
-              <label className="block text-[13px] font-medium text-gray-700 mb-2">
+              <label className="mb-2 block text-[13px] font-medium text-slate-700">
                 {selectedOption === "branch"
                   ? "Stores"
                   : selectedOption === "designation"
@@ -337,7 +333,7 @@ const CreateCustomNotification = () => {
                 <span className="text-red-500">*</span>
               </label>
               {selectedOption === "all_employees" ? (
-                <div className="w-full h-[45px] px-4 border border-gray-100 bg-gray-50 text-gray-400 rounded-xl text-sm flex items-center">
+                <div className="flex h-[48px] w-full items-center rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-400">
                   All Employees selected
                 </div>
               ) : (
@@ -353,46 +349,53 @@ const CreateCustomNotification = () => {
                   isMulti
                   value={assignedTo}
                   onChange={handleSelectChange}
-                  styles={customSelectStyles}
+                  styles={{
+                    ...customSelectStyles,
+                    control: (provided, state) => ({
+                      ...provided,
+                      minHeight: "48px",
+                      borderRadius: "12px",
+                      borderColor: state.isFocused ? "#016E5B" : "#cbd5e1",
+                      boxShadow: state.isFocused ? "0 0 0 4px rgba(16,185,129,0.10)" : "none",
+                      "&:hover": { borderColor: "#016E5B" },
+                    }),
+                  }}
                   isLoading={loadingOptions}
                 />
               )}
             </div>
 
-            {/* Right: Deadline */}
             <div>
-              <label className="block text-[13px] font-medium text-gray-700 mb-2">
+              <label className="mb-2 block text-[13px] font-medium text-slate-700">
                 Deadline<span className="text-red-500">*</span>
               </label>
               <input
                 type="date"
                 value={deadline}
                 onChange={(e) => setDeadline(e.target.value)}
-                className="w-full h-[45px] px-4 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-black transition-all bg-white text-gray-900"
+                className="h-[48px] w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-[#016E5B] focus:ring-4 focus:ring-emerald-100"
               />
             </div>
           </div>
 
-          {/* Row 4: Assigned pills + Delivery Method */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-            {/* Left: Assigned pills */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <div>
               {selectedOption !== "all_employees" && assignedTo.length > 0 && (
-                <div>
-                  <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <label className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                     ASSIGNED TO
                   </label>
                   <div className="flex flex-wrap gap-2">
                     {assignedTo.map((item) => (
                       <span
                         key={item.value}
-                        className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-gray-200 rounded-full text-xs text-gray-600 shadow-sm"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700"
                       >
                         {item.label}
                         <button
                           type="button"
                           onClick={() => handleRemovePill(item.value)}
-                          className="text-gray-400 hover:text-red-500 transition-colors font-bold text-sm"
+                          className="text-slate-400 transition-colors hover:text-red-500 font-bold text-sm"
                         >
                           &times;
                         </button>
@@ -403,13 +406,12 @@ const CreateCustomNotification = () => {
               )}
             </div>
 
-            {/* Right: Delivery Method */}
-            <div>
-              <label className="block text-[13px] font-medium text-gray-700 mb-3">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <label className="mb-3 block text-[13px] font-semibold text-slate-700">
                 Delivery Method<span className="text-red-500">*</span>
               </label>
-              <div className="flex gap-12 items-center">
-                <label className="flex items-center gap-3 text-sm text-gray-800 cursor-pointer">
+              <div className="flex flex-wrap gap-4 sm:gap-8 items-center">
+                <label className="flex items-center gap-3 rounded-full border border-transparent px-3 py-2 text-sm text-slate-700 cursor-pointer hover:bg-slate-50">
                   <input
                     type="radio"
                     name="deliveryMethod"
@@ -420,7 +422,7 @@ const CreateCustomNotification = () => {
                   />
                   <span>Email</span>
                 </label>
-                <label className="flex items-center gap-3 text-sm text-gray-800 cursor-pointer">
+                <label className="flex items-center gap-3 rounded-full border border-transparent px-3 py-2 text-sm text-slate-700 cursor-pointer hover:bg-slate-50">
                   <input
                     type="radio"
                     name="deliveryMethod"
@@ -435,17 +437,17 @@ const CreateCustomNotification = () => {
             </div>
           </div>
 
-          {/* Row 5: Action Button */}
-          <div className="pt-4 flex justify-start">
+          <div className="pt-2 flex justify-start">
             <button
               type="submit"
               disabled={sending}
-              className="px-6 py-3 bg-[#111] hover:bg-black text-white font-semibold text-sm rounded-xl transition-all shadow-sm disabled:opacity-50"
+              className="inline-flex items-center justify-center rounded-xl bg-[#111827] px-6 py-3 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
             >
               {sending ? "Sending..." : "Send Notification"}
             </button>
           </div>
         </form>
+      </div>
       </div>
     </div>
   );

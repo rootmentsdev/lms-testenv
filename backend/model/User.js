@@ -58,12 +58,19 @@ userSchema.index({ locCode: 1 });
 userSchema.index({ designation: 1 });
 // Compound: locCode + designation used together in branch+role queries
 userSchema.index({ locCode: 1, designation: 1 });
+// Branch + working branch lookups used by dashboard grouping and filters
+userSchema.index({ locCode: 1, workingBranch: 1 });
+// Reassignment / admin search patterns by source and role
+userSchema.index({ source: 1, designation: 1 });
 // Sub-document queries on assigned trainings
 userSchema.index({ 'training.trainingId': 1 });
+userSchema.index({ 'training.trainingId': 1, 'training.status': 1 });
 // Sub-document queries on assigned assessments
 userSchema.index({ 'assignedAssessments.assessmentId': 1 });
+userSchema.index({ 'assignedAssessments.assessmentId': 1, 'assignedAssessments.status': 1 });
 // Sub-document queries on assigned modules
 userSchema.index({ 'assignedModules.moduleId': 1 });
+userSchema.index({ 'assignedModules.moduleId': 1, 'assignedModules.status': 1 });
 
 const User = mongoose.model('User', userSchema);
 export default User;

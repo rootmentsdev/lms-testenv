@@ -44,6 +44,8 @@ const branchSchema = new mongoose.Schema({
 
 // locCode is already unique (acts as index), add workingBranch for name-based lookups
 branchSchema.index({ workingBranch: 1 });
+branchSchema.index({ locCode: 1, workingBranch: 1 });
+branchSchema.index({ isActive: 1, workingBranch: 1 });
 
 const Branch = mongoose.model('Branch', branchSchema);
 
