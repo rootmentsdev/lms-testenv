@@ -476,26 +476,105 @@ export const getTopUsers = async (req, res) => {
 
 export const CreatingAdminUsers = async (req, res) => {
     try {
-        const { userName: name, email, userId: EmpId, userRole: role, Branch: branches, password
+        const { userName: name, email, userId, userRole: role, Branch: branches, password, phoneNumber
         } = req.body;
-        let { subRole } = req.body
-        console.log(name, email, EmpId, role, branches, subRole);
-        if (role !== 'super_admin') {
-            subRole = "NR"
+        let { subRole } = req.body;
+
+        let EmpId = userId;
+        if (!EmpId || EmpId.trim() === "") {
+            const adminCount = await Admin.countDocuments();
+            const userCount = await User.countDocuments();
+            let unique = false;
+            let currentCount = adminCount + userCount;
+            while (!unique) {
+                EmpId = `EMP${String(currentCount + 1).padStart(3, '0')}`;
+                const existingAdmin = await Admin.findOne({ EmpId });
+                const existingUser = await User.findOne({ empID: EmpId });
+                if (!existingAdmin && !existingUser) {
+                    unique = true;
+                } else {
+                    currentCount++;
+                }
+            }
         }
-        const hashedPassword = await bcrypt.hash(password, 10);
+
+        console.log(name, email, EmpId, role, branches, subRole, phoneNumber);
+        if (role !== 'super_admin') {
+            subRole = "NR";
+        }
+
         // Validate required fields
-        if (!name || !email || !EmpId || !role) {
+        if (!name || !email || !role) {
             return res.status(400).json({
-                message: "All required fields (name, email, EmpId, role) must be provided.",
+                message: "All required fields (name, email, role) must be provided.",
             });
         }
 
         // Check if role is valid
-        const validRoles = ['super_admin', 'hr_admin', 'cluster_admin', 'store_admin'];
+        const validRoles = ['super_admin', 'hr_admin', 'cluster_admin', 'store_admin', 'employee'];
         if (!validRoles.includes(role)) {
             return res.status(400).json({
-                message: "Invalid role provided. Valid roles are: super_admin, hr_admin, cluster_admin, store_admin.",
+                message: "Invalid role provided. Valid roles are: super_admin, hr_admin, cluster_admin, store_admin, employee.",
+            });
+        }
+
+        // Support direct employee user creation
+        if (role === 'employee') {
+            let workingBranch = "No Store";
+            let locCode = [];
+            if (branches && branches.length > 0) {
+                const branchDocs = await Branch.find({ _id: { $in: branches } });
+                if (branchDocs && branchDocs.length > 0) {
+                    workingBranch = branchDocs.map(b => b.workingBranch).join(", ");
+                    locCode = branchDocs.map(b => b.locCode);
+                }
+            }
+
+            const existingUser = await User.findOne({ $or: [{ empID: EmpId }, { email }] });
+            if (existingUser) {
+                // Update existing employee
+                existingUser.username = name;
+                existingUser.email = email;
+                existingUser.phoneNumber = phoneNumber || existingUser.phoneNumber;
+                if (password && password.trim() !== "") {
+                    existingUser.password = await bcrypt.hash(String(password).trim(), 10);
+                }
+                existingUser.workingBranch = workingBranch;
+                existingUser.locCode = locCode;
+                const savedUser = await existingUser.save();
+                return res.status(200).json({
+                    message: "Employee user updated successfully.",
+                    data: {
+                        id: savedUser._id,
+                        name: savedUser.username,
+                        email: savedUser.email,
+                        EmpId: savedUser.empID,
+                        role: "employee",
+                    }
+                });
+            }
+
+            const newUser = new User({
+                username: name,
+                email,
+                phoneNumber: phoneNumber || "",
+                password: password ? await bcrypt.hash(String(password).trim(), 10) : "",
+                empID: EmpId,
+                designation: "Employee",
+                workingBranch,
+                locCode,
+                source: "admin"
+            });
+            const savedUser = await newUser.save();
+            return res.status(201).json({
+                message: "Employee user created successfully.",
+                data: {
+                    id: savedUser._id,
+                    name: savedUser.username,
+                    email: savedUser.email,
+                    EmpId: savedUser.empID,
+                    role: "employee",
+                }
             });
         }
 
@@ -533,44 +612,94 @@ export const CreatingAdminUsers = async (req, res) => {
         if (role === 'super_admin' || role === 'hr_admin') {
             const allBranches = await Branch.find();
             finalBranches = allBranches.map((branch) => branch._id);
-            // No need to explicitly set finalClusters as they have full access anyway
         } else {
             // For store_admin and cluster_admin
-            if (role === 'store_admin') {
+            if (role === 'store_admin' || role === 'cluster_admin') {
                 if (!branches || branches.length === 0) {
                     return res.status(400).json({
                         message: `Branches must be provided for the role: ${role}.`,
                     });
                 }
                 finalBranches = branches;
-            } else if (role === 'cluster_admin') {
-                // We'll map the `Branch` field from frontend to `assignedClusters` for now, 
-                // or assume frontend passes `clusters` array. Let's look for `req.body.clusters`.
-                const { clusters } = req.body;
-                if (!clusters || clusters.length === 0) {
-                    return res.status(400).json({
-                        message: `Clusters must be provided for the role: ${role}.`,
-                    });
-                }
-                finalClusters = clusters;
             }
+        }
+
+        let hashedPassword = "";
+        if (password && password.trim() !== "") {
+            hashedPassword = await bcrypt.hash(password, 10);
+        }
+
+        // Check if Admin already exists by EmpId or email
+        let existingAdmin = await Admin.findOne({ $or: [{ EmpId }, { email }] });
+        if (existingAdmin) {
+            // Update existing Admin
+            existingAdmin.name = name;
+            existingAdmin.email = email;
+            existingAdmin.phoneNumber = phoneNumber || existingAdmin.phoneNumber;
+            if (hashedPassword) {
+                existingAdmin.password = hashedPassword;
+            }
+            existingAdmin.role = role;
+            existingAdmin.subRole = subRole;
+            existingAdmin.branches = finalBranches;
+            existingAdmin.assignedClusters = finalClusters;
+            existingAdmin.permissions = rolePermissions._id;
+            
+            const savedAdmin = await existingAdmin.save();
+
+            // Also check and update the corresponding User record if it exists
+            const userRecord = await User.findOne({ $or: [{ empID: EmpId }, { email }] });
+            if (userRecord) {
+                userRecord.username = name;
+                userRecord.email = email;
+                userRecord.phoneNumber = phoneNumber || userRecord.phoneNumber;
+                if (password && password.trim() !== "") {
+                    userRecord.password = await bcrypt.hash(String(password).trim(), 10);
+                }
+                await userRecord.save();
+            }
+
+            return res.status(200).json({
+                message: "Admin user updated successfully.",
+                data: {
+                    id: savedAdmin._id,
+                    name: savedAdmin.name,
+                    email: savedAdmin.email,
+                    EmpId: savedAdmin.EmpId,
+                    role: savedAdmin.role,
+                    branches: savedAdmin.branches,
+                }
+            });
         }
 
         // Create the admin user with the fetched permissions
         const newAdmin = new Admin({
             name,
             email,
+            phoneNumber: phoneNumber || "",
             EmpId,
             subRole,
             password: hashedPassword,
             role,
-            permissions: rolePermissions._id, // Assuming permissions are stored as an ObjectId
+            permissions: rolePermissions._id,
             branches: finalBranches,
             assignedClusters: finalClusters,
         });
 
         // Save the admin user
         const savedAdmin = await newAdmin.save();
+
+        // Also check and update the corresponding User record if it exists
+        const userRecord = await User.findOne({ $or: [{ empID: EmpId }, { email }] });
+        if (userRecord) {
+            userRecord.username = name;
+            userRecord.email = email;
+            userRecord.phoneNumber = phoneNumber || userRecord.phoneNumber;
+            if (password && password.trim() !== "") {
+                userRecord.password = await bcrypt.hash(String(password).trim(), 10);
+            }
+            await userRecord.save();
+        }
 
         // Respond with success
         res.status(201).json({
@@ -716,5 +845,167 @@ export const handlePermissions = async (req, res) => {
     } catch (error) {
         console.error('Error processing permissions:', error);
         return res.status(500).json({ message: 'Internal Server Error' });
+    }
+};
+
+export const getAdminUsers = async (req, res) => {
+    try {
+        const admins = await Admin.find({}).populate('branches').populate('assignedClusters').lean();
+        const users = await User.find({}).lean();
+        const allBranches = await Branch.find({}).lean();
+
+        const adminEmpIds = new Set(admins.map(a => String(a.EmpId || '').toLowerCase().trim()));
+        const adminEmails = new Set(admins.map(a => String(a.email || '').toLowerCase().trim()));
+
+        // Filter out employees who are already registered as administrators
+        const ordinaryUsers = users.filter(u => 
+            !adminEmpIds.has(String(u.empID || '').toLowerCase().trim()) && 
+            !adminEmails.has(String(u.email || '').toLowerCase().trim())
+        );
+
+        // Map users to match the admin schema structure
+        const mappedUsers = ordinaryUsers.map(u => {
+            let userLocCodes = [];
+            if (Array.isArray(u.locCode)) {
+                userLocCodes = u.locCode.map(String);
+            } else if (typeof u.locCode === 'string') {
+                userLocCodes = u.locCode.split(',').map(s => s.trim());
+            }
+
+            let matchedBranches = [];
+            if (u.locCode === 'All' || userLocCodes.includes('All')) {
+                matchedBranches = allBranches;
+            } else {
+                matchedBranches = allBranches.filter(b => 
+                    userLocCodes.includes(String(b.locCode))
+                );
+            }
+
+            return {
+                _id: u._id,
+                EmpId: u.empID,
+                name: u.username,
+                email: u.email,
+                phoneNumber: u.phoneNumber || "",
+                role: "employee",
+                subRole: "NR",
+                branches: matchedBranches.map(b => ({
+                    _id: b._id,
+                    workingBranch: b.workingBranch,
+                    locCode: b.locCode
+                })),
+                isEmployee: true
+            };
+        });
+
+        const combined = [...admins, ...mappedUsers];
+        res.status(200).json({ success: true, data: combined });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const updateAdminUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, email, phoneNumber, role, Branch: branches, password } = req.body;
+
+        // Check if this is an employee in User collection
+        const isEmployee = await User.findById(id);
+        if (isEmployee) {
+            const updateFields = {
+                username: name,
+                email,
+                phoneNumber,
+            };
+            if (branches && branches.length > 0) {
+                const branchDocs = await Branch.find({ _id: { $in: branches } });
+                if (branchDocs && branchDocs.length > 0) {
+                    updateFields.locCode = branchDocs.map(b => b.locCode);
+                    updateFields.workingBranch = branchDocs.map(b => b.workingBranch).join(", ");
+                }
+            } else {
+                updateFields.locCode = [];
+                updateFields.workingBranch = "";
+            }
+            const updatedUser = await User.findByIdAndUpdate(id, updateFields, { new: true });
+            return res.status(200).json({ success: true, message: "Employee updated successfully", data: updatedUser });
+        }
+
+        const updateFields = { name, email, phoneNumber, role };
+        if (password && password.trim() !== "") {
+            updateFields.password = await bcrypt.hash(password, 10);
+        }
+
+        // Handle branches/clusters based on role
+        if (role === 'super_admin' || role === 'hr_admin') {
+            const allBranches = await Branch.find();
+            updateFields.branches = allBranches.map((branch) => branch._id);
+            updateFields.assignedClusters = [];
+        } else if (role === 'store_admin' || role === 'cluster_admin') {
+            updateFields.branches = branches || [];
+            updateFields.assignedClusters = [];
+        }
+
+        // Update permissions if role changed
+        let rolePermissions = await Permission.findOne({ role });
+        if (!rolePermissions) {
+            const isSuper = (role === 'super_admin' || role === 'hr_admin');
+            rolePermissions = new Permission({
+                role: role,
+                permissions: {
+                    canCreateTraining: isSuper,
+                    canCreateAssessment: isSuper,
+                    canReassignTraining: isSuper,
+                    canReassignAssessment: isSuper,
+                    canDeleteTraining: isSuper,
+                    canDeleteAssessment: isSuper
+                }
+            });
+            await rolePermissions.save();
+        }
+        updateFields.permissions = rolePermissions._id;
+
+        const updatedAdmin = await Admin.findByIdAndUpdate(id, updateFields, { new: true }).populate('branches');
+        if (!updatedAdmin) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        // Also check and update the corresponding User record if it exists
+        try {
+            const userRecord = await User.findOne({ $or: [{ empID: updatedAdmin.EmpId }, { email: updatedAdmin.email }] });
+            if (userRecord) {
+                userRecord.username = name;
+                userRecord.email = email;
+                userRecord.phoneNumber = phoneNumber || userRecord.phoneNumber;
+                if (password && password.trim() !== "") {
+                    userRecord.password = await bcrypt.hash(password, 10);
+                }
+                await userRecord.save();
+            }
+        } catch (syncErr) {
+            console.error("Error syncing User record in updateAdminUser:", syncErr);
+        }
+
+        res.status(200).json({ success: true, message: "User updated successfully", data: updatedAdmin });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const deleteAdminUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const deletedUser = await User.findByIdAndDelete(id);
+        if (deletedUser) {
+            return res.status(200).json({ success: true, message: "Employee deleted successfully" });
+        }
+        const deletedAdmin = await Admin.findByIdAndDelete(id);
+        if (!deletedAdmin) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+        res.status(200).json({ success: true, message: "User deleted successfully" });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
     }
 };

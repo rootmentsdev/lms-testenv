@@ -15,6 +15,7 @@ const Login = lazy(() => import('./pages/Login/Login'));
 const Assessments = lazy(() => import('./pages/Assessments/Assessments'));
 const Branch = lazy(() => import('./pages/Branch/Branch'));
 const Employee = lazy(() => import('./pages/Employee/Employee'));
+const CreateEmployee = lazy(() => import('./pages/Employee/CreateEmployee'));
 const Module = lazy(() => import('./pages/Modules/Module'));
 const Training = lazy(() => import('./pages/Training/Training'));
 const Setting = lazy(() => import('./pages/Setting/Setting'));
@@ -42,6 +43,9 @@ const WalkinList = lazy(() => import('./pages/Walkin/WalkinList.jsx'))
 const WalkinReport = lazy(() => import('./pages/Walkin/WalkinReport.jsx'))
 const TaskManagement = lazy(() => import('./pages/Task/TaskManagement.jsx'))
 const CreateTask = lazy(() => import('./pages/Task/CreateTask.jsx'))
+const ExistingUsers = lazy(() => import('./pages/Setting/UserManagement/ExistingUsers.jsx'))
+const CreateNewUser = lazy(() => import('./pages/Setting/UserManagement/CreateNewUser.jsx'))
+const CreateNotificationPage = lazy(() => import('./pages/Setting/CreateNotificationPage.jsx'))
 
 import { setUser } from './features/auth/authSlice.js';
 
@@ -136,8 +140,12 @@ function App() {
           <Route path="/Addbranch" element={<ProtectedLayout><AddBranch /></ProtectedLayout>} />
 
           <Route path="/employee" element={<ProtectedLayout><Employee /></ProtectedLayout>} />
+          <Route path="/employee/create" element={<ProtectedLayout><CreateEmployee /></ProtectedLayout>} />
           <Route path="/module" element={<ProtectedLayout><Module /></ProtectedLayout>} />
           <Route path="/settings" element={<ProtectedLayout><Setting /></ProtectedLayout>} />
+          <Route path="/settings/users" element={<ProtectedLayout><ExistingUsers /></ProtectedLayout>} />
+          <Route path="/settings/create-user" element={<ProtectedLayout><CreateNewUser /></ProtectedLayout>} />
+          <Route path="/settings/create-notification" element={<ProtectedLayout><CreateNotificationPage /></ProtectedLayout>} />
           <Route path="/alltraining" element={<ProtectedLayout><Training /></ProtectedLayout>} />
           <Route path="/training" element={<ProtectedLayout><CreateTraining /></ProtectedLayout>} />
           <Route path="/assigdata" element={<ProtectedLayout><AssignedTrainings /></ProtectedLayout>} />
