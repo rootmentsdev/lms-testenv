@@ -88,27 +88,33 @@ export const getModules = async (req, res) => {
         // Fetch training progress
         const trainingProgress = await TrainingProgress.find();
 
-        // Calculate completion percentage for each module
+        // Calculate completion percentage only from users actually assigned this module.
         const moduleProgress = modules.map((module) => {
-            const usersProgress = trainingProgress.map((progress) => {
+            const usersProgress = trainingProgress.flatMap((progress) => {
                 const moduleProgress = progress.modules.find((m) => m.moduleId.toString() === module._id.toString());
-                if (!moduleProgress) return 0; // If module not found, 0% progress
+                if (!moduleProgress) return [];
 
                 const completedVideos = moduleProgress.videos.filter((v) => v.pass).length;
                 const totalVideos = moduleProgress.videos.length;
                 const percentage = totalVideos > 0 ? (completedVideos / totalVideos) * 100 : 0;
-                return percentage;
+                return [percentage];
             });
 
+            const completedCount = usersProgress.filter((percentage) => percentage >= 100).length;
+            const assignedCount = usersProgress.length;
             const overallPercentage =
-                usersProgress.reduce((acc, curr) => acc + curr, 0) / usersProgress.length || 0;
+                assignedCount > 0 ? usersProgress.reduce((acc, curr) => acc + curr, 0) / assignedCount : 0;
 
             // Include videos array
             return {
                 moduleId: module._id,
                 moduleName: module.moduleName,
+                description: module.description,
                 videos: module.videos, // Add videos here
-                overallCompletionPercentage: overallPercentage.toFixed(2),
+                completedCount,
+                assignedCount,
+                totalCount: assignedCount,
+                overallCompletionPercentage: Number(overallPercentage.toFixed(2)),
             };
         });
 

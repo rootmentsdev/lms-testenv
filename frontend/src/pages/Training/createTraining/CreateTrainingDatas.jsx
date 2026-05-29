@@ -27,6 +27,8 @@ const CATEGORY_OPTIONS = [
   { value: "Other", label: "Other" },
 ];
 
+const getModuleId = (module) => module?._id || module?.moduleId || module?.id;
+
 const CreateTrainingDatas = () => {
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
@@ -104,9 +106,12 @@ const CreateTrainingDatas = () => {
   }, [assignType, token]);
 
   const toggleModule = (mod) => {
+    const moduleId = getModuleId(mod);
+    if (!moduleId) return;
+
     setSelectedModules((prev) =>
-      prev.some((m) => m._id === mod._id)
-        ? prev.filter((m) => m._id !== mod._id)
+      prev.some((m) => getModuleId(m) === moduleId)
+        ? prev.filter((m) => getModuleId(m) !== moduleId)
         : [...prev, mod]
     );
   };
@@ -127,10 +132,14 @@ const CreateTrainingDatas = () => {
       return toast.error("Please select at least one assignee");
     }
 
+    const moduleIds = selectedModules.map(getModuleId).filter(Boolean);
+    if (moduleIds.length === 0) return toast.error("Please select a valid module");
+
     const payload = {
       trainingName: trainingName.trim(),
       description: description.trim(),
-      modules: selectedModules.map((m) => m._id),
+      modules: moduleIds,
+      days: Number(days),
       deadline: Number(days),
       Trainingtype: trainingType,
       Assignedfor: assignedfor,
@@ -150,7 +159,10 @@ const CreateTrainingDatas = () => {
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (!res.ok) return toast.error(data.message || "Failed to create training");
+      if (!res.ok) {
+        console.error("Create training failed:", { status: res.status, data, payload });
+        return toast.error(data.details || data.error || data.message || "Failed to create training");
+      }
       toast.success(data.message || "Training created successfully!");
       navigate(-1);
     } catch (_) {
@@ -336,8 +348,9 @@ const CreateTrainingDatas = () => {
             <p className="text-sm text-gray-400">No modules available.</p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {modules.map((mod) => {
-                const isSelected = selectedModules.some((m) => m._id === mod._id);
+              {modules.filter(getModuleId).map((mod) => {
+                const moduleId = getModuleId(mod);
+                const isSelected = selectedModules.some((m) => getModuleId(m) === moduleId);
                 const videoCount = mod.videos?.length ?? 0;
                 // Estimate duration: assume ~15 mins per video
                 const totalMins = videoCount * 15;
@@ -346,7 +359,7 @@ const CreateTrainingDatas = () => {
 
                 return (
                   <div
-                    key={mod._id}
+                    key={moduleId}
                     onClick={() => toggleModule(mod)}
                     className={`flex items-start gap-3 border rounded-2xl p-4 cursor-pointer transition-all ${
                       isSelected

@@ -86,11 +86,11 @@ export const HomeBar = async (req, res) => {
             users = await User.find({ locCode: { $in: allowedLocCodes } });
         }
         
-        // Fetch mandatory training data for all users
+        // Fetch training progress data for all users. This is the source of truth for dashboard completion.
         const userIds = users.map(user => user._id);
-        const mandatoryTrainings = await TrainingProgress.find({ 
+        const trainingProgressRecords = await TrainingProgress.find({
             userId: { $in: userIds } 
-        }).populate('trainingId');
+        });
 
         // Build lookup maps
         const userMap = new Map();
@@ -99,11 +99,11 @@ export const HomeBar = async (req, res) => {
             userMap.get(user.locCode).push(user);
         }
         
-        const mandatoryTrainingMap = new Map();
-        for (const training of mandatoryTrainings) {
+        const trainingProgressMap = new Map();
+        for (const training of trainingProgressRecords) {
             const key = training.userId.toString();
-            if (!mandatoryTrainingMap.has(key)) mandatoryTrainingMap.set(key, []);
-            mandatoryTrainingMap.get(key).push(training);
+            if (!trainingProgressMap.has(key)) trainingProgressMap.set(key, []);
+            trainingProgressMap.get(key).push(training);
         }
 
         const allData = branches.map((branch) => {
@@ -115,15 +115,12 @@ export const HomeBar = async (req, res) => {
             let assessmentCountPending = 0;
 
             branchUsers.forEach((user) => {
-                // Assigned training data
-                const assignedTrainings = user.training || [];
-                trainingCount += assignedTrainings.length;
-                trainingCountPending += assignedTrainings.filter((item) => item.pass === false).length;
-                
-                // Mandatory training data
-                const userMandatoryTrainings = mandatoryTrainingMap.get(user._id.toString()) || [];
-                trainingCount += userMandatoryTrainings.length;
-                trainingCountPending += userMandatoryTrainings.filter((item) => item.pass === false).length;
+                const userTrainings = trainingProgressMap.get(user._id.toString()) || [];
+                trainingCount += userTrainings.length;
+                trainingCountPending += userTrainings.filter((item) => {
+                    const status = String(item.status || '').toLowerCase();
+                    return item.pass !== true && status !== 'completed';
+                }).length;
                 
                 // Assessment data
                 assessmentCount += user.assignedAssessments.length;

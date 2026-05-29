@@ -241,6 +241,7 @@ router.get('/get/mandatory/allusertraining', MiddilWare, MandatoryGetAllTraining
  *         description: Internal server error
  */
 router.get('/get/Full/allusertraining', GetAllFullTrainingWithCompletion);
+router.get('/get/full/allusertraining', GetAllFullTrainingWithCompletion);
 
 /**
  * @swagger

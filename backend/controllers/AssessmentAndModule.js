@@ -6,6 +6,46 @@ import User from '../model/User.js';
 import axios from 'axios';
 import Module from '../model/Module.js'; // Added import for Module
 
+const getTrainingVideoStats = (training, progressRecords = []) => {
+  const modules = Array.isArray(training?.modules) ? training.modules : [];
+  const populatedVideos = modules.reduce((total, module) => {
+    return total + (Array.isArray(module?.videos) ? module.videos.length : 0);
+  }, 0);
+
+  const populatedDuration = modules.reduce((total, module) => {
+    return total + (Array.isArray(module?.videos)
+      ? module.videos.reduce((sum, video) => sum + Number(video?.duration || video?.durationMinutes || 0), 0)
+      : 0);
+  }, 0);
+
+  if (populatedVideos > 0 || populatedDuration > 0) {
+    return { totalVideos: populatedVideos, durationMinutes: populatedDuration };
+  }
+
+  // Assigned training lists may only have module ids populated. Progress records keep the module/video shape.
+  const progressStats = progressRecords.reduce(
+    (best, record) => {
+      const stats = (record?.modules || []).reduce(
+        (acc, module) => {
+          const videos = Array.isArray(module?.videos) ? module.videos : [];
+          acc.totalVideos += videos.length;
+          acc.durationMinutes += videos.reduce(
+            (sum, video) => sum + Number(video?.totalDuration || video?.duration || video?.durationMinutes || 0),
+            0
+          );
+          return acc;
+        },
+        { totalVideos: 0, durationMinutes: 0 }
+      );
+
+      return stats.totalVideos > best.totalVideos ? stats : best;
+    },
+    { totalVideos: 0, durationMinutes: 0 }
+  );
+
+  return progressStats;
+};
+
 // Helper function to assign existing mandatory trainings to new users
 const assignExistingMandatoryTrainings = async (user) => {
   try {
@@ -351,19 +391,24 @@ export const GetAllTrainingWithCompletion = async (req, res) => {
         });
 
         const averageCompletionPercentage = totalUsers > 0 ? (totalPercentage / totalUsers).toFixed(2) : 0;
+        const { totalVideos: totalVideosInTraining, durationMinutes } =
+          getTrainingVideoStats(training, progressRecords);
 
         return {
           trainingId: training._id,
           trainingName: training.trainingName,
           trainingTitle: training.title,
           numberOfModules: training.modules ? training.modules.length : 0,
-          totalUsers: employeeData.length, // Show total employees from local API
+          totalVideos: totalVideosInTraining,
+          durationMinutes,
+          totalUsers, // Show actually assigned users on training cards
           totalAssignedUsers: totalUsers, // Show actually assigned users
           averageCompletionPercentage,
           uniqueBranches: Array.from(uniqueBranches),
           uniqueItems: Array.from(uniqueDesignations),
           userProgress,
           allEmployees: employeeData.length, // Total number of employees available
+          Trainingtype: training.Trainingtype || 'Assigned',
           trainingType: training.Trainingtype || 'Assigned',
           assignedFor: training.Assignedfor || []
         };
@@ -1029,6 +1074,8 @@ export const MandatoryGetAllTrainingWithCompletion = async (req, res) => {
         const uniqueItems = [
           ...new Set(progressRecords.map((record) => record.userId?.designation || null)),
         ];
+        const { totalVideos: totalVideosInTraining, durationMinutes } =
+          getTrainingVideoStats(training, progressRecords);
 
         return {
           trainingId: training._id,
@@ -1036,6 +1083,8 @@ export const MandatoryGetAllTrainingWithCompletion = async (req, res) => {
           trainingTitle: training.title,
           Trainingtype: training.Trainingtype, // Include the training type
           numberOfModules: training.modules.length,
+          totalVideos: totalVideosInTraining,
+          durationMinutes,
           totalUsers,
           averageCompletionPercentage, // The average completion percentage for all users
           userProgress,
@@ -1127,12 +1176,16 @@ export const GetAllFullTrainingWithCompletion = async (req, res) => {
 
         // Calculate average completion percentage for the training based on all users
         const averageCompletionPercentage = totalUsers > 0 ? (totalPercentage / totalUsers).toFixed(2) : 0;
+        const { totalVideos: totalVideosInTraining, durationMinutes } =
+          getTrainingVideoStats(training, progressRecords);
 
         return {
           trainingId: training._id,
           trainingName: training.trainingName,
           trainingTitle: training.title,
           numberOfModules: training.modules.length,
+          totalVideos: totalVideosInTraining,
+          durationMinutes,
           totalUsers,
           averageCompletionPercentage, // The average completion percentage for all users
           userProgress // Return the detailed user progress

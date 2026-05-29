@@ -32,7 +32,9 @@ const CreateTrainingData = () => {
     setLoading(true);
     const fetchData = async () => {
       try {
-        const res = await fetch(`${baseUrl.baseUrl}api/get/Full/allusertraining`);
+        const res = await fetch(`${baseUrl.baseUrl}api/get/allusertraining`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        });
         if (!res.ok) throw new Error("Failed to fetch");
         const result = await res.json();
         setData(result.data || []);
@@ -45,7 +47,8 @@ const CreateTrainingData = () => {
   const filtered = data.filter((item) => {
     const pct = item?.averageCompletionPercentage ?? 0;
 
-    if (tab === "Assigned" && item?.Trainingtype !== "Assigned") return false;
+    const trainingType = item?.Trainingtype || item?.trainingType;
+    if (tab === "Assigned" && trainingType !== "Assigned") return false;
     if (search && !item?.trainingName?.toLowerCase().includes(search.toLowerCase())) return false;
 
     if (filter === "0-25"   && !(pct >= 0  && pct <= 25))  return false;
@@ -153,8 +156,8 @@ const CreateTrainingData = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map((item) => (
-              <TrainingCard key={item._id} item={item} />
+            {filtered.map((item, index) => (
+              <TrainingCard key={item?._id || item?.trainingId || item?.trainingName || index} item={item} />
             ))}
           </div>
         )}
@@ -167,9 +170,9 @@ const CreateTrainingData = () => {
 const TrainingCard = ({ item }) => {
   const pct     = Math.round(item?.averageCompletionPercentage ?? 0);
   const modules = item?.numberOfModules ?? 0;
-  const videos  = item?.totalVideos ?? modules * 4;
-  const staffs  = item?.totalUsers ?? 0;
-  const totalMins = videos * 15;
+  const videos  = item?.totalVideos ?? 0;
+  const staffs  = item?.totalAssignedUsers ?? item?.totalUsers ?? 0;
+  const totalMins = item?.durationMinutes ?? 0;
   const hrs  = Math.floor(totalMins / 60).toString().padStart(2, "0");
   const mins = (totalMins % 60).toString().padStart(2, "0");
 

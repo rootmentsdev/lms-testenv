@@ -235,8 +235,8 @@ const ModuleCard = ({ module, onViewDetails }) => {
     : videoCount > 0
     ? `${Math.max(1, Math.round(videoCount * 0.5))} hours`
     : "—";
-  const done = module.completedCount ?? Math.round((completion / 100) * (staffCount || 34));
-  const total = module.totalCount ?? staffCount ?? 34;
+  const total = module.totalCount ?? staffCount;
+  const done = module.completedCount ?? Math.round((completion / 100) * total);
 
   return (
     <div className="bg-white rounded-[12px] border border-gray-200 p-5 flex flex-col gap-3 shadow-[0_1px_4px_rgba(0,0,0,0.05)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-shadow">
@@ -269,7 +269,7 @@ const ModuleCard = ({ module, onViewDetails }) => {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-y-2 gap-x-4">
         <StatItem icon={<LuClock size={14} />} label={hours} />
-        <StatItem icon={<LuBookOpen size={14} />} label={`${videoCount} Modules`} />
+        <StatItem icon={<LuBookOpen size={14} />} label={`${videoCount} Videos`} />
         <StatItem icon={<LuUsers size={14} />} label={`${staffCount} Staffs`} />
         <StatItem icon={<LuCircleCheck size={14} />} label={`${completion}% Completed`} />
       </div>
