@@ -32,6 +32,13 @@ export const createUser = async (req, res) => {
       return res.status(400).json({ message: 'Username or email already exists.' });
     }
 
+    let processedLocCode = locCode;
+    if (typeof locCode === 'string') {
+      if (locCode.includes(',')) {
+        processedLocCode = locCode.split(',').map(s => s.trim());
+      }
+    }
+
     // Create a new user
     const newUser = new User({
       username,
@@ -39,7 +46,7 @@ export const createUser = async (req, res) => {
       empID,
       password: password ? await bcrypt.hash(String(password).trim(), 10) : "",
       location,
-      locCode,
+      locCode: processedLocCode,
       designation,
       workingBranch,
       phoneNumber: phoneNumber || "",
@@ -159,31 +166,30 @@ export const loginUser = async (req, res) => {
   const { email, empID, password } = req.body;
 
   try {
-    const normalizedEmail = String(email || '').trim().toLowerCase();
-    const rawEmpID = String(empID || '').trim();
-    const normalizedEmpID = rawEmpID.toLowerCase();
+    const loginIdentifier = String(empID || email || '').trim();
     const normalizedPassword = String(password || '').trim();
 
     // Input validation
-    if ((!normalizedEmail && !normalizedEmpID) || !normalizedPassword) {
+    if (!loginIdentifier || !normalizedPassword) {
       return res.status(400).json({ message: 'Employee ID or email and password are required' });
     }
 
-    // Check if user exists
-    const user = normalizedEmail
-      ? await User.findOne({ email: normalizedEmail })
-      : await User.findOne({
-          empID: { $regex: `^${rawEmpID.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' }
-        });
+    // Check if user exists by empID first
+    let user = await User.findOne({
+      empID: { $regex: `^${loginIdentifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' }
+    });
+
+    // Fallback to checking by email if not found
+    if (!user) {
+      user = await User.findOne({ email: loginIdentifier.toLowerCase() });
+    }
+
     if (!user) {
       return res.status(401).json({ message: 'Employee not found' });
     }
 
-    const isEmpMatch = normalizedEmpID
-      ? String(user.empID || '').trim().toLowerCase() === normalizedEmpID
-      : true;
     const isPasswordMatch = user.password ? await bcrypt.compare(normalizedPassword, user.password) : false;
-    if (!isEmpMatch || !isPasswordMatch) {
+    if (!isPasswordMatch) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
@@ -265,10 +271,9 @@ export const flutterLogin = async (req, res) => {
   const { empID, password, email } = req.body;
 
   try {
-    const rawEmpID = String(empID || '').trim();
+    const rawEmpID = String(empID || email || '').trim();
     const normalizedEmpID = rawEmpID.toLowerCase();
     const normalizedPassword = String(password || '').trim();
-    const normalizedEmail = email ? String(email).trim().toLowerCase() : "";
 
     if (!normalizedEmpID || !normalizedPassword) {
       return res.status(400).json({ message: 'Employee ID and password are required' });
@@ -277,7 +282,6 @@ export const flutterLogin = async (req, res) => {
     const query = {
       empID: { $regex: `^${rawEmpID.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' }
     };
-    if (normalizedEmail) query.email = normalizedEmail;
 
     let user = await User.findOne(query);
     let isAuthenticated = false;
@@ -594,8 +598,15 @@ export const GetBranch = async (req, res) => {
 
       const branchesWithCounts = await Promise.all(allBranches.map(async (branch) => {
         const branchLocCode = String(branch.locCode);
-        const userCount = await User.countDocuments({ locCode: branchLocCode });
-        const usersInBranch = await User.find({ locCode: branchLocCode });
+        const query = {
+          $or: [
+            { locCode: branchLocCode },
+            { locCode: "All" },
+            { locCode: { $regex: new RegExp(`(^|,\\s*)${branchLocCode}(,|\\s*$)`) } }
+          ]
+        };
+        const userCount = await User.countDocuments(query);
+        const usersInBranch = await User.find(query);
         let totalTrainingCount = 0;
         let totalAssessmentCount = 0;
         for (const user of usersInBranch) {
@@ -623,8 +634,15 @@ export const GetBranch = async (req, res) => {
 
     const branchesWithCounts = await Promise.all(branches.map(async (branch) => {
       const branchLocCode = String(branch.locCode);
-      const userCount = await User.countDocuments({ locCode: branchLocCode });
-      const usersInBranch = await User.find({ locCode: branchLocCode });
+      const query = {
+        $or: [
+          { locCode: branchLocCode },
+          { locCode: "All" },
+          { locCode: { $regex: new RegExp(`(^|,\\s*)${branchLocCode}(,|\\s*$)`) } }
+        ]
+      };
+      const userCount = await User.countDocuments(query);
+      const usersInBranch = await User.find(query);
       let totalTrainingCount = 0;
       let totalAssessmentCount = 0;
       for (const user of usersInBranch) {

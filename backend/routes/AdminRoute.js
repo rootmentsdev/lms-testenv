@@ -1,6 +1,6 @@
 import express from 'express';
 import mongoose from 'mongoose';
-import { handlePermissions, CreatingAdminUsers, getTopUsers, HomeBar, getAccessibleStores, getAccessibleEmployees } from '../controllers/DestinationController.js';
+import { handlePermissions, CreatingAdminUsers, getTopUsers, HomeBar, getAccessibleStores, getAccessibleEmployees, getAdminUsers, updateAdminUser, deleteAdminUser } from '../controllers/DestinationController.js';
 import { AdminLogin, ChangeVisibility, getAllNotifications, getEscalationLevel, getNotifications, GetSubroles, getVisibility, Subroles, upsertEscalationLevel } from '../controllers/moduleController.js';
 import { VerifyToken } from '../lib/VerifyJwt.js';
 import { CreateNotification, FindOverDueAssessment, FindOverDueTraining, SendNotification, SendNotificationAssessment } from '../controllers/AssessmentReassign.js';
@@ -203,6 +203,9 @@ router.get('/get/HomeProgressData', MiddilWare, HomeBar);
  *         description: Internal server error.
  */
 router.post('/admin/createadmin', CreatingAdminUsers);
+router.get('/admin/list', MiddilWare, getAdminUsers);
+router.put('/admin/update/:id', MiddilWare, updateAdminUser);
+router.delete('/admin/delete/:id', MiddilWare, deleteAdminUser);
 
 /**
  * @swagger

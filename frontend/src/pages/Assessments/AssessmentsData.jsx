@@ -218,7 +218,7 @@ const AssessmentsData = () => {
               Google Form
             </button>
             <Link to="/assign/Assessment" style={{ textDecoration: "none" }}>
-              <button style={{ display: "flex", alignItems: "center", gap: "6px", border: "none", borderRadius: "10px", padding: "9px 16px", fontSize: "13px", fontWeight: 500, color: "#374151", background: "#fff", cursor: "pointer", border: "1px solid #e5e7eb" }}>
+              <button style={{ display: "flex", alignItems: "center", gap: "6px", borderRadius: "10px", padding: "9px 16px", fontSize: "13px", fontWeight: 500, color: "#374151", background: "#fff", cursor: "pointer", border: "1px solid #e5e7eb" }}>
                 <FaPlus size={11} />
                 Assign
               </button>
