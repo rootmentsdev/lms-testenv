@@ -144,7 +144,7 @@ export const createUser = async (req, res) => {
     // Wait for all training assignments to complete
     await Promise.all(trainingAssignments);
 
-    // Save the new user
+    // Save the new LMS user (for Flutter app access)
     await newUser.save();
 
     res.status(201).json({
@@ -160,6 +160,7 @@ export const createUser = async (req, res) => {
     });
   }
 };
+
 
 
 export const loginUser = async (req, res) => {
