@@ -401,6 +401,7 @@ const WalkinList = () => {
             if (json.success) {
                 // Refresh data from DB
                 await loadWalkinsList();
+                window.dispatchEvent(new Event('dashboard:refresh'));
 
                 // Reset form to defaults
                 setFormData({

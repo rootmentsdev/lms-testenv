@@ -315,8 +315,8 @@ import { HiUsers, HiAcademicCap, HiClipboardCheck } from "react-icons/hi";
 import SideNav from "../../components/SideNav/SideNav";
 import baseUrl from "../../api/api";
 import { Link } from "react-router-dom";
-import { useGetHomeProgressQuery } from "../../features/dashboard/dashboardApi";
 import { normalizeBranchProgress } from "../../features/dashboard/dashboardUtils";
+import { fetchHomeProgress } from "../../features/dashboard/dashboardFetch";
 
 /* ---------- Normalization helpers ---------- */
 
@@ -397,8 +397,8 @@ const BranchData = () => {
   const [roleFilter, setRoleFilter] = useState("All Roles");
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [progressResponse, setProgressResponse] = useState(null);
   const token = localStorage.getItem("token");
-  const { data: progressResponse } = useGetHomeProgressQuery();
 
   // mobile check
   useEffect(() => {
@@ -409,6 +409,7 @@ const BranchData = () => {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
     const fetchBranchesAndEmployees = async () => {
       setLoading(true);
       try {
@@ -503,6 +504,14 @@ const BranchData = () => {
     };
 
     fetchBranchesAndEmployees();
+    fetchHomeProgress().then((data) => {
+      if (mounted) setProgressResponse(data);
+    }).catch(() => {
+      if (mounted) setProgressResponse(null);
+    });
+    return () => {
+      mounted = false;
+    };
   }, [token]);
 
   const progressRows = useMemo(() => normalizeBranchProgress(progressResponse), [progressResponse]);

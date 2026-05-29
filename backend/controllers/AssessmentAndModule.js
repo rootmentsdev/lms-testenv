@@ -3,7 +3,6 @@ import Assessment from '../model/Assessment.js';
 import TrainingProgress from '../model/Trainingprocessschema.js';
 import { Training } from '../model/Traning.js';
 import User from '../model/User.js';
-import axios from 'axios';
 import Module from '../model/Module.js'; // Added import for Module
 
 const getTrainingVideoStats = (training, progressRecords = []) => {
@@ -179,30 +178,6 @@ export const assignAssessmentToUser = async (req, res) => {
   }
 };
 
-// Helper function to fetch employee data from external API
-const fetchEmployeeData = async () => {
-  try {
-    // Fetch directly from external API (avoid self-referencing)
-    const ROOTMENTS_API_TOKEN = 'RootX-production-9d17d9485eb772e79df8564004d4a4d4';
-    const response = await axios.post('https://rootments.in/api/employee_range', {
-      startEmpId: 'EMP1',
-      endEmpId: 'EMP9999'
-    }, { 
-      timeout: 15000,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${ROOTMENTS_API_TOKEN}`,
-      }
-    });
-    
-    return response.data?.data || [];
-  } catch (error) {
-    console.error('Error fetching employee data from local API:', error);
-    return [];
-  }
-};
-
 import { getAccessibleStoreIds, isFullAccessAdmin } from '../lib/permissions.js';
 import Branch from "../model/Branch.js";
 import Admin from "../model/Admin.js";
@@ -247,39 +222,39 @@ export const GetAllTrainingWithCompletion = async (req, res) => {
       }
     });
 
-    // Fetch employee data directly from external API (avoid self-referencing)
-    let employeeData = [];
-    try {
-      const ROOTMENTS_API_TOKEN = 'RootX-production-9d17d9485eb772e79df8564004d4a4d4';
-      const response = await axios.post('https://rootments.in/api/employee_range', {
-        startEmpId: 'EMP1',
-        endEmpId: 'EMP9999'
-      }, {
-        timeout: 15000,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': `Bearer ${ROOTMENTS_API_TOKEN}`,
-        }
-      });
-      
-      employeeData = response.data?.data || [];
-      console.log('Fetched employee data from local API:', employeeData.length, 'employees');
-    } catch (error) {
-      console.error('Error fetching employee data from local API:', error.message);
-      // Continue with internal users only
-    }
+    // Use internal users instead of the external employee API.
+    const internalEmployees = await User.find(
+      {},
+      {
+        empID: 1,
+        username: 1,
+        designation: 1,
+        workingBranch: 1,
+        locCode: 1,
+        email: 1,
+      }
+    ).lean();
+
+    const employeeData = internalEmployees.map((user) => ({
+      empID: user.empID || '',
+      username: user.username || '',
+      designation: user.designation || '',
+      workingBranch: user.workingBranch || '',
+      locCode: user.locCode || '',
+      email: user.email || '',
+    }));
 
     // Create a map for quick employee lookup by empID
     const employeeMap = new Map();
     employeeData.forEach(emp => {
-      if (emp.emp_code) {
-        employeeMap.set(emp.emp_code, {
-          empID: emp.emp_code,
-          username: emp.name || '',
-          designation: emp.role_name || '',
-          workingBranch: emp.store_name || '',
-          email: emp.email || ''
+      if (emp.empID) {
+        employeeMap.set(emp.empID, {
+          empID: emp.empID,
+          username: emp.username,
+          designation: emp.designation,
+          workingBranch: emp.workingBranch,
+          locCode: emp.locCode,
+          email: emp.email,
         });
       }
           });
@@ -386,8 +361,8 @@ export const GetAllTrainingWithCompletion = async (req, res) => {
 
         // Also add unique branches and designations from all employees (for filtering)
         employeeData.forEach(emp => {
-          if (emp.store_name) uniqueBranches.add(emp.store_name);
-          if (emp.role_name) uniqueDesignations.add(emp.role_name);
+          if (emp.workingBranch) uniqueBranches.add(emp.workingBranch);
+          if (emp.designation) uniqueDesignations.add(emp.designation);
         });
 
         const averageCompletionPercentage = totalUsers > 0 ? (totalPercentage / totalUsers).toFixed(2) : 0;
@@ -407,7 +382,7 @@ export const GetAllTrainingWithCompletion = async (req, res) => {
           uniqueBranches: Array.from(uniqueBranches),
           uniqueItems: Array.from(uniqueDesignations),
           userProgress,
-          allEmployees: employeeData.length, // Total number of employees available
+          allEmployees: employeeData.length,
           Trainingtype: training.Trainingtype || 'Assigned',
           trainingType: training.Trainingtype || 'Assigned',
           assignedFor: training.Assignedfor || []
@@ -454,12 +429,12 @@ export const ReassignTraining = async (req, res) => {
       return res.status(400).json({ message: "No modules found for this training" });
     }
 
-    // Fetch employee data from external API
-    const employeeData = await fetchEmployeeData();
+    // Resolve employees from the internal users collection.
+    const selectedUsers = await User.find({ empID: { $in: assignedTo } }).lean();
     const employeeMap = new Map();
-    employeeData.forEach(emp => {
-      if (emp.emp_code) {
-        employeeMap.set(emp.emp_code, emp);
+    selectedUsers.forEach((user) => {
+      if (user.empID) {
+        employeeMap.set(user.empID, user);
       }
     });
 
@@ -470,7 +445,7 @@ export const ReassignTraining = async (req, res) => {
     for (const empCode of assignedTo) {
       const employeeInfo = employeeMap.get(empCode);
       if (!employeeInfo) {
-        console.warn(`Employee with code ${empCode} not found in external API`);
+        console.warn(`Employee with code ${empCode} not found in internal users collection`);
         continue;
       }
 
@@ -480,14 +455,14 @@ export const ReassignTraining = async (req, res) => {
       if (!user) {
         // Create new user from external employee data
         user = new User({
-          username: employeeInfo.name || '',
+          username: employeeInfo.username || '',
           email: employeeInfo.email || `${empCode}@company.com`,
-          phoneNumber: employeeInfo.phone || '',
-          locCode: employeeInfo.store_code || '1', // Default to '1' if no store_code
+          phoneNumber: employeeInfo.phoneNumber || '',
+          locCode: employeeInfo.locCode || '1',
           empID: empCode,
-          designation: employeeInfo.role_name || '',
-          workingBranch: employeeInfo.store_name || '',
-          source: 'external-sync',
+          designation: employeeInfo.designation || '',
+          workingBranch: employeeInfo.workingBranch || '',
+          source: 'internal-sync',
           assignedModules: [],
           assignedAssessments: [],
           training: []
@@ -498,9 +473,9 @@ export const ReassignTraining = async (req, res) => {
         console.log(`Assigned existing mandatory trainings to new external employee: ${empCode}`);
       } else {
         // Update existing user with latest employee data
-        user.username = employeeInfo.name || user.username;
-        user.designation = employeeInfo.role_name || user.designation;
-        user.workingBranch = employeeInfo.store_name || user.workingBranch;
+        user.username = employeeInfo.username || user.username;
+        user.designation = employeeInfo.designation || user.designation;
+        user.workingBranch = employeeInfo.workingBranch || user.workingBranch;
         user.email = employeeInfo.email || user.email;
         
         // IMPORTANT: Don't update locCode from external API to preserve our branch mapping fix

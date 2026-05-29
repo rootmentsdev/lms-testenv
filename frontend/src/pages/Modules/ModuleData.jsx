@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import SideNav from "../../components/SideNav/SideNav";
 import baseUrl from "../../api/api";
 import { FaPlus, FaSearch } from "react-icons/fa";
-import { LuClock, LuBookOpen, LuUsers, LuCircleCheck, LuEye, LuArrowLeft, LuX } from "react-icons/lu";
+import { LuClock, LuBookOpen, LuEye, LuArrowLeft, LuX } from "react-icons/lu";
 
 /* ─────────────────────────────────────────────────────────── */
 /*  Detail Modal                                               */
@@ -13,9 +13,13 @@ const ModuleDetailModal = ({ module, onClose }) => {
 
   const videoCount = module.videos?.length ?? 0;
   const createdDate = module.createdAt
-    ? new Date(module.createdAt).toLocaleDateString("en-GB").replace(/\//g, ".")
-    : "—";
-  const createdBy = module.createdBy || module.adminName || "—";
+    ? new Date(module.createdAt).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "Not available";
+  const createdBy = module.createdBy || module.adminName || "Not available";
 
   // close on backdrop click
   const handleBackdrop = (e) => {
@@ -208,7 +212,7 @@ const ModuleData = () => {
 
         {/* ── Grid ── */}
         {!loading && filtered.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filtered.map((item) => (
               <ModuleCard
                 key={item._id || item.moduleId}
@@ -228,18 +232,14 @@ const ModuleData = () => {
 /* ─────────────────────────────────────────────────────────── */
 const ModuleCard = ({ module, onViewDetails }) => {
   const videoCount = module.videos?.length ?? 0;
-  const completion = Math.round(module.overallCompletionPercentage ?? 0);
-  const staffCount = module.assignedCount ?? module.staffCount ?? 0;
   const hours = module.durationHours
     ? `${module.durationHours} hours`
     : videoCount > 0
     ? `${Math.max(1, Math.round(videoCount * 0.5))} hours`
     : "—";
-  const total = module.totalCount ?? staffCount;
-  const done = module.completedCount ?? Math.round((completion / 100) * total);
 
   return (
-    <div className="bg-white rounded-[12px] border border-gray-200 p-5 flex flex-col gap-3 shadow-[0_1px_4px_rgba(0,0,0,0.05)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-shadow">
+    <div className="max-w-[360px] bg-white rounded-[12px] border border-gray-200 p-4 flex flex-col gap-3 shadow-[0_1px_4px_rgba(0,0,0,0.05)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-shadow">
       {/* Title + description */}
       <div>
         <h2 className="text-[16px] font-bold text-gray-900 leading-snug">
@@ -250,28 +250,10 @@ const ModuleCard = ({ module, onViewDetails }) => {
         </p>
       </div>
 
-      {/* Progress bar */}
-      <div>
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-[13px] font-semibold text-gray-800">
-            Progress ({done}/{total})
-          </span>
-          <span className="text-[13px] font-bold text-gray-900">{completion}%</span>
-        </div>
-        <div className="h-[6px] w-full rounded-full bg-gray-200 overflow-hidden">
-          <div
-            className="h-full rounded-full bg-gray-900 transition-all duration-500"
-            style={{ width: `${Math.min(completion, 100)}%` }}
-          />
-        </div>
-      </div>
-
       {/* Stats */}
       <div className="grid grid-cols-2 gap-y-2 gap-x-4">
         <StatItem icon={<LuClock size={14} />} label={hours} />
         <StatItem icon={<LuBookOpen size={14} />} label={`${videoCount} Videos`} />
-        <StatItem icon={<LuUsers size={14} />} label={`${staffCount} Staffs`} />
-        <StatItem icon={<LuCircleCheck size={14} />} label={`${completion}% Completed`} />
       </div>
 
       {/* View Details */}

@@ -28,6 +28,18 @@ const emptyVideo = () => ({
   questions: [emptyQuestion()],
 });
 
+const getCurrentAdminName = () => {
+  const token = localStorage.getItem("token");
+  if (!token) return "Super Admin";
+
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1] || ""));
+    return payload?.username || payload?.name || "Super Admin";
+  } catch {
+    return "Super Admin";
+  }
+};
+
 /* ─── SavedVideoCard ──────────────────────────────────────── */
 const SavedVideoCard = ({ video, active, onRemove }) => {
   const firstQuestion = video.questions?.[0];
@@ -305,6 +317,7 @@ const CreateModuleData = () => {
       moduleName: moduleTitle.trim(),
       description: moduleDescription.trim(),
       videos: moduleVideos,
+      createdBy: getCurrentAdminName(),
     };
 
     try {

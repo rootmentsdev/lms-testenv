@@ -7,6 +7,14 @@ import TrainingProgress from "../model/Trainingprocessschema.js";
 import bcrypt from 'bcrypt'
 import axios from 'axios'; // Added axios import
 
+const normalizeBranchKey = (value) => {
+    if (Array.isArray(value)) {
+        return value.map((v) => String(v).trim()).filter(Boolean).join(',');
+    }
+    if (value === null || value === undefined) return '';
+    return String(value).trim();
+};
+
 export const createDesignation = async (req, res) => {
     try {
         // Validate input
@@ -95,8 +103,15 @@ export const HomeBar = async (req, res) => {
         // Build lookup maps
         const userMap = new Map();
         for (const user of users) {
-            if (!userMap.has(user.locCode)) userMap.set(user.locCode, []);
-            userMap.get(user.locCode).push(user);
+            const keys = [
+                normalizeBranchKey(user.locCode),
+                normalizeBranchKey(user.workingBranch),
+            ].filter(Boolean);
+
+            for (const key of keys) {
+                if (!userMap.has(key)) userMap.set(key, []);
+                userMap.get(key).push(user);
+            }
         }
         
         const trainingProgressMap = new Map();
@@ -107,7 +122,7 @@ export const HomeBar = async (req, res) => {
         }
 
         const allData = branches.map((branch) => {
-            const branchUsers = userMap.get(branch.locCode) || [];
+            const branchUsers = userMap.get(normalizeBranchKey(branch.locCode)) || [];
             
             let trainingCount = 0;
             let trainingCountPending = 0;
@@ -115,9 +130,12 @@ export const HomeBar = async (req, res) => {
             let assessmentCountPending = 0;
 
             branchUsers.forEach((user) => {
-                const userTrainings = trainingProgressMap.get(user._id.toString()) || [];
-                trainingCount += userTrainings.length;
-                trainingCountPending += userTrainings.filter((item) => {
+                const assignedTrainings = Array.isArray(user.training) ? user.training : [];
+                const mandatoryTrainings = trainingProgressMap.get(user._id.toString()) || [];
+
+                trainingCount += assignedTrainings.length + mandatoryTrainings.length;
+                trainingCountPending += assignedTrainings.filter((item) => item.pass !== true).length;
+                trainingCountPending += mandatoryTrainings.filter((item) => {
                     const status = String(item.status || '').toLowerCase();
                     return item.pass !== true && status !== 'completed';
                 }).length;
@@ -379,7 +397,7 @@ export const getTopUsers = async (req, res) => {
         const branchScores = {};
         
         for (const branch of branches) {
-            const branchUsers = userMap.get(branch.locCode) || [];
+            const branchUsers = userMap.get(normalizeBranchKey(branch.locCode)) || userMap.get(normalizeBranchKey(branch.workingBranch)) || [];
             const branchExternalUsers = externalEmployeeMap.get(branch.locCode) || [];
             
             let trainingCount = 0;

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import Select, { components } from 'react-select';
 import SideNav from '../../components/SideNav/SideNav';
-import { createTask } from '../../features/task/taskApi';
+import { createTask } from '../../features/task/taskFetch';
 import baseUrl from '../../api/api';
 import './CreateTask.css';
 

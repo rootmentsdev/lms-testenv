@@ -13,6 +13,7 @@ import EscalationLevel from '../model/EscalationLevel.js';
 export const createModule = async (req, res) => {
     try {
         const moduleData = req.body;
+        moduleData.createdBy = moduleData.createdBy || 'Super Admin';
 
         // Validation for the required fields in videos
         if (!moduleData.moduleName || !moduleData.videos || !Array.isArray(moduleData.videos)) {
