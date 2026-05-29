@@ -30,7 +30,7 @@ const userSchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true },
     password: { type: String, default: "" },
     phoneNumber: { type: String, default: "" }, // Store as a string
-    locCode: { type: String, required: true }, // User's email
+    locCode: { type: mongoose.Schema.Types.Mixed, required: true }, // User's email
     empID: { type: String, required: true, unique: true }, // Employee ID
     designation: { type: String, required: true },
     workingBranch: { type: String, required: true }, // User's working branch

@@ -286,10 +286,10 @@ const Login = () => {
                 </p>
 
                 <form onSubmit={handleLogin} className="flex flex-col gap-3">
-                  {/* Email */}
+                  {/* Employee ID */}
                   <div className="input-row" style={{ animationDelay: '0.05s' }}>
                     <input
-                      type="email" placeholder="Your email" value={email} required
+                      type="text" placeholder="Employee ID" value={email} required
                       onChange={(e) => setEmail(e.target.value)} className={inputCls}
                     />
                   </div>

@@ -45,8 +45,8 @@ const ModileNav = () => {
       <MobileNavItem to="/training"    icon="training"   label="Trainings"  active={is('/training')} />
       <MobileNavItem to="/assessments" icon="assessment" label="Assessments" active={is('/assessments')} />
       <MobileNavItem to="/branch"      icon="branch"     label="Branches"   active={is('/branch')} />
-      {user?.role === 'super_admin' && (
-        <MobileNavItem to="/settings"  icon="settings"   label="Settings"   active={is('/settings')} />
+      {(user?.role === 'super_admin' || user?.role === 'hr_admin') && (
+        <MobileNavItem to="/settings/users"  icon="settings"   label="Settings"   active={location.pathname.startsWith('/settings')} />
       )}
     </div>
   );

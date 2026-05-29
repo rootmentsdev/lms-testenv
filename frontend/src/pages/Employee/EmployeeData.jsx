@@ -143,9 +143,9 @@ const EmployeeData = () => {
             <h1 style={{ fontSize:"22px", fontWeight:700, lineHeight:1.2, color:"#111827", margin:0 }}>Employee Management</h1>
             <p style={{ fontSize:"12px", color:"#9ca3af", margin:"4px 0 0" }}>Store walkings, tasks, and training progress across all locations</p>
           </div>
-          <Link to="/training">
+          <Link to="/employee/create">
             <button style={{ background:"#111827", color:"#fff", border:"none", borderRadius:"10px", padding:"9px 18px", fontSize:"13px", fontWeight:600, cursor:"pointer" }}>
-              Assign Training
+              + New Employee
             </button>
           </Link>
         </div>

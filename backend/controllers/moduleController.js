@@ -237,20 +237,29 @@ export const getVisibility = async (req, res) => {
 
 export const AdminLogin = async (req, res) => {
     const { EmpId, email, role } = req.body;
-    console.log('🔓 [LOGIN] Attempt:', { email, role: role || 'not specified' });
+    console.log('🔓 [LOGIN] Attempt:', { identifier: email, role: role || 'not specified' });
 
     try {
         // Validate required fields
         if (!email || !EmpId) {
             console.log('❌ [LOGIN] Missing required fields');
-            return res.status(400).json({ message: 'Email and password are required' });
+            return res.status(400).json({ message: 'Employee ID or email and password are required' });
         }
 
-        // Find user by email
-        const user = await Admin.findOne({ email });
+        const loginIdentifier = String(email).trim();
+
+        // Find user by EmpId (Employee ID) first
+        let user = await Admin.findOne({
+            EmpId: { $regex: `^${loginIdentifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' }
+        });
+
+        // Fallback to finding by email if not found
+        if (!user) {
+            user = await Admin.findOne({ email: loginIdentifier.toLowerCase() });
+        }
         
         if (!user) {
-            console.log('❌ [LOGIN] Admin not found:', email);
+            console.log('❌ [LOGIN] Admin not found:', loginIdentifier);
             return res.status(400).json({ message: 'User not found' });
         }
 

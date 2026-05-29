@@ -517,7 +517,17 @@ export const getAllAppRegisteredEmployees = async (req, res) => {
     const appUserSourceQuery = { source: { $in: ['app', 'admin'] } };
     const baseQuery = isGlobalAdmin
       ? appUserSourceQuery
-      : { $and: [{ locCode: { $in: allowedLocCodes } }, appUserSourceQuery] };
+      : { 
+          $and: [
+            { 
+              $or: [
+                { locCode: { $in: allowedLocCodes } },
+                { locCode: "All" }
+              ] 
+            }, 
+            appUserSourceQuery
+          ] 
+        };
 
     // ── 2. Load all matching users ──
     const allUsers = await User.find(baseQuery)
@@ -592,13 +602,26 @@ export const getAllAppRegisteredEmployees = async (req, res) => {
     const filtered = employees.filter((e) => {
       const matchSearch = !search || [e.username, e.empID, e.workingBranch, e.designation, e.email]
         .some((v) => String(v || '').toLowerCase().includes(search));
-      const matchStore = store === 'All' || e.workingBranch === store;
+      const matchStore = store === 'All' || 
+                         e.workingBranch === store || 
+                         e.workingBranch === 'All Stores' ||
+                         String(e.workingBranch || '').split(', ').includes(store);
       const matchRole  = role  === 'All' || e.designation   === role;
       return matchSearch && matchStore && matchRole;
     });
 
     // ── 6. Build filter options ──
-    const stores = ['All', ...new Set(employees.map((e) => e.workingBranch).filter(Boolean))].sort((a, b) => a === 'All' ? -1 : a.localeCompare(b));
+    const individualStoresList = [];
+    employees.forEach(e => {
+      if (e.workingBranch === 'All Stores') {
+        individualStoresList.push('All Stores');
+      } else if (e.workingBranch) {
+        String(e.workingBranch).split(', ').forEach(s => {
+          if (s) individualStoresList.push(s);
+        });
+      }
+    });
+    const stores = ['All', ...new Set(individualStoresList)].sort((a, b) => a === 'All' ? -1 : a.localeCompare(b));
     const roles  = ['All', ...new Set(employees.map((e) => e.designation).filter(Boolean))].sort((a, b) => a === 'All' ? -1 : a.localeCompare(b));
 
     // ── 7. Paginate ──
