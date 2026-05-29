@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { useGetHomeProgressQuery, useGetWeeklyWalkinsQuery } from "../../features/dashboard/dashboardApi";
+import { useGetHomeProgressQuery, useGetWeeklyWalkinsQuery, useGetDashboardTasksQuery } from "../../features/dashboard/dashboardApi";
 import {
   normalizeBranchProgress,
   countFromPercent,
@@ -78,6 +78,9 @@ const AssessmentIcon = () => (
 const DashboardOverview = () => {
   const { data: progressResponse } = useGetHomeProgressQuery();
   const { data: walkinResponse } = useGetWeeklyWalkinsQuery();
+  const { data: tasksResponse } = useGetDashboardTasksQuery(undefined, {
+    refetchOnMountOrArgChange: true,
+  });
 
   const stats = useMemo(() => {
     const branches = normalizeBranchProgress(progressResponse);
@@ -97,11 +100,14 @@ const DashboardOverview = () => {
       (sum, b) => sum + countFromPercent(b.completeAssessment, b.totalAssessment),
       0
     );
-    const overdueCount = branches.reduce(
+    const overdueAssessmentsCount = branches.reduce(
       (sum, b) => sum + countFromPercent(b.pendingAssessment, b.totalAssessment),
       0
     );
-    const totalAssessments = completedAssessments + overdueCount;
+    const totalAssessments = completedAssessments + overdueAssessmentsCount;
+
+    const tasks = tasksResponse?.data || [];
+    const overdueTasksCount = tasks.filter(t => t.status === 'OVERDUE').length;
 
     const walkins = walkinResponse?.data;
     const totalWalkins = Array.isArray(walkins) ? walkins.length : 0;
@@ -112,11 +118,11 @@ const DashboardOverview = () => {
       inTraining,
       avgTraining,
       completedAssessments,
-      overdueCount,
       totalAssessments,
       totalWalkins,
+      overdueTasksCount,
     };
-  }, [progressResponse, walkinResponse]);
+  }, [progressResponse, walkinResponse, tasksResponse]);
 
   const cards = [
     {
@@ -137,8 +143,8 @@ const DashboardOverview = () => {
     },
     {
       title:    'Overdue Tasks',
-      value:    stats.overdueCount || '0',
-      subtitle: stats.overdueCount > 0 ? 'Require immediate action' : 'All tasks on track',
+      value:    stats.overdueTasksCount || '0',
+      subtitle: stats.overdueTasksCount > 0 ? 'Require immediate action' : 'All tasks on track',
       icon:     <TaskIcon />,
       iconBg:   '#FFEDD5',
     },

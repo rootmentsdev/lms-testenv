@@ -1,11 +1,7 @@
 import { useMemo } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { Link } from "react-router-dom";
-import { useGetHomeProgressQuery } from "../../features/dashboard/dashboardApi";
-import {
-  normalizeBranchProgress,
-  countFromPercent,
-} from "../../features/dashboard/dashboardUtils";
+import { useGetDashboardTasksQuery } from "../../features/dashboard/dashboardApi";
 
 const COLORS = {
   Completed:  "#22c55e",
@@ -25,48 +21,49 @@ const LegendRow = ({ color, label, count }) => (
 );
 
 const TaskOverview = () => {
-  const { data: progressResponse } = useGetHomeProgressQuery();
+  const { data: tasksResponse, isLoading } = useGetDashboardTasksQuery(undefined, {
+    refetchOnMountOrArgChange: true,
+  });
 
   const { completed, inProgress, overdue, pending, total, pct, pieData } = useMemo(() => {
-    const branches = normalizeBranchProgress(progressResponse);
+    if (isLoading || !tasksResponse) {
+      return {
+        completed: 0,
+        inProgress: 0,
+        overdue: 0,
+        pending: 0,
+        total: 0,
+        pct: 0,
+        pieData: [],
+      };
+    }
+    const tasks = tasksResponse.data || [];
 
-    const done = branches.reduce(
-      (s, b) => s + countFromPercent(b.completeTraining, b.totalTraining),
-      0
-    );
-    const active = branches.reduce(
-      (s, b) => s + countFromPercent(b.pendingTraining, b.totalTraining),
-      0
-    );
-    const late = branches.reduce(
-      (s, b) => s + countFromPercent(b.pendingAssessment, b.totalAssessment),
-      0
-    );
-    const doneAssess = branches.reduce(
-      (s, b) => s + countFromPercent(b.completeAssessment, b.totalAssessment),
-      0
-    );
+    const done = tasks.filter(t => t.status === 'COMPLETED').length;
+    const active = tasks.filter(t => t.status === 'IN PROGRESS').length;
+    const late = tasks.filter(t => t.status === 'OVERDUE').length;
+    const holdOrPending = tasks.filter(t => t.status === 'PENDING' || t.status === 'ON HOLD' || !t.status).length;
 
-    const sum = done + active + late + doneAssess;
+    const sum = done + active + late + holdOrPending;
     const percent = sum ? Math.round((done / sum) * 100) : 0;
 
     const slices = [
       { name: "Completed",   value: done },
       { name: "In Progress", value: active },
       { name: "Overdue",     value: late },
-      { name: "Pending",     value: doneAssess },
+      { name: "Pending",     value: holdOrPending },
     ].filter((d) => d.value > 0);
 
     return {
       completed: done,
       inProgress: active,
       overdue: late,
-      pending: doneAssess,
+      pending: holdOrPending,
       total: sum,
       pct: percent,
       pieData: slices,
     };
-  }, [progressResponse]);
+  }, [tasksResponse, isLoading]);
 
   return (
     <div style={{
@@ -88,7 +85,7 @@ const TaskOverview = () => {
           <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#111827", margin: 0 }}>Task Overview</h3>
           <p style={{ fontSize: "12px", color: "#9ca3af", margin: "2px 0 0" }}>{completed} / {total}</p>
         </div>
-        <Link to="/assessments">
+        <Link to="/task">
           <button style={{
             background: "#111827", color: "#fff",
             border: "none", borderRadius: "10px",

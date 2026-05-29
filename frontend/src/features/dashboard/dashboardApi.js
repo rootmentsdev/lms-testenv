@@ -16,13 +16,19 @@ export const dashboardApi = createApi({
       return headers;
     },
   }),
-  tagTypes: ['HomeProgress', 'Walkins', 'BestUsers', 'StoreManager', 'Notifications', 'LMSStats'],
+  tagTypes: ['HomeProgress', 'Walkins', 'BestUsers', 'StoreManager', 'Notifications', 'LMSStats', 'Tasks'],
 
   endpoints: (builder) => ({
     // Single source of truth for dashboard stats + charts (per-branch progress)
     getHomeProgress: builder.query({
       query: () => 'api/admin/get/HomeProgressData',
       providesTags: ['HomeProgress'],
+      keepUnusedDataFor: CACHE_TTL,
+    }),
+
+    getDashboardTasks: builder.query({
+      query: () => 'api/task/list',
+      providesTags: ['Tasks'],
       keepUnusedDataFor: CACHE_TTL,
     }),
 
@@ -78,4 +84,5 @@ export const {
   useGetStoreManagerDueDataQuery,
   useGetNotificationsQuery,
   useGetLMSStatsQuery,
+  useGetDashboardTasksQuery,
 } = dashboardApi;
