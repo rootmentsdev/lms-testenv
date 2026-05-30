@@ -1,4 +1,4 @@
-                                                                                                                                      // // src/pages/Branch/BranchData.jsx
+﻿                                                                                                                                      // // src/pages/Branch/BranchData.jsx
 // import { useEffect, useState } from "react";
 // import Header from "../../components/Header/Header";
 // import { FaPlus, FaEdit, FaBuilding } from "react-icons/fa";
@@ -433,56 +433,59 @@ const BranchData = () => {
         const visibleBranches = branchList.filter((b) => !isHiddenBranch(b?.workingBranch));
         setBranch(visibleBranches);
         setError("");
-        setLoading(false);
 
-        // Hydrate employee counts in the background.
-        const empRes = await fetch(baseUrl.baseUrl + "api/employee_range", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ startEmpId: "EMP1", endEmpId: "EMP9999" }),
-        });
+        // Hydrate employee counts from the local LMS employee directory used by the Employee page.
+        const employees = [];
+        let employeePage = 1;
+        let employeeTotalPages = 1;
 
-        if (!empRes.ok) {
-          return;
-        }
+        do {
+          const params = new URLSearchParams({
+            page: String(employeePage),
+            limit: "500",
+            search: "",
+            store: "All",
+            role: "All",
+          });
+          const empRes = await fetch(baseUrl.baseUrl + `api/employee/app-users?${params}`, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            credentials: "include",
+          });
 
-        const empJson = await empRes.json();
-        const employees = Array.isArray(empJson?.data) ? empJson.data : [];
+          if (!empRes.ok) {
+            throw new Error(`Employees: HTTP ${empRes.status} ${empRes.statusText}`);
+          }
+
+          const empJson = await empRes.json();
+          const pageEmployees = Array.isArray(empJson?.data) ? empJson.data : [];
+          employees.push(...pageEmployees);
+          employeeTotalPages = Number(empJson?.totalPages || 1);
+          employeePage += 1;
+        } while (employeePage <= employeeTotalPages);
 
         const byFull = {};
-        const byLocBrand = {};
 
         visibleBranches.forEach((b, i) => {
           const full = norm(b?.workingBranch);
-          const loc = locationKey(b?.workingBranch);
-          const brand = brandKey(b?.workingBranch);
+          const code = String(b?.locCode || "").trim().toLowerCase();
 
           if (full) byFull[full] = i;
-          if (loc) {
-            if (!byLocBrand[loc]) byLocBrand[loc] = {};
-            if (brand) byLocBrand[loc][brand] = i;
-          }
+          if (code) byFull[code] = i;
         });
 
         const counts = new Array(visibleBranches.length).fill(0);
 
         employees.forEach((e) => {
-          const raw = e?.store_name || e?.workingBranch || "";
+          const raw = e?.workingBranch || e?.store_name || "";
           const full = norm(raw);
-          const loc = locationKey(raw);
-          const brand = brandKey(raw);
+          const code = String(e?.locCode || "").trim().toLowerCase();
 
           let idx = byFull[full];
-          if (idx === undefined && loc && byLocBrand[loc]) {
-            const map = byLocBrand[loc];
-            // Only assign if we can confirm the brand — never fall back on location alone,
-            // as that would assign employees from unrelated stores (e.g. external "no store"
-            // employees) to the only branch that shares a location name.
-            if (brand && map[brand] !== undefined) {
-              idx = map[brand];
-            }
-          }
+          if (idx === undefined && code) idx = byFull[code];
 
           if (idx !== undefined) {
             counts[idx] = (counts[idx] || 0) + 1;
@@ -490,16 +493,18 @@ const BranchData = () => {
         });
 
         setBranch((current) =>
-          current.map((b, i) => {
-            const fallback = typeof b?.userCount === "number" ? b.userCount : 0;
-            const computed = counts[i] || 0;
-            return { ...b, userCount: computed || fallback };
-          })
+          current.map((b, i) => ({
+            ...b,
+            userCount: counts[i] || 0,
+          }))
         );
       } catch {
         setError("Failed to load branch data. Please try again later.");
         setBranch([]);
-        setLoading(false);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
@@ -547,13 +552,16 @@ const BranchData = () => {
       const key = norm(b?.workingBranch || b?.locCode);
       const progress = progressByKey.get(key) || progressByKey.get(String(b?.locCode || "").toLowerCase()) || {};
       const totalTraining = progress?.totalTraining ?? b?.totalTrainingCount ?? 0;
-      const completeTraining = Number(progress?.completeTraining ?? 0);
-      const pendingTraining = Number(progress?.pendingTraining ?? 0);
-      const trainingsDisplay = Number.isFinite(completeTraining)
-        ? Math.round(completeTraining)
+      const completeTrainingRaw = Number(progress?.completeTraining ?? 0);
+      const pendingTrainingRaw = Number(progress?.pendingTraining ?? 0);
+      const totalTrainingRaw = Number(totalTraining || 0);
+      const completeTraining = Number.isFinite(completeTrainingRaw) ? Math.max(0, Math.min(100, completeTrainingRaw)) : 0;
+      const pendingTraining = Number.isFinite(pendingTrainingRaw) ? Math.max(0, Math.min(100, pendingTrainingRaw)) : 0;
+      const trainingsDisplay = Number.isFinite(totalTrainingRaw)
+        ? Math.max(0, Math.round(totalTrainingRaw))
         : Math.round(Number(b?.totalTrainingCount ?? 0));
-      const progressPct = totalTraining
-        ? Math.round((completeTraining / totalTraining) * 100)
+      const progressPct = Number.isFinite(completeTrainingRaw)
+        ? completeTraining
         : Math.min(100, Math.max(0, Number(b?.userCount || 0) * 10));
       return {
         ...b,
@@ -844,3 +852,4 @@ const BranchData = () => {
 };
 
 export default BranchData;
+
