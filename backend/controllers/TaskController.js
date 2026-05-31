@@ -48,6 +48,7 @@ const computeStatus = (task) => {
   if (task.status === 'COMPLETED') return 'COMPLETED';
   if (task.status === 'IN PROGRESS') return 'IN PROGRESS';
   if (task.status === 'ON HOLD') return 'ON HOLD';
+  if (task.status === 'UNDER REVIEW') return 'UNDER REVIEW';
 
   const end = parseDateParts(task.endDate);
   if (end) {
@@ -91,6 +92,8 @@ const mapTaskForClient = (doc) => {
     category: task.category,
     categorySub: task.storeName || task.storeCode || task.subCategory,
     categoryDetail: task.subCategory,
+    assignedTo: task.assignedTo,
+    createdBy: task.createdBy?.toString() || '',
     assignee: task.assignedToLabel || ASSIGNED_TO_LABELS[task.assignedTo] || task.assignedTo,
     assigneeSub: task.storeName || task.storeCode || '—',
     assigneeRole: task.assignedToLabel || ASSIGNED_TO_LABELS[task.assignedTo] || task.assignedTo,
@@ -111,6 +114,8 @@ const mapTaskForClient = (doc) => {
     additionalInfo: task.additionalInfo,
     attachment: task.attachment || '',
     attachmentName: task.attachmentName || '',
+    reviewAttachment: task.reviewAttachment || '',
+    reviewAttachmentName: task.reviewAttachmentName || '',
     createdAt: task.createdAt,
   };
 };
@@ -608,14 +613,14 @@ export const getTaskAssignees = async (req, res) => {
 export const updateTaskStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    let { status } = req.body;
+    let { status, fileAttachment } = req.body;
 
     if (!status) {
       return res.status(400).json({ success: false, message: 'status is required' });
     }
 
     const normalizedStatus = status.trim().toUpperCase();
-    const validStatuses = ['PENDING', 'IN PROGRESS', 'COMPLETED', 'OVERDUE', 'ON HOLD'];
+    const validStatuses = ['PENDING', 'IN PROGRESS', 'COMPLETED', 'OVERDUE', 'ON HOLD', 'UNDER REVIEW'];
     if (!validStatuses.includes(normalizedStatus)) {
       return res.status(400).json({
         success: false,
@@ -652,6 +657,53 @@ export const updateTaskStatus = async (req, res) => {
       }
     }
 
+    // Assignee complete/review constraint:
+    // Only the creator can mark as COMPLETED, unless the assignee is also the creator.
+    const isTaskCreator = task.createdBy.toString() === userId.toString();
+    const isTaskAssignee = task.assignedTo === userId;
+
+    if (normalizedStatus === 'COMPLETED') {
+      if (!isTaskCreator && isTaskAssignee) {
+        return res.status(400).json({
+          success: false,
+          message: 'Only the creator of this task can mark it as COMPLETED. Please submit for review instead.',
+        });
+      }
+    }
+
+    if (normalizedStatus === 'UNDER REVIEW') {
+      if (!fileAttachment || !fileAttachment.base64) {
+        return res.status(400).json({
+          success: false,
+          message: 'Attachment is required to submit this task for review.',
+        });
+      }
+
+      // Save attachment
+      try {
+        const base64Data = fileAttachment.base64.replace(/^data:.*;base64,/, "");
+        const uploadDir = path.join(__dirname, '..', 'uploads', 'tasks');
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = path.extname(fileAttachment.name) || '';
+        const safeName = path.basename(fileAttachment.name, ext).replace(/[^a-zA-Z0-9]/g, '_');
+        const filename = `${safeName}-${uniqueSuffix}${ext}`;
+        const filePath = path.join(uploadDir, filename);
+        
+        fs.writeFileSync(filePath, base64Data, 'base64');
+        task.reviewAttachment = `/uploads/tasks/${filename}`;
+        task.reviewAttachmentName = fileAttachment.name;
+      } catch (err) {
+        console.error('Error saving review attachment:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to save review attachment file.',
+        });
+      }
+    }
+
     task.status = normalizedStatus;
     await task.save();
 
@@ -665,6 +717,55 @@ export const updateTaskStatus = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to update task status',
+      error: error.message,
+    });
+  }
+};
+
+export const reassignTask = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { assignedTo, assignedToLabel } = req.body;
+
+    if (!assignedTo || !assignedToLabel) {
+      return res.status(400).json({ success: false, message: 'assignedTo and assignedToLabel are required' });
+    }
+
+    const task = await Task.findOne({
+      $or: [{ taskCode: id }, ...(id.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: id }] : [])],
+    });
+
+    if (!task) {
+      return res.status(404).json({ success: false, message: 'Task not found' });
+    }
+
+    const userId = req.admin.userId;
+    const userRole = req.admin.role;
+    const isUserAdmin = userRole && userRole !== 'employee' && userRole !== 'user';
+
+    // Verify permissions: only current assignee or admin can reassign
+    if (!isUserAdmin && task.assignedTo !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: You are not authorized to reassign this task',
+      });
+    }
+
+    task.assignedTo = assignedTo;
+    task.assignedToLabel = assignedToLabel;
+    task.status = 'PENDING'; // Reset status to PENDING
+    await task.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Task reassigned successfully',
+      data: mapTaskForClient(task),
+    });
+  } catch (error) {
+    console.error('Error reassigning task:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to reassign task',
       error: error.message,
     });
   }

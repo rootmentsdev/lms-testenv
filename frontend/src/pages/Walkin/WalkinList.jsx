@@ -3,7 +3,7 @@ import { useSelector } from 'react-redux';
 import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
 import baseUrl from "../../api/api";
-import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { FaChevronLeft, FaChevronRight, FaPen } from 'react-icons/fa';
 
 /* ---------- Normalization and Spelling fixes helpers ---------- */
 const BRAND_TOKENS = new Set(["zorucci", "grooms", "suitor", "guy", "sg"]);
@@ -110,6 +110,7 @@ const WalkinList = () => {
 
     // Form state for adding Walk-in
     const [formData, setFormData] = useState({
+        _id: '',
         date: new Date().toISOString().split('T')[0],
         customerName: '',
         contact: '',
@@ -311,6 +312,7 @@ const WalkinList = () => {
 
     // Check if customer phone number already exists in the database
     const checkCustomer = async (contactVal) => {
+        if (formData._id) return; // Do not auto-check if we are in Edit mode
         if (!contactVal || contactVal.trim().length < 5) return;
         try {
             const res = await fetch(`${baseUrl.baseUrl}api/walkin/check/${contactVal.trim()}`, {
@@ -361,6 +363,36 @@ const WalkinList = () => {
         }
     };
 
+    const handleEditClick = (w) => {
+        const foundBranch = branches.find(b => b.workingBranch === w.store);
+        const storeIdToLoad = w.storeId || (foundBranch ? foundBranch._id : '');
+
+        setFormData({
+            _id: w._id,
+            date: w.date || new Date().toISOString().split('T')[0],
+            customerName: w.customerName || '',
+            contact: w.contact || '',
+            functionDate: w.functionDate || new Date().toISOString().split('T')[0],
+            store: w.store || '',
+            storeId: storeIdToLoad,
+            staff: w.staff || '',
+            employeeId: w.employeeId || '',
+            category: w.category || '-',
+            subCategory: w.subCategory || '-',
+            remarks: w.remarks || '',
+            status: w.status || 'New Walkin',
+            repeatCount: w.repeatCount || 1
+        });
+
+        if (storeIdToLoad) {
+            loadEmployees(storeIdToLoad);
+        } else {
+            setEmployees([]);
+        }
+
+        setShowAddView(true);
+    };
+
     // Save Walkin Form directly to live MongoDB database
     const handleFormSubmit = async (e) => {
         e.preventDefault();
@@ -382,6 +414,7 @@ const WalkinList = () => {
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
+                    _id: formData._id || undefined,
                     customerName: formData.customerName,
                     contact: formData.contact,
                     functionDate: formData.functionDate,
@@ -404,6 +437,7 @@ const WalkinList = () => {
 
                 // Reset form to defaults
                 setFormData({
+                    _id: '',
                     date: new Date().toISOString().split('T')[0],
                     customerName: '',
                     contact: '',
@@ -442,14 +476,14 @@ const WalkinList = () => {
     );
 
     return (
-        <div className="mb-[70px] text-[14px] bg-white min-h-screen" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+        <div className="mb-[70px] text-[14px] min-h-screen" style={{ fontFamily: "'DM Sans', sans-serif", background: '#f9fafb' }}>
             <SideNav />
             <div className="md:hidden sm:block">
                 <ModileNav />
             </div>
 
             {/* Layout Grid Container matching standard dashboard spacing perfectly */}
-            <div className="md:ml-[120px] px-4 sm:px-6 lg:px-12 transition-all duration-300">
+            <div className="md:ml-[120px] transition-all duration-300" style={{ paddingTop: '24px', paddingLeft: '24px', paddingRight: '24px', paddingBottom: '40px' }}>
                 {showAddView ? (
                     /* ADD WALKIN FORM VIEW MATCHING SECOND SCREENSHOT */
                     <div className="mt-8 mb-6 max-w-5xl mx-auto">
@@ -466,19 +500,27 @@ const WalkinList = () => {
                             <span>←</span> Add Walkin Form
                         </button>
 
-                        <h2 className="text-xl font-bold text-gray-800 mb-6">Walkin Details</h2>
+                        <h2 className="text-xl font-bold text-gray-800 mb-6">{formData._id ? 'Update Walkin Details' : 'Walkin Details'}</h2>
 
                         {/* Premium White form card matching mockup exactly */}
                         <div className="bg-white rounded-lg border border-gray-150 p-6 sm:p-8 shadow-xs">
                             <form onSubmit={handleFormSubmit} className="space-y-6">
 
-                                {customerExistsNotification && (
+                                {(formData._id || customerExistsNotification) && (
                                     <div className="mb-6 p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-md flex items-start gap-3 animate-fade-in">
                                         <span className="text-amber-600 text-lg">⚠️</span>
                                         <div>
-                                            <h4 className="text-sm font-bold text-amber-800">Existing Customer Found (Walk-in Count: {formData.repeatCount || 1})</h4>
+                                            <h4 className="text-sm font-bold text-amber-800">
+                                                {formData._id 
+                                                    ? `Editing Walk-in Record (Repeat Count: ${formData.repeatCount || 1})` 
+                                                    : `Existing Customer Found (Walk-in Count: ${formData.repeatCount || 1})`
+                                                }
+                                            </h4>
                                             <p className="text-xs text-amber-700 mt-1">
-                                                The customer details have been pre-filled. You can update them. Saving with any status other than <span className="font-bold">"New Walkin"</span> will update the existing record. Setting status to <span className="font-bold">"New Walkin"</span> will log a new visit.
+                                                {formData._id 
+                                                    ? 'You are editing the details of this specific walk-in record. Saving will update the details of this record directly.'
+                                                    : 'The customer details have been pre-filled. You can update them. Saving with any status other than "New Walkin" will update the existing record. Setting status to "New Walkin" will log a new visit.'
+                                                }
                                             </p>
                                         </div>
                                     </div>
@@ -564,7 +606,28 @@ const WalkinList = () => {
                         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:'24px', marginBottom:'16px' }}>
                             <h1 style={{ fontSize:'22px', fontWeight:700, lineHeight:1.2, color:'#111827', margin:0 }}>Walk In List</h1>
                             <button
-                                onClick={() => { if(branches.length>0){setFormData(prev=>({...prev,store:branches[0]?.workingBranch||'',storeId:branches[0]?._id||''})); loadEmployees(branches[0]?._id);} setShowAddView(true); }}
+                                onClick={() => {
+                                    setFormData({
+                                        _id: '',
+                                        date: new Date().toISOString().split('T')[0],
+                                        customerName: '',
+                                        contact: '',
+                                        functionDate: new Date().toISOString().split('T')[0],
+                                        store: branches[0]?.workingBranch || '',
+                                        storeId: branches[0]?._id || '',
+                                        staff: '',
+                                        employeeId: '',
+                                        category: '-',
+                                        subCategory: '-',
+                                        remarks: '',
+                                        status: 'New Walkin',
+                                        repeatCount: 1
+                                    });
+                                    if (branches.length > 0) {
+                                        loadEmployees(branches[0]?._id);
+                                    }
+                                    setShowAddView(true);
+                                }}
                                 style={{ background:'#111827', color:'#fff', border:'none', borderRadius:'10px', padding:'9px 18px', fontSize:'13px', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:'6px' }}
                             >
                                 + New Walk In
@@ -606,8 +669,8 @@ const WalkinList = () => {
                                         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'12px', fontFamily:"'DM Sans', sans-serif" }}>
                                             <thead>
                                                 <tr style={{ borderBottom:'1px solid #f3f4f6', background:'#fafafa' }}>
-                                                    {['#','DATE','CUSTOMER','CONTACT','FUNCTION DATE','STORE','STAFF','CATEGORY','SUB CATEGORY','REMARKS','REPEAT COUNT','STATUS'].map(h=>(
-                                                        <th key={h} style={{ padding:'8px 12px', textAlign:(h==='#'||h==='REPEAT COUNT'||h==='STATUS')?'center':'left', fontSize:'10px', fontWeight:600, color:'#9ca3af', letterSpacing:'0.06em', whiteSpace:'nowrap' }}>{h}</th>
+                                                    {['#','DATE','CUSTOMER','CONTACT','FUNCTION DATE','STORE','STAFF','CATEGORY','SUB CATEGORY','REMARKS','REPEAT COUNT','STATUS',''].map((h, i)=>(
+                                                        <th key={i} style={{ padding:'8px 12px', textAlign:(h==='#'||h==='REPEAT COUNT'||h==='STATUS')?'center':'left', fontSize:'10px', fontWeight:600, color:'#9ca3af', letterSpacing:'0.06em', whiteSpace:'nowrap' }}>{h}</th>
                                                     ))}
                                                 </tr>
                                             </thead>
@@ -650,6 +713,17 @@ const WalkinList = () => {
                                                                 <span style={{ background:sc.bg, color:sc.color, borderRadius:'20px', padding:'2px 8px', fontSize:'10px', fontWeight:600, whiteSpace:'nowrap', display:'inline-block' }}>
                                                                     {w.status?.toUpperCase()}
                                                                 </span>
+                                                            </td>
+                                                            <td style={{ padding:'11px 12px', textAlign:'center' }}>
+                                                                <button
+                                                                    onClick={() => handleEditClick(w)}
+                                                                    style={{ background:'none', border:'none', color:'#4b5563', cursor:'pointer', padding:'4px', display:'inline-flex', alignItems:'center', justifyContent:'center', transition:'color 0.1s' }}
+                                                                    onMouseEnter={e=>e.currentTarget.style.color='#111827'}
+                                                                    onMouseLeave={e=>e.currentTarget.style.color='#4b5563'}
+                                                                    title="Edit Walk-in"
+                                                                >
+                                                                    <FaPen size={12} />
+                                                                </button>
                                                             </td>
                                                         </tr>
                                                     );

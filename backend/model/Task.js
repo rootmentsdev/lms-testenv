@@ -17,7 +17,7 @@ const taskSchema = new mongoose.Schema({
   priority: { type: String, required: true, trim: true },
   status: {
     type: String,
-    enum: ['PENDING', 'IN PROGRESS', 'COMPLETED', 'OVERDUE', 'ON HOLD'],
+    enum: ['PENDING', 'IN PROGRESS', 'COMPLETED', 'OVERDUE', 'ON HOLD', 'UNDER REVIEW'],
     default: 'PENDING',
   },
   storeName: { type: String, default: '' },
@@ -27,6 +27,8 @@ const taskSchema = new mongoose.Schema({
   assignedByRole: { type: String, default: '' },
   attachment: { type: String, default: '' },
   attachmentName: { type: String, default: '' },
+  reviewAttachment: { type: String, default: '' },
+  reviewAttachmentName: { type: String, default: '' },
 }, { timestamps: true });
 
 taskSchema.index({ createdAt: -1 });

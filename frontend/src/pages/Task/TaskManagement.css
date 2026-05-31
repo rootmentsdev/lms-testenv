@@ -316,3 +316,164 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* Tabs Styling */
+.task-mgmt-tabs {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 8px;
+}
+
+.task-mgmt-tab-btn {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: #6b7280;
+  background: none;
+  border: none;
+  padding: 8px 16px;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.15s ease;
+}
+
+.task-mgmt-tab-btn:hover {
+  color: #111827;
+}
+
+.task-mgmt-tab-btn.active {
+  color: #111827;
+}
+
+.task-mgmt-tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -9px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #111827;
+  border-radius: 2px;
+}
+
+.task-mgmt-tab-count {
+  background: #f3f4f6;
+  color: #4b5563;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: 6px;
+}
+
+.task-mgmt-tab-btn.active .task-mgmt-tab-count {
+  background: #111827;
+  color: #fff;
+}
+
+/* Proof link styling */
+.task-mgmt-proof-link {
+  color: #3b82f6;
+  text-decoration: underline;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.task-mgmt-proof-link:hover {
+  color: #2563eb;
+}
+
+/* Slide to Complete styles */
+.slide-to-complete-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.slide-to-complete-track {
+  position: relative;
+  width: 180px;
+  height: 36px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  user-select: none;
+}
+
+.slide-to-complete-track.completed {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.slide-to-complete-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, #dcfce7 0%, #bbf7d0 100%);
+  opacity: 0.8;
+  z-index: 1;
+}
+
+.slide-to-complete-track.completed .slide-to-complete-fill {
+  background: #dcfce7;
+  width: 100% !important;
+}
+
+.slide-to-complete-handle {
+  position: absolute;
+  top: 1px;
+  width: 32px;
+  height: 32px;
+  background: #111827;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  cursor: grab;
+  z-index: 2;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition: transform 0.1s ease, background-color 0.2s ease;
+}
+
+.slide-to-complete-handle:active {
+  cursor: grabbing;
+}
+
+.slide-to-complete-track.completed .slide-to-complete-handle {
+  background: #22c55e;
+  cursor: default;
+}
+
+.slide-to-complete-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  z-index: 1;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.slide-to-complete-track.completed .slide-to-complete-text {
+  color: #15803d;
+}
+
+.task-mgmt-status--on-hold {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.task-mgmt-status--under-review {
+  background: #f3e8ff;
+  color: #7e22ce;
+}
+

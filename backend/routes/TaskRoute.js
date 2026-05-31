@@ -1,5 +1,5 @@
 import express from 'express';
-import { createTask, getTasks, getTaskById, getTaskAssignees, updateTaskStatus } from '../controllers/TaskController.js';
+import { createTask, getTasks, getTaskById, getTaskAssignees, updateTaskStatus, reassignTask } from '../controllers/TaskController.js';
 import { MiddilWare } from '../lib/middilWare.js';
 
 const router = express.Router();
@@ -226,5 +226,6 @@ router.get('/:id', MiddilWare, getTaskById);
  *         description: Internal server error
  */
 router.put('/:id/status', MiddilWare, updateTaskStatus);
+router.put('/:id/reassign', MiddilWare, reassignTask);
 
 export default router;
