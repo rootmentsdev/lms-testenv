@@ -311,7 +311,7 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
           </>
         ) : null}
 
-        {isAssignedToMe && task.status !== 'COMPLETED' ? (
+        {task.status !== 'COMPLETED' ? (
           <>
             <div className="task-detail-divider" />
             <div className="task-detail-actions-panel">
@@ -336,6 +336,22 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
                       disabled={updating}
                     >
                       On Hold
+                    </button>
+                    <button
+                      type="button"
+                      className="task-detail-action-btn task-detail-btn-reassigned"
+                      onClick={() => handleUpdateStatus('REASSIGNED')}
+                      disabled={updating}
+                    >
+                      Reassigned
+                    </button>
+                    <button
+                      type="button"
+                      className="task-detail-action-btn task-detail-btn-review"
+                      onClick={() => handleUpdateStatus('UNDER REVIEW')}
+                      disabled={updating}
+                    >
+                      Review
                     </button>
                   </div>
                 </div>

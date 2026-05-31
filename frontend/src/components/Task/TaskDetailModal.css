@@ -247,6 +247,26 @@
   color: #fff;
 }
 
+.task-detail-btn-reassigned {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.task-detail-btn-reassigned:hover:not(:disabled) {
+  background: #0369a1;
+  color: #fff;
+}
+
+.task-detail-btn-review {
+  background: #f3e8ff;
+  color: #7e22ce;
+}
+
+.task-detail-btn-review:hover:not(:disabled) {
+  background: #7e22ce;
+  color: #fff;
+}
+
 .task-detail-review-form {
   display: flex;
   gap: 10px;
