@@ -6,10 +6,9 @@ import baseUrl from "../../../api/api";
 import SideNav from "../../../components/SideNav/SideNav";
 
 const ASSIGN_OPTIONS = [
-  { value: "all", label: "All Employees" },
   { value: "designation", label: "Role" },
-  { value: "user", label: "Individual" },
-  { value: "new", label: "New Employees" },
+  { value: "user", label: "User" },
+  { value: "branch", label: "Branch" },
 ];
 
 const TRAINING_TYPES = [
@@ -43,6 +42,7 @@ const CreateTrainingDatas = () => {
   const [assignType, setAssignType] = useState("all");
   const [assignedTo, setAssignedTo] = useState([]);
   const [assignOptions, setAssignOptions] = useState([]);
+  const [branchOptions, setBranchOptions] = useState([]);
   const [modules, setModules] = useState([]);
   const [selectedModules, setSelectedModules] = useState([]);
   const [days, setDays] = useState("");
@@ -64,6 +64,56 @@ const CreateTrainingDatas = () => {
     };
     fetchModules();
   }, []);
+
+  useEffect(() => {
+    const fetchBranches = async () => {
+      try {
+        const res = await fetch(`${baseUrl.baseUrl}api/usercreate/getBranch`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const branches = Array.isArray(data?.data) ? data.data : [];
+        setBranchOptions(
+          branches.map((branch) => ({
+            value: branch.workingBranch || branch.locCode || branch._id,
+            label: `${branch.workingBranch || branch.location || "Branch"}${branch.locCode ? ` (${branch.locCode})` : ""}`,
+          }))
+        );
+      } catch (_) {}
+    };
+
+    fetchBranches();
+  }, [token]);
+
+  useEffect(() => {
+    const fetchBranches = async () => {
+      try {
+        const res = await fetch(`${baseUrl.baseUrl}api/usercreate/getBranch`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const branches = Array.isArray(data?.data) ? data.data : [];
+        setBranchOptions(
+          branches.map((branch) => ({
+            value: branch.locCode || branch._id,
+            label: branch.workingBranch || branch.location || branch.locCode || "Branch",
+          }))
+        );
+      } catch (_) {}
+    };
+
+    fetchBranches();
+  }, [token]);
 
   useEffect(() => {
     if (!id) return;
@@ -131,19 +181,27 @@ const CreateTrainingDatas = () => {
           setAssignOptions(
             employees.map((e) => ({
               value: e.empID,
-              label: `${e.empID || "N/A"} — ${e.username || "N/A"} (${e.designation || "N/A"})`,
+              label: `EmpId: ${e.empID || "N/A"} | Name: ${e.username || "N/A"} | Role: ${e.designation || "N/A"}`, 
             }))
           );
         } else if (assignType === "designation") {
           const unique = [...new Set(employees.map((e) => e.designation).filter(Boolean))];
           setAssignOptions(unique.map((r) => ({ value: r, label: r })));
+        } else if (assignType === "branch") {
+          setAssignOptions(branchOptions);
         }
       } catch (_) {}
     };
 
     fetchOptions();
     setAssignedTo([]);
-  }, [assignType, token]);
+  }, [assignType, token, branchOptions]);
+
+  useEffect(() => {
+    if (trainingType === "Mandatory") {
+      setAssignType("designation");
+    }
+  }, [trainingType]);
 
   const toggleModule = (mod) => {
     const moduleId = getModuleId(mod);
@@ -164,12 +222,19 @@ const CreateTrainingDatas = () => {
 
     // Build assignedfor array
     let assignedfor = [];
-    if (assignType === "all") assignedfor = ["All"];
-    else if (assignType === "new") assignedfor = ["New"];
-    else assignedfor = assignedTo.map((x) => x.value);
+    if (trainingType === "Mandatory") {
+      assignedfor = assignedTo.map((x) => x.value);
+      if (assignedfor.length === 0) {
+        return toast.error("Please select at least one designation");
+      }
+    } else {
+      if (assignType === "all") assignedfor = ["All"];
+      else if (assignType === "new") assignedfor = ["New"];
+      else assignedfor = assignedTo.map((x) => x.value);
 
-    if ((assignType === "user" || assignType === "designation") && assignedfor.length === 0) {
-      return toast.error("Please select at least one assignee");
+      if ((assignType === "user" || assignType === "designation" || assignType === "branch") && assignedfor.length === 0) {
+        return toast.error("Please select at least one assignee");
+      }
     }
 
     const moduleIds = selectedModules.map(getModuleId).filter(Boolean);
@@ -183,7 +248,7 @@ const CreateTrainingDatas = () => {
       deadline: Number(days),
       Trainingtype: trainingType,
       Assignedfor: assignedfor,
-      selectedOption: assignType,
+      selectedOption: trainingType === "Mandatory" ? "designation" : assignType,
       workingBranch: assignedfor,
       category,
     };
@@ -219,7 +284,7 @@ const CreateTrainingDatas = () => {
       <div className="flex-1 md:ml-[120px] p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-5">
             <button
               onClick={() => navigate(-1)}
               className="p-1 hover:bg-gray-200 rounded-full transition"
@@ -325,32 +390,68 @@ const CreateTrainingDatas = () => {
 
             {/* Assign To */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Assign to <span className="text-red-500">*</span>
-              </label>
-              <div className="flex flex-wrap gap-3">
-                {ASSIGN_OPTIONS.map((opt) => (
-                  <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer text-sm">
-                    <input
-                      type="radio"
-                      name="assignType"
-                      value={opt.value}
-                      checked={assignType === opt.value}
-                      onChange={() => setAssignType(opt.value)}
-                      className="accent-gray-900"
-                    />
-                    {opt.label}
+              {trainingType === "Mandatory" ? (
+                <>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Assign To Designation <span className="text-red-500">*</span>
                   </label>
-                ))}
-              </div>
+                  <div className="border border-gray-300 rounded-lg p-3 max-h-40 overflow-y-auto bg-gray-50">
+                    {assignOptions.length === 0 ? (
+                      <p className="text-sm text-gray-400">Loading designations...</p>
+                    ) : (
+                      assignOptions.map((opt) => (
+                        <label key={opt.value} className="flex items-center gap-2 py-1 cursor-pointer text-sm hover:bg-gray-100 px-1 rounded">
+                          <input
+                            type="checkbox"
+                            checked={assignedTo.some((a) => a.value === opt.value)}
+                            onChange={() =>
+                              setAssignedTo((prev) =>
+                                prev.some((a) => a.value === opt.value)
+                                  ? prev.filter((a) => a.value !== opt.value)
+                                  : [...prev, opt]
+                              )
+                            }
+                            className="accent-gray-900"
+                          />
+                          {opt.label}
+                        </label>
+                      ))
+                    )}
+                  </div>
+                  {assignedTo.length > 0 && (
+                    <p className="text-xs text-gray-500 mt-1">{assignedTo.length} selected</p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Assign to <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex flex-wrap gap-5">
+                    {ASSIGN_OPTIONS.map((opt) => (
+                      <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer text-sm">
+                        <input
+                          type="radio"
+                          name="assignType"
+                          value={opt.value}
+                          checked={assignType === opt.value}
+                          onChange={() => setAssignType(opt.value)}
+                          className="accent-gray-900"
+                        />
+                        {opt.label}
+                      </label>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
           {/* Conditional assignee selector */}
-          {(assignType === "user" || assignType === "designation") && (
+          {trainingType !== "Mandatory" && (assignType === "user" || assignType === "designation" || assignType === "branch") && (
             <div className="mt-5">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Select {assignType === "user" ? "Employees" : "Roles"}
+                Select {assignType === "user" ? "Users" : assignType === "branch" ? "Branches" : "Roles"}
               </label>
               <div className="border border-gray-300 rounded-lg p-3 max-h-40 overflow-y-auto bg-gray-50">
                 {assignOptions.length === 0 ? (
@@ -453,3 +554,7 @@ const CreateTrainingDatas = () => {
 };
 
 export default CreateTrainingDatas;
+
+
+
+

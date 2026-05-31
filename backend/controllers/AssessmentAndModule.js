@@ -259,18 +259,9 @@ export const GetAllTrainingWithCompletion = async (req, res) => {
       }
           });
 
-      // Filter out mandatory trainings - only return assigned trainings
+      // Keep both assigned and mandatory trainings in the unified list.
       const filteredTrainingMap = new Map();
       Array.from(trainingMap.values()).forEach(({ training, progressRecords }) => {
-        // Check if this is a mandatory training
-        const trainingType = training.Trainingtype;
-        const isMandatory = trainingType === 'Mandatory' || trainingType === 'mandatory';
-        
-        if (isMandatory) {
-          console.log(`Skipping mandatory training "${training.trainingName}" from GetuserTraining API`);
-          return; // Skip mandatory trainings
-        }
-        
         filteredTrainingMap.set(training._id.toString(), { training, progressRecords });
       });
 
@@ -391,7 +382,7 @@ export const GetAllTrainingWithCompletion = async (req, res) => {
     );
 
           res.status(200).json({
-        message: "Assigned training data fetched successfully (mandatory trainings excluded)",
+        message: "Training data fetched successfully",
         data: trainingData
       });
   } catch (error) {

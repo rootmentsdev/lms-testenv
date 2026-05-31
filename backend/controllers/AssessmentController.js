@@ -270,7 +270,19 @@ export const createTraining = async (req, res) => {
         } else if (selectedOption === 'designation') {
             usersInBranch = await User.find({ designation: { $in: workingBranch } });
         } else if (selectedOption === 'branch') {
-            usersInBranch = await User.find({ workingBranch: { $in: workingBranch } });
+            const branchDocs = await Branch.find({ $or: [{ locCode: { $in: workingBranch } }, { workingBranch: { $in: workingBranch } }] })
+                .select('locCode workingBranch')
+                .lean();
+            const branchLocCodes = branchDocs.map((b) => String(b.locCode)).filter(Boolean);
+            const branchNames = branchDocs.map((b) => b.workingBranch).filter(Boolean);
+            const branchTargets = Array.from(new Set([...workingBranch, ...branchLocCodes, ...branchNames]));
+
+            usersInBranch = await User.find({
+                $or: [
+                    { workingBranch: { $in: branchTargets } },
+                    { locCode: { $in: branchTargets } },
+                ],
+            });
         } else {
             return res.status(400).json({ message: "Invalid selected option" });
         }
@@ -397,13 +409,18 @@ export const createTraining = async (req, res) => {
                 return res.status(400).json({ message: "Working branch is required when selectedOption is 'branch'" });
             }
 
+            const branchDocs = await Branch.find({ $or: [{ locCode: { $in: workingBranch } }, { workingBranch: { $in: workingBranch } }] })
+                .select('locCode workingBranch')
+                .lean();
+            const branchLocCodes = branchDocs.map((b) => String(b.locCode)).filter(Boolean);
+            const branchNames = branchDocs.map((b) => b.workingBranch).filter(Boolean);
+
             console.log("Creating notification for branches...");
-            // Create notification for branch
-            const newNotification = await Notification.create({
+            await Notification.create({
                 title: `New training Created : ${trainingName}`,
                 body: `${trainingName} has been successfully created. Created by ${admin?.name}. The training is scheduled to be completed in ${days} days.`,
-                branch: workingBranch,  // Pass the branch here
-                useradmin: admin?.name,  // Optional
+                branch: Array.from(new Set([...workingBranch, ...branchLocCodes, ...branchNames])),
+                useradmin: admin?.name,
             });
             console.log("Branch notification created successfully");
         }

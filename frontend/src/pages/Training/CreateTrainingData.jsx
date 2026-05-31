@@ -156,7 +156,7 @@ const CreateTrainingData = () => {
             <p className="text-sm">No trainings found</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map((item, index) => (
               <TrainingCard
                 key={item?._id || item?.trainingId || item?.trainingName || index}
@@ -180,6 +180,7 @@ const TrainingCard = ({ item, onEdit }) => {
   const totalMins = item?.durationMinutes ?? 0;
   const hrs  = Math.floor(totalMins / 60).toString().padStart(2, "0");
   const mins = (totalMins % 60).toString().padStart(2, "0");
+  const trainingType = item?.Trainingtype || item?.trainingType || "Assigned";
 
   return (
     <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition h-full">
@@ -189,9 +190,20 @@ const TrainingCard = ({ item, onEdit }) => {
             <HiOutlineBookOpen size={20} className="text-purple-500" />
           </div>
           <div className="min-w-0">
-            <h3 className="font-semibold text-gray-900 text-sm leading-snug truncate">
-              {item?.trainingName}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-gray-900 text-sm leading-snug truncate">
+                {item?.trainingName}
+              </h3>
+              <span
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                  trainingType === "Mandatory"
+                    ? "bg-rose-100 text-rose-700"
+                    : "bg-slate-100 text-slate-700"
+                }`}
+              >
+                {trainingType}
+              </span>
+            </div>
             <p className="text-xs text-gray-400 mt-0.5">
               {modules} Modules | {videos} Videos
             </p>
