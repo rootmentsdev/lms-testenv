@@ -127,7 +127,7 @@ const Field = ({ label, required, value, onChange, placeholder }) => (
       value={value}
       onChange={onChange}
       placeholder={placeholder}
-      style={{ fontFamily: "'DM Sans', sans-serif" }}
+      style={{ fontFamily: "Poppins, sans-serif" }}
       className="h-9 w-full rounded-[6px] border border-gray-200 bg-[#f1f1f1] px-3 text-[13px] outline-none placeholder:text-gray-400 focus:border-gray-400"
     />
   </label>
@@ -175,7 +175,7 @@ const QuizBlock = ({ question, qIndex, totalQuestions, onChange, onCorrectAnswer
                 }
               }}
               placeholder={`Option ${oIndex + 1}`}
-              style={{ fontFamily: "'DM Sans', sans-serif" }}
+              style={{ fontFamily: "Poppins, sans-serif" }}
               className="h-9 flex-1 rounded-[6px] border border-gray-200 bg-white px-3 text-[13px] outline-none placeholder:text-gray-400 focus:border-gray-400"
             />
           </div>
@@ -208,7 +208,7 @@ const CreateModuleData = () => {
   const [activeQuizIndex, setActiveQuizIndex] = useState(0);
   const [editingVideoIndex, setEditingVideoIndex] = useState(null);
 
-  // Inject DM Sans — same approach as Employee / Task / WalkinList pages
+    // Keep the page font aligned with the global Poppins stack.
   useEffect(() => {
     if (!document.getElementById("dm-sans-font")) {
       const link = document.createElement("link");
@@ -463,7 +463,7 @@ const CreateModuleData = () => {
   const activeQ = currentVideo.questions[activeQuizIndex] ?? currentVideo.questions[currentVideo.questions.length - 1] ?? currentVideo.questions[0];
 
   return (
-    <div className="min-h-screen bg-[#f9fafb] text-black" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="min-h-screen bg-[#f9fafb] text-black" style={{ fontFamily: "Poppins, sans-serif" }}>
       <SideNav />
 
       <div className="md:ml-[120px] px-6 pb-10">

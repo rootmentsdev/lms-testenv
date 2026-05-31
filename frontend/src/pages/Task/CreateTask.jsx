@@ -63,7 +63,7 @@ const CheckboxOption = (props) => {
             accentColor: '#111827',
           }}
         />
-        <span style={{ fontSize: '13px', color: '#374151', fontFamily: "'DM Sans', sans-serif" }}>{props.label}</span>
+        <span style={{ fontSize: '13px', color: '#374151', fontFamily: "Poppins, sans-serif" }}>{props.label}</span>
       </div>
     </components.Option>
   );
@@ -80,7 +80,7 @@ const selectStyles = {
     '&:hover': {
       borderColor: state.isFocused ? '#111827' : '#e5e7eb',
     },
-    fontFamily: "'DM Sans', sans-serif",
+    fontFamily: "Poppins, sans-serif",
     fontSize: '13px',
     color: '#374151',
   }),
@@ -92,7 +92,7 @@ const selectStyles = {
     ...base,
     backgroundColor: state.isSelected ? '#f3f4f6' : state.isFocused ? '#f9fafb' : '#fff',
     color: '#374151',
-    fontFamily: "'DM Sans', sans-serif",
+    fontFamily: "Poppins, sans-serif",
     fontSize: '13px',
     cursor: 'pointer',
     display: 'flex',
@@ -110,7 +110,7 @@ const selectStyles = {
   multiValueLabel: (base) => ({
     ...base,
     color: '#374151',
-    fontFamily: "'DM Sans', sans-serif",
+    fontFamily: "Poppins, sans-serif",
     fontSize: '12px',
   }),
   multiValueRemove: (base) => ({
@@ -133,7 +133,7 @@ const inp = {
   background: '#fff',
   width: '100%',
   boxSizing: 'border-box',
-  fontFamily: "'DM Sans', sans-serif",
+  fontFamily: "Poppins, sans-serif",
 };
 const lbl = { fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '5px', display: 'block' };
 const req = { color: '#ef4444' };
@@ -169,7 +169,7 @@ const PriorityPicker = ({ value, onChange, compact, grid }) => (
             fontWeight: 500,
             color: '#374151',
             cursor: 'pointer',
-            fontFamily: "'DM Sans', sans-serif",
+            fontFamily: "Poppins, sans-serif",
             transition: 'border-color 0.2s ease, background 0.2s ease, transform 0.15s ease',
           }}
         >
@@ -574,7 +574,7 @@ const CreateTask = () => {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f9fafb', fontFamily: "'DM Sans', sans-serif" }}>
+    <div style={{ minHeight: '100vh', background: '#f9fafb', fontFamily: "Poppins, sans-serif" }}>
       <SideNav />
 
       <div style={{ marginLeft: '120px', paddingTop: '24px', paddingLeft: '24px', paddingRight: '24px', paddingBottom: '40px' }}>

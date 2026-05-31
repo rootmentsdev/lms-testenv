@@ -23,8 +23,7 @@ const AssessmentCard = ({ item }) => {
   const pct = Math.min(100, Math.max(0, Math.round(item.completionPercentage || 0)));
 
   return (
-    <Link to={`/Assessment/Assign/${item?.assessmentId}`} style={{ textDecoration: "none" }}>
-      <div style={{
+    <div style={{
         background: "#fff", borderRadius: "16px", border: "1px solid #e5e7eb",
         padding: "20px", display: "flex", flexDirection: "column", gap: "14px",
         cursor: "pointer", transition: "box-shadow 0.15s, transform 0.15s",
@@ -80,25 +79,61 @@ const AssessmentCard = ({ item }) => {
           </div>
         </div>
 
-        {/* View Details button */}
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "center", gap: "7px",
-          background: "#f3f4f6", borderRadius: "10px", padding: "10px",
-          fontSize: "13px", fontWeight: 600, color: "#374151",
-          transition: "background 0.15s",
-        }}
-          onMouseEnter={e => e.currentTarget.style.background = "#e5e7eb"}
-          onMouseLeave={e => e.currentTarget.style.background = "#f3f4f6"}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/>
-          </svg>
-          View Details
+        {/* Actions */}
+        <div style={{ display: "flex", gap: "10px", marginTop: "2px" }}>
+          <Link
+            to={`/assessment/assign/${item?.assessmentId}`}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "7px",
+              background: "#f3f4f6",
+              borderRadius: "10px",
+              padding: "10px",
+              fontSize: "13px",
+              fontWeight: 600,
+              color: "#374151",
+              textDecoration: "none",
+              transition: "background 0.15s",
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = "#e5e7eb"}
+            onMouseLeave={e => e.currentTarget.style.background = "#f3f4f6"}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/>
+            </svg>
+            View Details
+          </Link>
+
+          <Link
+            to="/assign/assessment"
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "7px",
+              background: "#111827",
+              borderRadius: "10px",
+              padding: "10px",
+              fontSize: "13px",
+              fontWeight: 600,
+              color: "#fff",
+              textDecoration: "none",
+              transition: "background 0.15s",
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = "#374151"}
+            onMouseLeave={e => e.currentTarget.style.background = "#111827"}
+          >
+            <FaPlus size={11} />
+            Assign Assessment
+          </Link>
         </div>
       </div>
-    </Link>
-  );
-};
+    );
+  };
 
 /* ── Skeleton card ───────────────────────────────────────────────────────── */
 const SkeletonCard = () => (
@@ -196,7 +231,7 @@ const AssessmentsData = () => {
   }, [data, search, statusFilter]);
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f9fafb", fontFamily: "'DM Sans', sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#f9fafb", fontFamily: "Poppins, sans-serif" }}>
       <SideNav />
 
       <div style={{ marginLeft: "120px", paddingTop: "24px", paddingLeft: "24px", paddingRight: "24px", paddingBottom: "24px" }}>
@@ -244,7 +279,7 @@ const AssessmentsData = () => {
               placeholder="Search by Training"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              style={{ border: "none", outline: "none", fontSize: "13px", color: "#374151", background: "transparent", width: "100%", fontFamily: "'DM Sans', sans-serif" }}
+              style={{ border: "none", outline: "none", fontSize: "13px", color: "#374151", background: "transparent", width: "100%", fontFamily: "Poppins, sans-serif" }}
             />
           </div>
 
@@ -255,7 +290,7 @@ const AssessmentsData = () => {
               <select
                 value={statusFilter}
                 onChange={e => setStatusFilter(e.target.value)}
-                style={{ appearance: "none", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "6px 28px 6px 10px", fontSize: "13px", color: "#374151", background: "#fff", cursor: "pointer", outline: "none", fontFamily: "'DM Sans', sans-serif" }}
+                style={{ appearance: "none", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "6px 28px 6px 10px", fontSize: "13px", color: "#374151", background: "#fff", cursor: "pointer", outline: "none", fontFamily: "Poppins, sans-serif" }}
               >
                 {["All", "Completed", "In Progress", "Not Started"].map(s => (
                   <option key={s} value={s}>{s}</option>
