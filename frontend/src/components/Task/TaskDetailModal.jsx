@@ -18,6 +18,7 @@ const STATUS_CLASS = {
   OVERDUE: 'task-detail-status--overdue',
   'ON HOLD': 'task-detail-status--on-hold',
   'UNDER REVIEW': 'task-detail-status--under-review',
+  REASSIGNED: 'task-detail-status--reassigned',
 };
 
 const DetailField = ({ label, primary, secondary, children }) => (
@@ -55,7 +56,7 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
   }, [onClose]);
 
   useEffect(() => {
-    if (isAssignedToMe && task && task.status !== 'COMPLETED' && task.status !== 'UNDER REVIEW') {
+    if (isAssignedToMe && task && task.status !== 'COMPLETED') {
       const fetchAssignees = async () => {
         setLoadingAssignees(true);
         try {
@@ -310,7 +311,7 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
           </>
         ) : null}
 
-        {isAssignedToMe && task.status !== 'COMPLETED' && task.status !== 'UNDER REVIEW' ? (
+        {isAssignedToMe && task.status !== 'COMPLETED' ? (
           <>
             <div className="task-detail-divider" />
             <div className="task-detail-actions-panel">
