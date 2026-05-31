@@ -4,7 +4,6 @@ import { toast } from 'react-toastify';
 import { useSelector } from 'react-redux';
 import SideNav from '../../components/SideNav/SideNav';
 import TaskDetailModal from '../../components/Task/TaskDetailModal';
-import { fetchTasks } from '../../features/task/taskApi';
 import baseUrl from '../../api/api';
 import { fetchTasks } from '../../features/task/taskFetch';
 import './TaskManagement.css';
