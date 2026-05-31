@@ -199,7 +199,8 @@ export const buildTaskFilter = async (adminId, baseQuery = {}) => {
             ...baseQuery,
             $or: [
                 { assignedTo: user._id.toString() },
-                { storeCode: `Z-${user.locCode}` }
+                { storeCode: `Z-${user.locCode}` },
+                { storeCode: user.locCode }
             ]
         };
     }
@@ -213,9 +214,15 @@ export const buildTaskFilter = async (adminId, baseQuery = {}) => {
     // Note: Task model currently uses storeCode instead of storeId, so we map to locCodes
     const branches = await Branch.find({ _id: { $in: accessibleStoreIds } });
     const locCodes = branches.map(b => b.locCode);
+    const zLocCodes = locCodes.map(code => `Z-${code}`);
+    const allLocCodes = [...locCodes, ...zLocCodes];
 
     return {
         ...baseQuery,
-        storeCode: { $in: locCodes }
+        $or: [
+            { assignedTo: adminId.toString() },
+            { createdBy: adminId },
+            { storeCode: { $in: allLocCodes } }
+        ]
     };
 };

@@ -285,6 +285,31 @@ export const createTask = async (req, res) => {
         ? `${baseTaskCode}-${index + 1}`
         : baseTaskCode;
 
+      // Resolve store for individual assignee dynamically
+      let targetStoreName = '';
+      let targetStoreCode = '';
+      try {
+        const targetAdmin = await Admin.findById(target.id).populate('branches');
+        if (targetAdmin) {
+          const targetBranch = targetAdmin.branches?.[0];
+          targetStoreName = targetBranch?.workingBranch || '';
+          targetStoreCode = targetBranch?.locCode ? `Z-${targetBranch.locCode}` : '';
+        } else {
+          const targetUser = await User.findById(target.id);
+          if (targetUser) {
+            targetStoreName = targetUser.workingBranch || '';
+            targetStoreCode = targetUser.locCode ? (Array.isArray(targetUser.locCode) ? `Z-${targetUser.locCode[0]}` : `Z-${targetUser.locCode}`) : '';
+          }
+        }
+      } catch (err) {
+        console.error('Error resolving target assignee store:', err);
+      }
+
+      if (!targetStoreName && !targetStoreCode) {
+        targetStoreName = storeName;
+        targetStoreCode = storeCode;
+      }
+
       const task = await Task.create({
         taskCode,
         title: title.trim(),
@@ -301,8 +326,8 @@ export const createTask = async (req, res) => {
         additionalInfo,
         priority,
         status: 'PENDING',
-        storeName,
-        storeCode,
+        storeName: targetStoreName,
+        storeCode: targetStoreCode,
         createdBy: creator._id,
         assignedByName: isCreatorAdmin ? creator.name : creator.username,
         assignedByRole: subRole ? `${roleLabel} · ${subRole}` : roleLabel,
@@ -754,6 +779,31 @@ export const reassignTask = async (req, res) => {
     task.assignedTo = assignedTo;
     task.assignedToLabel = assignedToLabel;
     task.status = 'PENDING'; // Reset status to PENDING
+
+    // Update storeName and storeCode to the new assignee's store dynamically
+    try {
+      const targetAdmin = await Admin.findById(assignedTo).populate('branches');
+      let targetStoreName = '';
+      let targetStoreCode = '';
+      if (targetAdmin) {
+        const targetBranch = targetAdmin.branches?.[0];
+        targetStoreName = targetBranch?.workingBranch || '';
+        targetStoreCode = targetBranch?.locCode ? `Z-${targetBranch.locCode}` : '';
+      } else {
+        const targetUser = await User.findById(assignedTo);
+        if (targetUser) {
+          targetStoreName = targetUser.workingBranch || '';
+          targetStoreCode = targetUser.locCode ? (Array.isArray(targetUser.locCode) ? `Z-${targetUser.locCode[0]}` : `Z-${targetUser.locCode}`) : '';
+        }
+      }
+      if (targetStoreName || targetStoreCode) {
+        task.storeName = targetStoreName;
+        task.storeCode = targetStoreCode;
+      }
+    } catch (err) {
+      console.error('Error updating task store on reassign:', err);
+    }
+
     await task.save();
 
     return res.status(200).json({
