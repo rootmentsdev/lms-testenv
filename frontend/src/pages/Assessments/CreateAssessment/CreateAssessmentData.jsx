@@ -145,17 +145,35 @@ const CreateAssessmentData = () => {
 
   const handleSave = async () => {
     if (!moduleTitle.trim()) { toast.warning("Assessment title is required."); return; }
-    if (questions.some(q => !q.questionText.trim() || !q.correctAnswer)) {
-      toast.warning("Please complete all questions and select a correct answer for each.");
+    if (duration && Number(duration) <= 0) {
+      toast.warning("Duration must be greater than zero.");
+      return;
+    }
+    if (deadline && Number(deadline) <= 0) {
+      toast.warning("Days to complete must be greater than zero.");
+      return;
+    }
+    if (questions.some(q => !q.questionText.trim() || q.options.some(option => !option.trim()) || !q.correctAnswer || !q.options.includes(q.correctAnswer))) {
+      toast.warning("Please complete all questions, fill every option, and select a correct answer for each.");
       return;
     }
     setSaving(true);
     try {
+      const payload = {
+        title: moduleTitle.trim(),
+        duration: Number(duration),
+        deadline: Number(deadline),
+        questions: questions.map((q) => ({
+          questionText: q.questionText.trim(),
+          options: q.options.map((option) => option.trim()),
+          correctAnswer: q.correctAnswer.trim(),
+        })),
+      };
       const response = await fetch(`${baseUrl.baseUrl}api/assessments`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         credentials: "include",
-        body: JSON.stringify({ title: moduleTitle, duration, deadline, questions }),
+        body: JSON.stringify(payload),
       });
       const data = await response.json();
       if (!response.ok) { toast.error(data.message || "Failed to create assessment"); return; }
