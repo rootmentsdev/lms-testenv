@@ -20,6 +20,7 @@ const moduleSchema = new mongoose.Schema({
     moduleName: { type: String, required: true },
     description: { type: String, required: true },
     videos: [videoSchema],
+    createdBy: { type: String, default: '' },
     createdAt: { type: Date, default: Date.now },
 });
 

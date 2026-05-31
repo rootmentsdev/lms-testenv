@@ -1,8 +1,26 @@
-import { useGetStoreManagerDueDataQuery } from "../../features/dashboard/dashboardApi";
+import { useEffect, useState } from "react";
+import { fetchStoreManagerDueData } from "../../features/dashboard/dashboardFetch";
 
 const OverdueTrainings = () => {
-    // Use RTK Query for automatic caching and loading
-    const { data: responseData, isLoading } = useGetStoreManagerDueDataQuery();
+    const [responseData, setResponseData] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
+    useEffect(() => {
+        let mounted = true;
+        const load = async () => {
+            setIsLoading(true);
+            try {
+                const json = await fetchStoreManagerDueData();
+                if (!mounted) return;
+                setResponseData(json);
+            } finally {
+                if (mounted) setIsLoading(false);
+            }
+        };
+        load();
+        return () => {
+            mounted = false;
+        };
+    }, []);
     const data = responseData?.topOverdueUsers || [];
 
     if (isLoading) {

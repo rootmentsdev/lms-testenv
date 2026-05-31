@@ -1,9 +1,27 @@
+import { useEffect, useState } from "react";
 import { PieChart, Pie, Cell } from 'recharts';
-import { useGetStoreManagerDataQuery } from '../../features/dashboard/dashboardApi';
+import { fetchStoreManagerData } from '../../features/dashboard/dashboardFetch';
 
 const TrainingProgress = () => {
-    // Use RTK Query for automatic caching and loading
-    const { data, isLoading } = useGetStoreManagerDataQuery();
+    const [data, setData] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
+    useEffect(() => {
+        let mounted = true;
+        const load = async () => {
+            setIsLoading(true);
+            try {
+                const json = await fetchStoreManagerData();
+                if (!mounted) return;
+                setData(json);
+            } finally {
+                if (mounted) setIsLoading(false);
+            }
+        };
+        load();
+        return () => {
+            mounted = false;
+        };
+    }, []);
     
     const processedData = data ? {
         completedTrainings: data.completedTrainings || { count: 0, data: [] },

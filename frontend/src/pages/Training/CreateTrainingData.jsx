@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FiSearch, FiClock, FiBook, FiUsers, FiCheckCircle, FiPlus } from "react-icons/fi";
 import { HiOutlineBookOpen } from "react-icons/hi";
+import { FaRegEdit } from "react-icons/fa";
 import baseUrl from "../../api/api";
 import SideNav from "../../components/SideNav/SideNav";
 import Card from "../../components/Skeleton/Card";
@@ -32,7 +33,9 @@ const CreateTrainingData = () => {
     setLoading(true);
     const fetchData = async () => {
       try {
-        const res = await fetch(`${baseUrl.baseUrl}api/get/Full/allusertraining`);
+        const res = await fetch(`${baseUrl.baseUrl}api/get/allusertraining`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        });
         if (!res.ok) throw new Error("Failed to fetch");
         const result = await res.json();
         setData(result.data || []);
@@ -45,7 +48,8 @@ const CreateTrainingData = () => {
   const filtered = data.filter((item) => {
     const pct = item?.averageCompletionPercentage ?? 0;
 
-    if (tab === "Assigned" && item?.Trainingtype !== "Assigned") return false;
+    const trainingType = item?.Trainingtype || item?.trainingType;
+    if (tab === "Assigned" && trainingType !== "Assigned") return false;
     if (search && !item?.trainingName?.toLowerCase().includes(search.toLowerCase())) return false;
 
     if (filter === "0-25"   && !(pct >= 0  && pct <= 25))  return false;
@@ -77,7 +81,7 @@ const CreateTrainingData = () => {
             className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-700 transition"
           >
             <FiPlus size={16} />
-            New Training
+              New Training
           </button>
         </div>
 
@@ -152,9 +156,13 @@ const CreateTrainingData = () => {
             <p className="text-sm">No trainings found</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map((item) => (
-              <TrainingCard key={item._id} item={item} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtered.map((item, index) => (
+              <TrainingCard
+                key={item?._id || item?.trainingId || item?.trainingName || index}
+                item={item}
+                onEdit={() => navigate(`/createnewtraining/${item?.trainingId}`)}
+              />
             ))}
           </div>
         )}
@@ -164,27 +172,38 @@ const CreateTrainingData = () => {
 };
 
 /* ── Individual training card ── */
-const TrainingCard = ({ item }) => {
+const TrainingCard = ({ item, onEdit }) => {
   const pct     = Math.round(item?.averageCompletionPercentage ?? 0);
   const modules = item?.numberOfModules ?? 0;
-  const videos  = item?.totalVideos ?? modules * 4;
-  const staffs  = item?.totalUsers ?? 0;
-  const totalMins = videos * 15;
+  const videos  = item?.totalVideos ?? 0;
+  const staffs  = item?.totalAssignedUsers ?? item?.totalUsers ?? 0;
+  const totalMins = item?.durationMinutes ?? 0;
   const hrs  = Math.floor(totalMins / 60).toString().padStart(2, "0");
   const mins = (totalMins % 60).toString().padStart(2, "0");
+  const trainingType = item?.Trainingtype || item?.trainingType || "Assigned";
 
   return (
-    <Link to={`/AssigTraining/${item?.trainingId}`}>
-      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer h-full">
+    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition h-full">
         {/* Icon + title */}
         <div className="flex items-start gap-3 mb-4">
           <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
             <HiOutlineBookOpen size={20} className="text-purple-500" />
           </div>
           <div className="min-w-0">
-            <h3 className="font-semibold text-gray-900 text-sm leading-snug truncate">
-              {item?.trainingName}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-gray-900 text-sm leading-snug truncate">
+                {item?.trainingName}
+              </h3>
+              <span
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                  trainingType === "Mandatory"
+                    ? "bg-rose-100 text-rose-700"
+                    : "bg-slate-100 text-slate-700"
+                }`}
+              >
+                {trainingType}
+              </span>
+            </div>
             <p className="text-xs text-gray-400 mt-0.5">
               {modules} Modules | {videos} Videos
             </p>
@@ -224,8 +243,23 @@ const TrainingCard = ({ item }) => {
             {pct}% Completed
           </span>
         </div>
+        <div className="mt-4 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onEdit}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+          >
+            <FaRegEdit size={12} />
+            Edit
+          </button>
+          <Link
+            to={`/AssigTraining/${item?.trainingId}`}
+            className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-700 transition"
+          >
+            View
+          </Link>
+        </div>
       </div>
-    </Link>
   );
 };
 

@@ -1,9 +1,27 @@
+import { useEffect, useState } from "react";
 import { FaGlobe } from "react-icons/fa";
-import { useGetLMSStatsQuery } from "../../features/dashboard/dashboardApi";
+import { fetchLMSStats } from "../../features/dashboard/dashboardFetch";
 
 const LMSWebsiteLoginStats = () => {
-    // Use RTK Query for automatic caching and loading
-    const { data: responseData, isLoading: loading } = useGetLMSStatsQuery();
+    const [responseData, setResponseData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    useEffect(() => {
+        let mounted = true;
+        const load = async () => {
+            setLoading(true);
+            try {
+                const json = await fetchLMSStats();
+                if (!mounted) return;
+                setResponseData(json);
+            } finally {
+                if (mounted) setLoading(false);
+            }
+        };
+        load();
+        return () => {
+            mounted = false;
+        };
+    }, []);
     const lmsStats = responseData?.data || {
         uniqueLMSUserCount: 0,
         totalLMSLogins: 0,

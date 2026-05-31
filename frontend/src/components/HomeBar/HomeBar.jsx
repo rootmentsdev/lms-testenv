@@ -1,11 +1,11 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
-import { useGetHomeProgressQuery } from "../../features/dashboard/dashboardApi";
 import { normalizeBranchProgress } from "../../features/dashboard/dashboardUtils";
 import { Link } from "react-router-dom";
+import { fetchHomeProgress } from "../../features/dashboard/dashboardFetch";
 
 /* ── Colour tiers (matching the reference image) ─────────────────────────── */
 const getTierColor = (pct) => {
@@ -85,7 +85,31 @@ const BranchTick = ({ x, y, payload }) => {
 /* ── Main component ──────────────────────────────────────────────────────── */
 const HomeBar = () => {
   const [filter, setFilter] = useState("all");
-  const { data: responseData, isLoading, refetch } = useGetHomeProgressQuery();
+  const [responseData, setResponseData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      setIsLoading(true);
+      try {
+        const data = await fetchHomeProgress();
+        if (!mounted) return;
+        setResponseData(data);
+      } catch {
+        if (!mounted) return;
+        setResponseData(null);
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    };
+
+    load();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const allData = useMemo(
     () => normalizeBranchProgress(responseData),
@@ -94,13 +118,14 @@ const HomeBar = () => {
 
   const realChartData = useMemo(() =>
     allData.map((obj) => {
-      const total = (obj.completeTraining || 0) + (obj.pendingTraining || 0);
-      const pct   = total ? Math.round((obj.completeTraining / total) * 100) : 0;
+      const pct = Number(obj.completeTraining ?? 0);
+      const pendingPct = Number(obj.pendingTraining ?? 0);
       return {
         name:       obj.branchName || obj.branch || obj.locCode,
         branchName: obj.shortBranchName || obj.branchName || obj.locCode,
         fullBranchName: obj.branchName || obj.locCode,
-        pct,
+        pct: Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 0,
+        pendingPct: Number.isFinite(pendingPct) ? Math.max(0, Math.min(100, pendingPct)) : 0,
         employees:  obj.totalEmployees || obj.employees || 0,
         tier:       getTierLabel(pct),
         color:      getTierColor(pct),
@@ -173,7 +198,15 @@ const HomeBar = () => {
             <Tab label="At Risk"  active={filter === "at-risk"}  onClick={() => setFilter("at-risk")} />
           </div>
           <button
-            onClick={() => refetch()}
+            onClick={async () => {
+              setIsLoading(true);
+              try {
+                const data = await fetchHomeProgress();
+                setResponseData(data);
+              } finally {
+                setIsLoading(false);
+              }
+            }}
             style={{
               display: "flex", alignItems: "center", gap: "5px",
               border: "1px solid #e5e7eb", borderRadius: "8px",

@@ -148,7 +148,11 @@ const fetchEmployeeDataForTraining = async () => {
 };
 
 export const createTraining = async (req, res) => {
-    const { trainingName, modules, days, workingBranch, selectedOption } = req.body;
+    const { trainingName, modules, workingBranch } = req.body;
+    const days = Number(req.body.days ?? req.body.deadline);
+    const selectedOption = req.body.selectedOption || (
+        Array.isArray(workingBranch) && workingBranch.includes('All') ? 'all' : undefined
+    );
     const AdminID = req.admin.userId;
     const AdminData = await Admin.findById(AdminID).populate("permissions");
 
@@ -181,9 +185,12 @@ export const createTraining = async (req, res) => {
 
     try {
         // Ensure all required data is provided
-        if (!trainingName || !modules || !days || !selectedOption) {
+        if (!trainingName || !Array.isArray(modules) || modules.length === 0 || !days || !selectedOption) {
             console.log("Missing required fields:", { trainingName, modules, days, selectedOption });
-            return res.status(400).json({ message: "Training name, modules, days, and selected option are required" });
+            return res.status(400).json({
+                message: "Training name, modules, days, and selected option are required",
+                details: { trainingName: Boolean(trainingName), modules, days, selectedOption },
+            });
         }
 
         // Validate workingBranch is provided and not empty
@@ -209,9 +216,11 @@ export const createTraining = async (req, res) => {
         // Create a new training record with both deadline (days) and deadlineDate (actual date)
         const newTraining = new Training({
             trainingName,
+            description: req.body.description || "",
             modules,
             deadline: days, // Store original days input (keeping existing format)
             deadlineDate: deadlineDate, // Store actual calculated date
+            Trainingtype: req.body.Trainingtype || "Assigned",
             Assignedfor: workingBranch || [], // Set the Assignedfor field with workingBranch data
         });
 
@@ -245,16 +254,35 @@ export const createTraining = async (req, res) => {
             deadline: savedTraining.deadline
         });
 
+        if (selectedOption === 'new') {
+            console.log("Training saved for future new employees.");
+            return res.status(201).json({ message: "Training created for new employees successfully", training: newTraining });
+        }
+
         // Resolve recipients from the local User collection only.
         console.log("Resolving training recipients from local users...");
         let usersInBranch = [];
 
-        if (selectedOption === 'user') {
+        if (selectedOption === 'all') {
+            usersInBranch = await User.find({});
+        } else if (selectedOption === 'user') {
             usersInBranch = await User.find({ empID: { $in: workingBranch } });
         } else if (selectedOption === 'designation') {
             usersInBranch = await User.find({ designation: { $in: workingBranch } });
         } else if (selectedOption === 'branch') {
-            usersInBranch = await User.find({ workingBranch: { $in: workingBranch } });
+            const branchDocs = await Branch.find({ $or: [{ locCode: { $in: workingBranch } }, { workingBranch: { $in: workingBranch } }] })
+                .select('locCode workingBranch')
+                .lean();
+            const branchLocCodes = branchDocs.map((b) => String(b.locCode)).filter(Boolean);
+            const branchNames = branchDocs.map((b) => b.workingBranch).filter(Boolean);
+            const branchTargets = Array.from(new Set([...workingBranch, ...branchLocCodes, ...branchNames]));
+
+            usersInBranch = await User.find({
+                $or: [
+                    { workingBranch: { $in: branchTargets } },
+                    { locCode: { $in: branchTargets } },
+                ],
+            });
         } else {
             return res.status(400).json({ message: "Invalid selected option" });
         }
@@ -269,7 +297,9 @@ export const createTraining = async (req, res) => {
 
         if (usersInBranch.length === 0) {
             const errorMessage =
-                selectedOption === 'user'
+                selectedOption === 'all'
+                    ? 'No local users found to assign this training'
+                    : selectedOption === 'user'
                     ? `No local users found with employee IDs: ${workingBranch.join(', ')}`
                     : selectedOption === 'designation'
                         ? `No local users found with designations: ${workingBranch.join(', ')}`
@@ -279,50 +309,69 @@ export const createTraining = async (req, res) => {
 
         console.log("Starting training assignment to users...");
 
-        if (usersInBranch.length === 0) {
-            return res.status(404).json({ message: "No users found matching the criteria" });
+        const userTrainingEntry = {
+            trainingId: newTraining._id,
+            deadline: deadlineDate,
+            pass: false,
+            status: 'Pending',
+        };
+
+        const progressModules = moduleDetails.map(module => ({
+            moduleId: module._id,
+            pass: false,
+            videos: module.videos.map(video => ({
+                videoId: video._id,
+                pass: false,
+            })),
+        }));
+
+        const userUpdates = usersInBranch.map(user => ({
+            updateOne: {
+                filter: {
+                    _id: user._id,
+                    'training.trainingId': { $ne: newTraining._id },
+                },
+                update: {
+                    $push: { training: userTrainingEntry },
+                },
+            },
+        }));
+
+        if (userUpdates.length > 0) {
+            await User.bulkWrite(userUpdates, { ordered: false });
         }
 
-        console.log("Starting training assignment to users...");
-        // Assign training and progress to each user
-        const updatedUsers = usersInBranch.map(async (user) => {
-            console.log(`Assigning training to user: ${user.username} (${user.empID})`);
-            
-            // Add training details to user
-            user.training.push({
-                trainingId: newTraining._id,
-                deadline: deadlineDate, // Use the fixed deadline Date object
-                pass: false,
-                status: 'Pending',
+        const progressDocs = usersInBranch.map(user => ({
+            userId: user._id,
+            trainingId: newTraining._id,
+            trainingName,
+            deadline: deadlineDate,
+            pass: false,
+            modules: progressModules,
+        }));
+
+        try {
+            await TrainingProgress.insertMany(progressDocs, { ordered: false });
+        } catch (progressError) {
+            if (progressError?.code !== 11000 && progressError?.writeErrors?.some(err => err.code !== 11000)) {
+                throw progressError;
+            }
+            console.log("Skipped duplicate training progress records during assignment");
+        }
+
+        console.log("All users assigned successfully");
+
+        if (selectedOption === 'all') {
+            console.log("Creating notification for all users...");
+            await Notification.create({
+                title: `New training Created : ${trainingName}`,
+                body: `${trainingName} has been successfully created. Created by ${admin?.name}. The training is scheduled to be completed in ${days} days.`,
+                user: usersInBranch.map(user => user._id),
+                useradmin: admin?.name,
             });
+            console.log("All-user notification created successfully");
 
-            // Create training progress for each user
-            const trainingProgress = new TrainingProgress({
-                userId: user._id,
-                trainingId: newTraining._id,
-                   trainingName: trainingName,
-                deadline: deadlineDate, // Use the fixed deadline Date object
-                pass: false,
-                modules: moduleDetails.map(module => ({
-                    moduleId: module._id,
-                    pass: false,
-                    videos: module.videos.map(video => ({
-                        videoId: video._id,
-                        pass: false,
-                    })),
-                })),
-            });
-
-            await trainingProgress.save();
-            console.log(`Training progress saved for user: ${user.username}`);
-            return user.save();
-        });
-
-        console.log("Saving all users...");
-        await Promise.all(updatedUsers); // Save all users at once
-        console.log("All users saved successfully");
-
-        if (selectedOption === 'user') {
+        } else if (selectedOption === 'user') {
             if (!workingBranch || workingBranch.length === 0) {
                 return res.status(400).json({ message: "User IDs are required when selectedOption is 'user'" });
             }
@@ -360,13 +409,18 @@ export const createTraining = async (req, res) => {
                 return res.status(400).json({ message: "Working branch is required when selectedOption is 'branch'" });
             }
 
+            const branchDocs = await Branch.find({ $or: [{ locCode: { $in: workingBranch } }, { workingBranch: { $in: workingBranch } }] })
+                .select('locCode workingBranch')
+                .lean();
+            const branchLocCodes = branchDocs.map((b) => String(b.locCode)).filter(Boolean);
+            const branchNames = branchDocs.map((b) => b.workingBranch).filter(Boolean);
+
             console.log("Creating notification for branches...");
-            // Create notification for branch
-            const newNotification = await Notification.create({
+            await Notification.create({
                 title: `New training Created : ${trainingName}`,
                 body: `${trainingName} has been successfully created. Created by ${admin?.name}. The training is scheduled to be completed in ${days} days.`,
-                branch: workingBranch,  // Pass the branch here
-                useradmin: admin?.name,  // Optional
+                branch: Array.from(new Set([...workingBranch, ...branchLocCodes, ...branchNames])),
+                useradmin: admin?.name,
             });
             console.log("Branch notification created successfully");
         }
@@ -399,6 +453,65 @@ export const createTraining = async (req, res) => {
                 error: process.env.NODE_ENV === 'development' ? error.stack : undefined
             });
         }
+    }
+};
+
+export const updateTraining = async (req, res) => {
+    const { id } = req.params;
+    const { trainingName, modules, workingBranch } = req.body;
+    const days = Number(req.body.days ?? req.body.deadline);
+    const selectedOption = req.body.selectedOption || (
+        Array.isArray(workingBranch) && workingBranch.includes('All') ? 'all' : undefined
+    );
+    const AdminID = req.admin.userId;
+    const AdminData = await Admin.findById(AdminID).populate("permissions");
+
+    if (!AdminData || !AdminData.permissions.length) {
+        return res.status(403).json({ message: "No permissions found for this admin" });
+    }
+
+    if (!AdminData.permissions[0].permissions.canCreateTraining) {
+        return res.status(401).json({ message: "You have no permission" });
+    }
+
+    try {
+        if (!trainingName || !Array.isArray(modules) || modules.length === 0 || !days || !selectedOption) {
+            return res.status(400).json({
+                message: "Training name, modules, days, and selected option are required",
+            });
+        }
+
+        if (!workingBranch || !Array.isArray(workingBranch) || workingBranch.length === 0) {
+            return res.status(400).json({ message: "Working branch/designation/user selection is required" });
+        }
+
+        const training = await Training.findById(id);
+        if (!training) {
+            return res.status(404).json({ message: "Training not found" });
+        }
+
+        training.trainingName = trainingName;
+        training.description = req.body.description || "";
+        training.modules = modules;
+        training.deadline = days;
+        training.deadlineDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+        training.Trainingtype = req.body.Trainingtype || "Assigned";
+        training.Assignedfor = workingBranch || [];
+        training.editedDate = new Date();
+
+        await training.save();
+
+        return res.status(200).json({
+            message: "Training updated successfully",
+            training,
+        });
+    } catch (error) {
+        console.error("Error in updateTraining:", error);
+        return res.status(500).json({
+            message: "Server Error",
+            details: error.message,
+            error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 };
 

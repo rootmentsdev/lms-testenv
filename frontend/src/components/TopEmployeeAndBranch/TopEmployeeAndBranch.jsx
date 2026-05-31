@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BiSortAlt2 } from "react-icons/bi";
 import { useSelector } from "react-redux";
-import { useGetBestThreeUsersQuery } from "../../features/dashboard/dashboardApi";
+import { fetchBestThreeUsers } from "../../features/dashboard/dashboardFetch";
 
 
 const TopEmployeeAndBranch = () => {
@@ -9,8 +9,25 @@ const TopEmployeeAndBranch = () => {
     const [topData, setTopData] = useState("top"); // "top" or "last"
     const user = useSelector((state) => state.auth.user); // Access user from Redux store
 
-    // Use RTK Query for automatic caching and loading
-    const { data: responseData, isLoading } = useGetBestThreeUsersQuery();
+    const [responseData, setResponseData] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
+    useEffect(() => {
+        let mounted = true;
+        const load = async () => {
+            setIsLoading(true);
+            try {
+                const data = await fetchBestThreeUsers();
+                if (!mounted) return;
+                setResponseData(data);
+            } finally {
+                if (mounted) setIsLoading(false);
+            }
+        };
+        load();
+        return () => {
+            mounted = false;
+        };
+    }, []);
     const allData = responseData?.data || {};
 
     // Function to handle toggling between 'top' and 'last' data

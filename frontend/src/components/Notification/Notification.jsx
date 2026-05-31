@@ -1,10 +1,36 @@
 import { FaRegBell } from "react-icons/fa";
 import { Link } from "react-router-dom";
-import { useGetNotificationsQuery } from "../../features/dashboard/dashboardApi";
+import { useEffect, useState } from "react";
+import { fetchNotifications } from "../../features/dashboard/dashboardFetch";
 
 const Notification = () => {
-    // Use RTK Query for automatic caching and loading
-    const { data: responseData, isLoading: loading, isError } = useGetNotificationsQuery();
+    const [responseData, setResponseData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [isError, setIsError] = useState(false);
+
+    useEffect(() => {
+        let mounted = true;
+        const load = async () => {
+            setLoading(true);
+            setIsError(false);
+            try {
+                const data = await fetchNotifications();
+                if (!mounted) return;
+                setResponseData(data);
+            } catch {
+                if (!mounted) return;
+                setIsError(true);
+            } finally {
+                if (mounted) setLoading(false);
+            }
+        };
+
+        load();
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
     const notifications = responseData?.notifications || [];
     const error = isError ? 'Failed to fetch notifications' : null;
 

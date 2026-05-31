@@ -6,6 +6,7 @@ import SideNav from '../../components/SideNav/SideNav';
 import TaskDetailModal from '../../components/Task/TaskDetailModal';
 import { fetchTasks } from '../../features/task/taskApi';
 import baseUrl from '../../api/api';
+import { fetchTasks } from '../../features/task/taskFetch';
 import './TaskManagement.css';
 
 const PAGE_SIZE = 10;

@@ -13,6 +13,7 @@ import EscalationLevel from '../model/EscalationLevel.js';
 export const createModule = async (req, res) => {
     try {
         const moduleData = req.body;
+        moduleData.createdBy = moduleData.createdBy || 'Super Admin';
 
         // Validation for the required fields in videos
         if (!moduleData.moduleName || !moduleData.videos || !Array.isArray(moduleData.videos)) {
@@ -69,6 +70,74 @@ export const createModule = async (req, res) => {
         }
     }
 };
+
+export const updateModule = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const moduleData = req.body;
+
+        if (!moduleData.moduleName || !moduleData.videos || !Array.isArray(moduleData.videos)) {
+            return res.status(400).json({ message: "Invalid module data. Ensure all required fields are present." });
+        }
+
+        for (let videoIndex = 0; videoIndex < moduleData.videos.length; videoIndex++) {
+            const video = moduleData.videos[videoIndex];
+
+            if (!video.title || !video.videoUri) {
+                return res.status(400).json({
+                    message: `Missing required fields in video ${videoIndex + 1}: title or videoUri is missing.`
+                });
+            }
+
+            if (!video.questions || !Array.isArray(video.questions)) {
+                video.questions = [];
+            }
+
+            let hasIncompleteQuestion = false;
+            for (let questionIndex = 0; questionIndex < video.questions.length; questionIndex++) {
+                const question = video.questions[questionIndex];
+
+                if (
+                    !question.questionText ||
+                    !question.correctAnswer ||
+                    !question.options ||
+                    question.options.length < 4
+                ) {
+                    hasIncompleteQuestion = true;
+                    break;
+                }
+            }
+
+            if (hasIncompleteQuestion) {
+                video.questions = null;
+            }
+        }
+
+        const updatedModule = await Module.findByIdAndUpdate(
+            id,
+            {
+                ...moduleData,
+                editedBy: moduleData.editedBy || moduleData.createdBy || 'Super Admin',
+                editedAt: new Date(),
+            },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedModule) {
+            return res.status(404).json({ message: 'Module not found' });
+        }
+
+        return res.status(200).json({
+            message: 'Module updated successfully!',
+            module: updatedModule,
+        });
+    } catch (error) {
+        console.error("Error updating module:", error);
+        if (!res.headersSent) {
+            res.status(500).json({ message: "An error occurred while updating the module.", error: error.message });
+        }
+    }
+};
 export const getModules = async (req, res) => {
     try {
         const { id } = req.params; // Extract module ID if provided
@@ -88,27 +157,33 @@ export const getModules = async (req, res) => {
         // Fetch training progress
         const trainingProgress = await TrainingProgress.find();
 
-        // Calculate completion percentage for each module
+        // Calculate completion percentage only from users actually assigned this module.
         const moduleProgress = modules.map((module) => {
-            const usersProgress = trainingProgress.map((progress) => {
+            const usersProgress = trainingProgress.flatMap((progress) => {
                 const moduleProgress = progress.modules.find((m) => m.moduleId.toString() === module._id.toString());
-                if (!moduleProgress) return 0; // If module not found, 0% progress
+                if (!moduleProgress) return [];
 
                 const completedVideos = moduleProgress.videos.filter((v) => v.pass).length;
                 const totalVideos = moduleProgress.videos.length;
                 const percentage = totalVideos > 0 ? (completedVideos / totalVideos) * 100 : 0;
-                return percentage;
+                return [percentage];
             });
 
+            const completedCount = usersProgress.filter((percentage) => percentage >= 100).length;
+            const assignedCount = usersProgress.length;
             const overallPercentage =
-                usersProgress.reduce((acc, curr) => acc + curr, 0) / usersProgress.length || 0;
+                assignedCount > 0 ? usersProgress.reduce((acc, curr) => acc + curr, 0) / assignedCount : 0;
 
             // Include videos array
             return {
                 moduleId: module._id,
                 moduleName: module.moduleName,
+                description: module.description,
                 videos: module.videos, // Add videos here
-                overallCompletionPercentage: overallPercentage.toFixed(2),
+                completedCount,
+                assignedCount,
+                totalCount: assignedCount,
+                overallCompletionPercentage: Number(overallPercentage.toFixed(2)),
             };
         });
 

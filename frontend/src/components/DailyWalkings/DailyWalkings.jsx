@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ReferenceLine,
 } from "recharts";
-import { useGetWeeklyWalkinsQuery } from "../../features/dashboard/dashboardApi";
 import { last7Days, dateKey } from "../../features/dashboard/dashboardUtils";
+import { fetchWeeklyWalkins } from "../../features/dashboard/dashboardFetch";
 
 const fmt = (d) =>
   d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -29,7 +29,34 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 const DailyWalkings = () => {
   const [activeIdx, setActiveIdx] = useState(null);
-  const { data: walkinResponse, isLoading } = useGetWeeklyWalkinsQuery();
+  const [walkinResponse, setWalkinResponse] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      setIsLoading(true);
+      try {
+        const data = await fetchWeeklyWalkins();
+        if (!mounted) return;
+        setWalkinResponse(data);
+      } catch {
+        if (!mounted) return;
+        setWalkinResponse(null);
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    };
+
+    load();
+
+    const refresh = () => load();
+    window.addEventListener("dashboard:refresh", refresh);
+    return () => {
+      mounted = false;
+      window.removeEventListener("dashboard:refresh", refresh);
+    };
+  }, []);
 
   const days = useMemo(() => last7Days(), []);
   const rangeLabel = `${fmt(days[0])} – ${fmt(days[days.length - 1])}, ${days[0].getFullYear()}`;

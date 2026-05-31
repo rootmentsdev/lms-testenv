@@ -7,6 +7,14 @@ import TrainingProgress from "../model/Trainingprocessschema.js";
 import bcrypt from 'bcrypt'
 import axios from 'axios'; // Added axios import
 
+const normalizeBranchKey = (value) => {
+    if (Array.isArray(value)) {
+        return value.map((v) => String(v).trim()).filter(Boolean).join(',');
+    }
+    if (value === null || value === undefined) return '';
+    return String(value).trim();
+};
+
 export const createDesignation = async (req, res) => {
     try {
         // Validate input
@@ -86,28 +94,35 @@ export const HomeBar = async (req, res) => {
             users = await User.find({ locCode: { $in: allowedLocCodes } });
         }
         
-        // Fetch mandatory training data for all users
+        // Fetch training progress data for all users. This is the source of truth for dashboard completion.
         const userIds = users.map(user => user._id);
-        const mandatoryTrainings = await TrainingProgress.find({ 
+        const trainingProgressRecords = await TrainingProgress.find({
             userId: { $in: userIds } 
-        }).populate('trainingId');
+        });
 
         // Build lookup maps
         const userMap = new Map();
         for (const user of users) {
-            if (!userMap.has(user.locCode)) userMap.set(user.locCode, []);
-            userMap.get(user.locCode).push(user);
+            const keys = [
+                normalizeBranchKey(user.locCode),
+                normalizeBranchKey(user.workingBranch),
+            ].filter(Boolean);
+
+            for (const key of keys) {
+                if (!userMap.has(key)) userMap.set(key, []);
+                userMap.get(key).push(user);
+            }
         }
         
-        const mandatoryTrainingMap = new Map();
-        for (const training of mandatoryTrainings) {
+        const trainingProgressMap = new Map();
+        for (const training of trainingProgressRecords) {
             const key = training.userId.toString();
-            if (!mandatoryTrainingMap.has(key)) mandatoryTrainingMap.set(key, []);
-            mandatoryTrainingMap.get(key).push(training);
+            if (!trainingProgressMap.has(key)) trainingProgressMap.set(key, []);
+            trainingProgressMap.get(key).push(training);
         }
 
         const allData = branches.map((branch) => {
-            const branchUsers = userMap.get(branch.locCode) || [];
+            const branchUsers = userMap.get(normalizeBranchKey(branch.locCode)) || [];
             
             let trainingCount = 0;
             let trainingCountPending = 0;
@@ -115,15 +130,15 @@ export const HomeBar = async (req, res) => {
             let assessmentCountPending = 0;
 
             branchUsers.forEach((user) => {
-                // Assigned training data
-                const assignedTrainings = user.training || [];
-                trainingCount += assignedTrainings.length;
-                trainingCountPending += assignedTrainings.filter((item) => item.pass === false).length;
-                
-                // Mandatory training data
-                const userMandatoryTrainings = mandatoryTrainingMap.get(user._id.toString()) || [];
-                trainingCount += userMandatoryTrainings.length;
-                trainingCountPending += userMandatoryTrainings.filter((item) => item.pass === false).length;
+                const assignedTrainings = Array.isArray(user.training) ? user.training : [];
+                const mandatoryTrainings = trainingProgressMap.get(user._id.toString()) || [];
+
+                trainingCount += assignedTrainings.length + mandatoryTrainings.length;
+                trainingCountPending += assignedTrainings.filter((item) => item.pass !== true).length;
+                trainingCountPending += mandatoryTrainings.filter((item) => {
+                    const status = String(item.status || '').toLowerCase();
+                    return item.pass !== true && status !== 'completed';
+                }).length;
                 
                 // Assessment data
                 assessmentCount += user.assignedAssessments.length;
@@ -382,7 +397,7 @@ export const getTopUsers = async (req, res) => {
         const branchScores = {};
         
         for (const branch of branches) {
-            const branchUsers = userMap.get(branch.locCode) || [];
+            const branchUsers = userMap.get(normalizeBranchKey(branch.locCode)) || userMap.get(normalizeBranchKey(branch.workingBranch)) || [];
             const branchExternalUsers = externalEmployeeMap.get(branch.locCode) || [];
             
             let trainingCount = 0;

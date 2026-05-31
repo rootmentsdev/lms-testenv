@@ -1,7 +1,7 @@
 import express from 'express'
 const router = express.Router();
-import { createModule, getModules } from '../controllers/moduleController.js'; // Adjust the path to your controller
-import { calculateProgress, createAssessment, createMandatoryTraining, createTraining, getAssessments, GetTrainingById } from '../controllers/AssessmentController.js';
+import { createModule, getModules, updateModule } from '../controllers/moduleController.js'; // Adjust the path to your controller
+import { calculateProgress, createAssessment, createMandatoryTraining, createTraining, getAssessments, GetTrainingById, updateTraining } from '../controllers/AssessmentController.js';
 import { GetAllFullTrainingWithCompletion, GetAllTrainingWithCompletion, MandatoryGetAllTrainingWithCompletion } from '../controllers/AssessmentAndModule.js';
 import { MiddilWare } from '../lib/middilWare.js';
 
@@ -50,6 +50,7 @@ import { MiddilWare } from '../lib/middilWare.js';
  *         description: Internal server error
  */
 router.post('/modules', createModule);
+router.put('/modules/:id', updateModule);
 
 /**
  * @swagger
@@ -175,6 +176,7 @@ router.get('/assessments/:id?', getAssessments);
  *         description: Internal server error
  */
 router.post('/trainings', MiddilWare, createTraining);
+router.put('/trainings/:id', MiddilWare, updateTraining);
 
 /**
  * @swagger
@@ -241,6 +243,7 @@ router.get('/get/mandatory/allusertraining', MiddilWare, MandatoryGetAllTraining
  *         description: Internal server error
  */
 router.get('/get/Full/allusertraining', GetAllFullTrainingWithCompletion);
+router.get('/get/full/allusertraining', GetAllFullTrainingWithCompletion);
 
 /**
  * @swagger

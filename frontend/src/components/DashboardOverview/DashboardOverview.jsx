@@ -1,10 +1,10 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useGetHomeProgressQuery, useGetWeeklyWalkinsQuery, useGetDashboardTasksQuery } from "../../features/dashboard/dashboardApi";
 import {
   normalizeBranchProgress,
   countFromPercent,
 } from "../../features/dashboard/dashboardUtils";
+import { fetchDashboardTasks, fetchHomeProgress, fetchWeeklyWalkins } from "../../features/dashboard/dashboardFetch";
 
 /* ── Individual stat card ─────────────────────────────────────────────────── */
 const StatCard = ({ title, value, subtitle, icon, iconBg }) => (
@@ -76,11 +76,41 @@ const AssessmentIcon = () => (
 );
 
 const DashboardOverview = () => {
-  const { data: progressResponse } = useGetHomeProgressQuery();
-  const { data: walkinResponse } = useGetWeeklyWalkinsQuery();
-  const { data: tasksResponse } = useGetDashboardTasksQuery(undefined, {
-    refetchOnMountOrArgChange: true,
-  });
+  const [progressResponse, setProgressResponse] = useState(null);
+  const [walkinResponse, setWalkinResponse] = useState(null);
+  const [tasksResponse, setTasksResponse] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const load = async () => {
+      try {
+        const [progress, walkins, tasks] = await Promise.all([
+          fetchHomeProgress(),
+          fetchWeeklyWalkins(),
+          fetchDashboardTasks(),
+        ]);
+        if (!mounted) return;
+        setProgressResponse(progress);
+        setWalkinResponse(walkins);
+        setTasksResponse(tasks);
+      } catch {
+        if (!mounted) return;
+        setProgressResponse(null);
+        setWalkinResponse(null);
+        setTasksResponse(null);
+      }
+    };
+
+    load();
+
+    const refresh = () => load();
+    window.addEventListener("dashboard:refresh", refresh);
+    return () => {
+      mounted = false;
+      window.removeEventListener("dashboard:refresh", refresh);
+    };
+  }, []);
 
   const stats = useMemo(() => {
     const branches = normalizeBranchProgress(progressResponse);

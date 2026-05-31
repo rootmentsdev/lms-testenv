@@ -1,7 +1,7 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { Link } from "react-router-dom";
-import { useGetDashboardTasksQuery } from "../../features/dashboard/dashboardApi";
+import { fetchDashboardTasks } from "../../features/dashboard/dashboardFetch";
 
 const COLORS = {
   Completed:  "#22c55e",
@@ -21,9 +21,34 @@ const LegendRow = ({ color, label, count }) => (
 );
 
 const TaskOverview = () => {
-  const { data: tasksResponse, isLoading } = useGetDashboardTasksQuery(undefined, {
-    refetchOnMountOrArgChange: true,
-  });
+  const [tasksResponse, setTasksResponse] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      setIsLoading(true);
+      try {
+        const data = await fetchDashboardTasks();
+        if (!mounted) return;
+        setTasksResponse(data);
+      } catch {
+        if (!mounted) return;
+        setTasksResponse(null);
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    };
+
+    load();
+
+    const refresh = () => load();
+    window.addEventListener("dashboard:refresh", refresh);
+    return () => {
+      mounted = false;
+      window.removeEventListener("dashboard:refresh", refresh);
+    };
+  }, []);
 
   const { completed, inProgress, overdue, pending, total, pct, pieData } = useMemo(() => {
     if (isLoading || !tasksResponse) {

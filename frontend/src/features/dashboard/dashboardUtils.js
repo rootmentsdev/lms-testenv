@@ -5,6 +5,9 @@ export function normalizeBranchProgress(responseData) {
 
   // Branches hidden from all views (legacy duplicates)
   const hiddenBranches = new Set([
+    "office",
+    "production",
+    "warehouse",
     "suitor guy kochi",
     "grooms kochi",
     "sg kochi",
@@ -44,13 +47,7 @@ export function normalizeBranchProgress(responseData) {
     })
     .filter((row) => {
       const name = String(row?.branchName || row?.branch || "").toLowerCase().trim();
-
-      // Keep Suitor Guy / Grooms branches (prefix "SG ...")
-      const isSuitorGuy = name.startsWith("sg ") || name.includes("suitor guy") || name.includes("grooms");
-      // Keep Zorucci / Zorrucci branches (prefix "ZR ...")
-      const isZorucci   = name.startsWith("zr ") || name.includes("zorucci") || name.includes("zorrucci");
-
-      return (isSuitorGuy || isZorucci) && !hiddenBranches.has(name);
+      return name && !hiddenBranches.has(name);
     })
     // SG branches first, ZR (Zorucci) branches last
     .sort((a, b) => {

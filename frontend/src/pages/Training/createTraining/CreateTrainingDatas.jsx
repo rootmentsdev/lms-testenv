@@ -1,15 +1,14 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { FiArrowLeft, FiClock, FiBook } from "react-icons/fi";
 import baseUrl from "../../../api/api";
 import SideNav from "../../../components/SideNav/SideNav";
 
 const ASSIGN_OPTIONS = [
-  { value: "all", label: "All Employees" },
   { value: "designation", label: "Role" },
-  { value: "user", label: "Individual" },
-  { value: "new", label: "New Employees" },
+  { value: "user", label: "User" },
+  { value: "branch", label: "Branch" },
 ];
 
 const TRAINING_TYPES = [
@@ -27,8 +26,12 @@ const CATEGORY_OPTIONS = [
   { value: "Other", label: "Other" },
 ];
 
+const getModuleId = (module) => module?._id || module?.moduleId || module?.id;
+
 const CreateTrainingDatas = () => {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const isEditMode = Boolean(id);
   const token = localStorage.getItem("token");
 
   // Form state
@@ -39,6 +42,7 @@ const CreateTrainingDatas = () => {
   const [assignType, setAssignType] = useState("all");
   const [assignedTo, setAssignedTo] = useState([]);
   const [assignOptions, setAssignOptions] = useState([]);
+  const [branchOptions, setBranchOptions] = useState([]);
   const [modules, setModules] = useState([]);
   const [selectedModules, setSelectedModules] = useState([]);
   const [days, setDays] = useState("");
@@ -60,6 +64,94 @@ const CreateTrainingDatas = () => {
     };
     fetchModules();
   }, []);
+
+  useEffect(() => {
+    const fetchBranches = async () => {
+      try {
+        const res = await fetch(`${baseUrl.baseUrl}api/usercreate/getBranch`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const branches = Array.isArray(data?.data) ? data.data : [];
+        setBranchOptions(
+          branches.map((branch) => ({
+            value: branch.workingBranch || branch.locCode || branch._id,
+            label: `${branch.workingBranch || branch.location || "Branch"}${branch.locCode ? ` (${branch.locCode})` : ""}`,
+          }))
+        );
+      } catch (_) {}
+    };
+
+    fetchBranches();
+  }, [token]);
+
+  useEffect(() => {
+    const fetchBranches = async () => {
+      try {
+        const res = await fetch(`${baseUrl.baseUrl}api/usercreate/getBranch`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const branches = Array.isArray(data?.data) ? data.data : [];
+        setBranchOptions(
+          branches.map((branch) => ({
+            value: branch.locCode || branch._id,
+            label: branch.workingBranch || branch.location || branch.locCode || "Branch",
+          }))
+        );
+      } catch (_) {}
+    };
+
+    fetchBranches();
+  }, [token]);
+
+  useEffect(() => {
+    if (!id) return;
+
+    const fetchTraining = async () => {
+      try {
+        const res = await fetch(`${baseUrl.baseUrl}api/trainings/${id}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("Failed to load training");
+
+        const result = await res.json();
+        const training = result?.data || result;
+        setTrainingName(training?.trainingName || "");
+        setDescription(training?.description || "");
+        setTrainingType(training?.Trainingtype || "Assigned");
+        setDays(String(training?.deadline || ""));
+        setAssignType(
+          Array.isArray(training?.Assignedfor) && training.Assignedfor.includes("All")
+            ? "all"
+            : Array.isArray(training?.Assignedfor) && training.Assignedfor.includes("New")
+              ? "new"
+              : "designation"
+        );
+        setAssignedTo([]);
+        setSelectedModules(Array.isArray(training?.modules) ? training.modules : []);
+      } catch (error) {
+        toast.error(`Failed to load training: ${error.message}`);
+      }
+    };
+
+    fetchTraining();
+  }, [id, token]);
 
   // Fetch assign-to options based on assignType
   useEffect(() => {
@@ -89,24 +181,35 @@ const CreateTrainingDatas = () => {
           setAssignOptions(
             employees.map((e) => ({
               value: e.empID,
-              label: `${e.empID || "N/A"} — ${e.username || "N/A"} (${e.designation || "N/A"})`,
+              label: `EmpId: ${e.empID || "N/A"} | Name: ${e.username || "N/A"} | Role: ${e.designation || "N/A"}`, 
             }))
           );
         } else if (assignType === "designation") {
           const unique = [...new Set(employees.map((e) => e.designation).filter(Boolean))];
           setAssignOptions(unique.map((r) => ({ value: r, label: r })));
+        } else if (assignType === "branch") {
+          setAssignOptions(branchOptions);
         }
       } catch (_) {}
     };
 
     fetchOptions();
     setAssignedTo([]);
-  }, [assignType, token]);
+  }, [assignType, token, branchOptions]);
+
+  useEffect(() => {
+    if (trainingType === "Mandatory") {
+      setAssignType("designation");
+    }
+  }, [trainingType]);
 
   const toggleModule = (mod) => {
+    const moduleId = getModuleId(mod);
+    if (!moduleId) return;
+
     setSelectedModules((prev) =>
-      prev.some((m) => m._id === mod._id)
-        ? prev.filter((m) => m._id !== mod._id)
+      prev.some((m) => getModuleId(m) === moduleId)
+        ? prev.filter((m) => getModuleId(m) !== moduleId)
         : [...prev, mod]
     );
   };
@@ -119,30 +222,41 @@ const CreateTrainingDatas = () => {
 
     // Build assignedfor array
     let assignedfor = [];
-    if (assignType === "all") assignedfor = ["All"];
-    else if (assignType === "new") assignedfor = ["New"];
-    else assignedfor = assignedTo.map((x) => x.value);
+    if (trainingType === "Mandatory") {
+      assignedfor = assignedTo.map((x) => x.value);
+      if (assignedfor.length === 0) {
+        return toast.error("Please select at least one designation");
+      }
+    } else {
+      if (assignType === "all") assignedfor = ["All"];
+      else if (assignType === "new") assignedfor = ["New"];
+      else assignedfor = assignedTo.map((x) => x.value);
 
-    if ((assignType === "user" || assignType === "designation") && assignedfor.length === 0) {
-      return toast.error("Please select at least one assignee");
+      if ((assignType === "user" || assignType === "designation" || assignType === "branch") && assignedfor.length === 0) {
+        return toast.error("Please select at least one assignee");
+      }
     }
+
+    const moduleIds = selectedModules.map(getModuleId).filter(Boolean);
+    if (moduleIds.length === 0) return toast.error("Please select a valid module");
 
     const payload = {
       trainingName: trainingName.trim(),
       description: description.trim(),
-      modules: selectedModules.map((m) => m._id),
+      modules: moduleIds,
+      days: Number(days),
       deadline: Number(days),
       Trainingtype: trainingType,
       Assignedfor: assignedfor,
-      selectedOption: assignType,
+      selectedOption: trainingType === "Mandatory" ? "designation" : assignType,
       workingBranch: assignedfor,
       category,
     };
 
     try {
       setLoading(true);
-      const res = await fetch(`${baseUrl.baseUrl}api/trainings`, {
-        method: "POST",
+      const res = await fetch(`${baseUrl.baseUrl}api/trainings${isEditMode ? `/${id}` : ""}`, {
+        method: isEditMode ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -150,8 +264,11 @@ const CreateTrainingDatas = () => {
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (!res.ok) return toast.error(data.message || "Failed to create training");
-      toast.success(data.message || "Training created successfully!");
+      if (!res.ok) {
+        console.error("Create training failed:", { status: res.status, data, payload });
+        return toast.error(data.details || data.error || data.message || "Failed to create training");
+      }
+      toast.success(data.message || (isEditMode ? "Training updated successfully!" : "Training created successfully!"));
       navigate(-1);
     } catch (_) {
       toast.error("Error submitting training.");
@@ -167,21 +284,23 @@ const CreateTrainingDatas = () => {
       <div className="flex-1 md:ml-[120px] p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-5">
             <button
               onClick={() => navigate(-1)}
               className="p-1 hover:bg-gray-200 rounded-full transition"
             >
               <FiArrowLeft size={22} />
             </button>
-            <h1 className="text-[22px] font-bold leading-tight text-gray-900">Create New Training</h1>
+            <h1 className="text-[22px] font-bold leading-tight text-gray-900">
+              {isEditMode ? "Edit Training" : "Create New Training"}
+            </h1>
           </div>
           <button
             onClick={handleSubmit}
             disabled={loading}
             className="bg-gray-900 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-gray-700 transition disabled:opacity-60"
           >
-            {loading ? "Saving..." : "Save Training"}
+            {loading ? "Saving..." : isEditMode ? "Update Training" : "Save Training"}
           </button>
         </div>
 
@@ -271,32 +390,68 @@ const CreateTrainingDatas = () => {
 
             {/* Assign To */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Assign to <span className="text-red-500">*</span>
-              </label>
-              <div className="flex flex-wrap gap-3">
-                {ASSIGN_OPTIONS.map((opt) => (
-                  <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer text-sm">
-                    <input
-                      type="radio"
-                      name="assignType"
-                      value={opt.value}
-                      checked={assignType === opt.value}
-                      onChange={() => setAssignType(opt.value)}
-                      className="accent-gray-900"
-                    />
-                    {opt.label}
+              {trainingType === "Mandatory" ? (
+                <>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Assign To Designation <span className="text-red-500">*</span>
                   </label>
-                ))}
-              </div>
+                  <div className="border border-gray-300 rounded-lg p-3 max-h-40 overflow-y-auto bg-gray-50">
+                    {assignOptions.length === 0 ? (
+                      <p className="text-sm text-gray-400">Loading designations...</p>
+                    ) : (
+                      assignOptions.map((opt) => (
+                        <label key={opt.value} className="flex items-center gap-2 py-1 cursor-pointer text-sm hover:bg-gray-100 px-1 rounded">
+                          <input
+                            type="checkbox"
+                            checked={assignedTo.some((a) => a.value === opt.value)}
+                            onChange={() =>
+                              setAssignedTo((prev) =>
+                                prev.some((a) => a.value === opt.value)
+                                  ? prev.filter((a) => a.value !== opt.value)
+                                  : [...prev, opt]
+                              )
+                            }
+                            className="accent-gray-900"
+                          />
+                          {opt.label}
+                        </label>
+                      ))
+                    )}
+                  </div>
+                  {assignedTo.length > 0 && (
+                    <p className="text-xs text-gray-500 mt-1">{assignedTo.length} selected</p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Assign to <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex flex-wrap gap-5">
+                    {ASSIGN_OPTIONS.map((opt) => (
+                      <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer text-sm">
+                        <input
+                          type="radio"
+                          name="assignType"
+                          value={opt.value}
+                          checked={assignType === opt.value}
+                          onChange={() => setAssignType(opt.value)}
+                          className="accent-gray-900"
+                        />
+                        {opt.label}
+                      </label>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
           {/* Conditional assignee selector */}
-          {(assignType === "user" || assignType === "designation") && (
+          {trainingType !== "Mandatory" && (assignType === "user" || assignType === "designation" || assignType === "branch") && (
             <div className="mt-5">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Select {assignType === "user" ? "Employees" : "Roles"}
+                Select {assignType === "user" ? "Users" : assignType === "branch" ? "Branches" : "Roles"}
               </label>
               <div className="border border-gray-300 rounded-lg p-3 max-h-40 overflow-y-auto bg-gray-50">
                 {assignOptions.length === 0 ? (
@@ -336,8 +491,9 @@ const CreateTrainingDatas = () => {
             <p className="text-sm text-gray-400">No modules available.</p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {modules.map((mod) => {
-                const isSelected = selectedModules.some((m) => m._id === mod._id);
+              {modules.filter(getModuleId).map((mod) => {
+                const moduleId = getModuleId(mod);
+                const isSelected = selectedModules.some((m) => getModuleId(m) === moduleId);
                 const videoCount = mod.videos?.length ?? 0;
                 // Estimate duration: assume ~15 mins per video
                 const totalMins = videoCount * 15;
@@ -346,7 +502,7 @@ const CreateTrainingDatas = () => {
 
                 return (
                   <div
-                    key={mod._id}
+                    key={moduleId}
                     onClick={() => toggleModule(mod)}
                     className={`flex items-start gap-3 border rounded-2xl p-4 cursor-pointer transition-all ${
                       isSelected
@@ -398,3 +554,7 @@ const CreateTrainingDatas = () => {
 };
 
 export default CreateTrainingDatas;
+
+
+
+
