@@ -175,6 +175,12 @@
 .task-mgmt-cell-title {
   font-weight: 500;
   color: #111827;
+  cursor: pointer;
+}
+
+.task-mgmt-cell-title:hover {
+  text-decoration: underline;
+  color: #2563eb;
 }
 
 .task-mgmt-cell-stack .primary {

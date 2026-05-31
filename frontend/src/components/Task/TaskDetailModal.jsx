@@ -36,6 +36,12 @@ const DetailField = ({ label, primary, secondary, children }) => (
 const TaskDetailModal = ({ task, onClose, onRefresh }) => {
   const user = useSelector((state) => state.auth.user);
   const isAssignedToMe = task && task.assignedTo === user?.userId;
+  const isAdmin = user?.role && user?.role !== 'employee' && user?.role !== 'user';
+  const canReassign = isAssignedToMe || isAdmin;
+  const isMyStore = user?.locCode && task?.storeCode === `Z-${user.locCode}`;
+  const canUpdateStatus = isAssignedToMe || isMyStore || isAdmin;
+  const isTaskCreator = task?.createdBy === user?.userId;
+  const shouldShowWorkMap = isAdmin || isTaskCreator;
 
   const [selectedFile, setSelectedFile] = useState(null);
   const [assigneesList, setAssigneesList] = useState([]);
@@ -57,7 +63,7 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
   }, [onClose]);
 
   useEffect(() => {
-    if (isAssignedToMe && task && task.status !== 'COMPLETED') {
+    if (canReassign && task && task.status !== 'COMPLETED') {
       const fetchAssignees = async () => {
         setLoadingAssignees(true);
         try {
@@ -79,7 +85,7 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
       };
       fetchAssignees();
     }
-  }, [isAssignedToMe, task]);
+  }, [canReassign, task]);
 
   if (!task) return null;
 
@@ -241,6 +247,31 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
     }
   };
 
+  const getWorkMapForDisplay = () => {
+    if (task.workMap && task.workMap.length > 0) {
+      return task.workMap;
+    }
+    const mockMap = [
+      {
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignee || task.assignedToLabel || 'Staff',
+        assignedBy: task.assignedBy || 'Creator',
+        assignedAt: task.createdAt ? new Date(task.createdAt) : new Date(),
+        action: 'ASSIGNED'
+      }
+    ];
+    if (task.status === 'COMPLETED') {
+      mockMap.push({
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignee || task.assignedToLabel || 'Staff',
+        assignedBy: task.assignedBy || 'Creator',
+        assignedAt: task.createdAt ? new Date(task.createdAt) : new Date(),
+        action: 'COMPLETED'
+      });
+    }
+    return mockMap;
+  };
+
   return (
     <div className="task-detail-overlay" onClick={onClose} role="presentation">
       <div
@@ -315,6 +346,42 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
           </DetailField>
         </div>
 
+        {shouldShowWorkMap && (
+          <>
+            <div className="task-detail-divider" />
+            <div className="task-detail-workmap-section">
+              <div className="task-detail-field__label">Task Work Flow Map</div>
+              <div className="task-detail-workmap-timeline">
+                {getWorkMapForDisplay().map((step, idx) => (
+                  <div key={idx} className="task-detail-workmap-step">
+                    <div className="task-detail-workmap-connector" />
+                    <div className={`task-detail-workmap-node ${step.action.toLowerCase()}`}>
+                      <span className="task-detail-workmap-icon">
+                        {step.action === 'ASSIGNED' ? '📌' : step.action === 'REASSIGNED' ? '🔄' : '✅'}
+                      </span>
+                    </div>
+                    <div className="task-detail-workmap-content">
+                      <div className="task-detail-workmap-action">
+                        {step.action === 'ASSIGNED' ? 'First Assigned' : step.action === 'REASSIGNED' ? 'Reassigned' : 'Completed'}
+                      </div>
+                      <div className="task-detail-workmap-details">
+                        {step.action === 'COMPLETED' ? (
+                          <>Completed by <strong>{step.assignedToLabel || 'Unknown User'}</strong></>
+                        ) : (
+                          <>Assigned to <strong>{step.assignedToLabel}</strong> by <strong>{step.assignedBy}</strong></>
+                        )}
+                      </div>
+                      <div className="task-detail-workmap-time">
+                        {new Date(step.assignedAt).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
         {task.attachment ? (
           <>
             <div className="task-detail-divider" />
@@ -351,103 +418,109 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
           </>
         ) : null}
 
-        {task.status !== 'COMPLETED' ? (
+        {task.status !== 'COMPLETED' && (canUpdateStatus || canReassign || isAssignedToMe) ? (
           <>
             <div className="task-detail-divider" />
             <div className="task-detail-actions-panel">
               <h3 className="task-detail-actions-title">Task Action Control Panel</h3>
               
               <div className="task-detail-actions-row">
-                <div className="task-detail-action-group">
-                  <div className="task-detail-field__label">Update Status</div>
-                  <div className="task-detail-status-buttons">
-                    <button
-                      type="button"
-                      className="task-detail-action-btn task-detail-btn-inprogress"
-                      onClick={() => handleUpdateStatus('IN PROGRESS')}
-                      disabled={updating}
-                    >
-                      In Progress
-                    </button>
-                    <button
-                      type="button"
-                      className="task-detail-action-btn task-detail-btn-onhold"
-                      onClick={() => handleUpdateStatus('ON HOLD')}
-                      disabled={updating}
-                    >
-                      On Hold
-                    </button>
-                    <button
-                      type="button"
-                      className="task-detail-action-btn task-detail-btn-reassigned"
-                      onClick={() => handleUpdateStatus('REASSIGNED')}
-                      disabled={updating}
-                    >
-                      Reassigned
-                    </button>
-                    <button
-                      type="button"
-                      className="task-detail-action-btn task-detail-btn-review"
-                      onClick={handleReviewButtonClick}
-                      disabled={updating}
-                    >
-                      Review
-                    </button>
+                {canUpdateStatus && (
+                  <div className="task-detail-action-group">
+                    <div className="task-detail-field__label">Update Status</div>
+                    <div className="task-detail-status-buttons">
+                      <button
+                        type="button"
+                        className="task-detail-action-btn task-detail-btn-inprogress"
+                        onClick={() => handleUpdateStatus('IN PROGRESS')}
+                        disabled={updating}
+                      >
+                        In Progress
+                      </button>
+                      <button
+                        type="button"
+                        className="task-detail-action-btn task-detail-btn-onhold"
+                        onClick={() => handleUpdateStatus('ON HOLD')}
+                        disabled={updating}
+                      >
+                        On Hold
+                      </button>
+                      <button
+                        type="button"
+                        className="task-detail-action-btn task-detail-btn-reassigned"
+                        onClick={() => handleUpdateStatus('REASSIGNED')}
+                        disabled={updating}
+                      >
+                        Reassigned
+                      </button>
+                      <button
+                        type="button"
+                        className="task-detail-action-btn task-detail-btn-review"
+                        onClick={handleReviewButtonClick}
+                        disabled={updating}
+                      >
+                        Review
+                      </button>
+                    </div>
                   </div>
-                </div>
-
-                <div className="task-detail-action-group">
-                  <div className="task-detail-field__label">Submit for Review</div>
-                  <div className="task-detail-review-form">
-                    <input
-                      type="file"
-                      id="review-attachment-file"
-                      onChange={handleFileChange}
-                      style={{ display: 'none' }}
-                    />
-                    <label htmlFor="review-attachment-file" className="task-detail-file-label">
-                      {selectedFile ? selectedFile.name : 'Choose Proof File...'}
-                    </label>
-                    <button
-                      type="button"
-                      className="task-detail-action-btn task-detail-btn-submit-review"
-                      onClick={handleSubmitForReview}
-                      disabled={updating || !selectedFile}
-                    >
-                      Submit
-                    </button>
+                )}
+ 
+                {isAssignedToMe && (
+                  <div className="task-detail-action-group">
+                    <div className="task-detail-field__label">Submit for Review</div>
+                    <div className="task-detail-review-form">
+                      <input
+                        type="file"
+                        id="review-attachment-file"
+                        onChange={handleFileChange}
+                        style={{ display: 'none' }}
+                      />
+                      <label htmlFor="review-attachment-file" className="task-detail-file-label">
+                        {selectedFile ? selectedFile.name : 'Choose Proof File...'}
+                      </label>
+                      <button
+                        type="button"
+                        className="task-detail-action-btn task-detail-btn-submit-review"
+                        onClick={handleSubmitForReview}
+                        disabled={updating || !selectedFile}
+                      >
+                        Submit
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
-
-              <div className="task-detail-actions-row mt-4">
-                <div className="task-detail-action-group" style={{ width: '100%' }}>
-                  <div className="task-detail-field__label">Reassign Task</div>
-                  <div className="task-detail-reassign-form">
-                    <select
-                      value={selectedAssignee}
-                      onChange={(e) => setSelectedAssignee(e.target.value)}
-                      className="task-detail-select"
-                      disabled={loadingAssignees || updating}
-                    >
-                      <option value="">Select Assignee...</option>
-                      {assigneesList.map((opt) => (
-                        <option key={opt.value} value={opt.value} disabled={opt.type === 'group'}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      className="task-detail-action-btn task-detail-btn-reassign"
-                      onClick={handleReassign}
-                      disabled={updating || !selectedAssignee}
-                    >
-                      Reassign
-                    </button>
+ 
+              {canReassign && (
+                <div className="task-detail-actions-row mt-4">
+                  <div className="task-detail-action-group" style={{ width: '100%' }}>
+                    <div className="task-detail-field__label">Reassign Task</div>
+                    <div className="task-detail-reassign-form">
+                      <select
+                        value={selectedAssignee}
+                        onChange={(e) => setSelectedAssignee(e.target.value)}
+                        className="task-detail-select"
+                        disabled={loadingAssignees || updating}
+                      >
+                        <option value="">Select Assignee...</option>
+                        {assigneesList.map((opt) => (
+                          <option key={opt.value} value={opt.value} disabled={opt.type === 'group'}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        className="task-detail-action-btn task-detail-btn-reassign"
+                        onClick={handleReassign}
+                        disabled={updating || !selectedAssignee}
+                      >
+                        Reassign
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </>
         ) : null}

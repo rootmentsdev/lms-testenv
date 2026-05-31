@@ -122,6 +122,44 @@ app.options('*', (req, res) => {
    -> Adds Authorization: Bearer <your token>
    Body: { startEmpId, endEmpId }
 ================================================== */
+/**
+ * @swagger
+ * /api/employee_range:
+ *   post:
+ *     tags: [Employee]
+ *     summary: Proxy employee range to external API
+ *     description: Intercepts and proxies requests to `https://rootments.in/api/employee_range` using the hardcoded authentication token.
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               startEmpId:
+ *                 type: string
+ *                 default: EMP1
+ *               endEmpId:
+ *                 type: string
+ *                 default: EMP9999
+ *     responses:
+ *       200:
+ *         description: Successfully fetched employees from external API.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       500:
+ *         description: Proxy failed or external server error.
+ */
 app.post('/api/employee_range', async (req, res) => {
   try {
     const { startEmpId = 'EMP1', endEmpId = 'EMP9999' } = req.body || {};
@@ -154,6 +192,36 @@ app.post('/api/employee_range', async (req, res) => {
 });
 
 // New filtered employee_range endpoint with authentication and branch filtering
+/**
+ * @swagger
+ * /api/employee_range/filtered:
+ *   post:
+ *     tags: [Employee]
+ *     summary: Fetch employee range filtered by admin store bounds
+ *     description: Fetches employees from the external range API and filters them to only include those matching stores/branches accessible to the logged-in admin. Excludes employees assigned to 'No Store'.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               startEmpId:
+ *                 type: string
+ *                 default: EMP1
+ *               endEmpId:
+ *                 type: string
+ *                 default: EMP9999
+ *     responses:
+ *       200:
+ *         description: Successfully fetched filtered employees list.
+ *       401:
+ *         description: Unauthorized.
+ *       500:
+ *         description: Proxy failed or internal server error.
+ */
 app.post('/api/employee_range/filtered', MiddilWare, async (req, res) => {
   try {
     const { startEmpId = 'EMP1', endEmpId = 'EMP9999' } = req.body || {};
@@ -270,6 +338,33 @@ app.post('/api/employee_range/filtered', MiddilWare, async (req, res) => {
    Body: { empId: "EMP123" }
    -> Uses upstream range API with start=end=empId
 ================================================== */
+/**
+ * @swagger
+ * /api/employee_detail:
+ *   post:
+ *     tags: [Employee]
+ *     summary: Fetch single employee detail proxy
+ *     description: Proxies to the external employee range API with the start and end employee ID set to the requested `empId`.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               empId:
+ *                 type: string
+ *                 description: Employee ID to fetch details for
+ *             required:
+ *               - empId
+ *     responses:
+ *       200:
+ *         description: Successfully fetched employee details.
+ *       400:
+ *         description: empId is required.
+ *       500:
+ *         description: Proxy failed.
+ */
 app.post('/api/employee_detail', async (req, res) => {
   try {
     const { empId } = req.body || {};
@@ -312,6 +407,35 @@ app.post('/api/employee_detail', async (req, res) => {
    -> Forwards to https://rootments.in/api/verify_employee
    -> Adds Authorization: Bearer <your token>
 ================================================== */
+/**
+ * @swagger
+ * /api/verify_employee:
+ *   post:
+ *     tags: [Employee]
+ *     summary: Proxy credential verification to external API
+ *     description: Proxies login credentials (employeeId, password) to `https://rootments.in/api/verify_employee` to authenticate the user externally.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               employeeId:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *             required:
+ *               - employeeId
+ *               - password
+ *     responses:
+ *       200:
+ *         description: Credentials verified successfully by external server.
+ *       400:
+ *         description: employeeId and password are required.
+ *       500:
+ *         description: Proxy failed.
+ */
 app.post('/api/verify_employee', async (req, res) => {
   try {
     console.log('🌐 /api/verify_employee accessed from:', req.headers.origin);
@@ -356,6 +480,56 @@ app.post('/api/verify_employee', async (req, res) => {
    Body: { userId, trainingId, moduleId, videoId, watchTime, totalDuration, watchPercentage }
    -> Updates video watch progress in TrainingProgress collection
 ================================================== */
+/**
+ * @swagger
+ * /api/video_progress:
+ *   post:
+ *     tags: [Training]
+ *     summary: Track video watch progress
+ *     description: Updates the watch progress for a training video in the user's TrainingProgress collection. Automatically marks the video as completed if watch progress is 90% or higher.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 description: User ObjectId
+ *               trainingId:
+ *                 type: string
+ *                 description: Training ObjectId
+ *               moduleId:
+ *                 type: string
+ *                 description: Module ObjectId
+ *               videoId:
+ *                 type: string
+ *                 description: Video ObjectId
+ *               watchTime:
+ *                 type: number
+ *                 description: Time watched in seconds
+ *               totalDuration:
+ *                 type: number
+ *                 description: Total video duration in seconds
+ *               watchPercentage:
+ *                 type: number
+ *                 description: Watch percentage (optional, calculated if not sent)
+ *             required:
+ *               - userId
+ *               - trainingId
+ *               - moduleId
+ *               - videoId
+ *     responses:
+ *       200:
+ *         description: Video progress updated successfully.
+ *       400:
+ *         description: Missing required fields in body.
+ *       404:
+ *         description: Training progress, module, or video not found.
+ *       500:
+ *         description: Internal server error.
+ */
 app.post('/api/video_progress', async (req, res) => {
   try {
     const { userId, trainingId, moduleId, videoId, watchTime, totalDuration, watchPercentage } = req.body || {};

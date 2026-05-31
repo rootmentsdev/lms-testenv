@@ -29,6 +29,13 @@ const taskSchema = new mongoose.Schema({
   attachmentName: { type: String, default: '' },
   reviewAttachment: { type: String, default: '' },
   reviewAttachmentName: { type: String, default: '' },
+  workMap: [{
+    assignedTo: { type: String },
+    assignedToLabel: { type: String },
+    assignedBy: { type: String },
+    assignedAt: { type: Date, default: Date.now },
+    action: { type: String, enum: ['ASSIGNED', 'REASSIGNED', 'COMPLETED'], default: 'ASSIGNED' }
+  }],
 }, { timestamps: true });
 
 taskSchema.index({ createdAt: -1 });

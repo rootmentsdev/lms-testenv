@@ -623,15 +623,112 @@ router.get('/get/AllAssessment', GetAssessment);
 router.get('/get/Training/details/:id', TrainingDetails);
 
 // Simple training details for frontend
+/**
+ * @swagger
+ * /api/user/get/Training/details/simple/{id}:
+ *   get:
+ *     tags: [Training]
+ *     summary: Get simple training details
+ *     description: Retrieves basic training details (modules, videos, video progress) for a specific training. Optionally includes progress details for a specific `userId` if supplied as a query parameter.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The training ID
+ *       - in: query
+ *         name: userId
+ *         schema:
+ *           type: string
+ *         description: (Optional) The user ID to fetch progress for
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved training details.
+ *       404:
+ *         description: Training not found.
+ *       500:
+ *         description: Internal server error.
+ */
 router.get('/get/Training/details/simple/:id', GetTrainingDetailsSimple);
 
 // Get user training progress (mandatory trainings)
+/**
+ * @swagger
+ * /api/user/user/training-progress/{userId}:
+ *   get:
+ *     tags: [Training]
+ *     summary: Get user training progress
+ *     description: Retrieves all mandatory training progress records for a user by their MongoDB ObjectId or Employee ID.
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: MongoDB ID or Employee ID
+ *     responses:
+ *       200:
+ *         description: Training progress retrieved successfully.
+ *       404:
+ *         description: User not found.
+ *       500:
+ *         description: Internal server error.
+ */
 router.get('/user/training-progress/:userId', getUserTrainingProgress);
 
 // Assign missing mandatory trainings to users by designation
+/**
+ * @swagger
+ * /api/user/assign-missing-mandatory-trainings:
+ *   post:
+ *     tags: [Training]
+ *     summary: Assign missing mandatory trainings by designation
+ *     description: Assigns any missing mandatory trainings designated for the specified job role to all active users matching that exact designation.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - designation
+ *             properties:
+ *               designation:
+ *                 type: string
+ *                 example: Store Manager
+ *     responses:
+ *       200:
+ *         description: Successfully processed mandatory training assignments.
+ *       400:
+ *         description: Designation is required.
+ *       404:
+ *         description: No users found with specified designation.
+ *       500:
+ *         description: Internal server error.
+ */
 router.post('/assign-missing-mandatory-trainings', MiddilWare, assignMissingMandatoryTrainingsByDesignation);
 
 // Assign missing mandatory trainings to ALL users
+/**
+ * @swagger
+ * /api/user/assign-missing-mandatory-trainings-all:
+ *   post:
+ *     tags: [Training]
+ *     summary: Assign missing mandatory trainings to all users
+ *     description: Iterates through all users in the system and assigns missing mandatory trainings based on matching designations.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Successfully processed mandatory training assignments for all users.
+ *       404:
+ *         description: No users found in the system.
+ *       500:
+ *         description: Internal server error.
+ */
 router.post('/assign-missing-mandatory-trainings-all', MiddilWare, assignMissingMandatoryTrainingsToAllUsers);
 
 

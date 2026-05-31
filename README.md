@@ -141,6 +141,12 @@ The Brynex LMS features a comprehensively documented backend. Swagger UI is avai
 - `POST /api/admin/create-user`: Creates a standard learner account directly.
 - `POST /api/users/user-login`: Authenticates a standard user/employee via mobile app.
 - `POST /api/users/update-password`: Allows an employee to update their password.
+- `GET /api/admin/admin/list`: Retrieves a combined list of all administrators and ordinary users mapped to the admin structure.
+- `PUT /api/admin/admin/update/:id`: Updates an admin or employee user profile by ID, supporting role transitions (e.g. promoting or demoting).
+- `DELETE /api/admin/admin/delete/:id`: Deletes a user or admin account from the database.
+- `POST /api/auth/flutter-login`: Authentication endpoint for Flutter mobile clients with external credential verification fallback and local auto-provisioning.
+- `POST /api/usercreate/createUser`: Backward-compatible alias to register a new user in the system.
+- `POST /api/usercreate/userLogin`: Backward-compatible alias to authenticate a user.
 
 ### 2. Role-Based Access Control (RBAC) & Permissions
 - `GET /api/admin/accessible-stores`: Returns a list of stores accessible to the logged-in admin based on their cluster/store scope.
@@ -162,18 +168,32 @@ The Brynex LMS features a comprehensively documented backend. Swagger UI is avai
 - `GET /api/employee/:id`: Fetch specific employee profile.
 - `GET /api/admin/get/AllBranchDetailes`: Fetch all physical store branches and details.
 - `POST /api/admin/UpdateOneBranch`: Update specifics of a store branch.
+- `GET /api/usercreate/getBranch/public`: Public endpoint to fetch all active branches in the system.
+- `POST /api/employee_range`: Intercepts and proxies requests to external HR employee directory.
+- `POST /api/employee_range/filtered`: Fetches employees from the external range API, filtered by the logged-in admin's store bounds.
+- `POST /api/employee_detail`: Fetches single employee details by proxying range API.
+- `POST /api/verify_employee`: Proxies credential verification to the external verification API.
 
 ### 4. Training, Modules & Assessments
 - `POST /api/modules`: Create a new standalone training module (video + content).
+- `PUT /api/modules/:id`: Updates an existing standalone training module.
 - `GET /api/modules/:id?`: Fetch one or all modules.
 - `POST /api/assessments`: Create a new assessment with MCQs or descriptive questions.
 - `GET /api/assessments/:id?`: Fetch one or all assessments.
 - `POST /api/trainings`: Create a training package containing modules and an assessment.
+- `PUT /api/trainings/:id`: Updates an existing training program.
 - `GET /api/trainings/:id?`: Fetch specific training or all generic trainings.
 - `POST /api/mandatorytrainings`: Assign a training globally as mandatory for specific roles.
 - `GET /api/get/allusertraining`: Fetch all optionally assigned trainings for users.
 - `GET /api/get/mandatory/allusertraining`: Fetch all globally assigned mandatory trainings.
+- `GET /api/get/full/allusertraining`: Get all user trainings (full list alias, lowercase).
 - `GET /api/training/details/:id`: Fetch training details alongside calculated deadline information.
+- `GET /api/user/get/Training/details/simple/:id`: Retrieves basic training details (modules, videos, video progress).
+- `GET /api/user/user/training-progress/:userId`: Retrieves all mandatory training progress records for a user.
+- `POST /api/user/assign-missing-mandatory-trainings`: Assigns missing mandatory trainings to users by designation.
+- `POST /api/user/assign-missing-mandatory-trainings-all`: Assigns missing mandatory trainings to all users.
+- `GET /api/user/assessment/user/get/message/:email`: Retrieves notifications sent to a user by email.
+- `POST /api/video_progress`: Tracks video watch progress and auto-completes if watch percentage is 90% or higher.
 
 ### 5. Dashboards, Progress & Analytics
 - `GET /api/get/progress`: Calculates and returns training progress for a user or admin scope.
@@ -233,15 +253,32 @@ The Brynex LMS features a comprehensively documented backend. Swagger UI is avai
   * **Role-Based Rules:**
     * **Employees (`User` collection):** Returns tasks assigned directly to their `User` ID or their branch's location code.
     * **Admins (`Admin` collection):** Returns tasks belonging to stores/branches within their allowed boundary (e.g., store admin sees their store, cluster admin sees their cluster's stores, super/hr admin sees all stores).
-* **GET /api/task/:id**: Retrieves task details for a single task by its Mongo ID or human-readable `taskCode`.
-* **PUT /api/task/:id/status**: Updates the status of an existing task. Valid statuses are `PENDING`, `IN PROGRESS`, `COMPLETED`, `OVERDUE`, and `ON HOLD`.
+* **GET /api/task/:id**: Retrieves task details for a single task by its Mongo ID or human-readable `taskCode`. Includes the `workMap` history array.
+* **PUT /api/task/:id/status**: Updates the status of an existing task.
   * **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+  * **Supported Statuses:** `PENDING`, `IN PROGRESS`, `COMPLETED`, `OVERDUE`, `ON HOLD`, `UNDER REVIEW`, `REASSIGNED` (accepts case-insensitive values; `reassign` is normalized to `REASSIGNED`).
   * **Request Body:**
     ```json
     {
-      "status": "COMPLETED"
+      "status": "UNDER REVIEW",
+      "fileAttachment": {
+        "name": "photo.jpg",
+        "base64": "data:image/jpeg;base64,..."
+      }
     }
     ```
+    *Or for reassignment via status update:*
+    ```json
+    {
+      "status": "REASSIGNED",
+      "assignedTo": "651a2b3c4d5e6f7a8b9c0d1e",
+      "assignedToLabel": "John Doe - Staff - Edapally Store"
+    }
+    ```
+  * **Permissions:**
+    - Only the original task creator (assigner) can mark a task as `COMPLETED`.
+    - Only the current assignee or an administrator (Super Admin, HR Admin, Cluster Admin, Store Admin) can update the status to `REASSIGNED` / `reassign`.
+    - Other status updates are restricted to the assignee, admin, or store-level users.
   * **Response:**
     ```json
     {
@@ -251,7 +288,61 @@ The Brynex LMS features a comprehensively documented backend. Swagger UI is avai
         "id": "TSK-001",
         "title": "Ceiling Cracked",
         "status": "COMPLETED",
-        ...
+        "workMap": [
+          {
+            "assignedTo": "651a2b3c4d5e6f7a8b9c0d1e",
+            "assignedToLabel": "John Doe - Staff - Edapally Store",
+            "assignedBy": "Admin Jack",
+            "assignedAt": "2026-05-31T12:00:00.000Z",
+            "action": "ASSIGNED"
+          },
+          {
+            "assignedTo": "651a2b3c4d5e6f7a8b9c0d1e",
+            "assignedToLabel": "John Doe - Staff - Edapally Store",
+            "assignedBy": "Admin Jack",
+            "assignedAt": "2026-05-31T13:00:00.000Z",
+            "action": "COMPLETED"
+          }
+        ]
+      }
+    }
+    ```
+* **PUT /api/task/:id/reassign**: Reassigns an existing task to another employee or administrator, updating the assigned target, and logging a new entry to the workflow history `workMap` timeline.
+  * **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+  * **Request Body:**
+    ```json
+    {
+      "assignedTo": "651a2b3c4d5e6f7a8b9c0d1e",
+      "assignedToLabel": "John Doe - Staff - Edapally Store"
+    }
+    ```
+  * **Permissions:**
+    - Restricted exclusively to the current assignee and all administrators.
+  * **Response:**
+    ```json
+    {
+      "success": true,
+      "message": "Task reassigned successfully",
+      "data": {
+        "id": "TSK-001",
+        "title": "Ceiling Cracked",
+        "status": "REASSIGNED",
+        "workMap": [
+          {
+            "assignedTo": "651a2b3c4d5e6f7a8b9c0d2f",
+            "assignedToLabel": "Jane Smith - Store Admin - Edapally Store",
+            "assignedBy": "Admin Jack",
+            "assignedAt": "2026-05-31T12:00:00.000Z",
+            "action": "ASSIGNED"
+          },
+          {
+            "assignedTo": "651a2b3c4d5e6f7a8b9c0d1e",
+            "assignedToLabel": "John Doe - Staff - Edapally Store",
+            "assignedBy": "Jane Smith",
+            "assignedAt": "2026-05-31T13:00:00.000Z",
+            "action": "REASSIGNED"
+          }
+        ]
       }
     }
     ```

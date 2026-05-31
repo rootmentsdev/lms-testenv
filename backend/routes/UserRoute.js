@@ -55,7 +55,47 @@ const router = express.Router();
  *         description: Internal server error.
  */
 router.post('/create-user', createUser);
-// Backward-compatible alias for older clients.
+/**
+ * @swagger
+ * /api/usercreate/createUser:
+ *   post:
+ *     tags: [User Management]
+ *     summary: Create a new user (alias)
+ *     description: Registers a new user/employee in the system. Alias of `/api/usercreate/create-user` for backward compatibility.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               empID:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *               locCode:
+ *                 type: string
+ *               designation:
+ *                 type: string
+ *               workingBranch:
+ *                 type: string
+ *               phoneNumber:
+ *                 type: string
+ *             required:
+ *               - username
+ *               - email
+ *     responses:
+ *       201:
+ *         description: User created successfully.
+ *       400:
+ *         description: Invalid or missing data.
+ *       500:
+ *         description: Internal server error.
+ */
 router.post('/createUser', createUser);
 
 /**
@@ -100,7 +140,40 @@ router.post('/createUser', createUser);
  *         description: Internal server error.
  */
 router.post('/user-login', loginUser);
-// Backward-compatible alias for older clients.
+/**
+ * @swagger
+ * /api/usercreate/userLogin:
+ *   post:
+ *     tags: [User Management]
+ *     summary: User login (alias)
+ *     description: Authenticates a user with employee ID or email and password. Alias of `/api/usercreate/user-login` for backward compatibility.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               empID:
+ *                 type: string
+ *                 description: Employee ID or email
+ *               email:
+ *                 type: string
+ *                 description: Employee ID or email (alternative field)
+ *               password:
+ *                 type: string
+ *             required:
+ *               - password
+ *     responses:
+ *       200:
+ *         description: Login successful, returns token.
+ *       400:
+ *         description: Employee ID/email and password are required.
+ *       401:
+ *         description: Employee not found or invalid credentials.
+ *       500:
+ *         description: Internal server error.
+ */
 router.post('/userLogin', loginUser);
 
 /**
@@ -197,7 +270,31 @@ router.post('/create/branch', createBranch);
  */
 router.get('/getBranch', MiddilWare, GetBranch);
 
-// Public endpoint — used on signup page before user has a token
+/**
+ * @swagger
+ * /api/usercreate/getBranch/public:
+ *   get:
+ *     tags: [User Management]
+ *     summary: Retrieve branches for signup (public)
+ *     description: Public endpoint to fetch all active store branches in the system, typically used on the signup/registration page before the user is authenticated.
+ *     responses:
+ *       200:
+ *         description: List of branches retrieved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Data found
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       500:
+ *         description: Internal server error.
+ */
 router.get('/getBranch/public', GetBranch);
 
 /**

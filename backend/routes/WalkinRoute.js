@@ -129,18 +129,18 @@ router.get('/check/:contact', OptionalMiddilWare, checkCustomerExists);
  *                 example: "2026-06-25"
  *               store:
  *                 type: string
- *                 description: The name of the store generating the lead (Optional: automatically resolved from token)
+ *                 description: "The name of the store generating the lead (Optional: automatically resolved from token)"
  *                 example: "GROOMS Kochi"
  *               staff:
  *                 type: string
- *                 description: The employee assigned to this lead (Optional: automatically resolved from token)
+ *                 description: "The employee assigned to this lead (Optional: automatically resolved from token)"
  *                 example: "Jane Doe"
  *               storeId:
  *                 type: string
- *                 description: Store ID (Optional: automatically resolved from token)
+ *                 description: "Store ID (Optional: automatically resolved from token)"
  *               employeeId:
  *                 type: string
- *                 description: Employee ID (Optional: automatically resolved from token)
+ *                 description: "Employee ID (Optional: automatically resolved from token)"
  *               category:
  *                 type: string
  *                 example: "Groom"

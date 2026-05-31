@@ -20,6 +20,8 @@
   padding: 28px 32px 32px;
   font-family: 'DM Sans', sans-serif;
   animation: task-detail-slide-in 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .task-detail-back {
@@ -367,5 +369,106 @@
 .task-detail-status--reassigned {
   background: #e0f2fe;
   color: #0369a1;
+}
+
+/* Task Work Flow Map Timeline styling */
+.task-detail-workmap-section {
+  margin-top: 10px;
+  padding: 4px 0;
+}
+
+.task-detail-workmap-timeline {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  padding-left: 24px;
+  margin-top: 14px;
+}
+
+.task-detail-workmap-step {
+  position: relative;
+  padding-bottom: 24px;
+}
+
+.task-detail-workmap-step:last-child {
+  padding-bottom: 0;
+}
+
+.task-detail-workmap-connector {
+  position: absolute;
+  left: -17px;
+  top: 18px;
+  bottom: -10px;
+  width: 2px;
+  background: #e5e7eb;
+}
+
+.task-detail-workmap-step:last-child .task-detail-workmap-connector {
+  display: none;
+}
+
+.task-detail-workmap-node {
+  position: absolute;
+  left: -25px;
+  top: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #3b82f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  font-size: 9px;
+}
+
+.task-detail-workmap-node.completed {
+  border-color: #10b981;
+  background: #dcfce7;
+}
+
+.task-detail-workmap-node.reassigned {
+  border-color: #0284c7;
+  background: #e0f2fe;
+}
+
+.task-detail-workmap-node.assigned {
+  border-color: #6b7280;
+  background: #f3f4f6;
+}
+
+.task-detail-workmap-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.task-detail-workmap-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.task-detail-workmap-action {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.task-detail-workmap-details {
+  font-size: 13px;
+  color: #4b5563;
+  line-height: 1.4;
+}
+
+.task-detail-workmap-details strong {
+  color: #111827;
+}
+
+.task-detail-workmap-time {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 3px;
 }
 
