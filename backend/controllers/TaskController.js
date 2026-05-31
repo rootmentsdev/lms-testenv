@@ -685,45 +685,48 @@ export const updateTaskStatus = async (req, res) => {
       }
     }
 
-    // Assignee complete/review constraint:
-    // Only the creator can mark as COMPLETED, unless the assignee is also the creator.
+    // Only the creator (assigner) can mark a task as COMPLETED.
     const isTaskCreator = task.createdBy.toString() === userId.toString();
-    const isTaskAssignee = task.assignedTo === userId;
 
     if (normalizedStatus === 'COMPLETED') {
-      if (!isTaskCreator && isTaskAssignee) {
-        return res.status(400).json({
+      if (!isTaskCreator) {
+        return res.status(403).json({
           success: false,
-          message: 'Only the creator of this task can mark it as COMPLETED. Please submit for review instead.',
+          message: 'Access denied: Only the assigner (creator) of this task can mark it as COMPLETED.',
         });
       }
     }
 
     if (normalizedStatus === 'UNDER REVIEW') {
-      if (fileAttachment && fileAttachment.base64) {
-        // Save attachment
-        try {
-          const base64Data = fileAttachment.base64.replace(/^data:.*;base64,/, "");
-          const uploadDir = path.join(__dirname, '..', 'uploads', 'tasks');
-          if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
-          }
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-          const ext = path.extname(fileAttachment.name) || '';
-          const safeName = path.basename(fileAttachment.name, ext).replace(/[^a-zA-Z0-9]/g, '_');
-          const filename = `${safeName}-${uniqueSuffix}${ext}`;
-          const filePath = path.join(uploadDir, filename);
-          
-          fs.writeFileSync(filePath, base64Data, 'base64');
-          task.reviewAttachment = `/uploads/tasks/${filename}`;
-          task.reviewAttachmentName = fileAttachment.name;
-        } catch (err) {
-          console.error('Error saving review attachment:', err);
-          return res.status(500).json({
-            success: false,
-            message: 'Failed to save review attachment file.',
-          });
+      if (!fileAttachment || !fileAttachment.base64) {
+        return res.status(400).json({
+          success: false,
+          message: 'Attachment is required to submit this task for review.',
+        });
+      }
+
+      // Save attachment
+      try {
+        const base64Data = fileAttachment.base64.replace(/^data:.*;base64,/, "");
+        const uploadDir = path.join(__dirname, '..', 'uploads', 'tasks');
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
         }
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = path.extname(fileAttachment.name) || '';
+        const safeName = path.basename(fileAttachment.name, ext).replace(/[^a-zA-Z0-9]/g, '_');
+        const filename = `${safeName}-${uniqueSuffix}${ext}`;
+        const filePath = path.join(uploadDir, filename);
+        
+        fs.writeFileSync(filePath, base64Data, 'base64');
+        task.reviewAttachment = `/uploads/tasks/${filename}`;
+        task.reviewAttachmentName = fileAttachment.name;
+      } catch (err) {
+        console.error('Error saving review attachment:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to save review attachment file.',
+        });
       }
     }
 

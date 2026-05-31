@@ -42,6 +42,7 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
   const [selectedAssignee, setSelectedAssignee] = useState('');
   const [loadingAssignees, setLoadingAssignees] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [autoSubmit, setAutoSubmit] = useState(false);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -88,12 +89,6 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
 
   const desc = task.description && task.description !== '—' ? task.description : '—';
 
-  const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
-    }
-  };
-
   const getBase64 = (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -101,6 +96,51 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
       reader.onload = () => resolve(reader.result);
       reader.onerror = (error) => reject(error);
     });
+  };
+
+  const handleFileChange = async (e) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelectedFile(file);
+      if (autoSubmit) {
+        setAutoSubmit(false);
+        setUpdating(true);
+        try {
+          const base64 = await getBase64(file);
+          const token = localStorage.getItem('token');
+          const res = await fetch(`${baseUrl.baseUrl}api/task/${task.id}/status`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+            body: JSON.stringify({
+              status: 'UNDER REVIEW',
+              fileAttachment: {
+                name: file.name,
+                base64: base64,
+              },
+            }),
+          });
+          const json = await res.json();
+          if (!res.ok) {
+            throw new Error(json.message || 'Failed to submit review');
+          }
+          toast.success('Task submitted for review successfully!');
+          if (onRefresh) onRefresh();
+          onClose();
+        } catch (err) {
+          toast.error(err.message || 'Failed to submit review');
+        } finally {
+          setUpdating(false);
+        }
+      }
+    }
+  };
+
+  const handleReviewButtonClick = () => {
+    setAutoSubmit(true);
+    document.getElementById('review-attachment-file')?.click();
   };
 
   const handleSubmitForReview = async () => {
@@ -348,7 +388,7 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
                     <button
                       type="button"
                       className="task-detail-action-btn task-detail-btn-review"
-                      onClick={() => handleUpdateStatus('UNDER REVIEW')}
+                      onClick={handleReviewButtonClick}
                       disabled={updating}
                     >
                       Review
