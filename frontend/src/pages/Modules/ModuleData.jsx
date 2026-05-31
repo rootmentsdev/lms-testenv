@@ -33,7 +33,7 @@ const ModuleDetailModal = ({ module, onClose }) => {
     >
       <div
         className="relative w-full max-w-[420px] rounded-[16px] bg-white shadow-2xl"
-        style={{ fontFamily: "'DM Sans', sans-serif", maxHeight: "85vh", display: "flex", flexDirection: "column" }}
+        style={{ fontFamily: "Poppins, sans-serif", maxHeight: "85vh", display: "flex", flexDirection: "column" }}
       >
         {/* ── Modal header ── */}
         <div className="flex items-center gap-3 px-6 pt-6 pb-4 border-b border-gray-100">
@@ -144,7 +144,7 @@ const ModuleData = () => {
   return (
     <div
       className="min-h-screen bg-[#f9fafb]"
-      style={{ fontFamily: "'DM Sans', sans-serif" }}
+      style={{ fontFamily: "Poppins, sans-serif" }}
     >
       <SideNav />
 
@@ -185,7 +185,7 @@ const ModuleData = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by Training"
-            style={{ fontFamily: "'DM Sans', sans-serif" }}
+            style={{ fontFamily: "Poppins, sans-serif" }}
             className="w-full h-10 pl-9 pr-4 rounded-[8px] border border-gray-200 bg-white text-[13px] text-gray-700 outline-none placeholder:text-gray-400 focus:border-gray-400"
           />
         </div>

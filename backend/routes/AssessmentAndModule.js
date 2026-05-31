@@ -3,7 +3,7 @@ import { assignModuleToUser, assignAssessmentToUser, ReassignTraining, deleteTra
 import { GetuserTraining, GetuserTrainingprocess, GetuserTrainingprocessmodule, UpdateuserTrainingprocess, GetUserAllTrainings } from '../controllers/CreateUser.js';
 import { AssessmentAssign, TrainingDetails, GetTrainingDetailsSimple } from '../controllers/AssessmentReassign.js';
 import { GetAssessmentDetails } from '../controllers/moduleController.js';
-import { UserAssessmentGet } from '../controllers/FutterAssessment.js';
+import { GetAssessmentFullDetails, UserAssessmentGet } from '../controllers/FutterAssessment.js';
 import { MiddilWare } from '../lib/middilWare.js';
 import User from '../model/User.js';
 
@@ -747,6 +747,29 @@ router.post('/post/createAssessment', MiddilWare, AssessmentAssign);
  *         description: Internal server error.
  */
 router.get('/get/assessment/details/:id', GetAssessmentDetails);
+
+/**
+ * @swagger
+ * /api/user/get/assessment/full/{id}:
+ *   get:
+ *     summary: Get full assessment details
+ *     description: Retrieves the assessment, assigned users, and attempt status in one response for Flutter/mobile apps.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Assessment ID
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved full assessment details.
+ *       404:
+ *         description: Assessment not found.
+ *       500:
+ *         description: Internal server error.
+ */
+router.get('/get/assessment/full/:id', GetAssessmentFullDetails);
 
 
 
