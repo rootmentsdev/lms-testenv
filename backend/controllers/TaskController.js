@@ -685,16 +685,14 @@ export const updateTaskStatus = async (req, res) => {
       }
     }
 
-    // Assignee complete/review constraint:
-    // Only the creator can mark as COMPLETED, unless the assignee is also the creator.
+    // Only the creator (assigner) can mark a task as COMPLETED.
     const isTaskCreator = task.createdBy.toString() === userId.toString();
-    const isTaskAssignee = task.assignedTo === userId;
 
     if (normalizedStatus === 'COMPLETED') {
-      if (!isTaskCreator && isTaskAssignee) {
-        return res.status(400).json({
+      if (!isTaskCreator) {
+        return res.status(403).json({
           success: false,
-          message: 'Only the creator of this task can mark it as COMPLETED. Please submit for review instead.',
+          message: 'Access denied: Only the assigner (creator) of this task can mark it as COMPLETED.',
         });
       }
     }
