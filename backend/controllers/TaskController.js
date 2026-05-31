@@ -116,6 +116,7 @@ const mapTaskForClient = (doc) => {
     attachmentName: task.attachmentName || '',
     reviewAttachment: task.reviewAttachment || '',
     reviewAttachmentName: task.reviewAttachmentName || '',
+    workMap: task.workMap || [],
     createdAt: task.createdAt,
   };
 };
@@ -333,6 +334,13 @@ export const createTask = async (req, res) => {
         assignedByRole: subRole ? `${roleLabel} · ${subRole}` : roleLabel,
         attachment,
         attachmentName,
+        workMap: [{
+          assignedTo: target.id,
+          assignedToLabel: target.label,
+          assignedBy: isCreatorAdmin ? creator.name : creator.username,
+          assignedAt: new Date(),
+          action: 'ASSIGNED'
+        }],
       });
       createdTasks.push(task);
       index++;
@@ -648,6 +656,9 @@ export const updateTaskStatus = async (req, res) => {
     if (normalizedStatus === 'REVIEW') {
       normalizedStatus = 'UNDER REVIEW';
     }
+    if (normalizedStatus === 'REASSIGN') {
+      normalizedStatus = 'REASSIGNED';
+    }
     const validStatuses = ['PENDING', 'IN PROGRESS', 'COMPLETED', 'OVERDUE', 'ON HOLD', 'UNDER REVIEW', 'REASSIGNED'];
     if (!validStatuses.includes(normalizedStatus)) {
       return res.status(400).json({
@@ -670,17 +681,28 @@ export const updateTaskStatus = async (req, res) => {
     const userRole = req.admin.role;
     const isUserAdmin = userRole && userRole !== 'employee' && userRole !== 'user';
 
-    if (!isUserAdmin) {
-      const user = await User.findById(userId);
-      if (!user) {
-        return res.status(404).json({ success: false, message: 'User not found' });
+    // Verify permissions for status update (non-reassign status changes)
+    if (normalizedStatus !== 'REASSIGNED') {
+      if (!isUserAdmin) {
+        const user = await User.findById(userId);
+        if (!user) {
+          return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        const isAssignedToMe = task.assignedTo === user._id.toString();
+        const isMyStore = task.storeCode === `Z-${user.locCode}`;
+        if (!isAssignedToMe && !isMyStore) {
+          return res.status(403).json({
+            success: false,
+            message: 'Access denied: You are not authorized to update this task',
+          });
+        }
       }
-      const isAssignedToMe = task.assignedTo === user._id.toString();
-      const isMyStore = task.storeCode === `Z-${user.locCode}`;
-      if (!isAssignedToMe && !isMyStore) {
+    } else {
+      // Reassigning power check: only current assignee or admin can reassign
+      if (!isUserAdmin && task.assignedTo !== userId) {
         return res.status(403).json({
           success: false,
-          message: 'Access denied: You are not authorized to update this task',
+          message: 'Access denied: You are not authorized to reassign this task',
         });
       }
     }
@@ -730,6 +752,88 @@ export const updateTaskStatus = async (req, res) => {
       }
     }
 
+    // Resolve executor's display name
+    let executorName = 'Unknown';
+    try {
+      const executorAdmin = await Admin.findById(userId);
+      if (executorAdmin) {
+        executorName = executorAdmin.name;
+      } else {
+        const executorUser = await User.findById(userId);
+        if (executorUser) {
+          executorName = executorUser.username;
+        }
+      }
+    } catch (err) {
+      console.error('Error resolving executor details:', err);
+    }
+
+    if (!task.workMap) {
+      task.workMap = [];
+    }
+    if (task.workMap.length === 0) {
+      task.workMap.push({
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignedToLabel,
+        assignedBy: task.assignedByName || 'Creator',
+        assignedAt: task.createdAt || new Date(),
+        action: 'ASSIGNED'
+      });
+    }
+
+    if (normalizedStatus === 'REASSIGNED') {
+      const { assignedTo, assignedToLabel } = req.body;
+      if (!assignedTo || !assignedToLabel) {
+        return res.status(400).json({
+          success: false,
+          message: 'assignedTo and assignedToLabel are required when updating status to REASSIGNED',
+        });
+      }
+
+      task.assignedTo = assignedTo;
+      task.assignedToLabel = assignedToLabel;
+
+      task.workMap.push({
+        assignedTo: assignedTo,
+        assignedToLabel: assignedToLabel,
+        assignedBy: executorName,
+        assignedAt: new Date(),
+        action: 'REASSIGNED'
+      });
+
+      // Update store details
+      try {
+        const targetAdmin = await Admin.findById(assignedTo).populate('branches');
+        let targetStoreName = '';
+        let targetStoreCode = '';
+        if (targetAdmin) {
+          const targetBranch = targetAdmin.branches?.[0];
+          targetStoreName = targetBranch?.workingBranch || '';
+          targetStoreCode = targetBranch?.locCode ? `Z-${targetBranch.locCode}` : '';
+        } else {
+          const targetUser = await User.findById(assignedTo);
+          if (targetUser) {
+            targetStoreName = targetUser.workingBranch || '';
+            targetStoreCode = targetUser.locCode ? (Array.isArray(targetUser.locCode) ? `Z-${targetUser.locCode[0]}` : `Z-${targetUser.locCode}`) : '';
+          }
+        }
+        if (targetStoreName || targetStoreCode) {
+          task.storeName = targetStoreName;
+          task.storeCode = targetStoreCode;
+        }
+      } catch (err) {
+        console.error('Error updating task store on status-reassign:', err);
+      }
+    } else if (normalizedStatus === 'COMPLETED') {
+      task.workMap.push({
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignedToLabel,
+        assignedBy: executorName,
+        assignedAt: new Date(),
+        action: 'COMPLETED'
+      });
+    }
+
     task.status = normalizedStatus;
     await task.save();
 
@@ -777,9 +881,46 @@ export const reassignTask = async (req, res) => {
       });
     }
 
+    // Resolve reassigner's display name
+    let reassignerName = 'Unknown';
+    try {
+      const reassignerAdmin = await Admin.findById(userId);
+      if (reassignerAdmin) {
+        reassignerName = reassignerAdmin.name;
+      } else {
+        const reassignerUser = await User.findById(userId);
+        if (reassignerUser) {
+          reassignerName = reassignerUser.username;
+        }
+      }
+    } catch (err) {
+      console.error('Error resolving reassigner details:', err);
+    }
+
+    if (!task.workMap) {
+      task.workMap = [];
+    }
+    if (task.workMap.length === 0) {
+      task.workMap.push({
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignedToLabel,
+        assignedBy: task.assignedByName || 'Creator',
+        assignedAt: task.createdAt || new Date(),
+        action: 'ASSIGNED'
+      });
+    }
+
     task.assignedTo = assignedTo;
     task.assignedToLabel = assignedToLabel;
     task.status = 'REASSIGNED'; // Reset status to REASSIGNED
+
+    task.workMap.push({
+      assignedTo: assignedTo,
+      assignedToLabel: assignedToLabel,
+      assignedBy: reassignerName,
+      assignedAt: new Date(),
+      action: 'REASSIGNED'
+    });
 
     // Update storeName and storeCode to the new assignee's store dynamically
     try {

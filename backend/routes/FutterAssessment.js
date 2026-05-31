@@ -144,5 +144,38 @@ router.get('/user/get/assessment/quesions', Usergetquestions);
 router.post('/user/update/assessment', userAssessmentUpdate);
 
 
+/**
+ * @swagger
+ * /api/user/assessment/user/get/message/{email}:
+ *   get:
+ *     tags: [Assessments]
+ *     summary: Get notifications for a user by email
+ *     description: Retrieves all notifications sent to a specific user (either directly by user ID, designation/role, or store/branch location code) based on their email.
+ *     parameters:
+ *       - in: path
+ *         name: email
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The user's email address
+ *     responses:
+ *       200:
+ *         description: List of notifications retrieved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 notifications:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       400:
+ *         description: Email is required.
+ *       404:
+ *         description: User not found.
+ *       500:
+ *         description: Internal server error.
+ */
 router.get('/user/get/message/:email',GetUserMessage)
 export default router;
