@@ -439,6 +439,65 @@ export const createTraining = async (req, res) => {
     }
 };
 
+export const updateTraining = async (req, res) => {
+    const { id } = req.params;
+    const { trainingName, modules, workingBranch } = req.body;
+    const days = Number(req.body.days ?? req.body.deadline);
+    const selectedOption = req.body.selectedOption || (
+        Array.isArray(workingBranch) && workingBranch.includes('All') ? 'all' : undefined
+    );
+    const AdminID = req.admin.userId;
+    const AdminData = await Admin.findById(AdminID).populate("permissions");
+
+    if (!AdminData || !AdminData.permissions.length) {
+        return res.status(403).json({ message: "No permissions found for this admin" });
+    }
+
+    if (!AdminData.permissions[0].permissions.canCreateTraining) {
+        return res.status(401).json({ message: "You have no permission" });
+    }
+
+    try {
+        if (!trainingName || !Array.isArray(modules) || modules.length === 0 || !days || !selectedOption) {
+            return res.status(400).json({
+                message: "Training name, modules, days, and selected option are required",
+            });
+        }
+
+        if (!workingBranch || !Array.isArray(workingBranch) || workingBranch.length === 0) {
+            return res.status(400).json({ message: "Working branch/designation/user selection is required" });
+        }
+
+        const training = await Training.findById(id);
+        if (!training) {
+            return res.status(404).json({ message: "Training not found" });
+        }
+
+        training.trainingName = trainingName;
+        training.description = req.body.description || "";
+        training.modules = modules;
+        training.deadline = days;
+        training.deadlineDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+        training.Trainingtype = req.body.Trainingtype || "Assigned";
+        training.Assignedfor = workingBranch || [];
+        training.editedDate = new Date();
+
+        await training.save();
+
+        return res.status(200).json({
+            message: "Training updated successfully",
+            training,
+        });
+    } catch (error) {
+        console.error("Error in updateTraining:", error);
+        return res.status(500).json({
+            message: "Server Error",
+            details: error.message,
+            error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+};
+
 export const GetTrainingById = async (req, res) => {
     const { id } = req.params; // Extract the training ID from request params
     console.log(id);

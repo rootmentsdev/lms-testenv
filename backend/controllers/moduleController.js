@@ -70,6 +70,74 @@ export const createModule = async (req, res) => {
         }
     }
 };
+
+export const updateModule = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const moduleData = req.body;
+
+        if (!moduleData.moduleName || !moduleData.videos || !Array.isArray(moduleData.videos)) {
+            return res.status(400).json({ message: "Invalid module data. Ensure all required fields are present." });
+        }
+
+        for (let videoIndex = 0; videoIndex < moduleData.videos.length; videoIndex++) {
+            const video = moduleData.videos[videoIndex];
+
+            if (!video.title || !video.videoUri) {
+                return res.status(400).json({
+                    message: `Missing required fields in video ${videoIndex + 1}: title or videoUri is missing.`
+                });
+            }
+
+            if (!video.questions || !Array.isArray(video.questions)) {
+                video.questions = [];
+            }
+
+            let hasIncompleteQuestion = false;
+            for (let questionIndex = 0; questionIndex < video.questions.length; questionIndex++) {
+                const question = video.questions[questionIndex];
+
+                if (
+                    !question.questionText ||
+                    !question.correctAnswer ||
+                    !question.options ||
+                    question.options.length < 4
+                ) {
+                    hasIncompleteQuestion = true;
+                    break;
+                }
+            }
+
+            if (hasIncompleteQuestion) {
+                video.questions = null;
+            }
+        }
+
+        const updatedModule = await Module.findByIdAndUpdate(
+            id,
+            {
+                ...moduleData,
+                editedBy: moduleData.editedBy || moduleData.createdBy || 'Super Admin',
+                editedAt: new Date(),
+            },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedModule) {
+            return res.status(404).json({ message: 'Module not found' });
+        }
+
+        return res.status(200).json({
+            message: 'Module updated successfully!',
+            module: updatedModule,
+        });
+    } catch (error) {
+        console.error("Error updating module:", error);
+        if (!res.headersSent) {
+            res.status(500).json({ message: "An error occurred while updating the module.", error: error.message });
+        }
+    }
+};
 export const getModules = async (req, res) => {
     try {
         const { id } = req.params; // Extract module ID if provided

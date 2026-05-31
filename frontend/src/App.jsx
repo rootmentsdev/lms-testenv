@@ -151,7 +151,9 @@ function App() {
           <Route path="/assigdata" element={<ProtectedLayout><AssignedTrainings /></ProtectedLayout>} />
           <Route path="/assigtraining/:id" element={<ProtectedLayout><AssingOrdelete /></ProtectedLayout>} />
           <Route path="/createmodule" element={<ProtectedLayout><CreateModule /></ProtectedLayout>} />
+          <Route path="/createmodule/:id" element={<ProtectedLayout><CreateModule /></ProtectedLayout>} />
           <Route path="/createnewtraining" element={<ProtectedLayout><CreateTrainings /></ProtectedLayout>} />
+          <Route path="/createnewtraining/:id" element={<ProtectedLayout><CreateTrainings /></ProtectedLayout>} />
           <Route path="/reassign/:id" element={<ProtectedLayout><Reassign /></ProtectedLayout>} />
           <Route path="/create/mandatorytraining" element={<ProtectedLayout><MandatoryTraining /></ProtectedLayout>} />
           <Route path="/trainingdetails/:id" element={<ProtectedLayout><UserTrainingProgress /></ProtectedLayout>} />

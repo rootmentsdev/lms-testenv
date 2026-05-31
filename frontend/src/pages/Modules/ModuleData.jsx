@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import SideNav from "../../components/SideNav/SideNav";
 import baseUrl from "../../api/api";
 import { FaPlus, FaSearch } from "react-icons/fa";
-import { LuClock, LuBookOpen, LuEye, LuArrowLeft, LuX } from "react-icons/lu";
+import { LuClock, LuBookOpen, LuEye, LuArrowLeft, LuX, LuPencil } from "react-icons/lu";
 
 /* ─────────────────────────────────────────────────────────── */
 /*  Detail Modal                                               */
@@ -257,7 +257,14 @@ const ModuleCard = ({ module, onViewDetails }) => {
       </div>
 
       {/* View Details */}
-      <div className="flex justify-end mt-1">
+      <div className="flex justify-end mt-1 gap-2">
+        <Link
+          to={`/createmodule/${module._id || module.moduleId}`}
+          className="inline-flex items-center gap-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-800 text-[13px] font-medium px-4 py-2 rounded-[8px] transition-colors"
+        >
+          <LuPencil size={14} />
+          Edit
+        </Link>
         <button
           onClick={onViewDetails}
           className="inline-flex items-center gap-2 bg-[#f5f5f5] hover:bg-gray-200 text-gray-800 text-[13px] font-medium px-4 py-2 rounded-[8px] transition-colors"

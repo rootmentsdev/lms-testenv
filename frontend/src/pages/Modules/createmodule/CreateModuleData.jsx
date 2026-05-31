@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { IoIosArrowBack } from "react-icons/io";
 import baseUrl from "../../../api/api";
 import { toast } from "react-toastify";
@@ -180,6 +180,9 @@ const QuizBlock = ({ question, qIndex, totalQuestions, onChange, onCorrectAnswer
 
 /* ─── Main Component ──────────────────────────────────────── */
 const CreateModuleData = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const isEditMode = Boolean(id);
   const [moduleTitle, setModuleTitle] = useState("");
   const [moduleDescription, setModuleDescription] = useState("");
   const [videos, setVideos] = useState([]);
@@ -197,6 +200,36 @@ const CreateModuleData = () => {
       document.head.appendChild(link);
     }
   }, []);
+
+  useEffect(() => {
+    if (!id) return;
+
+    const loadModule = async () => {
+      try {
+        const response = await fetch(`${baseUrl.baseUrl}api/modules/${id}`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          toast.error("Failed to load module for editing.");
+          return;
+        }
+
+        const data = await response.json();
+        setModuleTitle(data?.moduleName || "");
+        setModuleDescription(data?.description || "");
+        setVideos(Array.isArray(data?.videos) ? data.videos : []);
+        setCurrentVideo(emptyVideo());
+        setActiveQuizIndex(0);
+      } catch (error) {
+        toast.error(`Failed to load module: ${error.message}`);
+      }
+    };
+
+    loadModule();
+  }, [id]);
 
   /* video field changes */
   const handleVideoChange = (field, value) => {
@@ -269,7 +302,7 @@ const CreateModuleData = () => {
   const buildVideo = (v) => ({
     title: v.title.trim(),
     videoUri: v.videoUri.trim(),
-    questions: v.questions.map((q, i) => ({
+    questions: v.questions.map((q) => ({
       questionText: q.questionText,
       options: q.options.map((o, oi) => (o.trim() ? o : `Option ${oi + 1}`)),
       correctAnswer: q.correctAnswer || `Option 1`,
@@ -321,8 +354,8 @@ const CreateModuleData = () => {
     };
 
     try {
-      const response = await fetch(`${baseUrl.baseUrl}api/modules`, {
-        method: "POST",
+      const response = await fetch(`${baseUrl.baseUrl}api/modules${isEditMode ? `/${id}` : ""}`, {
+        method: isEditMode ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify(payload),
@@ -334,8 +367,12 @@ const CreateModuleData = () => {
       }
 
       const data = await response.json();
-      toast.success(data.message || "Module created successfully!");
-      clearForm();
+      toast.success(data.message || (isEditMode ? "Module updated successfully!" : "Module created successfully!"));
+      if (isEditMode) {
+        navigate("/module");
+      } else {
+        clearForm();
+      }
     } catch (error) {
       toast.error(`Network error: ${error.message}`);
     }
@@ -364,7 +401,7 @@ const CreateModuleData = () => {
                 </Link>
                 <div>
                   <h1 className="text-[18px] font-bold leading-none text-gray-900">
-                    Create New Module
+                    {isEditMode ? "Edit Module" : "Create New Module"}
                   </h1>
                   <p className="mt-1.5 text-[12px] text-gray-500">
                     Build a comprehensive training program with modules and assessments
@@ -385,7 +422,7 @@ const CreateModuleData = () => {
                   className="inline-flex h-9 items-center gap-1.5 rounded-md bg-[#111111] px-3 text-[12px] font-medium text-white hover:bg-[#333] transition-colors"
                 >
                   <FaRegFileLines size={11} />
-                  Create Training
+                  {isEditMode ? "Update Module" : "Create Training"}
                 </button>
               </div>
             </div>

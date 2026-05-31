@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { FiArrowLeft, FiClock, FiBook } from "react-icons/fi";
 import baseUrl from "../../../api/api";
@@ -31,6 +31,8 @@ const getModuleId = (module) => module?._id || module?.moduleId || module?.id;
 
 const CreateTrainingDatas = () => {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const isEditMode = Boolean(id);
   const token = localStorage.getItem("token");
 
   // Form state
@@ -62,6 +64,44 @@ const CreateTrainingDatas = () => {
     };
     fetchModules();
   }, []);
+
+  useEffect(() => {
+    if (!id) return;
+
+    const fetchTraining = async () => {
+      try {
+        const res = await fetch(`${baseUrl.baseUrl}api/trainings/${id}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("Failed to load training");
+
+        const result = await res.json();
+        const training = result?.data || result;
+        setTrainingName(training?.trainingName || "");
+        setDescription(training?.description || "");
+        setTrainingType(training?.Trainingtype || "Assigned");
+        setDays(String(training?.deadline || ""));
+        setAssignType(
+          Array.isArray(training?.Assignedfor) && training.Assignedfor.includes("All")
+            ? "all"
+            : Array.isArray(training?.Assignedfor) && training.Assignedfor.includes("New")
+              ? "new"
+              : "designation"
+        );
+        setAssignedTo([]);
+        setSelectedModules(Array.isArray(training?.modules) ? training.modules : []);
+      } catch (error) {
+        toast.error(`Failed to load training: ${error.message}`);
+      }
+    };
+
+    fetchTraining();
+  }, [id, token]);
 
   // Fetch assign-to options based on assignType
   useEffect(() => {
@@ -150,8 +190,8 @@ const CreateTrainingDatas = () => {
 
     try {
       setLoading(true);
-      const res = await fetch(`${baseUrl.baseUrl}api/trainings`, {
-        method: "POST",
+      const res = await fetch(`${baseUrl.baseUrl}api/trainings${isEditMode ? `/${id}` : ""}`, {
+        method: isEditMode ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -163,7 +203,7 @@ const CreateTrainingDatas = () => {
         console.error("Create training failed:", { status: res.status, data, payload });
         return toast.error(data.details || data.error || data.message || "Failed to create training");
       }
-      toast.success(data.message || "Training created successfully!");
+      toast.success(data.message || (isEditMode ? "Training updated successfully!" : "Training created successfully!"));
       navigate(-1);
     } catch (_) {
       toast.error("Error submitting training.");
@@ -186,14 +226,16 @@ const CreateTrainingDatas = () => {
             >
               <FiArrowLeft size={22} />
             </button>
-            <h1 className="text-[22px] font-bold leading-tight text-gray-900">Create New Training</h1>
+            <h1 className="text-[22px] font-bold leading-tight text-gray-900">
+              {isEditMode ? "Edit Training" : "Create New Training"}
+            </h1>
           </div>
           <button
             onClick={handleSubmit}
             disabled={loading}
             className="bg-gray-900 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-gray-700 transition disabled:opacity-60"
           >
-            {loading ? "Saving..." : "Save Training"}
+            {loading ? "Saving..." : isEditMode ? "Update Training" : "Save Training"}
           </button>
         </div>
 
