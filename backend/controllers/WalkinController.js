@@ -101,6 +101,7 @@ export const checkCustomerExists = async (req, res) => {
 export const saveWalkin = async (req, res) => {
     try {
         let {
+            _id,
             customerName,
             contact,
             functionDate,
@@ -166,6 +167,44 @@ export const saveWalkin = async (req, res) => {
             }
         }
 
+        // Direct update by _id (e.g. edited from list view)
+        if (_id) {
+            let updateQuery = { _id };
+            if (req.admin) {
+                const adminId = req.admin.userId;
+                updateQuery = await buildWalkinFilter(adminId, updateQuery);
+                if (updateQuery._id === null) {
+                    return res.status(403).json({ success: false, message: 'Access denied to this walk-in record' });
+                }
+            }
+
+            const walkinRecord = await Walkin.findOne(updateQuery);
+            if (!walkinRecord) {
+                return res.status(404).json({ success: false, message: 'Walk-in record not found or access denied' });
+            }
+
+            walkinRecord.customerName = customerName.trim();
+            walkinRecord.contact = trimmedContact;
+            if (functionDate) walkinRecord.functionDate = functionDate.trim();
+            if (finalStore) walkinRecord.store = finalStore;
+            if (finalStaff) walkinRecord.staff = finalStaff;
+            if (finalStoreId) walkinRecord.storeId = finalStoreId;
+            if (finalEmployeeId) walkinRecord.employeeId = finalEmployeeId;
+            if (category) walkinRecord.category = category.trim();
+            if (subCategory) walkinRecord.subCategory = subCategory.trim();
+            if (remarks) walkinRecord.remarks = remarks.trim();
+            if (status) walkinRecord.status = status.trim();
+            if (createdBy) walkinRecord.createdBy = createdBy;
+            walkinRecord.date = todayStr; // Update visit date to the requested value
+
+            await walkinRecord.save();
+            return res.status(200).json({
+                success: true,
+                message: 'Walk-in updated successfully',
+                data: walkinRecord
+            });
+        }
+
         let query = { contact: trimmedContact };
         if (req.admin) {
             const adminId = req.admin.userId;
@@ -173,7 +212,12 @@ export const saveWalkin = async (req, res) => {
         }
         let walkinRecord = await Walkin.findOne(query).sort({ createdAt: -1 });
 
-        if (walkinRecord && status !== 'New Walkin') {
+        const isSameStore = walkinRecord && (
+            locationKey(walkinRecord.store) === locationKey(finalStore) ||
+            (walkinRecord.storeId && finalStoreId && walkinRecord.storeId.toString() === finalStoreId.toString())
+        );
+
+        if (walkinRecord && status !== 'New Walkin' && isSameStore) {
             // Update existing record to avoid duplicates and increment repeatCount
             walkinRecord.repeatCount += 1;
             walkinRecord.customerName = customerName.trim();
@@ -196,7 +240,10 @@ export const saveWalkin = async (req, res) => {
                 data: walkinRecord
             });
         } else {
-            // ALWAYS Create new record if status is 'New Walkin', but preserve repeatCount sequence
+            // ALWAYS Create new record if status is 'New Walkin' or if it is a different store, but preserve repeatCount sequence globally
+            const globalLatest = await Walkin.findOne({ contact: trimmedContact }).sort({ createdAt: -1 });
+            const nextRepeatCount = globalLatest ? globalLatest.repeatCount + 1 : 1;
+
             const newWalkin = new Walkin({
                 customerName: customerName.trim(),
                 contact: trimmedContact,
@@ -210,7 +257,7 @@ export const saveWalkin = async (req, res) => {
                 subCategory: subCategory ? subCategory.trim() : '-',
                 remarks: remarks ? remarks.trim() : '-',
                 status: status ? status.trim() : 'New Walkin',
-                repeatCount: walkinRecord ? walkinRecord.repeatCount + 1 : 1,
+                repeatCount: nextRepeatCount,
                 date: todayStr
             });
             await newWalkin.save();

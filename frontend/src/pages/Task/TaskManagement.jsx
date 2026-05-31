@@ -1,8 +1,11 @@
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { useSelector } from 'react-redux';
 import SideNav from '../../components/SideNav/SideNav';
 import TaskDetailModal from '../../components/Task/TaskDetailModal';
+import { fetchTasks } from '../../features/task/taskApi';
+import baseUrl from '../../api/api';
 import { fetchTasks } from '../../features/task/taskFetch';
 import './TaskManagement.css';
 
@@ -20,6 +23,8 @@ const STATUS_CLASS = {
   'IN PROGRESS': 'task-mgmt-status--in-progress',
   PENDING: 'task-mgmt-status--pending',
   OVERDUE: 'task-mgmt-status--overdue',
+  'ON HOLD': 'task-mgmt-status--on-hold',
+  'UNDER REVIEW': 'task-mgmt-status--under-review',
 };
 
 const StackCell = ({ primary, secondary }) => (
@@ -36,7 +41,121 @@ const DateCell = ({ date, time }) => (
   </div>
 );
 
+const SlideToComplete = ({ onComplete }) => {
+  const [position, setPosition] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [completed, setCompleted] = useState(false);
+  const trackRef = useRef(null);
+  const startXRef = useRef(0);
+
+  const handleStart = (clientX) => {
+    if (completed) return;
+    setIsDragging(true);
+    startXRef.current = clientX - position;
+  };
+
+  const handleMove = (clientX) => {
+    if (!isDragging) return;
+    const track = trackRef.current;
+    if (!track) return;
+    const maxDelta = 146; // 180 (track width) - 32 (handle width) - 2 (borders)
+    let newX = clientX - startXRef.current;
+    if (newX < 0) newX = 0;
+    if (newX > maxDelta) newX = maxDelta;
+    setPosition(newX);
+  };
+
+  const handleEnd = () => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    const maxDelta = 146;
+    if (position >= maxDelta * 0.9) {
+      setPosition(maxDelta);
+      setCompleted(true);
+      onComplete();
+    } else {
+      setPosition(0);
+    }
+  };
+
+  useEffect(() => {
+    const handleTouchMove = (e) => {
+      if (isDragging) {
+        handleMove(e.touches[0].clientX);
+      }
+    };
+    const handleTouchEnd = () => {
+      if (isDragging) {
+        handleEnd();
+      }
+    };
+    const handleMouseMove = (e) => {
+      if (isDragging) {
+        handleMove(e.clientX);
+      }
+    };
+    const handleMouseUp = () => {
+      if (isDragging) {
+        handleEnd();
+      }
+    };
+
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('touchmove', handleTouchMove, { passive: false });
+      window.addEventListener('touchend', handleTouchEnd);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [isDragging, position]);
+
+  return (
+    <div
+      ref={trackRef}
+      className={`slide-to-complete-track ${completed ? 'completed' : ''}`}
+    >
+      <div
+        className="slide-to-complete-fill"
+        style={{
+          width: completed ? '100%' : `${position + 16}px`,
+          transition: isDragging ? 'none' : 'width 0.2s ease',
+        }}
+      />
+      <div
+        className="slide-to-complete-handle"
+        onMouseDown={(e) => handleStart(e.clientX)}
+        onTouchStart={(e) => handleStart(e.touches[0].clientX)}
+        style={{
+          left: `${position + 1}px`,
+          transition: isDragging ? 'none' : 'left 0.2s ease',
+        }}
+      >
+        {completed ? (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        ) : (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="13 17 18 12 13 7" />
+            <polyline points="6 17 11 12 6 7" />
+          </svg>
+        )}
+      </div>
+      <span className="slide-to-complete-text">
+        {completed ? 'Completed' : 'Slide to Complete'}
+      </span>
+    </div>
+  );
+};
+
 const TaskManagement = () => {
+  const user = useSelector((state) => state.auth.user);
+
   useEffect(() => {
     if (!document.getElementById('dm-sans-font')) {
       const link = document.createElement('link');
@@ -48,6 +167,7 @@ const TaskManagement = () => {
   }, []);
 
   const [tasks, setTasks] = useState([]);
+  const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
@@ -56,26 +176,38 @@ const TaskManagement = () => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [page, setPage] = useState(1);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [activeTab, setActiveTab] = useState('tasks');
 
   const loadTasks = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const json = await fetchTasks({
-        search: search.trim(),
-        category: categoryFilter,
-        priority: priorityFilter,
-        status: statusFilter,
-      });
-      setTasks(json.data || []);
+      const [tasksRes, requestsRes] = await Promise.all([
+        fetchTasks({
+          search: search.trim(),
+          category: categoryFilter,
+          priority: priorityFilter,
+          status: statusFilter,
+        }),
+        fetchTasks({
+          status: 'UNDER REVIEW',
+        })
+      ]);
+
+      setTasks(tasksRes.data || []);
+      const userRequests = (requestsRes.data || []).filter(
+        (t) => t.createdBy === user?.userId
+      );
+      setRequests(userRequests);
     } catch (err) {
       setError(err.message);
       setTasks([]);
+      setRequests([]);
       toast.error(err.message || 'Could not load tasks');
     } finally {
       setLoading(false);
     }
-  }, [search, categoryFilter, priorityFilter, statusFilter]);
+  }, [search, categoryFilter, priorityFilter, statusFilter, user?.userId]);
 
   useEffect(() => {
     const timer = setTimeout(loadTasks, 300);
@@ -87,15 +219,64 @@ const TaskManagement = () => {
     return ['All', ...Array.from(set).sort()];
   }, [tasks]);
 
-  const totalCount = tasks.length;
+  const filteredRequests = useMemo(() => {
+    return requests.filter((task) => {
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        const matchesSearch = [
+          task.title, task.id, task.assignee, task.categorySub, task.category, task.description,
+        ].some((v) => String(v).toLowerCase().includes(q));
+        if (!matchesSearch) return false;
+      }
+      if (categoryFilter && categoryFilter !== 'All') {
+        if (!task.category.toLowerCase().includes(categoryFilter.toLowerCase())) return false;
+      }
+      if (priorityFilter && priorityFilter !== 'All') {
+        if (task.priority !== priorityFilter) return false;
+      }
+      return true;
+    });
+  }, [requests, search, categoryFilter, priorityFilter]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab]);
+
+  const totalCount = activeTab === 'tasks' ? tasks.length : filteredRequests.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const pageItems = tasks.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-  const showingCount = String(pageItems.length).padStart(2, '0');
+  const pageItemsRequests = filteredRequests.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const showingCount = String(
+    activeTab === 'tasks' ? pageItems.length : pageItemsRequests.length
+  ).padStart(2, '0');
 
   useEffect(() => {
     if (page > totalPages) setPage(1);
   }, [page, totalPages]);
+
+  const handleCompleteTask = async (taskId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${baseUrl.baseUrl}api/task/${taskId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify({ status: 'COMPLETED' }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.message || 'Failed to complete task');
+      }
+      toast.success('Task marked as COMPLETED!');
+      loadTasks();
+    } catch (err) {
+      toast.error(err.message || 'Failed to update task status');
+      loadTasks();
+    }
+  };
 
   return (
     <div className="task-mgmt-page">
@@ -114,6 +295,25 @@ const TaskManagement = () => {
             </svg>
             New Task
           </Link>
+        </div>
+
+        <div className="task-mgmt-tabs">
+          <button
+            type="button"
+            className={`task-mgmt-tab-btn ${activeTab === 'tasks' ? 'active' : ''}`}
+            onClick={() => setActiveTab('tasks')}
+          >
+            Tasks
+            <span className="task-mgmt-tab-count">{tasks.length}</span>
+          </button>
+          <button
+            type="button"
+            className={`task-mgmt-tab-btn ${activeTab === 'requests' ? 'active' : ''}`}
+            onClick={() => setActiveTab('requests')}
+          >
+            Requests
+            <span className="task-mgmt-tab-count">{requests.length}</span>
+          </button>
         </div>
 
         <div className="task-mgmt-toolbar">
@@ -144,29 +344,45 @@ const TaskManagement = () => {
             </select>
           </div>
 
-          <div className="task-mgmt-filter">
-            <label>Status :</label>
-            <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
-              {['All', 'COMPLETED', 'IN PROGRESS', 'PENDING', 'OVERDUE'].map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
+          {activeTab === 'tasks' && (
+            <div className="task-mgmt-filter">
+              <label>Status :</label>
+              <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
+                {['All', 'COMPLETED', 'IN PROGRESS', 'PENDING', 'OVERDUE', 'ON HOLD', 'UNDER REVIEW'].map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          )}
         </div>
 
         <div className="task-mgmt-card">
           <div className="task-mgmt-table-wrap">
             <table className="task-mgmt-table">
               <thead>
-                <tr>
-                  <th>Task Title</th>
-                  <th>Category</th>
-                  <th>Assigned To</th>
-                  <th>Priority</th>
-                  <th>Start Date</th>
-                  <th>End Date</th>
-                  <th>Description</th>
-                  <th>Status</th>
-                  <th>View</th>
-                </tr>
+                {activeTab === 'tasks' ? (
+                  <tr>
+                    <th>Task Title</th>
+                    <th>Category</th>
+                    <th>Assigned To</th>
+                    <th>Priority</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Description</th>
+                    <th>Status</th>
+                    <th>View</th>
+                  </tr>
+                ) : (
+                  <tr>
+                    <th>Task Title</th>
+                    <th>Category</th>
+                    <th>Assigned To</th>
+                    <th>Priority</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Description</th>
+                    <th>Proof</th>
+                    <th>Action</th>
+                  </tr>
+                )}
               </thead>
               <tbody>
                 {loading ? (
@@ -184,14 +400,16 @@ const TaskManagement = () => {
                       </button>
                     </td>
                   </tr>
-                ) : pageItems.length === 0 ? (
+                ) : (activeTab === 'tasks' ? pageItems : pageItemsRequests).length === 0 ? (
                   <tr>
                     <td colSpan={9} style={{ textAlign: 'center', color: '#9ca3af', padding: '32px' }}>
-                      No tasks found. Create one with + New Task.
+                      {activeTab === 'tasks'
+                        ? 'No tasks found. Create one with + New Task.'
+                        : 'No pending review requests.'}
                     </td>
                   </tr>
                 ) : (
-                  pageItems.map((task) => (
+                  (activeTab === 'tasks' ? pageItems : pageItemsRequests).map((task) => (
                     <tr key={task.id}>
                       <td className="task-mgmt-cell-title">{task.title}</td>
                       <td><StackCell primary={task.category} secondary={task.categorySub} /></td>
@@ -208,25 +426,53 @@ const TaskManagement = () => {
                       <td><DateCell date={task.startDate} time={task.startTime} /></td>
                       <td><DateCell date={task.endDate} time={task.endTime} /></td>
                       <td className="task-mgmt-desc">{task.description}</td>
-                      <td>
-                        <span className={`task-mgmt-status ${STATUS_CLASS[task.status] || ''}`}>
-                          {task.status}
-                        </span>
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className="task-mgmt-view"
-                          aria-label={`View ${task.title}`}
-                          onClick={() => setSelectedTask(task)}
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                            <circle cx="12" cy="12" r="3" />
-                          </svg>
-                          View
-                        </button>
-                      </td>
+                      {activeTab === 'tasks' ? (
+                        <>
+                          <td>
+                            <span className={`task-mgmt-status ${STATUS_CLASS[task.status] || ''}`}>
+                              {task.status}
+                            </span>
+                          </td>
+                          <td>
+                            <button
+                              type="button"
+                              className="task-mgmt-view"
+                              aria-label={`View ${task.title}`}
+                              onClick={() => setSelectedTask(task)}
+                            >
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                <circle cx="12" cy="12" r="3" />
+                              </svg>
+                              View
+                            </button>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td>
+                            {task.reviewAttachment ? (
+                              <a
+                                href={`${baseUrl.baseUrl.replace(/\/$/, '')}${task.reviewAttachment}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="task-mgmt-proof-link"
+                              >
+                                {task.reviewAttachmentName || 'View Proof'}
+                              </a>
+                            ) : (
+                              <span style={{ color: '#9ca3af' }}>No proof</span>
+                            )}
+                          </td>
+                          <td>
+                            <div className="slide-to-complete-wrapper">
+                              <SlideToComplete
+                                onComplete={() => handleCompleteTask(task.id)}
+                              />
+                            </div>
+                          </td>
+                        </>
+                      )}
                     </tr>
                   ))
                 )}
@@ -267,7 +513,7 @@ const TaskManagement = () => {
       </div>
 
       {selectedTask && (
-        <TaskDetailModal task={selectedTask} onClose={() => setSelectedTask(null)} />
+        <TaskDetailModal task={selectedTask} onClose={() => setSelectedTask(null)} onRefresh={loadTasks} />
       )}
     </div>
   );
