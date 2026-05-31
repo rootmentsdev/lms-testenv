@@ -644,8 +644,11 @@ export const updateTaskStatus = async (req, res) => {
       return res.status(400).json({ success: false, message: 'status is required' });
     }
 
-    const normalizedStatus = status.trim().toUpperCase();
-    const validStatuses = ['PENDING', 'IN PROGRESS', 'COMPLETED', 'OVERDUE', 'ON HOLD', 'UNDER REVIEW'];
+    let normalizedStatus = status.trim().toUpperCase();
+    if (normalizedStatus === 'REVIEW') {
+      normalizedStatus = 'UNDER REVIEW';
+    }
+    const validStatuses = ['PENDING', 'IN PROGRESS', 'COMPLETED', 'OVERDUE', 'ON HOLD', 'UNDER REVIEW', 'REASSIGNED'];
     if (!validStatuses.includes(normalizedStatus)) {
       return res.status(400).json({
         success: false,
@@ -778,7 +781,7 @@ export const reassignTask = async (req, res) => {
 
     task.assignedTo = assignedTo;
     task.assignedToLabel = assignedToLabel;
-    task.status = 'PENDING'; // Reset status to PENDING
+    task.status = 'REASSIGNED'; // Reset status to REASSIGNED
 
     // Update storeName and storeCode to the new assignee's store dynamically
     try {

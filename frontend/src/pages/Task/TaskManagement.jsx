@@ -24,6 +24,7 @@ const STATUS_CLASS = {
   OVERDUE: 'task-mgmt-status--overdue',
   'ON HOLD': 'task-mgmt-status--on-hold',
   'UNDER REVIEW': 'task-mgmt-status--under-review',
+  REASSIGNED: 'task-mgmt-status--reassigned',
 };
 
 const StackCell = ({ primary, secondary }) => (
@@ -347,7 +348,7 @@ const TaskManagement = () => {
             <div className="task-mgmt-filter">
               <label>Status :</label>
               <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
-                {['All', 'COMPLETED', 'IN PROGRESS', 'PENDING', 'OVERDUE', 'ON HOLD', 'UNDER REVIEW'].map((s) => <option key={s} value={s}>{s}</option>)}
+                {['All', 'COMPLETED', 'IN PROGRESS', 'PENDING', 'OVERDUE', 'ON HOLD', 'UNDER REVIEW', 'REASSIGNED'].map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
           )}

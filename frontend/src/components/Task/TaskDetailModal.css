@@ -344,3 +344,8 @@
   color: #7e22ce;
 }
 
+.task-detail-status--reassigned {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
