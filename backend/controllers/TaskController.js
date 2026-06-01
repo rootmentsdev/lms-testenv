@@ -700,7 +700,18 @@ export const updateTaskStatus = async (req, res) => {
         if (!user) {
           return res.status(404).json({ success: false, message: 'User not found' });
         }
-        const isAssignedToMe = task.assignedTo === user._id.toString();
+        const employee = await Employee.findOne({
+          $or: [
+            { userId: user._id },
+            { employeeId: { $regex: `^${user.empID}$`, $options: 'i' } }
+          ]
+        });
+        const assignedIds = [user._id.toString()];
+        if (employee) {
+          assignedIds.push(employee._id.toString());
+        }
+
+        const isAssignedToMe = assignedIds.includes(task.assignedTo);
         const isMyStore = task.storeCode === `Z-${user.locCode}`;
         if (!isAssignedToMe && !isMyStore) {
           return res.status(403).json({
@@ -711,11 +722,24 @@ export const updateTaskStatus = async (req, res) => {
       }
     } else {
       // Reassigning power check: only current assignee or admin can reassign
-      if (!isUserAdmin && task.assignedTo !== userId) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied: You are not authorized to reassign this task',
-        });
+      if (!isUserAdmin) {
+        const user = await User.findById(userId);
+        const employee = user ? await Employee.findOne({
+          $or: [
+            { userId: user._id },
+            { employeeId: { $regex: `^${user.empID}$`, $options: 'i' } }
+          ]
+        }) : null;
+        const assignedIds = [userId.toString()];
+        if (employee) {
+          assignedIds.push(employee._id.toString());
+        }
+        if (!assignedIds.includes(task.assignedTo)) {
+          return res.status(403).json({
+            success: false,
+            message: 'Access denied: You are not authorized to reassign this task',
+          });
+        }
       }
     }
 
@@ -905,11 +929,24 @@ export const reassignTask = async (req, res) => {
     const isUserAdmin = userRole && userRole !== 'employee' && userRole !== 'user';
 
     // Verify permissions: only current assignee or admin can reassign
-    if (!isUserAdmin && task.assignedTo !== userId) {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied: You are not authorized to reassign this task',
-      });
+    if (!isUserAdmin) {
+      const user = await User.findById(userId);
+      const employee = user ? await Employee.findOne({
+        $or: [
+          { userId: user._id },
+          { employeeId: { $regex: `^${user.empID}$`, $options: 'i' } }
+        ]
+      }) : null;
+      const assignedIds = [userId.toString()];
+      if (employee) {
+        assignedIds.push(employee._id.toString());
+      }
+      if (!assignedIds.includes(task.assignedTo)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You are not authorized to reassign this task',
+        });
+      }
     }
 
     // Resolve reassigner's display name

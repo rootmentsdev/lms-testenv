@@ -195,10 +195,22 @@ export const buildTaskFilter = async (adminId, baseQuery = {}) => {
         const user = await User.findById(adminId);
         if (!user) return { _id: null };
 
+        const employee = await Employee.findOne({
+            $or: [
+                { userId: user._id },
+                { employeeId: { $regex: `^${user.empID}$`, $options: 'i' } }
+            ]
+        });
+
+        const assignedIds = [user._id.toString()];
+        if (employee) {
+            assignedIds.push(employee._id.toString());
+        }
+
         return {
             ...baseQuery,
             $or: [
-                { assignedTo: user._id.toString() },
+                { assignedTo: { $in: assignedIds } },
                 { storeCode: `Z-${user.locCode}` },
                 { storeCode: user.locCode }
             ]
