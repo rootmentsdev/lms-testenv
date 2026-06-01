@@ -14,8 +14,13 @@ const NotificationData = () => {
     useEffect(() => {
         const fetchNotifications = async () => {
             try {
-                // Replace with your API endpoint
-                const response = await fetch(baseUrl.baseUrl + "api/admin/home/AllNotification");
+                const token = localStorage.getItem("token");
+                const response = await fetch(baseUrl.baseUrl + "api/admin/home/AllNotification", {
+                    headers: {
+                        "Content-Type": "application/json",
+                        ...(token ? { "Authorization": `Bearer ${token}` } : {})
+                    }
+                });
                 const data = await response.json();
 
                 if (response.ok) {
