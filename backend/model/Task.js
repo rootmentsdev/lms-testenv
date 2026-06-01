@@ -34,7 +34,7 @@ const taskSchema = new mongoose.Schema({
     assignedToLabel: { type: String },
     assignedBy: { type: String },
     assignedAt: { type: Date, default: Date.now },
-    action: { type: String, enum: ['ASSIGNED', 'REASSIGNED', 'COMPLETED'], default: 'ASSIGNED' }
+    action: { type: String, enum: ['ASSIGNED', 'REASSIGNED', 'COMPLETED', 'UNDER REVIEW', 'IN PROGRESS', 'ON HOLD'], default: 'ASSIGNED' }
   }],
 }, { timestamps: true });
 
