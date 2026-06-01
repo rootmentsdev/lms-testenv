@@ -8,7 +8,7 @@ import SideNav from "../../../components/SideNav/SideNav";
 const inputStyle = {
   width: "100%", height: "40px", border: "1px solid #e5e7eb", borderRadius: "8px",
   padding: "0 12px", fontSize: "13px", color: "#111827", background: "#fff",
-  outline: "none", fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box",
+  outline: "none", fontFamily: "Poppins, sans-serif", boxSizing: "border-box",
   transition: "border-color 0.15s",
 };
 
@@ -145,17 +145,35 @@ const CreateAssessmentData = () => {
 
   const handleSave = async () => {
     if (!moduleTitle.trim()) { toast.warning("Assessment title is required."); return; }
-    if (questions.some(q => !q.questionText.trim() || !q.correctAnswer)) {
-      toast.warning("Please complete all questions and select a correct answer for each.");
+    if (duration && Number(duration) <= 0) {
+      toast.warning("Duration must be greater than zero.");
+      return;
+    }
+    if (deadline && Number(deadline) <= 0) {
+      toast.warning("Days to complete must be greater than zero.");
+      return;
+    }
+    if (questions.some(q => !q.questionText.trim() || q.options.some(option => !option.trim()) || !q.correctAnswer || !q.options.includes(q.correctAnswer))) {
+      toast.warning("Please complete all questions, fill every option, and select a correct answer for each.");
       return;
     }
     setSaving(true);
     try {
+      const payload = {
+        title: moduleTitle.trim(),
+        duration: Number(duration),
+        deadline: Number(deadline),
+        questions: questions.map((q) => ({
+          questionText: q.questionText.trim(),
+          options: q.options.map((option) => option.trim()),
+          correctAnswer: q.correctAnswer.trim(),
+        })),
+      };
       const response = await fetch(`${baseUrl.baseUrl}api/assessments`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         credentials: "include",
-        body: JSON.stringify({ title: moduleTitle, duration, deadline, questions }),
+        body: JSON.stringify(payload),
       });
       const data = await response.json();
       if (!response.ok) { toast.error(data.message || "Failed to create assessment"); return; }
@@ -169,7 +187,7 @@ const CreateAssessmentData = () => {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f9fafb", fontFamily: "'DM Sans', sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#f9fafb", fontFamily: "Poppins, sans-serif" }}>
       <SideNav />
 
       <div style={{ marginLeft: "120px", paddingTop: "24px", paddingLeft: "24px", paddingRight: "24px", paddingBottom: "24px" }}>

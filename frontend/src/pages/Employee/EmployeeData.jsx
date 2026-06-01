@@ -130,11 +130,11 @@ const EmployeeData = () => {
     }
   };
 
-  const sel = { border:"1px solid #e5e7eb", borderRadius:"8px", padding:"7px 12px", fontSize:"13px", color:"#374151", outline:"none", background:"#fff", cursor:"pointer", fontFamily:"'DM Sans', sans-serif" };
+  const sel = { border:"1px solid #e5e7eb", borderRadius:"8px", padding:"7px 12px", fontSize:"13px", color:"#374151", outline:"none", background:"#fff", cursor:"pointer", fontFamily:"Poppins, sans-serif" };
   const showingEnd = Math.min(currentPage * itemsPerPage, totalEmployees);
 
   return (
-    <div style={{ minHeight:"100vh", background:"#f9fafb", fontFamily:"'DM Sans', sans-serif" }}>
+    <div style={{ minHeight:"100vh", background:"#f9fafb", fontFamily:"Poppins, sans-serif" }}>
       <SideNav />
 
       <div style={{ marginLeft:"120px", paddingTop:"24px", paddingLeft:"24px", paddingRight:"24px", paddingBottom:"40px" }}>

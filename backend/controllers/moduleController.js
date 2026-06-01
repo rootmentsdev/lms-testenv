@@ -15,6 +15,21 @@ export const createModule = async (req, res) => {
         const moduleData = req.body;
         moduleData.createdBy = moduleData.createdBy || 'Super Admin';
 
+        const isValidQuestion = (question) => {
+            const options = Array.isArray(question?.options) ? question.options : [];
+            const trimmedOptions = options.map((option) => String(option || '').trim());
+            const questionText = String(question?.questionText || '').trim();
+            const correctAnswer = String(question?.correctAnswer || '').trim();
+            const filledOptions = trimmedOptions.filter(Boolean);
+
+            return Boolean(
+                questionText &&
+                filledOptions.length >= 2 &&
+                correctAnswer &&
+                filledOptions.includes(correctAnswer)
+            );
+        };
+
         // Validation for the required fields in videos
         if (!moduleData.moduleName || !moduleData.videos || !Array.isArray(moduleData.videos)) {
             return res.status(400).json({ message: "Invalid module data. Ensure all required fields are present." });
@@ -36,25 +51,11 @@ export const createModule = async (req, res) => {
                 video.questions = [];
             }
 
-            // Check if the questions array contains incomplete questions
-            let hasIncompleteQuestion = false;
-            for (let questionIndex = 0; questionIndex < video.questions.length; questionIndex++) {
-                const question = video.questions[questionIndex];
-
-                if (
-                    !question.questionText ||
-                    !question.correctAnswer ||
-                    !question.options ||
-                    question.options.length < 4
-                ) {
-                    hasIncompleteQuestion = true;
-                    break; // Exit the loop if any question is incomplete
-                }
-            }
-
-            // If incomplete question exists, set questions array to null
-            if (hasIncompleteQuestion) {
-                video.questions = null;
+            const invalidQuestionIndex = video.questions.findIndex((question) => !isValidQuestion(question));
+            if (invalidQuestionIndex !== -1) {
+                return res.status(400).json({
+                    message: `Incomplete quiz found in video ${videoIndex + 1}. Please fill question text, add at least two options, and select a correct answer before saving.`,
+                });
             }
         }
 
@@ -76,6 +77,21 @@ export const updateModule = async (req, res) => {
         const { id } = req.params;
         const moduleData = req.body;
 
+        const isValidQuestion = (question) => {
+            const options = Array.isArray(question?.options) ? question.options : [];
+            const trimmedOptions = options.map((option) => String(option || '').trim());
+            const questionText = String(question?.questionText || '').trim();
+            const correctAnswer = String(question?.correctAnswer || '').trim();
+            const filledOptions = trimmedOptions.filter(Boolean);
+
+            return Boolean(
+                questionText &&
+                filledOptions.length >= 2 &&
+                correctAnswer &&
+                filledOptions.includes(correctAnswer)
+            );
+        };
+
         if (!moduleData.moduleName || !moduleData.videos || !Array.isArray(moduleData.videos)) {
             return res.status(400).json({ message: "Invalid module data. Ensure all required fields are present." });
         }
@@ -93,23 +109,11 @@ export const updateModule = async (req, res) => {
                 video.questions = [];
             }
 
-            let hasIncompleteQuestion = false;
-            for (let questionIndex = 0; questionIndex < video.questions.length; questionIndex++) {
-                const question = video.questions[questionIndex];
-
-                if (
-                    !question.questionText ||
-                    !question.correctAnswer ||
-                    !question.options ||
-                    question.options.length < 4
-                ) {
-                    hasIncompleteQuestion = true;
-                    break;
-                }
-            }
-
-            if (hasIncompleteQuestion) {
-                video.questions = null;
+            const invalidQuestionIndex = video.questions.findIndex((question) => !isValidQuestion(question));
+            if (invalidQuestionIndex !== -1) {
+                return res.status(400).json({
+                    message: `Incomplete quiz found in video ${videoIndex + 1}. Please fill question text, add at least two options, and select a correct answer before saving.`,
+                });
             }
         }
 

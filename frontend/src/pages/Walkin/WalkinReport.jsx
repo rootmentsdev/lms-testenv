@@ -145,11 +145,11 @@ const WalkinReport = () => {
   const currentItems = displayed.slice(indexFirst, indexFirst + itemsPerPage);
 
   /* ── input style ── */
-  const inp = { border:'1px solid #e5e7eb', borderRadius:'8px', padding:'7px 12px', fontSize:'12px', color:'#374151', outline:'none', background:'#fff', width:'100%', boxSizing:'border-box', fontFamily:"'DM Sans', sans-serif" };
+  const inp = { border:'1px solid #e5e7eb', borderRadius:'8px', padding:'7px 12px', fontSize:'12px', color:'#374151', outline:'none', background:'#fff', width:'100%', boxSizing:'border-box', fontFamily:"Poppins, sans-serif" };
   const lbl = { fontSize:'11px', fontWeight:600, color:'#374151', marginBottom:'4px', display:'block' };
 
   return (
-    <div style={{ minHeight:'100vh', background:'#f9fafb', fontFamily:"'DM Sans', sans-serif" }}>
+    <div style={{ minHeight:'100vh', background:'#f9fafb', fontFamily:"Poppins, sans-serif" }}>
       <SideNav />
       <div className="md:hidden sm:block"><ModileNav /></div>
 
@@ -246,7 +246,7 @@ const WalkinReport = () => {
               <div style={{ textAlign:'center', padding:'48px', color:'#9ca3af', fontSize:'13px' }}>No records found.</div>
             ) : (
               <div style={{ overflowX:'auto' }}>
-                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'12px', fontFamily:"'DM Sans', sans-serif" }}>
+                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'12px', fontFamily:"Poppins, sans-serif" }}>
                   <thead>
                     <tr style={{ background:'#f9fafb', borderBottom:'1px solid #f3f4f6' }}>
                       {['#','DATE','CUSTOMER','CONTACT','FUNCTION DATE','STAFF','STATUS','CATEGORY','SUB CATEGORY','REPEAT COUNT','REMARKS'].map(h=>(

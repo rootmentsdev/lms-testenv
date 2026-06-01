@@ -41,8 +41,9 @@ const getCurrentAdminName = () => {
 };
 
 /* ─── SavedVideoCard ──────────────────────────────────────── */
-const SavedVideoCard = ({ video, active, onRemove }) => {
+const SavedVideoCard = ({ video, active, onRemove, onEdit }) => {
   const firstQuestion = video.questions?.[0];
+  const questionCount = video.questions?.length ?? 0;
   const options = firstQuestion?.options?.length
     ? firstQuestion.options
     : ["Option 1", "Option 2", "Option 3", "Option 4"];
@@ -68,32 +69,49 @@ const SavedVideoCard = ({ video, active, onRemove }) => {
           </button>
         )}
       </div>
+      {onEdit && (
+        <button
+          type="button"
+          onClick={onEdit}
+          className="mt-1 text-[11px] font-medium text-gray-600 hover:text-gray-900 transition-colors"
+        >
+          Edit video
+        </button>
+      )}
       <div className="mt-1 text-[11px] text-gray-500 truncate">
         {video.videoUri || "https://www.youtube.com/"}
       </div>
-      <div className="mt-2 truncate text-[12px] font-medium text-gray-800">
-        {firstQuestion?.questionText
-          ? `Question 1: ${firstQuestion.questionText}`
-          : "Question 1: Lorem ipsum dolor sit amet cons..."}
-      </div>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        {options.slice(0, 4).map((option, index) => {
-          const optionText = option?.trim() || `Option ${index + 1}`;
-          const isCorrect = firstQuestion?.correctAnswer === option && option?.trim();
-          return (
-            <span
-              key={index}
-              className={`inline-flex items-center gap-1 rounded-[5px] border px-2 py-1 text-[11px] ${
-                isCorrect
-                  ? "border-gray-700 text-gray-900 font-medium"
-                  : "border-gray-300 text-gray-700"
-              }`}
-            >
-              {isCorrect ? <FaCircle size={6} /> : <FaRegCircle size={7} />}
-              {optionText}
-            </span>
-          );
-        })}
+      <div className="mt-2 space-y-3">
+        {video.questions?.length ? (
+          video.questions.map((question, qIndex) => (
+            <div key={`${question.questionText || "question"}-${qIndex}`} className="rounded-[6px] border border-gray-200 p-2">
+              <div className="truncate text-[12px] font-medium text-gray-800">
+                {`Question ${qIndex + 1}: ${question.questionText || "Untitled question"}`}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {(question.options?.length ? question.options : ["Option 1", "Option 2", "Option 3", "Option 4"]).slice(0, 4).map((option, index) => {
+                  const optionText = option?.trim() || `Option ${index + 1}`;
+                  const isCorrect = question.correctAnswer === option && option?.trim();
+                  return (
+                    <span
+                      key={index}
+                      className={`inline-flex items-center gap-1 rounded-[5px] border px-2 py-1 text-[11px] ${
+                        isCorrect
+                          ? "border-gray-700 text-gray-900 font-medium"
+                          : "border-gray-300 text-gray-700"
+                      }`}
+                    >
+                      {isCorrect ? <FaCircle size={6} /> : <FaRegCircle size={7} />}
+                      {optionText}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="text-[11px] text-gray-500">No quiz questions added yet.</div>
+        )}
       </div>
     </div>
   );
@@ -109,7 +127,7 @@ const Field = ({ label, required, value, onChange, placeholder }) => (
       value={value}
       onChange={onChange}
       placeholder={placeholder}
-      style={{ fontFamily: "'DM Sans', sans-serif" }}
+      style={{ fontFamily: "Poppins, sans-serif" }}
       className="h-9 w-full rounded-[6px] border border-gray-200 bg-[#f1f1f1] px-3 text-[13px] outline-none placeholder:text-gray-400 focus:border-gray-400"
     />
   </label>
@@ -157,7 +175,7 @@ const QuizBlock = ({ question, qIndex, totalQuestions, onChange, onCorrectAnswer
                 }
               }}
               placeholder={`Option ${oIndex + 1}`}
-              style={{ fontFamily: "'DM Sans', sans-serif" }}
+              style={{ fontFamily: "Poppins, sans-serif" }}
               className="h-9 flex-1 rounded-[6px] border border-gray-200 bg-white px-3 text-[13px] outline-none placeholder:text-gray-400 focus:border-gray-400"
             />
           </div>
@@ -188,8 +206,9 @@ const CreateModuleData = () => {
   const [videos, setVideos] = useState([]);
   const [currentVideo, setCurrentVideo] = useState(emptyVideo());
   const [activeQuizIndex, setActiveQuizIndex] = useState(0);
+  const [editingVideoIndex, setEditingVideoIndex] = useState(null);
 
-  // Inject DM Sans — same approach as Employee / Task / WalkinList pages
+    // Keep the page font aligned with the global Poppins stack.
   useEffect(() => {
     if (!document.getElementById("dm-sans-font")) {
       const link = document.createElement("link");
@@ -223,6 +242,7 @@ const CreateModuleData = () => {
         setVideos(Array.isArray(data?.videos) ? data.videos : []);
         setCurrentVideo(emptyVideo());
         setActiveQuizIndex(0);
+        setEditingVideoIndex(null);
       } catch (error) {
         toast.error(`Failed to load module: ${error.message}`);
       }
@@ -261,10 +281,11 @@ const CreateModuleData = () => {
   /* add a new quiz question */
   const addQuestion = () => {
     setCurrentVideo((prev) => {
-      const updated = { ...prev, questions: [...prev.questions, emptyQuestion()] };
-      setActiveQuizIndex(updated.questions.length - 1);
-      return updated;
+      const nextQuestions = [...prev.questions, emptyQuestion()];
+      return { ...prev, questions: nextQuestions };
     });
+    setActiveQuizIndex((prev) => prev + 1);
+    toast.info("New quiz question added.");
   };
 
   /* remove a quiz question */
@@ -280,20 +301,56 @@ const CreateModuleData = () => {
     });
   };
 
+  const startEditingVideo = (index) => {
+    const video = videos[index];
+    if (!video) return;
+
+    setCurrentVideo({
+      title: video.title || "",
+      videoUri: video.videoUri || "",
+      questions: Array.isArray(video.questions) && video.questions.length > 0
+        ? video.questions.map((question) => ({
+            questionText: question.questionText || "",
+            options: Array.isArray(question.options) && question.options.length > 0
+              ? [...question.options, "", "", "", ""].slice(0, 4)
+              : ["", "", "", ""],
+            correctAnswer: question.correctAnswer || "",
+          }))
+        : [emptyQuestion()],
+    });
+    setActiveQuizIndex(0);
+    setEditingVideoIndex(index);
+    toast.info("Editing saved video. Update the fields and save the changes.");
+  };
+
+  const cancelEditingVideo = () => {
+    setCurrentVideo(emptyVideo());
+    setActiveQuizIndex(0);
+    setEditingVideoIndex(null);
+  };
+
   /* navigate between quiz questions */
   const prevQuiz = () => setActiveQuizIndex((i) => Math.max(0, i - 1));
   const nextQuiz = () =>
     setActiveQuizIndex((i) => Math.min(currentVideo.questions.length - 1, i + 1));
 
   /* validation */
-  const validateQuestion = (q) => Boolean(q.questionText?.trim());
+  const validateQuestion = (q) =>
+    Boolean(
+      q.questionText?.trim() &&
+      Array.isArray(q.options) &&
+      q.options.filter((option) => option?.trim()).length >= 2 &&
+      q.correctAnswer?.trim() &&
+      q.options.filter((option) => option?.trim()).includes(q.correctAnswer)
+    );
 
   const isCurrentVideoReady = useMemo(
     () =>
       Boolean(
         currentVideo.title.trim() &&
           currentVideo.videoUri.trim() &&
-          currentVideo.questions.some(validateQuestion)
+          currentVideo.questions.length > 0 &&
+          currentVideo.questions.every(validateQuestion)
       ),
     [currentVideo]
   );
@@ -313,18 +370,34 @@ const CreateModuleData = () => {
   const saveCurrentVideo = () => {
     if (!currentVideo.title.trim()) return toast.error("Please enter a video title.");
     if (!currentVideo.videoUri.trim()) return toast.error("Please enter a video URL.");
-    if (!currentVideo.questions.some(validateQuestion))
-      return toast.error("Please add at least one question.");
+    if (!currentVideo.questions.length) return toast.error("Please add at least one question.");
+    if (currentVideo.questions.some((question) => !validateQuestion(question))) {
+      return toast.error("Please fill each question, add at least two options, and select a correct answer.");
+    }
 
-    setVideos((prev) => [...prev, buildVideo(currentVideo)]);
+    const nextVideo = buildVideo(currentVideo);
+    const wasEditing = editingVideoIndex !== null;
+    setVideos((prev) => {
+      if (!wasEditing) {
+        return [...prev, nextVideo];
+      }
+
+      return prev.map((video, index) => (index === editingVideoIndex ? nextVideo : video));
+    });
     setCurrentVideo(emptyVideo());
     setActiveQuizIndex(0);
-    toast.success("Video saved! You can now add the next video.");
+    setEditingVideoIndex(null);
+    toast.success(wasEditing ? "Video updated successfully." : "Video saved! You can now add the next video.");
   };
 
   /* remove a saved video */
   const removeVideo = (index) => {
     setVideos((prev) => prev.filter((_, i) => i !== index));
+    if (editingVideoIndex === index) {
+      cancelEditingVideo();
+    } else if (editingVideoIndex !== null && editingVideoIndex > index) {
+      setEditingVideoIndex((prev) => prev - 1);
+    }
   };
 
   /* clear everything */
@@ -334,17 +407,26 @@ const CreateModuleData = () => {
     setVideos([]);
     setCurrentVideo(emptyVideo());
     setActiveQuizIndex(0);
+    setEditingVideoIndex(null);
   };
 
   /* submit module */
   const handleSaveModule = async () => {
-    const moduleVideos = isCurrentVideoReady
-      ? [...videos, buildVideo(currentVideo)]
-      : videos;
+    const draftVideo = isCurrentVideoReady ? buildVideo(currentVideo) : null;
+    const moduleVideos = (() => {
+      if (editingVideoIndex !== null) {
+        return videos.map((video, index) => (index === editingVideoIndex && draftVideo ? draftVideo : video));
+      }
+
+      return draftVideo ? [...videos, draftVideo] : videos;
+    })();
 
     if (!moduleTitle.trim()) return toast.error("Please enter a module title.");
     if (!moduleDescription.trim()) return toast.error("Please enter a module description.");
     if (!moduleVideos.length) return toast.warning("Please add at least one video.");
+    if (moduleVideos.some((video) => !video.questions?.length || video.questions.some((question) => !validateQuestion(question)))) {
+      return toast.error("Please complete every question in every video before saving.");
+    }
 
     const payload = {
       moduleName: moduleTitle.trim(),
@@ -378,7 +460,7 @@ const CreateModuleData = () => {
     }
   };
 
-  const activeQ = currentVideo.questions[activeQuizIndex] ?? currentVideo.questions[0];
+  const activeQ = currentVideo.questions[activeQuizIndex] ?? currentVideo.questions[currentVideo.questions.length - 1] ?? currentVideo.questions[0];
 
   return (
     <div className="flex min-h-screen bg-[#f9fafb] text-black" style={{ fontFamily: "'DM Sans', sans-serif" }}>
@@ -457,7 +539,20 @@ const CreateModuleData = () => {
 
               {/* Upload Video card */}
               <div className="rounded-[8px] border border-gray-200 bg-white p-4">
-                <p className="text-[13px] font-semibold text-gray-900 mb-3">Upload Video</p>
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <p className="text-[13px] font-semibold text-gray-900">
+                    {editingVideoIndex === null ? "Upload Video" : `Edit Video #${editingVideoIndex + 1}`}
+                  </p>
+                  {editingVideoIndex !== null && (
+                    <button
+                      type="button"
+                      onClick={cancelEditingVideo}
+                      className="text-[12px] text-gray-500 hover:text-gray-900"
+                    >
+                      Cancel edit
+                    </button>
+                  )}
+                </div>
                 <div className="space-y-3">
                   <Field
                     label="Video Title"
@@ -479,6 +574,9 @@ const CreateModuleData = () => {
               {/* Add Quiz card */}
               <div className="rounded-[8px] border border-gray-200 bg-white p-4">
                 <p className="text-[13px] font-semibold text-gray-900 mb-3">Add Quiz</p>
+                <div className="mb-3 text-[11px] text-gray-500">
+                  {currentVideo.questions.length} question{currentVideo.questions.length === 1 ? "" : "s"} in this video
+                </div>
 
                 {/* Active question */}
                 {activeQ && (
@@ -523,10 +621,10 @@ const CreateModuleData = () => {
                     </button>
                     {currentVideo.questions.length > 1 && (
                       <span className="text-[11px] text-gray-400">
-                        {activeQuizIndex + 1} / {currentVideo.questions.length}
-                      </span>
-                    )}
-                  </div>
+                    {Math.min(activeQuizIndex + 1, currentVideo.questions.length)} / {currentVideo.questions.length}
+                  </span>
+                )}
+              </div>
                   <button
                     type="button"
                     onClick={addQuestion}
@@ -536,6 +634,24 @@ const CreateModuleData = () => {
                     Add Quiz
                   </button>
                 </div>
+                {currentVideo.questions.length > 1 && (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {currentVideo.questions.map((question, index) => (
+                      <button
+                        key={`${question.questionText || "question"}-${index}`}
+                        type="button"
+                        onClick={() => setActiveQuizIndex(index)}
+                        className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
+                          activeQuizIndex === index
+                            ? "border-gray-900 bg-gray-900 text-white"
+                            : "border-gray-300 bg-white text-gray-600 hover:border-gray-500"
+                        }`}
+                      >
+                        Q{index + 1}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Preview / Add Next Video */}
@@ -572,6 +688,7 @@ const CreateModuleData = () => {
                     video={video}
                     active={index === 0}
                     onRemove={() => removeVideo(index)}
+                    onEdit={() => startEditingVideo(index)}
                   />
                 ))
               ) : (

@@ -18,7 +18,7 @@
   border-radius: 16px;
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
   padding: 28px 32px 32px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Poppins', sans-serif;
   animation: task-detail-slide-in 0.28s cubic-bezier(0.4, 0, 0.2, 1);
   max-height: 90vh;
   overflow-y: auto;

@@ -1,5 +1,6 @@
 import Admin from "../model/Admin.js";
 import Permission from "../model/AdminPermission.js";
+import Assessment from "../model/Assessment.js";
 import AssessmentProcess from "../model/Assessmentprocessschema.js";
 import Branch from "../model/Branch.js";
 import Notification from "../model/Notification.js";
@@ -86,6 +87,116 @@ export const Usergetquestions = async (req, res) => {
 
     }
 }
+
+export const GetAssessmentFullDetails = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (!id) {
+            return res.status(400).json({ message: "Assessment ID is required" });
+        }
+
+        const assessment = await Assessment.findById(id);
+        if (!assessment) {
+            return res.status(404).json({ message: "Assessment not found" });
+        }
+
+        const assignedUsers = await User.find({ "assignedAssessments.assessmentId": id })
+            .select({
+                _id: 1,
+                username: 1,
+                email: 1,
+                empID: 1,
+                designation: 1,
+                workingBranch: 1,
+                locCode: 1,
+                assignedAssessments: { $elemMatch: { assessmentId: id } },
+            });
+
+        const assessmentProcesses = await AssessmentProcess.find({ assessmentId: id })
+            .populate({
+                path: "userId",
+                select: "_id username email empID designation workingBranch locCode",
+            });
+
+        const processMap = new Map(
+            assessmentProcesses.map((process) => [String(process.userId?._id || process.userId), process])
+        );
+
+        const users = assignedUsers.map((user) => {
+            const assignedAssessment = user.assignedAssessments?.[0] || null;
+            const process = processMap.get(String(user._id)) || null;
+
+            return {
+                _id: user._id,
+                username: user.username,
+                email: user.email,
+                empID: user.empID,
+                designation: user.designation,
+                workingBranch: user.workingBranch,
+                locCode: user.locCode,
+                assignedAssessment: assignedAssessment
+                    ? {
+                        assessmentId: assignedAssessment.assessmentId,
+                        deadline: assignedAssessment.deadline,
+                        pass: assignedAssessment.pass,
+                        status: assignedAssessment.status,
+                        complete: assignedAssessment.complete,
+                    }
+                    : null,
+                attempt: process
+                    ? {
+                        _id: process._id,
+                        status: process.status,
+                        totalMarks: process.totalMarks,
+                        passed: process.passed,
+                        answers: process.answers,
+                        createdAt: process.createdAt,
+                        updatedAt: process.updatedAt,
+                    }
+                    : null,
+            };
+        });
+
+        const totalAssigned = users.length;
+        const totalCompleted = users.filter((user) => {
+            const status = String(user.assignedAssessment?.status || "").toLowerCase();
+            return status === "completed";
+        }).length;
+        const totalPassed = users.filter((user) => Boolean(user.assignedAssessment?.pass) || Boolean(user.attempt?.passed)).length;
+        const completionPercentage = totalAssigned > 0 ? Math.round((totalCompleted / totalAssigned) * 100) : 0;
+
+        return res.status(200).json({
+            message: "Assessment full details fetched successfully",
+            data: {
+                assessment: {
+                    _id: assessment._id,
+                    title: assessment.title,
+                    duration: assessment.duration,
+                    deadline: assessment.deadline,
+                    state: assessment.state,
+                    questions: assessment.questions,
+                    createdAt: assessment.createdAt,
+                    updatedAt: assessment.updatedAt,
+                },
+                users,
+                stats: {
+                    totalAssigned,
+                    totalCompleted,
+                    totalPassed,
+                    completionPercentage,
+                    questionsCount: assessment.questions?.length || 0,
+                },
+            },
+        });
+    } catch (error) {
+        console.error("Error fetching full assessment details:", error);
+        return res.status(500).json({
+            message: "Internal server error",
+            error: error.message,
+        });
+    }
+};
 
 export const userAssessmentUpdate = async (req, res) => {
     try {

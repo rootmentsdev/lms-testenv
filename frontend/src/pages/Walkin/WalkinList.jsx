@@ -72,7 +72,7 @@ const WalkinList = () => {
     const user = useSelector((state) => state.auth.user);
     const token = localStorage.getItem('token');
 
-    // Inject DM Sans font from Google Fonts
+    // Keep the font aligned with the global Poppins stack.
     useEffect(() => {
         if (!document.getElementById('dm-sans-font')) {
             const link = document.createElement('link');
@@ -477,7 +477,7 @@ const WalkinList = () => {
     );
 
     return (
-        <div className="mb-[70px] text-[14px] min-h-screen" style={{ fontFamily: "'DM Sans', sans-serif", background: '#f9fafb' }}>
+        <div className="mb-[70px] text-[14px] min-h-screen" style={{ fontFamily: "Poppins, sans-serif", background: '#f9fafb' }}>
             <SideNav />
             <div className="md:hidden sm:block">
                 <ModileNav />
@@ -667,7 +667,7 @@ const WalkinList = () => {
                             ) : (
                                 <>
                                     <div style={{ overflowX:'auto' }}>
-                                        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'12px', fontFamily:"'DM Sans', sans-serif" }}>
+                                        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'12px', fontFamily:"Poppins, sans-serif" }}>
                                             <thead>
                                                 <tr style={{ borderBottom:'1px solid #f3f4f6', background:'#fafafa' }}>
                                                     {['#','DATE','CUSTOMER','CONTACT','FUNCTION DATE','STORE','STAFF','CATEGORY','SUB CATEGORY','REMARKS','REPEAT COUNT','STATUS',''].map((h, i)=>(

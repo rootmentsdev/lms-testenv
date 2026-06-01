@@ -1,5 +1,4 @@
 import baseUrl from "../../api/api";
-import { last7Days } from "./dashboardUtils";
 
 const authHeaders = () => {
   const token = localStorage.getItem("token");
@@ -27,8 +26,13 @@ export function fetchDashboardTasks() {
   return fetchJson("api/task/list");
 }
 
-export function fetchWeeklyWalkins() {
-  const days = last7Days();
+export function fetchWeeklyWalkins(daysCount = 7) {
+  const totalDays = Math.max(1, Number(daysCount) || 7);
+  const days = Array.from({ length: totalDays }, (_, index) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (totalDays - 1 - index));
+    return d;
+  });
   const start = days[0].toISOString().split("T")[0];
   const end = days[days.length - 1].toISOString().split("T")[0];
   return fetchJson(`api/walkin/list?startDate=${start}&endDate=${end}`);

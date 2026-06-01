@@ -123,7 +123,7 @@ const CreateEmployee = () => {
       boxShadow: "none",
       minHeight: "40px",
       fontSize: "13px",
-      fontFamily: "'DM Sans', sans-serif",
+      fontFamily: "Poppins, sans-serif",
       "&:hover": {
         borderColor: "#111827",
       },
@@ -350,7 +350,7 @@ const styles = {
   container: {
     minHeight: "100vh",
     background: "#f9fafb",
-    fontFamily: "'DM Sans', sans-serif",
+    fontFamily: "Poppins, sans-serif",
   },
   content: {
     marginLeft: "120px",
@@ -413,7 +413,7 @@ const styles = {
     background: "#fff",
     width: "100%",
     boxSizing: "border-box",
-    fontFamily: "'DM Sans', sans-serif",
+    fontFamily: "Poppins, sans-serif",
     height: "40px",
   },
   required: {
@@ -429,7 +429,7 @@ const styles = {
     fontSize: "13px",
     fontWeight: 600,
     cursor: "pointer",
-    fontFamily: "'DM Sans', sans-serif",
+    fontFamily: "Poppins, sans-serif",
     marginTop: "8px",
   },
   spinner: {

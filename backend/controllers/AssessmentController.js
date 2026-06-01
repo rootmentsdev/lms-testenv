@@ -83,26 +83,64 @@ const assignExistingMandatoryTrainingsToUser = async (user) => {
 
 export const createAssessment = async (req, res) => {
     try {
-        const assessmentData = req.body;
+        const assessmentData = req.body || {};
 
-        // Validate input
-        if (!assessmentData.title || !assessmentData.duration || !Array.isArray(assessmentData.questions) || !assessmentData.deadline) {
-            return res.status(400).json({ message: "Invalid assessment data. Ensure all required fields are present." });
+        const title = typeof assessmentData.title === 'string' ? assessmentData.title.trim() : '';
+        const duration = Number(assessmentData.duration);
+        const deadline = Number(assessmentData.deadline);
+        const questions = Array.isArray(assessmentData.questions) ? assessmentData.questions : [];
+
+        const isValidQuestion = (question) => {
+            const options = Array.isArray(question?.options) ? question.options : [];
+            const nonEmptyOptions = options.map((option) => String(option || '').trim()).filter(Boolean);
+            const correctAnswer = String(question?.correctAnswer || '').trim();
+
+            return Boolean(
+                String(question?.questionText || '').trim() &&
+                nonEmptyOptions.length >= 2 &&
+                correctAnswer &&
+                nonEmptyOptions.includes(correctAnswer)
+            );
+        };
+
+        if (!title || !Number.isFinite(duration) || duration <= 0 || !Number.isFinite(deadline) || deadline <= 0) {
+            return res.status(400).json({
+                message: "Invalid assessment data. Title, duration, and deadline are required and must be valid numbers/strings."
+            });
         }
 
-        const admin = await Admin.findById(req?.admin?.userId)
+        if (questions.length === 0 || questions.some((question) => !isValidQuestion(question))) {
+            return res.status(400).json({
+                message: "Invalid assessment questions. Each question must have text, at least two options, and a correct answer that matches one option."
+            });
+        }
 
+        const admin = req?.admin?.userId ? await Admin.findById(req.admin.userId) : null;
 
-        // Create and save the assessment
-        const newAssessment = new Assessment(assessmentData);
+        const newAssessment = new Assessment({
+            title,
+            duration,
+            deadline,
+            questions: questions.map((question) => ({
+                questionText: String(question.questionText || '').trim(),
+                options: question.options.map((option) => String(option || '').trim()).filter(Boolean),
+                correctAnswer: String(question.correctAnswer || '').trim(),
+            })),
+        });
+
         await newAssessment.save();
 
-        const newNotification = await Notification.create({
-            title: `New AssessmentData Created : ${assessmentData.title}`,
-            body: `${assessmentData.title} has been successfully created. Created by ${admin?.name}. Ready for user assignment`,
-            category: "Assessment",
-            useradmin: admin?.name, // Optional
-        });
+        try {
+            await Notification.create({
+                title: `New Assessment Created: ${title}`,
+                body: `${title} has been successfully created${admin?.name ? ` by ${admin.name}` : ''}. Ready for user assignment`,
+                category: "Assessment",
+                useradmin: admin?.name || "",
+            });
+        } catch (notificationError) {
+            console.error("Assessment notification creation failed:", notificationError);
+        }
+
         res.status(201).json({ message: "Assessment created successfully!", assessment: newAssessment });
     } catch (error) {
         console.error("Error creating assessment:", error);
