@@ -311,21 +311,37 @@ const runTests = async () => {
 
     // --- TEST 6: Message Fetching API endpoint (GetUserMessage) ---
     console.log('\n--- 📱 Test 6: GetUserMessage Fetch Endpoint ---');
-    // Fetch for regular User (testUser)
-    const mockReqGetMessagesUser = {
+    
+    // Fetch for regular User (testUser) by Email
+    const mockReqGetMessagesUserEmail = {
       params: {
-        email: testUser.email
+        id: testUser.email
       }
     };
 
     responseStatus = 200;
     responseData = null;
-    await GetUserMessage(mockReqGetMessagesUser, mockRes);
+    await GetUserMessage(mockReqGetMessagesUserEmail, mockRes);
     if (responseStatus !== 200 || !responseData?.notifications) {
-      throw new Error(`Get messages user failed: ${JSON.stringify(responseData)}`);
+      throw new Error(`Get messages user by email failed: ${JSON.stringify(responseData)}`);
     }
+    console.log(`✅ Retrieved ${responseData.notifications.length} notifications for user by email: ${testUser.email}`);
 
-    console.log(`✅ Retrieved ${responseData.notifications.length} notifications for user: ${testUser.email}`);
+    // Fetch for regular User (testUser) by empID
+    const mockReqGetMessagesUserEmpID = {
+      params: {
+        id: testUser.empID
+      }
+    };
+
+    responseStatus = 200;
+    responseData = null;
+    await GetUserMessage(mockReqGetMessagesUserEmpID, mockRes);
+    if (responseStatus !== 200 || !responseData?.notifications) {
+      throw new Error(`Get messages user by empID failed: ${JSON.stringify(responseData)}`);
+    }
+    console.log(`✅ Retrieved ${responseData.notifications.length} notifications for user by empID: ${testUser.empID}`);
+    
     // Check descending order sorting
     const returnedNotifications = responseData.notifications;
     let isSorted = true;
@@ -340,20 +356,35 @@ const runTests = async () => {
     }
     console.log('✅ Verified notifications are correctly sorted latest-first.');
 
-    // Fetch for Admin (testAdmin)
-    const mockReqGetMessagesAdmin = {
+    // Fetch for Admin (testAdmin) by Email
+    const mockReqGetMessagesAdminEmail = {
       params: {
-        email: testAdmin.email
+        id: testAdmin.email
       }
     };
 
     responseStatus = 200;
     responseData = null;
-    await GetUserMessage(mockReqGetMessagesAdmin, mockRes);
+    await GetUserMessage(mockReqGetMessagesAdminEmail, mockRes);
     if (responseStatus !== 200 || !responseData?.notifications) {
-      throw new Error(`Get messages admin failed: ${JSON.stringify(responseData)}`);
+      throw new Error(`Get messages admin by email failed: ${JSON.stringify(responseData)}`);
     }
-    console.log(`✅ Retrieved ${responseData.notifications.length} notifications for admin: ${testAdmin.email}`);
+    console.log(`✅ Retrieved ${responseData.notifications.length} notifications for admin by email: ${testAdmin.email}`);
+
+    // Fetch for Admin (testAdmin) by EmpId
+    const mockReqGetMessagesAdminEmpID = {
+      params: {
+        id: testAdmin.EmpId
+      }
+    };
+
+    responseStatus = 200;
+    responseData = null;
+    await GetUserMessage(mockReqGetMessagesAdminEmpID, mockRes);
+    if (responseStatus !== 200 || !responseData?.notifications) {
+      throw new Error(`Get messages admin by EmpId failed: ${JSON.stringify(responseData)}`);
+    }
+    console.log(`✅ Retrieved ${responseData.notifications.length} notifications for admin by EmpId: ${testAdmin.EmpId}`);
 
     console.log('\n🎉 ALL TESTS COMPLETED SUCCESSFULLY! 🎉');
 

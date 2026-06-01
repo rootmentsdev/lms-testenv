@@ -143,7 +143,7 @@ const ModuleData = () => {
 
   return (
     <div
-      className="min-h-screen bg-[#f9fafb]"
+      className="flex min-h-screen bg-[#f9fafb]"
       style={{ fontFamily: "'DM Sans', sans-serif" }}
     >
       <SideNav />
@@ -156,11 +156,11 @@ const ModuleData = () => {
         />
       )}
 
-      <div className="md:ml-[120px] px-6 pb-6">
+      <div className="flex-1 md:ml-[120px] px-6 py-6 pb-6">
         {/* ── Page header ── */}
         <div className="flex items-start justify-between gap-4 mb-5">
           <div>
-            <h1 className="text-[22px] font-bold text-gray-900 mt-5 leading-tight">
+            <h1 className="text-[22px] font-bold text-gray-900 leading-tight">
               Module Management
             </h1>
             <p className="mt-1 text-[12px] text-gray-500">

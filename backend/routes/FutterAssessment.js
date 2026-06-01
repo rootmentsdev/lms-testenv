@@ -146,22 +146,22 @@ router.post('/user/update/assessment', userAssessmentUpdate);
 
 /**
  * @swagger
- * /api/user/assessment/user/get/message/{email}:
+ * /api/user/assessment/user/get/message/{id}:
  *   get:
  *     tags: [Assessments]
- *     summary: Get notifications for a user or admin by email (Flutter compatible)
+ *     summary: Get notifications for a user or admin by email or employee ID (Flutter compatible)
  *     description: >
- *       Retrieves all database-backed notifications targeted at the user or admin based on their email.
+ *       Retrieves all database-backed notifications targeted at the user or admin based on their email or employee ID (empID/EmpId).
  *       Supports both employee accounts (User collection) and manager/admin accounts (Admin collection).
  *       Filters notifications dynamically by target user ID, designation/role, or store/branch location code,
  *       and returns the results sorted by creation date in descending order (latest-first).
  *     parameters:
  *       - in: path
- *         name: email
+ *         name: id
  *         required: true
  *         schema:
  *           type: string
- *         description: The user's or admin's email address
+ *         description: The user's or admin's email address or employee ID (empID/EmpId)
  *     responses:
  *       200:
  *         description: List of notifications retrieved successfully sorted latest-first.
@@ -211,11 +211,11 @@ router.post('/user/update/assessment', userAssessmentUpdate);
  *                         format: date-time
  *                         description: Timestamp when notification was created
  *       400:
- *         description: Email is required.
+ *         description: Identifier (id) is required.
  *       404:
  *         description: User or Admin not found.
  *       500:
  *         description: Internal server error.
  */
-router.get('/user/get/message/:email',GetUserMessage)
+router.get('/user/get/message/:id',GetUserMessage)
 export default router;

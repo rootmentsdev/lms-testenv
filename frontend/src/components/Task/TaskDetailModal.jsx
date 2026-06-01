@@ -248,37 +248,64 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
   };
 
   const getWorkMapForDisplay = () => {
+    let rawMap = [];
     if (task.workMap && task.workMap.length > 0) {
-      return task.workMap;
-    }
-    const mockMap = [
-      {
-        assignedTo: task.assignedTo,
-        assignedToLabel: task.assignee || task.assignedToLabel || 'Staff',
-        assignedBy: task.assignedBy || 'Creator',
-        assignedAt: task.createdAt ? new Date(task.createdAt) : new Date(),
-        action: 'ASSIGNED'
+      rawMap = task.workMap;
+    } else {
+      const mockMap = [
+        {
+          assignedTo: task.assignedTo,
+          assignedToLabel: task.assignee || task.assignedToLabel || 'Staff',
+          assignedBy: task.assignedBy || 'Creator',
+          assignedAt: task.createdAt ? new Date(task.createdAt) : new Date(),
+          action: 'ASSIGNED'
+        }
+      ];
+      if (task.status === 'REASSIGNED') {
+        mockMap.push({
+          assignedTo: task.assignedTo,
+          assignedToLabel: task.assignee || task.assignedToLabel || 'Staff',
+          assignedBy: task.assignedBy || 'Creator',
+          assignedAt: task.createdAt ? new Date(task.createdAt) : new Date(),
+          action: 'REASSIGNED'
+        });
       }
-    ];
-    if (task.status === 'REASSIGNED') {
-      mockMap.push({
-        assignedTo: task.assignedTo,
-        assignedToLabel: task.assignee || task.assignedToLabel || 'Staff',
-        assignedBy: task.assignedBy || 'Creator',
-        assignedAt: task.createdAt ? new Date(task.createdAt) : new Date(),
-        action: 'REASSIGNED'
-      });
+      if (task.status === 'COMPLETED') {
+        mockMap.push({
+          assignedTo: task.assignedTo,
+          assignedToLabel: task.assignee || task.assignedToLabel || 'Staff',
+          assignedBy: task.assignedBy || 'Creator',
+          assignedAt: task.createdAt ? new Date(task.createdAt) : new Date(),
+          action: 'COMPLETED'
+        });
+      }
+      rawMap = mockMap;
     }
-    if (task.status === 'COMPLETED') {
-      mockMap.push({
-        assignedTo: task.assignedTo,
-        assignedToLabel: task.assignee || task.assignedToLabel || 'Staff',
-        assignedBy: task.assignedBy || 'Creator',
-        assignedAt: task.createdAt ? new Date(task.createdAt) : new Date(),
-        action: 'COMPLETED'
-      });
+
+    const filteredMap = [];
+    let lastAssignee = null;
+
+    for (let i = 0; i < rawMap.length; i++) {
+      const step = rawMap[i];
+      if (step.action !== 'ASSIGNED' && step.action !== 'REASSIGNED' && step.action !== 'COMPLETED') {
+        continue;
+      }
+
+      if (step.action === 'ASSIGNED') {
+        filteredMap.push(step);
+        lastAssignee = step.assignedTo;
+      } else if (step.action === 'REASSIGNED') {
+        // Only show reassigned if it is reassigned to another person
+        if (step.assignedTo && lastAssignee && String(step.assignedTo) !== String(lastAssignee)) {
+          filteredMap.push(step);
+          lastAssignee = step.assignedTo;
+        }
+      } else if (step.action === 'COMPLETED') {
+        filteredMap.push(step);
+      }
     }
-    return mockMap;
+
+    return filteredMap;
   };
 
   return (

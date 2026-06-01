@@ -968,18 +968,23 @@ export const GetSearchDataController = async (req, res) => {
 
 export const GetUserMessage = async (req, res) => {
     try {
-        const { email } = req.params;
+        const { id } = req.params;
 
-        if (!email) {
-            return res.status(400).json({ message: "Email is required" });
+        if (!id) {
+            return res.status(400).json({ message: "Identifier (email or employee ID) is required" });
         }
 
-        let userData = await User.findOne({ email })
+        // Determine if lookup is by email or employee ID
+        const isEmail = id.includes('@');
+        const userQuery = isEmail ? { email: id } : { empID: id };
+        const adminQuery = isEmail ? { email: id } : { EmpId: id };
+
+        let userData = await User.findOne(userQuery)
             .select("username email locCode empID designation workingBranch");
 
         if (!userData) {
             // Fallback to Admin collection if not found in User collection
-            const adminData = await Admin.findOne({ email }).populate('branches');
+            const adminData = await Admin.findOne(adminQuery).populate('branches');
             if (!adminData) {
                 return res.status(404).json({ message: "User or Admin not found" });
             }
