@@ -920,8 +920,33 @@ export const updateTaskStatus = async (req, res) => {
         assignedAt: new Date(),
         action: 'COMPLETED'
       });
+    } else if (normalizedStatus === 'UNDER REVIEW') {
+      task.workMap.push({
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignedToLabel,
+        assignedBy: executorName,
+        assignedAt: new Date(),
+        action: 'UNDER REVIEW'
+      });
+    } else if (normalizedStatus === 'IN PROGRESS') {
+      task.workMap.push({
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignedToLabel,
+        assignedBy: executorName,
+        assignedAt: new Date(),
+        action: 'IN PROGRESS'
+      });
+    } else if (normalizedStatus === 'ON HOLD') {
+      task.workMap.push({
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignedToLabel,
+        assignedBy: executorName,
+        assignedAt: new Date(),
+        action: 'ON HOLD'
+      });
     }
 
+    task.status = normalizedStatus;
     await task.save();
 
     // Trigger status-change notifications
