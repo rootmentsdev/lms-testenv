@@ -217,7 +217,7 @@ The Brynex LMS features a comprehensively documented backend. Swagger UI is avai
       ]
     }
     ```
-* **POST /api/task/save**: Creates a new task. If assigned to a generic group (like `all_employees`), the backend auto-expands it and creates a separate task record per user. Supports creators from both the `Admin` and `User` (employee) collections.
+* **POST /api/task/save**: Creates a new task. If assigned to a generic group (like `all_employees`), the backend auto-expands it and creates a separate task record per user. Fully supports creators from both the `Admin` (managers) and `User` (employees) collections (e.g., allowing standard employees to create precautionary tasks).
   * **Headers:** `Authorization: Bearer <JWT_TOKEN>`
   * **Request Body:**
     ```json
@@ -446,3 +446,22 @@ The Walk-in system integrates both mobile app lead capture and web dashboard man
   - Dynamic store and employee dropdowns are governed by the `api/admin/accessible-stores` and `api/admin/accessible-employees` endpoints.
   - Passes explicit `storeId` and `employeeId` during save. The backend heavily validates these against the logged-in Admin's scope using `validateStoreAccess` and `validateEmployeeAccess`.
 - **Database & RBAC:** `getWalkins` dynamically wraps all DB queries with `buildWalkinFilter` to strictly segregate data for Cluster Admins and Store Admins, preventing manual ID overrides.
+
+### Database-Backed Notifications & Flutter Inbox API (June 2026)
+We implemented a robust database-backed notification/inbox system supporting task and training lifecycles.
+- **Flutter API Endpoint:** `/api/user/assessment/user/get/message/:email`
+  - Retrieves all notifications targeted at a user or admin based on their email address.
+  - Supports both standard `User` employee accounts and `Admin` manager/administrator accounts.
+  - Performs dynamic, query-safe `$or` matches on:
+    - User ObjectId targeting (`user` field)
+    - Designation or role targeting (`Role` field)
+    - Branch location code targeting (`branch` field)
+  - Returns notifications sorted by `createdAt` in descending order (latest-first).
+- **Task Notifications:**
+  - **Assignment:** Triggers a notification to the assignee when a new task is created/assigned.
+  - **Review Submission:** Triggers a notification to the task creator (admin) when an assignee submits a task for review.
+  - **Reassignment:** Triggers a notification to the new assignee when a task is reassigned by status update or reassign endpoint.
+- **Training Notifications:**
+  - **Assignment:** Triggers a notification to the employee when they are assigned a training package.
+  - **Completion:** Triggers a notification to the employee when they successfully pass all modules in a training program.
+

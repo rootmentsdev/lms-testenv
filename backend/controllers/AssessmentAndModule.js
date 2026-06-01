@@ -4,6 +4,7 @@ import TrainingProgress from '../model/Trainingprocessschema.js';
 import { Training } from '../model/Traning.js';
 import User from '../model/User.js';
 import Module from '../model/Module.js'; // Added import for Module
+import { sendNotification } from '../utils/notificationHelper.js';
 
 const getTrainingVideoStats = (training, progressRecords = []) => {
   const modules = Array.isArray(training?.modules) ? training.modules : [];
@@ -525,6 +526,17 @@ export const ReassignTraining = async (req, res) => {
       });
 
       await trainingProgress.save();
+
+      // Send notification to the user
+      const senderName = req.admin?.username || 'Admin';
+      await sendNotification({
+        title: 'New Training Assigned',
+        body: `You have been assigned a training program: "${training.trainingName}"`,
+        userIds: [user._id],
+        senderName,
+        category: 'Training'
+      });
+
       processedUsers.push(user);
     }
 

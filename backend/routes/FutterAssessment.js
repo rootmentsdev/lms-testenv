@@ -149,18 +149,22 @@ router.post('/user/update/assessment', userAssessmentUpdate);
  * /api/user/assessment/user/get/message/{email}:
  *   get:
  *     tags: [Assessments]
- *     summary: Get notifications for a user by email
- *     description: Retrieves all notifications sent to a specific user (either directly by user ID, designation/role, or store/branch location code) based on their email.
+ *     summary: Get notifications for a user or admin by email (Flutter compatible)
+ *     description: >
+ *       Retrieves all database-backed notifications targeted at the user or admin based on their email.
+ *       Supports both employee accounts (User collection) and manager/admin accounts (Admin collection).
+ *       Filters notifications dynamically by target user ID, designation/role, or store/branch location code,
+ *       and returns the results sorted by creation date in descending order (latest-first).
  *     parameters:
  *       - in: path
  *         name: email
  *         required: true
  *         schema:
  *           type: string
- *         description: The user's email address
+ *         description: The user's or admin's email address
  *     responses:
  *       200:
- *         description: List of notifications retrieved successfully.
+ *         description: List of notifications retrieved successfully sorted latest-first.
  *         content:
  *           application/json:
  *             schema:
@@ -170,10 +174,46 @@ router.post('/user/update/assessment', userAssessmentUpdate);
  *                   type: array
  *                   items:
  *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                         description: Notification unique ID
+ *                       title:
+ *                         type: string
+ *                         description: Title of the notification
+ *                       body:
+ *                         type: string
+ *                         description: Detailed message content
+ *                       branch:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ *                         description: Targeted branch codes
+ *                       user:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ *                         description: Targeted user ObjectIds
+ *                       Role:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ *                         description: Targeted designation or role strings
+ *                       useradmin:
+ *                         type: string
+ *                         description: Sender's name or display label
+ *                       category:
+ *                         type: string
+ *                         enum: [Task, Training, General]
+ *                         description: Notification category
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                         description: Timestamp when notification was created
  *       400:
  *         description: Email is required.
  *       404:
- *         description: User not found.
+ *         description: User or Admin not found.
  *       500:
  *         description: Internal server error.
  */

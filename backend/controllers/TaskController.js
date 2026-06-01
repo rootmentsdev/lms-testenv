@@ -7,6 +7,7 @@ import Employee from '../model/Employee.js';
 import User from '../model/User.js';
 import Branch from '../model/Branch.js';
 import { getAccessibleEmployeeIds, getAccessibleStoreIds } from '../lib/permissions.js';
+import { sendNotification } from '../utils/notificationHelper.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -194,7 +195,7 @@ export const createTask = async (req, res) => {
       storeCode = branch?.locCode ? `Z-${branch.locCode}` : '';
     } else {
       storeName = creator.workingBranch || '';
-      storeCode = creator.locCode ? `Z-${creator.locCode}` : '';
+      storeCode = creator.locCode ? (Array.isArray(creator.locCode) ? `Z-${creator.locCode[0]}` : `Z-${creator.locCode}`) : '';
     }
 
     const roleLabel = isCreatorAdmin ? (ROLE_LABELS[creator.role] || creator.role) : 'Staff';
@@ -343,6 +344,17 @@ export const createTask = async (req, res) => {
         }],
       });
       createdTasks.push(task);
+      
+      // Send notification to the assignee
+      const creatorName = isCreatorAdmin ? creator.name : creator.username;
+      await sendNotification({
+        title: 'New Task Assigned',
+        body: `You have been assigned a new task: "${title.trim()}" by ${creatorName}`,
+        userIds: [target.id],
+        senderName: creatorName,
+        category: 'Task'
+      });
+
       index++;
     }
 
@@ -834,8 +846,27 @@ export const updateTaskStatus = async (req, res) => {
       });
     }
 
-    task.status = normalizedStatus;
     await task.save();
+
+    // Trigger status-change notifications
+    if (normalizedStatus === 'REASSIGNED') {
+      const { assignedTo } = req.body;
+      await sendNotification({
+        title: 'Task Reassigned',
+        body: `Task "${task.title}" has been reassigned to you by ${executorName}`,
+        userIds: [assignedTo],
+        senderName: executorName,
+        category: 'Task'
+      });
+    } else if (normalizedStatus === 'UNDER REVIEW') {
+      await sendNotification({
+        title: 'Task Submitted for Review',
+        body: `Task "${task.title}" has been submitted for review by ${executorName}`,
+        userIds: [task.createdBy],
+        senderName: executorName,
+        category: 'Task'
+      });
+    }
 
     return res.status(200).json({
       success: true,
@@ -947,6 +978,15 @@ export const reassignTask = async (req, res) => {
     }
 
     await task.save();
+
+    // Send notification to the new assignee
+    await sendNotification({
+      title: 'Task Reassigned',
+      body: `Task "${task.title}" has been reassigned to you by ${reassignerName}`,
+      userIds: [assignedTo],
+      senderName: reassignerName,
+      category: 'Task'
+    });
 
     return res.status(200).json({
       success: true,
