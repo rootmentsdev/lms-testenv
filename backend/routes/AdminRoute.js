@@ -471,7 +471,7 @@ router.post('/admin/verifyToken', VerifyToken);
  *       500:
  *         description: Internal server error.
  */
-router.get('/home/notification', getNotifications);
+router.get('/home/notification', MiddilWare, getNotifications);
 
 /**
  * @swagger
@@ -487,7 +487,7 @@ router.get('/home/notification', getNotifications);
  *       500:
  *         description: Internal server error.
  */
-router.get('/home/AllNotification', getAllNotifications);
+router.get('/home/AllNotification', MiddilWare, getAllNotifications);
 
 /**
  * @swagger

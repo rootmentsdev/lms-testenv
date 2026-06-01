@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import mongoose from 'mongoose';
 import Task from '../model/Task.js';
 import Admin from '../model/Admin.js';
 import Employee from '../model/Employee.js';
@@ -11,6 +12,50 @@ import { sendNotification } from '../utils/notificationHelper.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const resolveAssigneeId = async (assignedTo) => {
+  if (!assignedTo) return null;
+
+  // 1. If it's already a valid ObjectId, return it
+  if (mongoose.Types.ObjectId.isValid(assignedTo)) {
+    return assignedTo.toString();
+  }
+
+  // 2. If it is a group selection key, return it
+  if (['all_employees', 'all_store_admins', 'all_cluster_admins', 'all_hr_admins'].includes(assignedTo)) {
+    return assignedTo;
+  }
+
+  // Support group labels
+  if (assignedTo.toLowerCase() === 'all employees') return 'all_employees';
+  if (assignedTo.toLowerCase() === 'all store admins') return 'all_store_admins';
+  if (assignedTo.toLowerCase() === 'all cluster admins') return 'all_cluster_admins';
+  if (assignedTo.toLowerCase() === 'all hr admins') return 'all_hr_admins';
+
+  // 3. Parse formatted label, e.g. "Test Staff 1 - Fashion Stylist - G-Edappally"
+  const parts = assignedTo.split(' - ');
+  const namePart = parts[0]?.trim();
+  if (!namePart) return assignedTo;
+
+  // Search Admin
+  const admin = await Admin.findOne({ name: { $regex: new RegExp('^' + namePart.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } });
+  if (admin) return admin._id.toString();
+
+  // Search User
+  const user = await User.findOne({ username: { $regex: new RegExp('^' + namePart.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } });
+  if (user) return user._id.toString();
+
+  // Search Employee (check firstName + lastName, or username)
+  const employees = await Employee.find({});
+  for (const emp of employees) {
+    const fullName = emp.firstName ? `${emp.firstName} ${emp.lastName || ''}`.trim() : (emp.username || '');
+    if (fullName.toLowerCase() === namePart.toLowerCase()) {
+      return emp._id.toString();
+    }
+  }
+
+  return assignedTo;
+};
 
 const ASSIGNED_TO_LABELS = {
   store_admin: 'Store Admin',
@@ -163,6 +208,10 @@ export const createTask = async (req, res) => {
       });
     }
 
+    // Resolve assignedTo string to proper ObjectID if needed (e.g. from Flutter label)
+    const resolvedAssignedTo = await resolveAssigneeId(assignedTo);
+    const resolvedAssignedToLabel = resolvedAssignedTo !== assignedTo ? assignedTo : assignedToLabel;
+
     let attachment = '';
     let attachmentName = '';
     if (fileAttachment && fileAttachment.base64) {
@@ -204,7 +253,7 @@ export const createTask = async (req, res) => {
     // Resolve all target assignees
     const targets = [];
 
-    if (assignedTo === 'all_employees') {
+    if (resolvedAssignedTo === 'all_employees') {
       const storeIds = await getAccessibleStoreIds(creator._id);
       let employeeIds = await getAccessibleEmployeeIds(creator._id);
       
@@ -234,7 +283,7 @@ export const createTask = async (req, res) => {
 
       targets.push(...combinedList);
     } 
-    else if (assignedTo === 'all_store_admins') {
+    else if (resolvedAssignedTo === 'all_store_admins') {
       const storeIds = await getAccessibleStoreIds(creator._id);
       const adminQuery = { role: 'store_admin', branches: { $in: storeIds }, isActive: true };
       const adminsList = await Admin.find(adminQuery).populate('branches');
@@ -246,7 +295,7 @@ export const createTask = async (req, res) => {
         });
       });
     }
-    else if (assignedTo === 'all_cluster_admins') {
+    else if (resolvedAssignedTo === 'all_cluster_admins') {
       const adminsList = await Admin.find({ role: 'cluster_admin', isActive: true });
       adminsList.forEach(ad => {
         targets.push({
@@ -255,7 +304,7 @@ export const createTask = async (req, res) => {
         });
       });
     }
-    else if (assignedTo === 'all_hr_admins') {
+    else if (resolvedAssignedTo === 'all_hr_admins') {
       const adminsList = await Admin.find({ role: 'hr_admin', isActive: true });
       adminsList.forEach(ad => {
         targets.push({
@@ -266,8 +315,8 @@ export const createTask = async (req, res) => {
     }
     else {
       targets.push({
-        id: assignedTo,
-        label: assignedToLabel || ASSIGNED_TO_LABELS[assignedTo] || assignedTo
+        id: resolvedAssignedTo,
+        label: resolvedAssignedToLabel || ASSIGNED_TO_LABELS[resolvedAssignedTo] || resolvedAssignedTo
       });
     }
 
@@ -819,19 +868,22 @@ export const updateTaskStatus = async (req, res) => {
 
     if (normalizedStatus === 'REASSIGNED') {
       const { assignedTo, assignedToLabel } = req.body;
-      if (!assignedTo || !assignedToLabel) {
+      if (!assignedTo) {
         return res.status(400).json({
           success: false,
-          message: 'assignedTo and assignedToLabel are required when updating status to REASSIGNED',
+          message: 'assignedTo is required when updating status to REASSIGNED',
         });
       }
 
-      task.assignedTo = assignedTo;
-      task.assignedToLabel = assignedToLabel;
+      const resolvedAssignedTo = await resolveAssigneeId(assignedTo);
+      const resolvedAssignedToLabel = resolvedAssignedTo !== assignedTo ? assignedTo : (assignedToLabel || assignedTo);
+
+      task.assignedTo = resolvedAssignedTo;
+      task.assignedToLabel = resolvedAssignedToLabel;
 
       task.workMap.push({
-        assignedTo: assignedTo,
-        assignedToLabel: assignedToLabel,
+        assignedTo: resolvedAssignedTo,
+        assignedToLabel: resolvedAssignedToLabel,
         assignedBy: executorName,
         assignedAt: new Date(),
         action: 'REASSIGNED'
@@ -839,7 +891,7 @@ export const updateTaskStatus = async (req, res) => {
 
       // Update store details
       try {
-        const targetAdmin = await Admin.findById(assignedTo).populate('branches');
+        const targetAdmin = await Admin.findById(resolvedAssignedTo).populate('branches');
         let targetStoreName = '';
         let targetStoreCode = '';
         if (targetAdmin) {
@@ -847,7 +899,7 @@ export const updateTaskStatus = async (req, res) => {
           targetStoreName = targetBranch?.workingBranch || '';
           targetStoreCode = targetBranch?.locCode ? `Z-${targetBranch.locCode}` : '';
         } else {
-          const targetUser = await User.findById(assignedTo);
+          const targetUser = await User.findById(resolvedAssignedTo);
           if (targetUser) {
             targetStoreName = targetUser.workingBranch || '';
             targetStoreCode = targetUser.locCode ? (Array.isArray(targetUser.locCode) ? `Z-${targetUser.locCode[0]}` : `Z-${targetUser.locCode}`) : '';
@@ -874,11 +926,10 @@ export const updateTaskStatus = async (req, res) => {
 
     // Trigger status-change notifications
     if (normalizedStatus === 'REASSIGNED') {
-      const { assignedTo } = req.body;
       await sendNotification({
         title: 'Task Reassigned',
         body: `Task "${task.title}" has been reassigned to you by ${executorName}`,
-        userIds: [assignedTo],
+        userIds: [task.assignedTo],
         senderName: executorName,
         category: 'Task'
       });
@@ -911,10 +962,12 @@ export const reassignTask = async (req, res) => {
   try {
     const { id } = req.params;
     const { assignedTo, assignedToLabel } = req.body;
-
-    if (!assignedTo || !assignedToLabel) {
-      return res.status(400).json({ success: false, message: 'assignedTo and assignedToLabel are required' });
+    if (!assignedTo) {
+      return res.status(400).json({ success: false, message: 'assignedTo is required' });
     }
+
+    const resolvedAssignedTo = await resolveAssigneeId(assignedTo);
+    const resolvedAssignedToLabel = resolvedAssignedTo !== assignedTo ? assignedTo : (assignedToLabel || assignedTo);
 
     const task = await Task.findOne({
       $or: [{ taskCode: id }, ...(id.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: id }] : [])],
@@ -978,13 +1031,13 @@ export const reassignTask = async (req, res) => {
       });
     }
 
-    task.assignedTo = assignedTo;
-    task.assignedToLabel = assignedToLabel;
+    task.assignedTo = resolvedAssignedTo;
+    task.assignedToLabel = resolvedAssignedToLabel;
     task.status = 'REASSIGNED'; // Reset status to REASSIGNED
 
     task.workMap.push({
-      assignedTo: assignedTo,
-      assignedToLabel: assignedToLabel,
+      assignedTo: resolvedAssignedTo,
+      assignedToLabel: resolvedAssignedToLabel,
       assignedBy: reassignerName,
       assignedAt: new Date(),
       action: 'REASSIGNED'
@@ -992,7 +1045,7 @@ export const reassignTask = async (req, res) => {
 
     // Update storeName and storeCode to the new assignee's store dynamically
     try {
-      const targetAdmin = await Admin.findById(assignedTo).populate('branches');
+      const targetAdmin = await Admin.findById(resolvedAssignedTo).populate('branches');
       let targetStoreName = '';
       let targetStoreCode = '';
       if (targetAdmin) {
@@ -1000,7 +1053,7 @@ export const reassignTask = async (req, res) => {
         targetStoreName = targetBranch?.workingBranch || '';
         targetStoreCode = targetBranch?.locCode ? `Z-${targetBranch.locCode}` : '';
       } else {
-        const targetUser = await User.findById(assignedTo);
+        const targetUser = await User.findById(resolvedAssignedTo);
         if (targetUser) {
           targetStoreName = targetUser.workingBranch || '';
           targetStoreCode = targetUser.locCode ? (Array.isArray(targetUser.locCode) ? `Z-${targetUser.locCode[0]}` : `Z-${targetUser.locCode}`) : '';
@@ -1020,7 +1073,7 @@ export const reassignTask = async (req, res) => {
     await sendNotification({
       title: 'Task Reassigned',
       body: `Task "${task.title}" has been reassigned to you by ${reassignerName}`,
-      userIds: [assignedTo],
+      userIds: [task.assignedTo],
       senderName: reassignerName,
       category: 'Task'
     });
