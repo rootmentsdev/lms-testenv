@@ -260,6 +260,15 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
         action: 'ASSIGNED'
       }
     ];
+    if (task.status === 'REASSIGNED') {
+      mockMap.push({
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignee || task.assignedToLabel || 'Staff',
+        assignedBy: task.assignedBy || 'Creator',
+        assignedAt: task.createdAt ? new Date(task.createdAt) : new Date(),
+        action: 'REASSIGNED'
+      });
+    }
     if (task.status === 'COMPLETED') {
       mockMap.push({
         assignedTo: task.assignedTo,
@@ -367,6 +376,8 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
                       <div className="task-detail-workmap-details">
                         {step.action === 'COMPLETED' ? (
                           <>Completed by <strong>{step.assignedToLabel || 'Unknown User'}</strong></>
+                        ) : step.action === 'REASSIGNED' ? (
+                          <>Reassigned to <strong>{step.assignedToLabel}</strong> by <strong>{step.assignedBy}</strong></>
                         ) : (
                           <>Assigned to <strong>{step.assignedToLabel}</strong> by <strong>{step.assignedBy}</strong></>
                         )}

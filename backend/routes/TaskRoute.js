@@ -49,7 +49,7 @@ router.get('/assignees', MiddilWare, getTaskAssignees);
  *   post:
  *     tags: [Tasks]
  *     summary: Create a new task
- *     description: Create a task assigned to a store, employee, or generic group. Secured with role-based restrictions.
+ *     description: Create a task assigned to a store, employee, or generic group. Accessible to both administrators and standard employees. Triggers a database-backed inbox notification to the assigned user(s)/admin(s).
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -193,6 +193,10 @@ router.get('/:id', MiddilWare, getTaskById);
  *     description: >
  *       Updates the status of an existing task. Handles status normalization (e.g. `REVIEW` becomes `UNDER REVIEW`, and `REASSIGN` or `reassign` becomes `REASSIGNED`).
  *       
+ *       **Notifications:**
+ *       - Moving status to `UNDER REVIEW` triggers a database-backed notification to the task creator.
+ *       - Moving status to `REASSIGNED` triggers a database-backed notification to the new assignee.
+ *       
  *       **Permissions:**
  *       - Only current assignee or an administrator (Super Admin, HR Admin, Cluster Admin, Store Admin) can update status to `REASSIGNED` (reassign).
  *       - If status is `COMPLETED`, only the original task creator (assigner) can finalize it.
@@ -255,6 +259,7 @@ router.put('/:id/status', MiddilWare, updateTaskStatus);
  *     summary: Reassign a task to another employee
  *     description: >
  *       Reassigns an existing task to another employee or administrator and resets its status to REASSIGNED.
+ *       Triggers a database-backed inbox notification to the new assignee.
  *       
  *       **Permissions:**
  *       - Access is restricted exclusively to the current assignee of the task and all administrators (Super Admin, HR Admin, Cluster Admin, Store Admin).

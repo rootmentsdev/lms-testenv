@@ -8,6 +8,7 @@ import Module from '../model/Module.js';
 import { Training } from '../model/Traning.js';
 import Admin from '../model/Admin.js';
 import { sendCompletionEmail } from '../utils/sendEmail.js';
+import { sendNotification } from '../utils/notificationHelper.js';
 dotenv.config()
 
 // Adjust the path to your TrainingProgress model
@@ -979,6 +980,7 @@ export const UpdateuserTrainingprocess = async (req, res) => {
 
     // Update training status
     const allModulesPassed = trainingProgress.modules.every(mod => mod.pass === true);
+    const wasAlreadyPassed = trainingProgress.pass === true;
 
     if (allModulesPassed) {
       trainingProgress.pass = true;
@@ -990,6 +992,17 @@ export const UpdateuserTrainingprocess = async (req, res) => {
 
     // Save updated training progress
     await trainingProgress.save();
+
+    // Trigger notification if newly completed
+    if (allModulesPassed && !wasAlreadyPassed) {
+      await sendNotification({
+        title: 'Training Completed',
+        body: `Congratulations! You have completed the training program: "${trainingProgress.trainingName}"`,
+        userIds: [userId],
+        senderName: 'LMS System',
+        category: 'Training'
+      });
+    }
 
     // Update User Collection
     const user = await User.findById(userId);
