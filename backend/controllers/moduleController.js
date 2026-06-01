@@ -380,35 +380,100 @@ export const AdminLogin = async (req, res) => {
 // Fetch first three notifications
 export const getNotifications = async (req, res) => {
     try {
+        if (!req.admin) {
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+
+        const userId = req.admin.userId;
+        const userRole = req.admin.role;
+
+        let query = {};
+
+        // If not a full access admin (super_admin or hr_admin), filter by scope
+        if (userRole !== 'super_admin' && userRole !== 'hr_admin') {
+            const admin = await Admin.findById(userId).populate('branches');
+            if (admin) {
+                const locCodes = admin.branches?.map(b => b.locCode).filter(Boolean) || [];
+                query = {
+                    $or: [
+                        { user: { $in: [admin._id] } },
+                        { Role: { $in: [admin.role] } },
+                        { branch: { $in: locCodes } }
+                    ]
+                };
+            } else {
+                // Check if they are a regular user/employee
+                const user = await User.findById(userId);
+                if (user) {
+                    const locCodes = Array.isArray(user.locCode) ? user.locCode : [user.locCode].filter(Boolean);
+                    query = {
+                        $or: [
+                            { user: { $in: [user._id] } },
+                            { Role: { $in: [user.designation] } },
+                            { branch: { $in: locCodes } }
+                        ]
+                    };
+                }
+            }
+        }
+
         // Fetch the first three notifications, sorted by createdAt in descending order (latest first)
-        const notifications = await Notification.find()
+        const notifications = await Notification.find(query)
             .sort({ createdAt: -1 })  // Sort by 'createdAt' field in descending order
             .limit(3);  // Limit the result to 3 notifications
 
-        if (!notifications || notifications.length === 0) {
-            return res.status(404).json({ message: 'No notifications found' });
-        }
-
-        // Send the notifications as a response
-        res.status(200).json({ notifications });
+        // Send the notifications as a response (return empty array instead of 404 to prevent client crash)
+        res.status(200).json({ notifications: notifications || [] });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server Error' });
     }
 };
+
 export const getAllNotifications = async (req, res) => {
     try {
-        // Fetch the first three notifications, sorted by createdAt in descending order (latest first)
-        const notifications = await Notification.find()
-            .sort({ createdAt: -1 })  // Sort by 'createdAt' field in descending order
-        // Limit the result to 3 notifications
-
-        if (!notifications || notifications.length === 0) {
-            return res.status(404).json({ message: 'No notifications found' });
+        if (!req.admin) {
+            return res.status(401).json({ message: 'Unauthorized' });
         }
 
-        // Send the notifications as a response
-        res.status(200).json({ notifications });
+        const userId = req.admin.userId;
+        const userRole = req.admin.role;
+
+        let query = {};
+
+        // If not a full access admin, filter by scope
+        if (userRole !== 'super_admin' && userRole !== 'hr_admin') {
+            const admin = await Admin.findById(userId).populate('branches');
+            if (admin) {
+                const locCodes = admin.branches?.map(b => b.locCode).filter(Boolean) || [];
+                query = {
+                    $or: [
+                        { user: { $in: [admin._id] } },
+                        { Role: { $in: [admin.role] } },
+                        { branch: { $in: locCodes } }
+                    ]
+                };
+            } else {
+                const user = await User.findById(userId);
+                if (user) {
+                    const locCodes = Array.isArray(user.locCode) ? user.locCode : [user.locCode].filter(Boolean);
+                    query = {
+                        $or: [
+                            { user: { $in: [user._id] } },
+                            { Role: { $in: [user.designation] } },
+                            { branch: { $in: locCodes } }
+                        ]
+                    };
+                }
+            }
+        }
+
+        // Fetch the notifications, sorted by createdAt in descending order (latest first)
+        const notifications = await Notification.find(query)
+            .sort({ createdAt: -1 });  // Sort by 'createdAt' field in descending order
+
+        // Send the notifications as a response (return empty array instead of 404 to prevent client crash)
+        res.status(200).json({ notifications: notifications || [] });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server Error' });
