@@ -162,7 +162,28 @@ const mapTaskForClient = (doc) => {
     attachmentName: task.attachmentName || '',
     reviewAttachment: task.reviewAttachment || '',
     reviewAttachmentName: task.reviewAttachmentName || '',
-    workMap: task.workMap || [],
+    workMap: (() => {
+      const list = task.workMap || [];
+      const filtered = [];
+      let lastAssignee = null;
+      for (const step of list) {
+        if (step.action !== 'ASSIGNED' && step.action !== 'REASSIGNED' && step.action !== 'COMPLETED') {
+          continue;
+        }
+        if (step.action === 'ASSIGNED') {
+          filtered.push(step);
+          lastAssignee = step.assignedTo;
+        } else if (step.action === 'REASSIGNED') {
+          if (step.assignedTo && lastAssignee && String(step.assignedTo) !== String(lastAssignee)) {
+            filtered.push(step);
+            lastAssignee = step.assignedTo;
+          }
+        } else if (step.action === 'COMPLETED') {
+          filtered.push(step);
+        }
+      }
+      return filtered;
+    })(),
     createdAt: task.createdAt,
   };
 };
