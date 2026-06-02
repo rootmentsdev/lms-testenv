@@ -3,6 +3,7 @@ import User from '../model/User.js';
 import TrainingProgress from '../model/Trainingprocessschema.js';
 import { Training } from '../model/Traning.js';
 import Admin from '../model/Admin.js';
+import Task from '../model/Task.js';
 import {
   getExternalEmployeesNonBlocking,
   getProcessedCacheKey,
@@ -56,6 +57,37 @@ const storeNameToLocCode = {
 const USER_FIELDS = 'empID username designation workingBranch email phoneNumber training assignedAssessments locCode source';
 const PROGRESS_FIELDS = 'userId trainingId pass deadline';
 
+const parseDateParts = (dateStr) => {
+  if (!dateStr) return null;
+  if (dateStr.includes('/')) {
+    const [dd, mm, yyyy] = dateStr.split('/');
+    return new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+  }
+  if (dateStr.includes('-')) {
+    const parts = dateStr.split('-');
+    if (parts[0].length === 4) return new Date(dateStr);
+    const [dd, mm, yyyy] = parts;
+    return new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+  }
+  return new Date(dateStr);
+};
+
+const computeStatus = (task) => {
+  if (task.status === 'COMPLETED') return 'COMPLETED';
+  if (task.status === 'IN PROGRESS') return 'IN PROGRESS';
+  if (task.status === 'ON HOLD') return 'ON HOLD';
+  if (task.status === 'UNDER REVIEW') return 'UNDER REVIEW';
+
+  const end = parseDateParts(task.endDate);
+  if (end) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+    if (end < today) return 'OVERDUE';
+  }
+  return task.status || 'PENDING';
+};
+
 function filterExternalByBranch(externalEmployees, allowedLocCodes, isGlobalAdmin) {
   let filtered = externalEmployees.filter((emp) => {
     const storeName = emp?.store_name?.toUpperCase();
@@ -74,67 +106,104 @@ function filterExternalByBranch(externalEmployees, allowedLocCodes, isGlobalAdmi
   return filtered;
 }
 
-function buildEmployeeStats(localUser, mandatoryTrainings) {
+function buildEmployeeStats(localUser, userTrainingProgress, userTasks) {
   let trainingCount = 0;
   let passCountTraining = 0;
   let trainingDue = 0;
+  
   let assignedAssessmentsCount = 0;
   let passCountAssessment = 0;
   let assessmentDue = 0;
 
-  if (!localUser) {
-    return {
-      trainingCount,
-      passCountTraining,
-      trainingDue,
-      assignedAssessmentsCount,
-      passCountAssessment,
-      assessmentDue,
-      trainingCompletionPercentage: 0,
-      assessmentCompletionPercentage: 0,
-    };
-  }
+  let taskCount = 0;
+  let passCountTask = 0;
+  let taskDue = 0;
 
   const today = new Date();
-  const assignedTrainingIds = localUser.training
-    ? localUser.training.map((t) => String(t.trainingId))
-    : [];
 
-  if (localUser.training?.length) {
-    trainingCount += localUser.training.length;
-    passCountTraining += localUser.training.filter((t) => t.pass).length;
-    trainingDue += localUser.training.filter(
-      (t) => new Date(t.deadline) < today && !t.pass
-    ).length;
+  // 1. Calculate training and assessment stats
+  if (localUser) {
+    const progressMap = new Map();
+    (userTrainingProgress || []).forEach(tp => {
+      if (tp.trainingId) {
+        progressMap.set(tp.trainingId.toString(), tp);
+      }
+    });
+
+    const uniqueTrainingIds = new Set();
+    const assignedTrainings = localUser.training || [];
+    assignedTrainings.forEach(t => {
+      if (t.trainingId) uniqueTrainingIds.add(t.trainingId.toString());
+    });
+    (userTrainingProgress || []).forEach(tp => {
+      if (tp.trainingId) uniqueTrainingIds.add(tp.trainingId.toString());
+    });
+
+    uniqueTrainingIds.forEach(tId => {
+      const progressDoc = progressMap.get(tId);
+      const userTrainingDoc = assignedTrainings.find(t => t.trainingId && t.trainingId.toString() === tId);
+
+      let pass = false;
+      let deadline = null;
+
+      if (progressDoc) {
+        pass = progressDoc.pass || progressDoc.status === 'Completed';
+        deadline = progressDoc.deadline;
+      } else if (userTrainingDoc) {
+        pass = userTrainingDoc.pass || userTrainingDoc.status === 'Completed';
+        deadline = userTrainingDoc.deadline;
+      }
+
+      trainingCount++;
+      if (pass) {
+        passCountTraining++;
+      } else {
+        if (deadline && new Date(deadline) < today) {
+          trainingDue++;
+        }
+      }
+    });
+
+    if (localUser.assignedAssessments?.length) {
+      assignedAssessmentsCount = localUser.assignedAssessments.length;
+      passCountAssessment = localUser.assignedAssessments.filter((a) => a.pass).length;
+      assessmentDue = localUser.assignedAssessments.filter(
+        (a) => new Date(a.deadline) < today && !a.pass
+      ).length;
+    }
   }
 
-  trainingCount += mandatoryTrainings.length;
-  passCountTraining += mandatoryTrainings.filter((t) => t.pass).length;
-  trainingDue += mandatoryTrainings.filter(
-    (t) => new Date(t.deadline) < today && !t.pass
-  ).length;
-
-  if (localUser.assignedAssessments?.length) {
-    assignedAssessmentsCount = localUser.assignedAssessments.length;
-    passCountAssessment = localUser.assignedAssessments.filter((a) => a.pass).length;
-    assessmentDue = localUser.assignedAssessments.filter(
-      (a) => new Date(a.deadline) < today && !a.pass
-    ).length;
+  // 2. Calculate operational task stats
+  if (userTasks && userTasks.length) {
+    taskCount = userTasks.length;
+    userTasks.forEach(task => {
+      const status = computeStatus(task);
+      if (status === 'COMPLETED') {
+        passCountTask++;
+      } else if (status === 'OVERDUE') {
+        taskDue++;
+      }
+    });
   }
 
   return {
     trainingCount,
     passCountTraining,
     trainingDue,
+    trainingCompletionPercentage:
+      trainingCount > 0 ? Math.round((passCountTraining / trainingCount) * 100) : 0,
+    
     assignedAssessmentsCount,
     passCountAssessment,
     assessmentDue,
-    trainingCompletionPercentage:
-      trainingCount > 0 ? Math.round((passCountTraining / trainingCount) * 100) : 0,
     assessmentCompletionPercentage:
       assignedAssessmentsCount > 0
         ? Math.round((passCountAssessment / assignedAssessmentsCount) * 100)
         : 0,
+    
+    taskCount,
+    passCountTask,
+    taskDue,
   };
 }
 
@@ -176,7 +245,7 @@ async function buildProcessedEmployees(admin) {
   );
 
   const localUsers = await User.find(localUsersQuery).select(USER_FIELDS).lean();
-  const localUsersByEmpId = new Map(localUsers.map((u) => [u.empID, u]));
+  const localUsersByEmpId = new Map(localUsers.map((u) => [String(u.empID).toLowerCase(), u]));
   const allUserIds = localUsers.map((u) => u._id);
 
   const allTrainingProgress = allUserIds.length
@@ -196,23 +265,25 @@ async function buildProcessedEmployees(admin) {
 
   for (const emp of filteredExternal) {
     if (!emp.emp_code) continue;
-    employeeDataMap.set(emp.emp_code, {
+    const lowerEmpCode = String(emp.emp_code).toLowerCase();
+    employeeDataMap.set(lowerEmpCode, {
       empID: emp.emp_code,
       username: emp.name || '',
       designation: emp.role_name || '',
       workingBranch: emp.store_name || '',
       email: emp.email || '',
       phoneNumber: emp.phone || '',
-      localUser: localUsersByEmpId.get(emp.emp_code) || null,
+      localUser: localUsersByEmpId.get(lowerEmpCode) || null,
     });
   }
 
   localUsers.forEach((user) => {
-    if (employeeDataMap.has(user.empID)) {
-      employeeDataMap.get(user.empID).localUser = user;
+    const lowerEmpId = String(user.empID).toLowerCase();
+    if (employeeDataMap.has(lowerEmpId)) {
+      employeeDataMap.get(lowerEmpId).localUser = user;
       return;
     }
-    employeeDataMap.set(user.empID, {
+    employeeDataMap.set(lowerEmpId, {
       empID: user.empID,
       username: user.username || '',
       designation: user.designation || '',
@@ -223,22 +294,45 @@ async function buildProcessedEmployees(admin) {
     });
   });
 
+  // Fetch all tasks for these users
+  const empIDs = Array.from(employeeDataMap.keys());
+  const allTasks = allUserIds.length || empIDs.length
+    ? await Task.find({
+        assignedTo: { $in: [...allUserIds.map(id => id.toString()), ...empIDs] }
+      }).lean()
+    : [];
+
+  const tasksByAssigneeMap = new Map();
+  allTasks.forEach(task => {
+    if (task.assignedTo) {
+      const assigneeKey = String(task.assignedTo).toLowerCase();
+      if (!tasksByAssigneeMap.has(assigneeKey)) {
+        tasksByAssigneeMap.set(assigneeKey, []);
+      }
+      tasksByAssigneeMap.get(assigneeKey).push(task);
+    }
+  });
+
   const processedEmployees = [];
 
   for (const employeeData of employeeDataMap.values()) {
     const localUser = employeeData.localUser;
-    let mandatoryTrainings = [];
+    const userProgress = localUser ? (trainingProgressMap.get(localUser._id.toString()) || []) : [];
 
+    let userTasks = [];
     if (localUser) {
-      const assignedTrainingIds = localUser.training
-        ? localUser.training.map((t) => String(t.trainingId))
-        : [];
-      mandatoryTrainings = (trainingProgressMap.get(localUser._id.toString()) || []).filter(
-        (tp) => !assignedTrainingIds.includes(String(tp.trainingId))
-      );
+      userTasks.push(...(tasksByAssigneeMap.get(localUser._id.toString().toLowerCase()) || []));
     }
+    userTasks.push(...(tasksByAssigneeMap.get(String(employeeData.empID).toLowerCase()) || []));
 
-    const stats = buildEmployeeStats(localUser, mandatoryTrainings);
+    // Deduplicate tasks
+    const uniqueTasksMap = new Map();
+    userTasks.forEach(t => {
+      uniqueTasksMap.set(t._id.toString(), t);
+    });
+    const uniqueTasks = Array.from(uniqueTasksMap.values());
+
+    const stats = buildEmployeeStats(localUser, userProgress, uniqueTasks);
 
     processedEmployees.push({
       empID: employeeData.empID,
@@ -283,7 +377,7 @@ export const getAllEmployeesWithTrainingDetailsV2 = async (req, res) => {
     if (!admin) return res.status(401).json({ success: false, message: 'Admin not found' });
 
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-    const limit = Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 7));
+    const limit = Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 20));
     const search = req.query.search || '';
     const store = req.query.store || 'All';
     const role = req.query.role || 'All';
@@ -372,49 +466,57 @@ const assignMandatoryTrainingsToUser = async (user) => {
 
 export const autoSyncEmployees = async (req, res) => {
   try {
-    const ROOTMENTS_API_TOKEN = process.env.ROOTMENTS_API_TOKEN || 'RootX-production-9d17d9485eb772e79df8564004d4a4d4';
-    const response = await axios.post(
-      'https://rootments.in/api/employee_range',
-      { startEmpId: 'EMP1', endEmpId: 'EMP9999' },
-      {
-        timeout: 30000,
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          Authorization: `Bearer ${ROOTMENTS_API_TOKEN}`,
-        },
-      }
-    );
+    const ROOTMENTS_API_TOKEN = 'RootX-production-9d17d9485eb772e79df8564004d4a4d4';
+    const response = await axios.post('https://rootments.in/api/employee_range', {
+      startEmpId: 'EMP1',
+      endEmpId: 'EMP9999',
+    }, {
+      timeout: 15000,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${ROOTMENTS_API_TOKEN}`,
+      },
+    });
 
     const externalEmployees = response.data?.data || [];
+    if (externalEmployees.length === 0) {
+      return res.status(200).json({ success: true, message: 'External API returned 0 employees. Sync skipped.' });
+    }
+
     let createdCount = 0;
     let updatedCount = 0;
     let skippedCount = 0;
 
-    for (const emp of externalEmployees) {
+    for (const extEmp of externalEmployees) {
       try {
-        if (!emp.emp_code || !emp.email) {
+        const empID = extEmp.emp_code;
+        if (!empID) {
           skippedCount++;
           continue;
         }
 
-        let user = await User.findOne({ $or: [{ empID: emp.emp_code }, { email: emp.email }] });
-
+        let user = await User.findOne({ empID });
         if (!user) {
-          const locCode = storeNameToLocCode[emp.store_name?.toUpperCase()] || emp.store_code || 'Unknown';
+          let locCode = extEmp.store_code || '';
+          if (!locCode) {
+            const nameUpper = (extEmp.store_name || '').toUpperCase();
+            locCode = storeNameToLocCode[nameUpper] || '1';
+          }
+
           user = new User({
-            username: emp.name || emp.emp_code || 'Unknown',
-            email: emp.email,
-            empID: emp.emp_code,
-            designation: emp.role_name || 'Unknown',
-            locCode,
-            workingBranch: emp.store_name || 'Unknown',
-            phoneNumber: emp.phone || '',
+            username: extEmp.name || '',
+            email: extEmp.email || `${empID}@company.com`,
+            empID: empID,
+            designation: extEmp.role_name || '',
+            workingBranch: extEmp.store_name || 'No Store',
+            locCode: locCode,
+            phoneNumber: extEmp.phone || '',
             source: 'external-sync',
-            assignedModules: [],
-            assignedAssessments: [],
             training: [],
+            assignedAssessments: [],
           });
+
           await user.save();
           createdCount++;
           try {
@@ -424,28 +526,18 @@ export const autoSyncEmployees = async (req, res) => {
           }
         } else {
           let hasChanges = false;
-          if (emp.name && user.username !== emp.name) {
-            user.username = emp.name;
+          if (extEmp.name && user.username !== extEmp.name) {
+            user.username = extEmp.name;
             hasChanges = true;
           }
-          if (emp.role_name && user.designation !== emp.role_name) {
-            user.designation = emp.role_name;
+          if (extEmp.role_name && user.designation !== extEmp.role_name) {
+            user.designation = extEmp.role_name;
             hasChanges = true;
           }
-          if (emp.store_name && user.workingBranch !== emp.store_name) {
-            user.workingBranch = emp.store_name;
+          if (extEmp.store_name && user.workingBranch !== extEmp.store_name) {
+            user.workingBranch = extEmp.store_name;
             hasChanges = true;
-          }
-          if (emp.phone && user.phoneNumber !== emp.phone) {
-            user.phoneNumber = emp.phone;
-            hasChanges = true;
-          }
-          if (user.source !== 'external-sync') {
-            user.source = 'external-sync';
-            hasChanges = true;
-          }
-          if ((!user.locCode || user.locCode === 'Unknown') && emp.store_name) {
-            const mapped = storeNameToLocCode[emp.store_name.toUpperCase()];
+            let mapped = extEmp.store_code || storeNameToLocCode[extEmp.store_name.toUpperCase()];
             if (mapped) {
               user.locCode = mapped;
               hasChanges = true;
@@ -492,20 +584,13 @@ export const autoSyncEmployees = async (req, res) => {
   }
 };
 
-/* ============================================================
-   getAllAppRegisteredEmployees
-   Returns ONLY users who registered through the Flutter app
-   (i.e. local MongoDB User collection — no external API).
-   Includes training + assessment stats per user.
-   GET /api/employee/app-users?page=&limit=&search=&store=&role=
-============================================================ */
 export const getAllAppRegisteredEmployees = async (req, res) => {
   try {
     const admin = await Admin.findById(req?.admin?.userId).populate('branches');
     if (!admin) return res.status(401).json({ success: false, message: 'Admin not found' });
 
     const page  = Math.max(1, parseInt(req.query.page,  10) || 1);
-    const limit = Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 7));
+    const limit = Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 20));
     const search = (req.query.search || '').trim().toLowerCase();
     const store  = req.query.store || 'All';
     const role   = req.query.role  || 'All';
@@ -549,32 +634,41 @@ export const getAllAppRegisteredEmployees = async (req, res) => {
       progressMap.get(key).push(p);
     });
 
-    // ── 4. Build enriched employee list ──
-    const today = new Date();
+    // ── 4. Load Tasks for these users ──
+    const empIDs = allUsers.map((u) => u.empID).filter(Boolean);
+    const allTasks = userIds.length || empIDs.length
+      ? await Task.find({
+          assignedTo: { $in: [...userIds.map(id => id.toString()), ...empIDs] }
+        }).lean()
+      : [];
 
+    const tasksByAssigneeMap = new Map();
+    allTasks.forEach(task => {
+      if (task.assignedTo) {
+        const assigneeKey = String(task.assignedTo).toLowerCase();
+        if (!tasksByAssigneeMap.has(assigneeKey)) {
+          tasksByAssigneeMap.set(assigneeKey, []);
+        }
+        tasksByAssigneeMap.get(assigneeKey).push(task);
+      }
+    });
+
+    // ── 5. Build enriched employee list ──
     const employees = allUsers.map((user) => {
-      const assignedTrainingIds = new Set(
-        (user.training || []).map((t) => String(t.trainingId))
-      );
+      const userProgress = progressMap.get(user._id.toString()) || [];
+      
+      let userTasks = [];
+      userTasks.push(...(tasksByAssigneeMap.get(user._id.toString().toLowerCase()) || []));
+      userTasks.push(...(tasksByAssigneeMap.get(String(user.empID).toLowerCase()) || []));
 
-      // Mandatory trainings (from TrainingProgress, not in user.training)
-      const mandatoryProgress = (progressMap.get(user._id.toString()) || []).filter(
-        (tp) => !assignedTrainingIds.has(String(tp.trainingId))
-      );
+      // Deduplicate tasks
+      const uniqueTasksMap = new Map();
+      userTasks.forEach(t => {
+        uniqueTasksMap.set(t._id.toString(), t);
+      });
+      const uniqueTasks = Array.from(uniqueTasksMap.values());
 
-      // Training stats
-      const assignedTrainings      = user.training || [];
-      const trainingCount          = assignedTrainings.length + mandatoryProgress.length;
-      const passCountTraining      = assignedTrainings.filter((t) => t.pass).length
-                                   + mandatoryProgress.filter((t) => t.pass).length;
-      const trainingDue            = assignedTrainings.filter((t) => new Date(t.deadline) < today && !t.pass).length
-                                   + mandatoryProgress.filter((t) => new Date(t.deadline) < today && !t.pass).length;
-
-      // Assessment stats
-      const assignedAssessments        = user.assignedAssessments || [];
-      const assignedAssessmentsCount   = assignedAssessments.length;
-      const passCountAssessment        = assignedAssessments.filter((a) => a.pass).length;
-      const assessmentDue              = assignedAssessments.filter((a) => new Date(a.deadline) < today && !a.pass).length;
+      const stats = buildEmployeeStats(user, userProgress, uniqueTasks);
 
       return {
         empID:      user.empID,
@@ -585,20 +679,11 @@ export const getAllAppRegisteredEmployees = async (req, res) => {
         phoneNumber: user.phoneNumber,
         locCode:    user.locCode,
         joinedAt:   user.createdAt,
-        trainingCount,
-        passCountTraining,
-        trainingDue,
-        trainingCompletionPercentage: trainingCount > 0
-          ? Math.round((passCountTraining / trainingCount) * 100) : 0,
-        assignedAssessmentsCount,
-        passCountAssessment,
-        assessmentDue,
-        assessmentCompletionPercentage: assignedAssessmentsCount > 0
-          ? Math.round((passCountAssessment / assignedAssessmentsCount) * 100) : 0,
+        ...stats,
       };
     });
 
-    // ── 5. Apply search / store / role filters ──
+    // ── 6. Apply search / store / role filters ──
     const filtered = employees.filter((e) => {
       const matchSearch = !search || [e.username, e.empID, e.workingBranch, e.designation, e.email]
         .some((v) => String(v || '').toLowerCase().includes(search));
@@ -610,7 +695,7 @@ export const getAllAppRegisteredEmployees = async (req, res) => {
       return matchSearch && matchStore && matchRole;
     });
 
-    // ── 6. Build filter options ──
+    // ── 7. Build filter options ──
     const individualStoresList = [];
     employees.forEach(e => {
       if (e.workingBranch === 'All Stores') {
@@ -624,7 +709,7 @@ export const getAllAppRegisteredEmployees = async (req, res) => {
     const stores = ['All', ...new Set(individualStoresList)].sort((a, b) => a === 'All' ? -1 : a.localeCompare(b));
     const roles  = ['All', ...new Set(employees.map((e) => e.designation).filter(Boolean))].sort((a, b) => a === 'All' ? -1 : a.localeCompare(b));
 
-    // ── 7. Paginate ──
+    // ── 8. Paginate ──
     const totalEmployees = filtered.length;
     const totalPages     = Math.max(1, Math.ceil(totalEmployees / limit));
     const safePage       = Math.min(page, totalPages);

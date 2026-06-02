@@ -49,6 +49,8 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
   const [loadingAssignees, setLoadingAssignees] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [autoSubmit, setAutoSubmit] = useState(false);
+  const [showExtensionForm, setShowExtensionForm] = useState(false);
+  const [extensionDate, setExtensionDate] = useState('');
 
   useEffect(() => {
     const onKey = (e) => {
@@ -247,6 +249,48 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
     }
   };
 
+  const handleRequestExtension = async () => {
+    if (!extensionDate) {
+      toast.error('Please select an extension date');
+      return;
+    }
+    setUpdating(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${baseUrl.baseUrl}api/task/${task.id}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify({
+          status: 'EXTENSION REQUESTED',
+          requestedExtensionDate: extensionDate,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.message || 'Failed to request extension');
+      }
+      toast.success('Extension requested successfully!');
+      if (onRefresh) onRefresh();
+      onClose();
+    } catch (err) {
+      toast.error(err.message || 'Failed to request extension');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const formatDateStr = (dateStr) => {
+    if (!dateStr) return '';
+    if (dateStr.includes('-') && dateStr.split('-')[0].length === 4) {
+      const [yyyy, mm, dd] = dateStr.split('-');
+      return `${dd}-${mm}-${yyyy}`;
+    }
+    return dateStr;
+  };
+
   const getWorkMapForDisplay = () => {
     let rawMap = [];
     if (task.workMap && task.workMap.length > 0) {
@@ -287,7 +331,14 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
 
     for (let i = 0; i < rawMap.length; i++) {
       const step = rawMap[i];
-      if (step.action !== 'ASSIGNED' && step.action !== 'REASSIGNED' && step.action !== 'COMPLETED') {
+      if (
+        step.action !== 'ASSIGNED' &&
+        step.action !== 'REASSIGNED' &&
+        step.action !== 'COMPLETED' &&
+        step.action !== 'EXTENSION REQUESTED' &&
+        step.action !== 'EXTENSION APPROVED' &&
+        step.action !== 'EXTENSION REJECTED'
+      ) {
         continue;
       }
 
@@ -300,7 +351,12 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
           filteredMap.push(step);
           lastAssignee = step.assignedTo;
         }
-      } else if (step.action === 'COMPLETED') {
+      } else if (
+        step.action === 'COMPLETED' ||
+        step.action === 'EXTENSION REQUESTED' ||
+        step.action === 'EXTENSION APPROVED' ||
+        step.action === 'EXTENSION REJECTED'
+      ) {
         filteredMap.push(step);
       }
     }
@@ -391,20 +447,34 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
                 {getWorkMapForDisplay().map((step, idx) => (
                   <div key={idx} className="task-detail-workmap-step">
                     <div className="task-detail-workmap-connector" />
-                    <div className={`task-detail-workmap-node ${step.action.toLowerCase()}`}>
+                    <div className={`task-detail-workmap-node ${step.action.toLowerCase().replace(/\s+/g, '-')}`}>
                       <span className="task-detail-workmap-icon">
-                        {step.action === 'ASSIGNED' ? '📌' : step.action === 'REASSIGNED' ? '🔄' : '✅'}
+                        {step.action === 'ASSIGNED' ? '📌' :
+                         step.action === 'REASSIGNED' ? '🔄' :
+                         step.action === 'COMPLETED' ? '✅' :
+                         step.action === 'EXTENSION REQUESTED' ? '⏳' :
+                         step.action === 'EXTENSION APPROVED' ? '👍' : '❌'}
                       </span>
                     </div>
                     <div className="task-detail-workmap-content">
                       <div className="task-detail-workmap-action">
-                        {step.action === 'ASSIGNED' ? 'First Assigned' : step.action === 'REASSIGNED' ? 'Reassigned' : 'Completed'}
+                        {step.action === 'ASSIGNED' ? 'First Assigned' :
+                         step.action === 'REASSIGNED' ? 'Reassigned' :
+                         step.action === 'COMPLETED' ? 'Completed' :
+                         step.action === 'EXTENSION REQUESTED' ? 'Extension Requested' :
+                         step.action === 'EXTENSION APPROVED' ? 'Extension Approved' : 'Extension Rejected'}
                       </div>
                       <div className="task-detail-workmap-details">
                         {step.action === 'COMPLETED' ? (
                           <>Completed by <strong>{step.assignedToLabel || 'Unknown User'}</strong></>
                         ) : step.action === 'REASSIGNED' ? (
                           <>Reassigned to <strong>{step.assignedToLabel}</strong> by <strong>{step.assignedBy}</strong></>
+                        ) : step.action === 'EXTENSION REQUESTED' ? (
+                          <>Extension requested to <strong>{formatDateStr(step.details)}</strong> by <strong>{step.assignedBy}</strong></>
+                        ) : step.action === 'EXTENSION APPROVED' ? (
+                          <>Extension approved (New Date: <strong>{formatDateStr(step.details)}</strong>) by <strong>{step.assignedBy}</strong></>
+                        ) : step.action === 'EXTENSION REJECTED' ? (
+                          <>Extension request rejected by <strong>{step.assignedBy}</strong></>
                         ) : (
                           <>Assigned to <strong>{step.assignedToLabel}</strong> by <strong>{step.assignedBy}</strong></>
                         )}
@@ -499,6 +569,17 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
                       >
                         Review
                       </button>
+                      {isAssignedToMe && (
+                        <button
+                          type="button"
+                          className="task-detail-action-btn task-detail-btn-extension"
+                          style={{ background: '#f59e0b', color: '#fff' }}
+                          onClick={() => setShowExtensionForm(true)}
+                          disabled={updating}
+                        >
+                          Extension
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -523,6 +604,38 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
                         disabled={updating || !selectedFile}
                       >
                         Submit
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {showExtensionForm && (
+                  <div className="task-detail-action-group">
+                    <div className="task-detail-field__label">Request Extension Date</div>
+                    <div className="task-detail-review-form">
+                      <input
+                        type="date"
+                        value={extensionDate}
+                        onChange={(e) => setExtensionDate(e.target.value)}
+                        className="task-detail-select"
+                        style={{ height: '36px', padding: '0 8px', borderRadius: '6px', border: '1px solid #ccc' }}
+                      />
+                      <button
+                        type="button"
+                        className="task-detail-action-btn task-detail-btn-submit-review"
+                        style={{ background: '#f59e0b', color: '#fff', marginLeft: '8px' }}
+                        onClick={handleRequestExtension}
+                        disabled={updating || !extensionDate}
+                      >
+                        Submit
+                      </button>
+                      <button
+                        type="button"
+                        className="task-detail-action-btn"
+                        style={{ background: '#ef4444', color: '#fff', marginLeft: '8px' }}
+                        onClick={() => { setShowExtensionForm(false); setExtensionDate(''); }}
+                      >
+                        Cancel
                       </button>
                     </div>
                   </div>

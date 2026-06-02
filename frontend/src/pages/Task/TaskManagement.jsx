@@ -168,6 +168,7 @@ const TaskManagement = () => {
 
   const [tasks, setTasks] = useState([]);
   const [requests, setRequests] = useState([]);
+  const [extensions, setExtensions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
@@ -182,7 +183,7 @@ const TaskManagement = () => {
     setLoading(true);
     setError(null);
     try {
-      const [tasksRes, requestsRes] = await Promise.all([
+      const [tasksRes, requestsRes, extensionsRes] = await Promise.all([
         fetchTasks({
           search: search.trim(),
           category: categoryFilter,
@@ -191,6 +192,9 @@ const TaskManagement = () => {
         }),
         fetchTasks({
           status: 'UNDER REVIEW',
+        }),
+        fetchTasks({
+          status: 'EXTENSION REQUESTED',
         })
       ]);
 
@@ -199,10 +203,16 @@ const TaskManagement = () => {
         (t) => t.createdBy === user?.userId
       );
       setRequests(userRequests);
+
+      const userExtensions = (extensionsRes.data || []).filter(
+        (t) => t.createdBy === user?.userId
+      );
+      setExtensions(userExtensions);
     } catch (err) {
       setError(err.message);
       setTasks([]);
       setRequests([]);
+      setExtensions([]);
       toast.error(err.message || 'Could not load tasks');
     } finally {
       setLoading(false);
@@ -218,6 +228,25 @@ const TaskManagement = () => {
     const set = new Set(tasks.map((t) => t.category?.split(' / ')[0]?.trim() || t.category).filter(Boolean));
     return ['All', ...Array.from(set).sort()];
   }, [tasks]);
+
+  const filteredExtensions = useMemo(() => {
+    return extensions.filter((task) => {
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        const matchesSearch = [
+          task.title, task.id, task.assignee, task.categorySub, task.category, task.description,
+        ].some((v) => String(v).toLowerCase().includes(q));
+        if (!matchesSearch) return false;
+      }
+      if (categoryFilter && categoryFilter !== 'All') {
+        if (!task.category.toLowerCase().includes(categoryFilter.toLowerCase())) return false;
+      }
+      if (priorityFilter && priorityFilter !== 'All') {
+        if (task.priority !== priorityFilter) return false;
+      }
+      return true;
+    });
+  }, [extensions, search, categoryFilter, priorityFilter]);
 
   const filteredRequests = useMemo(() => {
     return requests.filter((task) => {
@@ -242,13 +271,22 @@ const TaskManagement = () => {
     setPage(1);
   }, [activeTab]);
 
-  const totalCount = activeTab === 'tasks' ? tasks.length : filteredRequests.length;
+  const totalCount = activeTab === 'tasks'
+    ? tasks.length
+    : activeTab === 'requests'
+    ? filteredRequests.length
+    : filteredExtensions.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const pageItems = tasks.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   const pageItemsRequests = filteredRequests.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pageItemsExtensions = filteredExtensions.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   const showingCount = String(
-    activeTab === 'tasks' ? pageItems.length : pageItemsRequests.length
+    activeTab === 'tasks'
+      ? pageItems.length
+      : activeTab === 'requests'
+      ? pageItemsRequests.length
+      : pageItemsExtensions.length
   ).padStart(2, '0');
 
   useEffect(() => {
@@ -275,6 +313,28 @@ const TaskManagement = () => {
     } catch (err) {
       toast.error(err.message || 'Failed to update task status');
       loadTasks();
+    }
+  };
+
+  const handleResolveExtension = async (taskId, action) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${baseUrl.baseUrl}api/task/${taskId}/resolve-extension`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify({ action }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.message || `Failed to ${action.toLowerCase()} extension`);
+      }
+      toast.success(`Extension request ${action.toLowerCase()}d!`);
+      loadTasks();
+    } catch (err) {
+      toast.error(err.message || 'Failed to update extension request');
     }
   };
 
@@ -314,6 +374,14 @@ const TaskManagement = () => {
             Requests
             <span className="task-mgmt-tab-count">{requests.length}</span>
           </button>
+          <button
+            type="button"
+            className={`task-mgmt-tab-btn ${activeTab === 'extensions' ? 'active' : ''}`}
+            onClick={() => setActiveTab('extensions')}
+          >
+            Extension Requests
+            <span className="task-mgmt-tab-count">{extensions.length}</span>
+          </button>
         </div>
 
         <div className="task-mgmt-toolbar">
@@ -348,7 +416,7 @@ const TaskManagement = () => {
             <div className="task-mgmt-filter">
               <label>Status :</label>
               <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
-                {['All', 'COMPLETED', 'IN PROGRESS', 'PENDING', 'OVERDUE', 'ON HOLD', 'UNDER REVIEW', 'REASSIGNED'].map((s) => <option key={s} value={s}>{s}</option>)}
+                {['All', 'COMPLETED', 'IN PROGRESS', 'PENDING', 'OVERDUE', 'ON HOLD', 'UNDER REVIEW', 'REASSIGNED', 'EXTENSION REQUESTED'].map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
           )}
@@ -370,7 +438,7 @@ const TaskManagement = () => {
                     <th>Status</th>
                     <th>View</th>
                   </tr>
-                ) : (
+                ) : activeTab === 'requests' ? (
                   <tr>
                     <th>Task Title</th>
                     <th>Category</th>
@@ -382,34 +450,48 @@ const TaskManagement = () => {
                     <th>Proof</th>
                     <th>Action</th>
                   </tr>
+                ) : (
+                  <tr>
+                    <th>Task Title</th>
+                    <th>Category</th>
+                    <th>Assigned To</th>
+                    <th>Priority</th>
+                    <th>Start Date</th>
+                    <th>Current End Date</th>
+                    <th>Requested Extension Date</th>
+                    <th>Description</th>
+                    <th>Actions</th>
+                  </tr>
                 )}
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={9} style={{ textAlign: 'center', color: '#9ca3af', padding: '32px' }}>
+                    <td colSpan={10} style={{ textAlign: 'center', color: '#9ca3af', padding: '32px' }}>
                       Loading tasks…
                     </td>
                   </tr>
                 ) : error ? (
                   <tr>
-                    <td colSpan={9} style={{ textAlign: 'center', color: '#ef4444', padding: '32px' }}>
+                    <td colSpan={10} style={{ textAlign: 'center', color: '#ef4444', padding: '32px' }}>
                       {error}
                       <button type="button" onClick={loadTasks} style={{ marginLeft: 12, textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', color: '#111827' }}>
                         Retry
                       </button>
                     </td>
                   </tr>
-                ) : (activeTab === 'tasks' ? pageItems : pageItemsRequests).length === 0 ? (
+                ) : (activeTab === 'tasks' ? pageItems : activeTab === 'requests' ? pageItemsRequests : pageItemsExtensions).length === 0 ? (
                   <tr>
-                    <td colSpan={9} style={{ textAlign: 'center', color: '#9ca3af', padding: '32px' }}>
+                    <td colSpan={10} style={{ textAlign: 'center', color: '#9ca3af', padding: '32px' }}>
                       {activeTab === 'tasks'
                         ? 'No tasks found. Create one with + New Task.'
-                        : 'No pending review requests.'}
+                        : activeTab === 'requests'
+                        ? 'No pending review requests.'
+                        : 'No pending extension requests.'}
                     </td>
                   </tr>
                 ) : (
-                  (activeTab === 'tasks' ? pageItems : pageItemsRequests).map((task) => (
+                  (activeTab === 'tasks' ? pageItems : activeTab === 'requests' ? pageItemsRequests : pageItemsExtensions).map((task) => (
                     <tr key={task.id}>
                       <td className="task-mgmt-cell-title" onClick={() => setSelectedTask(task)} style={{ cursor: 'pointer' }}>{task.title}</td>
                       <td><StackCell primary={task.category} secondary={task.categorySub} /></td>
@@ -424,8 +506,27 @@ const TaskManagement = () => {
                         </span>
                       </td>
                       <td><DateCell date={task.startDate} time={task.startTime} /></td>
-                      <td><DateCell date={task.endDate} time={task.endTime} /></td>
+                      
+                      {activeTab === 'extensions' ? (
+                        <>
+                          <td><DateCell date={task.endDate} time={task.endTime} /></td>
+                          <td>
+                            <div style={{ color: '#f59e0b', fontWeight: 'bold' }}>
+                              {task.requestedExtensionDate && task.requestedExtensionDate.includes('-') && task.requestedExtensionDate.split('-')[0].length === 4
+                                ? (() => {
+                                    const [yyyy, mm, dd] = task.requestedExtensionDate.split('-');
+                                    return `${dd}/${mm}/${yyyy}`;
+                                  })()
+                                : task.requestedExtensionDate}
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <td><DateCell date={task.endDate} time={task.endTime} /></td>
+                      )}
+                      
                       <td className="task-mgmt-desc">{task.description}</td>
+                      
                       {activeTab === 'tasks' ? (
                         <>
                           <td>
@@ -448,7 +549,7 @@ const TaskManagement = () => {
                             </button>
                           </td>
                         </>
-                      ) : (
+                      ) : activeTab === 'requests' ? (
                         <>
                           <td>
                             {task.reviewAttachment ? (
@@ -472,6 +573,25 @@ const TaskManagement = () => {
                             </div>
                           </td>
                         </>
+                      ) : (
+                        <td>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                              type="button"
+                              style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                              onClick={() => handleResolveExtension(task.id, 'APPROVE')}
+                            >
+                              Approve
+                            </button>
+                            <button
+                              type="button"
+                              style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                              onClick={() => handleResolveExtension(task.id, 'REJECT')}
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        </td>
                       )}
                     </tr>
                   ))

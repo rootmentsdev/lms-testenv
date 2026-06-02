@@ -13,7 +13,7 @@ const getProgressColor = (pct) => {
 
 const exportCSV = (data) => {
   const headers = ["#","Emp ID","Name","Role","Store","Training Progress","Tasks Done","Tasks Overdue","Training Done","Training Overdue"];
-  const rows = data.map((e, i) => [i+1, e.empID, e.username, e.designation, e.workingBranch, `${e.trainingCompletionPercentage}%`, e.passCountAssessment, e.AssessmentDue, e.passCountTraining, e.Trainingdue]);
+  const rows = data.map((e, i) => [i+1, e.empID, e.username, e.designation, e.workingBranch, `${e.trainingCompletionPercentage}%`, e.passCountTask, e.taskDue, e.passCountTraining, e.Trainingdue]);
   const csv = [headers, ...rows].map(r => r.map(c => `"${String(c||'').replace(/"/g,'""')}"`).join(",")).join("\n");
   const a = document.createElement("a");
   a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
@@ -56,6 +56,9 @@ const mapEmployee = (e) => ({
   passCountAssessment: e.passCountAssessment || 0,
   AssessmentDue: e.assessmentDue || 0,
   assessmentCompletionPercentage: e.assessmentCompletionPercentage || 0,
+  taskCount: e.taskCount || 0,
+  passCountTask: e.passCountTask || 0,
+  taskDue: e.taskDue || 0,
 });
 
 const EmployeeData = () => {
@@ -70,7 +73,7 @@ const EmployeeData = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [stores, setStores] = useState(["All"]);
   const [roles, setRoles] = useState(["All"]);
-  const itemsPerPage = 7;
+  const itemsPerPage = 20;
 
   const token = localStorage.getItem("token");
 
@@ -222,7 +225,7 @@ const EmployeeData = () => {
                           <ProgressBar pct={e.trainingCompletionPercentage} />
                         </td>
                         <td style={{ padding:"14px 16px", minWidth:"100px" }}>
-                          <StatCell done={e.passCountAssessment} total={e.assignedAssessmentsCount} overdue={e.AssessmentDue} />
+                          <StatCell done={e.passCountTask} total={e.taskCount} overdue={e.taskDue} />
                         </td>
                         <td style={{ padding:"14px 16px", minWidth:"100px" }}>
                           <StatCell done={e.passCountTraining} total={e.trainingCount} overdue={e.Trainingdue} />

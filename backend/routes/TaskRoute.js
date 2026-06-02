@@ -1,5 +1,5 @@
 import express from 'express';
-import { createTask, getTasks, getTaskById, getTaskAssignees, updateTaskStatus, reassignTask } from '../controllers/TaskController.js';
+import { createTask, getTasks, getTaskById, getTaskAssignees, updateTaskStatus, reassignTask, getTaskAttachment, getTaskReviewAttachment, resolveExtensionRequest } from '../controllers/TaskController.js';
 import { MiddilWare } from '../lib/middilWare.js';
 
 const router = express.Router();
@@ -219,8 +219,11 @@ router.get('/:id', MiddilWare, getTaskById);
  *             properties:
  *               status:
  *                 type: string
- *                 enum: [PENDING, IN PROGRESS, COMPLETED, OVERDUE, ON HOLD, UNDER REVIEW, REASSIGNED]
+ *                 enum: [PENDING, IN PROGRESS, COMPLETED, OVERDUE, ON HOLD, UNDER REVIEW, REASSIGNED, EXTENSION REQUESTED]
  *                 description: The new status value (accepts "reassign" to trigger REASSIGNED status)
+ *               requestedExtensionDate:
+ *                 type: string
+ *                 description: The date requested for extension in YYYY-MM-DD format (Required only if status is updated to EXTENSION REQUESTED)
  *               assignedTo:
  *                 type: string
  *                 description: ID of the new assignee (Required only if status is updated to REASSIGNED/reassign)
@@ -301,5 +304,58 @@ router.put('/:id/status', MiddilWare, updateTaskStatus);
  *         description: Internal server error.
  */
 router.put('/:id/reassign', MiddilWare, reassignTask);
+
+router.get('/:id/attachment', getTaskAttachment);
+router.get('/:id/review-attachment', getTaskReviewAttachment);
+/**
+ * @swagger
+ * /api/task/{id}/resolve-extension:
+ *   put:
+ *     tags: [Tasks]
+ *     summary: Resolve task extension request
+ *     description: >
+ *       Allows the task creator (assigner) to approve or reject a pending extension request.
+ *       
+ *       **Actions:**
+ *       - **APPROVE:** Updates the task's `endDate` to the requested extension date and reverts the status to its previous status (e.g. `IN PROGRESS`).
+ *       - **REJECT:** Reverts the status back to its previous status without changing the task's `endDate`.
+ *       
+ *       **Notifications:**
+ *       - Triggers a database-backed notification to the assignee informing them of the approval or rejection.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Task ID or taskCode to resolve extension for
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               action:
+ *                 type: string
+ *                 enum: [APPROVE, REJECT]
+ *                 description: The resolution action for the extension request
+ *             required:
+ *               - action
+ *     responses:
+ *       200:
+ *         description: Extension request successfully resolved
+ *       400:
+ *         description: Invalid action or task does not have a pending extension request
+ *       403:
+ *         description: Access denied – only the task creator can resolve extension requests
+ *       404:
+ *         description: Task not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/:id/resolve-extension', MiddilWare, resolveExtensionRequest);
 
 export default router;

@@ -34,6 +34,39 @@ const fieldIcon = (key) => {
   return "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z";
 };
 
+const deduplicateTrainings = (trainings) => {
+  if (!Array.isArray(trainings)) return [];
+  const uniqueTrainingsMap = new Map();
+  for (const item of trainings) {
+    if (!item || !item.trainingId) continue;
+    
+    let key = '';
+    if (typeof item.trainingId === 'object') {
+      key = item.trainingId._id || item.trainingId.id || JSON.stringify(item.trainingId);
+    } else {
+      key = item.trainingId;
+    }
+    
+    if (key) {
+      const keyStr = key.toString();
+      if (uniqueTrainingsMap.has(keyStr)) {
+        const existing = uniqueTrainingsMap.get(keyStr);
+        const merged = {
+          ...existing,
+          ...item,
+          isMandatory: !!(existing.isMandatory || item.isMandatory),
+          status: (item.status === 'Completed' || item.status === 'COMPLETED' || item.pass === true) ? item.status : existing.status,
+          pass: existing.pass || item.pass || existing.pass === true || item.pass === true
+        };
+        uniqueTrainingsMap.set(keyStr, merged);
+      } else {
+        uniqueTrainingsMap.set(keyStr, item);
+      }
+    }
+  }
+  return Array.from(uniqueTrainingsMap.values());
+};
+
 const EmployeeDetaileData = () => {
   const token = localStorage.getItem("token");
   const { id } = useParams();
@@ -82,15 +115,40 @@ const EmployeeDetaileData = () => {
       };
       try {
         const trainingUserId = userdetail?.data?._id || userdetail?.data?.empID || id;
-        const progressRes = await fetch(`${baseUrl.baseUrl}api/user/training-progress/${trainingUserId}`,
-          { method: "GET", headers: { "Content-Type": "application/json" }, credentials: "include" });
+        const progressRes = await fetch(`${baseUrl.baseUrl}api/user/training-progress/${trainingUserId}`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include"
+        });
         if (progressRes.ok) {
           const progressData = await progressRes.json();
-          setfullData({ ...userdetail.data, training: [...(userdetail.data?.training || []), ...(progressData.mandatoryTrainings || [])] });
-        } else { setfullData(userdetail.data || {}); }
-      } catch { setfullData(userdetail.data || {}); }
-      setData(selectedData); setIsExternal(false); setLoading(false); return;
-    } catch (err) { console.warn("DB failed, trying external.", err?.message); }
+          const rawTrainings = [
+            ...(userdetail.data?.training || []),
+            ...(progressData.mandatoryTrainings || [])
+          ];
+          setfullData({
+            ...userdetail.data,
+            training: deduplicateTrainings(rawTrainings)
+          });
+        } else {
+          setfullData({
+            ...(userdetail.data || {}),
+            training: deduplicateTrainings(userdetail.data?.training)
+          });
+        }
+      } catch {
+        setfullData({
+          ...(userdetail.data || {}),
+          training: deduplicateTrainings(userdetail.data?.training)
+        });
+      }
+      setData(selectedData);
+      setIsExternal(false);
+      setLoading(false);
+      return;
+    } catch (err) {
+      console.warn("DB failed, trying external.", err?.message);
+    }
     try {
       const res = await fetch(`${baseUrl.baseUrl}api/employee_detail`,
         { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ empId: id }) });
