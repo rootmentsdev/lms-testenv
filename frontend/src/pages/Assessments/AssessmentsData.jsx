@@ -172,7 +172,34 @@ const AssessmentsData = () => {
         const response = await fetch(`${baseUrl.baseUrl}api/user/get/AllAssessment`);
         if (!response.ok) throw new Error("Failed to fetch data");
         const result = await response.json();
-        const sorted = (result.data || []).sort((a, b) => b.completionPercentage - a.completionPercentage);
+        const list = Array.isArray(result.data) ? result.data : [];
+
+        // Hydrate the card stats from the per-assessment detail endpoint so the
+        // staff count and completion percentage stay consistent with the actual
+        // assigned-user records.
+        const hydrated = await Promise.all(
+          list.map(async (item) => {
+            try {
+              const detailRes = await fetch(`${baseUrl.baseUrl}api/user/get/assessment/full/${item.assessmentId}`);
+              if (!detailRes.ok) return item;
+
+              const detailJson = await detailRes.json().catch(() => ({}));
+              const stats = detailJson?.data?.stats || {};
+              return {
+                ...item,
+                totalAssigned: typeof stats.totalAssigned === "number" ? stats.totalAssigned : item.totalAssigned,
+                completionPercentage:
+                  typeof stats.completionPercentage === "number"
+                    ? stats.completionPercentage
+                    : Number(item.completionPercentage || 0),
+              };
+            } catch {
+              return item;
+            }
+          })
+        );
+
+        const sorted = hydrated.sort((a, b) => Number(b.completionPercentage || 0) - Number(a.completionPercentage || 0));
         setData(sorted);
       } catch {
         setError("Failed to load assessments");

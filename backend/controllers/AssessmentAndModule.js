@@ -1193,18 +1193,26 @@ export const GetAssessment = async (req, res) => {
     for (const assess of assessments) {
       let totalAssigned = 0;
       let totalPassed = 0;
+      const countedEmployees = new Set();
 
       for (const user of users) {
-        const assigned = user.assignedAssessments.find(
-          (assignment) => assignment.assessmentId.toString() === assess._id.toString()
-        );
+        const matchingAssignments = (user.assignedAssessments || [])
+          .filter((assignment) => assignment.assessmentId && assignment.assessmentId.toString() === assess._id.toString())
+          .sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
 
-        if (assigned) {
-          totalAssigned++;
+        const assigned = matchingAssignments[0];
 
-          if (assigned.pass) {
-            totalPassed++;
-          }
+        if (!assigned) continue;
+
+        // Count each employee once, even if duplicate assignment records exist.
+        const employeeKey = String(user.empID || user._id);
+        if (countedEmployees.has(employeeKey)) continue;
+        countedEmployees.add(employeeKey);
+
+        totalAssigned++;
+
+        if (assigned.pass || String(assigned.status || "").toLowerCase() === "completed") {
+          totalPassed++;
         }
       }
 

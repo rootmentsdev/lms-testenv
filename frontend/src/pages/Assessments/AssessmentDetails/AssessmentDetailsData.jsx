@@ -41,10 +41,14 @@ const AssessmentDetailsData = () => {
     const duration = assessment?.assessmentduration || "—";
     const assigned = users.length;
     const completed = users.filter((u) => {
-      const status = String(u.assignedAssessments?.[0]?.status || "").toLowerCase();
+      const currentAssessment = u.assignedAssessments?.find(
+        (a) => String(a.assessmentId?._id || a.assessmentId) === String(id)
+      );
+      const status = String(currentAssessment?.status || "").toLowerCase();
       return status === "completed" || status === "passed";
     }).length;
-    return { questions, duration, assigned, completed };
+    const completionPercentage = assigned > 0 ? Math.round((completed / assigned) * 100) : 0;
+    return { questions, duration, assigned, completed, completionPercentage };
   }, [assessment, users]);
 
   return (
@@ -92,8 +96,9 @@ const AssessmentDetailsData = () => {
                   <div className="text-[20px] font-bold text-gray-900 mt-1">{summary.assigned}</div>
                 </div>
                 <div className="bg-white border border-[#f0f0f0] rounded-2xl p-4">
-                  <div className="text-[11px] text-gray-400 uppercase font-semibold">Completed</div>
-                  <div className="text-[20px] font-bold text-gray-900 mt-1">{summary.completed}</div>
+                  <div className="text-[11px] text-gray-400 uppercase font-semibold">Completion</div>
+                  <div className="text-[20px] font-bold text-gray-900 mt-1">{summary.completionPercentage}%</div>
+                  <div className="text-[11px] text-gray-400 mt-1">{summary.completed} of {summary.assigned} completed</div>
                 </div>
               </div>
 
@@ -114,7 +119,9 @@ const AssessmentDetailsData = () => {
                     </thead>
                     <tbody>
                       {users.length > 0 ? users.map((user, idx) => {
-                        const a = user.assignedAssessments?.[0];
+                        const a = user.assignedAssessments?.find(
+                          (item) => String(item.assessmentId?._id || item.assessmentId) === String(id)
+                        );
                         return (
                           <tr key={idx} className="border-b border-gray-50">
                             <td className="px-4 py-3 font-semibold text-gray-900">{user.username || "—"}</td>
