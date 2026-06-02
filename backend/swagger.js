@@ -88,7 +88,7 @@ const options = {
             }
         ]
     },
-    apis: ["./routes/*.js"], // Scan all route files for Swagger documentation
+    apis: ["./routes/*.js", "./server.js"], // Scan route files and server.js for Swagger documentation
 };
 
 const swaggerSpec = swaggerJsdoc(options);

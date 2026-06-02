@@ -1079,27 +1079,52 @@ export const GetSearchDataController = async (req, res) => {
 
 export const GetUserMessage = async (req, res) => {
     try {
-        const { email } = req.params;
+        const { id } = req.params;
 
-        if (!email) {
-            return res.status(400).json({ message: "Email is required" });
+        if (!id) {
+            return res.status(400).json({ message: "Identifier (email or employee ID) is required" });
         }
 
-        const userData = await User.findOne({ email })
+        // Determine if lookup is by email or employee ID
+        const isEmail = id.includes('@');
+        const userQuery = isEmail ? { email: id } : { empID: id };
+        const adminQuery = isEmail ? { email: id } : { EmpId: id };
+
+        let userData = await User.findOne(userQuery)
             .select("username email locCode empID designation workingBranch");
 
         if (!userData) {
-            return res.status(404).json({ message: "User not found" });
+            // Fallback to Admin collection if not found in User collection
+            const adminData = await Admin.findOne(adminQuery).populate('branches');
+            if (!adminData) {
+                return res.status(404).json({ message: "User or Admin not found" });
+            }
+            userData = {
+                _id: adminData._id,
+                username: adminData.name,
+                email: adminData.email,
+                designation: adminData.role,
+                locCode: adminData.branches?.map(b => b.locCode).filter(Boolean) || []
+            };
         }
 
-        const notifications = await Notification.find({
-            $or: [
-                { Role: { $in: [userData.designation] } },
-                { user: { $in: [userData._id] } },
-                { branch: { $in: [userData.locCode] } }
-            ]
-        });
+        const queryOr = [
+            { user: { $in: [userData._id] } }
+        ];
 
+        if (userData.designation) {
+            queryOr.push({ Role: { $in: [userData.designation] } });
+        }
+
+        if (userData.locCode) {
+            if (Array.isArray(userData.locCode)) {
+                queryOr.push({ branch: { $in: userData.locCode } });
+            } else {
+                queryOr.push({ branch: { $in: [userData.locCode] } });
+            }
+        }
+
+        const notifications = await Notification.find({ $or: queryOr }).sort({ createdAt: -1 });
 
         return res.status(200).json({ notifications });
 

@@ -203,8 +203,108 @@ router.get('/get/HomeProgressData', MiddilWare, HomeBar);
  *         description: Internal server error.
  */
 router.post('/admin/createadmin', CreatingAdminUsers);
+/**
+ * @swagger
+ * /api/admin/admin/list:
+ *   get:
+ *     tags: [Admin]
+ *     summary: Get all admins and employees (ordinary users)
+ *     description: Retrieves a combined list of all administrators from the Admin collection and ordinary users from the User collection mapped to the admin format.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved all user and admin profiles.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       500:
+ *         description: Internal server error.
+ */
 router.get('/admin/list', MiddilWare, getAdminUsers);
+
+/**
+ * @swagger
+ * /api/admin/admin/update/{id}:
+ *   put:
+ *     tags: [Admin]
+ *     summary: Update an admin or employee user
+ *     description: Updates details for a user or admin by ID. Supports promoting an employee to an admin role or demoting an admin to an employee role, adjusting their collection placement and permissions accordingly.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User or Admin ID to update
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               phoneNumber:
+ *                 type: string
+ *               role:
+ *                 type: string
+ *                 enum: [super_admin, hr_admin, cluster_admin, store_admin, employee]
+ *               Branch:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of branch ObjectIds assigned
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: User updated successfully.
+ *       404:
+ *         description: User or Admin not found.
+ *       500:
+ *         description: Internal server error.
+ */
 router.put('/admin/update/:id', MiddilWare, updateAdminUser);
+
+/**
+ * @swagger
+ * /api/admin/admin/delete/{id}:
+ *   delete:
+ *     tags: [Admin]
+ *     summary: Delete a user or admin
+ *     description: Deletes a user or admin account from the database by ID.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User or Admin ID to delete
+ *     responses:
+ *       200:
+ *         description: User deleted successfully.
+ *       404:
+ *         description: User not found.
+ *       500:
+ *         description: Internal server error.
+ */
 router.delete('/admin/delete/:id', MiddilWare, deleteAdminUser);
 
 /**
@@ -371,7 +471,7 @@ router.post('/admin/verifyToken', VerifyToken);
  *       500:
  *         description: Internal server error.
  */
-router.get('/home/notification', getNotifications);
+router.get('/home/notification', MiddilWare, getNotifications);
 
 /**
  * @swagger
@@ -387,7 +487,7 @@ router.get('/home/notification', getNotifications);
  *       500:
  *         description: Internal server error.
  */
-router.get('/home/AllNotification', getAllNotifications);
+router.get('/home/AllNotification', MiddilWare, getAllNotifications);
 
 /**
  * @swagger

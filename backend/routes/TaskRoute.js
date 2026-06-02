@@ -1,5 +1,5 @@
 import express from 'express';
-import { createTask, getTasks, getTaskById, getTaskAssignees, updateTaskStatus, reassignTask } from '../controllers/TaskController.js';
+import { createTask, getTasks, getTaskById, getTaskAssignees, updateTaskStatus, reassignTask, getTaskAttachment, getTaskReviewAttachment, resolveExtensionRequest } from '../controllers/TaskController.js';
 import { MiddilWare } from '../lib/middilWare.js';
 
 const router = express.Router();
@@ -49,7 +49,7 @@ router.get('/assignees', MiddilWare, getTaskAssignees);
  *   post:
  *     tags: [Tasks]
  *     summary: Create a new task
- *     description: Create a task assigned to a store, employee, or generic group. Secured with role-based restrictions.
+ *     description: Create a task assigned to a store, employee, or generic group. Accessible to both administrators and standard employees. Triggers a database-backed inbox notification to the assigned user(s)/admin(s).
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -190,7 +190,17 @@ router.get('/:id', MiddilWare, getTaskById);
  *   put:
  *     tags: [Tasks]
  *     summary: Update task status
- *     description: Update the status of an existing task. Secured with RBAC and assignee boundaries.
+ *     description: >
+ *       Updates the status of an existing task. Handles status normalization (e.g. `REVIEW` becomes `UNDER REVIEW`, and `REASSIGN` or `reassign` becomes `REASSIGNED`).
+ *       
+ *       **Notifications:**
+ *       - Moving status to `UNDER REVIEW` triggers a database-backed notification to the task creator.
+ *       - Moving status to `REASSIGNED` triggers a database-backed notification to the new assignee.
+ *       
+ *       **Permissions:**
+ *       - Only current assignee or an administrator (Super Admin, HR Admin, Cluster Admin, Store Admin) can update status to `REASSIGNED` (reassign).
+ *       - If status is `COMPLETED`, only the original task creator (assigner) can finalize it.
+ *       - Other status changes are restricted to the assignee, admin, or store-level users.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -209,23 +219,143 @@ router.get('/:id', MiddilWare, getTaskById);
  *             properties:
  *               status:
  *                 type: string
- *                 enum: [PENDING, IN PROGRESS, COMPLETED, OVERDUE, ON HOLD]
- *                 description: The new status value
+ *                 enum: [PENDING, IN PROGRESS, COMPLETED, OVERDUE, ON HOLD, UNDER REVIEW, REASSIGNED, EXTENSION REQUESTED]
+ *                 description: The new status value (accepts "reassign" to trigger REASSIGNED status)
+ *               requestedExtensionDate:
+ *                 type: string
+ *                 description: The date requested for extension in YYYY-MM-DD format (Required only if status is updated to EXTENSION REQUESTED)
+ *               assignedTo:
+ *                 type: string
+ *                 description: ID of the new assignee (Required only if status is updated to REASSIGNED/reassign)
+ *               assignedToLabel:
+ *                 type: string
+ *                 description: Label/Name of the new assignee (Required only if status is updated to REASSIGNED/reassign)
+ *               fileAttachment:
+ *                 type: object
+ *                 properties:
+ *                   name:
+ *                     type: string
+ *                   base64:
+ *                     type: string
+ *                 description: Required file attachment when status is updated to UNDER REVIEW
  *             required:
  *               - status
  *     responses:
  *       200:
  *         description: Task status successfully updated
  *       400:
- *         description: Invalid input or missing status
+ *         description: Invalid input, missing status, or missing reassignment fields
  *       403:
- *         description: Access denied – unauthorized to update this task
+ *         description: Access denied – unauthorized to perform status update or reassignment
  *       404:
  *         description: Task not found
  *       500:
  *         description: Internal server error
  */
 router.put('/:id/status', MiddilWare, updateTaskStatus);
+
+/**
+ * @swagger
+ * /api/task/{id}/reassign:
+ *   put:
+ *     tags: [Tasks]
+ *     summary: Reassign a task to another employee
+ *     description: >
+ *       Reassigns an existing task to another employee or administrator and resets its status to REASSIGNED.
+ *       Triggers a database-backed inbox notification to the new assignee.
+ *       
+ *       **Permissions:**
+ *       - Access is restricted exclusively to the current assignee of the task and all administrators (Super Admin, HR Admin, Cluster Admin, Store Admin).
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Task ID or taskCode to reassign
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               assignedTo:
+ *                 type: string
+ *                 description: ID of the new assignee
+ *               assignedToLabel:
+ *                 type: string
+ *                 description: Label/Name of the new assignee
+ *             required:
+ *               - assignedTo
+ *               - assignedToLabel
+ *     responses:
+ *       200:
+ *         description: Task reassigned successfully.
+ *       400:
+ *         description: assignedTo and assignedToLabel are required.
+ *       403:
+ *         description: Access denied – only the current assignee and administrators are authorized to reassign.
+ *       404:
+ *         description: Task not found.
+ *       500:
+ *         description: Internal server error.
+ */
 router.put('/:id/reassign', MiddilWare, reassignTask);
+
+router.get('/:id/attachment', getTaskAttachment);
+router.get('/:id/review-attachment', getTaskReviewAttachment);
+/**
+ * @swagger
+ * /api/task/{id}/resolve-extension:
+ *   put:
+ *     tags: [Tasks]
+ *     summary: Resolve task extension request
+ *     description: >
+ *       Allows the task creator (assigner) to approve or reject a pending extension request.
+ *       
+ *       **Actions:**
+ *       - **APPROVE:** Updates the task's `endDate` to the requested extension date and reverts the status to its previous status (e.g. `IN PROGRESS`).
+ *       - **REJECT:** Reverts the status back to its previous status without changing the task's `endDate`.
+ *       
+ *       **Notifications:**
+ *       - Triggers a database-backed notification to the assignee informing them of the approval or rejection.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Task ID or taskCode to resolve extension for
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               action:
+ *                 type: string
+ *                 enum: [APPROVE, REJECT]
+ *                 description: The resolution action for the extension request
+ *             required:
+ *               - action
+ *     responses:
+ *       200:
+ *         description: Extension request successfully resolved
+ *       400:
+ *         description: Invalid action or task does not have a pending extension request
+ *       403:
+ *         description: Access denied – only the task creator can resolve extension requests
+ *       404:
+ *         description: Task not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/:id/resolve-extension', MiddilWare, resolveExtensionRequest);
 
 export default router;

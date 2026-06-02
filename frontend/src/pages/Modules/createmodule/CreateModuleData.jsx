@@ -463,10 +463,10 @@ const CreateModuleData = () => {
   const activeQ = currentVideo.questions[activeQuizIndex] ?? currentVideo.questions[currentVideo.questions.length - 1] ?? currentVideo.questions[0];
 
   return (
-    <div className="min-h-screen bg-[#f9fafb] text-black" style={{ fontFamily: "Poppins, sans-serif" }}>
+    <div className="flex min-h-screen bg-[#f9fafb] text-black" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       <SideNav />
 
-      <div className="md:ml-[120px] px-6 pb-10">
+      <div className="flex-1 md:ml-[120px] px-6 py-6 pb-10">
         <div className="max-w-[860px]">
 
           {/* ── Header + basic info (no card, sits on grey bg) ── */}
@@ -482,7 +482,7 @@ const CreateModuleData = () => {
                   <IoIosArrowBack size={16} />
                 </Link>
                 <div>
-                  <h1 className="text-[18px] font-bold leading-none text-gray-900">
+                  <h1 className="text-[22px] font-bold leading-tight text-gray-900">
                     {isEditMode ? "Edit Module" : "Create New Module"}
                   </h1>
                   <p className="mt-1.5 text-[12px] text-gray-500">

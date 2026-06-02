@@ -8,6 +8,7 @@ import Module from '../model/Module.js';
 import { Training } from '../model/Traning.js';
 import Admin from '../model/Admin.js';
 import { sendCompletionEmail } from '../utils/sendEmail.js';
+import { sendNotification } from '../utils/notificationHelper.js';
 dotenv.config()
 
 // Adjust the path to your TrainingProgress model
@@ -280,6 +281,120 @@ export const flutterLogin = async (req, res) => {
       return res.status(400).json({ message: 'Employee ID and password are required' });
     }
 
+    // 1. Check if the user is an Admin
+    const adminQuery = {
+      $or: [
+        { EmpId: { $regex: `^${rawEmpID.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' } },
+        { email: { $regex: `^${rawEmpID.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' } }
+      ]
+    };
+
+    let adminUser = await Admin.findOne(adminQuery).populate('branches');
+    let isMatchingAdmin = false;
+
+    if (adminUser) {
+      if (adminUser.password) {
+        // Admin exists and has a password
+        const isPasswordMatch = await bcrypt.compare(normalizedPassword, adminUser.password);
+        if (isPasswordMatch) {
+          isMatchingAdmin = true;
+        } else {
+          return res.status(401).json({ message: 'Incorrect password' });
+        }
+      } else {
+        // Admin exists but has no password, verify with external API
+        const axios = (await import('axios')).default;
+        const ROOTMENTS_API_TOKEN = 'RootX-production-9d17d9485eb772e79df8564004d4a4d4';
+        try {
+          const verifyRes = await axios.post(
+            'https://rootments.in/api/verify_employee',
+            { employeeId: rawEmpID, password: normalizedPassword },
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${ROOTMENTS_API_TOKEN}`,
+              },
+            }
+          );
+          if (verifyRes.data && verifyRes.data.status === 'success') {
+            // Save hashed password for future normal logins
+            adminUser.password = await bcrypt.hash(normalizedPassword, 10);
+            await adminUser.save();
+            isMatchingAdmin = true;
+          } else {
+            return res.status(401).json({ message: 'Incorrect password' });
+          }
+        } catch (err) {
+          console.error('External admin auth error:', err.message);
+          return res.status(401).json({ message: 'Authentication failed (external service error)' });
+        }
+      }
+    }
+
+    if (isMatchingAdmin && adminUser) {
+      if (!process.env.JWT_SECRET) {
+        throw new Error('JWT secret is not defined in environment variables');
+      }
+
+      const token = jwt.sign(
+        { userId: adminUser._id, email: adminUser.email, empID: adminUser.EmpId, role: adminUser.role },
+        process.env.JWT_SECRET,
+        { expiresIn: '30d' }
+      );
+
+      try {
+        const { detectDeviceInfo, getLocationFromIP } = await import('../utils/deviceDetection.js');
+        const userAgent = req.headers['user-agent'] || 'Unknown';
+        const ipAddress = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] || 'Unknown';
+        const deviceInfo = detectDeviceInfo(userAgent, ipAddress);
+        const location = await getLocationFromIP(ipAddress);
+        const UserLoginSession = (await import('../model/UserLoginSession.js')).default;
+
+        const loginSession = new UserLoginSession({
+          userId: adminUser._id,
+          username: adminUser.name,
+          email: adminUser.email,
+          ...deviceInfo,
+          location,
+          ipAddress,
+          loginSource: 'flutter-app-admin',
+        });
+
+        await loginSession.save();
+
+        return res.status(200).json({
+          message: 'Flutter login successful',
+          token,
+          sessionId: loginSession._id,
+          user: {
+            id: adminUser._id,
+            username: adminUser.name,
+            email: adminUser.email,
+            empID: adminUser.EmpId,
+            designation: adminUser.role,
+            workingBranch: adminUser.branches?.[0]?.workingBranch || 'All Stores',
+            source: 'admin',
+          },
+        });
+      } catch (trackingError) {
+        console.error('Error tracking flutter admin login:', trackingError);
+        return res.status(200).json({
+          message: 'Flutter login successful',
+          token,
+          user: {
+            id: adminUser._id,
+            username: adminUser.name,
+            email: adminUser.email,
+            empID: adminUser.EmpId,
+            designation: adminUser.role,
+            workingBranch: adminUser.branches?.[0]?.workingBranch || 'All Stores',
+            source: 'admin',
+          },
+        });
+      }
+    }
+
+    // 2. Fallback to standard User/Employee authentication
     const query = {
       empID: { $regex: `^${rawEmpID.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' }
     };
@@ -975,6 +1090,7 @@ export const UpdateuserTrainingprocess = async (req, res) => {
 
     // Update training status
     const allModulesPassed = trainingProgress.modules.every(mod => mod.pass === true);
+    const wasAlreadyPassed = trainingProgress.pass === true;
 
     if (allModulesPassed) {
       trainingProgress.pass = true;
@@ -986,6 +1102,17 @@ export const UpdateuserTrainingprocess = async (req, res) => {
 
     // Save updated training progress
     await trainingProgress.save();
+
+    // Trigger notification if newly completed
+    if (allModulesPassed && !wasAlreadyPassed) {
+      await sendNotification({
+        title: 'Training Completed',
+        body: `Congratulations! You have completed the training program: "${trainingProgress.trainingName}"`,
+        userIds: [userId],
+        senderName: 'LMS System',
+        category: 'Training'
+      });
+    }
 
     // Update User Collection
     const user = await User.findById(userId);

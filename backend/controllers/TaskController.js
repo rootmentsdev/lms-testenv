@@ -1,15 +1,61 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import mongoose from 'mongoose';
 import Task from '../model/Task.js';
 import Admin from '../model/Admin.js';
 import Employee from '../model/Employee.js';
 import User from '../model/User.js';
 import Branch from '../model/Branch.js';
 import { getAccessibleEmployeeIds, getAccessibleStoreIds } from '../lib/permissions.js';
+import { sendNotification } from '../utils/notificationHelper.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const resolveAssigneeId = async (assignedTo) => {
+  if (!assignedTo) return null;
+
+  // 1. If it's already a valid ObjectId, return it
+  if (mongoose.Types.ObjectId.isValid(assignedTo)) {
+    return assignedTo.toString();
+  }
+
+  // 2. If it is a group selection key, return it
+  if (['all_employees', 'all_store_admins', 'all_cluster_admins', 'all_hr_admins'].includes(assignedTo)) {
+    return assignedTo;
+  }
+
+  // Support group labels
+  if (assignedTo.toLowerCase() === 'all employees') return 'all_employees';
+  if (assignedTo.toLowerCase() === 'all store admins') return 'all_store_admins';
+  if (assignedTo.toLowerCase() === 'all cluster admins') return 'all_cluster_admins';
+  if (assignedTo.toLowerCase() === 'all hr admins') return 'all_hr_admins';
+
+  // 3. Parse formatted label, e.g. "Test Staff 1 - Fashion Stylist - G-Edappally"
+  const parts = assignedTo.split(' - ');
+  const namePart = parts[0]?.trim();
+  if (!namePart) return assignedTo;
+
+  // Search Admin
+  const admin = await Admin.findOne({ name: { $regex: new RegExp('^' + namePart.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } });
+  if (admin) return admin._id.toString();
+
+  // Search User
+  const user = await User.findOne({ username: { $regex: new RegExp('^' + namePart.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } });
+  if (user) return user._id.toString();
+
+  // Search Employee (check firstName + lastName, or username)
+  const employees = await Employee.find({});
+  for (const emp of employees) {
+    const fullName = emp.firstName ? `${emp.firstName} ${emp.lastName || ''}`.trim() : (emp.username || '');
+    if (fullName.toLowerCase() === namePart.toLowerCase()) {
+      return emp._id.toString();
+    }
+  }
+
+  return assignedTo;
+};
 
 const ASSIGNED_TO_LABELS = {
   store_admin: 'Store Admin',
@@ -84,9 +130,20 @@ const mapTaskForClient = (doc) => {
   const task = doc.toObject ? doc.toObject() : doc;
   const status = computeStatus(task);
   const priority = normalizePriority(task.priority);
+  const taskId = task.taskCode || task._id?.toString();
+
+  let attachmentVal = task.attachment || '';
+  if (attachmentVal.startsWith('data:')) {
+    attachmentVal = `/api/task/${taskId}/attachment`;
+  }
+
+  let reviewAttachmentVal = task.reviewAttachment || '';
+  if (reviewAttachmentVal.startsWith('data:')) {
+    reviewAttachmentVal = `/api/task/${taskId}/review-attachment`;
+  }
 
   return {
-    id: task.taskCode || task._id?.toString(),
+    id: taskId,
     _id: task._id?.toString(),
     title: task.title,
     category: task.category,
@@ -112,10 +169,34 @@ const mapTaskForClient = (doc) => {
     endDateDetail: task.endDate ? formatDetailDate(task.endDate) : '—',
     mode: task.mode,
     additionalInfo: task.additionalInfo,
-    attachment: task.attachment || '',
+    attachment: attachmentVal,
     attachmentName: task.attachmentName || '',
-    reviewAttachment: task.reviewAttachment || '',
+    reviewAttachment: reviewAttachmentVal,
     reviewAttachmentName: task.reviewAttachmentName || '',
+    requestedExtensionDate: task.requestedExtensionDate || '',
+    previousStatus: task.previousStatus || '',
+    workMap: (() => {
+      const list = task.workMap || [];
+      const filtered = [];
+      let lastAssignee = null;
+      for (const step of list) {
+        if (step.action !== 'ASSIGNED' && step.action !== 'REASSIGNED' && step.action !== 'COMPLETED' && step.action !== 'EXTENSION REQUESTED' && step.action !== 'EXTENSION APPROVED' && step.action !== 'EXTENSION REJECTED') {
+          continue;
+        }
+        if (step.action === 'ASSIGNED') {
+          filtered.push(step);
+          lastAssignee = step.assignedTo;
+        } else if (step.action === 'REASSIGNED') {
+          if (step.assignedTo && lastAssignee && String(step.assignedTo) !== String(lastAssignee)) {
+            filtered.push(step);
+            lastAssignee = step.assignedTo;
+          }
+        } else if (step.action === 'COMPLETED' || step.action === 'EXTENSION REQUESTED' || step.action === 'EXTENSION APPROVED' || step.action === 'EXTENSION REJECTED') {
+          filtered.push(step);
+        }
+      }
+      return filtered;
+    })(),
     createdAt: task.createdAt,
   };
 };
@@ -161,27 +242,15 @@ export const createTask = async (req, res) => {
       });
     }
 
+    // Resolve assignedTo string to proper ObjectID if needed (e.g. from Flutter label)
+    const resolvedAssignedTo = await resolveAssigneeId(assignedTo);
+    const resolvedAssignedToLabel = resolvedAssignedTo !== assignedTo ? assignedTo : assignedToLabel;
+
     let attachment = '';
     let attachmentName = '';
     if (fileAttachment && fileAttachment.base64) {
-      try {
-        const base64Data = fileAttachment.base64.replace(/^data:.*;base64,/, "");
-        const uploadDir = path.join(__dirname, '..', 'uploads', 'tasks');
-        if (!fs.existsSync(uploadDir)) {
-          fs.mkdirSync(uploadDir, { recursive: true });
-        }
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const ext = path.extname(fileAttachment.name) || '';
-        const safeName = path.basename(fileAttachment.name, ext).replace(/[^a-zA-Z0-9]/g, '_');
-        const filename = `${safeName}-${uniqueSuffix}${ext}`;
-        const filePath = path.join(uploadDir, filename);
-        
-        fs.writeFileSync(filePath, base64Data, 'base64');
-        attachment = `/uploads/tasks/${filename}`;
-        attachmentName = fileAttachment.name;
-      } catch (err) {
-        console.error('Error saving task attachment:', err);
-      }
+      attachment = fileAttachment.base64;
+      attachmentName = fileAttachment.name;
     }
 
     const branch = isCreatorAdmin ? creator.branches?.[0] : null;
@@ -193,7 +262,7 @@ export const createTask = async (req, res) => {
       storeCode = branch?.locCode ? `Z-${branch.locCode}` : '';
     } else {
       storeName = creator.workingBranch || '';
-      storeCode = creator.locCode ? `Z-${creator.locCode}` : '';
+      storeCode = creator.locCode ? (Array.isArray(creator.locCode) ? `Z-${creator.locCode[0]}` : `Z-${creator.locCode}`) : '';
     }
 
     const roleLabel = isCreatorAdmin ? (ROLE_LABELS[creator.role] || creator.role) : 'Staff';
@@ -202,7 +271,7 @@ export const createTask = async (req, res) => {
     // Resolve all target assignees
     const targets = [];
 
-    if (assignedTo === 'all_employees') {
+    if (resolvedAssignedTo === 'all_employees') {
       const storeIds = await getAccessibleStoreIds(creator._id);
       let employeeIds = await getAccessibleEmployeeIds(creator._id);
       
@@ -232,7 +301,7 @@ export const createTask = async (req, res) => {
 
       targets.push(...combinedList);
     } 
-    else if (assignedTo === 'all_store_admins') {
+    else if (resolvedAssignedTo === 'all_store_admins') {
       const storeIds = await getAccessibleStoreIds(creator._id);
       const adminQuery = { role: 'store_admin', branches: { $in: storeIds }, isActive: true };
       const adminsList = await Admin.find(adminQuery).populate('branches');
@@ -244,7 +313,7 @@ export const createTask = async (req, res) => {
         });
       });
     }
-    else if (assignedTo === 'all_cluster_admins') {
+    else if (resolvedAssignedTo === 'all_cluster_admins') {
       const adminsList = await Admin.find({ role: 'cluster_admin', isActive: true });
       adminsList.forEach(ad => {
         targets.push({
@@ -253,7 +322,7 @@ export const createTask = async (req, res) => {
         });
       });
     }
-    else if (assignedTo === 'all_hr_admins') {
+    else if (resolvedAssignedTo === 'all_hr_admins') {
       const adminsList = await Admin.find({ role: 'hr_admin', isActive: true });
       adminsList.forEach(ad => {
         targets.push({
@@ -264,8 +333,8 @@ export const createTask = async (req, res) => {
     }
     else {
       targets.push({
-        id: assignedTo,
-        label: assignedToLabel || ASSIGNED_TO_LABELS[assignedTo] || assignedTo
+        id: resolvedAssignedTo,
+        label: resolvedAssignedToLabel || ASSIGNED_TO_LABELS[resolvedAssignedTo] || resolvedAssignedTo
       });
     }
 
@@ -333,8 +402,26 @@ export const createTask = async (req, res) => {
         assignedByRole: subRole ? `${roleLabel} · ${subRole}` : roleLabel,
         attachment,
         attachmentName,
+        workMap: [{
+          assignedTo: target.id,
+          assignedToLabel: target.label,
+          assignedBy: isCreatorAdmin ? creator.name : creator.username,
+          assignedAt: new Date(),
+          action: 'ASSIGNED'
+        }],
       });
       createdTasks.push(task);
+      
+      // Send notification to the assignee
+      const creatorName = isCreatorAdmin ? creator.name : creator.username;
+      await sendNotification({
+        title: 'New Task Assigned',
+        body: `You have been assigned a new task: "${title.trim()}" by ${creatorName}`,
+        userIds: [target.id],
+        senderName: creatorName,
+        category: 'Task'
+      });
+
       index++;
     }
 
@@ -648,7 +735,10 @@ export const updateTaskStatus = async (req, res) => {
     if (normalizedStatus === 'REVIEW') {
       normalizedStatus = 'UNDER REVIEW';
     }
-    const validStatuses = ['PENDING', 'IN PROGRESS', 'COMPLETED', 'OVERDUE', 'ON HOLD', 'UNDER REVIEW', 'REASSIGNED'];
+    if (normalizedStatus === 'REASSIGN') {
+      normalizedStatus = 'REASSIGNED';
+    }
+    const validStatuses = ['PENDING', 'IN PROGRESS', 'COMPLETED', 'OVERDUE', 'ON HOLD', 'UNDER REVIEW', 'REASSIGNED', 'EXTENSION REQUESTED'];
     if (!validStatuses.includes(normalizedStatus)) {
       return res.status(400).json({
         success: false,
@@ -670,18 +760,53 @@ export const updateTaskStatus = async (req, res) => {
     const userRole = req.admin.role;
     const isUserAdmin = userRole && userRole !== 'employee' && userRole !== 'user';
 
-    if (!isUserAdmin) {
-      const user = await User.findById(userId);
-      if (!user) {
-        return res.status(404).json({ success: false, message: 'User not found' });
-      }
-      const isAssignedToMe = task.assignedTo === user._id.toString();
-      const isMyStore = task.storeCode === `Z-${user.locCode}`;
-      if (!isAssignedToMe && !isMyStore) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied: You are not authorized to update this task',
+    // Verify permissions for status update (non-reassign status changes)
+    if (normalizedStatus !== 'REASSIGNED') {
+      if (!isUserAdmin) {
+        const user = await User.findById(userId);
+        if (!user) {
+          return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        const employee = await Employee.findOne({
+          $or: [
+            { userId: user._id },
+            { employeeId: { $regex: `^${user.empID}$`, $options: 'i' } }
+          ]
         });
+        const assignedIds = [user._id.toString()];
+        if (employee) {
+          assignedIds.push(employee._id.toString());
+        }
+
+        const isAssignedToMe = assignedIds.includes(task.assignedTo);
+        const isMyStore = task.storeCode === `Z-${user.locCode}`;
+        if (!isAssignedToMe && !isMyStore) {
+          return res.status(403).json({
+            success: false,
+            message: 'Access denied: You are not authorized to update this task',
+          });
+        }
+      }
+    } else {
+      // Reassigning power check: only current assignee or admin can reassign
+      if (!isUserAdmin) {
+        const user = await User.findById(userId);
+        const employee = user ? await Employee.findOne({
+          $or: [
+            { userId: user._id },
+            { employeeId: { $regex: `^${user.empID}$`, $options: 'i' } }
+          ]
+        }) : null;
+        const assignedIds = [userId.toString()];
+        if (employee) {
+          assignedIds.push(employee._id.toString());
+        }
+        if (!assignedIds.includes(task.assignedTo)) {
+          return res.status(403).json({
+            success: false,
+            message: 'Access denied: You are not authorized to reassign this task',
+          });
+        }
       }
     }
 
@@ -705,33 +830,166 @@ export const updateTaskStatus = async (req, res) => {
         });
       }
 
-      // Save attachment
-      try {
-        const base64Data = fileAttachment.base64.replace(/^data:.*;base64,/, "");
-        const uploadDir = path.join(__dirname, '..', 'uploads', 'tasks');
-        if (!fs.existsSync(uploadDir)) {
-          fs.mkdirSync(uploadDir, { recursive: true });
+      task.reviewAttachment = fileAttachment.base64;
+      task.reviewAttachmentName = fileAttachment.name;
+    }
+
+    // Resolve executor's display name
+    let executorName = 'Unknown';
+    try {
+      const executorAdmin = await Admin.findById(userId);
+      if (executorAdmin) {
+        executorName = executorAdmin.name;
+      } else {
+        const executorUser = await User.findById(userId);
+        if (executorUser) {
+          executorName = executorUser.username;
         }
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const ext = path.extname(fileAttachment.name) || '';
-        const safeName = path.basename(fileAttachment.name, ext).replace(/[^a-zA-Z0-9]/g, '_');
-        const filename = `${safeName}-${uniqueSuffix}${ext}`;
-        const filePath = path.join(uploadDir, filename);
-        
-        fs.writeFileSync(filePath, base64Data, 'base64');
-        task.reviewAttachment = `/uploads/tasks/${filename}`;
-        task.reviewAttachmentName = fileAttachment.name;
-      } catch (err) {
-        console.error('Error saving review attachment:', err);
-        return res.status(500).json({
+      }
+    } catch (err) {
+      console.error('Error resolving executor details:', err);
+    }
+
+    if (!task.workMap) {
+      task.workMap = [];
+    }
+    if (task.workMap.length === 0) {
+      task.workMap.push({
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignedToLabel,
+        assignedBy: task.assignedByName || 'Creator',
+        assignedAt: task.createdAt || new Date(),
+        action: 'ASSIGNED'
+      });
+    }
+
+    if (normalizedStatus === 'REASSIGNED') {
+      const { assignedTo, assignedToLabel } = req.body;
+      if (!assignedTo) {
+        return res.status(400).json({
           success: false,
-          message: 'Failed to save review attachment file.',
+          message: 'assignedTo is required when updating status to REASSIGNED',
         });
       }
+
+      const resolvedAssignedTo = await resolveAssigneeId(assignedTo);
+      const resolvedAssignedToLabel = resolvedAssignedTo !== assignedTo ? assignedTo : (assignedToLabel || assignedTo);
+
+      task.assignedTo = resolvedAssignedTo;
+      task.assignedToLabel = resolvedAssignedToLabel;
+
+      task.workMap.push({
+        assignedTo: resolvedAssignedTo,
+        assignedToLabel: resolvedAssignedToLabel,
+        assignedBy: executorName,
+        assignedAt: new Date(),
+        action: 'REASSIGNED'
+      });
+
+      // Update store details
+      try {
+        const targetAdmin = await Admin.findById(resolvedAssignedTo).populate('branches');
+        let targetStoreName = '';
+        let targetStoreCode = '';
+        if (targetAdmin) {
+          const targetBranch = targetAdmin.branches?.[0];
+          targetStoreName = targetBranch?.workingBranch || '';
+          targetStoreCode = targetBranch?.locCode ? `Z-${targetBranch.locCode}` : '';
+        } else {
+          const targetUser = await User.findById(resolvedAssignedTo);
+          if (targetUser) {
+            targetStoreName = targetUser.workingBranch || '';
+            targetStoreCode = targetUser.locCode ? (Array.isArray(targetUser.locCode) ? `Z-${targetUser.locCode[0]}` : `Z-${targetUser.locCode}`) : '';
+          }
+        }
+        if (targetStoreName || targetStoreCode) {
+          task.storeName = targetStoreName;
+          task.storeCode = targetStoreCode;
+        }
+      } catch (err) {
+        console.error('Error updating task store on status-reassign:', err);
+      }
+    } else if (normalizedStatus === 'COMPLETED') {
+      task.workMap.push({
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignedToLabel,
+        assignedBy: executorName,
+        assignedAt: new Date(),
+        action: 'COMPLETED'
+      });
+    } else if (normalizedStatus === 'UNDER REVIEW') {
+      task.workMap.push({
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignedToLabel,
+        assignedBy: executorName,
+        assignedAt: new Date(),
+        action: 'UNDER REVIEW'
+      });
+    } else if (normalizedStatus === 'IN PROGRESS') {
+      task.workMap.push({
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignedToLabel,
+        assignedBy: executorName,
+        assignedAt: new Date(),
+        action: 'IN PROGRESS'
+      });
+    } else if (normalizedStatus === 'ON HOLD') {
+      task.workMap.push({
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignedToLabel,
+        assignedBy: executorName,
+        assignedAt: new Date(),
+        action: 'ON HOLD'
+      });
+    } else if (normalizedStatus === 'EXTENSION REQUESTED') {
+      const { requestedExtensionDate } = req.body;
+      if (!requestedExtensionDate) {
+        return res.status(400).json({
+          success: false,
+          message: 'requestedExtensionDate is required when status is EXTENSION REQUESTED',
+        });
+      }
+      task.previousStatus = task.status;
+      task.requestedExtensionDate = requestedExtensionDate;
+      task.workMap.push({
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignedToLabel,
+        assignedBy: executorName,
+        assignedAt: new Date(),
+        action: 'EXTENSION REQUESTED',
+        details: requestedExtensionDate
+      });
     }
 
     task.status = normalizedStatus;
     await task.save();
+
+    // Trigger status-change notifications
+    if (normalizedStatus === 'REASSIGNED') {
+      await sendNotification({
+        title: 'Task Reassigned',
+        body: `Task "${task.title}" has been reassigned to you by ${executorName}`,
+        userIds: [task.assignedTo],
+        senderName: executorName,
+        category: 'Task'
+      });
+    } else if (normalizedStatus === 'UNDER REVIEW') {
+      await sendNotification({
+        title: 'Task Submitted for Review',
+        body: `Task "${task.title}" has been submitted for review by ${executorName}`,
+        userIds: [task.createdBy],
+        senderName: executorName,
+        category: 'Task'
+      });
+    } else if (normalizedStatus === 'EXTENSION REQUESTED') {
+      await sendNotification({
+        title: 'Task Extension Requested',
+        body: `Task "${task.title}" has an extension requested to ${requestedExtensionDate} by ${executorName}`,
+        userIds: [task.createdBy],
+        senderName: executorName,
+        category: 'Task'
+      });
+    }
 
     return res.status(200).json({
       success: true,
@@ -752,10 +1010,12 @@ export const reassignTask = async (req, res) => {
   try {
     const { id } = req.params;
     const { assignedTo, assignedToLabel } = req.body;
-
-    if (!assignedTo || !assignedToLabel) {
-      return res.status(400).json({ success: false, message: 'assignedTo and assignedToLabel are required' });
+    if (!assignedTo) {
+      return res.status(400).json({ success: false, message: 'assignedTo is required' });
     }
+
+    const resolvedAssignedTo = await resolveAssigneeId(assignedTo);
+    const resolvedAssignedToLabel = resolvedAssignedTo !== assignedTo ? assignedTo : (assignedToLabel || assignedTo);
 
     const task = await Task.findOne({
       $or: [{ taskCode: id }, ...(id.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: id }] : [])],
@@ -770,20 +1030,70 @@ export const reassignTask = async (req, res) => {
     const isUserAdmin = userRole && userRole !== 'employee' && userRole !== 'user';
 
     // Verify permissions: only current assignee or admin can reassign
-    if (!isUserAdmin && task.assignedTo !== userId) {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied: You are not authorized to reassign this task',
+    if (!isUserAdmin) {
+      const user = await User.findById(userId);
+      const employee = user ? await Employee.findOne({
+        $or: [
+          { userId: user._id },
+          { employeeId: { $regex: `^${user.empID}$`, $options: 'i' } }
+        ]
+      }) : null;
+      const assignedIds = [userId.toString()];
+      if (employee) {
+        assignedIds.push(employee._id.toString());
+      }
+      if (!assignedIds.includes(task.assignedTo)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You are not authorized to reassign this task',
+        });
+      }
+    }
+
+    // Resolve reassigner's display name
+    let reassignerName = 'Unknown';
+    try {
+      const reassignerAdmin = await Admin.findById(userId);
+      if (reassignerAdmin) {
+        reassignerName = reassignerAdmin.name;
+      } else {
+        const reassignerUser = await User.findById(userId);
+        if (reassignerUser) {
+          reassignerName = reassignerUser.username;
+        }
+      }
+    } catch (err) {
+      console.error('Error resolving reassigner details:', err);
+    }
+
+    if (!task.workMap) {
+      task.workMap = [];
+    }
+    if (task.workMap.length === 0) {
+      task.workMap.push({
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignedToLabel,
+        assignedBy: task.assignedByName || 'Creator',
+        assignedAt: task.createdAt || new Date(),
+        action: 'ASSIGNED'
       });
     }
 
-    task.assignedTo = assignedTo;
-    task.assignedToLabel = assignedToLabel;
+    task.assignedTo = resolvedAssignedTo;
+    task.assignedToLabel = resolvedAssignedToLabel;
     task.status = 'REASSIGNED'; // Reset status to REASSIGNED
+
+    task.workMap.push({
+      assignedTo: resolvedAssignedTo,
+      assignedToLabel: resolvedAssignedToLabel,
+      assignedBy: reassignerName,
+      assignedAt: new Date(),
+      action: 'REASSIGNED'
+    });
 
     // Update storeName and storeCode to the new assignee's store dynamically
     try {
-      const targetAdmin = await Admin.findById(assignedTo).populate('branches');
+      const targetAdmin = await Admin.findById(resolvedAssignedTo).populate('branches');
       let targetStoreName = '';
       let targetStoreCode = '';
       if (targetAdmin) {
@@ -791,7 +1101,7 @@ export const reassignTask = async (req, res) => {
         targetStoreName = targetBranch?.workingBranch || '';
         targetStoreCode = targetBranch?.locCode ? `Z-${targetBranch.locCode}` : '';
       } else {
-        const targetUser = await User.findById(assignedTo);
+        const targetUser = await User.findById(resolvedAssignedTo);
         if (targetUser) {
           targetStoreName = targetUser.workingBranch || '';
           targetStoreCode = targetUser.locCode ? (Array.isArray(targetUser.locCode) ? `Z-${targetUser.locCode[0]}` : `Z-${targetUser.locCode}`) : '';
@@ -807,6 +1117,15 @@ export const reassignTask = async (req, res) => {
 
     await task.save();
 
+    // Send notification to the new assignee
+    await sendNotification({
+      title: 'Task Reassigned',
+      body: `Task "${task.title}" has been reassigned to you by ${reassignerName}`,
+      userIds: [task.assignedTo],
+      senderName: reassignerName,
+      category: 'Task'
+    });
+
     return res.status(200).json({
       success: true,
       message: 'Task reassigned successfully',
@@ -817,6 +1136,190 @@ export const reassignTask = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to reassign task',
+      error: error.message,
+    });
+  }
+};
+
+export const getTaskAttachment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const task = await Task.findOne({
+      $or: [{ taskCode: id }, ...(id.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: id }] : [])],
+    });
+
+    if (!task || !task.attachment) {
+      return res.status(404).send('Attachment not found');
+    }
+
+    if (task.attachment.startsWith('data:')) {
+      const matches = task.attachment.match(/^data:([^;]+);base64,(.*)$/i);
+      if (!matches) {
+        return res.status(400).send('Invalid data URI format');
+      }
+      const contentType = matches[1];
+      const base64Data = matches[2];
+      const buffer = Buffer.from(base64Data, 'base64');
+      
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `inline; filename="${task.attachmentName || 'attachment'}"`);
+      return res.send(buffer);
+    } else {
+      // Legacy disk file fallback
+      const uploadDir = path.join(__dirname, '..');
+      const filePath = path.join(uploadDir, task.attachment);
+      if (fs.existsSync(filePath)) {
+        return res.sendFile(filePath);
+      } else {
+        return res.status(404).send('File not found on server');
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching task attachment:', error);
+    return res.status(500).send('Failed to fetch task attachment');
+  }
+};
+
+export const getTaskReviewAttachment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const task = await Task.findOne({
+      $or: [{ taskCode: id }, ...(id.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: id }] : [])],
+    });
+
+    if (!task || !task.reviewAttachment) {
+      return res.status(404).send('Review proof not found');
+    }
+
+    if (task.reviewAttachment.startsWith('data:')) {
+      const matches = task.reviewAttachment.match(/^data:([^;]+);base64,(.*)$/i);
+      if (!matches) {
+        return res.status(400).send('Invalid data URI format');
+      }
+      const contentType = matches[1];
+      const base64Data = matches[2];
+      const buffer = Buffer.from(base64Data, 'base64');
+      
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `inline; filename="${task.reviewAttachmentName || 'review-proof'}"`);
+      return res.send(buffer);
+    } else {
+      // Legacy disk file fallback
+      const uploadDir = path.join(__dirname, '..');
+      const filePath = path.join(uploadDir, task.reviewAttachment);
+      if (fs.existsSync(filePath)) {
+        return res.sendFile(filePath);
+      } else {
+        return res.status(404).send('File not found on server');
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching task review attachment:', error);
+    return res.status(500).send('Failed to fetch task review attachment');
+  }
+};
+
+export const resolveExtensionRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { action } = req.body; // 'APPROVE' or 'REJECT'
+
+    if (!action || !['APPROVE', 'REJECT'].includes(action.toUpperCase())) {
+      return res.status(400).json({ success: false, message: 'Invalid action. Must be APPROVE or REJECT' });
+    }
+
+    const task = await Task.findOne({
+      $or: [{ taskCode: id }, ...(id.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: id }] : [])],
+    });
+
+    if (!task) {
+      return res.status(404).json({ success: false, message: 'Task not found' });
+    }
+
+    if (task.status !== 'EXTENSION REQUESTED') {
+      return res.status(400).json({ success: false, message: 'Task does not have a pending extension request' });
+    }
+
+    // Permissions check: only the creator (assigner) of the task can resolve extension requests
+    const userId = req.admin.userId;
+    if (task.createdBy.toString() !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: Only the creator of this task can approve or reject extension requests',
+      });
+    }
+
+    // Resolve executor/creator display name
+    let resolverName = 'Unknown';
+    try {
+      const resolverAdmin = await Admin.findById(userId);
+      if (resolverAdmin) {
+        resolverName = resolverAdmin.name;
+      } else {
+        const resolverUser = await User.findById(userId);
+        if (resolverUser) {
+          resolverName = resolverUser.username;
+        }
+      }
+    } catch (err) {
+      console.error('Error resolving executor details:', err);
+    }
+
+    const nextStatus = task.previousStatus || 'IN PROGRESS';
+
+    if (action.toUpperCase() === 'APPROVE') {
+      const newEndDate = task.requestedExtensionDate;
+      task.endDate = newEndDate;
+      task.status = nextStatus;
+      
+      task.workMap.push({
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignedToLabel,
+        assignedBy: resolverName,
+        assignedAt: new Date(),
+        action: 'EXTENSION APPROVED',
+        details: newEndDate
+      });
+
+      task.requestedExtensionDate = '';
+      task.previousStatus = '';
+    } else {
+      task.status = nextStatus;
+      
+      task.workMap.push({
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignedToLabel,
+        assignedBy: resolverName,
+        assignedAt: new Date(),
+        action: 'EXTENSION REJECTED',
+        details: ''
+      });
+
+      task.requestedExtensionDate = '';
+      task.previousStatus = '';
+    }
+
+    await task.save();
+
+    // Trigger notification to the assignee
+    await sendNotification({
+      title: `Extension Request ${action.toUpperCase() === 'APPROVE' ? 'Approved' : 'Rejected'}`,
+      body: `Your extension request for task "${task.title}" has been ${action.toUpperCase() === 'APPROVE' ? 'approved' : 'rejected'} by ${resolverName}`,
+      userIds: [task.assignedTo],
+      senderName: resolverName,
+      category: 'Task'
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Extension request ${action.toLowerCase()}d successfully`,
+      data: mapTaskForClient(task),
+    });
+  } catch (error) {
+    console.error('Error resolving extension request:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to resolve extension request',
       error: error.message,
     });
   }
