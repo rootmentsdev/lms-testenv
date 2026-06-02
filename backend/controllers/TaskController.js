@@ -130,9 +130,20 @@ const mapTaskForClient = (doc) => {
   const task = doc.toObject ? doc.toObject() : doc;
   const status = computeStatus(task);
   const priority = normalizePriority(task.priority);
+  const taskId = task.taskCode || task._id?.toString();
+
+  let attachmentVal = task.attachment || '';
+  if (attachmentVal.startsWith('data:')) {
+    attachmentVal = `/api/task/${taskId}/attachment`;
+  }
+
+  let reviewAttachmentVal = task.reviewAttachment || '';
+  if (reviewAttachmentVal.startsWith('data:')) {
+    reviewAttachmentVal = `/api/task/${taskId}/review-attachment`;
+  }
 
   return {
-    id: task.taskCode || task._id?.toString(),
+    id: taskId,
     _id: task._id?.toString(),
     title: task.title,
     category: task.category,
@@ -158,16 +169,18 @@ const mapTaskForClient = (doc) => {
     endDateDetail: task.endDate ? formatDetailDate(task.endDate) : '—',
     mode: task.mode,
     additionalInfo: task.additionalInfo,
-    attachment: task.attachment || '',
+    attachment: attachmentVal,
     attachmentName: task.attachmentName || '',
-    reviewAttachment: task.reviewAttachment || '',
+    reviewAttachment: reviewAttachmentVal,
     reviewAttachmentName: task.reviewAttachmentName || '',
+    requestedExtensionDate: task.requestedExtensionDate || '',
+    previousStatus: task.previousStatus || '',
     workMap: (() => {
       const list = task.workMap || [];
       const filtered = [];
       let lastAssignee = null;
       for (const step of list) {
-        if (step.action !== 'ASSIGNED' && step.action !== 'REASSIGNED' && step.action !== 'COMPLETED') {
+        if (step.action !== 'ASSIGNED' && step.action !== 'REASSIGNED' && step.action !== 'COMPLETED' && step.action !== 'EXTENSION REQUESTED' && step.action !== 'EXTENSION APPROVED' && step.action !== 'EXTENSION REJECTED') {
           continue;
         }
         if (step.action === 'ASSIGNED') {
@@ -178,7 +191,7 @@ const mapTaskForClient = (doc) => {
             filtered.push(step);
             lastAssignee = step.assignedTo;
           }
-        } else if (step.action === 'COMPLETED') {
+        } else if (step.action === 'COMPLETED' || step.action === 'EXTENSION REQUESTED' || step.action === 'EXTENSION APPROVED' || step.action === 'EXTENSION REJECTED') {
           filtered.push(step);
         }
       }
@@ -236,24 +249,8 @@ export const createTask = async (req, res) => {
     let attachment = '';
     let attachmentName = '';
     if (fileAttachment && fileAttachment.base64) {
-      try {
-        const base64Data = fileAttachment.base64.replace(/^data:.*;base64,/, "");
-        const uploadDir = path.join(__dirname, '..', 'uploads', 'tasks');
-        if (!fs.existsSync(uploadDir)) {
-          fs.mkdirSync(uploadDir, { recursive: true });
-        }
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const ext = path.extname(fileAttachment.name) || '';
-        const safeName = path.basename(fileAttachment.name, ext).replace(/[^a-zA-Z0-9]/g, '_');
-        const filename = `${safeName}-${uniqueSuffix}${ext}`;
-        const filePath = path.join(uploadDir, filename);
-        
-        fs.writeFileSync(filePath, base64Data, 'base64');
-        attachment = `/uploads/tasks/${filename}`;
-        attachmentName = fileAttachment.name;
-      } catch (err) {
-        console.error('Error saving task attachment:', err);
-      }
+      attachment = fileAttachment.base64;
+      attachmentName = fileAttachment.name;
     }
 
     const branch = isCreatorAdmin ? creator.branches?.[0] : null;
@@ -741,7 +738,7 @@ export const updateTaskStatus = async (req, res) => {
     if (normalizedStatus === 'REASSIGN') {
       normalizedStatus = 'REASSIGNED';
     }
-    const validStatuses = ['PENDING', 'IN PROGRESS', 'COMPLETED', 'OVERDUE', 'ON HOLD', 'UNDER REVIEW', 'REASSIGNED'];
+    const validStatuses = ['PENDING', 'IN PROGRESS', 'COMPLETED', 'OVERDUE', 'ON HOLD', 'UNDER REVIEW', 'REASSIGNED', 'EXTENSION REQUESTED'];
     if (!validStatuses.includes(normalizedStatus)) {
       return res.status(400).json({
         success: false,
@@ -833,29 +830,8 @@ export const updateTaskStatus = async (req, res) => {
         });
       }
 
-      // Save attachment
-      try {
-        const base64Data = fileAttachment.base64.replace(/^data:.*;base64,/, "");
-        const uploadDir = path.join(__dirname, '..', 'uploads', 'tasks');
-        if (!fs.existsSync(uploadDir)) {
-          fs.mkdirSync(uploadDir, { recursive: true });
-        }
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const ext = path.extname(fileAttachment.name) || '';
-        const safeName = path.basename(fileAttachment.name, ext).replace(/[^a-zA-Z0-9]/g, '_');
-        const filename = `${safeName}-${uniqueSuffix}${ext}`;
-        const filePath = path.join(uploadDir, filename);
-        
-        fs.writeFileSync(filePath, base64Data, 'base64');
-        task.reviewAttachment = `/uploads/tasks/${filename}`;
-        task.reviewAttachmentName = fileAttachment.name;
-      } catch (err) {
-        console.error('Error saving review attachment:', err);
-        return res.status(500).json({
-          success: false,
-          message: 'Failed to save review attachment file.',
-        });
-      }
+      task.reviewAttachment = fileAttachment.base64;
+      task.reviewAttachmentName = fileAttachment.name;
     }
 
     // Resolve executor's display name
@@ -965,6 +941,24 @@ export const updateTaskStatus = async (req, res) => {
         assignedAt: new Date(),
         action: 'ON HOLD'
       });
+    } else if (normalizedStatus === 'EXTENSION REQUESTED') {
+      const { requestedExtensionDate } = req.body;
+      if (!requestedExtensionDate) {
+        return res.status(400).json({
+          success: false,
+          message: 'requestedExtensionDate is required when status is EXTENSION REQUESTED',
+        });
+      }
+      task.previousStatus = task.status;
+      task.requestedExtensionDate = requestedExtensionDate;
+      task.workMap.push({
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignedToLabel,
+        assignedBy: executorName,
+        assignedAt: new Date(),
+        action: 'EXTENSION REQUESTED',
+        details: requestedExtensionDate
+      });
     }
 
     task.status = normalizedStatus;
@@ -983,6 +977,14 @@ export const updateTaskStatus = async (req, res) => {
       await sendNotification({
         title: 'Task Submitted for Review',
         body: `Task "${task.title}" has been submitted for review by ${executorName}`,
+        userIds: [task.createdBy],
+        senderName: executorName,
+        category: 'Task'
+      });
+    } else if (normalizedStatus === 'EXTENSION REQUESTED') {
+      await sendNotification({
+        title: 'Task Extension Requested',
+        body: `Task "${task.title}" has an extension requested to ${requestedExtensionDate} by ${executorName}`,
         userIds: [task.createdBy],
         senderName: executorName,
         category: 'Task'
@@ -1134,6 +1136,190 @@ export const reassignTask = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to reassign task',
+      error: error.message,
+    });
+  }
+};
+
+export const getTaskAttachment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const task = await Task.findOne({
+      $or: [{ taskCode: id }, ...(id.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: id }] : [])],
+    });
+
+    if (!task || !task.attachment) {
+      return res.status(404).send('Attachment not found');
+    }
+
+    if (task.attachment.startsWith('data:')) {
+      const matches = task.attachment.match(/^data:([^;]+);base64,(.*)$/i);
+      if (!matches) {
+        return res.status(400).send('Invalid data URI format');
+      }
+      const contentType = matches[1];
+      const base64Data = matches[2];
+      const buffer = Buffer.from(base64Data, 'base64');
+      
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `inline; filename="${task.attachmentName || 'attachment'}"`);
+      return res.send(buffer);
+    } else {
+      // Legacy disk file fallback
+      const uploadDir = path.join(__dirname, '..');
+      const filePath = path.join(uploadDir, task.attachment);
+      if (fs.existsSync(filePath)) {
+        return res.sendFile(filePath);
+      } else {
+        return res.status(404).send('File not found on server');
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching task attachment:', error);
+    return res.status(500).send('Failed to fetch task attachment');
+  }
+};
+
+export const getTaskReviewAttachment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const task = await Task.findOne({
+      $or: [{ taskCode: id }, ...(id.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: id }] : [])],
+    });
+
+    if (!task || !task.reviewAttachment) {
+      return res.status(404).send('Review proof not found');
+    }
+
+    if (task.reviewAttachment.startsWith('data:')) {
+      const matches = task.reviewAttachment.match(/^data:([^;]+);base64,(.*)$/i);
+      if (!matches) {
+        return res.status(400).send('Invalid data URI format');
+      }
+      const contentType = matches[1];
+      const base64Data = matches[2];
+      const buffer = Buffer.from(base64Data, 'base64');
+      
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `inline; filename="${task.reviewAttachmentName || 'review-proof'}"`);
+      return res.send(buffer);
+    } else {
+      // Legacy disk file fallback
+      const uploadDir = path.join(__dirname, '..');
+      const filePath = path.join(uploadDir, task.reviewAttachment);
+      if (fs.existsSync(filePath)) {
+        return res.sendFile(filePath);
+      } else {
+        return res.status(404).send('File not found on server');
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching task review attachment:', error);
+    return res.status(500).send('Failed to fetch task review attachment');
+  }
+};
+
+export const resolveExtensionRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { action } = req.body; // 'APPROVE' or 'REJECT'
+
+    if (!action || !['APPROVE', 'REJECT'].includes(action.toUpperCase())) {
+      return res.status(400).json({ success: false, message: 'Invalid action. Must be APPROVE or REJECT' });
+    }
+
+    const task = await Task.findOne({
+      $or: [{ taskCode: id }, ...(id.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: id }] : [])],
+    });
+
+    if (!task) {
+      return res.status(404).json({ success: false, message: 'Task not found' });
+    }
+
+    if (task.status !== 'EXTENSION REQUESTED') {
+      return res.status(400).json({ success: false, message: 'Task does not have a pending extension request' });
+    }
+
+    // Permissions check: only the creator (assigner) of the task can resolve extension requests
+    const userId = req.admin.userId;
+    if (task.createdBy.toString() !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: Only the creator of this task can approve or reject extension requests',
+      });
+    }
+
+    // Resolve executor/creator display name
+    let resolverName = 'Unknown';
+    try {
+      const resolverAdmin = await Admin.findById(userId);
+      if (resolverAdmin) {
+        resolverName = resolverAdmin.name;
+      } else {
+        const resolverUser = await User.findById(userId);
+        if (resolverUser) {
+          resolverName = resolverUser.username;
+        }
+      }
+    } catch (err) {
+      console.error('Error resolving executor details:', err);
+    }
+
+    const nextStatus = task.previousStatus || 'IN PROGRESS';
+
+    if (action.toUpperCase() === 'APPROVE') {
+      const newEndDate = task.requestedExtensionDate;
+      task.endDate = newEndDate;
+      task.status = nextStatus;
+      
+      task.workMap.push({
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignedToLabel,
+        assignedBy: resolverName,
+        assignedAt: new Date(),
+        action: 'EXTENSION APPROVED',
+        details: newEndDate
+      });
+
+      task.requestedExtensionDate = '';
+      task.previousStatus = '';
+    } else {
+      task.status = nextStatus;
+      
+      task.workMap.push({
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignedToLabel,
+        assignedBy: resolverName,
+        assignedAt: new Date(),
+        action: 'EXTENSION REJECTED',
+        details: ''
+      });
+
+      task.requestedExtensionDate = '';
+      task.previousStatus = '';
+    }
+
+    await task.save();
+
+    // Trigger notification to the assignee
+    await sendNotification({
+      title: `Extension Request ${action.toUpperCase() === 'APPROVE' ? 'Approved' : 'Rejected'}`,
+      body: `Your extension request for task "${task.title}" has been ${action.toUpperCase() === 'APPROVE' ? 'approved' : 'rejected'} by ${resolverName}`,
+      userIds: [task.assignedTo],
+      senderName: resolverName,
+      category: 'Task'
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Extension request ${action.toLowerCase()}d successfully`,
+      data: mapTaskForClient(task),
+    });
+  } catch (error) {
+    console.error('Error resolving extension request:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to resolve extension request',
       error: error.message,
     });
   }

@@ -256,8 +256,9 @@ The Brynex LMS features a comprehensively documented backend. Swagger UI is avai
 * **GET /api/task/:id**: Retrieves task details for a single task by its Mongo ID or human-readable `taskCode`. Includes the `workMap` history array.
 * **PUT /api/task/:id/status**: Updates the status of an existing task.
   * **Headers:** `Authorization: Bearer <JWT_TOKEN>`
-  * **Supported Statuses:** `PENDING`, `IN PROGRESS`, `COMPLETED`, `OVERDUE`, `ON HOLD`, `UNDER REVIEW`, `REASSIGNED` (accepts case-insensitive values; `reassign` is normalized to `REASSIGNED`).
+  * **Supported Statuses:** `PENDING`, `IN PROGRESS`, `COMPLETED`, `OVERDUE`, `ON HOLD`, `UNDER REVIEW`, `REASSIGNED`, `EXTENSION REQUESTED` (accepts case-insensitive values; `reassign` is normalized to `REASSIGNED`).
   * **Request Body:**
+    *For review submission:*
     ```json
     {
       "status": "UNDER REVIEW",
@@ -265,6 +266,13 @@ The Brynex LMS features a comprehensively documented backend. Swagger UI is avai
         "name": "photo.jpg",
         "base64": "data:image/jpeg;base64,..."
       }
+    }
+    ```
+    *For extension request:*
+    ```json
+    {
+      "status": "EXTENSION REQUESTED",
+      "requestedExtensionDate": "2026-06-15"
     }
     ```
     *Or for reassignment via status update:*
@@ -346,6 +354,27 @@ The Brynex LMS features a comprehensively documented backend. Swagger UI is avai
       }
     }
     ```
+* **PUT /api/task/:id/resolve-extension**: Resolves a pending task extension request (Approve or Reject).
+  * **Headers:** `Authorization: Bearer <JWT_TOKEN>`
+  * **Request Body:**
+    ```json
+    {
+      "action": "APPROVE"
+    }
+    ```
+    *or*
+    ```json
+    {
+      "action": "REJECT"
+    }
+    ```
+  * **Permissions:**
+    - Restricted to the original task creator (assigner).
+  * **Actions:**
+    - **APPROVE:** Updates the task's `endDate` to the requested extension date and reverts the task status back to its previous status (e.g. `IN PROGRESS`).
+    - **REJECT:** Reverts the status back to the previous status without modifying the end date.
+
+
 
 
 ### 7. Walk-ins & Leads
@@ -464,4 +493,12 @@ We implemented a robust database-backed notification/inbox system supporting tas
 - **Training Notifications:**
   - **Assignment:** Triggers a notification to the employee when they are assigned a training package.
   - **Completion:** Triggers a notification to the employee when they successfully pass all modules in a training program.
+
+### Task Extension Requests Workflow (June 2026)
+We implemented a complete task extension requests system:
+- **Status Change:** Added `EXTENSION REQUESTED` status to the status enum list.
+- **Request form:** Added an "Extension" status button for assignees in the details modal which triggers a date selector input (YYYY-MM-DD format). Submitting this stores the date in `requestedExtensionDate` and logs `EXTENSION REQUESTED` with the requested date in the task workMap.
+- **Creator inbox/tab:** Added an "Extension Requests" tab inside `TaskManagement.jsx` displaying tasks created by the logged-in user with status `EXTENSION REQUESTED`.
+- **Approval/Rejection endpoint:** Created `/api/task/:id/resolve-extension` allowing the task creator to resolve requests. Approving updates `endDate` to the requested date and reverts status back to its previous status. Rejecting reverts status back to the previous status. Both actions are fully logged in the `workMap` workflow timeline.
+
 

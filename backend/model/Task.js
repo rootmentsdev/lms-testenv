@@ -17,9 +17,11 @@ const taskSchema = new mongoose.Schema({
   priority: { type: String, required: true, trim: true },
   status: {
     type: String,
-    enum: ['PENDING', 'IN PROGRESS', 'COMPLETED', 'OVERDUE', 'ON HOLD', 'UNDER REVIEW', 'REASSIGNED'],
+    enum: ['PENDING', 'IN PROGRESS', 'COMPLETED', 'OVERDUE', 'ON HOLD', 'UNDER REVIEW', 'REASSIGNED', 'EXTENSION REQUESTED'],
     default: 'PENDING',
   },
+  requestedExtensionDate: { type: String, default: '' },
+  previousStatus: { type: String, default: '' },
   storeName: { type: String, default: '' },
   storeCode: { type: String, default: '', index: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', required: true },
@@ -34,7 +36,8 @@ const taskSchema = new mongoose.Schema({
     assignedToLabel: { type: String },
     assignedBy: { type: String },
     assignedAt: { type: Date, default: Date.now },
-    action: { type: String, enum: ['ASSIGNED', 'REASSIGNED', 'COMPLETED', 'UNDER REVIEW', 'IN PROGRESS', 'ON HOLD'], default: 'ASSIGNED' }
+    action: { type: String, enum: ['ASSIGNED', 'REASSIGNED', 'COMPLETED', 'UNDER REVIEW', 'IN PROGRESS', 'ON HOLD', 'EXTENSION REQUESTED', 'EXTENSION APPROVED', 'EXTENSION REJECTED'], default: 'ASSIGNED' },
+    details: { type: String, default: '' }
   }],
 }, { timestamps: true });
 
