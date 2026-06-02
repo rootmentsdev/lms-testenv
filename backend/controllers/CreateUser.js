@@ -472,13 +472,9 @@ export const flutterLogin = async (req, res) => {
 
 export const GetAllUser = async (req, res) => {
   try {
-    const AdminId = req.admin.userId
-    const AdminBranch = await Admin.findById(AdminId).populate('branches')
-    // Fetch users with populated training, assessments, and modules
-
-    console.log(AdminBranch);
-    const allowedLocCodes = AdminBranch.branches.map(branch => branch.locCode);
-    const response = await User.find({ locCode: { $in: allowedLocCodes } });
+    // Return all employees for assessment assignment.
+    // The frontend already handles the dropdown display and selection.
+    const response = await User.find({});
 
     // Check if no users were found
     if (response.length === 0) {

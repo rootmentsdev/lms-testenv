@@ -239,35 +239,94 @@ const ModuleCard = ({ module, onViewDetails }) => {
     : "—";
 
   return (
-    <div className="max-w-[360px] bg-white rounded-[12px] border border-gray-200 p-4 flex flex-col gap-3 shadow-[0_1px_4px_rgba(0,0,0,0.05)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-shadow">
-      {/* Title + description */}
-      <div>
-        <h2 className="text-[16px] font-bold text-gray-900 leading-snug">
-          {module.moduleName || "Untitled Module"}
-        </h2>
-        <p className="mt-1 text-[12px] text-gray-500 line-clamp-1">
-          {module.description || "Customer Service Excellence"}
-        </p>
+    <div
+      style={{
+        background: "#fff",
+        borderRadius: "16px",
+        border: "1px solid #e5e7eb",
+        padding: "20px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "14px",
+        minHeight: "254px",
+        height: "100%",
+        cursor: "pointer",
+        transition: "box-shadow 0.15s, transform 0.15s",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.10)";
+        e.currentTarget.style.transform = "translateY(-2px)";
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.06)";
+        e.currentTarget.style.transform = "translateY(0)";
+      }}
+    >
+      {/* Title row */}
+      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <ModuleIcon />
+        <div>
+          <p style={{ fontSize: "15px", fontWeight: 700, color: "#111827", margin: 0, lineHeight: 1.3 }}>
+            {module.moduleName || "Untitled Module"}
+          </p>
+          <p style={{ fontSize: "11px", color: "#9ca3af", margin: "3px 0 0" }}>
+            {module.description || "Customer Service Excellence"}
+          </p>
+        </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-y-2 gap-x-4">
-        <StatItem icon={<LuClock size={14} />} label={hours} />
-        <StatItem icon={<LuBookOpen size={14} />} label={`${videoCount} Videos`} />
+      {/* Meta row */}
+      <div style={{ display: "flex", alignItems: "center", gap: "18px", flexWrap: "wrap" }}>
+        <MetaItem icon={<LuClock size={13} />} label={hours} />
+        <MetaItem icon={<LuBookOpen size={13} />} label={`${videoCount} Videos`} />
       </div>
 
-      {/* View Details */}
-      <div className="flex justify-end mt-1 gap-2">
+      {/* Actions */}
+      <div style={{ display: "flex", gap: "10px", marginTop: "auto" }}>
         <Link
           to={`/createmodule/${module._id || module.moduleId}`}
-          className="inline-flex items-center gap-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-800 text-[13px] font-medium px-4 py-2 rounded-[8px] transition-colors"
+          style={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "7px",
+            background: "#f3f4f6",
+            borderRadius: "10px",
+            padding: "10px",
+            fontSize: "13px",
+            fontWeight: 600,
+            color: "#374151",
+            textDecoration: "none",
+            transition: "background 0.15s",
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = "#e5e7eb"}
+          onMouseLeave={e => e.currentTarget.style.background = "#f3f4f6"}
         >
           <LuPencil size={14} />
           Edit
         </Link>
         <button
           onClick={onViewDetails}
-          className="inline-flex items-center gap-2 bg-[#f5f5f5] hover:bg-gray-200 text-gray-800 text-[13px] font-medium px-4 py-2 rounded-[8px] transition-colors"
+          style={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "7px",
+            background: "#111827",
+            borderRadius: "10px",
+            padding: "10px",
+            fontSize: "13px",
+            fontWeight: 600,
+            color: "#fff",
+            border: "none",
+            cursor: "pointer",
+            transition: "background 0.15s",
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = "#374151"}
+          onMouseLeave={e => e.currentTarget.style.background = "#111827"}
         >
           <LuEye size={14} />
           View Details
@@ -277,10 +336,29 @@ const ModuleCard = ({ module, onViewDetails }) => {
   );
 };
 
-const StatItem = ({ icon, label }) => (
-  <div className="flex items-center gap-1.5 text-[12px] text-gray-600">
-    <span className="text-gray-500">{icon}</span>
-    {label}
+const ModuleIcon = () => (
+  <div style={{
+    width: "42px",
+    height: "42px",
+    borderRadius: "10px",
+    background: "#fdf4ff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  }}>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c026d3" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 6h16" />
+      <path d="M4 12h16" />
+      <path d="M4 18h16" />
+    </svg>
+  </div>
+);
+
+const MetaItem = ({ icon, label }) => (
+  <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+    <span style={{ color: "#6b7280" }}>{icon}</span>
+    <span style={{ fontSize: "11px", color: "#6b7280" }}>{label}</span>
   </div>
 );
 
