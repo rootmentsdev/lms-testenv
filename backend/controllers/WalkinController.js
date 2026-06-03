@@ -282,7 +282,7 @@ export const saveWalkin = async (req, res) => {
  */
 export const getWalkins = async (req, res) => {
     try {
-        const { startDate, endDate, storeId, employeeId } = req.query;
+        const { startDate, endDate, storeId, employeeId, page = 1, limit = 20, search = '', status = '', store = '' } = req.query;
         const adminId = req.admin.userId;
 
         // 1. Build Base Query based on date/frontend filters
@@ -308,6 +308,24 @@ export const getWalkins = async (req, res) => {
             baseQuery.createdAt = { $gte: start, $lte: end };
         }
 
+        if (status && status !== 'All') {
+            baseQuery.status = status;
+        }
+
+        if (store && store !== 'All') {
+            baseQuery.store = { $regex: `^${store.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' };
+        }
+
+        if (search && search.trim()) {
+            const q = search.trim();
+            baseQuery.$or = [
+                { customerName: { $regex: q, $options: 'i' } },
+                { contact: { $regex: q, $options: 'i' } },
+                { store: { $regex: q, $options: 'i' } },
+                { staff: { $regex: q, $options: 'i' } }
+            ];
+        }
+
         // 2. Wrap with RBAC
         const secureQuery = await buildWalkinFilter(adminId, baseQuery);
         if (secureQuery._id === null) {
@@ -315,12 +333,26 @@ export const getWalkins = async (req, res) => {
         }
 
         // 3. Fetch filtered walkins directly from MongoDB
-        const filtered = await Walkin.find(secureQuery).sort({ createdAt: -1 });
+        const pageNum = Math.max(1, parseInt(page, 10) || 1);
+        const pageSize = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+        const skip = (pageNum - 1) * pageSize;
+
+        const [total, filtered] = await Promise.all([
+            Walkin.countDocuments(secureQuery),
+            Walkin.find(secureQuery)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(pageSize)
+            .select('date customerName contact functionDate store staff managerName category subCategory remarks repeatCount status storeId employeeId createdBy createdAt')
+            .lean()
+        ]);
 
         return res.status(200).json({
             success: true,
             message: 'Walk-ins retrieved successfully',
-            count: filtered.length,
+            count: total,
+            page: pageNum,
+            limit: pageSize,
             data: filtered
         });
 
@@ -341,7 +373,10 @@ export const getAllWalkinsPublic = async (req, res) => {
     try {
         const { startDate, endDate } = req.query;
 
-        let filtered = await Walkin.find({}).sort({ createdAt: -1 });
+        let filtered = await Walkin.find({})
+            .sort({ createdAt: -1 })
+            .select('date customerName contact functionDate store staff managerName category subCategory remarks repeatCount status storeId employeeId createdBy createdAt')
+            .lean();
 
         // Date Range Filter
         if (startDate && endDate) {
