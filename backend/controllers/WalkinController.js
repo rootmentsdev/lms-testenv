@@ -315,7 +315,17 @@ export const getWalkins = async (req, res) => {
         }
 
         // 3. Fetch filtered walkins directly from MongoDB
-        const filtered = await Walkin.find(secureQuery).sort({ createdAt: -1 });
+        const limitVal = req.query.limit ? parseInt(req.query.limit, 10) : null;
+        const skipVal = req.query.skip ? parseInt(req.query.skip, 10) : null;
+
+        let queryBuilder = Walkin.find(secureQuery).sort({ createdAt: -1 });
+        if (skipVal !== null && !isNaN(skipVal)) {
+            queryBuilder = queryBuilder.skip(skipVal);
+        }
+        if (limitVal !== null && !isNaN(limitVal)) {
+            queryBuilder = queryBuilder.limit(limitVal);
+        }
+        const filtered = await queryBuilder;
 
         return res.status(200).json({
             success: true,

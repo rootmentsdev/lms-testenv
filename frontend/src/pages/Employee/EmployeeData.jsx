@@ -193,8 +193,8 @@ const EmployeeData = () => {
                 <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"13px" }}>
                   <thead>
                     <tr style={{ background:"#f9fafb", borderBottom:"1px solid #f3f4f6" }}>
-                      {["#","EMPLOYEE","STORE","TRAINING PROGRESS","TASKS","TRAINING","ACTIONS"].map(h=>(
-                        <th key={h} style={{ padding:"10px 16px", textAlign: h==="#"||h==="ACTIONS" ? "center":"left", fontSize:"10px", fontWeight:600, color:"#9ca3af", letterSpacing:"0.06em", whiteSpace:"nowrap" }}>{h}</th>
+                      {["EMP ID","EMPLOYEE","STORE","TRAINING PROGRESS","TASKS","TRAINING","ACTIONS"].map(h=>(
+                        <th key={h} style={{ padding:"10px 16px", textAlign: h==="ACTIONS" ? "center":"left", fontSize:"10px", fontWeight:600, color:"#9ca3af", letterSpacing:"0.06em", whiteSpace:"nowrap" }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -204,7 +204,7 @@ const EmployeeData = () => {
                         onMouseEnter={ev=>ev.currentTarget.style.background="#fafafa"}
                         onMouseLeave={ev=>ev.currentTarget.style.background="#fff"}
                       >
-                        <td style={{ padding:"14px 16px", textAlign:"center", color:"#9ca3af", fontSize:"12px" }}>{(currentPage - 1) * itemsPerPage + i + 1}</td>
+                        <td style={{ padding:"14px 16px", color:"#374151", fontWeight:500, fontSize:"12px" }}>{e.empID || "—"}</td>
                         <td style={{ padding:"14px 16px", minWidth:"160px" }}>
                           <div style={{ fontWeight:600, color:"#111827", fontSize:"13px" }}>{e.username || "—"}</div>
                           <div style={{ fontSize:"11px", color:"#9ca3af", marginTop:"2px" }}>{e.designation || "—"}</div>
