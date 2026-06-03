@@ -19,6 +19,10 @@ async function fetchJson(path) {
 }
 
 export function fetchHomeProgress() {
+  return fetchJson("api/admin/get/HomeProgressSummary");
+}
+
+export function fetchHomeProgressChart() {
   return fetchJson("api/admin/get/HomeProgressData");
 }
 
