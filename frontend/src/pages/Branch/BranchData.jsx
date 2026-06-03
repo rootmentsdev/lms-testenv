@@ -316,7 +316,7 @@ import SideNav from "../../components/SideNav/SideNav";
 import baseUrl from "../../api/api";
 import { Link } from "react-router-dom";
 import { normalizeBranchProgress } from "../../features/dashboard/dashboardUtils";
-import { fetchHomeProgress } from "../../features/dashboard/dashboardFetch";
+import { fetchHomeProgressChart as fetchHomeProgress } from "../../features/dashboard/dashboardFetch";
 
 /* ---------- Normalization helpers ---------- */
 

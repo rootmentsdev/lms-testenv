@@ -46,11 +46,10 @@ const buildDays = (count) => {
   });
 };
 
-const DailyWalkings = () => {
+const DailyWalkings = ({ range = "7", onRangeChange }) => {
   const [activeIdx, setActiveIdx] = useState(null);
   const [walkinResponse, setWalkinResponse] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [range, setRange] = useState("7");
 
   useEffect(() => {
     let mounted = true;
@@ -91,6 +90,7 @@ const DailyWalkings = () => {
     });
 
     walkins.forEach((w) => {
+      // Use the walk-in business date so imported legacy rows keep their real timeline.
       const key = dateKey(w.date || w.createdAt);
       if (key && grouped[key] !== undefined) {
         grouped[key].walkings += 1;
@@ -131,7 +131,7 @@ const DailyWalkings = () => {
 
         <select
           value={range}
-          onChange={(e) => setRange(e.target.value)}
+          onChange={(e) => onRangeChange?.(e.target.value)}
           style={{
             border: "1px solid #e5e7eb",
             borderRadius: "8px",

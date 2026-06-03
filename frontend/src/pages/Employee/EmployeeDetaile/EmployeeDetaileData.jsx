@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import SideNav from "../../../components/SideNav/SideNav";
 import { GoPencil } from "react-icons/go";
 import { FaRegTrashCan } from "react-icons/fa6";
@@ -70,6 +70,7 @@ const deduplicateTrainings = (trainings) => {
 const EmployeeDetaileData = () => {
   const token = localStorage.getItem("token");
   const { id } = useParams();
+  const navigate = useNavigate();
   const [isEditing, setIsEditing]   = useState(false);
   const [isExternal, setIsExternal] = useState(false);
   const [data, setData]             = useState({});
@@ -92,6 +93,27 @@ const EmployeeDetaileData = () => {
       await FetchUserData();
       setIsEditing(false);
     } catch { toast.error("Error updating data"); }
+  };
+
+  const handleDelete = async () => {
+    const ok = window.confirm(`Delete employee ${data.username || id}? This cannot be undone.`);
+    if (!ok) return;
+
+    try {
+      const response = await fetch(`${baseUrl.baseUrl}api/admin/admin/delete/${id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        toast.error(result?.message || "Failed to delete employee");
+        return;
+      }
+      toast.success(result?.message || "Employee deleted");
+      navigate("/employee");
+    } catch {
+      toast.error("Error deleting employee");
+    }
   };
 
   const FetchUserData = async () => {
@@ -252,7 +274,10 @@ const EmployeeDetaileData = () => {
                     Cancel
                   </button>
                 )}
-                <button className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 transition-colors">
+                <button
+                  onClick={handleDelete}
+                  className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+                >
                   <FaRegTrashCan className="w-3.5 h-3.5" />
                   Delete
                 </button>

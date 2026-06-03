@@ -48,7 +48,8 @@ const STATUS_OPTIONS = [
     'New Booking',
     'Revisit Booking',
     'Revisit Loss',
-    'New Walkin'
+    'New Walkin',
+    'Other'
 ];
 
 const UPDATE_STATUS_OPTIONS = [
@@ -57,7 +58,8 @@ const UPDATE_STATUS_OPTIONS = [
     'Trial',
     'Reissue',
     'Revisit Booking',
-    'New Walkin'
+    'New Walkin',
+    'Other'
 ];
 
 const HARDCODED_STORES = [
@@ -85,12 +87,13 @@ const WalkinList = () => {
 
     // State for walkins list
     const [walkins, setWalkins] = useState([]);
-    const [filteredWalkins, setFilteredWalkins] = useState([]);
+    const [totalWalkins, setTotalWalkins] = useState(0);
 
     // API Data
     const [branches, setBranches] = useState([]);
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [walkinsLoading, setWalkinsLoading] = useState(true);
 
     // Filters and UI State
     const [searchQuery, setSearchQuery] = useState('');
@@ -127,10 +130,17 @@ const WalkinList = () => {
     });
 
     // Fetch walkins dynamically from live API
-    const loadWalkinsList = async () => {
+    const loadWalkinsList = async (page = currentPage) => {
         try {
-            // First load only 50 walkins to make the page load fast
-            const walkinRes = await fetch(`${baseUrl.baseUrl}api/walkin/list?limit=50`, {
+            setWalkinsLoading(true);
+            const params = new URLSearchParams({
+                page: String(page),
+                limit: String(itemsPerPage),
+                search: searchQuery.trim(),
+                status: statusFilter,
+                store: storeFilter,
+            });
+            const walkinRes = await fetch(`${baseUrl.baseUrl}api/walkin/list?${params.toString()}`, {
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
@@ -139,27 +149,11 @@ const WalkinList = () => {
             const walkinJson = await walkinRes.json();
             if (walkinJson?.success) {
                 setWalkins(walkinJson.data || []);
-                
-                // Then fetch the remaining walkins in the background
-                fetch(`${baseUrl.baseUrl}api/walkin/list?skip=50`, {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    }
-                })
-                .then(res => res.json())
-                .then(remainingJson => {
-                    if (remainingJson?.success && Array.isArray(remainingJson.data)) {
-                        setWalkins(prev => {
-                            const prevIds = new Set(prev.map(w => w._id));
-                            const uniqueRemaining = remainingJson.data.filter(w => !prevIds.has(w._id));
-                            return [...prev, ...uniqueRemaining];
-                        });
-                    }
-                })
-                .catch(err => console.error('Error loading remaining walkins:', err));
+                setTotalWalkins(Number(walkinJson.count || 0));
             }
         } catch (err) {
+        } finally {
+            setWalkinsLoading(false);
         }
     };
 
@@ -167,7 +161,7 @@ const WalkinList = () => {
         const fetchData = async () => {
             setLoading(true);
             try {
-                // Fetch branches and walkins in parallel — skip employees until form is opened
+                // Fetch branches and walkins in parallel — employees stay lazy
                 const [branchRes] = await Promise.all([
                     fetch(`${baseUrl.baseUrl}api/admin/accessible-stores`, {
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
@@ -191,9 +185,7 @@ const WalkinList = () => {
                     setFormData(prev => ({ ...prev, store: branchList[0]?.workingBranch || '' }));
                 }
 
-                // Fetch walkins immediately
-                await loadWalkinsList();
-
+                await loadWalkinsList(1);
             } catch (err) {
             } finally {
                 setLoading(false);
@@ -219,64 +211,19 @@ const WalkinList = () => {
         }
     };
 
-    // Handle dynamically filtering walk-in list and binding to dynamic dropdown rules
+    // Reload remote page when filters change
     useEffect(() => {
-        let result = [...walkins];
+        if (!token || loading) return;
+        setCurrentPage(1);
+        loadWalkinsList(1);
+    }, [searchQuery, statusFilter, storeFilter, itemsPerPage]);
 
-        // Search Query
-        if (searchQuery.trim() !== '') {
-            const query = searchQuery.toLowerCase();
-            result = result.filter(w =>
-                w.customerName.toLowerCase().includes(query) ||
-                w.contact.includes(query) ||
-                w.staff.toLowerCase().includes(query) ||
-                w.store.toLowerCase().includes(query) ||
-                w.remarks.toLowerCase().includes(query)
-            );
-        }
-
-        // Status Filter
-        if (statusFilter !== 'All') {
-            result = result.filter(w => w.status === statusFilter);
-        }
-
-        // Store Filter (For Cluster Manager and Super Admin)
-        if (storeFilter !== 'All') {
-            result = result.filter(w => {
-                const storeNorm = locationKey(w.store);
-                const filterNorm = locationKey(storeFilter);
-                return storeNorm === filterNorm;
-            });
-        }
-
-        // Role-Based constraint
-        if (user?.role === 'store_admin' && branches.length > 0) {
-            const myStoreName = branches[0]?.workingBranch;
-            if (myStoreName) {
-                result = result.filter(w => {
-                    return locationKey(w.store) === locationKey(myStoreName);
-                });
-            }
-        } else if (user?.role === 'cluster_admin' && branches.length > 0) {
-            const allowedStoresKeys = branches.map(b => locationKey(b.workingBranch));
-            result = result.filter(w => {
-                return allowedStoresKeys.includes(locationKey(w.store));
-            });
-        }
-
-        setFilteredWalkins(result);
-        setCurrentPage(1); // Reset page on filter change
-    }, [walkins, searchQuery, statusFilter, storeFilter, user?.role, branches]);
-
-    // Pagination calculations
-    const indexOfLastItem = currentPage * itemsPerPage;
-    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-    const currentItems = filteredWalkins.slice(indexOfFirstItem, indexOfLastItem);
-    const totalPages = Math.ceil(filteredWalkins.length / itemsPerPage);
+    const totalPages = Math.ceil(totalWalkins / itemsPerPage);
 
     const handlePageChange = (pageNumber) => {
         if (pageNumber >= 1 && pageNumber <= totalPages) {
             setCurrentPage(pageNumber);
+            loadWalkinsList(pageNumber);
         }
     };
 
@@ -678,11 +625,11 @@ const WalkinList = () => {
 
                         {/* Table card */}
                         <div style={{ background:'#fff', borderRadius:'14px', border:'1px solid #f0f0f0', boxShadow:'0 1px 4px rgba(0,0,0,0.05)', overflow:'hidden', marginBottom:'32px' }}>
-                            {loading ? (
+                            {walkinsLoading ? (
                                 <div style={{ display:'flex', justifyContent:'center', padding:'48px' }}>
                                     <div style={{ width:'28px', height:'28px', border:'2px solid #e5e7eb', borderTopColor:'#111827', borderRadius:'50%', animation:'walkin-spin 0.7s linear infinite' }} />
                                 </div>
-                            ) : filteredWalkins.length===0 ? (
+                            ) : walkins.length===0 ? (
                                 <div style={{ textAlign:'center', padding:'48px', color:'#9ca3af', fontSize:'13px' }}>No walk-in records found.</div>
                             ) : (
                                 <>
@@ -696,7 +643,7 @@ const WalkinList = () => {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {currentItems.map((w,index)=>{
+                                                {walkins.map((w,index)=>{
                                                     const statusColors = {
                                                         'Booked':            { bg:'#dcfce7', color:'#16a34a' },
                                                         'New Booking':       { bg:'#dcfce7', color:'#16a34a' },
@@ -719,7 +666,7 @@ const WalkinList = () => {
                                                             onMouseEnter={e=>e.currentTarget.style.background='#fafafa'}
                                                             onMouseLeave={e=>e.currentTarget.style.background='#fff'}
                                                         >
-                                                            <td style={{ padding:'11px 12px', textAlign:'center', color:'#9ca3af' }}>{indexOfFirstItem+index+1}</td>
+                                                            <td style={{ padding:'11px 12px', textAlign:'center', color:'#9ca3af' }}>{((currentPage-1)*itemsPerPage)+index+1}</td>
                                                             <td style={{ padding:'11px 12px', whiteSpace:'nowrap', color:'#374151' }}>{w.date}</td>
                                                             <td style={{ padding:'11px 12px', color:'#111827', fontWeight:500, whiteSpace:'nowrap' }}>{w.customerName}</td>
                                                             <td style={{ padding:'11px 12px', whiteSpace:'nowrap', color:'#374151' }}>+91 {w.contact}</td>
@@ -755,7 +702,7 @@ const WalkinList = () => {
 
                                     {/* Pagination */}
                                     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'14px 20px', borderTop:'1px solid #f3f4f6', fontSize:'13px', color:'#6b7280' }}>
-                                        <span>Showing {String(Math.min(indexOfLastItem, filteredWalkins.length)).padStart(2,'0')} of {filteredWalkins.length}</span>
+                                        <span>Showing {String(Math.min(currentPage * itemsPerPage, totalWalkins)).padStart(2,'0')} of {totalWalkins}</span>
                                         <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
                                             <button onClick={()=>handlePageChange(currentPage-1)} disabled={currentPage===1} style={{ width:'30px', height:'30px', border:'1px solid #e5e7eb', borderRadius:'6px', background:'#fff', cursor:currentPage===1?'not-allowed':'pointer', opacity:currentPage===1?0.4:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#374151' }}>
                                                 <FaChevronLeft size={10} />
