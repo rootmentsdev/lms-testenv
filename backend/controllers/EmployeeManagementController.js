@@ -695,6 +695,14 @@ export const getAllAppRegisteredEmployees = async (req, res) => {
       return matchSearch && matchStore && matchRole;
     });
 
+    // Sort by empID numerically (e.g., emp01, Emp02, Emp545)
+    filtered.sort((a, b) => {
+      const numA = parseInt(String(a.empID || '').replace(/\D/g, ''), 10) || 0;
+      const numB = parseInt(String(b.empID || '').replace(/\D/g, ''), 10) || 0;
+      return numA - numB;
+    });
+
+
     // ── 7. Build filter options ──
     const individualStoresList = [];
     employees.forEach(e => {

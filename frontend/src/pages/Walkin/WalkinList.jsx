@@ -106,7 +106,7 @@ const WalkinList = () => {
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [itemsPerPage, setItemsPerPage] = useState(50);
 
     // Form state for adding Walk-in
     const [formData, setFormData] = useState({
@@ -129,7 +129,8 @@ const WalkinList = () => {
     // Fetch walkins dynamically from live API
     const loadWalkinsList = async () => {
         try {
-            const walkinRes = await fetch(`${baseUrl.baseUrl}api/walkin/list`, {
+            // First load only 50 walkins to make the page load fast
+            const walkinRes = await fetch(`${baseUrl.baseUrl}api/walkin/list?limit=50`, {
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
@@ -138,6 +139,25 @@ const WalkinList = () => {
             const walkinJson = await walkinRes.json();
             if (walkinJson?.success) {
                 setWalkins(walkinJson.data || []);
+                
+                // Then fetch the remaining walkins in the background
+                fetch(`${baseUrl.baseUrl}api/walkin/list?skip=50`, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                })
+                .then(res => res.json())
+                .then(remainingJson => {
+                    if (remainingJson?.success && Array.isArray(remainingJson.data)) {
+                        setWalkins(prev => {
+                            const prevIds = new Set(prev.map(w => w._id));
+                            const uniqueRemaining = remainingJson.data.filter(w => !prevIds.has(w._id));
+                            return [...prev, ...uniqueRemaining];
+                        });
+                    }
+                })
+                .catch(err => console.error('Error loading remaining walkins:', err));
             }
         } catch (err) {
         }
