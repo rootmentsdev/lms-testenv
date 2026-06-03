@@ -137,7 +137,6 @@ const CreateEmployee = () => {
       color: "#9ca3af",
     }),
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -154,6 +153,45 @@ const CreateEmployee = () => {
       return;
     }
 
+    const cleanString = (str) => str ? str.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+    const val = form.workingBranch;
+
+    let finalWorkingBranch = val;
+    let finalLocCode = val;
+    let finalLocation = "";
+
+    if (val.trim().toLowerCase() === "all" || val.trim().toLowerCase() === "all stores") {
+      finalLocCode = stores.map(s => String(s.locCode)).filter(Boolean).join(', ');
+      finalWorkingBranch = stores.map(s => s.workingBranch).filter(Boolean).join(', ');
+      finalLocation = "All Locations";
+    } else {
+      const inputBranches = val.split(',').map(name => name.trim());
+      let hasManual = false;
+      const resolvedLocCodes = [];
+      const resolvedBranches = [];
+
+      inputBranches.forEach(inputBranch => {
+        if (!inputBranch) return;
+        const normInput = cleanString(inputBranch);
+        const match = stores.find(s => 
+          cleanString(s.workingBranch) === normInput || 
+          cleanString(String(s.locCode)) === normInput
+        );
+        if (match) {
+          resolvedLocCodes.push(String(match.locCode));
+          resolvedBranches.push(match.workingBranch);
+        } else {
+          resolvedLocCodes.push(inputBranch);
+          resolvedBranches.push(inputBranch);
+          hasManual = true;
+        }
+      });
+
+      finalLocCode = resolvedLocCodes.join(', ');
+      finalWorkingBranch = resolvedBranches.join(', ');
+      finalLocation = hasManual ? "Manual Entry" : (resolvedBranches.length > 1 ? "Multiple Locations" : "Store Location");
+    }
+
     setSaving(true);
     try {
       const res = await fetch(`${baseUrl.baseUrl}api/usercreate/create-user`, {
@@ -165,6 +203,9 @@ const CreateEmployee = () => {
         body: JSON.stringify({
           ...form,
           empID: form.empID.toLowerCase().trim(),
+          workingBranch: finalWorkingBranch,
+          locCode: finalLocCode,
+          location: finalLocation,
         }),
       });
 
@@ -269,46 +310,7 @@ const CreateEmployee = () => {
                     name="workingBranch"
                     placeholder="Enter Store Name"
                     value={form.workingBranch}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val.trim().toLowerCase() === "all" || val.trim().toLowerCase() === "all stores") {
-                        setForm(prev => ({
-                          ...prev,
-                          workingBranch: "All Stores",
-                          locCode: "All",
-                          location: "All Locations"
-                        }));
-                        return;
-                      }
-
-                      const inputBranches = val.split(',').map(name => name.trim().toLowerCase());
-                      let hasManual = false;
-                      const resolvedLocCodes = [];
-                      const resolvedBranches = [];
-
-                      inputBranches.forEach(inputBranch => {
-                        if (!inputBranch) return;
-                        const match = stores.find(s => 
-                          (s.workingBranch && s.workingBranch.trim().toLowerCase() === inputBranch) || 
-                          (s.locCode && String(s.locCode).trim().toLowerCase() === inputBranch)
-                        );
-                        if (match) {
-                          resolvedLocCodes.push(String(match.locCode));
-                          resolvedBranches.push(match.workingBranch);
-                        } else {
-                          resolvedLocCodes.push(inputBranch);
-                          resolvedBranches.push(inputBranch);
-                          hasManual = true;
-                        }
-                      });
-
-                      setForm(prev => ({
-                        ...prev,
-                        workingBranch: val,
-                        locCode: resolvedLocCodes.join(', '),
-                        location: val ? (hasManual ? "Manual Entry" : (resolvedBranches.length > 1 ? "Multiple Locations" : "Store Location")) : ""
-                      }));
-                    }}
+                    onChange={handleChange}
                     required
                     style={styles.input}
                   />
