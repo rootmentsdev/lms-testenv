@@ -43,6 +43,22 @@ const userSchema = new mongoose.Schema({
     assignedModules: [assignedModuleSchema], // Array of assigned modules
     assignedAssessments: [assignedAssessmentSchema],
     training: [trainingSchema],// Array of assigned assessments
+
+    // Legacy fields from the imported JSON dataset.
+    // These are optional so the current LMS flows keep working unchanged.
+    store_name: { type: String, default: "" },
+    name: { type: String, default: "" },
+    contact: { type: String, default: "" },
+    f_date: { type: String, default: "" },
+    walk_status: { type: String, default: "" },
+    cat: { type: String, default: "" },
+    sub: { type: String, default: "" },
+    remark: { type: String, default: "" },
+    repeat_count: { type: String, default: "" },
+    manager_name: { type: String, default: "" },
+    created_by: { type: String, default: "" },
+    created_at: { type: String, default: "" },
+
     createdAt: { type: Date, default: Date.now }, // Timestamp when the user was created
     updatedAt: { type: Date, default: Date.now }, // Timestamp when the user was last updated
 });
