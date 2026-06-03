@@ -5,6 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import mongoose from 'mongoose';
 import Walkin from '../model/Walkin.js';
+import Branch from '../model/Branch.js';
 
 const SOURCE_PATH = process.env.LEGACY_WALKIN_FILE || 'D:\\DB-data.json';
 
@@ -59,6 +60,53 @@ function loadLegacyRows() {
   return table.data;
 }
 
+function locationKey(name) {
+  return String(name || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+async function resolveBranchName(rawStore) {
+  const branches = await Branch.find({ isActive: true }).select('_id workingBranch locCode').lean();
+  const input = String(rawStore || '').trim();
+  const normalizedInput = locationKey(input);
+
+  const direct = branches.find((b) => locationKey(b.workingBranch) === normalizedInput || String(b.locCode) === input);
+  if (direct) return direct;
+
+  const aliases = {
+    edappally: 'ZORUCCI Edappally',
+    edappal: 'ZORUCCI Edappal',
+    perinthalmanna: 'ZORUCCI Perinthalmanna',
+    kottakkal: 'ZORUCCI Kottakkal',
+    kochi: 'GROOMS Kochi',
+    calicut: 'GROOMS Calicut',
+    trivandrum: 'GROOMS Trivandrum',
+    kottayam: 'GROOMS Kottayam',
+    perumbavoor: 'GROOMS Perumbavoor',
+    thrissur: 'GROOMS Thrissur',
+    chavakkad: 'GROOMS Chavakkad',
+    kozhikode: 'GROOMS Kozhikode',
+    vatakara: 'GROOMS Vatakara',
+    manjery: 'GROOMS Manjery',
+    palakkad: 'GROOMS Palakkad',
+    kalpetta: 'GROOMS Kalpetta',
+    kannur: 'GROOMS Kannur',
+  };
+
+  for (const [needle, branchName] of Object.entries(aliases)) {
+    if (normalizedInput.includes(needle)) {
+      const matched = branches.find((b) => locationKey(b.workingBranch) === locationKey(branchName));
+      if (matched) return matched;
+    }
+  }
+
+  return null;
+}
+
 function mapRow(row) {
   const createdAt = parseCreatedAt(row.created_at);
   const functionDate = parseDateOnly(row.f_date);
@@ -89,9 +137,18 @@ function mapRow(row) {
 async function main() {
   await mongoose.connect(process.env.MONGODB_URI);
   const rows = loadLegacyRows();
+  const branches = await Branch.find({ isActive: true }).select('_id workingBranch locCode').lean();
   const docs = rows
     .filter((row) => row?.contact && row?.name)
-    .map(mapRow);
+    .map((row) => {
+      const resolvedBranch = branches.find((b) => locationKey(b.workingBranch) === locationKey(String(row.store_name || '').trim()));
+      const mapped = mapRow(row);
+      return {
+        ...mapped,
+        store: resolvedBranch?.workingBranch || mapped.store,
+        storeId: resolvedBranch?._id || undefined,
+      };
+    });
 
   if (process.argv.includes('--dry-run')) {
     console.log(`Dry run: ${docs.length} walk-in rows mapped from ${rows.length} legacy rows.`);

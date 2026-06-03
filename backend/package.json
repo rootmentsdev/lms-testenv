@@ -9,7 +9,8 @@
     "start": "nodemon server.js",
     "import:legacy-walkins": "node scripts/importLegacyWalkins.js",
     "import:legacy-walkins:dry-run": "node scripts/importLegacyWalkins.js --dry-run",
-    "sync:walkin-indexes": "node scripts/syncWalkinIndexes.js"
+    "sync:walkin-indexes": "node scripts/syncWalkinIndexes.js",
+    "normalize:walkin-stores": "node scripts/normalizeWalkinStores.js"
   },
   "author": "",
   "license": "ISC",

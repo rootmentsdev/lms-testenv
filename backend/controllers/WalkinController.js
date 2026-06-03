@@ -35,6 +35,56 @@ function locationKey(name) {
   return tokens.join(" ");
 }
 
+async function resolveBranchIdentity(rawStore) {
+    const input = String(rawStore || "").trim();
+    if (!input) return { store: '-', storeId: undefined };
+
+    const branches = await Branch.find({ isActive: true }).select('workingBranch locCode').lean();
+
+    const normalizedInput = locationKey(input);
+    const directMatch = branches.find((branch) => {
+        const branchKey = locationKey(branch.workingBranch);
+        return branchKey === normalizedInput || String(branch.locCode) === input;
+    });
+
+    if (directMatch) {
+        return {
+            store: directMatch.workingBranch,
+            storeId: directMatch._id,
+        };
+    }
+
+    const aliasMap = [
+        ['edappally', 'ZORUCCI Edappally'],
+        ['edappal', 'ZORUCCI Edappal'],
+        ['perinthalmanna', 'ZORUCCI Perinthalmanna'],
+        ['kottakkal', 'ZORUCCI Kottakkal'],
+        ['kochi', 'GROOMS Kochi'],
+        ['calicut', 'GROOMS Calicut'],
+        ['trivandrum', 'GROOMS Trivandrum'],
+        ['kottayam', 'GROOMS Kottayam'],
+        ['perumbavoor', 'GROOMS Perumbavoor'],
+        ['thrissur', 'GROOMS Thrissur'],
+        ['chavakkad', 'GROOMS Chavakkad'],
+        ['kozhikode', 'GROOMS Kozhikode'],
+        ['vatakara', 'GROOMS Vatakara'],
+        ['manjery', 'GROOMS Manjery'],
+        ['palakkad', 'GROOMS Palakkad'],
+        ['kalpetta', 'GROOMS Kalpetta'],
+        ['kannur', 'GROOMS Kannur'],
+    ];
+
+    const aliasHit = aliasMap.find(([needle]) => normalizedInput.includes(needle));
+    if (aliasHit) {
+        const branch = branches.find((b) => locationKey(b.workingBranch) === locationKey(aliasHit[1]));
+        if (branch) {
+            return { store: branch.workingBranch, storeId: branch._id };
+        }
+    }
+
+    return { store: input, storeId: undefined };
+}
+
 /**
  * Helper to match stores based on normalized location keys
  */
@@ -166,6 +216,10 @@ export const saveWalkin = async (req, res) => {
                 }
             }
         }
+
+        const resolved = await resolveBranchIdentity(finalStore);
+        finalStore = resolved.store;
+        finalStoreId = resolved.storeId || finalStoreId;
 
         // Direct update by _id (e.g. edited from list view)
         if (_id) {
