@@ -248,6 +248,7 @@ const CreateEmployee = () => {
                   <label style={styles.label}>
                     Store Name<span style={styles.required}>*</span>
                   </label>
+                  {/*
                   <Select
                     placeholder="Select Store"
                     options={[
@@ -262,12 +263,62 @@ const CreateEmployee = () => {
                     onChange={handleStoreSelectChange}
                     styles={customSelectStyles}
                   />
+                  */}
+                  <input
+                    type="text"
+                    name="workingBranch"
+                    placeholder="Enter Store Name"
+                    value={form.workingBranch}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val.trim().toLowerCase() === "all" || val.trim().toLowerCase() === "all stores") {
+                        setForm(prev => ({
+                          ...prev,
+                          workingBranch: "All Stores",
+                          locCode: "All",
+                          location: "All Locations"
+                        }));
+                        return;
+                      }
+
+                      const inputBranches = val.split(',').map(name => name.trim().toLowerCase());
+                      let hasManual = false;
+                      const resolvedLocCodes = [];
+                      const resolvedBranches = [];
+
+                      inputBranches.forEach(inputBranch => {
+                        if (!inputBranch) return;
+                        const match = stores.find(s => 
+                          (s.workingBranch && s.workingBranch.trim().toLowerCase() === inputBranch) || 
+                          (s.locCode && String(s.locCode).trim().toLowerCase() === inputBranch)
+                        );
+                        if (match) {
+                          resolvedLocCodes.push(String(match.locCode));
+                          resolvedBranches.push(match.workingBranch);
+                        } else {
+                          resolvedLocCodes.push(inputBranch);
+                          resolvedBranches.push(inputBranch);
+                          hasManual = true;
+                        }
+                      });
+
+                      setForm(prev => ({
+                        ...prev,
+                        workingBranch: val,
+                        locCode: resolvedLocCodes.join(', '),
+                        location: val ? (hasManual ? "Manual Entry" : (resolvedBranches.length > 1 ? "Multiple Locations" : "Store Location")) : ""
+                      }));
+                    }}
+                    required
+                    style={styles.input}
+                  />
                 </div>
 
                 <div style={styles.field}>
                   <label style={styles.label}>
                     Emp Designation<span style={styles.required}>*</span>
                   </label>
+                  {/*
                   <select
                     name="designation"
                     value={form.designation}
@@ -282,6 +333,16 @@ const CreateEmployee = () => {
                       </option>
                     ))}
                   </select>
+                  */}
+                  <input
+                    type="text"
+                    name="designation"
+                    placeholder="Enter Designation"
+                    value={form.designation}
+                    onChange={handleChange}
+                    required
+                    style={styles.input}
+                  />
                 </div>
 
                 <div style={styles.field}>
