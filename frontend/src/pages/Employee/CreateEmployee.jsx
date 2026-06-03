@@ -137,6 +137,7 @@ const CreateEmployee = () => {
       color: "#9ca3af",
     }),
   };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -153,45 +154,6 @@ const CreateEmployee = () => {
       return;
     }
 
-    const cleanString = (str) => str ? str.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
-    const val = form.workingBranch;
-
-    let finalWorkingBranch = val;
-    let finalLocCode = val;
-    let finalLocation = "";
-
-    if (val.trim().toLowerCase() === "all" || val.trim().toLowerCase() === "all stores") {
-      finalLocCode = stores.map(s => String(s.locCode)).filter(Boolean).join(', ');
-      finalWorkingBranch = stores.map(s => s.workingBranch).filter(Boolean).join(', ');
-      finalLocation = "All Locations";
-    } else {
-      const inputBranches = val.split(',').map(name => name.trim());
-      let hasManual = false;
-      const resolvedLocCodes = [];
-      const resolvedBranches = [];
-
-      inputBranches.forEach(inputBranch => {
-        if (!inputBranch) return;
-        const normInput = cleanString(inputBranch);
-        const match = stores.find(s => 
-          cleanString(s.workingBranch) === normInput || 
-          cleanString(String(s.locCode)) === normInput
-        );
-        if (match) {
-          resolvedLocCodes.push(String(match.locCode));
-          resolvedBranches.push(match.workingBranch);
-        } else {
-          resolvedLocCodes.push(inputBranch);
-          resolvedBranches.push(inputBranch);
-          hasManual = true;
-        }
-      });
-
-      finalLocCode = resolvedLocCodes.join(', ');
-      finalWorkingBranch = resolvedBranches.join(', ');
-      finalLocation = hasManual ? "Manual Entry" : (resolvedBranches.length > 1 ? "Multiple Locations" : "Store Location");
-    }
-
     setSaving(true);
     try {
       const res = await fetch(`${baseUrl.baseUrl}api/usercreate/create-user`, {
@@ -203,9 +165,6 @@ const CreateEmployee = () => {
         body: JSON.stringify({
           ...form,
           empID: form.empID.toLowerCase().trim(),
-          workingBranch: finalWorkingBranch,
-          locCode: finalLocCode,
-          location: finalLocation,
         }),
       });
 
@@ -289,7 +248,6 @@ const CreateEmployee = () => {
                   <label style={styles.label}>
                     Store Name<span style={styles.required}>*</span>
                   </label>
-                  {/*
                   <Select
                     placeholder="Select Store"
                     options={[
@@ -304,23 +262,12 @@ const CreateEmployee = () => {
                     onChange={handleStoreSelectChange}
                     styles={customSelectStyles}
                   />
-                  */}
-                  <input
-                    type="text"
-                    name="workingBranch"
-                    placeholder="Enter Store Name"
-                    value={form.workingBranch}
-                    onChange={handleChange}
-                    required
-                    style={styles.input}
-                  />
                 </div>
 
                 <div style={styles.field}>
                   <label style={styles.label}>
                     Emp Designation<span style={styles.required}>*</span>
                   </label>
-                  {/*
                   <select
                     name="designation"
                     value={form.designation}
@@ -335,16 +282,6 @@ const CreateEmployee = () => {
                       </option>
                     ))}
                   </select>
-                  */}
-                  <input
-                    type="text"
-                    name="designation"
-                    placeholder="Enter Designation"
-                    value={form.designation}
-                    onChange={handleChange}
-                    required
-                    style={styles.input}
-                  />
                 </div>
 
                 <div style={styles.field}>
