@@ -75,7 +75,7 @@ const AssessmentIcon = () => (
   </svg>
 );
 
-const DashboardOverview = () => {
+const DashboardOverview = ({ range = "7" }) => {
   const [progressResponse, setProgressResponse] = useState(null);
   const [walkinResponse, setWalkinResponse] = useState(null);
   const [tasksResponse, setTasksResponse] = useState(null);
@@ -87,7 +87,7 @@ const DashboardOverview = () => {
       try {
         const [progress, walkins, tasks] = await Promise.all([
           fetchHomeProgress(),
-          fetchWeeklyWalkins(),
+          fetchWeeklyWalkins(range),
           fetchDashboardTasks(),
         ]);
         if (!mounted) return;
@@ -110,7 +110,7 @@ const DashboardOverview = () => {
       mounted = false;
       window.removeEventListener("dashboard:refresh", refresh);
     };
-  }, []);
+  }, [range]);
 
   const stats = useMemo(() => {
     const branches = normalizeBranchProgress(progressResponse);
@@ -158,7 +158,7 @@ const DashboardOverview = () => {
     {
       title:    'Total Walk Ins',
       value:    stats.totalWalkins || '—',
-      subtitle: `Last 7 days · ${stats.totalBranches} stores`,
+      subtitle: `Last ${range} days · ${stats.totalBranches} stores`,
       icon:     <WalkinIcon />,
       iconBg:   '#EDE9FE',
     },
