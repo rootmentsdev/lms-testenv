@@ -17,7 +17,8 @@ const normalizeBranchKey = (value) => {
 };
 
 const homeProgressCache = new Map();
-const HOME_PROGRESS_CACHE_TTL_MS = 60 * 1000;
+const HOME_PROGRESS_SUMMARY_CACHE_TTL_MS = 60 * 1000;
+const HOME_PROGRESS_CHART_CACHE_TTL_MS = 10 * 60 * 1000;
 
 export const createDesignation = async (req, res) => {
     try {
@@ -82,7 +83,7 @@ export const HomeBar = async (req, res) => {
         const Admin1 = req.admin.userId;
         const cacheKey = `${Admin1}:${req.admin?.role || ''}`;
         const cached = homeProgressCache.get(cacheKey);
-        if (cached && (Date.now() - cached.createdAt) < HOME_PROGRESS_CACHE_TTL_MS) {
+        if (cached && (Date.now() - cached.createdAt) < HOME_PROGRESS_CHART_CACHE_TTL_MS) {
             return res.status(200).json(cached.payload);
         }
 
@@ -91,7 +92,10 @@ export const HomeBar = async (req, res) => {
 
         // Step 1: Use RBAC to get accessible stores
         const accessibleStoreIds = await getAccessibleStoreIds(Admin1);
-        const branches = await Branch.find({ _id: { $in: accessibleStoreIds } });
+        const useAllBranches = isFullAccessAdmin(AdminData.role) || accessibleStoreIds.length === 0;
+        const branches = useAllBranches
+          ? await Branch.find({})
+          : await Branch.find({ _id: { $in: accessibleStoreIds } });
         
         const allowedLocCodes = branches.map(b => b.locCode);
         
@@ -198,7 +202,7 @@ export const HomeProgressSummary = async (req, res) => {
         const Admin1 = req.admin.userId;
         const cacheKey = `summary:${Admin1}:${req.admin?.role || ''}`;
         const cached = homeProgressCache.get(cacheKey);
-        if (cached && (Date.now() - cached.createdAt) < HOME_PROGRESS_CACHE_TTL_MS) {
+        if (cached && (Date.now() - cached.createdAt) < HOME_PROGRESS_SUMMARY_CACHE_TTL_MS) {
             return res.status(200).json(cached.payload);
         }
 
@@ -206,7 +210,10 @@ export const HomeProgressSummary = async (req, res) => {
         if (!AdminData) return res.status(404).json({ message: "Admin not found" });
 
         const accessibleStoreIds = await getAccessibleStoreIds(Admin1);
-        const branches = await Branch.find({ _id: { $in: accessibleStoreIds } });
+        const useAllBranches = isFullAccessAdmin(AdminData.role) || accessibleStoreIds.length === 0;
+        const branches = useAllBranches
+          ? await Branch.find({})
+          : await Branch.find({ _id: { $in: accessibleStoreIds } });
         const allowedLocCodes = branches.map((b) => b.locCode);
 
         const users = isFullAccessAdmin(AdminData.role)

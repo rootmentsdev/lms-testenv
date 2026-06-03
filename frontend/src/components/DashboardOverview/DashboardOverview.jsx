@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { normalizeBranchProgress } from "../../features/dashboard/dashboardUtils";
-import { fetchDashboardTasks, fetchHomeProgress, fetchWeeklyWalkins } from "../../features/dashboard/dashboardFetch";
+import { fetchDashboardTasks, fetchHomeProgress, fetchHomeProgressChart, fetchWeeklyWalkinCount } from "../../features/dashboard/dashboardFetch";
 
 const StatCard = ({ title, value, subtitle, icon, iconBg }) => (
   <div
@@ -93,39 +93,55 @@ const AssessmentIcon = () => (
 );
 
 const DashboardOverview = ({ range = "7" }) => {
-  const [progressResponse, setProgressResponse] = useState(null);
-  const [walkinResponse, setWalkinResponse] = useState(null);
+  const [summaryResponse, setSummaryResponse] = useState(null);
+  const [chartResponse, setChartResponse] = useState(null);
+  const [walkinCount, setWalkinCount] = useState(0);
   const [tasksResponse, setTasksResponse] = useState(null);
-  const [progressLoading, setProgressLoading] = useState(true);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [chartLoading, setChartLoading] = useState(true);
   const [walkinLoading, setWalkinLoading] = useState(true);
   const [tasksLoading, setTasksLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
 
-    const loadProgress = async () => {
-      setProgressLoading(true);
+    const loadSummary = async () => {
+      setSummaryLoading(true);
       try {
         const progress = await fetchHomeProgress();
         if (!mounted) return;
-        setProgressResponse(progress);
+        setSummaryResponse(progress);
       } catch {
         if (!mounted) return;
-        setProgressResponse(null);
+        setSummaryResponse(null);
       } finally {
-        if (mounted) setProgressLoading(false);
+        if (mounted) setSummaryLoading(false);
+      }
+    };
+
+    const loadChart = async () => {
+      setChartLoading(true);
+      try {
+        const progress = await fetchHomeProgressChart();
+        if (!mounted) return;
+        setChartResponse(progress);
+      } catch {
+        if (!mounted) return;
+        setChartResponse(null);
+      } finally {
+        if (mounted) setChartLoading(false);
       }
     };
 
     const loadWalkins = async () => {
       setWalkinLoading(true);
       try {
-        const walkins = await fetchWeeklyWalkins(range);
+        const walkins = await fetchWeeklyWalkinCount(range);
         if (!mounted) return;
-        setWalkinResponse(walkins);
+        setWalkinCount(Number(walkins?.count || 0));
       } catch {
         if (!mounted) return;
-        setWalkinResponse(null);
+        setWalkinCount(0);
       } finally {
         if (mounted) setWalkinLoading(false);
       }
@@ -145,12 +161,14 @@ const DashboardOverview = ({ range = "7" }) => {
       }
     };
 
-    loadProgress();
+    loadSummary();
+    loadChart();
     loadWalkins();
     loadTasks();
 
     const refresh = () => {
-      loadProgress();
+      loadSummary();
+      loadChart();
       loadWalkins();
       loadTasks();
     };
@@ -163,24 +181,24 @@ const DashboardOverview = ({ range = "7" }) => {
   }, [range]);
 
   const stats = useMemo(() => {
-    const branches = normalizeBranchProgress(progressResponse);
+    const summary = summaryResponse?.data || {};
+    const branches = normalizeBranchProgress(chartResponse);
     const totalBranches = branches.length;
 
-    const totalEmp = branches.reduce((sum, b) => sum + (b.totalEmployees || 0), 0);
-    const inTraining = branches.reduce((sum, b) => sum + Number(b.employeesInTraining || 0), 0);
+    const totalEmp = Number(summary.totalEmployees || branches.reduce((sum, b) => sum + (b.totalEmployees || 0), 0));
+    const inTraining = Number(summary.employeesInTraining || 0);
     const avgTraining = totalBranches
       ? Math.round(branches.reduce((sum, b) => sum + (b.completeTraining || 0), 0) / totalBranches)
       : 0;
 
-    const completedAssessments = branches.reduce((sum, b) => sum + Number(b.completeAssessmentCount || 0), 0);
-    const overdueAssessmentsCount = branches.reduce((sum, b) => sum + Number(b.pendingAssessmentCount || 0), 0);
+    const completedAssessments = Number(summary.completedAssessments || branches.reduce((sum, b) => sum + Number(b.completeAssessmentCount || 0), 0));
+    const overdueAssessmentsCount = Number(summary.overdueAssessments || branches.reduce((sum, b) => sum + Number(b.pendingAssessmentCount || 0), 0));
     const totalAssessments = completedAssessments + overdueAssessmentsCount;
 
     const tasks = tasksResponse?.data || [];
     const overdueTasksCount = tasks.filter((t) => t.status === "OVERDUE").length;
 
-    const walkins = walkinResponse?.data;
-    const totalWalkins = Array.isArray(walkins) ? walkins.length : 0;
+    const totalWalkins = Number.isFinite(walkinCount) ? walkinCount : 0;
 
     return {
       totalBranches,
@@ -192,7 +210,7 @@ const DashboardOverview = ({ range = "7" }) => {
       totalWalkins,
       overdueTasksCount,
     };
-  }, [progressResponse, walkinResponse, tasksResponse]);
+  }, [summaryResponse, chartResponse, walkinCount, tasksResponse]);
 
   const cards = [
     {
@@ -204,7 +222,7 @@ const DashboardOverview = ({ range = "7" }) => {
     },
     {
       title: "Completed Assessments",
-      value: progressLoading ? "..." : (stats.completedAssessments || "0"),
+      value: summaryLoading ? "..." : (stats.completedAssessments || "0"),
       subtitle: stats.totalAssessments
         ? `${Math.round((stats.completedAssessments / stats.totalAssessments) * 100)}% of ${stats.totalAssessments} total`
         : "No assessments yet",
@@ -220,14 +238,14 @@ const DashboardOverview = ({ range = "7" }) => {
     },
     {
       title: "Avg Training Progress",
-      value: progressLoading ? "..." : `${stats.avgTraining}%`,
+      value: chartLoading ? "..." : `${stats.avgTraining}%`,
       subtitle: `${stats.totalEmp} employees`,
       icon: <TrainingIcon />,
       iconBg: "#FEF3C7",
     },
     {
       title: "Employees in Training",
-      value: progressLoading ? "..." : (stats.inTraining || "0"),
+      value: summaryLoading ? "..." : (stats.inTraining || "0"),
       subtitle: `Across ${stats.totalBranches} stores`,
       icon: <EmployeeIcon />,
       iconBg: "#DCFCE7",

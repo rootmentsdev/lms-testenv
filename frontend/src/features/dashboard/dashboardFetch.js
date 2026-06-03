@@ -43,6 +43,30 @@ export function fetchWeeklyWalkins(daysCount = 7) {
   return fetchJson(`api/walkin/list?startDate=${start}&endDate=${end}&dashboard=true`);
 }
 
+export function fetchDailyWalkinsChart(daysCount = 7) {
+  const totalDays = Math.max(1, Number(daysCount) || 7);
+  const days = Array.from({ length: totalDays }, (_, index) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (totalDays - 1 - index));
+    return d;
+  });
+  const start = days[0].toISOString().split("T")[0];
+  const end = days[days.length - 1].toISOString().split("T")[0];
+  return fetchJson(`api/walkin/list?startDate=${start}&endDate=${end}&chartOnly=true`);
+}
+
+export function fetchWeeklyWalkinCount(daysCount = 7) {
+  const totalDays = Math.max(1, Number(daysCount) || 7);
+  const days = Array.from({ length: totalDays }, (_, index) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (totalDays - 1 - index));
+    return d;
+  });
+  const start = days[0].toISOString().split("T")[0];
+  const end = days[days.length - 1].toISOString().split("T")[0];
+  return fetchJson(`api/walkin/list?startDate=${start}&endDate=${end}&countOnly=true`);
+}
+
 export function fetchBestThreeUsers() {
   return fetchJson("api/admin/get/bestThreeUser");
 }
