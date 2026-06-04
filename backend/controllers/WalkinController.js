@@ -299,6 +299,7 @@ export const getWalkins = async (req, res) => {
 
         // Date Range Filter
         if (startDate && endDate) {
+            baseQuery.date = { $gte: startDate, $lte: endDate };
             // Walk-in trend charts should use the business date, not Mongo insert time.
             baseQuery.date = { $gte: startDate, $lte: endDate };
         }

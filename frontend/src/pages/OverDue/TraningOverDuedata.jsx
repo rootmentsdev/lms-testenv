@@ -40,8 +40,12 @@ const TraningOverDuedata = () => {
                 if (result.data && result.data.length > 0) {
                 }
                 
-                setData(result.data);
-                setFilteredData(result.data);
+                const formattedData = (result.data || []).map(emp => ({
+                    ...emp,
+                    workingBranch: emp.workingBranch ? (emp.workingBranch.split(',').length > 5 ? "All Stores" : emp.workingBranch) : ""
+                }));
+                setData(formattedData);
+                setFilteredData(formattedData);
             } catch (error) {
                 setError("Failed to fetch employee data. Please try again later.");
             }

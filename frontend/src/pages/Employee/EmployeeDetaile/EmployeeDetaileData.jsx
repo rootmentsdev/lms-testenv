@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useState, useMemo } from "react";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import SideNav from "../../../components/SideNav/SideNav";
 import { GoPencil } from "react-icons/go";
 import { FaRegTrashCan } from "react-icons/fa6";
@@ -11,27 +11,26 @@ const initials = (name = "") =>
   name.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase() || "").join("") || "?";
 
 const statusColor = (status = "") => {
-  const s = status.toLowerCase();
-  if (s === "completed") return "bg-emerald-100 text-emerald-700";
-  if (s === "pending")   return "bg-amber-100 text-amber-700";
-  if (s === "overdue")   return "bg-red-100 text-red-700";
-  return "bg-gray-100 text-gray-600";
+  const s = status.toUpperCase();
+  if (s === "COMPLETED") return "bg-emerald-50 text-emerald-600 border border-emerald-100";
+  if (s === "IN PROGRESS") return "bg-blue-50 text-blue-600 border border-blue-100";
+  if (s === "PENDING" || s === "UNDER REVIEW") return "bg-purple-50 text-purple-600 border border-purple-100";
+  if (s === "OVERDUE") return "bg-rose-50 text-rose-600 border border-rose-100";
+  return "bg-gray-50 text-gray-500 border border-gray-100";
 };
 
-const fieldLabel = (key) => {
-  const map = { _id: "ID", empID: "Emp ID", locCode: "Loc Code",
-    workingBranch: "Working Branch", phoneNumber: "Phone Number" };
-  return map[key] || key.replace(/([A-Z])/g, " $1").replace(/^_/, "").trim();
-};
-
-const fieldIcon = (key) => {
-  if (key === "email")         return "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z";
-  if (key === "phoneNumber")   return "M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z";
-  if (key === "empID")         return "M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2";
-  if (key === "designation")   return "M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z";
-  if (key === "workingBranch") return "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4";
-  if (key === "locCode")       return "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z";
-  return "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z";
+const formatDisplayDate = (dateStr) => {
+  if (!dateStr || dateStr === "—") return "—";
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    return `${dd}.${mm}.${yyyy}`;
+  } catch {
+    return dateStr;
+  }
 };
 
 const deduplicateTrainings = (trainings) => {
@@ -71,18 +70,30 @@ const EmployeeDetaileData = () => {
   const token = localStorage.getItem("token");
   const { id } = useParams();
   const navigate = useNavigate();
+
   const [isEditing, setIsEditing]   = useState(false);
   const [isExternal, setIsExternal] = useState(false);
   const [data, setData]             = useState({});
   const [fulldata, setfullData]     = useState({});
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerType, setDrawerType] = useState("training");
   const [loading, setLoading]       = useState(true);
 
+  // Integrations states
+  const [tasks, setTasks] = useState([]);
+  const [walkins, setWalkins] = useState([]);
+
+  // Filters states
+  const [trainingsFilter, setTrainingsFilter] = useState("All");
+  const [taskCategoryFilter, setTaskCategoryFilter] = useState("All");
+  const [taskPriorityFilter, setTaskPriorityFilter] = useState("All");
+  const [taskStatusFilter, setTaskStatusFilter] = useState("All");
+
+  const handleChange = (e) => setData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+
+  // API Call: Save Edited Profile
   const handleSave = async () => {
     if (isExternal) { toast.error("External source — editing disabled."); return; }
     try {
-      const response = await fetch(`${baseUrl.baseUrl}api/admin/user/update/${id}`, {
+      const response = await fetch(`${baseUrl.baseUrl}api/admin/user/update/${data.empID || id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(data),
@@ -95,6 +106,19 @@ const EmployeeDetaileData = () => {
     } catch { toast.error("Error updating data"); }
   };
 
+  // API Call: Delete Employee
+  const handleDelete = async () => {
+    if (!data._id) {
+      toast.error("Employee database record missing, cannot delete.");
+      return;
+    }
+    const confirmDelete = window.confirm("Are you sure you want to delete this employee? This action cannot be undone.");
+    if (!confirmDelete) return;
+
+    try {
+      const response = await fetch(`${baseUrl.baseUrl}api/admin/admin/delete/${data._id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
   const handleDelete = async () => {
     const ok = window.confirm(`Delete employee ${data.username || id}? This cannot be undone.`);
     if (!ok) return;
@@ -109,6 +133,7 @@ const EmployeeDetaileData = () => {
         toast.error(result?.message || "Failed to delete employee");
         return;
       }
+      toast.success("Employee deleted successfully");
       toast.success(result?.message || "Employee deleted");
       navigate("/employee");
     } catch {
@@ -116,6 +141,41 @@ const EmployeeDetaileData = () => {
     }
   };
 
+  // Fetch Tasks assigned to user
+  const FetchTasks = async (userId) => {
+    try {
+      const response = await fetch(`${baseUrl.baseUrl}api/task/list?employeeId=${userId}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        credentials: "include"
+      });
+      if (response.ok) {
+        const json = await response.json();
+        setTasks(json.data || []);
+      }
+    } catch (err) {
+      console.error("Error fetching tasks:", err);
+    }
+  };
+
+  // Fetch Walkins added by user
+  const FetchWalkins = async (userId) => {
+    try {
+      const response = await fetch(`${baseUrl.baseUrl}api/walkin/list?employeeId=${userId}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        credentials: "include"
+      });
+      if (response.ok) {
+        const json = await response.json();
+        setWalkins(json.data || []);
+      }
+    } catch (err) {
+      console.error("Error fetching walkins:", err);
+    }
+  };
+
+  // Main API Call: User detailed info
   const FetchUserData = async () => {
     setLoading(true);
     try {
@@ -125,18 +185,21 @@ const EmployeeDetaileData = () => {
       );
       if (!userdata.ok) throw new Error("DB route failed");
       const userdetail = await userdata.json();
+      
+      const dbUser = userdetail?.data || {};
       const selectedData = {
-        _id: userdetail?.data?._id || "",
-        username: userdetail?.data?.username || "",
-        email: userdetail?.data?.email || "",
-        phoneNumber: userdetail?.data?.phoneNumber || "",
-        locCode: userdetail?.data?.locCode || "",
-        empID: userdetail?.data?.empID || "",
-        designation: userdetail?.data?.designation || "",
-        workingBranch: userdetail?.data?.workingBranch || "",
+        _id: dbUser._id || "",
+        username: dbUser.username || "",
+        email: dbUser.email || "",
+        phoneNumber: dbUser.phoneNumber || "",
+        locCode: dbUser.locCode || "",
+        empID: dbUser.empID || "",
+        designation: dbUser.designation || "",
+        workingBranch: dbUser.workingBranch ? (dbUser.workingBranch.split(',').length > 5 ? "All Stores" : dbUser.workingBranch) : "",
       };
+
       try {
-        const trainingUserId = userdetail?.data?._id || userdetail?.data?.empID || id;
+        const trainingUserId = dbUser._id || dbUser.empID || id;
         const progressRes = await fetch(`${baseUrl.baseUrl}api/user/training-progress/${trainingUserId}`, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
@@ -145,32 +208,41 @@ const EmployeeDetaileData = () => {
         if (progressRes.ok) {
           const progressData = await progressRes.json();
           const rawTrainings = [
-            ...(userdetail.data?.training || []),
+            ...(dbUser.training || []),
             ...(progressData.mandatoryTrainings || [])
           ];
           setfullData({
-            ...userdetail.data,
+            ...dbUser,
             training: deduplicateTrainings(rawTrainings)
           });
         } else {
           setfullData({
-            ...(userdetail.data || {}),
-            training: deduplicateTrainings(userdetail.data?.training)
+            ...dbUser,
+            training: deduplicateTrainings(dbUser.training)
           });
         }
       } catch {
         setfullData({
-          ...(userdetail.data || {}),
-          training: deduplicateTrainings(userdetail.data?.training)
+          ...dbUser,
+          training: deduplicateTrainings(dbUser.training)
         });
       }
+      
       setData(selectedData);
       setIsExternal(false);
+      
+      // Fetch dependent listings if userId exists
+      if (dbUser._id) {
+        FetchTasks(dbUser._id);
+        FetchWalkins(dbUser._id);
+      }
+      
       setLoading(false);
       return;
     } catch (err) {
       console.warn("DB failed, trying external.", err?.message);
     }
+    
     try {
       const res = await fetch(`${baseUrl.baseUrl}api/employee_detail`,
         { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ empId: id }) });
@@ -178,340 +250,686 @@ const EmployeeDetaileData = () => {
       const json = await res.json();
       const emp = Array.isArray(json?.data) ? json.data[0] : null;
       if (!emp) throw new Error("No record");
-      setData({ username: emp?.name || "", email: emp?.email || "", phoneNumber: emp?.phone || "",
-        locCode: emp?.store_code || "", empID: emp?.emp_code || id, designation: emp?.role_name || "", workingBranch: emp?.store_name || "" });
+      
+      const selectedData = {
+        _id: "",
+        username: emp?.name || "",
+        email: emp?.email || "",
+        phoneNumber: emp?.phone || "",
+        locCode: emp?.store_code || "",
+        empID: emp?.emp_code || id,
+        designation: emp?.role_name || "",
+        workingBranch: emp?.store_name ? (emp.store_name.split(',').length > 5 ? "All Stores" : emp.store_name) : ""
+      };
+      
+      setData(selectedData);
       setfullData({ training: [], assignedAssessments: [], __external: true });
       setIsExternal(true);
-    } catch { toast.error("Failed to load employee details"); setfullData({ training: [], assignedAssessments: [] }); setData({}); setIsExternal(false); }
+    } catch {
+      toast.error("Failed to load employee details");
+      setfullData({ training: [], assignedAssessments: [] });
+      setData({});
+      setIsExternal(false);
+    }
     setLoading(false);
   };
 
-  useEffect(() => { FetchUserData(); }, [id]);
+  useEffect(() => {
+    FetchUserData();
+  }, [id]);
 
-  const handleChange = (e) => setData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  // Combined unified Trainings & Assessments table rows
+  const combinedRows = useMemo(() => {
+    const list = [];
+    
+    // Process trainings
+    (fulldata?.training || []).forEach((t) => {
+      if (!t.trainingId) return;
+      const title = t.trainingId.trainingName || "—";
+      const isMandatory = !!t.isMandatory;
+      const type = isMandatory ? "Mandatory Training" : "Assigned Training";
+      const progress = t.progressPercentage !== undefined ? t.progressPercentage : (t.pass ? 100 : 0);
+      
+      let status = "PENDING";
+      if (progress === 100 || t.pass || t.status?.toLowerCase() === "completed") {
+        status = "COMPLETED";
+      } else {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const deadlineDate = t.deadline ? new Date(t.deadline) : null;
+        if (deadlineDate && deadlineDate < today) {
+          status = "OVERDUE";
+        } else if (progress > 0) {
+          status = "IN PROGRESS";
+        }
+      }
 
-  const profileFields    = Object.entries(data || {}).filter(([key]) => key !== "_id");
-  const trainingRows     = (fulldata?.training || []).filter((t) => t.trainingId);
-  const assessmentRows   = (fulldata?.assignedAssessments || []);
-  const fullTrainingRows   = trainingRows;
-  const fullAssessmentRows = assessmentRows;
-  const openDrawer = (type) => { setDrawerType(type); setDrawerOpen(true); };
+      list.push({
+        id: `training-${t.trainingId._id || t.trainingId}`,
+        title,
+        type,
+        typeColor: isMandatory ? "text-emerald-500" : "text-blue-500",
+        progress,
+        isPercentage: true,
+        status,
+        deadline: t.deadline
+      });
+    });
 
-  const totalTraining   = fullTrainingRows.length;
-  const doneTraining    = fullTrainingRows.filter((t) => t.status?.toLowerCase() === "completed").length;
-  const totalAssessment = fullAssessmentRows.length;
-  const doneAssessment  = fullAssessmentRows.filter((a) => a.status?.toLowerCase() === "completed").length;
+    // Process assessments
+    (fulldata?.assignedAssessments || []).forEach((a) => {
+      if (!a.assessmentId) return;
+      const title = a.assessmentId.title || "—";
+      const type = "Assessment";
+      const progressText = `${a.correctAnswers || 0} / ${a.totalQuestions || 0}`;
 
-  /* ── Render ─────────────────────────────────────────────────────────────── */
+      let status = "PENDING";
+      if (a.status?.toLowerCase() === "completed" || a.pass) {
+        status = "COMPLETED";
+      } else {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const deadlineDate = a.deadline ? new Date(a.deadline) : null;
+        if (deadlineDate && deadlineDate < today) {
+          status = "OVERDUE";
+        }
+      }
+
+      list.push({
+        id: `assessment-${a.assessmentId._id || a.assessmentId}`,
+        title,
+        type,
+        typeColor: "text-amber-500",
+        progress: progressText,
+        isPercentage: false,
+        status,
+        deadline: a.deadline
+      });
+    });
+
+    return list;
+  }, [fulldata]);
+
+  // Filter unified table rows
+  const filteredCombinedRows = useMemo(() => {
+    if (!trainingsFilter || trainingsFilter === "All") return combinedRows;
+    return combinedRows.filter(r => r.status.toUpperCase() === trainingsFilter.toUpperCase());
+  }, [combinedRows, trainingsFilter]);
+
+  // Task unique categories
+  const taskCategories = useMemo(() => {
+    const cats = new Set();
+    tasks.forEach(t => { if (t.category) cats.add(t.category); });
+    return ["All", ...Array.from(cats)];
+  }, [tasks]);
+
+  // Filtered tasks
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((t) => {
+      if (taskCategoryFilter !== "All" && t.category !== taskCategoryFilter) return false;
+      if (taskPriorityFilter !== "All" && t.priority?.toLowerCase() !== taskPriorityFilter.toLowerCase()) return false;
+      if (taskStatusFilter !== "All" && t.status?.toUpperCase() !== taskStatusFilter.toUpperCase()) return false;
+      return true;
+    });
+  }, [tasks, taskCategoryFilter, taskPriorityFilter, taskStatusFilter]);
+
+  // Metrics computations
+  const metrics = useMemo(() => {
+    // 1. Walk-ins
+    const totalWalkins = walkins.length;
+    const convertedWalkins = walkins.filter(w => w.status?.toLowerCase() === "booked").length;
+
+    // 2. Trainings Completion
+    const trainingsList = combinedRows.filter(r => r.type !== "Assessment");
+    const completedTrainings = trainingsList.filter(t => t.status === "COMPLETED").length;
+    const totalTrainingsCount = trainingsList.length;
+    const avgTrainingProgress = totalTrainingsCount > 0
+      ? Math.round(trainingsList.reduce((sum, t) => sum + (t.progress || 0), 0) / totalTrainingsCount)
+      : 0;
+
+    // 3. Tasks Completed
+    const completedTasks = tasks.filter(t => t.status === "COMPLETED").length;
+    const tasksInReview = tasks.filter(t => t.status === "UNDER REVIEW").length;
+
+    // 4. Overdue Tasks
+    const overdueTasks = tasks.filter(t => t.status === "OVERDUE").length;
+
+    // 5. Assessments completion and scores
+    const assessmentsList = combinedRows.filter(r => r.type === "Assessment");
+    const completedAssessments = assessmentsList.filter(a => a.status === "COMPLETED").length;
+    
+    // Calculate average assessment score from raw assignedAssessments completed attempts
+    const completedAssesDocs = (fulldata?.assignedAssessments || []).filter(a => a.status?.toLowerCase() === "completed");
+    const avgAssessmentsScore = completedAssesDocs.length > 0
+      ? Math.round(completedAssesDocs.reduce((sum, a) => sum + (a.score || 0), 0) / completedAssesDocs.length)
+      : 0;
+
+    return {
+      totalWalkins,
+      convertedWalkins,
+      avgTrainingProgress,
+      completedTrainings,
+      totalTrainingsCount,
+      completedTasks,
+      tasksInReview,
+      overdueTasks,
+      avgAssessmentsScore,
+      completedAssessments,
+      totalAssessmentsCount: assessmentsList.length
+    };
+  }, [walkins, combinedRows, tasks, fulldata]);
+
   return (
     <div className="min-h-screen bg-[#f4f5f7]" style={{ fontFamily: "Poppins, sans-serif" }}>
       <SideNav />
 
-      <div className="md:ml-[120px] px-6 pt-6 pb-12">
-        {/* ── Breadcrumb ── */}
-        <Link to="/employee" onClick={() => setIsEditing(false)}
-          className="inline-flex items-center gap-1.5 text-[12px] text-gray-500 hover:text-gray-800 mb-5 transition-colors">
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Back to Employees
-        </Link>
+      {/* Header spacing layout offset for SideNav width */}
+      <div className="md:ml-[110px] pt-[60px] min-h-screen bg-[#f4f5f7]">
+        <div className="px-8 py-6 max-w-[1600px] mx-auto">
+          {loading ? (
+            <div className="flex items-center justify-center h-[500px]">
+              <div className="flex flex-col items-center gap-4">
+                <div className="w-12 h-12 border-4 border-[#016E5B] border-t-transparent rounded-full animate-spin" />
+                <p className="text-sm font-semibold text-gray-500">Loading Employee profile details...</p>
+              </div>
+            </div>
+          ) : (
+            /* Main columns layout */
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              
+              {/* Left Column: Profile Card, Trainings table, Tasks table */}
+              <div className="lg:col-span-9 flex flex-col gap-6">
+                
+                {/* 1. Profile Informations Card */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                  {/* Card Header row */}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-gray-100 pb-5">
+                    <div className="flex items-center gap-4">
+                      {/* Back button */}
+                      <Link to="/employee" className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-700 hover:bg-gray-50 transition-all flex-shrink-0">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                        </svg>
+                      </Link>
+                      <div>
+                        <h1 className="text-xl font-bold text-gray-900 leading-tight">Profile Informations</h1>
+                        <p className="text-xs text-gray-400 mt-0.5">Basic Employee Details</p>
+                      </div>
+                    </div>
 
-        {/* ── Hero card ── */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm mb-6 overflow-hidden">
-          {/* Gradient banner */}
-          <div className="h-24 bg-gradient-to-r from-[#1a1a1a] via-[#2d2d2d] to-[#016E5B]" />
+                    {/* Actions panel */}
+                    <div className="flex items-center gap-2.5">
+                      <button
+                        onClick={() => {
+                          if (isEditing) handleSave();
+                          else setIsEditing(true);
+                        }}
+                        disabled={isExternal}
+                        className={`inline-flex items-center gap-1.5 px-4.5 py-2 border rounded-xl text-sm font-medium transition-all ${
+                          isExternal
+                            ? "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed"
+                            : isEditing
+                              ? "bg-[#016E5B] text-white border-[#016E5B] hover:bg-[#015849] shadow-sm shadow-[#016E5B]/20"
+                              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                        }`}
+                      >
+                        <GoPencil className="w-4 h-4" />
+                        {isEditing ? "Save" : "Edit"}
+                      </button>
 
-          <div className="px-6 pb-6">
-            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 -mt-10">
-              {/* Avatar + name */}
-              <div className="flex items-end gap-4">
-                <div className="w-20 h-20 rounded-2xl bg-[#016E5B] border-4 border-white shadow-lg flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
-                  {loading ? "…" : initials(data.username)}
-                </div>
-                <div className="mb-1">
-                  <h1 className="text-[20px] font-bold text-gray-900 leading-tight">
-                    {loading ? "Loading…" : data.username || "—"}
-                  </h1>
-                  <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <span className="text-[12px] text-gray-500">{data.designation || "—"}</span>
-                    {data.empID && (
-                      <span className="text-[11px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-medium">
-                        {data.empID}
-                      </span>
-                    )}
-                    {isExternal && (
-                      <span className="text-[11px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">
-                        External Source
-                      </span>
-                    )}
+                      <button
+                        onClick={handleDelete}
+                        className="inline-flex items-center gap-1.5 px-4.5 py-2 border border-red-200 hover:bg-red-50 text-red-600 rounded-xl text-sm font-medium transition-all"
+                      >
+                        <FaRegTrashCan className="w-4 h-4" />
+                        Delete
+                      </button>
+
+                      <button
+                        onClick={FetchUserData}
+                        className="w-10 h-10 rounded-xl border border-gray-300 hover:bg-gray-50 text-gray-500 flex items-center justify-center transition-all"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Profile grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-6">
+                    {/* Full Name */}
+                    <div>
+                      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Full Name</p>
+                      {isEditing ? (
+                        <input type="text" name="username" value={data.username || ""} onChange={handleChange}
+                          className="w-full mt-1.5 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-emerald-600 focus:outline-none" />
+                      ) : (
+                        <p className="text-sm font-semibold text-gray-900 mt-1.5">{data.username || "—"}</p>
+                      )}
+                    </div>
+
+                    {/* Designation */}
+                    <div>
+                      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Designation</p>
+                      {isEditing ? (
+                        <input type="text" name="designation" value={data.designation || ""} onChange={handleChange}
+                          className="w-full mt-1.5 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-emerald-600 focus:outline-none" />
+                      ) : (
+                        <p className="text-sm font-semibold text-gray-900 mt-1.5">{data.designation || "—"}</p>
+                      )}
+                    </div>
+
+                    {/* EMPID */}
+                    <div>
+                      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">EMPID</p>
+                      <p className="text-sm font-semibold text-gray-900 mt-1.5">{data.empID || "—"}</p>
+                    </div>
+
+                    {/* Branch */}
+                    <div>
+                      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Branch</p>
+                      <p className="text-sm font-semibold text-gray-900 mt-1.5">{data.workingBranch || "—"}</p>
+                    </div>
+
+                    {/* EMail */}
+                    <div>
+                      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">EMail</p>
+                      {isEditing ? (
+                        <input type="text" name="email" value={data.email || ""} onChange={handleChange}
+                          className="w-full mt-1.5 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-emerald-600 focus:outline-none" />
+                      ) : (
+                        <p className="text-sm font-semibold text-gray-900 mt-1.5">{data.email || "—"}</p>
+                      )}
+                    </div>
+
+                    {/* Phone Number */}
+                    <div>
+                      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Phone Number</p>
+                      {isEditing ? (
+                        <input type="text" name="phoneNumber" value={data.phoneNumber || ""} onChange={handleChange}
+                          className="w-full mt-1.5 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-emerald-600 focus:outline-none" />
+                      ) : (
+                        <p className="text-sm font-semibold text-gray-900 mt-1.5">{data.phoneNumber || "—"}</p>
+                      )}
+                    </div>
+
+                    {/* Loc Code */}
+                    <div>
+                      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Loc Code</p>
+                      {isEditing ? (
+                        <input type="text" name="locCode" value={data.locCode || ""} onChange={handleChange}
+                          className="w-full mt-1.5 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-emerald-600 focus:outline-none" />
+                      ) : (
+                        <p className="text-sm font-semibold text-gray-900 mt-1.5">{data.locCode || "—"}</p>
+                      )}
+                    </div>
                   </div>
                 </div>
+
+                {/* 2. Trainings & Assessments Card */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                  {/* Card Header row */}
+                  <div className="px-6 py-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h2 className="text-base font-bold text-gray-900">Training's & Assessments</h2>
+                        <p className="text-xs text-gray-400 mt-0.5">Assigned & Mandatory Training's, Assessments records</p>
+                      </div>
+                    </div>
+
+                    {/* Status filter select */}
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <span>Status :</span>
+                      <select
+                        value={trainingsFilter}
+                        onChange={(e) => setTrainingsFilter(e.target.value)}
+                        className="border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-700 outline-none focus:border-emerald-600 font-medium"
+                      >
+                        <option value="All">All</option>
+                        <option value="Completed">Completed</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Overdue">Overdue</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Unified Table */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm text-gray-500 border-collapse">
+                      <thead className="bg-gray-50 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                        <tr className="border-b border-gray-100">
+                          <th className="px-6 py-4 w-16">N.O</th>
+                          <th className="px-6 py-4">Training / Assessment Title</th>
+                          <th className="px-6 py-4 w-52">Progress</th>
+                          <th className="px-6 py-4 w-36">Status</th>
+                          <th className="px-6 py-4 w-44">Due Date</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 text-gray-700">
+                        {filteredCombinedRows.length > 0 ? (
+                          filteredCombinedRows.map((row, idx) => {
+                            let daysLeftStr = "";
+                            const today = new Date();
+                            today.setHours(0,0,0,0);
+                            
+                            if (row.status === "COMPLETED") {
+                              daysLeftStr = "Completed";
+                            } else if (row.deadline) {
+                              const deadlineDate = new Date(row.deadline);
+                              const diffTime = deadlineDate - today;
+                              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                              if (diffDays < 0) {
+                                daysLeftStr = "Overdue";
+                              } else if (diffDays === 0) {
+                                daysLeftStr = "Due Today";
+                              } else {
+                                daysLeftStr = `${diffDays} Days Left`;
+                              }
+                            } else {
+                              daysLeftStr = "No deadline";
+                            }
+
+                            return (
+                              <tr key={row.id} className="hover:bg-slate-50/55 transition-colors">
+                                <td className="px-6 py-4.5 font-medium text-gray-400">
+                                  {String(idx + 1).padStart(2, "0")}
+                                </td>
+                                <td className="px-6 py-4.5">
+                                  <p className="font-semibold text-gray-800 leading-normal">{row.title}</p>
+                                  <span className={`text-[11px] font-semibold ${row.typeColor} mt-1 block`}>
+                                    {row.type}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4.5">
+                                  {row.isPercentage ? (
+                                    <div className="flex items-center gap-3">
+                                      {/* Progress bar */}
+                                      <div className="w-24 bg-gray-100 h-2 rounded-full overflow-hidden">
+                                        <div
+                                          className={`h-full rounded-full ${
+                                            row.status === "COMPLETED" ? "bg-emerald-500" :
+                                            row.status === "OVERDUE" ? "bg-rose-500" :
+                                            "bg-blue-500"
+                                          }`}
+                                          style={{ width: `${row.progress}%` }}
+                                        />
+                                      </div>
+                                      <span className="text-xs font-semibold text-gray-600">{row.progress}%</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs font-semibold text-gray-600">{row.progress}</span>
+                                  )}
+                                </td>
+                                <td className="px-6 py-4.5">
+                                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide uppercase ${statusColor(row.status)}`}>
+                                    {row.status}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4.5">
+                                  <p className="font-medium text-gray-700">{formatDisplayDate(row.deadline)}</p>
+                                  <span className={`text-[11px] mt-0.5 block ${
+                                    row.status === "COMPLETED" ? "text-emerald-500 font-semibold" :
+                                    row.status === "OVERDUE" ? "text-rose-500 font-semibold" :
+                                    "text-gray-400 font-medium"
+                                  }`}>
+                                    {daysLeftStr}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        ) : (
+                          <tr>
+                            <td colSpan="5" className="text-center py-12 text-gray-400 font-medium">
+                              No records found for this status.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* 3. Tasks Assigned Card */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                  {/* Card Header row */}
+                  <div className="px-6 py-5 border-b border-gray-100 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14l2 2 4-4" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h2 className="text-base font-bold text-gray-900">Tasks Assigned</h2>
+                        <p className="text-xs text-gray-400 mt-0.5">Complete Tasks Records</p>
+                      </div>
+                    </div>
+
+                    {/* Filter selects */}
+                    <div className="flex flex-wrap items-center gap-4">
+                      {/* Categories dropdown */}
+                      <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                        <span>Categories :</span>
+                        <select
+                          value={taskCategoryFilter}
+                          onChange={(e) => setTaskCategoryFilter(e.target.value)}
+                          className="border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-700 outline-none focus:border-emerald-600 font-medium"
+                        >
+                          {taskCategories.map(cat => (
+                            <option key={cat} value={cat}>{cat}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Priority dropdown */}
+                      <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                        <span>Priority :</span>
+                        <select
+                          value={taskPriorityFilter}
+                          onChange={(e) => setTaskPriorityFilter(e.target.value)}
+                          className="border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-700 outline-none focus:border-emerald-600 font-medium"
+                        >
+                          <option value="All">All</option>
+                          <option value="High">High</option>
+                          <option value="Medium">Medium</option>
+                          <option value="Low">Low</option>
+                        </select>
+                      </div>
+
+                      {/* Status dropdown */}
+                      <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                        <span>Status :</span>
+                        <select
+                          value={taskStatusFilter}
+                          onChange={(e) => setTaskStatusFilter(e.target.value)}
+                          className="border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-700 outline-none focus:border-emerald-600 font-medium"
+                        >
+                          <option value="All">All</option>
+                          <option value="Pending">Pending</option>
+                          <option value="In Progress">In Progress</option>
+                          <option value="Completed">Completed</option>
+                          <option value="Under Review">Under Review</option>
+                          <option value="Overdue">Overdue</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tasks Table */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm text-gray-500 border-collapse">
+                      <thead className="bg-gray-50 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                        <tr className="border-b border-gray-100">
+                          <th className="px-6 py-4">Task Title</th>
+                          <th className="px-6 py-4">Category</th>
+                          <th className="px-6 py-4">Priority</th>
+                          <th className="px-6 py-4">Start Date</th>
+                          <th className="px-6 py-4">End Date</th>
+                          <th className="px-6 py-4">Description</th>
+                          <th className="px-6 py-4 w-32">Status</th>
+                          <th className="px-6 py-4 w-24">View</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 text-gray-700">
+                        {filteredTasks.length > 0 ? (
+                          filteredTasks.map((task) => (
+                            <tr key={task.id} className="hover:bg-slate-50/55 transition-colors">
+                              <td className="px-6 py-4 font-semibold text-gray-900">{task.title}</td>
+                              <td className="px-6 py-4">
+                                <p className="font-semibold text-gray-800 leading-normal">{task.category}</p>
+                                <span className="text-[11px] text-gray-400 mt-0.5 block">{task.categorySub || "—"}</span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-1.5 font-semibold text-xs text-gray-700">
+                                  <span className={`w-2 h-2 rounded-full ${
+                                    task.priority === 'High' ? 'bg-red-500' :
+                                    task.priority === 'Medium' ? 'bg-blue-500' :
+                                    'bg-emerald-500'
+                                  }`} />
+                                  <span>{task.priority}</span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <p className="font-semibold text-gray-800 leading-normal">{task.startDate}</p>
+                                <span className="text-[11px] text-gray-400 mt-0.5 block">{task.startTime || "—"}</span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <p className="font-semibold text-gray-800 leading-normal">{task.endDate}</p>
+                                <span className="text-[11px] text-gray-400 mt-0.5 block">{task.endTime || "—"}</span>
+                              </td>
+                              <td className="px-6 py-4 text-xs font-semibold text-gray-500 leading-normal max-w-xs truncate">
+                                {task.description}
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide uppercase ${statusColor(task.status)}`}>
+                                  {task.status}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <Link to="/task" className="inline-flex items-center gap-1.5 text-gray-400 hover:text-gray-900 transition-colors font-medium">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                  </svg>
+                                  <span className="text-xs">View</span>
+                                </Link>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="8" className="text-center py-12 text-gray-400 font-medium">
+                              No tasks assigned under these filters.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
               </div>
 
-              {/* Action buttons */}
-              <div className="flex items-center gap-2 mb-1">
-                <button onClick={FetchUserData}
-                  className="inline-flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[12px] font-semibold px-3 py-2 rounded-xl transition-colors">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Refresh
-                </button>
-                <button
-                  disabled={isExternal}
-                  onClick={() => { if (isEditing) handleSave(); else setIsEditing(true); }}
-                  className={`inline-flex items-center gap-1.5 text-[12px] font-semibold px-3 py-2 rounded-xl border transition-colors ${
-                    isExternal ? "text-gray-400 border-gray-200 bg-gray-50 cursor-not-allowed"
-                    : isEditing ? "bg-[#016E5B] text-white border-[#016E5B] hover:bg-[#015a4a]"
-                    : "text-emerald-700 border-emerald-200 hover:bg-emerald-50"}`}>
-                  <GoPencil className="w-3.5 h-3.5" />
-                  {isEditing ? "Save Changes" : "Edit Profile"}
-                </button>
-                {isEditing && (
-                  <button onClick={() => setIsEditing(false)}
-                    className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">
-                    Cancel
-                  </button>
-                )}
-                <button
-                  onClick={handleDelete}
-                  className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
-                >
-                  <FaRegTrashCan className="w-3.5 h-3.5" />
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Stat cards ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {[
-            { label: "Trainings Assigned", value: totalTraining, icon: "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253", color: "text-blue-600 bg-blue-50" },
-            { label: "Trainings Completed", value: doneTraining, icon: "M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z", color: "text-emerald-600 bg-emerald-50" },
-            { label: "Assessments Assigned", value: totalAssessment, icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4", color: "text-purple-600 bg-purple-50" },
-            { label: "Assessments Completed", value: doneAssessment, icon: "M5 13l4 4L19 7", color: "text-orange-600 bg-orange-50" },
-          ].map((s, i) => (
-            <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-4">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${s.color}`}>
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d={s.icon} />
-                </svg>
-              </div>
-              <div>
-                <div className="text-[22px] font-bold text-gray-900 leading-none">{loading ? "—" : s.value}</div>
-                <div className="text-[11px] text-gray-500 mt-0.5">{s.label}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* ── Profile info ── */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h2 className="text-[15px] font-bold text-gray-900">Profile Information</h2>
-              <p className="text-[11px] text-gray-400 mt-0.5">Basic employee details</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {profileFields.map(([key, value], index) => (
-              <div key={index} className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
-                  {fieldLabel(key)}
-                </label>
-                {isEditing && !isExternal ? (
-                  <div className="relative">
-                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d={fieldIcon(key)} />
+              {/* Right Column: Metrics Panel */}
+              <div className="lg:col-span-3 flex flex-col gap-4">
+                
+                {/* Metric Card 1: Total Walk Ins */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Walk Ins</p>
+                    <p className="text-[28px] font-bold text-gray-900 mt-2 leading-none">{metrics.totalWalkins}</p>
+                    <p className="text-xs font-semibold text-emerald-500 mt-2.5">
+                      {metrics.convertedWalkins} Converted to bill
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-500 flex-shrink-0">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                     </svg>
-                    <input type="text" name={key} value={value ?? ""} onChange={handleChange}
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 text-[13px] text-gray-900 outline-none focus:border-[#016E5B] focus:ring-2 focus:ring-[#016E5B]/10 transition-all" />
                   </div>
-                ) : (
-                  <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-gray-100 bg-gray-50 min-h-[42px]">
-                    <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d={fieldIcon(key)} />
+                </div>
+
+                {/* Metric Card 2: Avg Training Progress */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Avg Training Progress</p>
+                    <p className="text-[28px] font-bold text-gray-900 mt-2 leading-none">{metrics.avgTrainingProgress}%</p>
+                    <p className="text-xs font-medium text-gray-400 mt-2.5">
+                      {metrics.completedTrainings}/{metrics.totalTrainingsCount} Completed
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500 flex-shrink-0">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                     </svg>
-                    <span className="text-[13px] text-gray-800 truncate">{value || "—"}</span>
                   </div>
-                )}
+                </div>
+
+                {/* Metric Card 3: Tasks Completed */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Tasks Completed</p>
+                    <p className="text-[28px] font-bold text-gray-900 mt-2 leading-none">{metrics.completedTasks}</p>
+                    <p className="text-xs font-medium text-gray-400 mt-2.5">
+                      {metrics.tasksInReview} Tasks in Review
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center text-purple-500 flex-shrink-0">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Metric Card 4: Overdue Tasks */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Overdue Tasks</p>
+                    <p className="text-[28px] font-bold text-rose-500 mt-2 leading-none">
+                      {String(metrics.overdueTasks).padStart(2, "0")}
+                    </p>
+                    <p className="text-xs font-semibold text-rose-500 mt-2.5">
+                      Require immediate action
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 rounded-xl bg-rose-50 flex items-center justify-center text-rose-500 flex-shrink-0">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Metric Card 5: Avg Assessments Score */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Avg Assessments Score</p>
+                    <p className="text-[28px] font-bold text-gray-900 mt-2 leading-none">{metrics.avgAssessmentsScore}%</p>
+                    <p className="text-xs font-medium text-gray-400 mt-2.5">
+                      {metrics.completedAssessments}/{metrics.totalAssessmentsCount} Completed
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-500 flex-shrink-0">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                </div>
+
               </div>
-            ))}
-          </div>
+
+            </div>
+          )}
         </div>
-
-        {/* ── Training + Assessment summary cards ── */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
-          {/* Training card */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-[14px] font-bold text-gray-900">Training</h3>
-                  <p className="text-[10px] text-gray-400">Assigned &amp; mandatory records</p>
-                </div>
-              </div>
-              <span className="text-[11px] text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full">
-                {totalTraining} record{totalTraining !== 1 ? "s" : ""}
-              </span>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-[12px]">
-                <thead>
-                  <tr className="bg-gray-50/70">
-                    <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Name</th>
-                    <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Type</th>
-                    <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Deadline</th>
-                    <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {trainingRows.length > 0 ? trainingRows.map((t, i) => (
-                    <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="px-4 py-3 font-semibold text-gray-800">{t.trainingId?.trainingName || "—"}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${t.isMandatory ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700"}`}>
-                          {t.isMandatory ? "Mandatory" : "Assigned"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-gray-500">{t.deadline ? new Date(t.deadline).toLocaleDateString() : "—"}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${statusColor(t.status)}`}>
-                          {t.status || "—"}
-                        </span>
-                      </td>
-                    </tr>
-                  )) : (
-                    <tr><td colSpan="4" className="text-center py-10 text-gray-400 text-[12px]">No training records</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Assessment card */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-[14px] font-bold text-gray-900">Assessments</h3>
-                  <p className="text-[10px] text-gray-400">Assigned assessment records</p>
-                </div>
-              </div>
-              <span className="text-[11px] text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full">
-                {totalAssessment} record{totalAssessment !== 1 ? "s" : ""}
-              </span>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-[12px]">
-                <thead>
-                  <tr className="bg-gray-50/70">
-                    <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Name</th>
-                    <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Questions</th>
-                    <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Duration</th>
-                    <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {assessmentRows.length > 0 ? assessmentRows.map((a, i) => (
-                    <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="px-4 py-3 font-semibold text-gray-800">{a.assessmentId?.title || "—"}</td>
-                      <td className="px-4 py-3 text-gray-500">{a.assessmentId?.questions?.length ?? 0}</td>
-                      <td className="px-4 py-3 text-gray-500">{a.assessmentId?.duration ? `${a.assessmentId.duration} min` : "—"}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${statusColor(a.status)}`}>
-                          {a.status || "—"}
-                        </span>
-                      </td>
-                    </tr>
-                  )) : (
-                    <tr><td colSpan="4" className="text-center py-10 text-gray-400 text-[12px]">No assessment records</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
       </div>
-
-      {/* ── Drawer ── */}
-      {drawerOpen && (
-        <div className="fixed inset-0 z-[60]">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setDrawerOpen(false)} />
-          <div className="absolute right-0 top-0 h-full w-full max-w-[500px] bg-white shadow-2xl flex flex-col">
-            {/* Drawer header */}
-            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-white">
-              <div>
-                <h3 className="text-[16px] font-bold text-gray-900">
-                  {drawerType === "training" ? "All Training Records" : "All Assessment Records"}
-                </h3>
-                <p className="text-[11px] text-gray-400 mt-0.5">
-                  {drawerType === "training" ? `${fullTrainingRows.length} total` : `${fullAssessmentRows.length} total`}
-                </p>
-              </div>
-              <button onClick={() => setDrawerOpen(false)}
-                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center transition-colors text-lg font-light">
-                ×
-              </button>
-            </div>
-
-            <div className="p-5 overflow-y-auto flex-1 space-y-3">
-              {drawerType === "training" ? (
-                fullTrainingRows.length > 0 ? fullTrainingRows.map((t, i) => (
-                  <div key={i} className="border border-gray-100 rounded-xl p-4 hover:border-gray-200 transition-colors">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-gray-900 text-[13px] truncate">{t.trainingId?.trainingName || "—"}</div>
-                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                          <span className="text-[11px] text-gray-400">{t.deadline ? new Date(t.deadline).toLocaleDateString() : "No deadline"}</span>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${statusColor(t.status)}`}>
-                            {t.status || "—"}
-                          </span>
-                        </div>
-                      </div>
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] font-semibold flex-shrink-0 ${t.isMandatory ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700"}`}>
-                        {t.isMandatory ? "Mandatory" : "Assigned"}
-                      </span>
-                    </div>
-                  </div>
-                )) : <div className="text-center text-gray-400 py-16 text-[13px]">No training records available.</div>
-              ) : (
-                fullAssessmentRows.length > 0 ? fullAssessmentRows.map((a, i) => (
-                  <div key={i} className="border border-gray-100 rounded-xl p-4 hover:border-gray-200 transition-colors">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-gray-900 text-[13px] truncate">{a.assessmentId?.title || "—"}</div>
-                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                          <span className="text-[11px] text-gray-400">{a.assessmentId?.questions?.length ?? 0} questions</span>
-                          <span className="text-[11px] text-gray-400">{a.assessmentId?.duration ? `${a.assessmentId.duration} min` : "—"}</span>
-                          <span className="text-[11px] text-gray-400">{a.deadline ? new Date(a.deadline).toLocaleDateString() : "No deadline"}</span>
-                        </div>
-                      </div>
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] font-semibold flex-shrink-0 ${statusColor(a.status)}`}>
-                        {a.status || "—"}
-                      </span>
-                    </div>
-                  </div>
-                )) : <div className="text-center text-gray-400 py-16 text-[13px]">No assessment records available.</div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

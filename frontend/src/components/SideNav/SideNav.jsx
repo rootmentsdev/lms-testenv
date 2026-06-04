@@ -209,7 +209,7 @@ const SideNav = () => {
             ]}
           />
 
-          <NavItem to="/employee"    icon="employee"   label="Employees"   active={is('/employee')} />
+          <NavItem to="/employee"    icon="employee"   label="Employees"   active={is('/employee') || location.pathname.startsWith('/detailed/')} />
           <NavItem to="/training"    icon="training"   label="Trainings"   active={is('/training') || is('/alltraining') || is('/createnewtraining')} />
           <NavItem to="/assessments" icon="assessment" label="Assessments" active={is('/assessments')} />
           <NavItem to="/module"      icon="module"     label="Modules"     active={is('/module')} />

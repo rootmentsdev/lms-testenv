@@ -144,8 +144,6 @@ const ModuleData = () => {
   return (
     <div
       className="flex min-h-screen bg-[#f9fafb]"
-      style={{ fontFamily: "'DM Sans', sans-serif" }}
-      className="min-h-screen bg-[#f9fafb]"
       style={{ fontFamily: "Poppins, sans-serif" }}
     >
       <SideNav />
