@@ -31,6 +31,11 @@ const walkinSchema = new mongoose.Schema({
         default: 'None',
         trim: true
     },
+    managerName: {
+        type: String,
+        default: '-',
+        trim: true
+    },
     category: {
         type: String,
         default: '-',
@@ -66,6 +71,10 @@ const walkinSchema = new mongoose.Schema({
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Admin'
+    },
+    legacyMeta: {
+        type: mongoose.Schema.Types.Mixed,
+        default: {}
     }
 }, {
     timestamps: true
@@ -73,12 +82,17 @@ const walkinSchema = new mongoose.Schema({
 
 // Role-based filtering queries by store
 walkinSchema.index({ store: 1 });
+walkinSchema.index({ storeId: 1 });
+walkinSchema.index({ employeeId: 1 });
 // Dashboard date-range filtering
 walkinSchema.index({ createdAt: -1 });
 // Status filter (New Walkin, Booked, etc.)
 walkinSchema.index({ status: 1 });
 // Compound: store + createdAt — the most common dashboard query
 walkinSchema.index({ store: 1, createdAt: -1 });
+walkinSchema.index({ storeId: 1, createdAt: -1 });
+walkinSchema.index({ employeeId: 1, createdAt: -1 });
+walkinSchema.index({ contact: 1, createdAt: -1 });
 
 const Walkin = mongoose.model('Walkin', walkinSchema);
 

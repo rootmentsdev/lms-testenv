@@ -4,6 +4,7 @@ import Branch from "../model/Branch.js";
 import Designation from "../model/designation.js"; // Import the destination model
 import User from "../model/User.js";
 import TrainingProgress from "../model/Trainingprocessschema.js";
+import mongoose from "mongoose";
 import bcrypt from 'bcrypt'
 import axios from 'axios'; // Added axios import
 
@@ -14,6 +15,10 @@ const normalizeBranchKey = (value) => {
     if (value === null || value === undefined) return '';
     return String(value).trim();
 };
+
+const homeProgressCache = new Map();
+const HOME_PROGRESS_SUMMARY_CACHE_TTL_MS = 60 * 1000;
+const HOME_PROGRESS_CHART_CACHE_TTL_MS = 10 * 60 * 1000;
 
 export const createDesignation = async (req, res) => {
     try {
@@ -76,13 +81,21 @@ export const getAllDesignation = async (req, res) => {
 export const HomeBar = async (req, res) => {
     try {
         const Admin1 = req.admin.userId;
+        const cacheKey = `${Admin1}:${req.admin?.role || ''}`;
+        const cached = homeProgressCache.get(cacheKey);
+        if (cached && (Date.now() - cached.createdAt) < HOME_PROGRESS_CHART_CACHE_TTL_MS) {
+            return res.status(200).json(cached.payload);
+        }
 
         const AdminData = await Admin.findById(Admin1);
         if (!AdminData) return res.status(404).json({ message: "Admin not found" });
 
         // Step 1: Use RBAC to get accessible stores
         const accessibleStoreIds = await getAccessibleStoreIds(Admin1);
-        const branches = await Branch.find({ _id: { $in: accessibleStoreIds } });
+        const useAllBranches = isFullAccessAdmin(AdminData.role) || accessibleStoreIds.length === 0;
+        const branches = useAllBranches
+          ? await Branch.find({})
+          : await Branch.find({ _id: { $in: accessibleStoreIds } });
         
         const allowedLocCodes = branches.map(b => b.locCode);
         
@@ -126,19 +139,22 @@ export const HomeBar = async (req, res) => {
             
             let trainingCount = 0;
             let trainingCountPending = 0;
+            let employeesInTraining = 0;
             let assessmentCount = 0;
             let assessmentCountPending = 0;
 
             branchUsers.forEach((user) => {
                 const assignedTrainings = Array.isArray(user.training) ? user.training : [];
                 const mandatoryTrainings = trainingProgressMap.get(user._id.toString()) || [];
+                const userTrainingCount = assignedTrainings.length + mandatoryTrainings.length;
 
-                trainingCount += assignedTrainings.length + mandatoryTrainings.length;
+                trainingCount += userTrainingCount;
                 trainingCountPending += assignedTrainings.filter((item) => item.pass !== true).length;
                 trainingCountPending += mandatoryTrainings.filter((item) => {
                     const status = String(item.status || '').toLowerCase();
                     return item.pass !== true && status !== 'completed';
                 }).length;
+                if (userTrainingCount > 0) employeesInTraining++;
                 
                 // Assessment data
                 assessmentCount += user.assignedAssessments.length;
@@ -152,22 +168,94 @@ export const HomeBar = async (req, res) => {
                 completeTraining: ((trainingCount - trainingCountPending) / trainingCount) * 100 || 0,
                 pendingAssessment: (assessmentCountPending / assessmentCount) * 100 || 0,
                 completeAssessment: ((assessmentCount - assessmentCountPending) / assessmentCount) * 100 || 0,
+                pendingAssessmentCount: assessmentCountPending,
+                completeAssessmentCount: assessmentCount - assessmentCountPending,
                 locCode: branch.locCode,
                 branchName: branch.workingBranch,
                 totalEmployees: branchUsers.length,
+                employeesInTraining,
             };
         });
 
-        return res.status(200).json({
+        const payload = {
             message: "Data fetched for progress",
             data: allData,
+        };
+
+        homeProgressCache.set(cacheKey, {
+            createdAt: Date.now(),
+            payload,
         });
+
+        return res.status(200).json(payload);
     } catch (error) {
         console.error("Error fetching data:", error);
         return res.status(500).json({
             message: "Error fetching data",
             error: error.message,
         });
+    }
+};
+
+export const HomeProgressSummary = async (req, res) => {
+    try {
+        const Admin1 = req.admin.userId;
+        const cacheKey = `summary:${Admin1}:${req.admin?.role || ''}`;
+        const cached = homeProgressCache.get(cacheKey);
+        if (cached && (Date.now() - cached.createdAt) < HOME_PROGRESS_SUMMARY_CACHE_TTL_MS) {
+            return res.status(200).json(cached.payload);
+        }
+
+        const AdminData = await Admin.findById(Admin1);
+        if (!AdminData) return res.status(404).json({ message: "Admin not found" });
+
+        const accessibleStoreIds = await getAccessibleStoreIds(Admin1);
+        const useAllBranches = isFullAccessAdmin(AdminData.role) || accessibleStoreIds.length === 0;
+        const branches = useAllBranches
+          ? await Branch.find({})
+          : await Branch.find({ _id: { $in: accessibleStoreIds } });
+        const allowedLocCodes = branches.map((b) => b.locCode);
+
+        const users = isFullAccessAdmin(AdminData.role)
+          ? await User.find({})
+          : await User.find({ locCode: { $in: allowedLocCodes } });
+
+        const userIds = users.map((user) => user._id);
+        const trainingProgressRecords = await TrainingProgress.find({ userId: { $in: userIds } });
+
+        let totalEmployees = 0;
+        let employeesInTraining = 0;
+        let completedAssessments = 0;
+        let overdueAssessments = 0;
+
+        for (const user of users) {
+            const assignedTrainings = Array.isArray(user.training) ? user.training : [];
+            const mandatoryTrainings = trainingProgressRecords.filter((p) => p.userId.toString() === user._id.toString());
+            if (assignedTrainings.length + mandatoryTrainings.length > 0) employeesInTraining++;
+            totalEmployees++;
+            completedAssessments += Array.isArray(user.assignedAssessments)
+              ? user.assignedAssessments.filter((a) => a.pass === true).length
+              : 0;
+            overdueAssessments += Array.isArray(user.assignedAssessments)
+              ? user.assignedAssessments.filter((a) => a.pass === false).length
+              : 0;
+        }
+
+        const payload = {
+            message: "Summary fetched for progress",
+            data: {
+                totalBranches: branches.length,
+                totalEmployees,
+                employeesInTraining,
+                completedAssessments,
+                overdueAssessments,
+            },
+        };
+
+        homeProgressCache.set(cacheKey, { createdAt: Date.now(), payload });
+        return res.status(200).json(payload);
+    } catch (error) {
+        return res.status(500).json({ message: "Error fetching summary", error: error.message });
     }
 };
 
@@ -1153,14 +1241,35 @@ export const updateAdminUser = async (req, res) => {
 export const deleteAdminUser = async (req, res) => {
     try {
         const { id } = req.params;
-        const deletedUser = await User.findByIdAndDelete(id);
+        let deletedUser = null;
+
+        if (mongoose.isValidObjectId(id)) {
+            deletedUser = await User.findByIdAndDelete(id);
+        }
+
+        if (!deletedUser) {
+            deletedUser = await User.findOneAndDelete({
+                $or: [{ empID: id }, { email: id }]
+            });
+        }
+
         if (deletedUser) {
             return res.status(200).json({ success: true, message: "Employee deleted successfully" });
         }
-        const deletedAdmin = await Admin.findByIdAndDelete(id);
+
+        let deletedAdmin = null;
+        if (mongoose.isValidObjectId(id)) {
+            deletedAdmin = await Admin.findByIdAndDelete(id);
+        }
+
+        if (!deletedAdmin) {
+            deletedAdmin = await Admin.findOneAndDelete({ email: id });
+        }
+
         if (!deletedAdmin) {
             return res.status(404).json({ success: false, message: "User not found" });
         }
+
         res.status(200).json({ success: true, message: "User deleted successfully" });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

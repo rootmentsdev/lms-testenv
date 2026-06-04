@@ -1,37 +1,50 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  normalizeBranchProgress,
-  countFromPercent,
-} from "../../features/dashboard/dashboardUtils";
-import { fetchDashboardTasks, fetchHomeProgress, fetchWeeklyWalkins } from "../../features/dashboard/dashboardFetch";
+import { normalizeBranchProgress } from "../../features/dashboard/dashboardUtils";
+import { fetchDashboardTasks, fetchHomeProgress, fetchHomeProgressChart, fetchWeeklyWalkinCount } from "../../features/dashboard/dashboardFetch";
 
-/* ── Individual stat card ─────────────────────────────────────────────────── */
 const StatCard = ({ title, value, subtitle, icon, iconBg }) => (
   <div
     style={{
-      flex:           '1 1 0',
-      minWidth:       '0',
-      height:         '100px',
-      borderRadius:   '12px',
-      paddingTop:     '14px',
-      paddingRight:   '18px',
-      paddingBottom:  '14px',
-      paddingLeft:    '18px',
-      opacity:        1,
-      background:     '#ffffff',
-      border:         '1px solid #f0f0f0',
-      boxShadow:      '0 1px 4px rgba(0,0,0,0.06)',
-      display:        'flex',
-      flexDirection:  'column',
-      justifyContent: 'space-between',
-      boxSizing:      'border-box',
+      flex: "1 1 0",
+      minWidth: "0",
+      height: "100px",
+      borderRadius: "12px",
+      padding: "14px 18px",
+      background: "#ffffff",
+      border: "1px solid #f0f0f0",
+      boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "space-between",
+      boxSizing: "border-box",
     }}
   >
-    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
-      <span style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', lineHeight: '1.3', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</span>
+    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "8px" }}>
+      <span
+        style={{
+          fontSize: "12px",
+          fontWeight: 500,
+          color: "#6b7280",
+          lineHeight: 1.3,
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}
+      >
+        {title}
+      </span>
       <div
-        style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+        style={{
+          width: "28px",
+          height: "28px",
+          borderRadius: "8px",
+          backgroundColor: iconBg,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
       >
         {icon}
       </div>
@@ -43,104 +56,149 @@ const StatCard = ({ title, value, subtitle, icon, iconBg }) => (
 
 const WalkinIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
   </svg>
 );
 
 const TaskIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EA580C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+    <line x1="12" y1="9" x2="12" y2="13" />
+    <line x1="12" y1="17" x2="12.01" y2="17" />
   </svg>
 );
 
 const TrainingIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-    <line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+    <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+    <line x1="8" y1="21" x2="16" y2="21" />
+    <line x1="12" y1="17" x2="12" y2="21" />
   </svg>
 );
 
 const EmployeeIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-    <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+    <rect x="3" y="3" width="7" height="7" />
+    <rect x="14" y="3" width="7" height="7" />
+    <rect x="14" y="14" width="7" height="7" />
+    <rect x="3" y="14" width="7" height="7" />
   </svg>
 );
 
 const AssessmentIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9 11l3 3L22 4"/>
-    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+    <path d="M9 11l3 3L22 4" />
+    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
   </svg>
 );
 
-const DashboardOverview = () => {
-  const [progressResponse, setProgressResponse] = useState(null);
-  const [walkinResponse, setWalkinResponse] = useState(null);
+const DashboardOverview = ({ range = "7" }) => {
+  const [summaryResponse, setSummaryResponse] = useState(null);
+  const [chartResponse, setChartResponse] = useState(null);
+  const [walkinCount, setWalkinCount] = useState(0);
   const [tasksResponse, setTasksResponse] = useState(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [chartLoading, setChartLoading] = useState(true);
+  const [walkinLoading, setWalkinLoading] = useState(true);
+  const [tasksLoading, setTasksLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
 
-    const load = async () => {
+    const loadSummary = async () => {
+      setSummaryLoading(true);
       try {
-        const [progress, walkins, tasks] = await Promise.all([
-          fetchHomeProgress(),
-          fetchWeeklyWalkins(),
-          fetchDashboardTasks(),
-        ]);
+        const progress = await fetchHomeProgress();
         if (!mounted) return;
-        setProgressResponse(progress);
-        setWalkinResponse(walkins);
-        setTasksResponse(tasks);
+        setSummaryResponse(progress);
       } catch {
         if (!mounted) return;
-        setProgressResponse(null);
-        setWalkinResponse(null);
-        setTasksResponse(null);
+        setSummaryResponse(null);
+      } finally {
+        if (mounted) setSummaryLoading(false);
       }
     };
 
-    load();
+    const loadChart = async () => {
+      setChartLoading(true);
+      try {
+        const progress = await fetchHomeProgressChart();
+        if (!mounted) return;
+        setChartResponse(progress);
+      } catch {
+        if (!mounted) return;
+        setChartResponse(null);
+      } finally {
+        if (mounted) setChartLoading(false);
+      }
+    };
 
-    const refresh = () => load();
+    const loadWalkins = async () => {
+      setWalkinLoading(true);
+      try {
+        const walkins = await fetchWeeklyWalkinCount(range);
+        if (!mounted) return;
+        setWalkinCount(Number(walkins?.count || 0));
+      } catch {
+        if (!mounted) return;
+        setWalkinCount(0);
+      } finally {
+        if (mounted) setWalkinLoading(false);
+      }
+    };
+
+    const loadTasks = async () => {
+      setTasksLoading(true);
+      try {
+        const tasks = await fetchDashboardTasks();
+        if (!mounted) return;
+        setTasksResponse(tasks);
+      } catch {
+        if (!mounted) return;
+        setTasksResponse(null);
+      } finally {
+        if (mounted) setTasksLoading(false);
+      }
+    };
+
+    loadSummary();
+    loadChart();
+    loadWalkins();
+    loadTasks();
+
+    const refresh = () => {
+      loadSummary();
+      loadChart();
+      loadWalkins();
+      loadTasks();
+    };
+
     window.addEventListener("dashboard:refresh", refresh);
     return () => {
       mounted = false;
       window.removeEventListener("dashboard:refresh", refresh);
     };
-  }, []);
+  }, [range]);
 
   const stats = useMemo(() => {
-    const branches = normalizeBranchProgress(progressResponse);
+    const summary = summaryResponse?.data || {};
+    const branches = normalizeBranchProgress(chartResponse);
     const totalBranches = branches.length;
 
-    const totalEmp = branches.reduce((sum, b) => sum + (b.totalEmployees || 0), 0);
-    const inTraining = branches.reduce(
-      (sum, b) => sum + countFromPercent(b.pendingTraining, b.totalTraining),
-      0
-    );
-
+    const totalEmp = Number(summary.totalEmployees || branches.reduce((sum, b) => sum + (b.totalEmployees || 0), 0));
+    const inTraining = Number(summary.employeesInTraining || 0);
     const avgTraining = totalBranches
       ? Math.round(branches.reduce((sum, b) => sum + (b.completeTraining || 0), 0) / totalBranches)
       : 0;
 
-    const completedAssessments = branches.reduce(
-      (sum, b) => sum + countFromPercent(b.completeAssessment, b.totalAssessment),
-      0
-    );
-    const overdueAssessmentsCount = branches.reduce(
-      (sum, b) => sum + countFromPercent(b.pendingAssessment, b.totalAssessment),
-      0
-    );
+    const completedAssessments = Number(summary.completedAssessments || branches.reduce((sum, b) => sum + Number(b.completeAssessmentCount || 0), 0));
+    const overdueAssessmentsCount = Number(summary.overdueAssessments || branches.reduce((sum, b) => sum + Number(b.pendingAssessmentCount || 0), 0));
     const totalAssessments = completedAssessments + overdueAssessmentsCount;
 
     const tasks = tasksResponse?.data || [];
-    const overdueTasksCount = tasks.filter(t => t.status === 'OVERDUE').length;
+    const overdueTasksCount = tasks.filter((t) => t.status === "OVERDUE").length;
 
-    const walkins = walkinResponse?.data;
-    const totalWalkins = Array.isArray(walkins) ? walkins.length : 0;
+    const totalWalkins = Number.isFinite(walkinCount) ? walkinCount : 0;
 
     return {
       totalBranches,
@@ -152,50 +210,50 @@ const DashboardOverview = () => {
       totalWalkins,
       overdueTasksCount,
     };
-  }, [progressResponse, walkinResponse, tasksResponse]);
+  }, [summaryResponse, chartResponse, walkinCount, tasksResponse]);
 
   const cards = [
     {
-      title:    'Total Walk Ins',
-      value:    stats.totalWalkins || '—',
-      subtitle: `Last 7 days · ${stats.totalBranches} stores`,
-      icon:     <WalkinIcon />,
-      iconBg:   '#EDE9FE',
+      title: "Total Walk Ins",
+      value: walkinLoading ? "..." : (stats.totalWalkins || "0"),
+      subtitle: `Last ${range} days · ${stats.totalBranches} stores`,
+      icon: <WalkinIcon />,
+      iconBg: "#EDE9FE",
     },
     {
-      title:    'Completed Assessments',
-      value:    stats.completedAssessments || '—',
+      title: "Completed Assessments",
+      value: summaryLoading ? "..." : (stats.completedAssessments || "0"),
       subtitle: stats.totalAssessments
         ? `${Math.round((stats.completedAssessments / stats.totalAssessments) * 100)}% of ${stats.totalAssessments} total`
-        : 'No assessments yet',
-      icon:     <AssessmentIcon />,
-      iconBg:   '#DBEAFE',
+        : "No assessments yet",
+      icon: <AssessmentIcon />,
+      iconBg: "#DBEAFE",
     },
     {
-      title:    'Overdue Tasks',
-      value:    stats.overdueTasksCount || '0',
-      subtitle: stats.overdueTasksCount > 0 ? 'Require immediate action' : 'All tasks on track',
-      icon:     <TaskIcon />,
-      iconBg:   '#FFEDD5',
+      title: "Overdue Tasks",
+      value: tasksLoading ? "..." : (stats.overdueTasksCount || "0"),
+      subtitle: stats.overdueTasksCount > 0 ? "Require immediate action" : "All tasks on track",
+      icon: <TaskIcon />,
+      iconBg: "#FFEDD5",
     },
     {
-      title:    'Avg Training Progress',
-      value:    `${stats.avgTraining}%`,
+      title: "Avg Training Progress",
+      value: chartLoading ? "..." : `${stats.avgTraining}%`,
       subtitle: `${stats.totalEmp} employees`,
-      icon:     <TrainingIcon />,
-      iconBg:   '#FEF3C7',
+      icon: <TrainingIcon />,
+      iconBg: "#FEF3C7",
     },
     {
-      title:    'Employees in Training',
-      value:    stats.inTraining || stats.totalEmp || '—',
+      title: "Employees in Training",
+      value: summaryLoading ? "..." : (stats.inTraining || "0"),
       subtitle: `Across ${stats.totalBranches} stores`,
-      icon:     <EmployeeIcon />,
-      iconBg:   '#DCFCE7',
+      icon: <EmployeeIcon />,
+      iconBg: "#DCFCE7",
     },
   ];
 
   return (
-    <div style={{ marginBottom: '24px' }}>
+    <div style={{ marginBottom: "24px" }}>
       <div className="flex items-start justify-between mb-5">
         <div>
           <h2 className="text-[22px] font-bold text-gray-900 leading-tight">Dashboard Overview</h2>
@@ -208,7 +266,7 @@ const DashboardOverview = () => {
         </Link>
       </div>
 
-      <div style={{ display: 'flex', gap: '12px', flexWrap: 'nowrap' }}>
+      <div style={{ display: "flex", gap: "12px", flexWrap: "nowrap" }}>
         {cards.map((card) => (
           <StatCard key={card.title} {...card} />
         ))}

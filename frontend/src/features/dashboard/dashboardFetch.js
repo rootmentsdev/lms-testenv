@@ -19,6 +19,10 @@ async function fetchJson(path) {
 }
 
 export function fetchHomeProgress() {
+  return fetchJson("api/admin/get/HomeProgressSummary");
+}
+
+export function fetchHomeProgressChart() {
   return fetchJson("api/admin/get/HomeProgressData");
 }
 
@@ -35,7 +39,32 @@ export function fetchWeeklyWalkins(daysCount = 7) {
   });
   const start = days[0].toISOString().split("T")[0];
   const end = days[days.length - 1].toISOString().split("T")[0];
-  return fetchJson(`api/walkin/list?startDate=${start}&endDate=${end}`);
+  // Dashboard needs the full matching range, not a paginated slice.
+  return fetchJson(`api/walkin/list?startDate=${start}&endDate=${end}&dashboard=true`);
+}
+
+export function fetchDailyWalkinsChart(daysCount = 7) {
+  const totalDays = Math.max(1, Number(daysCount) || 7);
+  const days = Array.from({ length: totalDays }, (_, index) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (totalDays - 1 - index));
+    return d;
+  });
+  const start = days[0].toISOString().split("T")[0];
+  const end = days[days.length - 1].toISOString().split("T")[0];
+  return fetchJson(`api/walkin/list?startDate=${start}&endDate=${end}&chartOnly=true`);
+}
+
+export function fetchWeeklyWalkinCount(daysCount = 7) {
+  const totalDays = Math.max(1, Number(daysCount) || 7);
+  const days = Array.from({ length: totalDays }, (_, index) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (totalDays - 1 - index));
+    return d;
+  });
+  const start = days[0].toISOString().split("T")[0];
+  const end = days[days.length - 1].toISOString().split("T")[0];
+  return fetchJson(`api/walkin/list?startDate=${start}&endDate=${end}&countOnly=true`);
 }
 
 export function fetchBestThreeUsers() {

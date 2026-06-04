@@ -207,6 +207,25 @@ function buildEmployeeStats(localUser, userTrainingProgress, userTasks) {
   };
 }
 
+function getEmpSortKey(empID) {
+  const raw = String(empID || '').trim();
+  const match = raw.match(/^(.*?)(\d+)$/);
+
+  if (!match) {
+    return {
+      prefix: raw.toLowerCase(),
+      number: Number.MAX_SAFE_INTEGER,
+      raw: raw.toLowerCase(),
+    };
+  }
+
+  return {
+    prefix: match[1].toLowerCase(),
+    number: parseInt(match[2], 10) || 0,
+    raw: raw.toLowerCase(),
+  };
+}
+
 async function buildProcessedEmployees(admin) {
   const allowedLocCodes = admin.branches.map((branch) => branch.locCode);
   const isGlobalAdmin = admin.role === 'super_admin' || admin.role === 'hr_admin' || allowedLocCodes.length === 0;
@@ -347,11 +366,13 @@ async function buildProcessedEmployees(admin) {
     });
   }
 
-  processedEmployees.sort(
-    (a, b) =>
-      (parseInt(a.empID.replace(/\D/g, ''), 10) || 0) -
-      (parseInt(b.empID.replace(/\D/g, ''), 10) || 0)
-  );
+  processedEmployees.sort((a, b) => {
+    const left = getEmpSortKey(a.empID);
+    const right = getEmpSortKey(b.empID);
+    if (left.prefix !== right.prefix) return left.prefix.localeCompare(right.prefix);
+    if (left.number !== right.number) return left.number - right.number;
+    return left.raw.localeCompare(right.raw);
+  });
 
   setProcessedEmployees(cacheKey, processedEmployees);
   return { employees: processedEmployees, isGlobalAdmin, cacheKey };
@@ -599,7 +620,9 @@ export const getAllAppRegisteredEmployees = async (req, res) => {
     const isGlobalAdmin   = admin.role === 'super_admin' || admin.role === 'hr_admin' || allowedLocCodes.length === 0;
 
     // ── 1. Build base query (branch-scoped for non-super admins) ──
-    const appUserSourceQuery = { source: { $in: ['app', 'admin'] } };
+    // Include legacy/imported users saved from external sync so the employee page
+    // can show the full User collection, not just app/admin-created records.
+    const appUserSourceQuery = { source: { $in: ['app', 'admin', 'external-sync'] } };
     const baseQuery = isGlobalAdmin
       ? appUserSourceQuery
       : { 

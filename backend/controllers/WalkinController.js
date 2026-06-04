@@ -282,7 +282,7 @@ export const saveWalkin = async (req, res) => {
  */
 export const getWalkins = async (req, res) => {
     try {
-        const { startDate, endDate, storeId, employeeId } = req.query;
+        const { startDate, endDate, storeId, employeeId, page = 1, limit = 20, search = '', status = '', store = '', dashboard = '', countOnly = '', chartOnly = '' } = req.query;
         const adminId = req.admin.userId;
 
         // 1. Build Base Query based on date/frontend filters
@@ -300,6 +300,26 @@ export const getWalkins = async (req, res) => {
         // Date Range Filter
         if (startDate && endDate) {
             baseQuery.date = { $gte: startDate, $lte: endDate };
+            // Walk-in trend charts should use the business date, not Mongo insert time.
+            baseQuery.date = { $gte: startDate, $lte: endDate };
+        }
+
+        if (status && status !== 'All') {
+            baseQuery.status = status;
+        }
+
+        if (store && store !== 'All') {
+            baseQuery.store = { $regex: `^${store.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' };
+        }
+
+        if (search && search.trim()) {
+            const q = search.trim();
+            baseQuery.$or = [
+                { customerName: { $regex: q, $options: 'i' } },
+                { contact: { $regex: q, $options: 'i' } },
+                { store: { $regex: q, $options: 'i' } },
+                { staff: { $regex: q, $options: 'i' } }
+            ];
         }
 
         // 2. Wrap with RBAC
@@ -309,22 +329,81 @@ export const getWalkins = async (req, res) => {
         }
 
         // 3. Fetch filtered walkins directly from MongoDB
-        const limitVal = req.query.limit ? parseInt(req.query.limit, 10) : null;
-        const skipVal = req.query.skip ? parseInt(req.query.skip, 10) : null;
+        const baseProjection = 'date customerName contact functionDate store staff managerName category subCategory remarks repeatCount status storeId employeeId createdBy createdAt';
 
-        let queryBuilder = Walkin.find(secureQuery).sort({ createdAt: -1 });
-        if (skipVal !== null && !isNaN(skipVal)) {
-            queryBuilder = queryBuilder.skip(skipVal);
+        const isDashboardFetch = String(dashboard).toLowerCase() === 'true';
+        const isCountOnlyFetch = String(countOnly).toLowerCase() === 'true';
+        const isChartOnlyFetch = String(chartOnly).toLowerCase() === 'true';
+        const pageNum = Math.max(1, parseInt(page, 10) || 1);
+        const pageSize = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+        const skip = (pageNum - 1) * pageSize;
+
+        if (isCountOnlyFetch) {
+            const total = await Walkin.countDocuments(secureQuery);
+            return res.status(200).json({
+                success: true,
+                message: 'Walk-in count retrieved successfully',
+                count: total,
+                page: 1,
+                limit: 0,
+                data: [],
+            });
         }
-        if (limitVal !== null && !isNaN(limitVal)) {
-            queryBuilder = queryBuilder.limit(limitVal);
+
+        if (isChartOnlyFetch) {
+            const chartQuery = [
+                { $match: secureQuery },
+                {
+                    $group: {
+                        _id: { $substrBytes: ['$date', 0, 10] },
+                        walkings: { $sum: 1 },
+                        completed: {
+                            $sum: {
+                                $cond: [
+                                    { $in: ['$status', ['Completed', 'Booking']] },
+                                    1,
+                                    0
+                                ]
+                            }
+                        }
+                    }
+                },
+                { $sort: { _id: 1 } }
+            ];
+
+            const chartData = await Walkin.aggregate(chartQuery);
+            return res.status(200).json({
+                success: true,
+                message: 'Walk-in chart retrieved successfully',
+                count: chartData.length,
+                data: chartData,
+            });
         }
-        const filtered = await queryBuilder;
+
+        const [total, filtered] = isDashboardFetch
+            ? await Promise.all([
+                Walkin.countDocuments(secureQuery),
+                Walkin.find(secureQuery)
+                    .sort({ createdAt: -1 })
+                    .select(baseProjection)
+                    .lean(),
+            ])
+            : await Promise.all([
+                Walkin.countDocuments(secureQuery),
+                Walkin.find(secureQuery)
+                    .sort({ createdAt: -1 })
+                    .skip(skip)
+                    .limit(pageSize)
+                    .select(baseProjection)
+                    .lean(),
+            ]);
 
         return res.status(200).json({
             success: true,
             message: 'Walk-ins retrieved successfully',
-            count: filtered.length,
+            count: total,
+            page: isDashboardFetch ? 1 : pageNum,
+            limit: isDashboardFetch ? total : pageSize,
             data: filtered
         });
 
@@ -345,31 +424,14 @@ export const getAllWalkinsPublic = async (req, res) => {
     try {
         const { startDate, endDate } = req.query;
 
-        let filtered = await Walkin.find({}).sort({ createdAt: -1 });
+        let filtered = await Walkin.find({})
+            .sort({ createdAt: -1 })
+            .select('date customerName contact functionDate store staff managerName category subCategory remarks repeatCount status storeId employeeId createdBy createdAt')
+            .lean();
 
         // Date Range Filter
         if (startDate && endDate) {
-            const parseDate = (dStr) => {
-                if (!dStr) return new Date();
-                const parts = dStr.split('-');
-                if (parts.length === 3) {
-                    if (parts[2].length === 4) {
-                        return new Date(parts[2], parts[1] - 1, parts[0]);
-                    }
-                    return new Date(parts[0], parts[1] - 1, parts[2]);
-                }
-                return new Date(dStr);
-            };
-
-            const start = new Date(startDate);
-            start.setHours(0, 0, 0, 0);
-            const end = new Date(endDate);
-            end.setHours(23, 59, 59, 999);
-
-            filtered = filtered.filter(w => {
-                const wDate = parseDate(w.date);
-                return wDate >= start && wDate <= end;
-            });
+            filtered = filtered.filter(w => w.date >= startDate && w.date <= endDate);
         }
 
         return res.status(200).json({

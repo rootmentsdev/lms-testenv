@@ -9,8 +9,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
-import { dateKey } from "../../features/dashboard/dashboardUtils";
-import { fetchWeeklyWalkins } from "../../features/dashboard/dashboardFetch";
+import { fetchDailyWalkinsChart } from "../../features/dashboard/dashboardFetch";
 
 const fmt = (d) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
@@ -46,11 +45,10 @@ const buildDays = (count) => {
   });
 };
 
-const DailyWalkings = () => {
+const DailyWalkings = ({ range = "7", onRangeChange }) => {
   const [activeIdx, setActiveIdx] = useState(null);
   const [walkinResponse, setWalkinResponse] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [range, setRange] = useState("7");
 
   useEffect(() => {
     let mounted = true;
@@ -58,7 +56,7 @@ const DailyWalkings = () => {
     const load = async () => {
       setIsLoading(true);
       try {
-        const data = await fetchWeeklyWalkins(range);
+        const data = await fetchDailyWalkinsChart(range);
         if (!mounted) return;
         setWalkinResponse(data);
       } catch {
@@ -83,26 +81,16 @@ const DailyWalkings = () => {
   const rangeLabel = `${fmt(days[0])} – ${fmt(days[days.length - 1])}, ${days[0].getFullYear()}`;
 
   const data = useMemo(() => {
-    const walkins = walkinResponse?.data || [];
-    const grouped = {};
-
-    days.forEach((d) => {
-      grouped[d.toISOString().split("T")[0]] = { walkings: 0, completed: 0 };
-    });
-
-    walkins.forEach((w) => {
-      const key = dateKey(w.date || w.createdAt);
-      if (key && grouped[key] !== undefined) {
-        grouped[key].walkings += 1;
-        if (w.status === "Completed" || w.status === "Booking") {
-          grouped[key].completed += 1;
-        }
-      }
-    });
+    const series = new Map((walkinResponse?.data || []).map((row) => [row._id, row]));
 
     return days.map((d) => {
       const key = d.toISOString().split("T")[0];
-      return { name: fmt(d), ...grouped[key] };
+      const row = series.get(key) || { walkings: 0, completed: 0 };
+      return {
+        name: fmt(d),
+        walkings: Number(row.walkings || 0),
+        completed: Number(row.completed || 0),
+      };
     });
   }, [walkinResponse, days]);
 
@@ -131,7 +119,7 @@ const DailyWalkings = () => {
 
         <select
           value={range}
-          onChange={(e) => setRange(e.target.value)}
+          onChange={(e) => onRangeChange?.(e.target.value)}
           style={{
             border: "1px solid #e5e7eb",
             borderRadius: "8px",

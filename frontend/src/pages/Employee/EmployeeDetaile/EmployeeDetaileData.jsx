@@ -119,6 +119,14 @@ const EmployeeDetaileData = () => {
       const response = await fetch(`${baseUrl.baseUrl}api/admin/admin/delete/${data._id}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
+  const handleDelete = async () => {
+    const ok = window.confirm(`Delete employee ${data.username || id}? This cannot be undone.`);
+    if (!ok) return;
+
+    try {
+      const response = await fetch(`${baseUrl.baseUrl}api/admin/admin/delete/${id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       });
       const result = await response.json();
       if (!response.ok) {
@@ -126,6 +134,7 @@ const EmployeeDetaileData = () => {
         return;
       }
       toast.success("Employee deleted successfully");
+      toast.success(result?.message || "Employee deleted");
       navigate("/employee");
     } catch {
       toast.error("Error deleting employee");

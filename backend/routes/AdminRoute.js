@@ -1,6 +1,6 @@
 import express from 'express';
 import mongoose from 'mongoose';
-import { handlePermissions, CreatingAdminUsers, getTopUsers, HomeBar, getAccessibleStores, getAccessibleEmployees, getAdminUsers, updateAdminUser, deleteAdminUser } from '../controllers/DestinationController.js';
+import { handlePermissions, CreatingAdminUsers, getTopUsers, HomeBar, HomeProgressSummary, getAccessibleStores, getAccessibleEmployees, getAdminUsers, updateAdminUser, deleteAdminUser } from '../controllers/DestinationController.js';
 import { AdminLogin, ChangeVisibility, getAllNotifications, getEscalationLevel, getNotifications, GetSubroles, getVisibility, Subroles, upsertEscalationLevel } from '../controllers/moduleController.js';
 import { VerifyToken } from '../lib/VerifyJwt.js';
 import { CreateNotification, FindOverDueAssessment, FindOverDueTraining, SendNotification, SendNotificationAssessment } from '../controllers/AssessmentReassign.js';
@@ -166,6 +166,7 @@ router.get('/get/bestThreeUser', MiddilWare, getTopUsers);
  *         description: Internal server error
  */
 router.get('/get/HomeProgressData', MiddilWare, HomeBar);
+router.get('/get/HomeProgressSummary', MiddilWare, HomeProgressSummary);
 
 
 

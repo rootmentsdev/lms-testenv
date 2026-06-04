@@ -5,7 +5,7 @@ import {
 } from "recharts";
 import { normalizeBranchProgress } from "../../features/dashboard/dashboardUtils";
 import { Link } from "react-router-dom";
-import { fetchHomeProgress } from "../../features/dashboard/dashboardFetch";
+import { fetchHomeProgressChart as fetchHomeProgress } from "../../features/dashboard/dashboardFetch";
 
 /* ── Colour tiers (matching the reference image) ─────────────────────────── */
 const getTierColor = (pct) => {
