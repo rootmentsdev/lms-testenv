@@ -115,7 +115,7 @@ const WalkinReport = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const res  = await fetch(`${baseUrl.baseUrl}api/walkin/list?startDate=${formData.startDate}&endDate=${formData.endDate}`, { headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` } });
+      const res  = await fetch(`${baseUrl.baseUrl}api/walkin/list?startDate=${formData.startDate}&endDate=${formData.endDate}&dashboard=true`, { headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` } });
       const json = await res.json();
       if (json.success) {
         let data = json.data || [];
