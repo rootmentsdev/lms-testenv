@@ -331,12 +331,8 @@ export const getWalkins = async (req, res) => {
         // 3. Fetch filtered walkins directly from MongoDB
         const baseProjection = 'date customerName contact functionDate store staff managerName category subCategory remarks repeatCount status storeId employeeId createdBy createdAt';
 
-        const isDashboardFetch = String(dashboard).toLowerCase() === 'true';
         const isCountOnlyFetch = String(countOnly).toLowerCase() === 'true';
         const isChartOnlyFetch = String(chartOnly).toLowerCase() === 'true';
-        const pageNum = Math.max(1, parseInt(page, 10) || 1);
-        const pageSize = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
-        const skip = (pageNum - 1) * pageSize;
 
         if (isCountOnlyFetch) {
             const total = await Walkin.countDocuments(secureQuery);
@@ -380,30 +376,20 @@ export const getWalkins = async (req, res) => {
             });
         }
 
-        const [total, filtered] = isDashboardFetch
-            ? await Promise.all([
-                Walkin.countDocuments(secureQuery),
-                Walkin.find(secureQuery)
-                    .sort({ createdAt: -1 })
-                    .select(baseProjection)
-                    .lean(),
-            ])
-            : await Promise.all([
-                Walkin.countDocuments(secureQuery),
-                Walkin.find(secureQuery)
-                    .sort({ createdAt: -1 })
-                    .skip(skip)
-                    .limit(pageSize)
-                    .select(baseProjection)
-                    .lean(),
-            ]);
+        const [total, filtered] = await Promise.all([
+            Walkin.countDocuments(secureQuery),
+            Walkin.find(secureQuery)
+                .sort({ createdAt: -1 })
+                .select(baseProjection)
+                .lean(),
+        ]);
 
         return res.status(200).json({
             success: true,
             message: 'Walk-ins retrieved successfully',
             count: total,
-            page: isDashboardFetch ? 1 : pageNum,
-            limit: isDashboardFetch ? total : pageSize,
+            page: 1,
+            limit: total,
             data: filtered
         });
 
