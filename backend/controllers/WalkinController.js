@@ -299,13 +299,7 @@ export const getWalkins = async (req, res) => {
 
         // Date Range Filter
         if (startDate && endDate) {
-            const start = new Date(startDate);
-            start.setHours(0, 0, 0, 0);
-            const end = new Date(endDate);
-            end.setHours(23, 59, 59, 999);
-            
-            // Assuming we also want to filter by createdAt in the DB
-            baseQuery.createdAt = { $gte: start, $lte: end };
+            baseQuery.date = { $gte: startDate, $lte: endDate };
         }
 
         // 2. Wrap with RBAC

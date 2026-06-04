@@ -539,10 +539,88 @@ export const GetAllUserDetailes = async (req, res) => {
             ...mandatoryTrainingsFormatted
         ];
 
-        // Create response data with combined trainings
+        // Calculate progress percentage for all trainings
+        const calculateProgress = (tp) => {
+            let totalModules = 0;
+            let completedModules = 0;
+            let totalVideos = 0;
+            let completedVideos = 0;
+            const videoCompletionMap = new Map();
+
+            if (tp.modules) {
+                tp.modules.forEach((module) => {
+                    totalModules++;
+                    if (module.pass) completedModules++;
+                    if (module.videos) {
+                        module.videos.forEach((video) => {
+                            totalVideos++;
+                            if (video.pass && !videoCompletionMap.has(video.videoId.toString())) {
+                                completedVideos++;
+                                videoCompletionMap.set(video.videoId.toString(), true);
+                            }
+                        });
+                    }
+                });
+            }
+
+            const moduleCompletion = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
+            const videoCompletion = totalVideos > 0 ? (completedVideos / totalVideos) * 100 : 0;
+            return Math.round(moduleCompletion * 0.4 + videoCompletion * 0.6);
+        };
+
+        const allTrainingsFormatted = allTrainings.map(t => {
+            const tObj = typeof t.toObject === 'function' ? t.toObject() : t;
+            const trainingIdStr = tObj.trainingId?._id?.toString() || tObj.trainingId?.toString();
+            
+            // Find the progress record in mandatoryTrainings (which contains all TrainingProgress for the user)
+            const progressRecord = mandatoryTrainings.find(tp => tp.trainingId?._id?.toString() === trainingIdStr);
+            let progressPercentage = 0;
+            if (progressRecord) {
+                progressPercentage = calculateProgress(progressRecord);
+            } else if (tObj.pass || tObj.status === 'Completed' || tObj.status === 'COMPLETED') {
+                progressPercentage = 100;
+            }
+            
+            return {
+                ...tObj,
+                progressPercentage
+            };
+        });
+
+        // Map and enrich assessments with total questions count and correct answers count
+        const populatedAssessments = await Promise.all(
+            (userData.assignedAssessments || []).map(async (a) => {
+                const aObj = typeof a.toObject === 'function' ? a.toObject() : a;
+                if (!aObj.assessmentId) return aObj;
+                
+                const assessId = aObj.assessmentId._id || aObj.assessmentId;
+                
+                // Fetch assessment to get questions length
+                const assess = await mongoose.model('Assessment').findById(assessId).select('questions');
+                const totalQuestions = assess?.questions?.length || 0;
+                
+                // Get correct answers count from AssessmentProcess
+                const attempt = await mongoose.model('AssessmentProcess').findOne({
+                    userId: userData._id,
+                    assessmentId: assessId
+                });
+                
+                const correctAnswers = attempt ? attempt.answers.filter(ans => ans.isCorrect).length : 0;
+                
+                return {
+                    ...aObj,
+                    totalQuestions,
+                    correctAnswers,
+                    score: attempt ? attempt.totalMarks : (aObj.complete || 0)
+                };
+            })
+        );
+
+        // Create response data with combined trainings and enriched assessments
         const responseData = {
             ...userData.toObject(),
-            training: allTrainings
+            training: allTrainingsFormatted,
+            assignedAssessments: populatedAssessments
         };
 
         console.log('Successfully retrieved user details for empID:', empID);

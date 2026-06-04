@@ -47,7 +47,7 @@ const mapEmployee = (e) => ({
   empID: e.empID || "",
   username: e.username || "",
   designation: e.designation || "",
-  workingBranch: e.workingBranch || "",
+  workingBranch: e.workingBranch ? (e.workingBranch.split(',').length > 5 ? "All Stores" : e.workingBranch) : "",
   trainingCount: e.trainingCount || 0,
   passCountTraining: e.passCountTraining || 0,
   Trainingdue: e.trainingDue || 0,
