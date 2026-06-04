@@ -108,33 +108,25 @@ const EmployeeDetaileData = () => {
 
   // API Call: Delete Employee
   const handleDelete = async () => {
-    if (!data._id) {
+    const targetId = data._id || id;
+    if (!targetId) {
       toast.error("Employee database record missing, cannot delete.");
       return;
     }
-    const confirmDelete = window.confirm("Are you sure you want to delete this employee? This action cannot be undone.");
+    const confirmDelete = window.confirm(`Are you sure you want to delete employee ${data.username || id}? This cannot be undone.`);
     if (!confirmDelete) return;
 
     try {
-      const response = await fetch(`${baseUrl.baseUrl}api/admin/admin/delete/${data._id}`, {
+      const response = await fetch(`${baseUrl.baseUrl}api/admin/admin/delete/${targetId}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
-  const handleDelete = async () => {
-    const ok = window.confirm(`Delete employee ${data.username || id}? This cannot be undone.`);
-    if (!ok) return;
-
-    try {
-      const response = await fetch(`${baseUrl.baseUrl}api/admin/admin/delete/${id}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       });
       const result = await response.json();
       if (!response.ok) {
         toast.error(result?.message || "Failed to delete employee");
         return;
       }
-      toast.success("Employee deleted successfully");
-      toast.success(result?.message || "Employee deleted");
+      toast.success(result?.message || "Employee deleted successfully");
       navigate("/employee");
     } catch {
       toast.error("Error deleting employee");
