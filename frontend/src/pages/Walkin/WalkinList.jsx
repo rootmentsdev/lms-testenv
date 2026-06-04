@@ -130,12 +130,10 @@ const WalkinList = () => {
     });
 
     // Fetch walkins dynamically from live API
-    const loadWalkinsList = async (page = currentPage) => {
+    const loadWalkinsList = async () => {
         try {
             setWalkinsLoading(true);
             const params = new URLSearchParams({
-                page: String(page),
-                limit: String(itemsPerPage),
                 search: searchQuery.trim(),
                 status: statusFilter,
                 store: storeFilter,
@@ -215,15 +213,16 @@ const WalkinList = () => {
     useEffect(() => {
         if (!token || loading) return;
         setCurrentPage(1);
-        loadWalkinsList(1);
-    }, [searchQuery, statusFilter, storeFilter, itemsPerPage]);
+        loadWalkinsList();
+    }, [searchQuery, statusFilter, storeFilter]);
 
-    const totalPages = Math.ceil(totalWalkins / itemsPerPage);
+    const totalPages = Math.ceil(walkins.length / itemsPerPage);
+    const indexFirst = (currentPage - 1) * itemsPerPage;
+    const currentItems = walkins.slice(indexFirst, indexFirst + itemsPerPage);
 
     const handlePageChange = (pageNumber) => {
         if (pageNumber >= 1 && pageNumber <= totalPages) {
             setCurrentPage(pageNumber);
-            loadWalkinsList(pageNumber);
         }
     };
 
@@ -643,7 +642,7 @@ const WalkinList = () => {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {walkins.map((w,index)=>{
+                                                {currentItems.map((w,index)=>{
                                                     const statusColors = {
                                                         'Booked':            { bg:'#dcfce7', color:'#16a34a' },
                                                         'New Booking':       { bg:'#dcfce7', color:'#16a34a' },
@@ -666,7 +665,7 @@ const WalkinList = () => {
                                                             onMouseEnter={e=>e.currentTarget.style.background='#fafafa'}
                                                             onMouseLeave={e=>e.currentTarget.style.background='#fff'}
                                                         >
-                                                            <td style={{ padding:'11px 12px', textAlign:'center', color:'#9ca3af' }}>{((currentPage-1)*itemsPerPage)+index+1}</td>
+                                                            <td style={{ padding:'11px 12px', textAlign:'center', color:'#9ca3af' }}>{indexFirst+index+1}</td>
                                                             <td style={{ padding:'11px 12px', whiteSpace:'nowrap', color:'#374151' }}>{w.date}</td>
                                                             <td style={{ padding:'11px 12px', color:'#111827', fontWeight:500, whiteSpace:'nowrap' }}>{w.customerName}</td>
                                                             <td style={{ padding:'11px 12px', whiteSpace:'nowrap', color:'#374151' }}>+91 {w.contact}</td>
@@ -702,7 +701,7 @@ const WalkinList = () => {
 
                                     {/* Pagination */}
                                     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'14px 20px', borderTop:'1px solid #f3f4f6', fontSize:'13px', color:'#6b7280' }}>
-                                        <span>Showing {String(Math.min(currentPage * itemsPerPage, totalWalkins)).padStart(2,'0')} of {totalWalkins}</span>
+                                        <span>Showing {String(Math.min(indexFirst + currentItems.length, walkins.length)).padStart(2,'0')} of {walkins.length}</span>
                                         <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
                                             <button onClick={()=>handlePageChange(currentPage-1)} disabled={currentPage===1} style={{ width:'30px', height:'30px', border:'1px solid #e5e7eb', borderRadius:'6px', background:'#fff', cursor:currentPage===1?'not-allowed':'pointer', opacity:currentPage===1?0.4:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#374151' }}>
                                                 <FaChevronLeft size={10} />
