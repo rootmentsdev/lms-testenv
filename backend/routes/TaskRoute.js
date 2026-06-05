@@ -1,5 +1,5 @@
 import express from 'express';
-import { createTask, getTasks, getTaskById, getTaskAssignees, updateTaskStatus, reassignTask, getTaskAttachment, getTaskReviewAttachment, resolveExtensionRequest, updateTaskDetails } from '../controllers/TaskController.js';
+import { createTask, getTasks, getTaskById, getTaskAssignees, updateTaskStatus, reassignTask, getTaskAttachment, getTaskReviewAttachment, requestExtension, resolveExtensionRequest, updateTaskDetails } from '../controllers/TaskController.js';
 import { MiddilWare } from '../lib/middilWare.js';
 
 const router = express.Router();
@@ -309,19 +309,21 @@ router.get('/:id/attachment', getTaskAttachment);
 router.get('/:id/review-attachment', getTaskReviewAttachment);
 /**
  * @swagger
- * /api/task/{id}/resolve-extension:
+ * /api/task/{id}/request-extension:
  *   put:
  *     tags: [Tasks]
- *     summary: Resolve task extension request
+ *     summary: Request a deadline extension (called by the mobile assignee)
  *     description: >
- *       Allows the task creator (assigner) to approve or reject a pending extension request.
- *       
- *       **Actions:**
- *       - **APPROVE:** Updates the task's `endDate` to the requested extension date and reverts the status to its previous status (e.g. `IN PROGRESS`).
- *       - **REJECT:** Reverts the status back to its previous status without changing the task's `endDate`.
- *       
- *       **Notifications:**
- *       - Triggers a database-backed notification to the assignee informing them of the approval or rejection.
+ *       Submits a deadline extension request on behalf of the task assignee.
+ *       Sets the task status to **EXTENSION REQUESTED** and stores the requested new deadline.
+ *       Triggers a database-backed notification to the task creator (assigner) so they can
+ *       approve or reject the request from the web dashboard.
+ *
+ *       **Rules:**
+ *       - Cannot request an extension if a request is already pending.
+ *       - Cannot request an extension on a COMPLETED task.
+ *       - The `requestedExtensionDate` value accepts both `YYYY-MM-DD` and ISO 8601
+ *         (`2026-06-07T00:00:00.000`) — the time component is stripped automatically.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -330,27 +332,81 @@ router.get('/:id/review-attachment', getTaskReviewAttachment);
  *         required: true
  *         schema:
  *           type: string
- *         description: Task ID or taskCode to resolve extension for
+ *         description: Task ID or taskCode
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - requestedExtensionDate
+ *             properties:
+ *               requestedExtensionDate:
+ *                 type: string
+ *                 description: The new deadline being requested (YYYY-MM-DD or ISO 8601)
+ *                 example: "2026-06-07"
+ *     responses:
+ *       200:
+ *         description: Extension request submitted successfully
+ *       400:
+ *         description: Missing date, duplicate request, or task is already completed
+ *       404:
+ *         description: Task not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/:id/request-extension', MiddilWare, requestExtension);
+
+/**
+ * @swagger
+ * /api/task/{id}/resolve-extension:
+ *   put:
+ *     tags: [Tasks]
+ *     summary: Approve or reject a pending extension request (web creator only)
+ *     description: >
+ *       Allows the task **creator (assigner)** to approve or reject a pending extension request.
+ *       The task must currently be in **EXTENSION REQUESTED** status.
+ *
+ *       **Actions:**
+ *       - **APPROVE:** Updates `endDate` to the `requestedExtensionDate` and reverts status to its previous value.
+ *       - **REJECT:** Reverts status to its previous value without changing `endDate`.
+ *
+ *       **Permissions:** Only the task creator can call this endpoint.
+ *
+ *       **Notifications:** The assignee is notified of the outcome.
+ *
+ *       > ⚠️ This endpoint is intended for the **web dashboard only**.
+ *       > Mobile assignees should use `PUT /:id/request-extension` to submit extension requests.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Task ID or taskCode
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - action
  *             properties:
  *               action:
  *                 type: string
  *                 enum: [APPROVE, REJECT]
- *                 description: The resolution action for the extension request
- *             required:
- *               - action
+ *                 description: The resolution action
  *     responses:
  *       200:
- *         description: Extension request successfully resolved
+ *         description: Extension request resolved successfully
  *       400:
- *         description: Invalid action or task does not have a pending extension request
+ *         description: Task is not in EXTENSION REQUESTED status
  *       403:
- *         description: Access denied – only the task creator can resolve extension requests
+ *         description: Access denied — only the task creator can resolve extension requests
  *       404:
  *         description: Task not found
  *       500:

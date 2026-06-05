@@ -1299,6 +1299,79 @@ export const getTaskReviewAttachment = async (req, res) => {
   }
 };
 
+// ─── REQUEST EXTENSION (called by mobile assignee) ───────────────────────────
+export const requestExtension = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { requestedExtensionDate } = req.body;
+
+    if (!requestedExtensionDate) {
+      return res.status(400).json({ success: false, message: 'requestedExtensionDate is required (YYYY-MM-DD)' });
+    }
+
+    const task = await Task.findOne({
+      $or: [{ taskCode: id }, ...(id.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: id }] : [])],
+    });
+
+    if (!task) {
+      return res.status(404).json({ success: false, message: 'Task not found' });
+    }
+
+    if (task.status === 'EXTENSION REQUESTED') {
+      return res.status(400).json({ success: false, message: 'An extension request is already pending for this task' });
+    }
+
+    if (task.status === 'COMPLETED') {
+      return res.status(400).json({ success: false, message: 'Cannot request extension for a completed task' });
+    }
+
+    // Resolve caller display name
+    const userId = req.admin.userId;
+    let executorName = 'Unknown';
+    try {
+      const execAdmin = await Admin.findById(userId);
+      executorName = execAdmin ? execAdmin.name : (await User.findById(userId))?.username || 'Unknown';
+    } catch (_) {}
+
+    // Normalize date — strip time component if present
+    const normalizedDate = requestedExtensionDate.includes('T')
+      ? requestedExtensionDate.split('T')[0]
+      : requestedExtensionDate;
+
+    task.previousStatus = task.status;
+    task.requestedExtensionDate = normalizedDate;
+    task.status = 'EXTENSION REQUESTED';
+    task.workMap.push({
+      assignedTo: task.assignedTo,
+      assignedToLabel: task.assignedToLabel,
+      assignedBy: executorName,
+      assignedAt: new Date(),
+      action: 'EXTENSION REQUESTED',
+      details: normalizedDate,
+    });
+
+    await task.save();
+
+    // Notify the task creator
+    await sendNotification({
+      title: 'Task Extension Requested',
+      body: `"${task.title}" — ${executorName} is requesting a deadline extension to ${normalizedDate}`,
+      userIds: [task.createdBy],
+      senderName: executorName,
+      category: 'Task',
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Extension request submitted successfully',
+      data: mapTaskForClient(task),
+    });
+  } catch (error) {
+    console.error('Error requesting task extension:', error);
+    return res.status(500).json({ success: false, message: 'Failed to submit extension request', error: error.message });
+  }
+};
+
 export const resolveExtensionRequest = async (req, res) => {
   try {
     const { id } = req.params;
