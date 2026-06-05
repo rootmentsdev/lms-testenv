@@ -14,6 +14,9 @@ const Home = lazy(() => import('./pages/Home/Home'));
 const Login = lazy(() => import('./pages/Login/Login'));
 const Assessments = lazy(() => import('./pages/Assessments/Assessments'));
 const Branch = lazy(() => import('./pages/Branch/Branch'));
+const BranchAudit = lazy(() => import('./pages/Branch/BranchAudit/BranchAudit.jsx'));
+const BranchAuditForm = lazy(() => import('./pages/Branch/BranchAudit/BranchAuditForm.jsx'));
+const BranchAuditProfile = lazy(() => import('./pages/Branch/BranchAudit/BranchAuditProfile.jsx'));
 const Employee = lazy(() => import('./pages/Employee/Employee'));
 const CreateEmployee = lazy(() => import('./pages/Employee/CreateEmployee'));
 const Module = lazy(() => import('./pages/Modules/Module'));
@@ -137,6 +140,9 @@ function App() {
           <Route path="/assessments" element={<ProtectedLayout><Assessments /></ProtectedLayout>} />
 
           <Route path="/branch" element={<ProtectedLayout><Branch /></ProtectedLayout>} />
+          <Route path="/branch/audit" element={<ProtectedLayout><BranchAudit /></ProtectedLayout>} />
+          <Route path="/branch/audit/create" element={<ProtectedLayout><BranchAuditForm /></ProtectedLayout>} />
+          <Route path="/branch/audit/:id" element={<ProtectedLayout><BranchAuditProfile /></ProtectedLayout>} />
           <Route path="/Addbranch" element={<ProtectedLayout><AddBranch /></ProtectedLayout>} />
 
           <Route path="/employee" element={<ProtectedLayout><Employee /></ProtectedLayout>} />
