@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import BranchAudit from "../model/BranchAudit.js";
 import Branch from "../model/Branch.js";
 import Admin from "../model/Admin.js";
@@ -25,6 +26,33 @@ const computeOverallRating = (sections = []) => {
   if (!scores.length) return 0;
   const total = scores.reduce((sum, n) => sum + n, 0);
   return Number((total / scores.length).toFixed(2));
+};
+
+const findBranchForAudit = async ({ storeId, store }) => {
+  const trimmedStoreId = typeof storeId === "string" ? storeId.trim() : storeId;
+  const trimmedStore = typeof store === "string" ? store.trim() : store;
+
+  if (trimmedStoreId) {
+    if (mongoose.isValidObjectId(trimmedStoreId)) {
+      const byId = await Branch.findById(trimmedStoreId).select("locCode workingBranch");
+      if (byId) return byId;
+    }
+
+    const byLocCode = await Branch.findOne({
+      $or: [
+        { locCode: trimmedStoreId },
+        { workingBranch: trimmedStoreId },
+      ],
+    }).select("locCode workingBranch");
+
+    if (byLocCode) return byLocCode;
+  }
+
+  if (trimmedStore) {
+    return Branch.findOne({ workingBranch: trimmedStore }).select("locCode workingBranch");
+  }
+
+  return null;
 };
 
 export const createBranchAudit = async (req, res) => {
@@ -59,7 +87,7 @@ export const createBranchAudit = async (req, res) => {
     const totalRatingsCount = normalizedSections.reduce((sum, section) => sum + (section.items?.length || 0), 0);
 
     const [branch, ratedBy] = await Promise.all([
-      storeId ? Branch.findById(storeId).select("locCode workingBranch") : Branch.findOne({ workingBranch: store }).select("locCode workingBranch"),
+      findBranchForAudit({ storeId, store }),
       normalizeRatedBy(req.admin?.userId),
     ]);
 

@@ -3,9 +3,6 @@ import { Route, Routes, useNavigate } from 'react-router-dom';
 import './App.css';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import "@fontsource/dm-sans"
-import "@fontsource/dm-sans/500.css"
-import "@fontsource/dm-sans/700.css"
 import HashLoader from "react-spinners/HashLoader";
 
 
@@ -68,6 +65,59 @@ const ProtectedLayout = ({ children }) => (
   </ProtectedRoute>
 );
 
+const preloadProtectedRoutes = () => {
+  const routes = [
+    () => import('./pages/Assessments/Assessments'),
+    () => import('./pages/Branch/Branch'),
+    () => import('./pages/Branch/BranchAudit/BranchAudit.jsx'),
+    () => import('./pages/Branch/BranchAudit/BranchAuditForm.jsx'),
+    () => import('./pages/Branch/BranchAudit/BranchAuditProfile.jsx'),
+    () => import('./pages/Branch/AddBranch.jsx'),
+    () => import('./pages/Employee/Employee'),
+    () => import('./pages/Employee/CreateEmployee'),
+    () => import('./pages/Modules/Module'),
+    () => import('./pages/Training/Training'),
+    () => import('./pages/Setting/Setting'),
+    () => import('./pages/Training/CreateTraining'),
+    () => import('./pages/Training/AssignedTrainings'),
+    () => import('./pages/Training/AssingOrdelete'),
+    () => import('./pages/Modules/createmodule/CreateModule'),
+    () => import('./pages/Training/createTraining/CreateTrainings'),
+    () => import('./pages/Training/Reassign/Reassign'),
+    () => import('./pages/Training/Mandatorytraining/Mandatorytraining'),
+    () => import('./pages/Training/UserTrainingProgress/UserTrainingProgress'),
+    () => import('./pages/Assessments/CreateAssessment/CreateAssessment'),
+    () => import('./pages/Assessments/AssessmentsAssign/AssessmentsAssign'),
+    () => import('./pages/Assessments/AssignAssessment/AssignAssessment'),
+    () => import('./pages/Notification/Notifications.jsx'),
+    () => import('./pages/OverDue/AssessmentOverDuedata.jsx'),
+    () => import('./pages/OverDue/TraningOverDuedata.jsx'),
+    () => import('./pages/Employee/EmployeeDetaile/EmployeeDetaile.jsx'),
+    () => import('./pages/Branch/BranchDetails/BranchDetails.jsx'),
+    () => import('./pages/profile/Profile.jsx'),
+    () => import('./pages/Setting/LoginAnalytics.jsx'),
+    () => import('./pages/Walkin/WalkinList.jsx'),
+    () => import('./pages/Walkin/WalkinReport.jsx'),
+    () => import('./pages/Task/TaskManagement.jsx'),
+    () => import('./pages/Task/CreateTask.jsx'),
+    () => import('./pages/Setting/UserManagement/ExistingUsers.jsx'),
+    () => import('./pages/Setting/UserManagement/CreateNewUser.jsx'),
+    () => import('./pages/Setting/CreateNotificationPage.jsx'),
+  ];
+
+  const run = () => {
+    routes.forEach((load) => {
+      load().catch(() => {});
+    });
+  };
+
+  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+    window.requestIdleCallback(run, { timeout: 2000 });
+  } else {
+    setTimeout(run, 0);
+  }
+};
+
 
 
 
@@ -117,6 +167,8 @@ function App() {
 
       verifyToken();
     }
+
+    preloadProtectedRoutes();
   }, [dispatch, navigate]);
 
   return (
