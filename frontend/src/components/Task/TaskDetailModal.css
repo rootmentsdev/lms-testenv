@@ -7,18 +7,18 @@
   justify-content: center;
   padding: 24px;
   background: rgba(17, 24, 39, 0.45);
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(4px);
   animation: task-detail-fade-in 0.22s ease;
 }
 
 .task-detail-modal {
   width: 100%;
-  max-width: 720px;
+  max-width: 820px;
   background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
-  padding: 28px 32px 32px;
-  font-family: 'Poppins', sans-serif;
+  border-radius: 24px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.04);
+  padding: 40px 48px;
+  font-family: 'DM Sans', sans-serif;
   animation: task-detail-slide-in 0.28s cubic-bezier(0.4, 0, 0.2, 1);
   max-height: 90vh;
   overflow-y: auto;
@@ -27,42 +27,49 @@
 .task-detail-back {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   background: none;
   border: none;
   padding: 0;
-  margin-bottom: 16px;
-  font-size: 13px;
+  margin-bottom: 24px;
+  font-size: 15px;
   font-weight: 500;
-  color: #6b7280;
+  color: #8b939e;
   cursor: pointer;
   font-family: inherit;
   transition: color 0.15s ease;
 }
 
-.task-detail-back:hover {
+.task-detail-back svg {
+  color: #8b939e;
+  transition: color 0.15s ease;
+}
+
+.task-detail-back:hover,
+.task-detail-back:hover svg {
   color: #111827;
 }
 
 .task-detail-title {
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 700;
   color: #111827;
-  margin: 0 0 6px;
-  line-height: 1.3;
+  margin: 0 0 8px;
+  line-height: 1.25;
 }
 
 .task-detail-category {
-  font-size: 13px;
-  color: #6b7280;
+  font-size: 14px;
+  font-weight: 500;
+  color: #8c95a5;
   margin: 0;
   line-height: 1.45;
 }
 
 .task-detail-divider {
   height: 1px;
-  background: #f0f0f0;
-  margin: 20px 0;
+  background: #f1f3f6;
+  margin: 28px 0;
 }
 
 .task-detail-row {
@@ -78,26 +85,40 @@
   grid-template-columns: 1fr 1fr 1fr;
 }
 
+/* 3-column details grid */
+.task-detail-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  row-gap: 36px;
+  column-gap: 24px;
+}
+
+.task-detail-field {
+  display: flex;
+  flex-direction: column;
+}
+
 .task-detail-field__label {
   font-size: 11px;
   font-weight: 700;
-  color: #9ca3af;
-  letter-spacing: 0.03em;
+  color: #8b939e;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   margin-bottom: 8px;
 }
 
 .task-detail-field__primary {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   color: #111827;
   line-height: 1.35;
 }
 
 .task-detail-field__secondary {
-  font-size: 12px;
-  color: #9ca3af;
-  margin-top: 3px;
+  font-size: 13px;
+  font-weight: 400;
+  color: #8c95a5;
+  margin-top: 4px;
   line-height: 1.35;
 }
 
@@ -105,45 +126,73 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 15px;
-  font-weight: 700;
-  color: #111827;
+  font-size: 16px;
+  font-weight: 500;
+  color: #4b5563;
 }
 
 .task-detail-priority-dot {
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
+/* Status Badges */
 .task-detail-status {
-  display: inline-block;
-  padding: 6px 12px;
-  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 16px;
+  border-radius: 9999px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.02em;
+  text-transform: uppercase;
+  border: 1px solid;
+  width: max-content;
 }
 
 .task-detail-status--completed {
-  background: #dcfce7;
-  color: #15803d;
+  background: #ecfdf5;
+  border-color: #bbf7d0;
+  color: #16a34a;
 }
 
 .task-detail-status--in-progress {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #dbeafe;
+  color: #2563eb;
 }
 
 .task-detail-status--pending {
-  background: #f3f4f6;
-  color: #6b7280;
+  background: #f9fafb;
+  border-color: #e5e7eb;
+  color: #4b5563;
 }
 
 .task-detail-status--overdue {
-  background: #fee2e2;
+  background: #fef2f2;
+  border-color: #fee2e2;
   color: #dc2626;
+}
+
+.task-detail-status--on-hold {
+  background: #fffbeb;
+  border-color: #fef3c7;
+  color: #d97706;
+}
+
+.task-detail-status--under-review {
+  background: #faf5ff;
+  border-color: #f3e8ff;
+  color: #7e22ce;
+}
+
+.task-detail-status--reassigned {
+  background: #f0f9ff;
+  border-color: #e0f2fe;
+  color: #0369a1;
 }
 
 @keyframes task-detail-fade-in {
@@ -154,7 +203,7 @@
 @keyframes task-detail-slide-in {
   from {
     opacity: 0;
-    transform: translateY(12px) scale(0.98);
+    transform: translateY(16px) scale(0.98);
   }
   to {
     opacity: 1;
@@ -163,33 +212,38 @@
 }
 
 @media (max-width: 640px) {
+  .task-detail-grid-3 {
+    grid-template-columns: 1fr;
+    row-gap: 20px;
+  }
+
   .task-detail-row--2,
   .task-detail-row--3 {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 20px;
   }
 
   .task-detail-modal {
-    padding: 20px;
+    padding: 24px 28px;
   }
 }
 
-/* Action Panel styling */
+/* Action Control Panel styling */
 .task-detail-actions-panel {
   background: #f9fafb;
   border: 1px solid #f3f4f6;
-  border-radius: 12px;
-  padding: 20px;
-  margin-top: 20px;
+  border-radius: 16px;
+  padding: 24px;
+  margin-top: 28px;
 }
 
 .task-detail-actions-title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: #111827;
-  margin: 0 0 16px;
+  margin: 0 0 18px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
 }
 
 .task-detail-actions-row {
@@ -211,6 +265,7 @@
 
 .task-detail-status-buttons {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin-top: 8px;
 }
@@ -219,7 +274,7 @@
   font-family: inherit;
   font-size: 13px;
   font-weight: 600;
-  padding: 10px 16px;
+  padding: 10px 18px;
   border-radius: 8px;
   cursor: pointer;
   border: none;
@@ -230,8 +285,8 @@
 }
 
 .task-detail-btn-inprogress {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: #eff6ff;
+  color: #2563eb;
 }
 
 .task-detail-btn-inprogress:hover:not(:disabled) {
@@ -240,7 +295,7 @@
 }
 
 .task-detail-btn-onhold {
-  background: #fef3c7;
+  background: #fffbeb;
   color: #d97706;
 }
 
@@ -250,7 +305,7 @@
 }
 
 .task-detail-btn-reassigned {
-  background: #e0f2fe;
+  background: #f0f9ff;
   color: #0369a1;
 }
 
@@ -260,7 +315,7 @@
 }
 
 .task-detail-btn-review {
-  background: #f3e8ff;
+  background: #faf5ff;
   color: #7e22ce;
 }
 
@@ -356,22 +411,7 @@
   cursor: not-allowed;
 }
 
-.task-detail-status--on-hold {
-  background: #fef3c7;
-  color: #d97706;
-}
-
-.task-detail-status--under-review {
-  background: #f3e8ff;
-  color: #7e22ce;
-}
-
-.task-detail-status--reassigned {
-  background: #e0f2fe;
-  color: #0369a1;
-}
-
-/* Task Work Flow Map Timeline styling */
+/* Workflow Timeline Map styling */
 .task-detail-workmap-section {
   margin-top: 10px;
   padding: 4px 0;
@@ -382,7 +422,7 @@
   flex-direction: column;
   position: relative;
   padding-left: 24px;
-  margin-top: 14px;
+  margin-top: 16px;
 }
 
 .task-detail-workmap-step {
@@ -471,4 +511,3 @@
   color: #9ca3af;
   margin-top: 3px;
 }
-

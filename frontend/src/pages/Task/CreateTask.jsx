@@ -63,7 +63,7 @@ const CheckboxOption = (props) => {
             accentColor: '#111827',
           }}
         />
-        <span style={{ fontSize: '13px', color: '#374151', fontFamily: "Poppins, sans-serif" }}>{props.label}</span>
+        <span style={{ fontSize: '13px', color: '#374151', fontFamily: "DM Sans, sans-serif" }}>{props.label}</span>
       </div>
     </components.Option>
   );
@@ -75,14 +75,15 @@ const selectStyles = {
     border: '1px solid #e5e7eb',
     borderRadius: '10px',
     minHeight: '40px',
-    boxShadow: 'none',
+    boxShadow: state.isFocused ? '0 0 0 3px rgba(17, 24, 39, 0.05)' : 'none',
     borderColor: state.isFocused ? '#111827' : '#e5e7eb',
     '&:hover': {
       borderColor: state.isFocused ? '#111827' : '#e5e7eb',
     },
-    fontFamily: "Poppins, sans-serif",
+    fontFamily: "DM Sans, sans-serif",
     fontSize: '13px',
     color: '#374151',
+    transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
   }),
   valueContainer: (base) => ({
     ...base,
@@ -92,7 +93,7 @@ const selectStyles = {
     ...base,
     backgroundColor: state.isSelected ? '#f3f4f6' : state.isFocused ? '#f9fafb' : '#fff',
     color: '#374151',
-    fontFamily: "Poppins, sans-serif",
+    fontFamily: "DM Sans, sans-serif",
     fontSize: '13px',
     cursor: 'pointer',
     display: 'flex',
@@ -110,7 +111,7 @@ const selectStyles = {
   multiValueLabel: (base) => ({
     ...base,
     color: '#374151',
-    fontFamily: "Poppins, sans-serif",
+    fontFamily: "DM Sans, sans-serif",
     fontSize: '12px',
   }),
   multiValueRemove: (base) => ({
@@ -123,86 +124,147 @@ const selectStyles = {
   }),
 };
 
-const inp = {
-  border: '1px solid #e5e7eb',
-  borderRadius: '10px',
-  padding: '9px 12px',
-  fontSize: '13px',
-  color: '#374151',
-  outline: 'none',
-  background: '#fff',
-  width: '100%',
-  boxSizing: 'border-box',
-  fontFamily: "Poppins, sans-serif",
-};
 const lbl = { fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '5px', display: 'block' };
 const req = { color: '#ef4444' };
-const FIELD_H = '40px';
-const compactField = { ...inp, height: FIELD_H, minHeight: FIELD_H, lineHeight: '20px' };
 
-const SWITCH_MS = 280;
 
-const PriorityPicker = ({ value, onChange, compact, grid }) => (
-  <div style={{
-    display: grid ? 'grid' : 'flex',
-    gridTemplateColumns: grid ? '1fr 1fr' : undefined,
-    flexWrap: grid ? undefined : 'wrap',
-    gap: compact ? '8px' : '10px',
-    marginTop: compact ? '2px' : '4px',
-  }}>
-    {PRIORITIES.map((p) => {
-      const selected = value === p.label;
-      return (
-        <button
-          key={p.label}
-          type="button"
-          onClick={() => onChange(p.label)}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: compact ? '6px 12px' : '7px 14px',
-            borderRadius: '999px',
-            border: selected ? '1.5px solid #111827' : '1px solid #e5e7eb',
-            background: selected ? '#f9fafb' : '#fff',
-            fontSize: '13px',
-            fontWeight: 500,
-            color: '#374151',
-            cursor: 'pointer',
-            fontFamily: "Poppins, sans-serif",
-            transition: 'border-color 0.2s ease, background 0.2s ease, transform 0.15s ease',
-          }}
-        >
-          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: p.color, flexShrink: 0 }} />
-          {p.label}
-        </button>
-      );
-    })}
-  </div>
-);
+const getCurrentDate = () => new Date().toISOString().split('T')[0];
 
-const FileField = ({ file, onChange, compact }) => (
+const getCurrentTime = () => {
+  const now = new Date();
+  let hours = now.getHours();
+  const minutes = now.getMinutes();
+  const ampm = hours >= 12 ? 'pm' : 'am';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  const strMinutes = minutes < 10 ? '0' + minutes : minutes;
+  return `${hours}:${strMinutes}${ampm}`;
+};
+
+const PriorityPicker = ({ value, onChange }) => {
+  const getActiveStyles = (label) => {
+    switch (label) {
+      case 'Urgent':
+        return { background: '#fef2f2', border: '1.5px solid #ef4444', text: '#991b1b', fontWeight: 600 };
+      case 'High':
+        return { background: '#fffbeb', border: '1.5px solid #f59e0b', text: '#92400e', fontWeight: 600 };
+      case 'Normal':
+        return { background: '#eff6ff', border: '1.5px solid #3b82f6', text: '#1e40af', fontWeight: 600 };
+      case 'Low':
+        return { background: '#f9fafb', border: '1.5px solid #9ca3af', text: '#374151', fontWeight: 600 };
+      default:
+        return {};
+    }
+  };
+
+  return (
+    <div style={{
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '10px',
+      marginTop: '4px',
+    }}>
+      {PRIORITIES.map((p) => {
+        const selected = value === p.label;
+        const active = selected ? getActiveStyles(p.label) : {};
+        return (
+          <button
+            key={p.label}
+            type="button"
+            onClick={() => onChange(p.label)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '7px 14px',
+              borderRadius: '999px',
+              border: selected ? active.border : '1px solid #e5e7eb',
+              background: selected ? active.background : '#fff',
+              fontSize: '13px',
+              fontWeight: selected ? active.fontWeight : 500,
+              color: selected ? active.text : '#374151',
+              cursor: 'pointer',
+              fontFamily: "DM Sans, sans-serif",
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: p.color, flexShrink: 0 }} />
+            {p.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
+const FileField = ({ file, onChange }) => (
   <label
-    className={compact ? 'create-task-file-field' : undefined}
+    className="premium-input"
     style={{
-      ...inp,
       display: 'flex',
       alignItems: 'center',
       gap: '8px',
-      padding: '9px 12px',
       cursor: 'pointer',
       color: '#6b7280',
-      ...(compact ? { height: FIELD_H, minHeight: FIELD_H } : {}),
     }}
   >
     <span style={{ color: '#111827', fontWeight: 500 }}>Choose File</span>
     <span style={{ color: '#d1d5db' }}>|</span>
-    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, textAlign: 'left' }}>
       {file ? file.name : 'No file chosen'}
     </span>
     <input type="file" onChange={(e) => onChange(e.target.files?.[0] ?? null)} style={{ display: 'none' }} />
   </label>
 );
+
+const DateInput = ({ value, onChange, required }) => {
+  const inputRef = useRef(null);
+
+  const handleContainerClick = () => {
+    if (inputRef.current) {
+      try {
+        inputRef.current.showPicker();
+      } catch (err) {
+        inputRef.current.focus();
+      }
+    }
+  };
+
+  return (
+    <div 
+      onClick={handleContainerClick}
+      className="custom-date-container"
+      style={{ position: 'relative', cursor: 'pointer', width: '100%' }}
+    >
+      <input
+        ref={inputRef}
+        type="date"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required={required}
+        className="premium-input"
+        style={{ paddingRight: '40px', cursor: 'pointer' }}
+      />
+      <div style={{
+        position: 'absolute',
+        right: '12px',
+        top: '50%',
+        transform: 'translateY(-50%)',
+        color: '#6b7280',
+        pointerEvents: 'none',
+        display: 'flex',
+        alignItems: 'center',
+      }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+          <line x1="16" y1="2" x2="16" y2="6" />
+          <line x1="8" y1="2" x2="8" y2="6" />
+          <line x1="3" y1="10" x2="21" y2="10" />
+        </svg>
+      </div>
+    </div>
+  );
+};
 
 const ModeToggle = ({ mode, onChange, disabled }) => {
   const wrapRef = useRef(null);
@@ -259,101 +321,9 @@ const ModeToggle = ({ mode, onChange, disabled }) => {
   );
 };
 
-const AutoTaskFields = ({ form, set }) => (
-  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.25fr 1fr', gap: '16px', alignItems: 'start' }}>
-    <div>
-      <label style={lbl}>Start Date & Time <span style={req}>*</span></label>
-      <input
-        type="date"
-        value={form.startDate}
-        onChange={(e) => set('startDate', e.target.value)}
-        required
-        style={{ ...compactField, color: form.startDate ? '#374151' : '#9ca3af' }}
-      />
-    </div>
-    <div>
-      <label style={lbl}>Task Description <span style={req}>*</span></label>
-      <textarea
-        placeholder="Enter task description"
-        value={form.description}
-        onChange={(e) => set('description', e.target.value)}
-        required
-        rows={1}
-        style={{
-          ...compactField,
-          resize: 'none',
-          overflowY: 'auto',
-          paddingTop: '9px',
-          paddingBottom: '9px',
-        }}
-      />
-    </div>
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <div>
-        <label style={lbl}>Attach File</label>
-        <FileField compact file={form.file} onChange={(f) => set('file', f)} />
-      </div>
-      <div>
-        <label style={lbl}>Select Priority <span style={req}>*</span></label>
-        <PriorityPicker compact grid value={form.priority} onChange={(v) => set('priority', v)} />
-      </div>
-    </div>
-  </div>
-);
-
-const RegularTaskFields = ({ form, set }) => (
-  <>
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '20px' }}>
-      <div>
-        <label style={lbl}>Start Date & Time <span style={req}>*</span></label>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <input type="date" value={form.startDate} onChange={(e) => set('startDate', e.target.value)} required style={{ ...inp, flex: 1 }} />
-          <select value={form.startTime} onChange={(e) => set('startTime', e.target.value)} style={{ ...inp, width: '110px', cursor: 'pointer' }}>
-            {TIMES.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
-      </div>
-      <div>
-        <label style={lbl}>End Date & Time <span style={req}>*</span></label>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <input type="date" value={form.endDate} onChange={(e) => set('endDate', e.target.value)} required style={{ ...inp, flex: 1 }} />
-          <select value={form.endTime} onChange={(e) => set('endTime', e.target.value)} style={{ ...inp, width: '110px', cursor: 'pointer' }}>
-            {TIMES.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
-      </div>
-      <div>
-        <label style={lbl}>Attach File</label>
-        <FileField file={form.file} onChange={(f) => set('file', f)} />
-      </div>
-    </div>
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
-      <div>
-        <label style={lbl}>Task Description <span style={req}>*</span></label>
-        <textarea placeholder="Enter task description" value={form.description} onChange={(e) => set('description', e.target.value)} required rows={4} style={{ ...inp, resize: 'none' }} />
-      </div>
-      <div>
-        <label style={lbl}>Additional Information</label>
-        <textarea placeholder="Enter additional information" value={form.additionalInfo} onChange={(e) => set('additionalInfo', e.target.value)} rows={4} style={{ ...inp, resize: 'none' }} />
-      </div>
-      <div>
-        <label style={lbl}>Select Priority <span style={req}>*</span></label>
-        <PriorityPicker value={form.priority} onChange={(v) => set('priority', v)} />
-      </div>
-    </div>
-  </>
-);
-
 const CreateTask = () => {
   const navigate = useNavigate();
   const [mode, setMode] = useState('task');
-  const [panelVisible, setPanelVisible] = useState(true);
-  const [btnVisible, setBtnVisible] = useState(true);
-  const [isSwitching, setIsSwitching] = useState(false);
-  const bodyRef = useRef(null);
-  const [bodyHeight, setBodyHeight] = useState(undefined);
-  const switchTimer = useRef(null);
-
   const [assigneeOptions, setAssigneeOptions] = useState([]);
   const [loadingAssignees, setLoadingAssignees] = useState(false);
   const token = localStorage.getItem('token');
@@ -388,10 +358,7 @@ const CreateTask = () => {
     category: '',
     subCategory: '',
     assignedTo: [],
-    startDate: new Date().toISOString().split('T')[0],
-    startTime: '11:20am',
-    endDate: new Date().toISOString().split('T')[0],
-    endTime: '11:20am',
+    deadline: getCurrentDate(),
     description: '',
     additionalInfo: '',
     priority: 'Normal',
@@ -400,37 +367,6 @@ const CreateTask = () => {
 
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
   const isAuto = mode === 'auto';
-
-  const measureBody = useCallback(() => {
-    if (bodyRef.current) {
-      setBodyHeight(bodyRef.current.scrollHeight);
-    }
-  }, []);
-
-  useLayoutEffect(() => {
-    measureBody();
-  }, [mode, panelVisible, measureBody]);
-
-  useEffect(() => () => {
-    if (switchTimer.current) clearTimeout(switchTimer.current);
-  }, []);
-
-  const switchMode = (next) => {
-    if (next === mode || isSwitching) return;
-    setIsSwitching(true);
-    setPanelVisible(false);
-    setBtnVisible(false);
-    if (switchTimer.current) clearTimeout(switchTimer.current);
-    switchTimer.current = window.setTimeout(() => {
-      setMode(next);
-      setPanelVisible(true);
-      setBtnVisible(true);
-      requestAnimationFrame(() => {
-        measureBody();
-        setIsSwitching(false);
-      });
-    }, SWITCH_MS);
-  };
 
   const handleAssigneeChange = (selected, actionMeta) => {
     const nextSelected = [...(selected || [])];
@@ -546,18 +482,22 @@ const CreateTask = () => {
         });
       }
 
+      // Automatically fetch task creation date and time
+      const currentStart = getCurrentDate();
+      const currentStartT = getCurrentTime();
+
       for (const assignee of individualAssignees) {
         await createTask({
-          mode: isAuto ? 'auto' : 'task',
+          mode: mode,
           title: form.title,
           category: form.category,
           subCategory: form.subCategory,
           assignedTo: assignee.value,
           assignedToLabel: assignee.label,
-          startDate: form.startDate,
-          startTime: form.startTime,
-          endDate: isAuto ? form.startDate : form.endDate,
-          endTime: isAuto ? form.startTime : form.endTime,
+          startDate: currentStart,
+          startTime: currentStartT,
+          endDate: isAuto ? currentStart : form.deadline,
+          endTime: isAuto ? currentStartT : '11:59pm',
           description: form.description,
           additionalInfo: form.additionalInfo,
           priority: form.priority,
@@ -574,52 +514,106 @@ const CreateTask = () => {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f9fafb', fontFamily: "Poppins, sans-serif" }}>
+    <div style={{ minHeight: '100vh', background: '#f9fafb', fontFamily: "DM Sans, sans-serif" }}>
       <SideNav />
 
       <div style={{ marginLeft: '120px', paddingTop: '24px', paddingLeft: '24px', paddingRight: '24px', paddingBottom: '40px' }}>
-        <button
-          type="button"
-          onClick={() => navigate('/task')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none',
-            fontSize: '13px', color: '#6b7280', cursor: 'pointer', marginBottom: '16px', padding: 0,
-          }}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-          Back
-        </button>
-
-        <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid #f0f0f0', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', padding: '28px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '28px' }}>
-            <div>
-              <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#111827', margin: 0 }}>Create & Assign New Task</h2>
-              <p style={{ fontSize: '12px', color: '#9ca3af', margin: '4px 0 0' }}>Track and manage all operational tasks across stores</p>
+        
+        {/* Form Container Card (wraps everything including Header) */}
+        <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid #e5e7eb', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', padding: '32px' }}>
+          
+          {/* Header container inside the card */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <button
+                type="button"
+                onClick={() => navigate('/task')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  background: '#f3f4f6',
+                  border: 'none',
+                  color: '#1f2937',
+                  cursor: 'pointer',
+                  transition: 'background 0.2s',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#e5e7eb'}
+                onMouseLeave={(e) => e.currentTarget.style.background = '#f3f4f6'}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="19" y1="12" x2="5" y2="12" />
+                  <polyline points="12 19 5 12 12 5" />
+                </svg>
+              </button>
+              <div>
+                <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#111827', margin: 0, fontFamily: 'DM Sans, sans-serif' }}>Create & Assign New Task</h2>
+                <p style={{ fontSize: '12px', color: '#9ca3af', margin: '4px 0 0', fontFamily: 'DM Sans, sans-serif' }}>Track and manage all operational tasks across stores</p>
+              </div>
             </div>
-            <ModeToggle mode={mode} onChange={switchMode} disabled={isSwitching} />
+            <ModeToggle mode={mode} onChange={setMode} disabled={submitting} />
           </div>
 
-          <form onSubmit={handleSubmit}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '20px' }}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            
+            {/* Row 1: Title, Category, Sub Category, Assigned To */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
               <div>
                 <label style={lbl}>Task Title <span style={req}>*</span></label>
-                <input type="text" placeholder="Enter task title" value={form.title} onChange={(e) => set('title', e.target.value)} required style={inp} />
+                <input 
+                  type="text" 
+                  placeholder="Enter task title" 
+                  value={form.title} 
+                  onChange={(e) => set('title', e.target.value)} 
+                  required 
+                  className="premium-input"
+                />
               </div>
               <div>
                 <label style={lbl}>Category <span style={req}>*</span></label>
-                <select value={form.category} onChange={(e) => set('category', e.target.value)} required style={{ ...inp, cursor: 'pointer' }}>
-                  <option value="">Select Options</option>
-                  {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
+                <div style={{ position: 'relative' }}>
+                  <select 
+                    value={form.category} 
+                    onChange={(e) => {
+                      set('category', e.target.value);
+                      set('subCategory', '');
+                    }} 
+                    required 
+                    className="premium-input"
+                    style={{ cursor: 'pointer', appearance: 'none', paddingRight: '28px' }}
+                  >
+                    <option value="">Select Options</option>
+                    {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <div style={{ pointerEvents: 'none', position: 'absolute', top: 0, bottom: 0, right: 0, display: 'flex', alignItems: 'center', paddingRight: '12px', color: '#6b7280' }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </div>
+                </div>
               </div>
               <div>
                 <label style={lbl}>Sub Category <span style={req}>*</span></label>
-                <select value={form.subCategory} onChange={(e) => set('subCategory', e.target.value)} required style={{ ...inp, cursor: 'pointer' }}>
-                  <option value="">Select Options</option>
-                  {(SUB_CATEGORIES[form.category] || []).map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
+                <div style={{ position: 'relative' }}>
+                  <select 
+                    value={form.subCategory} 
+                    onChange={(e) => set('subCategory', e.target.value)} 
+                    required 
+                    className="premium-input"
+                    style={{ cursor: 'pointer', appearance: 'none', paddingRight: '28px' }}
+                  >
+                    <option value="">Select Options</option>
+                    {(SUB_CATEGORIES[form.category] || []).map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <div style={{ pointerEvents: 'none', position: 'absolute', top: 0, bottom: 0, right: 0, display: 'flex', alignItems: 'center', paddingRight: '12px', color: '#6b7280' }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </div>
+                </div>
               </div>
               <div>
                 <label style={lbl}>Assigned To <span style={req}>*</span></label>
@@ -637,40 +631,76 @@ const CreateTask = () => {
               </div>
             </div>
 
-            <div
-              className="create-task-form-body"
-              style={{ height: bodyHeight !== undefined ? bodyHeight : 'auto', marginBottom: '28px' }}
-            >
-              <div
-                ref={bodyRef}
-                className={`create-task-form-panel${panelVisible ? ' create-task-form-panel--enter' : ' create-task-form-panel--exit'}`}
-              >
-                {isAuto ? (
-                  <AutoTaskFields form={form} set={set} />
-                ) : (
-                  <RegularTaskFields form={form} set={set} />
-                )}
+            {/* Row 2: Deadline, Attach File, Priority */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '16px' }}>
+              {!isAuto ? (
+                <div style={{ gridColumn: 'span 3' }}>
+                  <label style={lbl}>Deadline <span style={req}>*</span></label>
+                  <DateInput 
+                    value={form.deadline} 
+                    onChange={(val) => set('deadline', val)} 
+                    required 
+                  />
+                </div>
+              ) : null}
+
+              <div style={{ gridColumn: isAuto ? 'span 3' : 'span 3' }}>
+                <label style={lbl}>Attach File</label>
+                <FileField file={form.file} onChange={(f) => set('file', f)} />
+              </div>
+
+              <div style={{ gridColumn: isAuto ? 'span 9' : 'span 6' }}>
+                <label style={lbl}>Select Priority <span style={req}>*</span></label>
+                <PriorityPicker value={form.priority} onChange={(v) => set('priority', v)} />
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className={`create-task-save-btn${btnVisible ? '' : ' create-task-save-btn--exit'}`}
-              style={{
-                background: '#111827',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '10px',
-                padding: '10px 24px',
-                fontSize: '13px',
-                fontWeight: 600,
-                cursor: submitting ? 'not-allowed' : 'pointer',
-                opacity: submitting ? 0.7 : 1,
-              }}
-            >
-              {submitting ? 'Saving…' : isAuto ? 'Save Auto Task' : 'Save Task'}
-            </button>
+            {/* Row 3: Description, Additional Info */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+              <div>
+                <label style={lbl}>Task Description <span style={req}>*</span></label>
+                <textarea 
+                  placeholder="Enter task description" 
+                  value={form.description} 
+                  onChange={(e) => set('description', e.target.value)} 
+                  required 
+                  rows={4} 
+                  className="premium-textarea"
+                />
+              </div>
+              <div>
+                <label style={lbl}>Additional Information</label>
+                <textarea 
+                  placeholder="Enter additional information" 
+                  value={form.additionalInfo} 
+                  onChange={(e) => set('additionalInfo', e.target.value)} 
+                  rows={4} 
+                  className="premium-textarea"
+                />
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <div style={{ display: 'flex', justifyContent: 'flex-start', paddingTop: '8px' }}>
+              <button
+                type="submit"
+                disabled={submitting}
+                style={{
+                  background: '#111827',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '10px',
+                  padding: '10px 24px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: submitting ? 'not-allowed' : 'pointer',
+                  opacity: submitting ? 0.7 : 1,
+                  fontFamily: "DM Sans, sans-serif",
+                }}
+              >
+                {submitting ? 'Saving…' : 'Save Task'}
+              </button>
+            </div>
           </form>
         </div>
       </div>

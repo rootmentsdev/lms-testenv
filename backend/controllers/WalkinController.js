@@ -35,6 +35,17 @@ function locationKey(name) {
   return tokens.join(" ");
 }
 
+const getFormattedDateTime = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
 /**
  * Helper to match stores based on normalized location keys
  */
@@ -124,7 +135,9 @@ export const saveWalkin = async (req, res) => {
         }
 
         const trimmedContact = contact.trim();
-        const todayStr = date || new Date().toISOString().split('T')[0];
+        
+        // Automatically fetch current date and time when adding walk-ins
+        const todayStr = _id ? (date || getFormattedDateTime()) : getFormattedDateTime();
 
         // Process token / Role-based overrides
         let finalStore = store ? store.trim() : '-';
@@ -133,31 +146,73 @@ export const saveWalkin = async (req, res) => {
         let finalEmployeeId = employeeId;
         let createdBy = null;
 
-        if (req.admin) {
-            createdBy = req.admin.userId;
-            if (req.admin.role === 'user' || !req.admin.role) {
-                // Employee app user
-                const user = await User.findById(req.admin.userId);
-                if (user) {
-                    finalStore = user.workingBranch || finalStore;
-                    finalStaff = user.username || finalStaff;
-                    finalEmployeeId = user._id;
-                    
-                    // Automatically resolve the storeId from Branch table
-                    const branch = await Branch.findOne({
-                        $or: [
-                            { locCode: user.locCode },
-                            { workingBranch: user.workingBranch }
-                        ]
-                    });
-                    if (branch) {
-                        finalStoreId = branch._id;
+        // Try to find employee by passed empID / empid or req.admin.userId
+        let lookupUser = null;
+        
+        const passedEmpId = req.body.empID || req.body.empid || req.body.employeeId || req.body.staff;
+        if (passedEmpId) {
+            lookupUser = await User.findOne({ empID: { $regex: `^${String(passedEmpId).trim()}$`, $options: 'i' } });
+            if (!lookupUser) {
+                lookupUser = await Admin.findOne({ EmpId: { $regex: `^${String(passedEmpId).trim()}$`, $options: 'i' } }).populate('branches');
+            }
+            if (!lookupUser && mongoose.Types.ObjectId.isValid(passedEmpId)) {
+                lookupUser = await User.findById(passedEmpId);
+                if (!lookupUser) {
+                    lookupUser = await Admin.findById(passedEmpId).populate('branches');
+                }
+            }
+        }
+
+        if (!lookupUser && req.admin && req.admin.userId) {
+            lookupUser = await User.findById(req.admin.userId);
+            if (!lookupUser) {
+                lookupUser = await Admin.findById(req.admin.userId).populate('branches');
+            }
+        }
+
+        if (lookupUser) {
+            const isUser = lookupUser.empID !== undefined;
+            if (isUser) {
+                finalStaff = lookupUser.username;
+                finalStore = lookupUser.workingBranch;
+                finalEmployeeId = lookupUser._id;
+                
+                const branch = await Branch.findOne({
+                    $or: [
+                        { locCode: lookupUser.locCode },
+                        { workingBranch: lookupUser.workingBranch }
+                    ]
+                });
+                if (branch) {
+                    finalStoreId = branch._id;
+                }
+            } else {
+                finalStaff = lookupUser.name;
+                finalEmployeeId = lookupUser._id;
+                
+                const isSuperOrHrAdmin = lookupUser.role === 'super_admin' || lookupUser.role === 'hr_admin';
+                if (!isSuperOrHrAdmin || !store || store === '-' || store === '') {
+                    if (lookupUser.branches && lookupUser.branches.length > 0) {
+                        finalStore = lookupUser.branches[0].workingBranch;
+                        finalStoreId = lookupUser.branches[0]._id;
+                    } else if (lookupUser.workingBranch) {
+                        finalStore = lookupUser.workingBranch;
+                        const branch = await Branch.findOne({ workingBranch: lookupUser.workingBranch });
+                        if (branch) {
+                            finalStoreId = branch._id;
+                        }
                     }
                 }
-            } else if (!req.admin.isSystem) {
-                // Admin user, validate explicit storeId and employeeId if provided
-                const adminId = req.admin.userId;
-                
+            }
+            createdBy = req.admin ? req.admin.userId : lookupUser._id;
+        } else if (req.admin) {
+            createdBy = req.admin.userId;
+        }
+
+        if (req.admin && !req.admin.isSystem) {
+            const adminId = req.admin.userId;
+            const isAdminManager = req.admin.role === 'super_admin' || req.admin.role === 'hr_admin';
+            if (!isAdminManager) {
                 if (finalStoreId) {
                     await validateStoreAccess(adminId, finalStoreId);
                 }
@@ -299,9 +354,8 @@ export const getWalkins = async (req, res) => {
 
         // Date Range Filter
         if (startDate && endDate) {
-            baseQuery.date = { $gte: startDate, $lte: endDate };
-            // Walk-in trend charts should use the business date, not Mongo insert time.
-            baseQuery.date = { $gte: startDate, $lte: endDate };
+            const endOfDaySuffix = endDate.includes(' ') ? '' : ' 23:59:59';
+            baseQuery.date = { $gte: startDate, $lte: `${endDate}${endOfDaySuffix}` };
         }
 
         if (status && status !== 'All') {
@@ -417,7 +471,8 @@ export const getAllWalkinsPublic = async (req, res) => {
 
         // Date Range Filter
         if (startDate && endDate) {
-            filtered = filtered.filter(w => w.date >= startDate && w.date <= endDate);
+            const endOfDaySuffix = endDate.includes(' ') ? '' : ' 23:59:59';
+            filtered = filtered.filter(w => w.date >= startDate && w.date <= `${endDate}${endOfDaySuffix}`);
         }
 
         return res.status(200).json({

@@ -392,29 +392,29 @@ const ExistingUsers = () => {
                                         currentAdmins.map((admin) => (
                                             <tr key={admin._id} className="hover:bg-gray-50/40 transition-all text-[13px] text-gray-700">
                                                 {/* EMP ID */}
-                                                <td className="py-4 px-4 font-medium text-gray-500">{admin.EmpId}</td>
+                                                <td className="py-4 px-4 font-medium text-gray-500 uppercase">{admin.EmpId}</td>
 
                                                 {/* User Info stacked */}
                                                 <td className="py-4 px-4">
-                                                    <div className="font-semibold text-gray-900">{admin.name}</div>
-                                                    <div className="text-xs text-gray-400 mt-0.5">{formatRole(admin.role)}</div>
+                                                    <div className="font-semibold text-gray-900 uppercase">{admin.name}</div>
+                                                    <div className="text-xs text-gray-400 mt-0.5 uppercase">{formatRole(admin.role)}</div>
                                                 </td>
 
                                                 {/* Email, Phone & Password stacked */}
                                                 <td className="py-4 px-4 leading-relaxed">
-                                                    <div className="font-medium text-gray-800">{admin.email}</div>
-                                                    <div className="text-gray-500">{admin.phoneNumber || "No Phone"}</div>
+                                                    <div className="font-medium text-gray-800 uppercase">{admin.email}</div>
+                                                    <div className="text-gray-500 uppercase">{admin.phoneNumber || "No Phone"}</div>
                                                     <div className="text-xs text-gray-400">password@123</div>
                                                 </td>
 
                                                 {/* Stores list */}
                                                 <td className="py-4 px-4 max-w-xs truncate">
                                                     {admin.role === "super_admin" || admin.role === "hr_admin" ? (
-                                                        <span className="text-gray-500 italic">All Stores</span>
+                                                        <span className="text-gray-500 italic uppercase">All Stores</span>
                                                     ) : admin.branches && admin.branches.length > 0 ? (
-                                                        admin.branches.map((b) => b.workingBranch).join(", ")
+                                                        <span className="uppercase">{admin.branches.map((b) => b.workingBranch).join(", ")}</span>
                                                     ) : (
-                                                        <span className="text-gray-400 italic">No assigned stores</span>
+                                                        <span className="text-gray-400 italic uppercase">No assigned stores</span>
                                                     )}
                                                 </td>
 
@@ -479,8 +479,8 @@ const ExistingUsers = () => {
 
                         {/* Title and Role Badge */}
                         <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-2xl font-bold text-gray-950">{selectedUser.name}</h2>
-                            <span className="px-3 py-1.5 bg-gray-100 rounded-full text-xs font-semibold text-gray-600">
+                            <h2 className="text-2xl font-bold text-gray-950 uppercase">{selectedUser.name}</h2>
+                            <span className="px-3 py-1.5 bg-gray-100 rounded-full text-xs font-semibold text-gray-600 uppercase">
                                 {formatRole(selectedUser.role)}
                             </span>
                         </div>
@@ -491,13 +491,13 @@ const ExistingUsers = () => {
                                 <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
                                     Email
                                 </span>
-                                <span className="text-[13px] font-medium text-gray-800 break-all">{selectedUser.email}</span>
+                                <span className="text-[13px] font-medium text-gray-800 break-all uppercase">{selectedUser.email}</span>
                             </div>
                             <div>
                                 <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
                                     Phone Number
                                 </span>
-                                <span className="text-[13px] font-medium text-gray-800">{selectedUser.phoneNumber || "—"}</span>
+                                <span className="text-[13px] font-medium text-gray-800 uppercase">{selectedUser.phoneNumber || "—"}</span>
                             </div>
                             <div>
                                 <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
@@ -514,20 +514,20 @@ const ExistingUsers = () => {
                             </span>
                             <div className="flex flex-wrap gap-2">
                                 {selectedUser.role === "super_admin" || selectedUser.role === "hr_admin" ? (
-                                    <span className="text-sm font-semibold text-gray-600 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100">
+                                    <span className="text-sm font-semibold text-gray-600 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100 uppercase">
                                         All Stores
                                     </span>
                                 ) : selectedUser.branches && selectedUser.branches.length > 0 ? (
                                     selectedUser.branches.map((b) => (
                                         <span
                                             key={b._id || b}
-                                            className="px-3 py-1.5 bg-white border border-gray-200 text-gray-700 text-xs font-semibold rounded-full shadow-sm"
+                                            className="px-3 py-1.5 bg-white border border-gray-200 text-gray-700 text-xs font-semibold rounded-full shadow-sm uppercase"
                                         >
                                             {b.workingBranch || branches.find((branch) => branch._id === (b._id || b))?.workingBranch || "Store"}
                                         </span>
                                     ))
                                 ) : (
-                                    <span className="text-xs text-gray-400 italic">No stores assigned.</span>
+                                    <span className="text-xs text-gray-400 italic uppercase">No stores assigned.</span>
                                 )}
                             </div>
                         </div>
@@ -569,8 +569,8 @@ const ExistingUsers = () => {
 
                         {/* Title and Role Badge */}
                         <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-2xl font-bold text-gray-950">{selectedUser.name}</h2>
-                            <span className="px-3 py-1.5 bg-gray-100 rounded-full text-xs font-semibold text-gray-600">
+                            <h2 className="text-2xl font-bold text-gray-950 uppercase">{selectedUser.name}</h2>
+                            <span className="px-3 py-1.5 bg-gray-100 rounded-full text-xs font-semibold text-gray-600 uppercase">
                                 {formatRole(selectedUser.role)}
                             </span>
                         </div>
@@ -581,13 +581,13 @@ const ExistingUsers = () => {
                                 <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
                                     Email
                                 </span>
-                                <span className="text-[13px] font-medium text-gray-800 break-all">{selectedUser.email}</span>
+                                <span className="text-[13px] font-medium text-gray-800 break-all uppercase">{selectedUser.email}</span>
                             </div>
                             <div>
                                 <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
                                     Phone Number
                                 </span>
-                                <span className="text-[13px] font-medium text-gray-800">{selectedUser.phoneNumber || "—"}</span>
+                                <span className="text-[13px] font-medium text-gray-800 uppercase">{selectedUser.phoneNumber || "—"}</span>
                             </div>
                             <div>
                                 <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">

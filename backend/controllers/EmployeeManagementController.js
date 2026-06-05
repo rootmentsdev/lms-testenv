@@ -110,6 +110,7 @@ function buildEmployeeStats(localUser, userTrainingProgress, userTasks) {
   let trainingCount = 0;
   let passCountTraining = 0;
   let trainingDue = 0;
+  let trainingPending = 0;
   
   let assignedAssessmentsCount = 0;
   let passCountAssessment = 0;
@@ -118,6 +119,7 @@ function buildEmployeeStats(localUser, userTrainingProgress, userTasks) {
   let taskCount = 0;
   let passCountTask = 0;
   let taskDue = 0;
+  let taskPending = 0;
 
   const today = new Date();
 
@@ -160,6 +162,8 @@ function buildEmployeeStats(localUser, userTrainingProgress, userTasks) {
       } else {
         if (deadline && new Date(deadline) < today) {
           trainingDue++;
+        } else {
+          trainingPending++;
         }
       }
     });
@@ -182,6 +186,8 @@ function buildEmployeeStats(localUser, userTrainingProgress, userTasks) {
         passCountTask++;
       } else if (status === 'OVERDUE') {
         taskDue++;
+      } else {
+        taskPending++;
       }
     });
   }
@@ -190,6 +196,7 @@ function buildEmployeeStats(localUser, userTrainingProgress, userTasks) {
     trainingCount,
     passCountTraining,
     trainingDue,
+    trainingPending,
     trainingCompletionPercentage:
       trainingCount > 0 ? Math.round((passCountTraining / trainingCount) * 100) : 0,
     
@@ -204,6 +211,7 @@ function buildEmployeeStats(localUser, userTrainingProgress, userTasks) {
     taskCount,
     passCountTask,
     taskDue,
+    taskPending,
   };
 }
 
@@ -315,9 +323,10 @@ async function buildProcessedEmployees(admin) {
 
   // Fetch all tasks for these users
   const empIDs = Array.from(employeeDataMap.keys());
-  const allTasks = allUserIds.length || empIDs.length
+  const usernames = Array.from(employeeDataMap.values()).map(e => e.username).filter(Boolean);
+  const allTasks = allUserIds.length || empIDs.length || usernames.length
     ? await Task.find({
-        assignedTo: { $in: [...allUserIds.map(id => id.toString()), ...empIDs] }
+        assignedTo: { $in: [...allUserIds.map(id => id.toString()), ...empIDs, ...usernames] }
       }).lean()
     : [];
 
@@ -341,8 +350,14 @@ async function buildProcessedEmployees(admin) {
     let userTasks = [];
     if (localUser) {
       userTasks.push(...(tasksByAssigneeMap.get(localUser._id.toString().toLowerCase()) || []));
+      if (localUser.username) {
+        userTasks.push(...(tasksByAssigneeMap.get(String(localUser.username).toLowerCase()) || []));
+      }
     }
     userTasks.push(...(tasksByAssigneeMap.get(String(employeeData.empID).toLowerCase()) || []));
+    if (employeeData.username) {
+      userTasks.push(...(tasksByAssigneeMap.get(String(employeeData.username).toLowerCase()) || []));
+    }
 
     // Deduplicate tasks
     const uniqueTasksMap = new Map();
@@ -659,9 +674,10 @@ export const getAllAppRegisteredEmployees = async (req, res) => {
 
     // ── 4. Load Tasks for these users ──
     const empIDs = allUsers.map((u) => u.empID).filter(Boolean);
-    const allTasks = userIds.length || empIDs.length
+    const usernames = allUsers.map((u) => u.username).filter(Boolean);
+    const allTasks = userIds.length || empIDs.length || usernames.length
       ? await Task.find({
-          assignedTo: { $in: [...userIds.map(id => id.toString()), ...empIDs] }
+          assignedTo: { $in: [...userIds.map(id => id.toString()), ...empIDs, ...usernames] }
         }).lean()
       : [];
 
@@ -682,7 +698,12 @@ export const getAllAppRegisteredEmployees = async (req, res) => {
       
       let userTasks = [];
       userTasks.push(...(tasksByAssigneeMap.get(user._id.toString().toLowerCase()) || []));
-      userTasks.push(...(tasksByAssigneeMap.get(String(user.empID).toLowerCase()) || []));
+      if (user.empID) {
+        userTasks.push(...(tasksByAssigneeMap.get(String(user.empID).toLowerCase()) || []));
+      }
+      if (user.username) {
+        userTasks.push(...(tasksByAssigneeMap.get(String(user.username).toLowerCase()) || []));
+      }
 
       // Deduplicate tasks
       const uniqueTasksMap = new Map();

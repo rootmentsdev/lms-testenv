@@ -85,7 +85,11 @@ const CreateEmployee = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    if (name === "empID" || name === "username") {
+      setForm((prev) => ({ ...prev, [name]: value.toUpperCase() }));
+    } else {
+      setForm((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleStoreSelectChange = (selectedOptions) => {
@@ -118,12 +122,12 @@ const CreateEmployee = () => {
   const customSelectStyles = {
     control: (provided, state) => ({
       ...provided,
-      borderRadius: "10px",
+      borderRadius: "12px",
       borderColor: state.isFocused ? "#111827" : "#e5e7eb",
       boxShadow: "none",
-      minHeight: "40px",
+      minHeight: "44px",
       fontSize: "13px",
-      fontFamily: "Poppins, sans-serif",
+      fontFamily: "DM Sans, sans-serif",
       "&:hover": {
         borderColor: "#111827",
       },
@@ -135,6 +139,23 @@ const CreateEmployee = () => {
     placeholder: (provided) => ({
       ...provided,
       color: "#9ca3af",
+      fontFamily: "DM Sans, sans-serif",
+    }),
+    option: (provided, state) => ({
+      ...provided,
+      fontFamily: "DM Sans, sans-serif",
+      fontSize: "13px",
+      backgroundColor: state.isSelected ? "#111827" : state.isFocused ? "#f3f4f6" : "#fff",
+      color: state.isSelected ? "#fff" : "#374151",
+      cursor: "pointer",
+      "&:active": {
+        backgroundColor: "#e5e7eb",
+      },
+    }),
+    menu: (provided) => ({
+      ...provided,
+      borderRadius: "12px",
+      overflow: "hidden",
     }),
   };
 
@@ -164,7 +185,7 @@ const CreateEmployee = () => {
         },
         body: JSON.stringify({
           ...form,
-          empID: form.empID.toLowerCase().trim(),
+          empID: form.empID.toUpperCase().trim(),
         }),
       });
 
@@ -214,24 +235,25 @@ const CreateEmployee = () => {
           ) : (
             <form onSubmit={handleSubmit}>
               <div style={styles.grid}>
-                <div style={styles.field}>
+                {/* Row 1 */}
+                <div style={styles.fieldEmpId}>
                   <label style={styles.label}>
-                    Emp ID<span style={styles.required}>*</span>
+                    EMP ID<span style={styles.required}>*</span>
                   </label>
                   <input
                     type="text"
                     name="empID"
-                    placeholder="Enter Employee ID"
+                    placeholder="EMPO01"
                     value={form.empID}
                     onChange={handleChange}
                     required
-                    style={styles.input}
+                    style={{ ...styles.input, textTransform: "uppercase" }}
                   />
                 </div>
 
-                <div style={styles.field}>
+                 <div style={styles.fieldUserName}>
                   <label style={styles.label}>
-                    Emp Name<span style={styles.required}>*</span>
+                    EMP NAME<span style={styles.required}>*</span>
                   </label>
                   <input
                     type="text"
@@ -240,13 +262,13 @@ const CreateEmployee = () => {
                     value={form.username}
                     onChange={handleChange}
                     required
-                    style={styles.input}
+                    style={{ ...styles.input, textTransform: "uppercase" }}
                   />
                 </div>
 
-                <div style={styles.field}>
+                <div style={styles.fieldStoreName}>
                   <label style={styles.label}>
-                    Store Name<span style={styles.required}>*</span>
+                    Store Name <span style={styles.required}>*</span>
                   </label>
                   <Select
                     placeholder="Select Store"
@@ -264,27 +286,24 @@ const CreateEmployee = () => {
                   />
                 </div>
 
-                <div style={styles.field}>
+                <div style={styles.fieldUserRole}>
                   <label style={styles.label}>
-                    Emp Designation<span style={styles.required}>*</span>
+                    EMP ROLE <span style={styles.required}>*</span>
                   </label>
-                  <select
-                    name="designation"
-                    value={form.designation}
-                    onChange={handleChange}
-                    required
-                    style={{ ...styles.input, cursor: "pointer" }}
-                  >
-                    <option value="">Select Designation</option>
-                    {DESIGNATIONS.map((designation, index) => (
-                      <option key={index} value={designation}>
-                        {designation}
-                      </option>
-                    ))}
-                  </select>
+                  <Select
+                    placeholder="Select Role"
+                    options={DESIGNATIONS.map((d) => ({
+                      value: d,
+                      label: d,
+                    }))}
+                    value={form.designation ? { value: form.designation, label: form.designation } : null}
+                    onChange={(selected) => setForm(prev => ({ ...prev, designation: selected ? selected.value : "" }))}
+                    styles={customSelectStyles}
+                  />
                 </div>
 
-                <div style={styles.field}>
+                {/* Row 2 */}
+                <div style={styles.fieldRow2}>
                   <label style={styles.label}>
                     Email<span style={styles.required}>*</span>
                   </label>
@@ -299,7 +318,7 @@ const CreateEmployee = () => {
                   />
                 </div>
 
-                <div style={styles.field}>
+                <div style={styles.fieldRow2}>
                   <label style={styles.label}>
                     Phone Number<span style={styles.required}>*</span>
                   </label>
@@ -314,7 +333,7 @@ const CreateEmployee = () => {
                   />
                 </div>
 
-                <div style={styles.field}>
+                <div style={styles.fieldRow2}>
                   <label style={styles.label}>
                     Password<span style={styles.required}>*</span>
                   </label>
@@ -350,7 +369,7 @@ const styles = {
   container: {
     minHeight: "100vh",
     background: "#f9fafb",
-    fontFamily: "Poppins, sans-serif",
+    fontFamily: "DM Sans, sans-serif",
   },
   content: {
     marginLeft: "120px",
@@ -388,16 +407,37 @@ const styles = {
   },
   grid: {
     display: "grid",
-    gridTemplateColumns: "repeat(4, 1fr)",
-    gap: "16px",
+    gridTemplateColumns: "repeat(12, 1fr)",
+    gap: "20px",
     marginBottom: "24px",
   },
-  field: {
+  fieldEmpId: {
     display: "flex",
     flexDirection: "column",
+    gridColumn: "span 2",
+  },
+  fieldUserName: {
+    display: "flex",
+    flexDirection: "column",
+    gridColumn: "span 3",
+  },
+  fieldStoreName: {
+    display: "flex",
+    flexDirection: "column",
+    gridColumn: "span 3",
+  },
+  fieldUserRole: {
+    display: "flex",
+    flexDirection: "column",
+    gridColumn: "span 4",
+  },
+  fieldRow2: {
+    display: "flex",
+    flexDirection: "column",
+    gridColumn: "span 4",
   },
   label: {
-    fontSize: "11px",
+    fontSize: "12px",
     fontWeight: 600,
     color: "#374151",
     marginBottom: "6px",
@@ -405,16 +445,17 @@ const styles = {
   },
   input: {
     border: "1px solid #e5e7eb",
-    borderRadius: "10px",
-    padding: "9px 12px",
+    borderRadius: "12px",
+    padding: "10px 14px",
     fontSize: "13px",
     color: "#374151",
     outline: "none",
     background: "#fff",
     width: "100%",
     boxSizing: "border-box",
-    fontFamily: "Poppins, sans-serif",
-    height: "40px",
+    fontFamily: "DM Sans, sans-serif",
+    height: "44px",
+    transition: "border-color 0.15s",
   },
   required: {
     color: "#ef4444",
@@ -429,8 +470,9 @@ const styles = {
     fontSize: "13px",
     fontWeight: 600,
     cursor: "pointer",
-    fontFamily: "Poppins, sans-serif",
+    fontFamily: "DM Sans, sans-serif",
     marginTop: "8px",
+    height: "44px",
   },
   spinner: {
     width: "28px",

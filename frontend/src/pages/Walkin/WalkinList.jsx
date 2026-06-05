@@ -40,26 +40,18 @@ const STATUS_OPTIONS = [
     'Booked',
     'Rentout',
     'Return',
-    'Trial',
     'Loss',
-    'Enquiry',
-    'Booking & Rentout',
-    'Reissue',
-    'New Booking',
-    'Revisit Booking',
-    'Revisit Loss',
-    'New Walkin',
-    'Other'
+    'Revisit',
+    'New Walkin'
 ];
 
 const UPDATE_STATUS_OPTIONS = [
+    'Booked',
     'Rentout',
     'Return',
-    'Trial',
-    'Reissue',
-    'Revisit Booking',
-    'New Walkin',
-    'Other'
+    'Loss',
+    'Revisit',
+    'New Walkin'
 ];
 
 const HARDCODED_STORES = [
@@ -74,7 +66,7 @@ const WalkinList = () => {
     const user = useSelector((state) => state.auth.user);
     const token = localStorage.getItem('token');
 
-    // Keep the font aligned with the global Poppins stack.
+    // Keep the font aligned with the global DM Sans stack.
     useEffect(() => {
         if (!document.getElementById('dm-sans-font')) {
             const link = document.createElement('link');
@@ -226,7 +218,6 @@ const WalkinList = () => {
         }
     };
 
-    // Form inputs change handler
     const handleInputChange = (e) => {
         const { name, value } = e.target;
 
@@ -243,6 +234,32 @@ const WalkinList = () => {
                 setCustomerData(null);
                 setFormData(prev => ({ ...prev, status: 'New Walkin', repeatCount: 1 }));
             }
+            return;
+        }
+
+        if (name === 'status') {
+            let finalCategory = formData.category;
+            let finalSubCategory = formData.subCategory;
+
+            if (value === 'Loss') {
+                finalCategory = 'Other';
+                finalSubCategory = '-';
+            } else if (value === 'Revisit') {
+                if (!['Trial', 'Reissue', 'Loss'].includes(formData.category)) {
+                    finalCategory = 'Trial';
+                }
+                finalSubCategory = 'Select sub category';
+            } else {
+                finalCategory = '-';
+                finalSubCategory = '-';
+            }
+
+            setFormData(prev => ({
+                ...prev,
+                status: value,
+                category: finalCategory,
+                subCategory: finalSubCategory
+            }));
             return;
         }
 
@@ -434,6 +451,33 @@ const WalkinList = () => {
 
     const currentStoreEmployees = employees; // Already filtered by loadEmployees API
 
+    const showCategory = formData.status === 'Loss' || formData.status === 'Revisit';
+    const showSubCategory = formData.status === 'Revisit';
+
+    const getCategoryOptions = () => {
+        if (formData.status === 'Loss') {
+            return ['Other'];
+        }
+        if (formData.status === 'Revisit') {
+            return ['Trial', 'Reissue', 'Loss'];
+        }
+        return [];
+    };
+
+    const getSubCategoryOptions = () => {
+        if (formData.status === 'Revisit') {
+            return ['Select sub category', '1st Trial', '2nd Trial', 'Re-fit', 'Re-issue', 'Loss', 'Other'];
+        }
+        return [];
+    };
+
+    let remarksColSpan = "col-span-12 md:col-span-3";
+    if (!showCategory && !showSubCategory) {
+        remarksColSpan = "col-span-12 md:col-span-9";
+    } else if (showCategory && !showSubCategory) {
+        remarksColSpan = "col-span-12 md:col-span-6";
+    }
+
     // Sort Arrows double-indicator icon matching mockup image exactly
     const SortArrow = () => (
         <span className="inline-flex flex-col ml-1.5 align-middle text-[8px] text-gray-300">
@@ -443,7 +487,7 @@ const WalkinList = () => {
     );
 
     return (
-        <div className="mb-[70px] text-[14px] min-h-screen" style={{ fontFamily: "Poppins, sans-serif", background: '#f9fafb' }}>
+        <div className="mb-[70px] text-[14px] min-h-screen" style={{ fontFamily: "DM Sans, sans-serif", background: '#f9fafb' }}>
             <SideNav />
             <div className="md:hidden sm:block">
                 <ModileNav />
@@ -452,25 +496,27 @@ const WalkinList = () => {
             {/* Layout Grid Container matching standard dashboard spacing perfectly */}
             <div className="md:ml-[120px] transition-all duration-300" style={{ paddingTop: '24px', paddingLeft: '24px', paddingRight: '24px', paddingBottom: '40px' }}>
                 {showAddView ? (
-                    /* ADD WALKIN FORM VIEW MATCHING SECOND SCREENSHOT */
-                    <div className="mt-8 mb-6 max-w-5xl mx-auto">
+                    /* ADD WALKIN FORM VIEW MATCHING SCREENSHOT EXACTLY */
+                    <div className="mt-6 mb-6 max-w-6xl mx-auto px-4" style={{ fontFamily: "DM Sans, sans-serif" }}>
 
-                        {/* Back navigation option matching mockup arrow */}
-                        <button
-                            onClick={() => {
-                                setCustomerExistsNotification(false);
-                                setCustomerData(null);
-                                setShowAddView(false);
-                            }}
-                            className="flex items-center gap-2 text-gray-500 hover:text-gray-800 font-bold text-sm mb-4 transition-colors bg-transparent border-0 cursor-pointer"
-                        >
-                            <span>←</span> Add Walkin Form
-                        </button>
-
-                        <h2 className="text-xl font-bold text-gray-800 mb-6">{formData._id ? 'Update Walkin Details' : 'Walkin Details'}</h2>
+                        {/* Title with Back Arrow exactly matching mockup */}
+                        <div className="flex items-center gap-3 mb-6">
+                            <button
+                                onClick={() => {
+                                    setCustomerExistsNotification(false);
+                                    setCustomerData(null);
+                                    setShowAddView(false);
+                                }}
+                                className="flex items-center justify-center text-gray-800 hover:text-black transition-colors bg-transparent border-0 cursor-pointer p-1"
+                                style={{ fontSize: '24px' }}
+                            >
+                                ←
+                            </button>
+                            <h2 className="text-xl font-bold text-gray-900 leading-none">Create New Walk In</h2>
+                        </div>
 
                         {/* Premium White form card matching mockup exactly */}
-                        <div className="bg-white rounded-lg border border-gray-150 p-6 sm:p-8 shadow-xs">
+                        <div className="bg-white rounded-2xl border border-gray-100 p-6 sm:p-8 shadow-xs">
                             <form onSubmit={handleFormSubmit} className="space-y-6">
 
                                 {(formData._id || customerExistsNotification) && (
@@ -493,74 +539,234 @@ const WalkinList = () => {
                                     </div>
                                 )}
 
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Customer Mobile Number <span className="text-red-500">*</span></label>
-                                        <input type="tel" name="contact" required maxLength={10} placeholder="Enter Mobile Number" value={formData.contact} onChange={handleInputChange} onBlur={(e) => checkCustomer(e.target.value)} className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 font-semibold" />
+                                {/* Row 1: Mobile, Name, Function Date, Repeat Count */}
+                                <div className="grid grid-cols-12 gap-5">
+                                    <div className="col-span-12 md:col-span-3">
+                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                            Customer Mobile Number<span className="text-red-500">*</span>
+                                        </label>
+                                        <input 
+                                            type="tel" 
+                                            name="contact" 
+                                            required 
+                                            maxLength={10} 
+                                            placeholder="Enter Mobile Number" 
+                                            value={formData.contact} 
+                                            onChange={handleInputChange} 
+                                            onBlur={(e) => checkCustomer(e.target.value)} 
+                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 font-semibold"
+                                        />
                                     </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Customer Name <span className="text-red-500">*</span></label>
-                                        <input type="text" name="customerName" required placeholder="Enter Customer Name" value={formData.customerName} onChange={handleInputChange} className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 font-semibold" />
+                                    <div className="col-span-12 md:col-span-3">
+                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                            Customer Name<span className="text-red-500">*</span>
+                                        </label>
+                                        <input 
+                                            type="text" 
+                                            name="customerName" 
+                                            required 
+                                            placeholder="Enter Customer Name" 
+                                            value={formData.customerName} 
+                                            onChange={handleInputChange} 
+                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 font-semibold"
+                                        />
                                     </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Function Date <span className="text-red-500">*</span></label>
-                                        <input type="date" name="functionDate" required value={formData.functionDate} onChange={handleInputChange} className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 font-semibold cursor-pointer" />
+                                    <div className="col-span-12 md:col-span-4">
+                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                            Function Date <span className="text-red-500">*</span>
+                                        </label>
+                                        <input 
+                                            type="date" 
+                                            name="functionDate" 
+                                            required 
+                                            value={formData.functionDate} 
+                                            onChange={handleInputChange} 
+                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer placeholder-gray-400 font-semibold"
+                                        />
                                     </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Repeat Count</label>
-                                        <input type="number" name="repeatCount" readOnly value={formData.repeatCount || 1} className="w-full border border-gray-300 bg-gray-50 rounded-md px-3.5 py-2.5 text-sm focus:outline-none text-gray-500 font-semibold cursor-not-allowed" />
+                                    <div className="col-span-12 md:col-span-2">
+                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                            Repeat Count
+                                        </label>
+                                        <input 
+                                            type="number" 
+                                            name="repeatCount" 
+                                            readOnly 
+                                            value={formData.repeatCount || 1} 
+                                            className="w-full h-11 border border-gray-200 bg-gray-50 rounded-lg text-center text-sm focus:outline-none text-gray-500 cursor-not-allowed font-semibold"
+                                        />
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-                                    {(user?.role === 'super_admin' || user?.role === 'hr_admin' || user?.role === 'cluster_admin') && (
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Store <span className="text-red-500">*</span></label>
-                                            <select name="store" required value={formData.store} onChange={handleInputChange} className="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 bg-white cursor-pointer font-semibold">
-                                                {branches.map((b, idx) => (<option key={idx} value={b.workingBranch}>{b.workingBranch}</option>))}
-                                            </select>
-                                        </div>
-                                    )}
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Creating as <span className="text-red-500">*</span></label>
-                                        <select name="staff" required value={formData.staff} onChange={handleInputChange} className="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 bg-white cursor-pointer font-semibold">
-                                            <option value="">Select</option>
-                                            {currentStoreEmployees.map((emp, idx) => (<option key={idx} value={emp.username}>{emp.username}</option>))}
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div className="border-t border-gray-100 pt-6 mt-4">
-                                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Fitting Details (Optional)</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Visit Date</label>
-                                            <input type="date" name="date" value={formData.date} onChange={handleInputChange} className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 font-semibold cursor-pointer" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Category</label>
-                                            <input type="text" name="category" placeholder="e.g. Groom" value={formData.category} onChange={handleInputChange} className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Sub Category</label>
-                                            <input type="text" name="subCategory" placeholder="e.g. 2PCS Suit" value={formData.subCategory} onChange={handleInputChange} className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Status</label>
-                                            <select name="status" value={formData.status} onChange={handleInputChange} className="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 bg-white cursor-pointer font-semibold">
+                                {/* Row 2: Status, Category, Sub Category, Remarks */}
+                                <div className="grid grid-cols-12 gap-5 pt-1">
+                                    <div className="col-span-12 md:col-span-3">
+                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                            Status<span className="text-red-500">*</span>
+                                        </label>
+                                        <div className="relative">
+                                            <select 
+                                                name="status" 
+                                                required
+                                                value={formData.status} 
+                                                onChange={handleInputChange} 
+                                                className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                            >
                                                 {STATUS_OPTIONS.map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
                                             </select>
+                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                                                </svg>
+                                            </div>
                                         </div>
-                                        <div className="md:col-span-2">
-                                            <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Remarks</label>
-                                            <textarea name="remarks" rows={1} placeholder="Enter fit remarks, style details..." value={formData.remarks} onChange={handleInputChange} className="w-full border border-gray-300 bg-white rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700" />
+                                    </div>
+
+                                    {/* Category Select (Visible only for Loss/Revisit) */}
+                                    {showCategory && (
+                                        <div className="col-span-12 md:col-span-3">
+                                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                Category<span className="text-red-500">*</span>
+                                            </label>
+                                            <div className="relative">
+                                                <select 
+                                                    name="category" 
+                                                    required
+                                                    value={formData.category} 
+                                                    onChange={handleInputChange} 
+                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                >
+                                                    <option value="">Select Category</option>
+                                                    {getCategoryOptions().map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
+                                                </select>
+                                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                        <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                                                    </svg>
+                                                </div>
+                                            </div>
                                         </div>
+                                    )}
+
+                                    {/* Sub Category Select (Visible only for Revisit) */}
+                                    {showSubCategory && (
+                                        <div className="col-span-12 md:col-span-3">
+                                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                Sub Category
+                                            </label>
+                                            <div className="relative">
+                                                <select 
+                                                    name="subCategory" 
+                                                    value={formData.subCategory} 
+                                                    onChange={handleInputChange} 
+                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                >
+                                                    {getSubCategoryOptions().map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
+                                                </select>
+                                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                        <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Remarks Field stretching dynamically to fill remaining grid columns */}
+                                    <div className={remarksColSpan}>
+                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                            Remarks <span className="text-gray-400 font-normal">(Optional)</span>
+                                        </label>
+                                        <textarea 
+                                            name="remarks" 
+                                            rows={1} 
+                                            placeholder="Enter your remarks..." 
+                                            value={formData.remarks} 
+                                            onChange={handleInputChange} 
+                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none"
+                                        />
                                     </div>
                                 </div>
 
-                                <div className="flex justify-center pt-8 border-t border-gray-100">
-                                    <button type="submit" disabled={loading} className="bg-[#2A2A2A] hover:bg-black text-white px-16 py-3 rounded-md transition-all duration-200 font-bold shadow-md hover:shadow-lg transform active:scale-95 text-center min-w-[180px] cursor-pointer text-sm">
-                                        {loading ? 'Saving...' : 'Save'}
+                                {/* Row 3: Admin metadata fields (Store, Creating as, Visit Date) hidden from default visual flow but functional */}
+                                <div className="border-t border-gray-100 pt-5 mt-4">
+                                    <details className="group cursor-pointer">
+                                        <summary className="flex items-center justify-between text-xs font-bold text-gray-400 uppercase tracking-widest list-none outline-none select-none">
+                                            <span>Administrative Details</span>
+                                            <span className="transition-transform group-open:rotate-180">▼</span>
+                                        </summary>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-4 cursor-default" onClick={(e) => e.stopPropagation()}>
+                                            {(user?.role === 'super_admin' || user?.role === 'hr_admin' || user?.role === 'cluster_admin') ? (
+                                                <div>
+                                                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                        Store <span className="text-red-500">*</span>
+                                                    </label>
+                                                    <div className="relative">
+                                                        <select 
+                                                            name="store" 
+                                                            required 
+                                                            value={formData.store} 
+                                                            onChange={handleInputChange} 
+                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                        >
+                                                            {branches.map((b, idx) => (<option key={idx} value={b.workingBranch}>{b.workingBranch}</option>))}
+                                                        </select>
+                                                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                                                            </svg>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="hidden" />
+                                            )}
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                    Creating as <span className="text-red-500">*</span>
+                                                </label>
+                                                <div className="relative">
+                                                    <select 
+                                                        name="staff" 
+                                                        required 
+                                                        value={formData.staff} 
+                                                        onChange={handleInputChange} 
+                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                    >
+                                                        <option value="">Select Staff</option>
+                                                        {currentStoreEmployees.map((emp, idx) => (<option key={idx} value={emp.username}>{emp.username}</option>))}
+                                                    </select>
+                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                                                        </svg>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                    Visit Date
+                                                </label>
+                                                <input 
+                                                    type="date" 
+                                                    name="date" 
+                                                    value={formData.date} 
+                                                    onChange={handleInputChange} 
+                                                    className="w-full h-11 border border-gray-200 bg-white rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 cursor-pointer font-semibold" 
+                                                />
+                                            </div>
+                                        </div>
+                                    </details>
+                                </div>
+
+                                {/* Save Button under Status exactly like screenshot */}
+                                <div className="pt-4 flex justify-start">
+                                    <button 
+                                        type="submit" 
+                                        disabled={loading} 
+                                        className="bg-[#111827] hover:bg-black text-white px-6 py-2.5 rounded-lg transition-all duration-200 font-semibold shadow-xs transform active:scale-95 text-center cursor-pointer text-sm"
+                                    >
+                                        {loading ? 'Saving...' : 'Save Walk In'}
                                     </button>
                                 </div>
                             </form>
@@ -633,7 +839,7 @@ const WalkinList = () => {
                             ) : (
                                 <>
                                     <div style={{ overflowX:'auto' }}>
-                                        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'12px', fontFamily:"Poppins, sans-serif" }}>
+                                        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'12px', fontFamily:"DM Sans, sans-serif" }}>
                                             <thead>
                                                 <tr style={{ borderBottom:'1px solid #f3f4f6', background:'#fafafa' }}>
                                                     {['#','DATE','CUSTOMER','CONTACT','FUNCTION DATE','STORE','STAFF','CATEGORY','SUB CATEGORY','REMARKS','REPEAT COUNT','STATUS',''].map((h, i)=>(

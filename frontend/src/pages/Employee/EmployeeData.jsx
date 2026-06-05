@@ -5,10 +5,10 @@ import { Link } from "react-router-dom";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 
 const getProgressColor = (pct) => {
-  if (pct >= 85) return "#22c55e";
-  if (pct >= 65) return "#3b82f6";
-  if (pct >= 45) return "#f59e0b";
-  return "#ef4444";
+  if (pct === 100) return "#22c55e"; // green
+  if (pct >= 85) return "#3b82f6"; // blue
+  if (pct >= 50) return "#f59e0b"; // orange
+  return "#ef4444"; // red
 };
 
 const exportCSV = (data) => {
@@ -24,24 +24,39 @@ const exportCSV = (data) => {
 const ProgressBar = ({ pct }) => {
   const color = getProgressColor(pct);
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-      <div style={{ flex: 1, height: "6px", background: "#f3f4f6", borderRadius: "99px", overflow: "hidden" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+      <div style={{ flex: 1, height: "8px", background: "#e5e7eb", borderRadius: "99px", overflow: "hidden" }}>
         <div style={{ width: `${Math.min(pct, 100)}%`, height: "100%", background: color, borderRadius: "99px", transition: "width 0.3s" }} />
       </div>
-      <span style={{ fontSize: "11px", fontWeight: 600, color, minWidth: "34px" }}>{pct}%</span>
+      <span style={{ fontSize: "12px", fontWeight: 600, color: "#374151", minWidth: "34px", textAlign: "right" }}>{pct}%</span>
     </div>
   );
 };
 
-const StatCell = ({ done, total, overdue }) => (
-  <div style={{ fontSize: "11px", lineHeight: "1.4" }}>
-    <div style={{ color: "#111827", fontWeight: 500 }}>{done}/{total}</div>
-    {overdue > 0
-      ? <div style={{ color: "#ef4444", fontWeight: 500 }}>Overdue : {overdue}</div>
-      : <div style={{ color: "#22c55e", fontWeight: 500 }}>Completed</div>
-    }
-  </div>
-);
+const formatStat = (num) => String(num || 0).padStart(2, "0");
+
+const StatCell = ({ done, total, overdue, pending }) => {
+  let statusText = "";
+  let statusColor = "";
+
+  if (overdue > 0) {
+    statusText = `Overdue : ${overdue}`;
+    statusColor = "#ef4444"; // red
+  } else if (pending > 0) {
+    statusText = `Pending : ${pending}`;
+    statusColor = "#3b82f6"; // blue
+  } else {
+    statusText = "Completed";
+    statusColor = "#22c55e"; // green
+  }
+
+  return (
+    <div style={{ fontSize: "12px", lineHeight: "1.4", fontFamily: "DM Sans, sans-serif" }}>
+      <div style={{ color: "#374151", fontWeight: 600 }}>{formatStat(done)}/{formatStat(total)}</div>
+      <div style={{ color: statusColor, fontWeight: 500, marginTop: "2px" }}>{statusText}</div>
+    </div>
+  );
+};
 
 const mapEmployee = (e) => ({
   empID: e.empID || "",
@@ -51,6 +66,7 @@ const mapEmployee = (e) => ({
   trainingCount: e.trainingCount || 0,
   passCountTraining: e.passCountTraining || 0,
   Trainingdue: e.trainingDue || 0,
+  trainingPending: e.trainingPending !== undefined ? e.trainingPending : Math.max(0, (e.trainingCount || 0) - (e.passCountTraining || 0) - (e.trainingDue || 0)),
   trainingCompletionPercentage: e.trainingCompletionPercentage || 0,
   assignedAssessmentsCount: e.assignedAssessmentsCount || 0,
   passCountAssessment: e.passCountAssessment || 0,
@@ -59,6 +75,7 @@ const mapEmployee = (e) => ({
   taskCount: e.taskCount || 0,
   passCountTask: e.passCountTask || 0,
   taskDue: e.taskDue || 0,
+  taskPending: e.taskPending !== undefined ? e.taskPending : Math.max(0, (e.taskCount || 0) - (e.passCountTask || 0) - (e.taskDue || 0)),
 });
 
 const EmployeeData = () => {
@@ -93,7 +110,11 @@ const EmployeeData = () => {
       );
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
-        setData(json.data.map(mapEmployee));
+        const mapped = json.data.map(mapEmployee);
+        const sorted = [...mapped].sort((a, b) => {
+          return (a.empID || "").localeCompare(b.empID || "", undefined, { numeric: true, sensitivity: 'base' });
+        });
+        setData(sorted);
         setTotalEmployees(json.totalEmployees ?? json.data.length);
         setTotalPages(json.totalPages ?? 1);
         if (json.filters?.stores?.length) setStores(json.filters.stores);
@@ -133,11 +154,11 @@ const EmployeeData = () => {
     }
   };
 
-  const sel = { border:"1px solid #e5e7eb", borderRadius:"8px", padding:"7px 12px", fontSize:"13px", color:"#374151", outline:"none", background:"#fff", cursor:"pointer", fontFamily:"Poppins, sans-serif" };
+  const sel = { border:"1px solid #e5e7eb", borderRadius:"8px", padding:"7px 12px", fontSize:"13px", color:"#374151", outline:"none", background:"#fff", cursor:"pointer", fontFamily:"DM Sans, sans-serif" };
   const showingEnd = Math.min(currentPage * itemsPerPage, totalEmployees);
 
   return (
-    <div style={{ minHeight:"100vh", background:"#f9fafb", fontFamily:"Poppins, sans-serif" }}>
+    <div style={{ minHeight:"100vh", background:"#f9fafb", fontFamily:"DM Sans, sans-serif" }}>
       <SideNav />
 
       <div style={{ marginLeft:"120px", paddingTop:"24px", paddingLeft:"24px", paddingRight:"24px", paddingBottom:"40px" }}>
@@ -204,18 +225,18 @@ const EmployeeData = () => {
                         onMouseEnter={ev=>ev.currentTarget.style.background="#fafafa"}
                         onMouseLeave={ev=>ev.currentTarget.style.background="#fff"}
                       >
-                        <td style={{ padding:"14px 16px", color:"#374151", fontWeight:500, fontSize:"12px" }}>{e.empID || "—"}</td>
+                        <td style={{ padding:"14px 16px", color:"#374151", fontWeight:500, fontSize:"12px", textTransform:"uppercase" }}>{e.empID || "—"}</td>
                         <td style={{ padding:"14px 16px", minWidth:"160px" }}>
-                          <div style={{ fontWeight:600, color:"#111827", fontSize:"13px" }}>{e.username || "—"}</div>
-                          <div style={{ fontSize:"11px", color:"#9ca3af", marginTop:"2px" }}>{e.designation || "—"}</div>
+                          <div style={{ fontWeight:600, color:"#111827", fontSize:"13px", textTransform:"uppercase" }}>{e.username || "—"}</div>
+                          <div style={{ fontSize:"11px", color:"#9ca3af", marginTop:"2px", textTransform:"uppercase" }}>{e.designation || "—"}</div>
                         </td>
                         <td style={{ padding:"14px 16px", minWidth:"140px" }}>
                           {e.workingBranch ? (
                             <>
-                              <div style={{ fontWeight:500, color:"#374151", fontSize:"13px" }}>
+                              <div style={{ fontWeight:500, color:"#374151", fontSize:"13px", textTransform:"uppercase" }}>
                                 {e.workingBranch.replace(/^(GROOMS|ZORUCCI|SUITOR GUY)\s*/i, "")}
                               </div>
-                              <div style={{ fontSize:"11px", color:"#9ca3af", marginTop:"2px" }}>
+                              <div style={{ fontSize:"11px", color:"#9ca3af", marginTop:"2px", textTransform:"uppercase" }}>
                                 {e.workingBranch.match(/^(GROOMS|ZORUCCI|SUITOR GUY)/i)?.[0] || ""}
                               </div>
                             </>
@@ -225,10 +246,10 @@ const EmployeeData = () => {
                           <ProgressBar pct={e.trainingCompletionPercentage} />
                         </td>
                         <td style={{ padding:"14px 16px", minWidth:"100px" }}>
-                          <StatCell done={e.passCountTask} total={e.taskCount} overdue={e.taskDue} />
+                          <StatCell done={e.passCountTask} total={e.taskCount} overdue={e.taskDue} pending={e.taskPending} />
                         </td>
                         <td style={{ padding:"14px 16px", minWidth:"100px" }}>
-                          <StatCell done={e.passCountTraining} total={e.trainingCount} overdue={e.Trainingdue} />
+                          <StatCell done={e.passCountTraining} total={e.trainingCount} overdue={e.Trainingdue} pending={e.trainingPending} />
                         </td>
                         <td style={{ padding:"14px 16px", textAlign:"center" }}>
                           <Link to={`/detailed/${e.empID}`} style={{ display:"inline-flex", alignItems:"center", gap:"5px", fontSize:"12px", fontWeight:600, color:"#374151", textDecoration:"none" }}>

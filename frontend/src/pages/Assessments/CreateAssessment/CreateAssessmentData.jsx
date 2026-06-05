@@ -8,7 +8,7 @@ import SideNav from "../../../components/SideNav/SideNav";
 const inputStyle = {
   width: "100%", height: "40px", border: "1px solid #e5e7eb", borderRadius: "8px",
   padding: "0 12px", fontSize: "13px", color: "#111827", background: "#fff",
-  outline: "none", fontFamily: "Poppins, sans-serif", boxSizing: "border-box",
+  outline: "none", fontFamily: "DM Sans, sans-serif", boxSizing: "border-box",
   transition: "border-color 0.15s",
 };
 
@@ -187,7 +187,7 @@ const CreateAssessmentData = () => {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f9fafb", fontFamily: "Poppins, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#f9fafb", fontFamily: "DM Sans, sans-serif" }}>
       <SideNav />
 
       <div style={{ marginLeft: "120px", paddingTop: "24px", paddingLeft: "24px", paddingRight: "24px", paddingBottom: "24px" }}>

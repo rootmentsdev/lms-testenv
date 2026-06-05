@@ -24,7 +24,7 @@ const inputStyle = {
   background: "#fff",
   outline: "none",
   width: "100%",
-  fontFamily: "Poppins, sans-serif",
+  fontFamily: "DM Sans, sans-serif",
   transition: "border-color 0.15s",
 };
 
@@ -76,7 +76,7 @@ const BranchForm = () => {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f9fafb", fontFamily: "Poppins, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#f9fafb", fontFamily: "DM Sans, sans-serif" }}>
       <SideNav />
 
       <div style={{ marginLeft: "120px", paddingTop: "24px", paddingLeft: "24px", paddingRight: "24px", paddingBottom: "24px" }}>

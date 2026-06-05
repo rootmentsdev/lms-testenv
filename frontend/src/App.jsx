@@ -3,9 +3,9 @@ import { Route, Routes, useNavigate } from 'react-router-dom';
 import './App.css';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import "@fontsource/poppins"
-import "@fontsource/poppins/500.css"
-import "@fontsource/poppins/700.css"
+import "@fontsource/dm-sans"
+import "@fontsource/dm-sans/500.css"
+import "@fontsource/dm-sans/700.css"
 import HashLoader from "react-spinners/HashLoader";
 
 
