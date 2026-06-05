@@ -412,7 +412,7 @@ const EmployeeDetaileData = () => {
   }, [walkins, combinedRows, tasks, fulldata]);
 
   return (
-    <div className="min-h-screen bg-[#f4f5f7]" style={{ fontFamily: "Poppins, sans-serif" }}>
+    <div className="min-h-screen bg-[#f4f5f7]" style={{ fontFamily: "DM Sans, sans-serif" }}>
       <SideNav />
 
       {/* Header spacing layout offset for SideNav width */}
@@ -497,7 +497,7 @@ const EmployeeDetaileData = () => {
                         <input type="text" name="username" value={data.username || ""} onChange={handleChange}
                           className="w-full mt-1.5 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-emerald-600 focus:outline-none" />
                       ) : (
-                        <p className="text-sm font-semibold text-gray-900 mt-1.5">{data.username || "—"}</p>
+                        <p className="text-sm font-semibold text-gray-900 mt-1.5 uppercase">{data.username || "—"}</p>
                       )}
                     </div>
 
@@ -508,20 +508,20 @@ const EmployeeDetaileData = () => {
                         <input type="text" name="designation" value={data.designation || ""} onChange={handleChange}
                           className="w-full mt-1.5 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-emerald-600 focus:outline-none" />
                       ) : (
-                        <p className="text-sm font-semibold text-gray-900 mt-1.5">{data.designation || "—"}</p>
+                        <p className="text-sm font-semibold text-gray-900 mt-1.5 uppercase">{data.designation || "—"}</p>
                       )}
                     </div>
 
                     {/* EMPID */}
                     <div>
                       <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">EMPID</p>
-                      <p className="text-sm font-semibold text-gray-900 mt-1.5">{data.empID || "—"}</p>
+                      <p className="text-sm font-semibold text-gray-900 mt-1.5 uppercase">{data.empID || "—"}</p>
                     </div>
 
                     {/* Branch */}
                     <div>
                       <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Branch</p>
-                      <p className="text-sm font-semibold text-gray-900 mt-1.5">{data.workingBranch || "—"}</p>
+                      <p className="text-sm font-semibold text-gray-900 mt-1.5 uppercase">{data.workingBranch || "—"}</p>
                     </div>
 
                     {/* EMail */}

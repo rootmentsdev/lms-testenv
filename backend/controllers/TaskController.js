@@ -126,6 +126,35 @@ const formatDetailDate = (dateStr) => {
   return `${dd}-${mm}-${yyyy}`;
 };
 
+const isBase64String = (str) => {
+  if (!str || typeof str !== 'string') return false;
+  const cleaned = str.replace(/[\s]/g, '');
+  if (cleaned.startsWith('data:')) return true;
+  if (cleaned.length < 100) return false;
+  const base64Regex = /^[A-Za-z0-9+/=]+$/;
+  return base64Regex.test(cleaned);
+};
+
+const getMimeTypeFromBase64 = (base64Str) => {
+  if (base64Str.startsWith('/9j/')) return 'image/jpeg';
+  if (base64Str.startsWith('iVBORw0KGgo')) return 'image/png';
+  if (base64Str.startsWith('R0lGODlh')) return 'image/gif';
+  if (base64Str.startsWith('JVBERi0')) return 'application/pdf';
+  if (base64Str.startsWith('UESDBBQ')) return 'application/zip';
+  return 'application/octet-stream';
+};
+
+const normalizeAttachmentToDataUri = (str) => {
+  if (!str) return '';
+  const cleaned = str.replace(/[\s]/g, '');
+  if (cleaned.startsWith('data:')) return cleaned;
+  if (isBase64String(cleaned)) {
+    const mime = getMimeTypeFromBase64(cleaned);
+    return `data:${mime};base64,${cleaned}`;
+  }
+  return str;
+};
+
 const mapTaskForClient = (doc) => {
   const task = doc.toObject ? doc.toObject() : doc;
   const status = computeStatus(task);
@@ -133,11 +162,13 @@ const mapTaskForClient = (doc) => {
   const taskId = task.taskCode || task._id?.toString();
 
   let attachmentVal = task.attachment || '';
+  attachmentVal = normalizeAttachmentToDataUri(attachmentVal);
   if (attachmentVal.startsWith('data:')) {
     attachmentVal = `/api/task/${taskId}/attachment`;
   }
 
   let reviewAttachmentVal = task.reviewAttachment || '';
+  reviewAttachmentVal = normalizeAttachmentToDataUri(reviewAttachmentVal);
   if (reviewAttachmentVal.startsWith('data:')) {
     reviewAttachmentVal = `/api/task/${taskId}/review-attachment`;
   }
@@ -1152,8 +1183,10 @@ export const getTaskAttachment = async (req, res) => {
       return res.status(404).send('Attachment not found');
     }
 
-    if (task.attachment.startsWith('data:')) {
-      const matches = task.attachment.match(/^data:([^;]+);base64,(.*)$/i);
+    const attachmentVal = normalizeAttachmentToDataUri(task.attachment);
+
+    if (attachmentVal.startsWith('data:')) {
+      const matches = attachmentVal.match(/^data:([^;]+);base64,(.*)$/i);
       if (!matches) {
         return res.status(400).send('Invalid data URI format');
       }
@@ -1191,8 +1224,10 @@ export const getTaskReviewAttachment = async (req, res) => {
       return res.status(404).send('Review proof not found');
     }
 
-    if (task.reviewAttachment.startsWith('data:')) {
-      const matches = task.reviewAttachment.match(/^data:([^;]+);base64,(.*)$/i);
+    const reviewAttachmentVal = normalizeAttachmentToDataUri(task.reviewAttachment);
+
+    if (reviewAttachmentVal.startsWith('data:')) {
+      const matches = reviewAttachmentVal.match(/^data:([^;]+);base64,(.*)$/i);
       if (!matches) {
         return res.status(400).send('Invalid data URI format');
       }
@@ -1222,7 +1257,7 @@ export const getTaskReviewAttachment = async (req, res) => {
 export const resolveExtensionRequest = async (req, res) => {
   try {
     const { id } = req.params;
-    const { action } = req.body; // 'APPROVE' or 'REJECT'
+    const { action, endDate } = req.body; // 'APPROVE' or 'REJECT' and optional endDate
 
     if (!action || !['APPROVE', 'REJECT'].includes(action.toUpperCase())) {
       return res.status(400).json({ success: false, message: 'Invalid action. Must be APPROVE or REJECT' });
@@ -1236,7 +1271,7 @@ export const resolveExtensionRequest = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Task not found' });
     }
 
-    if (task.status !== 'EXTENSION REQUESTED') {
+    if (task.status !== 'EXTENSION REQUESTED' && action.toUpperCase() !== 'APPROVE') {
       return res.status(400).json({ success: false, message: 'Task does not have a pending extension request' });
     }
 
@@ -1265,10 +1300,16 @@ export const resolveExtensionRequest = async (req, res) => {
       console.error('Error resolving executor details:', err);
     }
 
-    const nextStatus = task.previousStatus || 'IN PROGRESS';
+    const nextStatus = task.status === 'EXTENSION REQUESTED' ? (task.previousStatus || 'IN PROGRESS') : task.status;
 
     if (action.toUpperCase() === 'APPROVE') {
-      const newEndDate = task.requestedExtensionDate;
+      let newEndDate = endDate || task.requestedExtensionDate;
+      if (!newEndDate) {
+        return res.status(400).json({ success: false, message: 'New end date is required to approve extension' });
+      }
+      if (newEndDate.includes('T')) {
+        newEndDate = newEndDate.split('T')[0];
+      }
       task.endDate = newEndDate;
       task.status = nextStatus;
       

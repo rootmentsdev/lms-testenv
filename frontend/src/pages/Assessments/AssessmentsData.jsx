@@ -258,7 +258,7 @@ const AssessmentsData = () => {
   }, [data, search, statusFilter]);
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f9fafb", fontFamily: "Poppins, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#f9fafb", fontFamily: "DM Sans, sans-serif" }}>
       <SideNav />
 
       <div style={{ marginLeft: "120px", paddingTop: "24px", paddingLeft: "24px", paddingRight: "24px", paddingBottom: "24px" }}>
@@ -306,7 +306,7 @@ const AssessmentsData = () => {
               placeholder="Search by Training"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              style={{ border: "none", outline: "none", fontSize: "13px", color: "#374151", background: "transparent", width: "100%", fontFamily: "Poppins, sans-serif" }}
+              style={{ border: "none", outline: "none", fontSize: "13px", color: "#374151", background: "transparent", width: "100%", fontFamily: "DM Sans, sans-serif" }}
             />
           </div>
 
@@ -317,7 +317,7 @@ const AssessmentsData = () => {
               <select
                 value={statusFilter}
                 onChange={e => setStatusFilter(e.target.value)}
-                style={{ appearance: "none", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "6px 28px 6px 10px", fontSize: "13px", color: "#374151", background: "#fff", cursor: "pointer", outline: "none", fontFamily: "Poppins, sans-serif" }}
+                style={{ appearance: "none", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "6px 28px 6px 10px", fontSize: "13px", color: "#374151", background: "#fff", cursor: "pointer", outline: "none", fontFamily: "DM Sans, sans-serif" }}
               >
                 {["All", "Completed", "In Progress", "Not Started"].map(s => (
                   <option key={s} value={s}>{s}</option>

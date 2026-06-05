@@ -52,7 +52,7 @@ const AssessmentDetailsData = () => {
   }, [assessment, users]);
 
   return (
-    <div className="min-h-screen bg-[#f9fafb]" style={{ fontFamily: "Poppins, sans-serif" }}>
+    <div className="min-h-screen bg-[#f9fafb]" style={{ fontFamily: "DM Sans, sans-serif" }}>
       <SideNav />
 
       <div className="ml-[110px] px-6 pt-6 pb-10">

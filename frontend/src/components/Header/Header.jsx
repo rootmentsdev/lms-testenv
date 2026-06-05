@@ -105,59 +105,7 @@ const Header = () => {
                 {/* ── Right: bell + avatar ── */}
                 <div className="flex items-center gap-3">
 
-                    {/* Search bar (hidden on small screens) */}
-                    <div className="relative hidden lg:block">
-                        <svg
-                            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                            width="14" height="14" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                        >
-                            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-                        </svg>
-                        <input
-                            type="text"
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            placeholder="Search by name, id or branch"
-                            className="pl-8 pr-4 py-1.5 text-sm bg-gray-50 border border-gray-200 rounded-full w-64 focus:outline-none focus:border-gray-400 focus:bg-white transition-all"
-                        />
 
-                        {/* Search results dropdown */}
-                        {isSearching && (
-                            <div className="absolute top-full mt-2 left-0 w-full bg-white border border-gray-100 rounded-2xl shadow-xl z-50 overflow-hidden">
-                                {searchUsers.length > 0 && (
-                                    <>
-                                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-4 pt-3 pb-1">Employees</p>
-                                        {searchUsers.map(item => (
-                                            <Link key={item.empID} to={`/detailed/${item.empID}`} onClick={() => setSearch('')}>
-                                                <div className="px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                                                    <span className="w-6 h-6 rounded-full bg-[#016E5B]/10 text-[#016E5B] text-[10px] font-bold flex items-center justify-center flex-shrink-0">
-                                                        {item.username?.[0]?.toUpperCase()}
-                                                    </span>
-                                                    {item.username}
-                                                </div>
-                                            </Link>
-                                        ))}
-                                    </>
-                                )}
-                                {searchResults.length > 0 && (
-                                    <>
-                                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-4 pt-3 pb-1">Branches</p>
-                                        {searchResults.map(item => (
-                                            <Link key={item.locCode} to={`/branch/detailed/${item.locCode}`} onClick={() => setSearch('')}>
-                                                <div className="px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-                                                    {item.workingBranch}
-                                                </div>
-                                            </Link>
-                                        ))}
-                                    </>
-                                )}
-                                {searchUsers.length === 0 && searchResults.length === 0 && (
-                                    <p className="px-4 py-3 text-sm text-gray-400">No results found</p>
-                                )}
-                            </div>
-                        )}
-                    </div>
 
                     {/* Bell */}
                     <Link to="/admin/Notification">

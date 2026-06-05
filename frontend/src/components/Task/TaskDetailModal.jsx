@@ -374,8 +374,8 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
         aria-labelledby="task-detail-title"
       >
         <button type="button" className="task-detail-back" onClick={onClose}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7" />
           </svg>
           Back
         </button>
@@ -400,7 +400,7 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
 
         <div className="task-detail-divider" />
 
-        <div className="task-detail-row task-detail-row--3">
+        <div className="task-detail-grid-3">
           <DetailField
             label="ASSIGNED TO"
             primary={task.assignee}
@@ -416,12 +416,9 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
             primary={task.endDateDetail || task.endDate}
             secondary={task.endTime}
           />
-        </div>
 
-        <div className="task-detail-divider" />
-
-        <div className="task-detail-row task-detail-row--3">
           <DetailField label="DESCRIPTION" primary={desc} />
+          
           <DetailField label="PRIORITY">
             <div className="task-detail-priority">
               <span
@@ -431,10 +428,13 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
               {task.priority}
             </div>
           </DetailField>
+
           <DetailField label="STATUS">
-            <span className={`task-detail-status ${STATUS_CLASS[task.status] || ''}`}>
-              {task.status}
-            </span>
+            <div>
+              <span className={`task-detail-status ${STATUS_CLASS[task.status] || ''}`}>
+                {task.status}
+              </span>
+            </div>
           </DetailField>
         </div>
 
