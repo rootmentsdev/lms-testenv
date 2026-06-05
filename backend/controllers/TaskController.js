@@ -1316,7 +1316,8 @@ export const resolveExtensionRequest = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Task not found' });
     }
 
-    if (task.status !== 'EXTENSION REQUESTED' && action.toUpperCase() !== 'APPROVE') {
+    // Task MUST be in EXTENSION REQUESTED status — no exceptions
+    if (task.status !== 'EXTENSION REQUESTED') {
       return res.status(400).json({ success: false, message: 'Task does not have a pending extension request' });
     }
 

@@ -205,7 +205,7 @@ const TaskManagement = () => {
       setRequests(userRequests);
 
       const userExtensions = (extensionsRes.data || []).filter(
-        (t) => t.createdBy === user?.userId
+        (t) => String(t.createdBy) === String(user?.userId)
       );
       setExtensions(userExtensions);
     } catch (err) {
@@ -316,22 +316,24 @@ const TaskManagement = () => {
     }
   };
 
-  const handleResolveExtension = async (taskId, action) => {
+  const handleResolveExtension = async (taskId, action, endDate) => {
     try {
       const token = localStorage.getItem('token');
+      const body = { action };
+      if (action === 'APPROVE' && endDate) body.endDate = endDate;
       const res = await fetch(`${baseUrl.baseUrl}api/task/${taskId}/resolve-extension`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           ...(token && { Authorization: `Bearer ${token}` }),
         },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify(body),
       });
       const json = await res.json();
       if (!res.ok) {
         throw new Error(json.message || `Failed to ${action.toLowerCase()} extension`);
       }
-      toast.success(`Extension request ${action.toLowerCase()}d!`);
+      toast.success(`Extension request ${action === 'APPROVE' ? 'approved' : 'rejected'}!`);
       loadTasks();
     } catch (err) {
       toast.error(err.message || 'Failed to update extension request');
@@ -579,14 +581,14 @@ const TaskManagement = () => {
                             <button
                               type="button"
                               style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-                              onClick={() => handleResolveExtension(task.id, 'APPROVE')}
+                              onClick={() => handleResolveExtension(task.id, 'APPROVE', task.requestedExtensionDate)}
                             >
                               Approve
                             </button>
                             <button
                               type="button"
                               style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-                              onClick={() => handleResolveExtension(task.id, 'REJECT')}
+                              onClick={() => handleResolveExtension(task.id, 'REJECT', null)}
                             >
                               Reject
                             </button>
