@@ -1,5 +1,5 @@
 import express from 'express';
-import { createTask, getTasks, getTaskById, getTaskAssignees, updateTaskStatus, reassignTask, getTaskAttachment, getTaskReviewAttachment, resolveExtensionRequest } from '../controllers/TaskController.js';
+import { createTask, getTasks, getTaskById, getTaskAssignees, updateTaskStatus, reassignTask, getTaskAttachment, getTaskReviewAttachment, resolveExtensionRequest, updateTaskDetails } from '../controllers/TaskController.js';
 import { MiddilWare } from '../lib/middilWare.js';
 
 const router = express.Router();
@@ -357,5 +357,6 @@ router.get('/:id/review-attachment', getTaskReviewAttachment);
  *         description: Internal server error
  */
 router.put('/:id/resolve-extension', MiddilWare, resolveExtensionRequest);
+router.put('/:id/details', MiddilWare, updateTaskDetails);
 
 export default router;

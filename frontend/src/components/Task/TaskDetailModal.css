@@ -388,6 +388,9 @@
   color: #374151;
   outline: none;
   font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
+  max-width: 100%;
 }
 
 .task-detail-select:focus {
@@ -510,4 +513,79 @@
   font-size: 11px;
   color: #9ca3af;
   margin-top: 3px;
+}
+
+/* Edit Task Panel & Form Styling */
+.task-detail-btn-edit-toggle {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+}
+
+.task-detail-btn-edit-toggle:hover {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+.task-detail-edit-form {
+  background: #f9fafb;
+  border: 1px solid #f3f4f6;
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.task-detail-edit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 640px) {
+  .task-detail-edit-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+.task-detail-edit-field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  width: 100%;
+}
+
+.task-detail-textarea {
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  outline: none;
+  font-family: inherit;
+  resize: vertical;
+  width: 100%;
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+.task-detail-textarea:focus {
+  border-color: #111827;
+}
+
+.task-detail-edit-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.task-detail-btn-cancel {
+  background: #fff;
+  border: 1px solid #d1d5db;
+  color: #4b5563;
+}
+
+.task-detail-btn-cancel:hover:not(:disabled) {
+  background: #f9fafb;
+  color: #111827;
 }

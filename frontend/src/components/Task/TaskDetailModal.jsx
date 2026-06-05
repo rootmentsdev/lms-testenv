@@ -42,6 +42,7 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
   const canUpdateStatus = isAssignedToMe || isMyStore || isAdmin;
   const isTaskCreator = task?.createdBy === user?.userId;
   const shouldShowWorkMap = isAdmin || isTaskCreator;
+  const canEditDetails = isAdmin || isTaskCreator;
 
   const [selectedFile, setSelectedFile] = useState(null);
   const [assigneesList, setAssigneesList] = useState([]);
@@ -51,6 +52,38 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
   const [autoSubmit, setAutoSubmit] = useState(false);
   const [showExtensionForm, setShowExtensionForm] = useState(false);
   const [extensionDate, setExtensionDate] = useState('');
+
+  // Editing state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editCategory, setEditCategory] = useState('');
+  const [editSubCategory, setEditSubCategory] = useState('');
+  const [editAssignee, setEditAssignee] = useState('');
+  const [editPriority, setEditPriority] = useState('Medium');
+  const [editEndDate, setEditEndDate] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editAdditionalInfo, setEditAdditionalInfo] = useState('');
+
+  const getHtmlDate = (displayDate) => {
+    if (!displayDate || displayDate === '—') return '';
+    if (displayDate.includes('/')) {
+      const [dd, mm, yyyy] = displayDate.split('/');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+    return displayDate;
+  };
+
+  const startEditing = () => {
+    setEditTitle(task.title || '');
+    setEditCategory(task.category || '');
+    setEditSubCategory(task.categoryDetail || task.subCategory || '');
+    setEditAssignee(task.assignedTo || '');
+    setEditPriority(task.priority || 'Medium');
+    setEditEndDate(getHtmlDate(task.endDate));
+    setEditDescription(task.description && task.description !== '—' ? task.description : '');
+    setEditAdditionalInfo(task.additionalInfo && task.additionalInfo !== '—' ? task.additionalInfo : '');
+    setIsEditing(true);
+  };
 
   useEffect(() => {
     const onKey = (e) => {
@@ -65,7 +98,7 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
   }, [onClose]);
 
   useEffect(() => {
-    if (canReassign && task && task.status !== 'COMPLETED') {
+    if ((canReassign || canEditDetails) && task) {
       const fetchAssignees = async () => {
         setLoadingAssignees(true);
         try {
@@ -87,7 +120,7 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
       };
       fetchAssignees();
     }
-  }, [canReassign, task]);
+  }, [canReassign, canEditDetails, task]);
 
   if (!task) return null;
 
@@ -244,6 +277,53 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
       onClose();
     } catch (err) {
       toast.error(err.message || 'Failed to reassign task');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleSaveDetails = async () => {
+    if (!editTitle) {
+      toast.error('Title is required');
+      return;
+    }
+    setUpdating(true);
+    try {
+      const token = localStorage.getItem('token');
+      const chosenAssignee = assigneesList.find((opt) => opt.value === editAssignee);
+      
+      const payload = {
+        title: editTitle,
+        category: editCategory,
+        subCategory: editSubCategory,
+        assignedTo: editAssignee,
+        assignedToLabel: chosenAssignee ? chosenAssignee.label : undefined,
+        endDate: editEndDate,
+        priority: editPriority,
+        description: editDescription,
+        additionalInfo: editAdditionalInfo
+      };
+
+      const res = await fetch(`${baseUrl.baseUrl}api/task/${task.id}/details`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.message || 'Failed to update task details');
+      }
+
+      toast.success('Task details updated successfully!');
+      setIsEditing(false);
+      if (onRefresh) onRefresh();
+      onClose();
+    } catch (err) {
+      toast.error(err.message || 'Failed to update task details');
     } finally {
       setUpdating(false);
     }
@@ -675,6 +755,147 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
             </div>
           </>
         ) : null}
+
+        {canEditDetails && (
+          <>
+            <div className="task-detail-divider" />
+            <div className="task-detail-edit-section">
+              {!isEditing ? (
+                <button
+                  type="button"
+                  className="task-detail-action-btn task-detail-btn-edit-toggle"
+                  onClick={startEditing}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                  </svg>
+                  Edit Task Details
+                </button>
+              ) : (
+                <div className="task-detail-edit-form">
+                  <h3 className="task-detail-actions-title">Edit Task Details</h3>
+                  
+                  <div className="task-detail-edit-grid">
+                    <div className="task-detail-edit-field">
+                      <label className="task-detail-field__label">Title</label>
+                      <input
+                        type="text"
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        className="task-detail-select"
+                        placeholder="Task Title"
+                      />
+                    </div>
+
+                    <div className="task-detail-edit-field">
+                      <label className="task-detail-field__label">Category</label>
+                      <input
+                        type="text"
+                        value={editCategory}
+                        onChange={(e) => setEditCategory(e.target.value)}
+                        className="task-detail-select"
+                        placeholder="Category"
+                      />
+                    </div>
+
+                    <div className="task-detail-edit-field">
+                      <label className="task-detail-field__label">Sub Category</label>
+                      <input
+                        type="text"
+                        value={editSubCategory}
+                        onChange={(e) => setEditSubCategory(e.target.value)}
+                        className="task-detail-select"
+                        placeholder="Sub Category"
+                      />
+                    </div>
+
+                    <div className="task-detail-edit-field">
+                      <label className="task-detail-field__label">Assigned To</label>
+                      <select
+                        value={editAssignee}
+                        onChange={(e) => setEditAssignee(e.target.value)}
+                        className="task-detail-select"
+                      >
+                        <option value="">Select Assignee...</option>
+                        {assigneesList.map((opt) => (
+                          <option key={opt.value} value={opt.value} disabled={opt.type === 'group'}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="task-detail-edit-field">
+                      <label className="task-detail-field__label">Priority</label>
+                      <select
+                        value={editPriority}
+                        onChange={(e) => setEditPriority(e.target.value)}
+                        className="task-detail-select"
+                      >
+                        <option value="High">High</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Low">Low</option>
+                        <option value="Not">None</option>
+                      </select>
+                    </div>
+
+                    <div className="task-detail-edit-field">
+                      <label className="task-detail-field__label">Deadline</label>
+                      <input
+                        type="date"
+                        value={editEndDate}
+                        onChange={(e) => setEditEndDate(e.target.value)}
+                        className="task-detail-select"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="task-detail-edit-field mt-4">
+                    <label className="task-detail-field__label">Description</label>
+                    <textarea
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      className="task-detail-textarea"
+                      placeholder="Task Description"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className="task-detail-edit-field mt-4">
+                    <label className="task-detail-field__label">Additional Info</label>
+                    <textarea
+                      value={editAdditionalInfo}
+                      onChange={(e) => setEditAdditionalInfo(e.target.value)}
+                      className="task-detail-textarea"
+                      placeholder="Additional Info"
+                      rows={2}
+                    />
+                  </div>
+
+                  <div className="task-detail-edit-actions mt-6">
+                    <button
+                      type="button"
+                      className="task-detail-action-btn task-detail-btn-submit-review"
+                      onClick={handleSaveDetails}
+                      disabled={updating}
+                    >
+                      Save Changes
+                    </button>
+                    <button
+                      type="button"
+                      className="task-detail-action-btn task-detail-btn-cancel"
+                      onClick={() => setIsEditing(false)}
+                      disabled={updating}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

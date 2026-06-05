@@ -155,7 +155,7 @@ const normalizeAttachmentToDataUri = (str) => {
   return str;
 };
 
-const mapTaskForClient = (doc) => {
+const mapTaskForClient = (doc, overrideBranch) => {
   const task = doc.toObject ? doc.toObject() : doc;
   const status = computeStatus(task);
   const priority = normalizePriority(task.priority);
@@ -183,7 +183,7 @@ const mapTaskForClient = (doc) => {
     assignedTo: task.assignedTo,
     createdBy: task.createdBy?.toString() || '',
     assignee: task.assignedToLabel || ASSIGNED_TO_LABELS[task.assignedTo] || task.assignedTo,
-    assigneeSub: task.storeName || task.storeCode || '—',
+    assigneeSub: overrideBranch ?? task.storeName ?? task.storeCode ?? '—',
     assigneeRole: task.assignedToLabel || ASSIGNED_TO_LABELS[task.assignedTo] || task.assignedTo,
     priority,
     startDate: formatDisplayDate(task.startDate),
@@ -391,9 +391,14 @@ export const createTask = async (req, res) => {
       try {
         const targetAdmin = await Admin.findById(target.id).populate('branches');
         if (targetAdmin) {
-          const targetBranch = targetAdmin.branches?.[0];
-          targetStoreName = targetBranch?.workingBranch || '';
-          targetStoreCode = targetBranch?.locCode ? `Z-${targetBranch.locCode}` : '';
+          if (targetAdmin.role === 'super_admin' || targetAdmin.role === 'hr_admin') {
+            targetStoreName = 'Office';
+            targetStoreCode = '';
+          } else {
+            const targetBranch = targetAdmin.branches?.[0];
+            targetStoreName = targetBranch?.workingBranch || '';
+            targetStoreCode = targetBranch?.locCode ? `Z-${targetBranch.locCode}` : '';
+          }
         } else {
           const targetUser = await User.findById(target.id);
           if (targetUser) {
@@ -505,7 +510,25 @@ export const getTasks = async (req, res) => {
     // 3. Fetch filtered tasks directly from MongoDB
     let tasks = await Task.find(secureQuery).sort({ createdAt: -1 }).lean();
 
-    let mapped = tasks.map((t) => mapTaskForClient(t));
+    // 4. Batch-resolve assignee working branches (2 queries total)
+    const assigneeIds = [...new Set(tasks.map(t => t.assignedTo?.toString()).filter(Boolean))];
+    const [assigneeAdmins, assigneeUsers] = await Promise.all([
+      Admin.find({ _id: { $in: assigneeIds } }, { role: 1, branches: 1 }).populate('branches', 'workingBranch locCode').lean(),
+      User.find({ _id: { $in: assigneeIds } }, { workingBranch: 1, locCode: 1 }).lean(),
+    ]);
+    const branchByAssignee = {};
+    assigneeAdmins.forEach(ad => {
+      if (ad.role === 'super_admin' || ad.role === 'hr_admin') {
+        branchByAssignee[ad._id.toString()] = 'Office';
+      } else {
+        branchByAssignee[ad._id.toString()] = ad.branches?.[0]?.workingBranch || '';
+      }
+    });
+    assigneeUsers.forEach(u => {
+      branchByAssignee[u._id.toString()] = u.workingBranch || '';
+    });
+
+    let mapped = tasks.map((t) => mapTaskForClient(t, branchByAssignee[t.assignedTo?.toString()] || null));
 
     if (search) {
       const q = search.toLowerCase();
@@ -562,9 +585,26 @@ export const getTaskById = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Task not found' });
     }
 
+    // Resolve assignee's actual working branch
+    let assigneeBranch = null;
+    try {
+      const assigneeId = task.assignedTo?.toString();
+      if (assigneeId) {
+        const assigneeAdmin = await Admin.findById(assigneeId, { role: 1, branches: 1 }).populate('branches', 'workingBranch').lean();
+        if (assigneeAdmin) {
+          assigneeBranch = (assigneeAdmin.role === 'super_admin' || assigneeAdmin.role === 'hr_admin')
+            ? 'Office'
+            : (assigneeAdmin.branches?.[0]?.workingBranch || null);
+        } else {
+          const assigneeUser = await User.findById(assigneeId, { workingBranch: 1 }).lean();
+          assigneeBranch = assigneeUser?.workingBranch || null;
+        }
+      }
+    } catch (_) {}
+
     return res.status(200).json({
       success: true,
-      data: mapTaskForClient(task),
+      data: mapTaskForClient(task, assigneeBranch),
     });
   } catch (error) {
     console.error('Error fetching task:', error);
@@ -659,9 +699,9 @@ export const getTaskAssignees = async (req, res) => {
         ? ad.subRole 
         : (ad.role === 'super_admin' ? 'Super Admin' : (ad.role === 'hr_admin' ? 'HR Admin' : (ad.role === 'cluster_admin' ? 'Cluster Admin' : 'Store Admin')));
       
-      const storeName = ad.branches && ad.branches.length > 0 
-        ? ad.branches[0].workingBranch 
-        : (ad.role === 'super_admin' || ad.role === 'hr_admin' ? 'Admin' : 'Store');
+      const storeName = (ad.role === 'super_admin' || ad.role === 'hr_admin')
+        ? 'Office'
+        : (ad.branches && ad.branches.length > 0 ? ad.branches[0].workingBranch : 'Store');
 
       individualAssignees.push({
         value: ad._id.toString(),
@@ -676,9 +716,9 @@ export const getTaskAssignees = async (req, res) => {
       const designation = user.subRole && user.subRole !== 'NR'
         ? user.subRole
         : (user.role === 'super_admin' ? 'Super Admin' : (user.role === 'hr_admin' ? 'HR Admin' : (user.role === 'cluster_admin' ? 'Cluster Admin' : 'Store Admin')));
-      const storeName = user.branches && user.branches.length > 0
-        ? user.branches[0].workingBranch
-        : (user.role === 'super_admin' || user.role === 'hr_admin' ? 'Admin' : 'Store');
+      const storeName = (user.role === 'super_admin' || user.role === 'hr_admin')
+        ? 'Office'
+        : (user.branches && user.branches.length > 0 ? user.branches[0].workingBranch : 'Store');
 
       individualAssignees.push({
         value: user._id.toString(),
@@ -1128,9 +1168,14 @@ export const reassignTask = async (req, res) => {
       let targetStoreName = '';
       let targetStoreCode = '';
       if (targetAdmin) {
-        const targetBranch = targetAdmin.branches?.[0];
-        targetStoreName = targetBranch?.workingBranch || '';
-        targetStoreCode = targetBranch?.locCode ? `Z-${targetBranch.locCode}` : '';
+        if (targetAdmin.role === 'super_admin' || targetAdmin.role === 'hr_admin') {
+          targetStoreName = 'Office';
+          targetStoreCode = '';
+        } else {
+          const targetBranch = targetAdmin.branches?.[0];
+          targetStoreName = targetBranch?.workingBranch || '';
+          targetStoreCode = targetBranch?.locCode ? `Z-${targetBranch.locCode}` : '';
+        }
       } else {
         const targetUser = await User.findById(resolvedAssignedTo);
         if (targetUser) {
@@ -1361,6 +1406,106 @@ export const resolveExtensionRequest = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to resolve extension request',
+      error: error.message,
+    });
+  }
+};
+
+export const updateTaskDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      title,
+      category,
+      subCategory,
+      assignedTo,
+      assignedToLabel,
+      endDate,
+      priority,
+      description,
+      additionalInfo,
+    } = req.body;
+
+    const task = await Task.findOne({
+      $or: [{ taskCode: id }, ...(id.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: id }] : [])],
+    });
+
+    if (!task) {
+      return res.status(404).json({ success: false, message: 'Task not found' });
+    }
+
+    // Permissions check: only task creator can edit task details
+    const userId = req.admin.userId;
+    if (task.createdBy.toString() !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: Only the creator of this task can edit its details',
+      });
+    }
+
+    // Resolve editor's name
+    let editorName = 'Unknown';
+    try {
+      const editorAdmin = await Admin.findById(userId);
+      if (editorAdmin) {
+        editorName = editorAdmin.name;
+      } else {
+        const editorUser = await User.findById(userId);
+        if (editorUser) {
+          editorName = editorUser.username;
+        }
+      }
+    } catch (err) {
+      console.error('Error resolving editor details:', err);
+    }
+
+    if (title) task.title = title;
+    if (category) task.category = category;
+    if (subCategory) task.subCategory = subCategory;
+
+    let assigneeChanged = false;
+    let oldAssigneeLabel = task.assignedToLabel || task.assignedTo;
+    if (assignedTo && assignedTo !== task.assignedTo) {
+      task.assignedTo = assignedTo;
+      if (assignedToLabel) task.assignedToLabel = assignedToLabel;
+      assigneeChanged = true;
+    }
+
+    if (endDate) {
+      let trimmedDate = endDate;
+      if (trimmedDate.includes('T')) {
+        trimmedDate = trimmedDate.split('T')[0];
+      }
+      task.endDate = trimmedDate;
+    }
+
+    if (priority) task.priority = priority;
+    if (description !== undefined) task.description = description;
+    if (additionalInfo !== undefined) task.additionalInfo = additionalInfo;
+
+    if (assigneeChanged) {
+      task.workMap.push({
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignedToLabel,
+        assignedBy: editorName,
+        assignedAt: new Date(),
+        action: 'REASSIGNED',
+        details: `Details updated. Reassigned from ${oldAssigneeLabel} to ${task.assignedToLabel}`,
+      });
+    }
+
+    await task.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Task details updated successfully',
+      data: mapTaskForClient(task),
+    });
+  } catch (error) {
+    console.error('Error updating task details:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update task details',
       error: error.message,
     });
   }
