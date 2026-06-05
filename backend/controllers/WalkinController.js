@@ -2,6 +2,7 @@ import Walkin from '../model/Walkin.js';
 import Admin from '../model/Admin.js';
 import User from '../model/User.js';
 import Branch from '../model/Branch.js';
+import mongoose from 'mongoose';
 import { validateStoreAccess, validateEmployeeAccess, buildWalkinFilter } from '../lib/permissions.js';
 
 /* ---------- Location Name Normalization helpers ---------- */
