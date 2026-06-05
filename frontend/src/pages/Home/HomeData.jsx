@@ -7,6 +7,14 @@ import HomeBar from "../../components/HomeBar/HomeBar";
 
 const HomeData = () => {
     const [range, setRange] = useState("7");
+    const [customRange, setCustomRange] = useState({ startDate: "", endDate: "" });
+
+    const handleRangeChange = (nextRange) => {
+        setRange(nextRange);
+        if (nextRange !== "custom") {
+            setCustomRange({ startDate: "", endDate: "" });
+        }
+    };
 
     return (
         <div className="mx-0 mb-[90px]">
@@ -14,12 +22,17 @@ const HomeData = () => {
                 <SideNav />
                 <div className="md:ml-[120px] w-full">
                     <div className="px-6 mt-6">
-                        <DashboardOverview range={range} />
+                        <DashboardOverview range={range} customRange={customRange} />
                     </div>
 
                     {/* Daily Walkings + Task Overview row */}
                     <div className="px-6 mt-4 flex gap-4">
-                        <DailyWalkings range={range} onRangeChange={setRange} />
+                        <DailyWalkings
+                            range={range}
+                            customRange={customRange}
+                            onRangeChange={handleRangeChange}
+                            onCustomRangeChange={setCustomRange}
+                        />
                         <TaskOverview />
                     </div>
 

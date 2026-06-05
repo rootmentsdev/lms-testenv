@@ -106,8 +106,12 @@ const HomeBar = () => {
 
     load();
 
+    const refresh = () => load();
+    window.addEventListener("dashboard:refresh", refresh);
+
     return () => {
       mounted = false;
+      window.removeEventListener("dashboard:refresh", refresh);
     };
   }, []);
 
