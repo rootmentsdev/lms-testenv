@@ -76,6 +76,7 @@ const EmployeeDetaileData = () => {
   const [data, setData]             = useState({});
   const [fulldata, setfullData]     = useState({});
   const [loading, setLoading]       = useState(true);
+  const [branches, setBranches]     = useState([]);
 
   // Integrations states
   const [tasks, setTasks] = useState([]);
@@ -88,6 +89,22 @@ const EmployeeDetaileData = () => {
   const [taskStatusFilter, setTaskStatusFilter] = useState("All");
 
   const handleChange = (e) => setData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+
+  // Fetch branches for the branch-change dropdown
+  const fetchBranches = async () => {
+    if (branches.length > 0) return; // already loaded
+    try {
+      const res = await fetch(`${baseUrl.baseUrl}api/admin/accessible-stores`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setBranches(json.data || json.stores || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch branches:', err);
+    }
+  };
 
   // API Call: Save Edited Profile
   const handleSave = async () => {
@@ -454,7 +471,7 @@ const EmployeeDetaileData = () => {
                       <button
                         onClick={() => {
                           if (isEditing) handleSave();
-                          else setIsEditing(true);
+                          else { setIsEditing(true); fetchBranches(); }
                         }}
                         disabled={isExternal}
                         className={`inline-flex items-center gap-2 px-5 py-2 border rounded-full text-sm font-medium transition-all ${
@@ -521,7 +538,30 @@ const EmployeeDetaileData = () => {
                     {/* Branch */}
                     <div>
                       <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Branch</p>
-                      <p className="text-sm font-semibold text-gray-900 mt-1.5 uppercase">{data.workingBranch || "—"}</p>
+                      {isEditing ? (
+                        <select
+                          name="workingBranch"
+                          value={data.workingBranch || ""}
+                          onChange={(e) => {
+                            const selected = branches.find(b => b.workingBranch === e.target.value || b.name === e.target.value);
+                            setData(prev => ({
+                              ...prev,
+                              workingBranch: e.target.value,
+                              locCode: selected?.locCode || prev.locCode,
+                            }));
+                          }}
+                          className="w-full mt-1.5 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-emerald-600 focus:outline-none bg-white"
+                        >
+                          <option value="">Select branch...</option>
+                          {branches.map((b) => (
+                            <option key={b._id || b.locCode} value={b.workingBranch || b.name}>
+                              {b.workingBranch || b.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <p className="text-sm font-semibold text-gray-900 mt-1.5 uppercase">{data.workingBranch || "—"}</p>
+                      )}
                     </div>
 
                     {/* EMail */}

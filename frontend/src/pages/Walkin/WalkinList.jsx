@@ -121,6 +121,54 @@ const WalkinList = () => {
         repeatCount: 1
     });
 
+    const [currentAdmin, setCurrentAdmin] = useState(null);
+
+    const safeDateOnly = (dateStr) => {
+        if (!dateStr || dateStr === '-') return new Date().toISOString().split('T')[0];
+        return dateStr.split(' ')[0].split('T')[0];
+    };
+
+    const getResetFormData = (admin = currentAdmin, branchList = branches) => {
+        let defStore = '';
+        let defStoreId = '';
+        
+        if (admin) {
+            if (admin.branches && admin.branches.length > 0) {
+                const adminBranchId = admin.branches[0]?._id || admin.branches[0];
+                const matchedBranch = branchList.find(b => 
+                    b._id === adminBranchId || 
+                    b.workingBranch === admin.branches[0].workingBranch
+                );
+                if (matchedBranch) {
+                    defStore = matchedBranch.workingBranch;
+                    defStoreId = matchedBranch._id;
+                }
+            }
+        }
+        
+        if (!defStore && branchList.length > 0) {
+            defStore = branchList[0].workingBranch;
+            defStoreId = branchList[0]._id;
+        }
+
+        return {
+            _id: '',
+            date: new Date().toISOString().split('T')[0],
+            customerName: '',
+            contact: '',
+            functionDate: new Date().toISOString().split('T')[0],
+            store: defStore,
+            storeId: defStoreId,
+            staff: admin?.name || '',
+            employeeId: admin?._id || '',
+            category: '-',
+            subCategory: '-',
+            remarks: '',
+            status: 'New Walkin',
+            repeatCount: 1
+        };
+    };
+
     // Fetch walkins dynamically from live API
     const loadWalkinsList = async () => {
         try {
@@ -152,10 +200,13 @@ const WalkinList = () => {
             setLoading(true);
             try {
                 // Fetch branches and walkins in parallel — employees stay lazy
-                const [branchRes] = await Promise.all([
+                const [branchRes, adminRes] = await Promise.all([
                     fetch(`${baseUrl.baseUrl}api/admin/accessible-stores`, {
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
                     }),
+                    fetch(`${baseUrl.baseUrl}api/admin/get/current/admin`, {
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+                    })
                 ]);
 
                 const branchJson = await branchRes.json();
@@ -171,12 +222,19 @@ const WalkinList = () => {
 
                 setBranches(branchList);
 
-                if (branchList.length > 0) {
-                    setFormData(prev => ({ ...prev, store: branchList[0]?.workingBranch || '' }));
+                let adminData = null;
+                const adminJson = await adminRes.json();
+                if (adminJson?.message === 'OK' && adminJson?.data) {
+                    adminData = adminJson.data;
+                    setCurrentAdmin(adminData);
                 }
+
+                const initialForm = getResetFormData(adminData, branchList);
+                setFormData(initialForm);
 
                 await loadWalkinsList(1);
             } catch (err) {
+                console.error("Error fetching initial walkin data:", err);
             } finally {
                 setLoading(false);
             }
@@ -309,30 +367,18 @@ const WalkinList = () => {
                 setCustomerExistsNotification(true);
                 setCustomerData(json.data);
 
-                const targetStore = json.data.store;
-                const foundBranch = branches.find(b => b.workingBranch === targetStore);
-                const storeIdToLoad = json.data.storeId || (foundBranch ? foundBranch._id : '');
-
-                // Pre-populate fields automatically
+                // Pre-populate fields automatically (Do not override store & staff with historical ones)
                 setFormData(prev => ({
                     ...prev,
                     customerName: json.data.customerName || prev.customerName,
-                    functionDate: json.data.functionDate || prev.functionDate,
-                    store: json.data.store || prev.store,
-                    storeId: storeIdToLoad || prev.storeId,
-                    staff: json.data.staff || prev.staff,
-                    employeeId: json.data.employeeId || prev.employeeId,
+                    functionDate: safeDateOnly(json.data.functionDate) || prev.functionDate,
                     category: json.data.category || prev.category,
                     subCategory: json.data.subCategory || prev.subCategory,
                     remarks: json.data.remarks || prev.remarks,
                     status: json.data.status || prev.status,
                     repeatCount: json.data.repeatCount || 1,
-                    date: json.data.date || prev.date
+                    date: safeDateOnly(json.data.date) || prev.date
                 }));
-
-                if (storeIdToLoad) {
-                    loadEmployees(storeIdToLoad);
-                }
             } else {
                 setCustomerExistsNotification(false);
                 setCustomerData(null);
@@ -352,10 +398,10 @@ const WalkinList = () => {
 
         setFormData({
             _id: w._id,
-            date: w.date || new Date().toISOString().split('T')[0],
+            date: safeDateOnly(w.date),
             customerName: w.customerName || '',
             contact: w.contact || '',
-            functionDate: w.functionDate || new Date().toISOString().split('T')[0],
+            functionDate: safeDateOnly(w.functionDate),
             store: w.store || '',
             storeId: storeIdToLoad,
             staff: w.staff || '',
@@ -420,22 +466,7 @@ const WalkinList = () => {
                 window.dispatchEvent(new Event('dashboard:refresh'));
 
                 // Reset form to defaults
-                setFormData({
-                    _id: '',
-                    date: new Date().toISOString().split('T')[0],
-                    customerName: '',
-                    contact: '',
-                    functionDate: new Date().toISOString().split('T')[0],
-                    store: branches[0]?.workingBranch || '',
-                    storeId: branches[0]?._id || '',
-                    staff: '',
-                    employeeId: '',
-                    category: '-',
-                    subCategory: '-',
-                    remarks: '',
-                    status: 'New Walkin',
-                    repeatCount: 1
-                });
+                setFormData(getResetFormData());
                 setCustomerExistsNotification(false);
                 setCustomerData(null);
                 setShowAddView(false);
@@ -688,76 +719,7 @@ const WalkinList = () => {
                                     </div>
                                 </div>
 
-                                {/* Row 3: Admin metadata fields (Store, Creating as, Visit Date) hidden from default visual flow but functional */}
-                                <div className="border-t border-gray-100 pt-5 mt-4">
-                                    <details className="group cursor-pointer">
-                                        <summary className="flex items-center justify-between text-xs font-bold text-gray-400 uppercase tracking-widest list-none outline-none select-none">
-                                            <span>Administrative Details</span>
-                                            <span className="transition-transform group-open:rotate-180">▼</span>
-                                        </summary>
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-4 cursor-default" onClick={(e) => e.stopPropagation()}>
-                                            {(user?.role === 'super_admin' || user?.role === 'hr_admin' || user?.role === 'cluster_admin') ? (
-                                                <div>
-                                                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                        Store <span className="text-red-500">*</span>
-                                                    </label>
-                                                    <div className="relative">
-                                                        <select 
-                                                            name="store" 
-                                                            required 
-                                                            value={formData.store} 
-                                                            onChange={handleInputChange} 
-                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
-                                                        >
-                                                            {branches.map((b, idx) => (<option key={idx} value={b.workingBranch}>{b.workingBranch}</option>))}
-                                                        </select>
-                                                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                                                            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                                                                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-                                                            </svg>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <div className="hidden" />
-                                            )}
-                                            <div>
-                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                    Creating as <span className="text-red-500">*</span>
-                                                </label>
-                                                <div className="relative">
-                                                    <select 
-                                                        name="staff" 
-                                                        required 
-                                                        value={formData.staff} 
-                                                        onChange={handleInputChange} 
-                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
-                                                    >
-                                                        <option value="">Select Staff</option>
-                                                        {currentStoreEmployees.map((emp, idx) => (<option key={idx} value={emp.username}>{emp.username}</option>))}
-                                                    </select>
-                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-                                                        </svg>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                    Visit Date
-                                                </label>
-                                                <input 
-                                                    type="date" 
-                                                    name="date" 
-                                                    value={formData.date} 
-                                                    onChange={handleInputChange} 
-                                                    className="w-full h-11 border border-gray-200 bg-white rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 cursor-pointer font-semibold" 
-                                                />
-                                            </div>
-                                        </div>
-                                    </details>
-                                </div>
+                                {/* Admin metadata fields auto-populated in background */}
 
                                 {/* Save Button under Status exactly like screenshot */}
                                 <div className="pt-4 flex justify-start">
@@ -780,25 +742,7 @@ const WalkinList = () => {
                             <h1 style={{ fontSize:'22px', fontWeight:700, lineHeight:1.2, color:'#111827', margin:0 }}>Walk In List</h1>
                             <button
                                 onClick={() => {
-                                    setFormData({
-                                        _id: '',
-                                        date: new Date().toISOString().split('T')[0],
-                                        customerName: '',
-                                        contact: '',
-                                        functionDate: new Date().toISOString().split('T')[0],
-                                        store: branches[0]?.workingBranch || '',
-                                        storeId: branches[0]?._id || '',
-                                        staff: '',
-                                        employeeId: '',
-                                        category: '-',
-                                        subCategory: '-',
-                                        remarks: '',
-                                        status: 'New Walkin',
-                                        repeatCount: 1
-                                    });
-                                    if (branches.length > 0) {
-                                        loadEmployees(branches[0]?._id);
-                                    }
+                                    setFormData(getResetFormData());
                                     setShowAddView(true);
                                 }}
                                 style={{ background:'#111827', color:'#fff', border:'none', borderRadius:'10px', padding:'9px 18px', fontSize:'13px', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:'6px' }}
