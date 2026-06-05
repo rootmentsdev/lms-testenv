@@ -1,6 +1,7 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import { handlePermissions, CreatingAdminUsers, getTopUsers, HomeBar, HomeProgressSummary, getAccessibleStores, getAccessibleEmployees, getAdminUsers, updateAdminUser, deleteAdminUser } from '../controllers/DestinationController.js';
+import { createBranchAudit, getBranchAudits, getBranchAuditById } from '../controllers/BranchAuditController.js';
 import { AdminLogin, ChangeVisibility, getAllNotifications, getEscalationLevel, getNotifications, GetSubroles, getVisibility, Subroles, upsertEscalationLevel } from '../controllers/moduleController.js';
 import { VerifyToken } from '../lib/VerifyJwt.js';
 import { CreateNotification, FindOverDueAssessment, FindOverDueTraining, SendNotification, SendNotificationAssessment } from '../controllers/AssessmentReassign.js';
@@ -167,6 +168,8 @@ router.get('/get/bestThreeUser', MiddilWare, getTopUsers);
  */
 router.get('/get/HomeProgressData', MiddilWare, HomeBar);
 router.get('/get/HomeProgressSummary', MiddilWare, HomeProgressSummary);
+router.get('/branch-audit', MiddilWare, getBranchAudits);
+router.get('/branch-audit/:id', MiddilWare, getBranchAuditById);
 
 
 
@@ -1046,6 +1049,7 @@ router.get('/get/permission/controller', MiddilWare, GetPermissionController);
 
 
 router.post('/get/searching/userORbranch', MiddilWare, GetSearchDataController);
+router.post('/branch-audit', MiddilWare, createBranchAudit);
 
 
 

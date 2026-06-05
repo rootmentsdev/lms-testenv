@@ -92,7 +92,15 @@ const AssessmentIcon = () => (
   </svg>
 );
 
-const DashboardOverview = ({ range = "7" }) => {
+const formatDateLabel = (value) => {
+  if (!value) return "";
+  const d = new Date(`${value}T00:00:00`);
+  return Number.isNaN(d.getTime())
+    ? value
+    : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+};
+
+const DashboardOverview = ({ range = "7", customRange }) => {
   const [summaryResponse, setSummaryResponse] = useState(null);
   const [chartResponse, setChartResponse] = useState(null);
   const [walkinCount, setWalkinCount] = useState(0);
@@ -136,7 +144,11 @@ const DashboardOverview = ({ range = "7" }) => {
     const loadWalkins = async () => {
       setWalkinLoading(true);
       try {
-        const walkins = await fetchWeeklyWalkinCount(range);
+        const walkins = await fetchWeeklyWalkinCount({
+          range,
+          startDate: customRange?.startDate,
+          endDate: customRange?.endDate,
+        });
         if (!mounted) return;
         setWalkinCount(Number(walkins?.count || 0));
       } catch {
@@ -178,7 +190,7 @@ const DashboardOverview = ({ range = "7" }) => {
       mounted = false;
       window.removeEventListener("dashboard:refresh", refresh);
     };
-  }, [range]);
+  }, [range, customRange?.startDate, customRange?.endDate]);
 
   const stats = useMemo(() => {
     const summary = summaryResponse?.data || {};
@@ -187,10 +199,6 @@ const DashboardOverview = ({ range = "7" }) => {
 
     const totalEmp = Number(summary.totalEmployees || branches.reduce((sum, b) => sum + (b.totalEmployees || 0), 0));
     const inTraining = Number(summary.employeesInTraining || 0);
-    const avgTraining = totalBranches
-      ? Math.round(branches.reduce((sum, b) => sum + (b.completeTraining || 0), 0) / totalBranches)
-      : 0;
-
     const completedAssessments = Number(summary.completedAssessments || branches.reduce((sum, b) => sum + Number(b.completeAssessmentCount || 0), 0));
     const overdueAssessmentsCount = Number(summary.overdueAssessments || branches.reduce((sum, b) => sum + Number(b.pendingAssessmentCount || 0), 0));
     const totalAssessments = completedAssessments + overdueAssessmentsCount;
@@ -199,12 +207,35 @@ const DashboardOverview = ({ range = "7" }) => {
     const overdueTasksCount = tasks.filter((t) => t.status === "OVERDUE").length;
 
     const totalWalkins = Number.isFinite(walkinCount) ? walkinCount : 0;
+    const trainingTotals = branches.reduce(
+      (acc, branch) => {
+        const branchTotal = Number(branch.totalTraining || 0);
+        const branchCompletePct = Number(branch.completeTraining || 0);
+        const branchPendingPct = Number(branch.pendingTraining || 0);
+
+        if (branchTotal > 0) {
+          acc.weightedTotal += branchTotal;
+          acc.weightedCompleted += (branchCompletePct / 100) * branchTotal;
+          acc.weightedPending += (branchPendingPct / 100) * branchTotal;
+        } else {
+          acc.emptyBranches += 1;
+        }
+        return acc;
+      },
+      { weightedTotal: 0, weightedCompleted: 0, weightedPending: 0, emptyBranches: 0 }
+    );
+
+    const avgTraining = trainingTotals.weightedTotal > 0
+      ? Math.round((trainingTotals.weightedCompleted / trainingTotals.weightedTotal) * 100)
+      : totalBranches
+      ? Math.round(branches.reduce((sum, b) => sum + Number(b.completeTraining || 0), 0) / totalBranches)
+      : 0;
 
     return {
       totalBranches,
       totalEmp,
       inTraining,
-      avgTraining,
+      avgTraining: Number.isFinite(avgTraining) ? avgTraining : 0,
       completedAssessments,
       totalAssessments,
       totalWalkins,
@@ -216,18 +247,14 @@ const DashboardOverview = ({ range = "7" }) => {
     {
       title: "Total Walk Ins",
       value: walkinLoading ? "..." : (stats.totalWalkins || "0"),
-      subtitle: `Last ${range} days · ${stats.totalBranches} stores`,
+      subtitle:
+        range === "7"
+          ? `This week to date · ${stats.totalBranches} stores`
+          : range === "custom" && customRange?.startDate && customRange?.endDate
+          ? `${formatDateLabel(customRange.startDate)} to ${formatDateLabel(customRange.endDate)} · ${stats.totalBranches} stores`
+          : `Last ${range} days · ${stats.totalBranches} stores`,
       icon: <WalkinIcon />,
       iconBg: "#EDE9FE",
-    },
-    {
-      title: "Completed Assessments",
-      value: summaryLoading ? "..." : (stats.completedAssessments || "0"),
-      subtitle: stats.totalAssessments
-        ? `${Math.round((stats.completedAssessments / stats.totalAssessments) * 100)}% of ${stats.totalAssessments} total`
-        : "No assessments yet",
-      icon: <AssessmentIcon />,
-      iconBg: "#DBEAFE",
     },
     {
       title: "Overdue Tasks",
@@ -249,6 +276,15 @@ const DashboardOverview = ({ range = "7" }) => {
       subtitle: `Across ${stats.totalBranches} stores`,
       icon: <EmployeeIcon />,
       iconBg: "#DCFCE7",
+    },
+    {
+      title: "Completed Assessments",
+      value: summaryLoading ? "..." : (stats.completedAssessments || "0"),
+      subtitle: stats.totalAssessments
+        ? `${Math.round((stats.completedAssessments / stats.totalAssessments) * 100)}% of ${stats.totalAssessments} total`
+        : "No assessments yet",
+      icon: <AssessmentIcon />,
+      iconBg: "#DBEAFE",
     },
   ];
 
