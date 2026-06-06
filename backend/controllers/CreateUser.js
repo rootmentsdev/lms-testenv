@@ -242,6 +242,7 @@ export const loginUser = async (req, res) => {
         sessionId, // Include session ID for logout tracking
         user: {
           username: user.username,
+          name: user.username,
           email: user.email,
           empID: user.empID,
           location: user.location,
@@ -256,6 +257,7 @@ export const loginUser = async (req, res) => {
         token,
         user: {
           username: user.username,
+          name: user.username,
           email: user.email,
           empID: user.empID,
           location: user.location,
@@ -369,6 +371,7 @@ export const flutterLogin = async (req, res) => {
           user: {
             id: adminUser._id,
             username: adminUser.name,
+            name: adminUser.name,
             email: adminUser.email,
             empID: adminUser.EmpId,
             designation: adminUser.role,
@@ -384,6 +387,7 @@ export const flutterLogin = async (req, res) => {
           user: {
             id: adminUser._id,
             username: adminUser.name,
+            name: adminUser.name,
             email: adminUser.email,
             empID: adminUser.EmpId,
             designation: adminUser.role,
@@ -556,6 +560,7 @@ export const flutterLogin = async (req, res) => {
         user: {
           id: user._id,
           username: user.username,
+          name: user.username,
           email: user.email,
           empID: user.empID,
           designation: user.designation,
@@ -571,6 +576,7 @@ export const flutterLogin = async (req, res) => {
         user: {
           id: user._id,
           username: user.username,
+          name: user.username,
           email: user.email,
           empID: user.empID,
           designation: user.designation,
