@@ -1,7 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { FiArrowLeft, FiClock, FiBook } from "react-icons/fi";
+import {
+  FiArrowLeft,
+  FiBook,
+  FiCalendar,
+  FiCheckCircle,
+  FiClock,
+  FiFileText,
+  FiSave,
+  FiTag,
+  FiUsers,
+} from "react-icons/fi";
+import Select, { components } from "react-select";
 import baseUrl from "../../../api/api";
 import SideNav from "../../../components/SideNav/SideNav";
 
@@ -28,18 +39,137 @@ const CATEGORY_OPTIONS = [
 
 const getModuleId = (module) => module?._id || module?.moduleId || module?.id;
 
+const CheckboxOption = (props) => (
+  <components.Option {...props}>
+    <div className="flex w-full items-center gap-3">
+      <input
+        type="checkbox"
+        checked={props.isSelected}
+        onChange={() => null}
+        className="h-4 w-4 shrink-0 cursor-pointer accent-slate-950"
+      />
+      <span className="text-sm text-slate-700">{props.label}</span>
+    </div>
+  </components.Option>
+);
+
+const selectStyles = {
+  control: (base, state) => ({
+    ...base,
+    minHeight: "40px",
+    height: "40px",
+    borderRadius: "8px",
+    borderColor: state.isFocused ? "#111827" : "#cbd5e1",
+    boxShadow: state.isFocused ? "0 0 0 3px rgba(15, 23, 42, 0.08)" : "none",
+    "&:hover": { borderColor: "#111827" },
+    backgroundColor: "#fff",
+    fontSize: "14px",
+  }),
+  menu: (base) => ({
+    ...base,
+    zIndex: 50,
+    borderRadius: "8px",
+    overflow: "hidden",
+    boxShadow: "0 18px 36px rgba(15, 23, 42, 0.14)",
+    marginTop: 8,
+  }),
+  menuList: (base) => ({
+    ...base,
+    maxHeight: 280,
+    paddingTop: 6,
+    paddingBottom: 6,
+  }),
+  option: (base, state) => ({
+    ...base,
+    backgroundColor: state.isSelected ? "#f1f5f9" : state.isFocused ? "#f8fafc" : "#fff",
+    color: "#0f172a",
+    cursor: "pointer",
+    padding: "11px 12px",
+  }),
+  multiValue: (base) => ({
+    ...base,
+    backgroundColor: "#f1f5f9",
+    borderRadius: "999px",
+  }),
+  multiValueLabel: (base) => ({
+    ...base,
+    color: "#0f172a",
+    fontSize: "12px",
+    paddingLeft: 8,
+    paddingRight: 8,
+  }),
+  multiValueRemove: (base) => ({
+    ...base,
+    color: "#64748b",
+    borderRadius: "999px",
+    "&:hover": {
+      backgroundColor: "#e2e8f0",
+      color: "#0f172a",
+    },
+  }),
+  placeholder: (base) => ({
+    ...base,
+    color: "#94a3b8",
+  }),
+  valueContainer: (base) => ({
+    ...base,
+    paddingLeft: 12,
+    paddingRight: 8,
+    paddingTop: 0,
+    paddingBottom: 0,
+  }),
+  input: (base) => ({
+    ...base,
+    margin: 0,
+    padding: 0,
+  }),
+  indicatorsContainer: (base) => ({
+    ...base,
+    minHeight: "40px",
+    height: "40px",
+  }),
+  dropdownIndicator: (base) => ({
+    ...base,
+    color: "#64748b",
+    paddingTop: 6,
+    paddingBottom: 6,
+  }),
+  indicatorSeparator: () => ({
+    width: 1,
+    backgroundColor: "#cbd5e1",
+    marginTop: 8,
+    marginBottom: 8,
+  }),
+};
+
+const fieldShell =
+  "h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-slate-950 focus:ring-4 focus:ring-slate-900/5";
+
+const labelShell = "mb-1.5 block text-sm font-medium text-slate-700";
+
+const SectionHeader = ({ icon: Icon, title, meta }) => (
+  <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+    <div className="flex items-center gap-3">
+      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+        <Icon size={18} />
+      </span>
+      <h2 className="text-base font-semibold text-slate-950">{title}</h2>
+    </div>
+    {meta ? <span className="text-xs font-medium text-slate-500">{meta}</span> : null}
+  </div>
+);
+
 const CreateTrainingDatas = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEditMode = Boolean(id);
   const token = localStorage.getItem("token");
 
-  // Form state
   const [trainingName, setTrainingName] = useState("");
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
   const [trainingType, setTrainingType] = useState("Assigned");
-  const [assignType, setAssignType] = useState("all");
+  const [assignType, setAssignType] = useState("designation");
   const [assignedTo, setAssignedTo] = useState([]);
   const [assignOptions, setAssignOptions] = useState([]);
   const [branchOptions, setBranchOptions] = useState([]);
@@ -48,7 +178,30 @@ const CreateTrainingDatas = () => {
   const [days, setDays] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Fetch modules
+  const assignLabel =
+    trainingType === "Mandatory"
+      ? "Roles"
+      : assignType === "user"
+        ? "Users"
+        : assignType === "branch"
+          ? "Branches"
+          : "Roles";
+
+  const assigneeOptions = useMemo(() => {
+    if (trainingType === "Mandatory") return assignOptions;
+    if (assignType === "branch") return branchOptions;
+    return assignOptions;
+  }, [trainingType, assignType, branchOptions, assignOptions]);
+
+  const summary = useMemo(
+    () => [
+      { label: "Deadline", value: days ? `${days} days` : "Not set" },
+      { label: "Assignees", value: assignedTo.length || 0 },
+      { label: "Modules", value: selectedModules.length || 0 },
+    ],
+    [assignedTo.length, days, selectedModules.length]
+  );
+
   useEffect(() => {
     const fetchModules = async () => {
       try {
@@ -59,9 +212,10 @@ const CreateTrainingDatas = () => {
         });
         if (!res.ok) return;
         const data = await res.json();
-        setModules(data);
+        setModules(Array.isArray(data) ? data : []);
       } catch (_) {}
     };
+
     fetchModules();
   }, []);
 
@@ -80,33 +234,10 @@ const CreateTrainingDatas = () => {
         const branches = Array.isArray(data?.data) ? data.data : [];
         setBranchOptions(
           branches.map((branch) => ({
-            value: branch.workingBranch || branch.locCode || branch._id,
-            label: `${branch.workingBranch || branch.location || "Branch"}${branch.locCode ? ` (${branch.locCode})` : ""}`,
-          }))
-        );
-      } catch (_) {}
-    };
-
-    fetchBranches();
-  }, [token]);
-
-  useEffect(() => {
-    const fetchBranches = async () => {
-      try {
-        const res = await fetch(`${baseUrl.baseUrl}api/usercreate/getBranch`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        const branches = Array.isArray(data?.data) ? data.data : [];
-        setBranchOptions(
-          branches.map((branch) => ({
             value: branch.locCode || branch._id,
-            label: branch.workingBranch || branch.location || branch.locCode || "Branch",
+            label: `${branch.workingBranch || branch.location || branch.locCode || "Branch"}${
+              branch.locCode ? ` (${branch.locCode})` : ""
+            }`,
           }))
         );
       } catch (_) {}
@@ -133,14 +264,15 @@ const CreateTrainingDatas = () => {
         const result = await res.json();
         const training = result?.data || result;
         setTrainingName(training?.trainingName || "");
+        setCategory(training?.category || "");
         setDescription(training?.description || "");
         setTrainingType(training?.Trainingtype || "Assigned");
         setDays(String(training?.deadline || ""));
         setAssignType(
           Array.isArray(training?.Assignedfor) && training.Assignedfor.includes("All")
-            ? "all"
+            ? "designation"
             : Array.isArray(training?.Assignedfor) && training.Assignedfor.includes("New")
-              ? "new"
+              ? "designation"
               : "designation"
         );
         setAssignedTo([]);
@@ -153,26 +285,16 @@ const CreateTrainingDatas = () => {
     fetchTraining();
   }, [id, token]);
 
-  // Fetch assign-to options based on assignType
   useEffect(() => {
-    if (assignType === "all" || assignType === "new") {
-      setAssignOptions([]);
-      setAssignedTo([]);
-      return;
-    }
-
     const fetchOptions = async () => {
       try {
-        const res = await fetch(
-          `${baseUrl.baseUrl}api/employee/app-users?page=1&limit=500`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const res = await fetch(`${baseUrl.baseUrl}api/employee/app-users?page=1&limit=500`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
         if (!res.ok) return;
         const data = await res.json();
         const employees = Array.isArray(data?.data) ? data.data : [];
@@ -181,12 +303,14 @@ const CreateTrainingDatas = () => {
           setAssignOptions(
             employees.map((e) => ({
               value: e.empID,
-              label: `EmpId: ${e.empID || "N/A"} | Name: ${e.username || "N/A"} | Role: ${e.designation || "N/A"}`, 
+              label: `${e.username || "N/A"}${e.empID ? ` - ${e.empID}` : ""}${
+                e.designation ? ` - ${e.designation}` : ""
+              }`,
             }))
           );
         } else if (assignType === "designation") {
-          const unique = [...new Set(employees.map((e) => e.designation).filter(Boolean))];
-          setAssignOptions(unique.map((r) => ({ value: r, label: r })));
+          const roles = [...new Set(employees.map((e) => e.designation).filter(Boolean))];
+          setAssignOptions(roles.map((role) => ({ value: role, label: role })));
         } else if (assignType === "branch") {
           setAssignOptions(branchOptions);
         }
@@ -220,7 +344,6 @@ const CreateTrainingDatas = () => {
     if (!days || Number(days) <= 0) return toast.error("Please enter valid number of days");
     if (selectedModules.length === 0) return toast.error("Please select at least one module");
 
-    // Build assignedfor array
     let assignedfor = [];
     if (trainingType === "Mandatory") {
       assignedfor = assignedTo.map((x) => x.value);
@@ -228,11 +351,8 @@ const CreateTrainingDatas = () => {
         return toast.error("Please select at least one designation");
       }
     } else {
-      if (assignType === "all") assignedfor = ["All"];
-      else if (assignType === "new") assignedfor = ["New"];
-      else assignedfor = assignedTo.map((x) => x.value);
-
-      if ((assignType === "user" || assignType === "designation" || assignType === "branch") && assignedfor.length === 0) {
+      assignedfor = assignedTo.map((x) => x.value);
+      if (assignedfor.length === 0) {
         return toast.error("Please select at least one assignee");
       }
     }
@@ -278,283 +398,253 @@ const CreateTrainingDatas = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#f5f5f5]">
+    <div className="flex min-h-screen bg-slate-100 text-slate-950">
       <SideNav />
 
-      <div className="flex-1 md:ml-[120px] p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-5">
-            <button
-              onClick={() => navigate(-1)}
-              className="p-1 hover:bg-gray-200 rounded-full transition"
-            >
-              <FiArrowLeft size={22} />
-            </button>
-            <h1 className="text-[22px] font-bold leading-tight text-gray-900">
-              {isEditMode ? "Edit Training" : "Create New Training"}
-            </h1>
-          </div>
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            className="bg-gray-900 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-gray-700 transition disabled:opacity-60"
-          >
-            {loading ? "Saving..." : isEditMode ? "Update Training" : "Save Training"}
-          </button>
-        </div>
-
-        {/* Top form card */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm mb-5">
-          {/* Row 1: Title, Category, Description */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Training Title <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                placeholder="Enter Training title"
-                value={trainingName}
-                onChange={(e) => setTrainingName(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Category <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white"
+      <main className="flex-1 px-4 py-5 md:ml-[120px] md:px-6">
+        <div className="mx-auto flex max-w-[1440px] flex-col gap-5">
+          <header className="flex flex-col gap-4 border-b border-slate-200 pb-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 transition hover:bg-slate-50"
+                aria-label="Go back"
               >
-                <option value="">Select Category</option>
-                {CATEGORY_OPTIONS.map((c) => (
-                  <option key={c.value} value={c.value}>{c.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Description
-              </label>
-              <input
-                type="text"
-                placeholder="Enter Description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-              />
-            </div>
-          </div>
-
-          {/* Row 2: Days, Training Type, Assign To */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {/* Days */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Deadline (Days) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                placeholder="Number of days"
-                value={days}
-                min={1}
-                onChange={(e) => setDays(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-              />
-            </div>
-
-            {/* Training Type */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Training Type <span className="text-red-500">*</span>
-              </label>
-              <div className="flex gap-4 mt-1">
-                {TRAINING_TYPES.map((t) => (
-                  <label key={t.value} className="flex items-center gap-2 cursor-pointer text-sm">
-                    <input
-                      type="radio"
-                      name="trainingType"
-                      value={t.value}
-                      checked={trainingType === t.value}
-                      onChange={() => setTrainingType(t.value)}
-                      className="accent-gray-900"
-                    />
-                    {t.label}
-                  </label>
-                ))}
+                <FiArrowLeft size={18} />
+              </button>
+              <div>
+                <h1 className="text-xl font-semibold text-slate-950">
+                  {isEditMode ? "Edit Training" : "Create New Training"}
+                </h1>
+                <p className="mt-1 text-sm text-slate-500">Build a training, choose the audience, and attach modules.</p>
               </div>
             </div>
 
-            {/* Assign To */}
-            <div>
-              {trainingType === "Mandatory" ? (
-                <>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Assign To Designation <span className="text-red-500">*</span>
-                  </label>
-                  <div className="border border-gray-300 rounded-lg p-3 max-h-40 overflow-y-auto bg-gray-50">
-                    {assignOptions.length === 0 ? (
-                      <p className="text-sm text-gray-400">Loading designations...</p>
-                    ) : (
-                      assignOptions.map((opt) => (
-                        <label key={opt.value} className="flex items-center gap-2 py-1 cursor-pointer text-sm hover:bg-gray-100 px-1 rounded">
-                          <input
-                            type="checkbox"
-                            checked={assignedTo.some((a) => a.value === opt.value)}
-                            onChange={() =>
-                              setAssignedTo((prev) =>
-                                prev.some((a) => a.value === opt.value)
-                                  ? prev.filter((a) => a.value !== opt.value)
-                                  : [...prev, opt]
-                              )
-                            }
-                            className="accent-gray-900"
-                          />
-                          {opt.label}
-                        </label>
-                      ))
-                    )}
-                  </div>
-                  {assignedTo.length > 0 && (
-                    <p className="text-xs text-gray-500 mt-1">{assignedTo.length} selected</p>
-                  )}
-                </>
-              ) : (
-                <>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Assign to <span className="text-red-500">*</span>
-                  </label>
-                  <div className="flex flex-wrap gap-5">
-                    {ASSIGN_OPTIONS.map((opt) => (
-                      <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer text-sm">
-                        <input
-                          type="radio"
-                          name="assignType"
-                          value={opt.value}
-                          checked={assignType === opt.value}
-                          onChange={() => setAssignType(opt.value)}
-                          className="accent-gray-900"
-                        />
-                        {opt.label}
-                      </label>
-                    ))}
-                  </div>
-                </>
-              )}
+            <div className="flex flex-wrap items-center gap-3">
+              {summary.map((item) => (
+                <div key={item.label} className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">{item.label}</p>
+                  <p className="text-sm font-semibold text-slate-950">{item.value}</p>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={loading}
+                className="inline-flex h-10 items-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <FiSave size={15} />
+                {loading ? "Saving..." : isEditMode ? "Update Training" : "Save Training"}
+              </button>
             </div>
-          </div>
+          </header>
 
-          {/* Conditional assignee selector */}
-          {trainingType !== "Mandatory" && (assignType === "user" || assignType === "designation" || assignType === "branch") && (
-            <div className="mt-5">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Select {assignType === "user" ? "Users" : assignType === "branch" ? "Branches" : "Roles"}
-              </label>
-              <div className="border border-gray-300 rounded-lg p-3 max-h-40 overflow-y-auto bg-gray-50">
-                {assignOptions.length === 0 ? (
-                  <p className="text-sm text-gray-400">Loading options...</p>
-                ) : (
-                  assignOptions.map((opt) => (
-                    <label key={opt.value} className="flex items-center gap-2 py-1 cursor-pointer text-sm hover:bg-gray-100 px-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={assignedTo.some((a) => a.value === opt.value)}
-                        onChange={() =>
-                          setAssignedTo((prev) =>
-                            prev.some((a) => a.value === opt.value)
-                              ? prev.filter((a) => a.value !== opt.value)
-                              : [...prev, opt]
-                          )
-                        }
-                        className="accent-gray-900"
-                      />
-                      {opt.label}
-                    </label>
-                  ))
-                )}
+          <section className="overflow-visible rounded-lg border border-slate-200 bg-white shadow-sm">
+            <SectionHeader icon={FiFileText} title="Training Details" />
+            <div className="grid grid-cols-1 gap-4 p-5 lg:grid-cols-3">
+              <div>
+                <label className={labelShell}>
+                  Training Title <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Enter training title"
+                  value={trainingName}
+                  onChange={(e) => setTrainingName(e.target.value)}
+                  className={fieldShell}
+                />
               </div>
-              {assignedTo.length > 0 && (
-                <p className="text-xs text-gray-500 mt-1">{assignedTo.length} selected</p>
-              )}
-            </div>
-          )}
-        </div>
 
-        {/* Modules card */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm">
-          <h2 className="text-base font-semibold text-gray-800 mb-4">Select training Modules</h2>
-
-          {modules.length === 0 ? (
-            <p className="text-sm text-gray-400">No modules available.</p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {modules.filter(getModuleId).map((mod) => {
-                const moduleId = getModuleId(mod);
-                const isSelected = selectedModules.some((m) => getModuleId(m) === moduleId);
-                const videoCount = mod.videos?.length ?? 0;
-                // Estimate duration: assume ~15 mins per video
-                const totalMins = videoCount * 15;
-                const hrs = Math.floor(totalMins / 60).toString().padStart(2, "0");
-                const mins = (totalMins % 60).toString().padStart(2, "0");
-
-                return (
-                  <div
-                    key={moduleId}
-                    onClick={() => toggleModule(mod)}
-                    className={`flex items-start gap-3 border rounded-2xl p-4 cursor-pointer transition-all ${
-                      isSelected
-                        ? "border-gray-900 bg-gray-50 shadow-sm"
-                        : "border-gray-200 hover:border-gray-400"
-                    }`}
+              <div>
+                <label className={labelShell}>
+                  Category <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <FiTag className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className={`${fieldShell} pl-9`}
                   >
-                    {/* Checkbox */}
-                    <div
-                      className={`mt-0.5 w-5 h-5 flex-shrink-0 rounded border-2 flex items-center justify-center transition-colors ${
-                        isSelected ? "bg-gray-900 border-gray-900" : "border-gray-400"
+                    <option value="">Select Category</option>
+                    {CATEGORY_OPTIONS.map((c) => (
+                      <option key={c.value} value={c.value}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className={labelShell}>Description</label>
+                <input
+                  type="text"
+                  placeholder="Enter description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className={fieldShell}
+                />
+              </div>
+
+              <div>
+                <label className={labelShell}>
+                  Deadline <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <FiCalendar className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                  <input
+                    type="number"
+                    placeholder="Number of days"
+                    value={days}
+                    min={1}
+                    onChange={(e) => setDays(e.target.value)}
+                    className={`${fieldShell} pl-9`}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className={labelShell}>
+                  Training Type <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {TRAINING_TYPES.map((type) => (
+                    <button
+                      key={type.value}
+                      type="button"
+                      onClick={() => setTrainingType(type.value)}
+                      className={`h-10 rounded-lg border px-3 text-left text-sm font-medium transition ${
+                        trainingType === type.value
+                          ? "border-slate-950 bg-slate-950 text-white"
+                          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                       }`}
                     >
-                      {isSelected && (
-                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-900 text-sm truncate">{mod.moduleName}</p>
-                      <div className="flex items-center gap-4 mt-1.5 text-gray-500 text-xs">
-                        <span className="flex items-center gap-1">
-                          <FiClock size={12} />
-                          {hrs} hr {mins} mins
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <FiBook size={12} />
-                          {videoCount} {videoCount === 1 ? "Video" : "Videos"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+                      {type.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
-          )}
+          </section>
 
-          {selectedModules.length > 0 && (
-            <p className="text-xs text-gray-500 mt-4">
-              {selectedModules.length} module{selectedModules.length > 1 ? "s" : ""} selected
-            </p>
-          )}
+          <section className="overflow-visible rounded-lg border border-slate-200 bg-white shadow-sm">
+            <SectionHeader icon={FiUsers} title="Assignment" meta={`${assignedTo.length} selected`} />
+            <div className="grid grid-cols-1 gap-4 p-5 lg:grid-cols-6">
+              {trainingType !== "Mandatory" ? (
+                <div className="lg:col-span-2">
+                  <label className={labelShell}>
+                    Assign To <span className="text-red-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {ASSIGN_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setAssignType(opt.value)}
+                        className={`h-10 rounded-lg border px-3 text-sm font-medium transition ${
+                          assignType === opt.value
+                            ? "border-slate-950 bg-slate-950 text-white"
+                            : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              <div className={trainingType === "Mandatory" ? "lg:col-span-2" : "lg:col-span-2"}>
+                <label className={labelShell}>
+                  Select {assignLabel} <span className="text-red-500">*</span>
+                </label>
+                <Select
+                  isMulti
+                  closeMenuOnSelect={false}
+                  hideSelectedOptions={false}
+                  options={assigneeOptions}
+                  value={assignedTo}
+                  onChange={(value) => setAssignedTo(value || [])}
+                  placeholder={
+                    trainingType === "Mandatory"
+                      ? "Search and select roles"
+                      : assignType === "user"
+                        ? "Search users"
+                        : assignType === "branch"
+                          ? "Search branches"
+                          : "Search roles"
+                  }
+                  styles={selectStyles}
+                  components={{ Option: CheckboxOption }}
+                  noOptionsMessage={() => `No ${assignLabel.toLowerCase()} found`}
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+            <SectionHeader icon={FiBook} title="Training Modules" meta={`${selectedModules.length} selected`} />
+
+            <div className="p-5">
+              {modules.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                  No modules available.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {modules.filter(getModuleId).map((mod) => {
+                    const moduleId = getModuleId(mod);
+                    const isSelected = selectedModules.some((m) => getModuleId(m) === moduleId);
+                    const videoCount = mod.videos?.length ?? 0;
+                    const totalMins = videoCount * 15;
+                    const hrs = Math.floor(totalMins / 60).toString().padStart(2, "0");
+                    const mins = (totalMins % 60).toString().padStart(2, "0");
+
+                    return (
+                      <button
+                        key={moduleId}
+                        type="button"
+                        onClick={() => toggleModule(mod)}
+                        className={`flex min-h-[78px] items-start gap-3 rounded-lg border p-4 text-left transition ${
+                          isSelected
+                            ? "border-slate-950 bg-slate-50 shadow-sm"
+                            : "border-slate-200 bg-white hover:border-slate-400 hover:bg-slate-50"
+                        }`}
+                      >
+                        <span
+                          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
+                            isSelected ? "border-slate-950 bg-slate-950 text-white" : "border-slate-400 bg-white"
+                          }`}
+                        >
+                          {isSelected ? <FiCheckCircle size={13} /> : null}
+                        </span>
+
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold text-slate-950">{mod.moduleName}</span>
+                          <span className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+                            <span className="inline-flex items-center gap-1">
+                              <FiClock size={12} />
+                              {hrs} hr {mins} mins
+                            </span>
+                            <span className="inline-flex items-center gap-1">
+                              <FiBook size={12} />
+                              {videoCount} {videoCount === 1 ? "Video" : "Videos"}
+                            </span>
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </section>
         </div>
-      </div>
+      </main>
     </div>
   );
 };
 
 export default CreateTrainingDatas;
-
-
-
-
