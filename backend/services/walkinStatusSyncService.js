@@ -27,12 +27,25 @@ const extractPhoneNumber = (item) => {
 };
 
 /**
+ * Helper to define hierarchy rankings for walk-in statuses
+ */
+const getStatusRank = (status) => {
+    const ranks = {
+        'New Walkin': 1,
+        'Booked': 2,
+        'Rentout': 3,
+        'Return': 4
+    };
+    return ranks[status] || 1; // Default rank is 1 for any other statuses
+};
+
+/**
  * Automatically sync Walkin statuses with the external Rental APIs
  */
 export const syncWalkinStatuses = async () => {
     console.log('🔄 [Walkin Status Sync] Job started at:', new Date().toISOString());
 
-    const dateFrom = getPastDateString(2); // Last 3 days (Today - 2)
+    const dateFrom = getPastDateString(6); // Last 7 days (Today - 6)
     const dateTo = getPastDateString(0);   // Today (Today - 0)
 
     console.log(`📅 [Walkin Status Sync] Range: ${dateFrom} to ${dateTo}`);
@@ -109,34 +122,63 @@ export const syncWalkinStatuses = async () => {
             }
 
             // Update matching walk-ins
-            for (const [normalizedPhone, targetStatus] of phoneStatusMap.entries()) {
-                // Find latest walk-in for this contact and storeId
-                const walkin = await Walkin.findOne({
-                    $or: [
-                        { contact: normalizedPhone },
-                        { contact: `+91${normalizedPhone}` },
-                        { contact: `91${normalizedPhone}` },
-                        { contact: `0${normalizedPhone}` }
-                    ],
+            const normalizedPhones = Array.from(phoneStatusMap.keys());
+            let branchWalkinsMatched = 0;
+            let branchWalkinsUpdated = 0;
+            let branchWalkinsSkipped = 0;
+
+            if (normalizedPhones.length > 0) {
+                // Build queries for 4 phone variants to search DB
+                const queryPhones = [];
+                for (const p of normalizedPhones) {
+                    queryPhones.push(p);
+                    queryPhones.push(`+91${p}`);
+                    queryPhones.push(`91${p}`);
+                    queryPhones.push(`0${p}`);
+                }
+
+                // Batch find all matching walk-ins for this branch
+                const walkins = await Walkin.find({
+                    contact: { $in: queryPhones },
                     storeId: storeId
                 }).sort({ createdAt: -1 });
 
-                if (walkin) {
-                    if (walkin.status !== targetStatus) {
-                        const oldStatus = walkin.status;
-                        
-                        // Perform transition logic: update status and increment repeatCount based on saveWalkin logic
-                        walkin.status = targetStatus;
-                        walkin.repeatCount = (walkin.repeatCount || 1) + 1;
-                        
-                        // save() will trigger the pre-save hooks (updating updatedAt but leaving createdAt untouched)
-                        await walkin.save();
-                        
-                        totalWalkinsUpdated++;
-                        console.log(`✅ [Walkin Status Sync] Updated customer contact ending in ...${normalizedPhone.slice(-4)} at ${workingBranch}: ${oldStatus} ➔ ${targetStatus} (repeatCount: ${walkin.repeatCount})`);
+                // Group by normalized contact to select only the latest walk-in per phone number
+                const walkinMap = new Map();
+                for (const walkin of walkins) {
+                    const norm = normalizePhone(walkin.contact);
+                    if (norm && !walkinMap.has(norm)) {
+                        walkinMap.set(norm, walkin);
+                    }
+                }
+
+                // Apply hierarchy and perform the updates
+                for (const [normalizedPhone, targetStatus] of phoneStatusMap.entries()) {
+                    const walkin = walkinMap.get(normalizedPhone);
+                    if (walkin) {
+                        branchWalkinsMatched++;
+                        const currentRank = getStatusRank(walkin.status);
+                        const targetRank = getStatusRank(targetStatus);
+
+                        if (targetRank > currentRank) {
+                            const oldStatus = walkin.status;
+                            walkin.status = targetStatus;
+                            walkin.repeatCount = (walkin.repeatCount || 1) + 1;
+
+                            await walkin.save();
+
+                            branchWalkinsUpdated++;
+                            totalWalkinsUpdated++;
+                            console.log(`✅ [Walkin Status Sync] Updated lead ending in ...${normalizedPhone.slice(-4)} at ${workingBranch}: ${oldStatus} ➔ ${targetStatus} (repeatCount: ${walkin.repeatCount})`);
+                        } else {
+                            branchWalkinsSkipped++;
+                            console.log(`ℹ️ [Walkin Status Sync] Skipped lead ending in ...${normalizedPhone.slice(-4)} at ${workingBranch}: current status '${walkin.status}' (rank ${currentRank}) >= target status '${targetStatus}' (rank ${targetRank})`);
+                        }
                     }
                 }
             }
+
+            console.log(`📈 [Walkin Status Sync] Branch ${locCode} execution results: Matched = ${branchWalkinsMatched}, Updated = ${branchWalkinsUpdated}, Skipped (hierarchy) = ${branchWalkinsSkipped}`);
 
         } catch (error) {
             console.error(`❌ [Walkin Status Sync] Unhandled error for locCode ${locCode}:`, error);
@@ -165,3 +207,43 @@ export const syncWalkinStatuses = async () => {
         }
     };
 };
+
+/**
+ * Automatically expire walk-ins to 'Loss' if they were created before today,
+ * have status 'New Walkin', and have not been updated since creation.
+ */
+export const expireWalkinsToLoss = async () => {
+    console.log('🔄 [Walkin Loss Expiry] Job started at:', new Date().toISOString());
+    try {
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        
+        console.log(`📅 [Walkin Loss Expiry] Expiry threshold: walk-ins created before ${startOfToday.toISOString()} local time`);
+
+        // Perform bulk update of walk-ins that:
+        // 1. status is 'New Walkin'
+        // 2. createdAt < startOfToday
+        // 3. updatedAt === createdAt (no updates occurred)
+        // Set status to 'Loss' and update updatedAt to the current time.
+        const result = await Walkin.updateMany(
+            {
+                status: 'New Walkin',
+                createdAt: { $lt: startOfToday },
+                $expr: { $eq: ['$createdAt', '$updatedAt'] }
+            },
+            {
+                $set: {
+                    status: 'Loss',
+                    updatedAt: now
+                }
+            }
+        );
+
+        console.log(`🏁 [Walkin Loss Expiry] Job completed. Updated ${result.modifiedCount} walk-ins to status 'Loss'.`);
+        return { success: true, expiredCount: result.modifiedCount };
+    } catch (error) {
+        console.error('❌ [Walkin Loss Expiry] Error during daily expiry job:', error);
+        return { success: false, error: error.message };
+    }
+};
+
