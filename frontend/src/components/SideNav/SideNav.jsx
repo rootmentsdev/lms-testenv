@@ -202,10 +202,11 @@ const SideNav = () => {
           <FlyoutNavItem
             icon="task"
             label="Task"
-            active={is('/task') || is('/task/create')}
+            active={is('/task') || is('/task/create') || is('/task/auto-schedule')}
             items={[
-              { to: '/task',        label: 'Task Management', active: is('/task') && !is('/task/create') },
               { to: '/task/create', label: 'Create Task',     active: is('/task/create') },
+              { to: '/task',        label: 'Task Management', active: is('/task') },
+              { to: '/task/auto-schedule', label: 'Auto Task', active: is('/task/auto-schedule') },
             ]}
           />
 

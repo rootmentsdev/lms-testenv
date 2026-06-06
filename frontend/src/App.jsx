@@ -43,6 +43,7 @@ const WalkinList = lazy(() => import('./pages/Walkin/WalkinList.jsx'))
 const WalkinReport = lazy(() => import('./pages/Walkin/WalkinReport.jsx'))
 const TaskManagement = lazy(() => import('./pages/Task/TaskManagement.jsx'))
 const CreateTask = lazy(() => import('./pages/Task/CreateTask.jsx'))
+const AutoTask = lazy(() => import('./pages/Task/AutoTask.jsx'))
 const ExistingUsers = lazy(() => import('./pages/Setting/UserManagement/ExistingUsers.jsx'))
 const CreateNewUser = lazy(() => import('./pages/Setting/UserManagement/CreateNewUser.jsx'))
 const CreateNotificationPage = lazy(() => import('./pages/Setting/CreateNotificationPage.jsx'))
@@ -174,6 +175,7 @@ function App() {
           <Route path="/walkin/report" element={<ProtectedLayout><WalkinReport /></ProtectedLayout>} />
           <Route path="/task" element={<ProtectedLayout><TaskManagement /></ProtectedLayout>} />
           <Route path="/task/create" element={<ProtectedLayout><CreateTask /></ProtectedLayout>} />
+          <Route path="/task/auto-schedule" element={<ProtectedLayout><AutoTask /></ProtectedLayout>} />
 
         </Routes>
       </Suspense>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import SideNav from "../../components/SideNav/SideNav";
 import DashboardOverview from "../../components/DashboardOverview/DashboardOverview";
 import DailyWalkings from "../../components/DailyWalkings/DailyWalkings";
@@ -7,6 +7,14 @@ import HomeBar from "../../components/HomeBar/HomeBar";
 
 const HomeData = () => {
     const [range, setRange] = useState("7");
+
+    useEffect(() => {
+        const intervalId = setInterval(() => {
+            window.dispatchEvent(new Event('dashboard:refresh'));
+        }, 5 * 60 * 1000); // 5 minutes
+
+        return () => clearInterval(intervalId);
+    }, []);
 
     return (
         <div className="mx-0 mb-[90px]">

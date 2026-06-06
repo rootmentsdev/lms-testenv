@@ -249,7 +249,13 @@ export const saveWalkin = async (req, res) => {
             if (category) walkinRecord.category = category.trim();
             if (subCategory) walkinRecord.subCategory = subCategory.trim();
             if (remarks) walkinRecord.remarks = remarks.trim();
-            if (status) walkinRecord.status = status.trim();
+            if (status) {
+                const trimmedStatus = status.trim();
+                if (walkinRecord.status !== trimmedStatus) {
+                    walkinRecord.repeatCount = (walkinRecord.repeatCount || 1) + 1;
+                }
+                walkinRecord.status = trimmedStatus;
+            }
             if (createdBy) walkinRecord.createdBy = createdBy;
             walkinRecord.date = todayStr; // Update visit date to the requested value
 
@@ -338,8 +344,12 @@ export const saveWalkin = async (req, res) => {
  */
 export const getWalkins = async (req, res) => {
     try {
-        const { startDate, endDate, storeId, employeeId, page = 1, limit = 20, search = '', status = '', store = '', dashboard = '', countOnly = '', chartOnly = '' } = req.query;
+        const { startDate, endDate, storeId, employeeId, page, limit, search = '', status = '', store = '', dashboard = '', countOnly = '', chartOnly = '' } = req.query;
         const adminId = req.admin.userId;
+
+        const pageNum = parseInt(page, 10) || 1;
+        const limitNum = parseInt(limit, 10) || 0;
+        const skipNum = (pageNum - 1) * limitNum;
 
         // 1. Build Base Query based on date/frontend filters
         let baseQuery = {};
@@ -431,20 +441,25 @@ export const getWalkins = async (req, res) => {
             });
         }
 
+        let findQuery = Walkin.find(secureQuery)
+            .sort({ createdAt: -1 })
+            .select(baseProjection);
+
+        if (limitNum > 0) {
+            findQuery = findQuery.skip(skipNum).limit(limitNum);
+        }
+
         const [total, filtered] = await Promise.all([
             Walkin.countDocuments(secureQuery),
-            Walkin.find(secureQuery)
-                .sort({ createdAt: -1 })
-                .select(baseProjection)
-                .lean(),
+            findQuery.lean(),
         ]);
 
         return res.status(200).json({
             success: true,
             message: 'Walk-ins retrieved successfully',
             count: total,
-            page: 1,
-            limit: total,
+            page: limitNum > 0 ? pageNum : 1,
+            limit: limitNum > 0 ? limitNum : total,
             data: filtered
         });
 
