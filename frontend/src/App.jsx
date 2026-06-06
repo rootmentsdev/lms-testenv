@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { Component, useEffect } from 'react';
 import { Route, Routes, useNavigate } from 'react-router-dom';
 import './App.css';
 import { ToastContainer } from 'react-toastify';
@@ -56,6 +56,63 @@ import Header from './components/Header/Header';
 
 import baseUrl from './api/api';
 import { useDispatch } from 'react-redux';
+
+class AppErrorBoundary extends Component {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#f4f6f8",
+          padding: "24px",
+        }}>
+          <div style={{
+            maxWidth: "420px",
+            width: "100%",
+            borderRadius: "18px",
+            background: "#ffffff",
+            boxShadow: "0 18px 45px rgba(15, 23, 42, 0.12)",
+            padding: "28px",
+            textAlign: "center",
+          }}>
+            <h1 style={{ fontSize: "22px", margin: "0 0 10px", color: "#0f172a" }}>
+              App update needed
+            </h1>
+            <p style={{ margin: "0 0 22px", color: "#64748b", lineHeight: 1.5 }}>
+              A new version was deployed while this page was open. Refresh to load the latest files.
+            </p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              style={{
+                border: 0,
+                borderRadius: "12px",
+                background: "#0f172a",
+                color: "#ffffff",
+                cursor: "pointer",
+                fontWeight: 700,
+                padding: "12px 18px",
+              }}
+            >
+              Refresh app
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 // Layout wrapper that adds the global header to all protected pages
 const ProtectedLayout = ({ children }) => (
@@ -173,68 +230,70 @@ function App() {
 
   return (
     <>
-      <Suspense fallback={<div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
-        <HashLoader color="#016E5B" size={50} />
-      </div>}>
-        <Routes>
-          {/* Public Route */}
-          <Route
-            path="/login"
-            element={
-              <PublicRoute>
-                <Login />
-              </PublicRoute>
-            }
-          />
+      <AppErrorBoundary>
+        <Suspense fallback={<div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+          <HashLoader color="#016E5B" size={50} />
+        </div>}>
+          <Routes>
+            {/* Public Route */}
+            <Route
+              path="/login"
+              element={
+                <PublicRoute>
+                  <Login />
+                </PublicRoute>
+              }
+            />
 
-          {/* Protected Routes */}
-          <Route path="/" element={<ProtectedLayout><Home /></ProtectedLayout>} />
-          <Route path="/assessments" element={<ProtectedLayout><Assessments /></ProtectedLayout>} />
+            {/* Protected Routes */}
+            <Route path="/" element={<ProtectedLayout><Home /></ProtectedLayout>} />
+            <Route path="/assessments" element={<ProtectedLayout><Assessments /></ProtectedLayout>} />
 
-          <Route path="/branch" element={<ProtectedLayout><Branch /></ProtectedLayout>} />
-          <Route path="/branch/audit" element={<ProtectedLayout><BranchAudit /></ProtectedLayout>} />
-          <Route path="/branch/audit/create" element={<ProtectedLayout><BranchAuditForm /></ProtectedLayout>} />
-          <Route path="/branch/audit/:id" element={<ProtectedLayout><BranchAuditProfile /></ProtectedLayout>} />
-          <Route path="/Addbranch" element={<ProtectedLayout><AddBranch /></ProtectedLayout>} />
+            <Route path="/branch" element={<ProtectedLayout><Branch /></ProtectedLayout>} />
+            <Route path="/branch/audit" element={<ProtectedLayout><BranchAudit /></ProtectedLayout>} />
+            <Route path="/branch/audit/create" element={<ProtectedLayout><BranchAuditForm /></ProtectedLayout>} />
+            <Route path="/branch/audit/:id" element={<ProtectedLayout><BranchAuditProfile /></ProtectedLayout>} />
+            <Route path="/Addbranch" element={<ProtectedLayout><AddBranch /></ProtectedLayout>} />
 
-          <Route path="/employee" element={<ProtectedLayout><Employee /></ProtectedLayout>} />
-          <Route path="/employee/create" element={<ProtectedLayout><CreateEmployee /></ProtectedLayout>} />
-          <Route path="/module" element={<ProtectedLayout><Module /></ProtectedLayout>} />
-          <Route path="/settings" element={<ProtectedLayout><Setting /></ProtectedLayout>} />
-          <Route path="/settings/users" element={<ProtectedLayout><ExistingUsers /></ProtectedLayout>} />
-          <Route path="/settings/create-user" element={<ProtectedLayout><CreateNewUser /></ProtectedLayout>} />
-          <Route path="/settings/create-notification" element={<ProtectedLayout><CreateNotificationPage /></ProtectedLayout>} />
-          <Route path="/alltraining" element={<ProtectedLayout><Training /></ProtectedLayout>} />
-          <Route path="/training" element={<ProtectedLayout><CreateTraining /></ProtectedLayout>} />
-          <Route path="/assigdata" element={<ProtectedLayout><AssignedTrainings /></ProtectedLayout>} />
-          <Route path="/assigtraining/:id" element={<ProtectedLayout><AssingOrdelete /></ProtectedLayout>} />
-          <Route path="/createmodule" element={<ProtectedLayout><CreateModule /></ProtectedLayout>} />
-          <Route path="/createmodule/:id" element={<ProtectedLayout><CreateModule /></ProtectedLayout>} />
-          <Route path="/createnewtraining" element={<ProtectedLayout><CreateTrainings /></ProtectedLayout>} />
-          <Route path="/createnewtraining/:id" element={<ProtectedLayout><CreateTrainings /></ProtectedLayout>} />
-          <Route path="/reassign/:id" element={<ProtectedLayout><Reassign /></ProtectedLayout>} />
-          <Route path="/create/mandatorytraining" element={<ProtectedLayout><MandatoryTraining /></ProtectedLayout>} />
-          <Route path="/trainingdetails/:id" element={<ProtectedLayout><UserTrainingProgress /></ProtectedLayout>} />
-          <Route path="/create/assessment" element={<ProtectedLayout><CreateAssessment /></ProtectedLayout>} />
-          <Route path="/assessment/assign/:id" element={<ProtectedLayout><AssessmentsAssign /></ProtectedLayout>} />
-          <Route path="/assign/assessment" element={<ProtectedLayout><AssignAssessment /></ProtectedLayout>} />
-          {/* Test route removed - no longer needed */}
-          <Route path="/admin/Notification" element={<ProtectedLayout><Notifications /></ProtectedLayout>} />
+            <Route path="/employee" element={<ProtectedLayout><Employee /></ProtectedLayout>} />
+            <Route path="/employee/create" element={<ProtectedLayout><CreateEmployee /></ProtectedLayout>} />
+            <Route path="/module" element={<ProtectedLayout><Module /></ProtectedLayout>} />
+            <Route path="/settings" element={<ProtectedLayout><Setting /></ProtectedLayout>} />
+            <Route path="/settings/users" element={<ProtectedLayout><ExistingUsers /></ProtectedLayout>} />
+            <Route path="/settings/create-user" element={<ProtectedLayout><CreateNewUser /></ProtectedLayout>} />
+            <Route path="/settings/create-notification" element={<ProtectedLayout><CreateNotificationPage /></ProtectedLayout>} />
+            <Route path="/alltraining" element={<ProtectedLayout><Training /></ProtectedLayout>} />
+            <Route path="/training" element={<ProtectedLayout><CreateTraining /></ProtectedLayout>} />
+            <Route path="/assigdata" element={<ProtectedLayout><AssignedTrainings /></ProtectedLayout>} />
+            <Route path="/assigtraining/:id" element={<ProtectedLayout><AssingOrdelete /></ProtectedLayout>} />
+            <Route path="/createmodule" element={<ProtectedLayout><CreateModule /></ProtectedLayout>} />
+            <Route path="/createmodule/:id" element={<ProtectedLayout><CreateModule /></ProtectedLayout>} />
+            <Route path="/createnewtraining" element={<ProtectedLayout><CreateTrainings /></ProtectedLayout>} />
+            <Route path="/createnewtraining/:id" element={<ProtectedLayout><CreateTrainings /></ProtectedLayout>} />
+            <Route path="/reassign/:id" element={<ProtectedLayout><Reassign /></ProtectedLayout>} />
+            <Route path="/create/mandatorytraining" element={<ProtectedLayout><MandatoryTraining /></ProtectedLayout>} />
+            <Route path="/trainingdetails/:id" element={<ProtectedLayout><UserTrainingProgress /></ProtectedLayout>} />
+            <Route path="/create/assessment" element={<ProtectedLayout><CreateAssessment /></ProtectedLayout>} />
+            <Route path="/assessment/assign/:id" element={<ProtectedLayout><AssessmentsAssign /></ProtectedLayout>} />
+            <Route path="/assign/assessment" element={<ProtectedLayout><AssignAssessment /></ProtectedLayout>} />
+            {/* Test route removed - no longer needed */}
+            <Route path="/admin/Notification" element={<ProtectedLayout><Notifications /></ProtectedLayout>} />
 
-          <Route path="/admin/overdue/assessment" element={<ProtectedLayout><AssessmentOverDuedata /></ProtectedLayout>} />
-          <Route path="/admin/overdue/training" element={<ProtectedLayout><TraningOverDuedata /></ProtectedLayout>} />
-          <Route path="/detailed/:id" element={<ProtectedLayout><EmployeeDetaile /></ProtectedLayout>} />
+            <Route path="/admin/overdue/assessment" element={<ProtectedLayout><AssessmentOverDuedata /></ProtectedLayout>} />
+            <Route path="/admin/overdue/training" element={<ProtectedLayout><TraningOverDuedata /></ProtectedLayout>} />
+            <Route path="/detailed/:id" element={<ProtectedLayout><EmployeeDetaile /></ProtectedLayout>} />
 
-          <Route path="/branch/detailed/:id" element={<ProtectedLayout><BranchDetails /></ProtectedLayout>} />
-          <Route path="/admin/profile" element={<ProtectedLayout><Profile /></ProtectedLayout>} />
-          <Route path="/admin/login-analytics" element={<ProtectedLayout><LoginAnalytics /></ProtectedLayout>} />
-          <Route path="/walkin/list" element={<ProtectedLayout><WalkinList /></ProtectedLayout>} />
-          <Route path="/walkin/report" element={<ProtectedLayout><WalkinReport /></ProtectedLayout>} />
-          <Route path="/task" element={<ProtectedLayout><TaskManagement /></ProtectedLayout>} />
-          <Route path="/task/create" element={<ProtectedLayout><CreateTask /></ProtectedLayout>} />
+            <Route path="/branch/detailed/:id" element={<ProtectedLayout><BranchDetails /></ProtectedLayout>} />
+            <Route path="/admin/profile" element={<ProtectedLayout><Profile /></ProtectedLayout>} />
+            <Route path="/admin/login-analytics" element={<ProtectedLayout><LoginAnalytics /></ProtectedLayout>} />
+            <Route path="/walkin/list" element={<ProtectedLayout><WalkinList /></ProtectedLayout>} />
+            <Route path="/walkin/report" element={<ProtectedLayout><WalkinReport /></ProtectedLayout>} />
+            <Route path="/task" element={<ProtectedLayout><TaskManagement /></ProtectedLayout>} />
+            <Route path="/task/create" element={<ProtectedLayout><CreateTask /></ProtectedLayout>} />
 
-        </Routes>
-      </Suspense>
+          </Routes>
+        </Suspense>
+      </AppErrorBoundary>
       <ToastContainer />
     </>
   );
