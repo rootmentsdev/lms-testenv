@@ -1,13 +1,14 @@
 import cron from 'node-cron';
-import { syncWalkinStatuses } from '../services/walkinStatusSyncService.js';
+import { syncWalkinStatuses, expireWalkinsToLoss } from '../services/walkinStatusSyncService.js';
 
 let isRunning = false;
+let isLossExpiryRunning = false;
 
 export const startWalkinStatusSyncCron = () => {
     console.log('🕐 Starting Walk-in Status Sync Scheduler...');
 
-    // Run every 15 minutes
-    cron.schedule('*/15 * * * *', async () => {
+    // Run every 1 hour
+    cron.schedule('0 * * * *', async () => {
         if (isRunning) {
             console.log('⚠️ [Walkin Status Sync Cron] Previous sync job is still running. Skipping this execution.');
             return;
@@ -24,5 +25,24 @@ export const startWalkinStatusSyncCron = () => {
         }
     });
 
-    console.log('✅ Walk-in Status Sync Scheduler started (runs every 15 minutes)');
+    // Run at 12:00 AM (midnight) every day
+    cron.schedule('0 0 * * *', async () => {
+        if (isLossExpiryRunning) {
+            console.log('⚠️ [Walkin Loss Expiry Cron] Previous loss expiry job is still running. Skipping this execution.');
+            return;
+        }
+
+        isLossExpiryRunning = true;
+        try {
+            console.log('⏰ Running scheduled daily Walk-in Loss Expiry...');
+            await expireWalkinsToLoss();
+        } catch (error) {
+            console.error('❌ Scheduled Walk-in Loss Expiry Cron encountered an error:', error);
+        } finally {
+            isLossExpiryRunning = false;
+        }
+    });
+
+    console.log('✅ Walk-in Status Sync Scheduler started (runs every 1 hour, loss expiry runs daily at 12:00 AM)');
 };
+
