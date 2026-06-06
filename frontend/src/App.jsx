@@ -43,6 +43,7 @@ const WalkinList = lazy(() => import('./pages/Walkin/WalkinList.jsx'))
 const WalkinReport = lazy(() => import('./pages/Walkin/WalkinReport.jsx'))
 const TaskManagement = lazy(() => import('./pages/Task/TaskManagement.jsx'))
 const CreateTask = lazy(() => import('./pages/Task/CreateTask.jsx'))
+const AutoTask = lazy(() => import('./pages/Task/AutoTask.jsx'))
 const ExistingUsers = lazy(() => import('./pages/Setting/UserManagement/ExistingUsers.jsx'))
 const CreateNewUser = lazy(() => import('./pages/Setting/UserManagement/CreateNewUser.jsx'))
 const CreateNotificationPage = lazy(() => import('./pages/Setting/CreateNotificationPage.jsx'))
@@ -230,70 +231,66 @@ function App() {
 
   return (
     <>
-      <AppErrorBoundary>
-        <Suspense fallback={<div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
-          <HashLoader color="#016E5B" size={50} />
-        </div>}>
-          <Routes>
-            {/* Public Route */}
-            <Route
-              path="/login"
-              element={
-                <PublicRoute>
-                  <Login />
-                </PublicRoute>
-              }
-            />
+      <Suspense fallback={<div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+        <HashLoader color="#016E5B" size={50} />
+      </div>}>
+        <Routes>
+          {/* Public Route */}
+          <Route
+            path="/login"
+            element={
+              <PublicRoute>
+                <Login />
+              </PublicRoute>
+            }
+          />
 
-            {/* Protected Routes */}
-            <Route path="/" element={<ProtectedLayout><Home /></ProtectedLayout>} />
-            <Route path="/assessments" element={<ProtectedLayout><Assessments /></ProtectedLayout>} />
+          {/* Protected Routes */}
+          <Route path="/" element={<ProtectedLayout><Home /></ProtectedLayout>} />
+          <Route path="/assessments" element={<ProtectedLayout><Assessments /></ProtectedLayout>} />
 
-            <Route path="/branch" element={<ProtectedLayout><Branch /></ProtectedLayout>} />
-            <Route path="/branch/audit" element={<ProtectedLayout><BranchAudit /></ProtectedLayout>} />
-            <Route path="/branch/audit/create" element={<ProtectedLayout><BranchAuditForm /></ProtectedLayout>} />
-            <Route path="/branch/audit/:id" element={<ProtectedLayout><BranchAuditProfile /></ProtectedLayout>} />
-            <Route path="/Addbranch" element={<ProtectedLayout><AddBranch /></ProtectedLayout>} />
+          <Route path="/branch" element={<ProtectedLayout><Branch /></ProtectedLayout>} />
+          <Route path="/Addbranch" element={<ProtectedLayout><AddBranch /></ProtectedLayout>} />
 
-            <Route path="/employee" element={<ProtectedLayout><Employee /></ProtectedLayout>} />
-            <Route path="/employee/create" element={<ProtectedLayout><CreateEmployee /></ProtectedLayout>} />
-            <Route path="/module" element={<ProtectedLayout><Module /></ProtectedLayout>} />
-            <Route path="/settings" element={<ProtectedLayout><Setting /></ProtectedLayout>} />
-            <Route path="/settings/users" element={<ProtectedLayout><ExistingUsers /></ProtectedLayout>} />
-            <Route path="/settings/create-user" element={<ProtectedLayout><CreateNewUser /></ProtectedLayout>} />
-            <Route path="/settings/create-notification" element={<ProtectedLayout><CreateNotificationPage /></ProtectedLayout>} />
-            <Route path="/alltraining" element={<ProtectedLayout><Training /></ProtectedLayout>} />
-            <Route path="/training" element={<ProtectedLayout><CreateTraining /></ProtectedLayout>} />
-            <Route path="/assigdata" element={<ProtectedLayout><AssignedTrainings /></ProtectedLayout>} />
-            <Route path="/assigtraining/:id" element={<ProtectedLayout><AssingOrdelete /></ProtectedLayout>} />
-            <Route path="/createmodule" element={<ProtectedLayout><CreateModule /></ProtectedLayout>} />
-            <Route path="/createmodule/:id" element={<ProtectedLayout><CreateModule /></ProtectedLayout>} />
-            <Route path="/createnewtraining" element={<ProtectedLayout><CreateTrainings /></ProtectedLayout>} />
-            <Route path="/createnewtraining/:id" element={<ProtectedLayout><CreateTrainings /></ProtectedLayout>} />
-            <Route path="/reassign/:id" element={<ProtectedLayout><Reassign /></ProtectedLayout>} />
-            <Route path="/create/mandatorytraining" element={<ProtectedLayout><MandatoryTraining /></ProtectedLayout>} />
-            <Route path="/trainingdetails/:id" element={<ProtectedLayout><UserTrainingProgress /></ProtectedLayout>} />
-            <Route path="/create/assessment" element={<ProtectedLayout><CreateAssessment /></ProtectedLayout>} />
-            <Route path="/assessment/assign/:id" element={<ProtectedLayout><AssessmentsAssign /></ProtectedLayout>} />
-            <Route path="/assign/assessment" element={<ProtectedLayout><AssignAssessment /></ProtectedLayout>} />
-            {/* Test route removed - no longer needed */}
-            <Route path="/admin/Notification" element={<ProtectedLayout><Notifications /></ProtectedLayout>} />
+          <Route path="/employee" element={<ProtectedLayout><Employee /></ProtectedLayout>} />
+          <Route path="/employee/create" element={<ProtectedLayout><CreateEmployee /></ProtectedLayout>} />
+          <Route path="/module" element={<ProtectedLayout><Module /></ProtectedLayout>} />
+          <Route path="/settings" element={<ProtectedLayout><Setting /></ProtectedLayout>} />
+          <Route path="/settings/users" element={<ProtectedLayout><ExistingUsers /></ProtectedLayout>} />
+          <Route path="/settings/create-user" element={<ProtectedLayout><CreateNewUser /></ProtectedLayout>} />
+          <Route path="/settings/create-notification" element={<ProtectedLayout><CreateNotificationPage /></ProtectedLayout>} />
+          <Route path="/alltraining" element={<ProtectedLayout><Training /></ProtectedLayout>} />
+          <Route path="/training" element={<ProtectedLayout><CreateTraining /></ProtectedLayout>} />
+          <Route path="/assigdata" element={<ProtectedLayout><AssignedTrainings /></ProtectedLayout>} />
+          <Route path="/assigtraining/:id" element={<ProtectedLayout><AssingOrdelete /></ProtectedLayout>} />
+          <Route path="/createmodule" element={<ProtectedLayout><CreateModule /></ProtectedLayout>} />
+          <Route path="/createmodule/:id" element={<ProtectedLayout><CreateModule /></ProtectedLayout>} />
+          <Route path="/createnewtraining" element={<ProtectedLayout><CreateTrainings /></ProtectedLayout>} />
+          <Route path="/createnewtraining/:id" element={<ProtectedLayout><CreateTrainings /></ProtectedLayout>} />
+          <Route path="/reassign/:id" element={<ProtectedLayout><Reassign /></ProtectedLayout>} />
+          <Route path="/create/mandatorytraining" element={<ProtectedLayout><MandatoryTraining /></ProtectedLayout>} />
+          <Route path="/trainingdetails/:id" element={<ProtectedLayout><UserTrainingProgress /></ProtectedLayout>} />
+          <Route path="/create/assessment" element={<ProtectedLayout><CreateAssessment /></ProtectedLayout>} />
+          <Route path="/assessment/assign/:id" element={<ProtectedLayout><AssessmentsAssign /></ProtectedLayout>} />
+          <Route path="/assign/assessment" element={<ProtectedLayout><AssignAssessment /></ProtectedLayout>} />
+          {/* Test route removed - no longer needed */}
+          <Route path="/admin/Notification" element={<ProtectedLayout><Notifications /></ProtectedLayout>} />
 
-            <Route path="/admin/overdue/assessment" element={<ProtectedLayout><AssessmentOverDuedata /></ProtectedLayout>} />
-            <Route path="/admin/overdue/training" element={<ProtectedLayout><TraningOverDuedata /></ProtectedLayout>} />
-            <Route path="/detailed/:id" element={<ProtectedLayout><EmployeeDetaile /></ProtectedLayout>} />
+          <Route path="/admin/overdue/assessment" element={<ProtectedLayout><AssessmentOverDuedata /></ProtectedLayout>} />
+          <Route path="/admin/overdue/training" element={<ProtectedLayout><TraningOverDuedata /></ProtectedLayout>} />
+          <Route path="/detailed/:id" element={<ProtectedLayout><EmployeeDetaile /></ProtectedLayout>} />
 
-            <Route path="/branch/detailed/:id" element={<ProtectedLayout><BranchDetails /></ProtectedLayout>} />
-            <Route path="/admin/profile" element={<ProtectedLayout><Profile /></ProtectedLayout>} />
-            <Route path="/admin/login-analytics" element={<ProtectedLayout><LoginAnalytics /></ProtectedLayout>} />
-            <Route path="/walkin/list" element={<ProtectedLayout><WalkinList /></ProtectedLayout>} />
-            <Route path="/walkin/report" element={<ProtectedLayout><WalkinReport /></ProtectedLayout>} />
-            <Route path="/task" element={<ProtectedLayout><TaskManagement /></ProtectedLayout>} />
-            <Route path="/task/create" element={<ProtectedLayout><CreateTask /></ProtectedLayout>} />
+          <Route path="/branch/detailed/:id" element={<ProtectedLayout><BranchDetails /></ProtectedLayout>} />
+          <Route path="/admin/profile" element={<ProtectedLayout><Profile /></ProtectedLayout>} />
+          <Route path="/admin/login-analytics" element={<ProtectedLayout><LoginAnalytics /></ProtectedLayout>} />
+          <Route path="/walkin/list" element={<ProtectedLayout><WalkinList /></ProtectedLayout>} />
+          <Route path="/walkin/report" element={<ProtectedLayout><WalkinReport /></ProtectedLayout>} />
+          <Route path="/task" element={<ProtectedLayout><TaskManagement /></ProtectedLayout>} />
+          <Route path="/task/create" element={<ProtectedLayout><CreateTask /></ProtectedLayout>} />
+          <Route path="/task/auto-schedule" element={<ProtectedLayout><AutoTask /></ProtectedLayout>} />
 
-          </Routes>
-        </Suspense>
-      </AppErrorBoundary>
+        </Routes>
+      </Suspense>
       <ToastContainer />
     </>
   );

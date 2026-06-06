@@ -170,13 +170,15 @@ const WalkinList = () => {
     };
 
     // Fetch walkins dynamically from live API
-    const loadWalkinsList = async () => {
+    const loadWalkinsList = async (pageToLoad = 1) => {
         try {
             setWalkinsLoading(true);
             const params = new URLSearchParams({
                 search: searchQuery.trim(),
                 status: statusFilter,
                 store: storeFilter,
+                page: pageToLoad,
+                limit: itemsPerPage === 'All' ? 0 : itemsPerPage
             });
             const walkinRes = await fetch(`${baseUrl.baseUrl}api/walkin/list?${params.toString()}`, {
                 headers: {
@@ -231,8 +233,6 @@ const WalkinList = () => {
 
                 const initialForm = getResetFormData(adminData, branchList);
                 setFormData(initialForm);
-
-                await loadWalkinsList(1);
             } catch (err) {
                 console.error("Error fetching initial walkin data:", err);
             } finally {
@@ -259,16 +259,38 @@ const WalkinList = () => {
         }
     };
 
-    // Reload remote page when filters change
+    // Reset page to 1 when filters or page limit changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, statusFilter, storeFilter, itemsPerPage]);
+
+    // Fetch walkins whenever page, limit, filters, or loading state changes
+    // Debounce search-triggered fetches so we don't fire on every keystroke
     useEffect(() => {
         if (!token || loading) return;
-        setCurrentPage(1);
-        loadWalkinsList();
-    }, [searchQuery, statusFilter, storeFilter]);
+        if (searchQuery.trim().length > 0) {
+            // Debounce search input — wait 350ms before calling API
+            const timer = setTimeout(() => loadWalkinsList(1), 350);
+            return () => clearTimeout(timer);
+        } else {
+            loadWalkinsList(currentPage);
+        }
+    }, [currentPage, itemsPerPage, searchQuery, statusFilter, storeFilter, loading]);
 
-    const totalPages = Math.ceil(walkins.length / itemsPerPage);
-    const indexFirst = (currentPage - 1) * itemsPerPage;
-    const currentItems = walkins.slice(indexFirst, indexFirst + itemsPerPage);
+    // Auto-refresh the list page data every 5 minutes
+    useEffect(() => {
+        const intervalId = setInterval(() => {
+            if (token && !loading && !showAddView) {
+                loadWalkinsList(currentPage);
+            }
+        }, 5 * 60 * 1000);
+
+        return () => clearInterval(intervalId);
+    }, [currentPage, itemsPerPage, searchQuery, statusFilter, storeFilter, token, loading, showAddView]);
+
+    const totalPages = itemsPerPage === 'All' ? 1 : Math.ceil(totalWalkins / itemsPerPage);
+    const indexFirst = itemsPerPage === 'All' ? 0 : (currentPage - 1) * itemsPerPage;
+    const currentItems = walkins;
 
     const handlePageChange = (pageNumber) => {
         if (pageNumber >= 1 && pageNumber <= totalPages) {
@@ -461,15 +483,15 @@ const WalkinList = () => {
 
             const json = await res.json();
             if (json.success) {
-                // Refresh data from DB
-                await loadWalkinsList();
-                window.dispatchEvent(new Event('dashboard:refresh'));
-
-                // Reset form to defaults
+                // Reset form to defaults and hide form view immediately for instant redirect
                 setFormData(getResetFormData());
                 setCustomerExistsNotification(false);
                 setCustomerData(null);
                 setShowAddView(false);
+
+                // Reload walkins list and refresh dashboard in the background
+                loadWalkinsList(currentPage);
+                window.dispatchEvent(new Event('dashboard:refresh'));
             } else {
                 alert(`Error: ${json.message}`);
             }
@@ -851,14 +873,29 @@ const WalkinList = () => {
 
                                     {/* Pagination */}
                                     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'14px 20px', borderTop:'1px solid #f3f4f6', fontSize:'13px', color:'#6b7280' }}>
-                                        <span>Showing {String(Math.min(indexFirst + currentItems.length, walkins.length)).padStart(2,'0')} of {walkins.length}</span>
-                                        <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
-                                            <button onClick={()=>handlePageChange(currentPage-1)} disabled={currentPage===1} style={{ width:'30px', height:'30px', border:'1px solid #e5e7eb', borderRadius:'6px', background:'#fff', cursor:currentPage===1?'not-allowed':'pointer', opacity:currentPage===1?0.4:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#374151' }}>
-                                                <FaChevronLeft size={10} />
-                                            </button>
-                                            <button onClick={()=>handlePageChange(currentPage+1)} disabled={currentPage===totalPages||totalPages===0} style={{ width:'30px', height:'30px', border:'1px solid #e5e7eb', borderRadius:'6px', background:'#fff', cursor:(currentPage===totalPages||totalPages===0)?'not-allowed':'pointer', opacity:(currentPage===totalPages||totalPages===0)?0.4:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#374151' }}>
-                                                <FaChevronRight size={10} />
-                                            </button>
+                                        <span>Showing {String(Math.min(indexFirst + currentItems.length, totalWalkins)).padStart(2,'0')} of {totalWalkins}</span>
+                                        <div style={{ display:'flex', alignItems:'center', gap:'16px' }}>
+                                            <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+                                                <span>Show:</span>
+                                                <select
+                                                    value={itemsPerPage}
+                                                    onChange={e=>{
+                                                        const val = e.target.value;
+                                                        setItemsPerPage(val === 'All' ? 'All' : Number(val));
+                                                    }}
+                                                    style={{ border:'1px solid #e5e7eb', borderRadius:'6px', padding:'3px 6px', fontSize:'12px', color:'#374151', background:'#fff', outline:'none', cursor:'pointer' }}
+                                                >
+                                                    {[50, 100, 200, 'All'].map(val=><option key={val} value={val}>{val}</option>)}
+                                                </select>
+                                            </div>
+                                            <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+                                                <button onClick={()=>handlePageChange(currentPage-1)} disabled={currentPage===1} style={{ width:'30px', height:'30px', border:'1px solid #e5e7eb', borderRadius:'6px', background:'#fff', cursor:currentPage===1?'not-allowed':'pointer', opacity:currentPage===1?0.4:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#374151' }}>
+                                                    <FaChevronLeft size={10} />
+                                                </button>
+                                                <button onClick={()=>handlePageChange(currentPage+1)} disabled={currentPage===totalPages||totalPages===0} style={{ width:'30px', height:'30px', border:'1px solid #e5e7eb', borderRadius:'6px', background:'#fff', cursor:(currentPage===totalPages||totalPages===0)?'not-allowed':'pointer', opacity:(currentPage===totalPages||totalPages===0)?0.4:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#374151' }}>
+                                                    <FaChevronRight size={10} />
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </>
