@@ -37,7 +37,7 @@ const CustomTooltip = ({ active, payload, label }) => {
       <p style={{ fontWeight: 600, marginBottom: 4 }}>{label}</p>
       {payload.map((p) => (
         <p key={p.dataKey} style={{ color: p.color, margin: "2px 0" }}>
-          {p.dataKey === "walkings" ? "Walkings" : "Completed"} : <b>{p.value}</b>
+          {p.dataKey === "walkings" ? "Walkings" : "Loss"} : <b>{p.value}</b>
         </p>
       ))}
     </div>
@@ -128,11 +128,11 @@ const DailyWalkings = ({ range = "7", customRange, onRangeChange, onCustomRangeC
 
     return days.map((d) => {
       const key = toDateInput(d);
-      const row = series.get(key) || { walkings: 0, completed: 0 };
+      const row = series.get(key) || { walkings: 0, loss: 0 };
       return {
         name: fmt(d),
         walkings: Number(row.walkings || 0),
-        completed: Number(row.completed || 0),
+        loss: Number(row.loss || 0),
       };
     });
   }, [walkinResponse, days]);
@@ -250,11 +250,11 @@ const DailyWalkings = ({ range = "7", customRange, onRangeChange, onCustomRangeC
               />
               <Line
                 type="monotone"
-                dataKey="completed"
-                stroke="#22c55e"
-                strokeWidth={2}
-                dot={{ r: 3, fill: "#22c55e", strokeWidth: 0 }}
-                activeDot={{ r: 5, fill: "#22c55e" }}
+                dataKey="loss"
+                stroke="#ef4444"
+                strokeWidth={2.5}
+                dot={{ r: 4, fill: "#ef4444", strokeWidth: 0 }}
+                activeDot={{ r: 6, fill: "#ef4444" }}
               />
             </LineChart>
           </ResponsiveContainer>

@@ -408,10 +408,10 @@ export const getWalkins = async (req, res) => {
                     $group: {
                         _id: { $substrBytes: ['$date', 0, 10] },
                         walkings: { $sum: 1 },
-                        completed: {
+                        loss: {
                             $sum: {
                                 $cond: [
-                                    { $in: ['$status', ['Completed', 'Booking']] },
+                                    { $in: ['$status', ['Loss', 'loss', 'LOST']] },
                                     1,
                                     0
                                 ]
