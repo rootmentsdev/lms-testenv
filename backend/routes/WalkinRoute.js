@@ -1,5 +1,5 @@
 import express from 'express';
-import { checkCustomerExists, saveWalkin, getWalkins, getAllWalkinsPublic } from '../controllers/WalkinController.js';
+import { checkCustomerExists, saveWalkin, getWalkins, getAllWalkinsPublic, getCronLogs } from '../controllers/WalkinController.js';
 import { MiddilWare } from '../lib/middilWare.js';
 
 const router = express.Router();
@@ -258,5 +258,12 @@ router.get('/list', MiddilWare, getWalkins);
  *         description: Internal server error
  */
 router.get('/all', getAllWalkinsPublic);
+
+/**
+ * GET /api/walkin/cron-logs
+ * Returns cron job run history — use ?jobType=walkin_status_sync or ?jobType=walkin_loss_expiry to filter
+ * Use ?limit=N to control how many records to return (max 100, default 20)
+ */
+router.get('/cron-logs', MiddilWare, getCronLogs);
 
 export default router;

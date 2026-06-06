@@ -2,6 +2,7 @@ import Walkin from '../model/Walkin.js';
 import Admin from '../model/Admin.js';
 import User from '../model/User.js';
 import Branch from '../model/Branch.js';
+import CronLog from '../model/CronLog.js';
 import mongoose from 'mongoose';
 import { validateStoreAccess, validateEmployeeAccess, buildWalkinFilter } from '../lib/permissions.js';
 
@@ -503,6 +504,40 @@ export const getAllWalkinsPublic = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Internal server error while fetching public walk-ins',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * GET /api/walkin/cron-logs
+ * Returns the last N cron job run records so admins can verify the scheduler is working.
+ */
+export const getCronLogs = async (req, res) => {
+    try {
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+        const jobType = req.query.jobType; // optional filter: 'walkin_status_sync' | 'walkin_loss_expiry'
+
+        const query = {};
+        if (jobType && ['walkin_status_sync', 'walkin_loss_expiry'].includes(jobType)) {
+            query.jobType = jobType;
+        }
+
+        const logs = await CronLog.find(query)
+            .sort({ startedAt: -1 })
+            .limit(limit)
+            .lean();
+
+        return res.status(200).json({
+            success: true,
+            count: logs.length,
+            data: logs
+        });
+    } catch (error) {
+        console.error('Error fetching cron logs:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to fetch cron logs',
             error: error.message
         });
     }
