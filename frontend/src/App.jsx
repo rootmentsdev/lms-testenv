@@ -1,11 +1,8 @@
-import { useEffect } from 'react';
+import { Component, useEffect } from 'react';
 import { Route, Routes, useNavigate } from 'react-router-dom';
 import './App.css';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import "@fontsource/dm-sans"
-import "@fontsource/dm-sans/500.css"
-import "@fontsource/dm-sans/700.css"
 import HashLoader from "react-spinners/HashLoader";
 
 
@@ -14,6 +11,9 @@ const Home = lazy(() => import('./pages/Home/Home'));
 const Login = lazy(() => import('./pages/Login/Login'));
 const Assessments = lazy(() => import('./pages/Assessments/Assessments'));
 const Branch = lazy(() => import('./pages/Branch/Branch'));
+const BranchAudit = lazy(() => import('./pages/Branch/BranchAudit/BranchAudit.jsx'));
+const BranchAuditForm = lazy(() => import('./pages/Branch/BranchAudit/BranchAuditForm.jsx'));
+const BranchAuditProfile = lazy(() => import('./pages/Branch/BranchAudit/BranchAuditProfile.jsx'));
 const Employee = lazy(() => import('./pages/Employee/Employee'));
 const CreateEmployee = lazy(() => import('./pages/Employee/CreateEmployee'));
 const Module = lazy(() => import('./pages/Modules/Module'));
@@ -58,6 +58,63 @@ import Header from './components/Header/Header';
 import baseUrl from './api/api';
 import { useDispatch } from 'react-redux';
 
+class AppErrorBoundary extends Component {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#f4f6f8",
+          padding: "24px",
+        }}>
+          <div style={{
+            maxWidth: "420px",
+            width: "100%",
+            borderRadius: "18px",
+            background: "#ffffff",
+            boxShadow: "0 18px 45px rgba(15, 23, 42, 0.12)",
+            padding: "28px",
+            textAlign: "center",
+          }}>
+            <h1 style={{ fontSize: "22px", margin: "0 0 10px", color: "#0f172a" }}>
+              App update needed
+            </h1>
+            <p style={{ margin: "0 0 22px", color: "#64748b", lineHeight: 1.5 }}>
+              A new version was deployed while this page was open. Refresh to load the latest files.
+            </p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              style={{
+                border: 0,
+                borderRadius: "12px",
+                background: "#0f172a",
+                color: "#ffffff",
+                cursor: "pointer",
+                fontWeight: 700,
+                padding: "12px 18px",
+              }}
+            >
+              Refresh app
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 // Layout wrapper that adds the global header to all protected pages
 const ProtectedLayout = ({ children }) => (
   <ProtectedRoute>
@@ -65,6 +122,59 @@ const ProtectedLayout = ({ children }) => (
     <div style={{ paddingTop: '60px' }}>{children}</div>
   </ProtectedRoute>
 );
+
+const preloadProtectedRoutes = () => {
+  const routes = [
+    () => import('./pages/Assessments/Assessments'),
+    () => import('./pages/Branch/Branch'),
+    () => import('./pages/Branch/BranchAudit/BranchAudit.jsx'),
+    () => import('./pages/Branch/BranchAudit/BranchAuditForm.jsx'),
+    () => import('./pages/Branch/BranchAudit/BranchAuditProfile.jsx'),
+    () => import('./pages/Branch/AddBranch.jsx'),
+    () => import('./pages/Employee/Employee'),
+    () => import('./pages/Employee/CreateEmployee'),
+    () => import('./pages/Modules/Module'),
+    () => import('./pages/Training/Training'),
+    () => import('./pages/Setting/Setting'),
+    () => import('./pages/Training/CreateTraining'),
+    () => import('./pages/Training/AssignedTrainings'),
+    () => import('./pages/Training/AssingOrdelete'),
+    () => import('./pages/Modules/createmodule/CreateModule'),
+    () => import('./pages/Training/createTraining/CreateTrainings'),
+    () => import('./pages/Training/Reassign/Reassign'),
+    () => import('./pages/Training/Mandatorytraining/Mandatorytraining'),
+    () => import('./pages/Training/UserTrainingProgress/UserTrainingProgress'),
+    () => import('./pages/Assessments/CreateAssessment/CreateAssessment'),
+    () => import('./pages/Assessments/AssessmentsAssign/AssessmentsAssign'),
+    () => import('./pages/Assessments/AssignAssessment/AssignAssessment'),
+    () => import('./pages/Notification/Notifications.jsx'),
+    () => import('./pages/OverDue/AssessmentOverDuedata.jsx'),
+    () => import('./pages/OverDue/TraningOverDuedata.jsx'),
+    () => import('./pages/Employee/EmployeeDetaile/EmployeeDetaile.jsx'),
+    () => import('./pages/Branch/BranchDetails/BranchDetails.jsx'),
+    () => import('./pages/profile/Profile.jsx'),
+    () => import('./pages/Setting/LoginAnalytics.jsx'),
+    () => import('./pages/Walkin/WalkinList.jsx'),
+    () => import('./pages/Walkin/WalkinReport.jsx'),
+    () => import('./pages/Task/TaskManagement.jsx'),
+    () => import('./pages/Task/CreateTask.jsx'),
+    () => import('./pages/Setting/UserManagement/ExistingUsers.jsx'),
+    () => import('./pages/Setting/UserManagement/CreateNewUser.jsx'),
+    () => import('./pages/Setting/CreateNotificationPage.jsx'),
+  ];
+
+  const run = () => {
+    routes.forEach((load) => {
+      load().catch(() => {});
+    });
+  };
+
+  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+    window.requestIdleCallback(run, { timeout: 2000 });
+  } else {
+    setTimeout(run, 0);
+  }
+};
 
 
 
@@ -115,6 +225,8 @@ function App() {
 
       verifyToken();
     }
+
+    preloadProtectedRoutes();
   }, [dispatch, navigate]);
 
   return (

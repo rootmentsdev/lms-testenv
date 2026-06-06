@@ -16,10 +16,6 @@ const normalizeBranchKey = (value) => {
     return String(value).trim();
 };
 
-const homeProgressCache = new Map();
-const HOME_PROGRESS_SUMMARY_CACHE_TTL_MS = 60 * 1000;
-const HOME_PROGRESS_CHART_CACHE_TTL_MS = 10 * 60 * 1000;
-
 export const createDesignation = async (req, res) => {
     try {
         // Validate input
@@ -81,11 +77,6 @@ export const getAllDesignation = async (req, res) => {
 export const HomeBar = async (req, res) => {
     try {
         const Admin1 = req.admin.userId;
-        const cacheKey = `${Admin1}:${req.admin?.role || ''}`;
-        const cached = homeProgressCache.get(cacheKey);
-        if (cached && (Date.now() - cached.createdAt) < HOME_PROGRESS_CHART_CACHE_TTL_MS) {
-            return res.status(200).json(cached.payload);
-        }
 
         const AdminData = await Admin.findById(Admin1);
         if (!AdminData) return res.status(404).json({ message: "Admin not found" });
@@ -182,11 +173,7 @@ export const HomeBar = async (req, res) => {
             data: allData,
         };
 
-        homeProgressCache.set(cacheKey, {
-            createdAt: Date.now(),
-            payload,
-        });
-
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
         return res.status(200).json(payload);
     } catch (error) {
         console.error("Error fetching data:", error);
@@ -200,11 +187,6 @@ export const HomeBar = async (req, res) => {
 export const HomeProgressSummary = async (req, res) => {
     try {
         const Admin1 = req.admin.userId;
-        const cacheKey = `summary:${Admin1}:${req.admin?.role || ''}`;
-        const cached = homeProgressCache.get(cacheKey);
-        if (cached && (Date.now() - cached.createdAt) < HOME_PROGRESS_SUMMARY_CACHE_TTL_MS) {
-            return res.status(200).json(cached.payload);
-        }
 
         const AdminData = await Admin.findById(Admin1);
         if (!AdminData) return res.status(404).json({ message: "Admin not found" });
@@ -252,7 +234,7 @@ export const HomeProgressSummary = async (req, res) => {
             },
         };
 
-        homeProgressCache.set(cacheKey, { createdAt: Date.now(), payload });
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
         return res.status(200).json(payload);
     } catch (error) {
         return res.status(500).json({ message: "Error fetching summary", error: error.message });

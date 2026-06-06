@@ -1,7 +1,7 @@
 const baseUrl = {
   // Automatically switch between local development and production Render URL!
   baseUrl: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? "http://localhost:7001/"
+    ? "http://localhost:7000/"
     : "https://lms-testenv-v0w5.onrender.com/",
 };
 
@@ -67,6 +67,12 @@ export const apiCall = async (endpoint, options = {}) => {
   }
 };
 
+const notifyDashboardRefresh = () => {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("dashboard:refresh"));
+  }
+};
+
 /**
  * Mark video as complete
  * @param {Object} params - Parameters for marking video complete
@@ -89,9 +95,12 @@ export const markVideoAsComplete = async ({ userId, trainingId, moduleId, videoI
   if (watchTime) params.append('watchTime', watchTime.toString());
   if (totalDuration) params.append('totalDuration', totalDuration.toString());
 
-  return await apiCall(`api/user/update/trainingprocess?${params.toString()}`, {
+  const response = await apiCall(`api/user/update/trainingprocess?${params.toString()}`, {
     method: 'PATCH',
   });
+
+  notifyDashboardRefresh();
+  return response;
 };
 
 /**
@@ -100,10 +109,13 @@ export const markVideoAsComplete = async ({ userId, trainingId, moduleId, videoI
  * @returns {Promise<any>} - API response
  */
 export const updateVideoProgress = async (params) => {
-  return await apiCall('api/video_progress', {
+  const response = await apiCall('api/video_progress', {
     method: 'POST',
     body: JSON.stringify(params),
   });
+
+  notifyDashboardRefresh();
+  return response;
 };
 
 export default baseUrl;

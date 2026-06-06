@@ -18,6 +18,51 @@ async function fetchJson(path) {
   return json;
 }
 
+const pad2 = (n) => String(n).padStart(2, "0");
+
+const toDateOnly = (date) =>
+  `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+
+const normalizeDate = (value) => {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
+const getPresetDateRange = (range) => {
+  const today = new Date();
+  const key = String(range || "7");
+
+  if (key === "7") {
+    // Current week: Sunday through today
+    const start = new Date(today);
+    start.setDate(today.getDate() - today.getDay());
+    return { startDate: toDateOnly(start), endDate: toDateOnly(today) };
+  }
+
+  if (key === "14" || key === "45") {
+    const totalDays = Number(key);
+    const start = new Date(today);
+    start.setDate(today.getDate() - (totalDays - 1));
+    return { startDate: toDateOnly(start), endDate: toDateOnly(today) };
+  }
+
+  return null;
+};
+
+const buildWalkinChartPath = ({ range, startDate, endDate, chartOnly }) => {
+  const useCustomRange = String(range) === "custom";
+  const preset = getPresetDateRange(range);
+  const start = useCustomRange && normalizeDate(startDate) ? toDateOnly(normalizeDate(startDate)) : preset?.startDate;
+  const end = useCustomRange && normalizeDate(endDate) ? toDateOnly(normalizeDate(endDate)) : preset?.endDate;
+
+  if (!start || !end) {
+    throw new Error("A valid date range is required");
+  }
+
+  return `api/walkin/list?startDate=${start}&endDate=${end}&${chartOnly ? "chartOnly=true" : "dashboard=true"}`;
+};
+
 export function fetchHomeProgress() {
   return fetchJson("api/admin/get/HomeProgressSummary");
 }
@@ -31,39 +76,24 @@ export function fetchDashboardTasks() {
 }
 
 export function fetchWeeklyWalkins(daysCount = 7) {
-  const totalDays = Math.max(1, Number(daysCount) || 7);
-  const days = Array.from({ length: totalDays }, (_, index) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (totalDays - 1 - index));
-    return d;
-  });
-  const start = days[0].toISOString().split("T")[0];
-  const end = days[days.length - 1].toISOString().split("T")[0];
   // Dashboard needs the full matching range, not a paginated slice.
-  return fetchJson(`api/walkin/list?startDate=${start}&endDate=${end}&dashboard=true`);
+  return fetchJson(buildWalkinChartPath({ range: daysCount, chartOnly: false }));
 }
 
-export function fetchDailyWalkinsChart(daysCount = 7) {
-  const totalDays = Math.max(1, Number(daysCount) || 7);
-  const days = Array.from({ length: totalDays }, (_, index) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (totalDays - 1 - index));
-    return d;
-  });
-  const start = days[0].toISOString().split("T")[0];
-  const end = days[days.length - 1].toISOString().split("T")[0];
-  return fetchJson(`api/walkin/list?startDate=${start}&endDate=${end}&chartOnly=true`);
+export function fetchDailyWalkinsChart({ range = "7", startDate, endDate } = {}) {
+  return fetchJson(buildWalkinChartPath({ range, startDate, endDate, chartOnly: true }));
 }
 
-export function fetchWeeklyWalkinCount(daysCount = 7) {
-  const totalDays = Math.max(1, Number(daysCount) || 7);
-  const days = Array.from({ length: totalDays }, (_, index) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (totalDays - 1 - index));
-    return d;
-  });
-  const start = days[0].toISOString().split("T")[0];
-  const end = days[days.length - 1].toISOString().split("T")[0];
+export function fetchWeeklyWalkinCount({ range = "7", startDate, endDate } = {}) {
+  const useCustomRange = String(range) === "custom";
+  const preset = getPresetDateRange(range);
+  const start = useCustomRange && normalizeDate(startDate) ? toDateOnly(normalizeDate(startDate)) : preset?.startDate;
+  const end = useCustomRange && normalizeDate(endDate) ? toDateOnly(normalizeDate(endDate)) : preset?.endDate;
+
+  if (!start || !end) {
+    throw new Error("A valid date range is required");
+  }
+
   return fetchJson(`api/walkin/list?startDate=${start}&endDate=${end}&countOnly=true`);
 }
 

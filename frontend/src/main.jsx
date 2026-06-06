@@ -7,6 +7,9 @@ import { PersistGate } from 'redux-persist/integration/react';
 import App from './App.jsx'
 import { BrowserRouter } from 'react-router-dom'
 import { store, persistor } from './store/store.js';
+import { registerChunkLoadRecovery } from './chunkLoadRecovery.js';
+
+registerChunkLoadRecovery();
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

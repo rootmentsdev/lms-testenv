@@ -13,6 +13,14 @@ import { fetchDailyWalkinsChart } from "../../features/dashboard/dashboardFetch"
 
 const fmt = (d) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
+const toDateInput = (date) => {
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
@@ -29,15 +37,41 @@ const CustomTooltip = ({ active, payload, label }) => {
       <p style={{ fontWeight: 600, marginBottom: 4 }}>{label}</p>
       {payload.map((p) => (
         <p key={p.dataKey} style={{ color: p.color, margin: "2px 0" }}>
-          {p.dataKey === "walkings" ? "Walkings" : "Completed"} : <b>{p.value}</b>
+          {p.dataKey === "walkings" ? "Walkings" : "Loss"} : <b>{p.value}</b>
         </p>
       ))}
     </div>
   );
 };
 
-const buildDays = (count) => {
-  const totalDays = Math.max(1, Number(count) || 7);
+const buildDays = (range, startDate, endDate) => {
+  if (range === "custom" && startDate && endDate) {
+    const start = new Date(`${startDate}T00:00:00`);
+    const end = new Date(`${endDate}T00:00:00`);
+    const days = [];
+    const cursor = new Date(start);
+    while (cursor <= end) {
+      days.push(new Date(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return days;
+  }
+
+  const totalDays = Math.max(1, Number(range) || 7);
+  const today = new Date();
+
+  if (totalDays === 7) {
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay());
+    const days = [];
+    const cursor = new Date(startOfWeek);
+    while (cursor <= today) {
+      days.push(new Date(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return days;
+  }
+
   return Array.from({ length: totalDays }, (_, index) => {
     const d = new Date();
     d.setDate(d.getDate() - (totalDays - 1 - index));
@@ -45,7 +79,7 @@ const buildDays = (count) => {
   });
 };
 
-const DailyWalkings = ({ range = "7", onRangeChange }) => {
+const DailyWalkings = ({ range = "7", customRange, onRangeChange, onCustomRangeChange }) => {
   const [activeIdx, setActiveIdx] = useState(null);
   const [walkinResponse, setWalkinResponse] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -56,7 +90,11 @@ const DailyWalkings = ({ range = "7", onRangeChange }) => {
     const load = async () => {
       setIsLoading(true);
       try {
-        const data = await fetchDailyWalkinsChart(range);
+        const data = await fetchDailyWalkinsChart({
+          range,
+          startDate: customRange?.startDate,
+          endDate: customRange?.endDate,
+        });
         if (!mounted) return;
         setWalkinResponse(data);
       } catch {
@@ -75,21 +113,26 @@ const DailyWalkings = ({ range = "7", onRangeChange }) => {
       mounted = false;
       window.removeEventListener("dashboard:refresh", refresh);
     };
-  }, [range]);
+  }, [range, customRange?.startDate, customRange?.endDate]);
 
-  const days = useMemo(() => buildDays(range), [range]);
-  const rangeLabel = `${fmt(days[0])} – ${fmt(days[days.length - 1])}, ${days[0].getFullYear()}`;
+  const days = useMemo(() => buildDays(range, customRange?.startDate, customRange?.endDate), [
+    range,
+    customRange?.startDate,
+    customRange?.endDate,
+  ]);
+
+  const rangeLabel = days.length ? `${fmt(days[0])} - ${fmt(days[days.length - 1])}, ${days[0].getFullYear()}` : "";
 
   const data = useMemo(() => {
     const series = new Map((walkinResponse?.data || []).map((row) => [row._id, row]));
 
     return days.map((d) => {
-      const key = d.toISOString().split("T")[0];
-      const row = series.get(key) || { walkings: 0, completed: 0 };
+      const key = toDateInput(d);
+      const row = series.get(key) || { walkings: 0, loss: 0 };
       return {
         name: fmt(d),
         walkings: Number(row.walkings || 0),
-        completed: Number(row.completed || 0),
+        loss: Number(row.loss || 0),
       };
     });
   }, [walkinResponse, days]);
@@ -111,32 +154,62 @@ const DailyWalkings = ({ range = "7", onRangeChange }) => {
         boxSizing: "border-box",
       }}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px" }}>
         <div>
           <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#111827", margin: 0 }}>Daily Walkings</h3>
           <p style={{ fontSize: "12px", color: "#9ca3af", margin: "2px 0 0" }}>{rangeLabel}</p>
         </div>
 
-        <select
-          value={range}
-          onChange={(e) => onRangeChange?.(e.target.value)}
-          style={{
-            border: "1px solid #e5e7eb",
-            borderRadius: "8px",
-            padding: "6px 12px",
-            fontSize: "13px",
-            fontWeight: 500,
-            color: "#374151",
-            background: "#fff",
-            cursor: "pointer",
-            outline: "none",
-          }}
-        >
-          <option value="7">Last 7 days</option>
-          <option value="14">Last 14 days</option>
-          <option value="30">Last 30 days</option>
-          <option value="90">Last 90 days</option>
-        </select>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "8px" }}>
+          <select
+            value={range}
+            onChange={(e) => onRangeChange?.(e.target.value)}
+            style={{
+              border: "1px solid #e5e7eb",
+              borderRadius: "8px",
+              padding: "6px 12px",
+              fontSize: "13px",
+              fontWeight: 500,
+              color: "#374151",
+              background: "#fff",
+              cursor: "pointer",
+              outline: "none",
+            }}
+          >
+            <option value="7">This week to date</option>
+            <option value="14">Last 14 days</option>
+            <option value="45">Last 45 days</option>
+            <option value="custom">Custom range</option>
+          </select>
+
+          {range === "custom" && (
+            <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <input
+                type="date"
+                value={customRange?.startDate || ""}
+                onChange={(e) => onCustomRangeChange?.({ ...(customRange || {}), startDate: e.target.value })}
+                style={{ border: "1px solid #e5e7eb", borderRadius: "8px", padding: "6px 10px", fontSize: "13px" }}
+              />
+              <span style={{ color: "#9ca3af", fontSize: "13px" }}>to</span>
+              <input
+                type="date"
+                value={customRange?.endDate || ""}
+                onChange={(e) => onCustomRangeChange?.({ ...(customRange || {}), endDate: e.target.value })}
+                style={{ border: "1px solid #e5e7eb", borderRadius: "8px", padding: "6px 10px", fontSize: "13px" }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  onCustomRangeChange?.({ startDate: "", endDate: "" });
+                  onRangeChange?.("7");
+                }}
+                style={{ border: "1px solid #e5e7eb", borderRadius: "8px", padding: "6px 10px", fontSize: "13px", background: "#fff" }}
+              >
+                Reset
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div style={{ flex: 1, minHeight: 0 }}>
@@ -177,11 +250,11 @@ const DailyWalkings = ({ range = "7", onRangeChange }) => {
               />
               <Line
                 type="monotone"
-                dataKey="completed"
-                stroke="#22c55e"
-                strokeWidth={2}
-                dot={{ r: 3, fill: "#22c55e", strokeWidth: 0 }}
-                activeDot={{ r: 5, fill: "#22c55e" }}
+                dataKey="loss"
+                stroke="#ef4444"
+                strokeWidth={2.5}
+                dot={{ r: 4, fill: "#ef4444", strokeWidth: 0 }}
+                activeDot={{ r: 6, fill: "#ef4444" }}
               />
             </LineChart>
           </ResponsiveContainer>
