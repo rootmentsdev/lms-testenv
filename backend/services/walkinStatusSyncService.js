@@ -1,6 +1,7 @@
 import axios from 'axios';
 import Branch from '../model/Branch.js';
 import Walkin from '../model/Walkin.js';
+import CronLog from '../model/CronLog.js';
 import { normalizePhone } from '../utils/normalizePhone.js';
 
 /**
@@ -43,7 +44,8 @@ const getStatusRank = (status) => {
  * Automatically sync Walkin statuses with the external Rental APIs
  */
 export const syncWalkinStatuses = async () => {
-    console.log('🔄 [Walkin Status Sync] Job started at:', new Date().toISOString());
+    const jobStartedAt = new Date();
+    console.log('🔄 [Walkin Status Sync] Job started at:', jobStartedAt.toISOString());
 
     const dateFrom = getPastDateString(6); // Last 7 days (Today - 6)
     const dateTo = getPastDateString(0);   // Today (Today - 0)
@@ -59,6 +61,7 @@ export const syncWalkinStatuses = async () => {
     let totalReturns = 0;
     let totalWalkinsUpdated = 0;
     const errorsList = [];
+    const branchResultsList = [];
 
     for (const branch of branches) {
         const { locCode, workingBranch, _id: storeId } = branch;
@@ -180,11 +183,25 @@ export const syncWalkinStatuses = async () => {
 
             console.log(`📈 [Walkin Status Sync] Branch ${locCode} execution results: Matched = ${branchWalkinsMatched}, Updated = ${branchWalkinsUpdated}, Skipped (hierarchy) = ${branchWalkinsSkipped}`);
 
+            branchResultsList.push({
+                locCode,
+                workingBranch,
+                bookings:  bookings.length,
+                rentouts:  rentouts.length,
+                returns:   returns.length,
+                matched:   branchWalkinsMatched,
+                updated:   branchWalkinsUpdated,
+                skipped:   branchWalkinsSkipped,
+            });
+
         } catch (error) {
             console.error(`❌ [Walkin Status Sync] Unhandled error for locCode ${locCode}:`, error);
             errorsList.push({ branch: locCode, type: 'All', error: error.message });
         }
     }
+
+    const jobCompletedAt = new Date();
+    const durationMs = jobCompletedAt - jobStartedAt;
 
     console.log('🏁 [Walkin Status Sync] Job completed.');
     console.log(`📝 [Walkin Status Sync] Summary:
@@ -193,7 +210,31 @@ export const syncWalkinStatuses = async () => {
       - Total Returns processed: ${totalReturns}
       - Total Walk-ins updated: ${totalWalkinsUpdated}
       - Total locCode errors encountered: ${errorsList.length}
+      - Duration: ${durationMs}ms
     `);
+
+    // ── Persist run log to DB ──
+    try {
+        await CronLog.create({
+            jobType:      'walkin_status_sync',
+            status:       errorsList.length > 0 && totalWalkinsUpdated === 0 ? 'error' : 'success',
+            startedAt:    jobStartedAt,
+            completedAt:  jobCompletedAt,
+            durationMs,
+            summary: {
+                totalBookings,
+                totalRentouts,
+                totalReturns,
+                totalWalkinsUpdated,
+                errorsCount: errorsList.length,
+            },
+            branchResults: branchResultsList,
+            errorDetails:  errorsList,
+        });
+        console.log('💾 [Walkin Status Sync] Run log saved to DB.');
+    } catch (logErr) {
+        console.error('⚠️ [Walkin Status Sync] Failed to save run log to DB:', logErr.message);
+    }
 
     return {
         success: true,
@@ -213,7 +254,8 @@ export const syncWalkinStatuses = async () => {
  * have status 'New Walkin', and have not been updated since creation.
  */
 export const expireWalkinsToLoss = async () => {
-    console.log('🔄 [Walkin Loss Expiry] Job started at:', new Date().toISOString());
+    const jobStartedAt = new Date();
+    console.log('🔄 [Walkin Loss Expiry] Job started at:', jobStartedAt.toISOString());
     try {
         const now = new Date();
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -239,10 +281,43 @@ export const expireWalkinsToLoss = async () => {
             }
         );
 
-        console.log(`🏁 [Walkin Loss Expiry] Job completed. Updated ${result.modifiedCount} walk-ins to status 'Loss'.`);
+        const jobCompletedAt = new Date();
+        const durationMs = jobCompletedAt - jobStartedAt;
+
+        console.log(`🏁 [Walkin Loss Expiry] Job completed. Updated ${result.modifiedCount} walk-ins to status 'Loss'. Duration: ${durationMs}ms`);
+
+        // ── Persist run log to DB ──
+        try {
+            await CronLog.create({
+                jobType:     'walkin_loss_expiry',
+                status:      'success',
+                startedAt:   jobStartedAt,
+                completedAt: jobCompletedAt,
+                durationMs,
+                expiredCount: result.modifiedCount,
+            });
+            console.log('💾 [Walkin Loss Expiry] Run log saved to DB.');
+        } catch (logErr) {
+            console.error('⚠️ [Walkin Loss Expiry] Failed to save run log to DB:', logErr.message);
+        }
+
         return { success: true, expiredCount: result.modifiedCount };
     } catch (error) {
+        const jobCompletedAt = new Date();
         console.error('❌ [Walkin Loss Expiry] Error during daily expiry job:', error);
+
+        // Log the failure too
+        try {
+            await CronLog.create({
+                jobType:      'walkin_loss_expiry',
+                status:       'error',
+                startedAt:    jobStartedAt,
+                completedAt:  jobCompletedAt,
+                durationMs:   jobCompletedAt - jobStartedAt,
+                errorMessage: error.message,
+            });
+        } catch { /* silent */ }
+
         return { success: false, error: error.message };
     }
 };

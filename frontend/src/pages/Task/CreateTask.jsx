@@ -554,7 +554,13 @@ const CreateTask = () => {
                 <p style={{ fontSize: '12px', color: '#9ca3af', margin: '4px 0 0', fontFamily: 'DM Sans, sans-serif' }}>Track and manage all operational tasks across stores</p>
               </div>
             </div>
-            <ModeToggle mode={mode} onChange={setMode} disabled={submitting} />
+            <ModeToggle mode={mode} onChange={(m) => {
+              if (m === 'auto') {
+                navigate('/task/auto-schedule');
+              } else {
+                setMode(m);
+              }
+            }} disabled={submitting} />
           </div>
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>

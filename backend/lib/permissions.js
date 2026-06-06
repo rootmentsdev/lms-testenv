@@ -156,14 +156,18 @@ export const buildWalkinFilter = async (adminId, baseQuery = {}) => {
         const accessibleStoreIds = branch ? [branch._id.toString()] : [];
         const locCodes = [user.locCode];
         const workingBranches = [user.workingBranch];
-        
-        return {
-            ...baseQuery,
-            $or: [
-                { storeId: { $in: accessibleStoreIds } },
-                { store: { $in: [...locCodes, ...workingBranches].filter(Boolean) } }
-            ]
-        };
+
+        const storeRestriction = [
+            { storeId: { $in: accessibleStoreIds } },
+            { store: { $in: [...locCodes, ...workingBranches].filter(Boolean) } }
+        ];
+
+        // If baseQuery already has a $or (e.g., from a search filter), combine both using $and
+        if (baseQuery.$or) {
+            const { $or: existingOr, ...rest } = baseQuery;
+            return { ...rest, $and: [{ $or: existingOr }, { $or: storeRestriction }] };
+        }
+        return { ...baseQuery, $or: storeRestriction };
     }
 
     if (isFullAccessAdmin(admin.role)) {
@@ -176,13 +180,17 @@ export const buildWalkinFilter = async (adminId, baseQuery = {}) => {
     const locCodes = branches.map(b => b.locCode);
     const workingBranches = branches.map(b => b.workingBranch);
 
-    return {
-        ...baseQuery,
-        $or: [
-            { storeId: { $in: accessibleStoreIds } },
-            { store: { $in: [...locCodes, ...workingBranches] } }
-        ]
-    };
+    const storeRestriction = [
+        { storeId: { $in: accessibleStoreIds } },
+        { store: { $in: [...locCodes, ...workingBranches] } }
+    ];
+
+    // If baseQuery already has a $or (e.g., from a search filter), combine both using $and
+    if (baseQuery.$or) {
+        const { $or: existingOr, ...rest } = baseQuery;
+        return { ...rest, $and: [{ $or: existingOr }, { $or: storeRestriction }] };
+    }
+    return { ...baseQuery, $or: storeRestriction };
 };
 
 /**

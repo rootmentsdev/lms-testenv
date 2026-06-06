@@ -2,6 +2,7 @@ import Walkin from '../model/Walkin.js';
 import Admin from '../model/Admin.js';
 import User from '../model/User.js';
 import Branch from '../model/Branch.js';
+import CronLog from '../model/CronLog.js';
 import mongoose from 'mongoose';
 import { validateStoreAccess, validateEmployeeAccess, buildWalkinFilter } from '../lib/permissions.js';
 
@@ -249,7 +250,13 @@ export const saveWalkin = async (req, res) => {
             if (category) walkinRecord.category = category.trim();
             if (subCategory) walkinRecord.subCategory = subCategory.trim();
             if (remarks) walkinRecord.remarks = remarks.trim();
-            if (status) walkinRecord.status = status.trim();
+            if (status) {
+                const trimmedStatus = status.trim();
+                if (walkinRecord.status !== trimmedStatus) {
+                    walkinRecord.repeatCount = (walkinRecord.repeatCount || 1) + 1;
+                }
+                walkinRecord.status = trimmedStatus;
+            }
             if (createdBy) walkinRecord.createdBy = createdBy;
             walkinRecord.date = todayStr; // Update visit date to the requested value
 
@@ -338,8 +345,12 @@ export const saveWalkin = async (req, res) => {
  */
 export const getWalkins = async (req, res) => {
     try {
-        const { startDate, endDate, storeId, employeeId, page = 1, limit = 20, search = '', status = '', store = '', dashboard = '', countOnly = '', chartOnly = '' } = req.query;
+        const { startDate, endDate, storeId, employeeId, page, limit, search = '', status = '', store = '', dashboard = '', countOnly = '', chartOnly = '' } = req.query;
         const adminId = req.admin.userId;
+
+        const pageNum = parseInt(page, 10) || 1;
+        const limitNum = parseInt(limit, 10) || 0;
+        const skipNum = (pageNum - 1) * limitNum;
 
         // 1. Build Base Query based on date/frontend filters
         let baseQuery = {};
@@ -431,20 +442,25 @@ export const getWalkins = async (req, res) => {
             });
         }
 
+        let findQuery = Walkin.find(secureQuery)
+            .sort({ createdAt: -1 })
+            .select(baseProjection);
+
+        if (limitNum > 0) {
+            findQuery = findQuery.skip(skipNum).limit(limitNum);
+        }
+
         const [total, filtered] = await Promise.all([
             Walkin.countDocuments(secureQuery),
-            Walkin.find(secureQuery)
-                .sort({ createdAt: -1 })
-                .select(baseProjection)
-                .lean(),
+            findQuery.lean(),
         ]);
 
         return res.status(200).json({
             success: true,
             message: 'Walk-ins retrieved successfully',
             count: total,
-            page: 1,
-            limit: total,
+            page: limitNum > 0 ? pageNum : 1,
+            limit: limitNum > 0 ? limitNum : total,
             data: filtered
         });
 
@@ -488,6 +504,40 @@ export const getAllWalkinsPublic = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Internal server error while fetching public walk-ins',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * GET /api/walkin/cron-logs
+ * Returns the last N cron job run records so admins can verify the scheduler is working.
+ */
+export const getCronLogs = async (req, res) => {
+    try {
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+        const jobType = req.query.jobType; // optional filter: 'walkin_status_sync' | 'walkin_loss_expiry'
+
+        const query = {};
+        if (jobType && ['walkin_status_sync', 'walkin_loss_expiry'].includes(jobType)) {
+            query.jobType = jobType;
+        }
+
+        const logs = await CronLog.find(query)
+            .sort({ startedAt: -1 })
+            .limit(limit)
+            .lean();
+
+        return res.status(200).json({
+            success: true,
+            count: logs.length,
+            data: logs
+        });
+    } catch (error) {
+        console.error('Error fetching cron logs:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to fetch cron logs',
             error: error.message
         });
     }
