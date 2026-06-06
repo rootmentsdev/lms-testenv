@@ -263,6 +263,7 @@ export const createTask = async (req, res) => {
       description = '',
       additionalInfo = '',
       priority = 'Normal',
+      recurrence = null,
       fileAttachment,
     } = req.body;
 
@@ -430,6 +431,7 @@ export const createTask = async (req, res) => {
         description,
         additionalInfo,
         priority,
+        recurrence: recurrence || undefined,
         status: 'PENDING',
         storeName: targetStoreName,
         storeCode: targetStoreCode,

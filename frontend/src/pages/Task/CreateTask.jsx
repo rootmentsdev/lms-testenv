@@ -48,6 +48,23 @@ const PRIORITIES = [
   { label: 'Low',    color: '#9ca3af' },
 ];
 
+const RECURRENCE_TYPES = [
+  { label: 'Daily', value: 'daily' },
+  { label: 'Weekly', value: 'weekly' },
+  { label: 'Monthly', value: 'monthly' },
+  { label: 'Custom', value: 'custom' },
+];
+
+const WEEKDAYS = [
+  { label: 'Sun', value: 'sun' },
+  { label: 'Mon', value: 'mon' },
+  { label: 'Tue', value: 'tue' },
+  { label: 'Wed', value: 'wed' },
+  { label: 'Thu', value: 'thu' },
+  { label: 'Fri', value: 'fri' },
+  { label: 'Sat', value: 'sat' },
+];
+
 const CheckboxOption = (props) => {
   return (
     <components.Option {...props}>
@@ -266,6 +283,72 @@ const DateInput = ({ value, onChange, required }) => {
   );
 };
 
+const RecurrencePillButton = ({ active, children, ...props }) => (
+  <button
+    type="button"
+    {...props}
+    style={{
+      padding: '8px 14px',
+      borderRadius: '999px',
+      border: active ? '1.5px solid #111827' : '1px solid #e5e7eb',
+      background: active ? '#111827' : '#fff',
+      color: active ? '#fff' : '#374151',
+      fontSize: '13px',
+      fontWeight: 600,
+      cursor: 'pointer',
+      fontFamily: 'DM Sans, sans-serif',
+      transition: 'all 0.2s ease',
+    }}
+  >
+    {children}
+  </button>
+);
+
+const ToggleSwitch = ({ checked, onChange, label }) => (
+  <button
+    type="button"
+    onClick={() => onChange(!checked)}
+    aria-pressed={checked}
+    style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '10px',
+      border: '1px solid #e5e7eb',
+      background: '#fff',
+      borderRadius: '999px',
+      padding: '8px 12px',
+      cursor: 'pointer',
+      fontFamily: 'DM Sans, sans-serif',
+    }}
+  >
+    <span
+      style={{
+        width: '38px',
+        height: '22px',
+        borderRadius: '999px',
+        background: checked ? '#111827' : '#d1d5db',
+        position: 'relative',
+        transition: 'background 0.2s ease',
+        flexShrink: 0,
+      }}
+    >
+      <span
+        style={{
+          position: 'absolute',
+          top: '2px',
+          left: checked ? '18px' : '2px',
+          width: '18px',
+          height: '18px',
+          borderRadius: '50%',
+          background: '#fff',
+          transition: 'left 0.2s ease',
+        }}
+      />
+    </span>
+    <span style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>{label}</span>
+  </button>
+);
+
 const ModeToggle = ({ mode, onChange, disabled }) => {
   const wrapRef = useRef(null);
   const btnRefs = useRef([]);
@@ -363,10 +446,47 @@ const CreateTask = () => {
     additionalInfo: '',
     priority: 'Normal',
     file: null,
+    recurring: {
+      enabled: false,
+      startDate: getCurrentDate(),
+      repeatType: 'monthly',
+      repeatEvery: 1,
+      weekDays: ['mon'],
+      monthDay: String(new Date().getDate()),
+      customRule: '',
+      time: getCurrentTime(),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Calcutta',
+      endType: 'none',
+      endDate: '',
+      active: true,
+    },
   });
 
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+  const setRecurring = (k, v) => setForm((p) => ({
+    ...p,
+    recurring: {
+      ...p.recurring,
+      [k]: v,
+    },
+  }));
   const isAuto = mode === 'auto';
+
+  const recurrenceSummary = (() => {
+    if (!isAuto || !form.recurring.enabled) return 'No recurring schedule';
+    const repeatTypeLabel = RECURRENCE_TYPES.find((r) => r.value === form.recurring.repeatType)?.label || 'Custom';
+    if (form.recurring.repeatType === 'daily') {
+      return `Every ${form.recurring.repeatEvery || 1} day(s) at ${form.recurring.time}`;
+    }
+    if (form.recurring.repeatType === 'weekly') {
+      const days = (form.recurring.weekDays || []).map((d) => WEEKDAYS.find((w) => w.value === d)?.label).filter(Boolean);
+      return `Every ${form.recurring.repeatEvery || 1} week(s) on ${days.join(', ') || 'selected weekdays'} at ${form.recurring.time}`;
+    }
+    if (form.recurring.repeatType === 'monthly') {
+      return `Every ${form.recurring.repeatEvery || 1} month(s) on day ${form.recurring.monthDay || '1'} at ${form.recurring.time}`;
+    }
+    return form.recurring.customRule || `${repeatTypeLabel} at ${form.recurring.time}`;
+  })();
 
   const handleAssigneeChange = (selected, actionMeta) => {
     const nextSelected = [...(selected || [])];
@@ -501,6 +621,7 @@ const CreateTask = () => {
           description: form.description,
           additionalInfo: form.additionalInfo,
           priority: form.priority,
+          recurrence: isAuto ? form.recurring : null,
           fileAttachment,
         });
       }
@@ -523,7 +644,7 @@ const CreateTask = () => {
         <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid #e5e7eb', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', padding: '32px' }}>
           
           {/* Header container inside the card */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <button
                 type="button"
@@ -679,6 +800,219 @@ const CreateTask = () => {
                 />
               </div>
             </div>
+
+            {isAuto ? (
+              <div style={{
+                border: '1px solid #e5e7eb',
+                borderRadius: '16px',
+                padding: '20px',
+                background: '#fafafa',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '16px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: '#111827' }}>Auto Task Schedule</h3>
+                    <p style={{ fontSize: '12px', color: '#6b7280', margin: '4px 0 0' }}>
+                      Create a recurring rule that keeps assigning this task until you pause it.
+                    </p>
+                  </div>
+                  <ToggleSwitch
+                    checked={form.recurring.enabled}
+                    onChange={(checked) => setRecurring('enabled', checked)}
+                    label={form.recurring.enabled ? 'Scheduling enabled' : 'Scheduling disabled'}
+                  />
+                </div>
+
+                {form.recurring.enabled ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '16px' }}>
+                    <div style={{ gridColumn: 'span 3' }}>
+                      <label style={lbl}>Start Date <span style={req}>*</span></label>
+                      <DateInput
+                        value={form.recurring.startDate}
+                        onChange={(val) => setRecurring('startDate', val)}
+                        required
+                      />
+                    </div>
+                    <div style={{ gridColumn: 'span 3' }}>
+                      <label style={lbl}>Repeat Every</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={form.recurring.repeatEvery}
+                        onChange={(e) => setRecurring('repeatEvery', e.target.value)}
+                        className="premium-input"
+                        placeholder="1"
+                      />
+                    </div>
+                    <div style={{ gridColumn: 'span 3' }}>
+                      <label style={lbl}>Repeat Type</label>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        {RECURRENCE_TYPES.map((item) => (
+                          <RecurrencePillButton
+                            key={item.value}
+                            active={form.recurring.repeatType === item.value}
+                            onClick={() => setRecurring('repeatType', item.value)}
+                          >
+                            {item.label}
+                          </RecurrencePillButton>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ gridColumn: 'span 3' }}>
+                      <label style={lbl}>Time</label>
+                      <div style={{ position: 'relative' }}>
+                        <select
+                          value={form.recurring.time}
+                          onChange={(e) => setRecurring('time', e.target.value)}
+                          className="premium-input"
+                          style={{ cursor: 'pointer', appearance: 'none', paddingRight: '28px' }}
+                        >
+                          {TIMES.map((t) => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                        <div style={{ pointerEvents: 'none', position: 'absolute', top: 0, bottom: 0, right: 0, display: 'flex', alignItems: 'center', paddingRight: '12px', color: '#6b7280' }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="6 9 12 15 18 9" />
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+
+                    {form.recurring.repeatType === 'weekly' ? (
+                      <div style={{ gridColumn: 'span 12' }}>
+                        <label style={lbl}>Repeat On</label>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                          {WEEKDAYS.map((day) => {
+                            const active = (form.recurring.weekDays || []).includes(day.value);
+                            return (
+                              <RecurrencePillButton
+                                key={day.value}
+                                active={active}
+                                onClick={() => {
+                                  const current = form.recurring.weekDays || [];
+                                  const next = active
+                                    ? current.filter((d) => d !== day.value)
+                                    : [...current, day.value];
+                                  setRecurring('weekDays', next);
+                                }}
+                              >
+                                {day.label}
+                              </RecurrencePillButton>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {form.recurring.repeatType === 'monthly' ? (
+                      <div style={{ gridColumn: 'span 3' }}>
+                        <label style={lbl}>Day of Month</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="31"
+                          value={form.recurring.monthDay}
+                          onChange={(e) => setRecurring('monthDay', e.target.value)}
+                          className="premium-input"
+                          placeholder="1"
+                        />
+                      </div>
+                    ) : null}
+
+                    {form.recurring.repeatType === 'custom' ? (
+                      <div style={{ gridColumn: 'span 12' }}>
+                        <label style={lbl}>Custom Rule</label>
+                        <input
+                          type="text"
+                          value={form.recurring.customRule}
+                          onChange={(e) => setRecurring('customRule', e.target.value)}
+                          className="premium-input"
+                          placeholder="Example: Every 2 weeks on Monday and Thursday"
+                        />
+                      </div>
+                    ) : null}
+
+                    <div style={{ gridColumn: 'span 3' }}>
+                      <label style={lbl}>Timezone</label>
+                      <input
+                        type="text"
+                        value={form.recurring.timezone}
+                        onChange={(e) => setRecurring('timezone', e.target.value)}
+                        className="premium-input"
+                      />
+                    </div>
+
+                    <div style={{ gridColumn: 'span 4' }}>
+                      <label style={lbl}>End Condition</label>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        {[
+                          { value: 'none', label: 'No End Date' },
+                          { value: 'date', label: 'Ends On Date' },
+                        ].map((item) => (
+                          <RecurrencePillButton
+                            key={item.value}
+                            active={form.recurring.endType === item.value}
+                            onClick={() => setRecurring('endType', item.value)}
+                          >
+                            {item.label}
+                          </RecurrencePillButton>
+                        ))}
+                      </div>
+                    </div>
+
+                    {form.recurring.endType === 'date' ? (
+                      <div style={{ gridColumn: 'span 3' }}>
+                        <label style={lbl}>End Date</label>
+                        <DateInput
+                          value={form.recurring.endDate}
+                          onChange={(val) => setRecurring('endDate', val)}
+                          required={false}
+                        />
+                      </div>
+                    ) : null}
+
+                    <div style={{ gridColumn: 'span 12', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', paddingTop: '4px' }}>
+                      <div>
+                        <label style={lbl}>Assignment Mode</label>
+                        <p style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>
+                          This task will keep auto-assigning to the selected user(s) until you turn it off.
+                        </p>
+                      </div>
+                      <ToggleSwitch
+                        checked={form.recurring.active}
+                        onChange={(checked) => setRecurring('active', checked)}
+                        label={form.recurring.active ? 'Active' : 'Paused'}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '13px', color: '#6b7280' }}>
+                    Turn on scheduling to configure the recurring assignment rule.
+                  </div>
+                )}
+              </div>
+            ) : null}
+
+            {isAuto ? (
+              <div style={{
+                border: '1px solid #e5e7eb',
+                borderRadius: '16px',
+                padding: '20px',
+                background: '#fff',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: '16px',
+              }}>
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', marginBottom: '4px' }}>Recurring Summary</div>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: '#111827' }}>{recurrenceSummary}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', marginBottom: '4px' }}>Current State</div>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: '#111827' }}>
+                    {form.recurring.active ? 'Active' : 'Paused'} {form.recurring.endType === 'none' ? '(no end date)' : form.recurring.endDate ? `(ends ${form.recurring.endDate})` : ''}
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             {/* Submit Button */}
             <div style={{ display: 'flex', justifyContent: 'flex-start', paddingTop: '8px' }}>
