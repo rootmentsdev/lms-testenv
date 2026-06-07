@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import Select, { components } from 'react-select';
 import SideNav from '../../components/SideNav/SideNav';
-import { createTask } from '../../features/task/taskFetch';
+import { createAutoTask } from '../../features/task/taskFetch';
 import baseUrl from '../../api/api';
 import './AutoTask.css';
 
@@ -392,88 +392,62 @@ const AutoTask = () => {
     return `${d}-${m}-${y}`;
   };
 
-  // Submit Handler
+  // Submit Handler — saves an AutoTaskTemplate (not individual tasks directly)
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    let finalAssignees = [];
-
-    if (assignTo === 'employees') {
-      finalAssignees = [{ value: 'all_employees', label: 'All Employees' }];
-    } else if (assignTo === 'store') {
-      if (selectedStores.length === 0) {
-        toast.error('Please select at least one store.');
-        return;
-      }
-      const storeNames = selectedStores.map(s => s.value);
-      finalAssignees = assigneeOptions.filter(opt => {
-        const parts = opt.label.split(' - ');
-        const storeName = parts[parts.length - 1];
-        return storeNames.includes(storeName);
-      });
-    } else if (assignTo === 'role') {
-      if (selectedRoles.length === 0) {
-        toast.error('Please select at least one role.');
-        return;
-      }
-      const roleLabels = selectedRoles.map(r => r.label.toLowerCase());
-      finalAssignees = assigneeOptions.filter(opt => {
-        const parts = opt.label.split(' - ');
-        const designation = parts[1]?.toLowerCase() || '';
-        return roleLabels.some(roleLabel => {
-          if (roleLabel === 'staff') {
-            return designation === 'staff' || designation === 'employee';
-          }
-          return designation.includes(roleLabel) || roleLabel.includes(designation);
-        });
-      });
-    } else if (assignTo === 'individual') {
-      if (selectedIndividuals.length === 0) {
-        toast.error('Please select at least one employee.');
-        return;
-      }
-      finalAssignees = selectedIndividuals;
+    // Client-side validation for assignment targets
+    if (assignTo === 'store' && selectedStores.length === 0) {
+      toast.error('Please select at least one store.');
+      return;
     }
-
-    if (finalAssignees.length === 0) {
-      toast.error('No matching active employees found for the selected assignment.');
+    if (assignTo === 'role' && selectedRoles.length === 0) {
+      toast.error('Please select at least one role.');
+      return;
+    }
+    if (assignTo === 'individual' && selectedIndividuals.length === 0) {
+      toast.error('Please select at least one employee.');
       return;
     }
 
     setSubmitting(true);
 
     try {
+      // Convert file to base64 if present
       let fileAttachment = null;
       if (file) {
         fileAttachment = await new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.readAsDataURL(file);
-          reader.onload = () => resolve({ name: file.name, base64: reader.result });
+          reader.onload  = () => resolve({ name: file.name, base64: reader.result });
           reader.onerror = (err) => reject(err);
         });
       }
 
-      // Submit a task for each targeted user/group
-      for (const assignee of finalAssignees) {
-        await createTask({
-          mode: 'auto',
-          title: title.trim(),
-          category: category,
-          subCategory: subCategory,
-          assignedTo: assignee.value,
-          assignedToLabel: assignee.label,
-          startDate: startDate,
-          startTime: startTime,
-          endDate: endDate || startDate,
-          endTime: startTime,
-          description: description.trim(),
-          additionalInfo: isActive ? 'ACTIVE_AUTO_SCHEDULE' : 'PAUSED_AUTO_SCHEDULE',
-          priority: priority,
-          fileAttachment,
-        });
-      }
+      // Map form state to AutoTaskTemplate payload
+      const payload = {
+        title:       title.trim(),
+        category,
+        subCategory,
+        description: description.trim(),
+        priority,
+        repeatType:  repeatType.toLowerCase(),
+        startDate,
+        startTime,
+        endDate:     endDate || '',
+        endTime:     '',
+        // Map assignTo radio value → assignMode enum expected by backend
+        assignMode: assignTo === 'employees' ? 'all_employees' : assignTo,
+        selectedStores:  selectedStores.map(s => s.value),
+        selectedRoles:   selectedRoles.map(r => r.value),
+        selectedUsers:   selectedIndividuals.map(i => ({ id: i.value, label: i.label })),
+        isActive,
+        fileAttachment,
+      };
 
-      toast.success('Auto Task Scheduled saved successfully!');
+      await createAutoTask(payload);
+
+      toast.success('Auto Task Schedule saved successfully!');
       navigate('/task');
     } catch (err) {
       toast.error(err.message || 'Failed to save auto task schedule');
@@ -481,6 +455,7 @@ const AutoTask = () => {
       setSubmitting(false);
     }
   };
+
 
   return (
     <div className="auto-task-page">
