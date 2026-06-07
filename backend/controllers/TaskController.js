@@ -7,7 +7,7 @@ import Admin from '../model/Admin.js';
 import Employee from '../model/Employee.js';
 import User from '../model/User.js';
 import Branch from '../model/Branch.js';
-import { getAccessibleEmployeeIds, getAccessibleStoreIds } from '../lib/permissions.js';
+import { getAccessibleEmployeeIds, getAccessibleStoreIds, isFullAccessAdmin, validateEmployeeAccess } from '../lib/permissions.js';
 import { sendNotification } from '../utils/notificationHelper.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -481,7 +481,7 @@ import { buildTaskFilter } from '../lib/permissions.js';
 export const getTasks = async (req, res) => {
   try {
     const adminId = req.admin.userId;
-    const { search, category, priority, status, storeId, employeeId } = req.query;
+    const { search, category, priority, status, storeId, employeeId, mine } = req.query;
     
     // 1. Build Base Query
     let baseQuery = {};
@@ -489,7 +489,62 @@ export const getTasks = async (req, res) => {
         baseQuery.storeCode = storeId;
     }
     if (employeeId) {
-        baseQuery.assignedTo = employeeId;
+      // 1. Determine caller identity and role
+      const callerAdmin = await Admin.findById(adminId);
+      if (callerAdmin) {
+        // If they are not full access (Super/HR Admin), validate they have store/cluster access to this employee
+        if (!isFullAccessAdmin(callerAdmin.role)) {
+          const accessibleStoreIds = await getAccessibleStoreIds(adminId);
+
+          const accessibleEmployees = await Employee.find({
+              storeId: { $in: accessibleStoreIds },
+              status: 'Active'
+          }).select('_id').lean();
+
+          const accessibleBranches = await Branch.find({ _id: { $in: accessibleStoreIds } });
+          const locCodes = accessibleBranches.map(b => b.locCode);
+          const accessibleUsers = await User.find({ locCode: { $in: locCodes } }).select('_id').lean();
+
+          const accessibleAdmins = await Admin.find({
+              branches: { $in: accessibleStoreIds },
+              isActive: true
+          }).select('_id').lean();
+
+          const accessibleAssigneeIds = [
+              ...accessibleEmployees.map(e => e._id.toString()),
+              ...accessibleUsers.map(u => u._id.toString()),
+              ...accessibleAdmins.map(a => a._id.toString()),
+          ];
+
+          if (!accessibleAssigneeIds.includes(employeeId.toString())) {
+            return res.status(403).json({ success: false, message: 'Access denied: You do not have access to this employee\'s tasks' });
+          }
+        }
+      } else {
+        // Regular user/employee: can only view their own tasks
+        const callerUser = await User.findById(adminId);
+        if (!callerUser) {
+          return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        // Check if the requested employeeId belongs to the caller
+        const callerEmployee = await Employee.findOne({
+          $or: [
+            { email: callerUser.email },
+            { contactNo: callerUser.contactNo },
+            { username: callerUser.username }
+          ]
+        });
+        const allowedIds = [callerUser._id.toString()];
+        if (callerEmployee) {
+          allowedIds.push(callerEmployee._id.toString());
+        }
+
+        if (!allowedIds.includes(employeeId.toString())) {
+          return res.status(403).json({ success: false, message: 'Access denied: You cannot view tasks of other employees' });
+        }
+      }
+
+      baseQuery.assignedTo = employeeId;
     }
     if (category && category !== 'All') {
       baseQuery.category = { $regex: new RegExp(category, 'i') };
@@ -502,10 +557,24 @@ export const getTasks = async (req, res) => {
     }
 
     // 2. Wrap with RBAC Filter
-    const secureQuery = await buildTaskFilter(adminId, baseQuery);
-    if (secureQuery._id === null) {
-      return res.status(403).json({ success: false, message: 'Access denied' });
+    //    When mine=true: skip the store-scope filter and show only tasks the
+    //    caller personally created OR is directly assigned to.
+    let secureQuery;
+    if (mine === 'true') {
+      secureQuery = {
+        ...baseQuery,
+        $or: [
+          { createdBy: adminId },
+          { assignedTo: adminId.toString() },
+        ],
+      };
+    } else {
+      secureQuery = await buildTaskFilter(adminId, baseQuery);
+      if (secureQuery._id === null) {
+        return res.status(403).json({ success: false, message: 'Access denied' });
+      }
     }
+
 
     // 3. Fetch filtered tasks directly from MongoDB
     let tasks = await Task.find(secureQuery).sort({ createdAt: -1 }).lean();

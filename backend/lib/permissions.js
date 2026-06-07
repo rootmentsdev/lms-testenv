@@ -194,12 +194,21 @@ export const buildWalkinFilter = async (adminId, baseQuery = {}) => {
 };
 
 /**
- * Builds a MongoDB query filter for tasks based on admin role
+ * Builds a MongoDB query filter for tasks based on admin role.
+ *
+ * Visibility rules:
+ *  - Super Admin / HR Admin  → see all tasks
+ *  - Cluster Admin           → see tasks they CREATED or where the assignee
+ *                              belongs to one of their cluster's stores
+ *  - Store Admin             → see tasks they CREATED or where the assignee
+ *                              belongs to their store
+ *  - Employee / User         → see only tasks assigned directly to them
  */
 export const buildTaskFilter = async (adminId, baseQuery = {}) => {
     const admin = await Admin.findById(adminId);
+
+    // ── Employee / User (not in Admin collection) ─────────────────────────────
     if (!admin) {
-        // Fallback: Check if this is a regular User (employee)
         const user = await User.findById(adminId);
         if (!user) return { _id: null };
 
@@ -210,39 +219,71 @@ export const buildTaskFilter = async (adminId, baseQuery = {}) => {
             ]
         });
 
+        // Employees only see tasks assigned directly to them (by their User ID
+        // or linked Employee ID). They do NOT see all store tasks.
         const assignedIds = [user._id.toString()];
         if (employee) {
             assignedIds.push(employee._id.toString());
         }
 
-        return {
-            ...baseQuery,
+        const restriction = {
             $or: [
                 { assignedTo: { $in: assignedIds } },
-                { storeCode: `Z-${user.locCode}` },
-                { storeCode: user.locCode }
+                { createdBy: user._id }
             ]
         };
+
+        if (baseQuery.$or) {
+            const { $or: existingOr, ...rest } = baseQuery;
+            return { ...rest, $and: [{ $or: existingOr }, restriction] };
+        }
+        return { ...baseQuery, ...restriction };
     }
 
+    // ── Super Admin / HR Admin → full access ─────────────────────────────────
     if (isFullAccessAdmin(admin.role)) {
         return baseQuery;
     }
 
+    // ── Cluster Admin / Store Admin → creator OR assignee in their stores ─────
     const accessibleStoreIds = await getAccessibleStoreIds(adminId);
 
-    // Note: Task model currently uses storeCode instead of storeId, so we map to locCodes
-    const branches = await Branch.find({ _id: { $in: accessibleStoreIds } });
-    const locCodes = branches.map(b => b.locCode);
-    const zLocCodes = locCodes.map(code => `Z-${code}`);
-    const allLocCodes = [...locCodes, ...zLocCodes];
+    // Resolve all employee/user IDs that belong to accessible stores
+    const accessibleEmployees = await Employee.find({
+        storeId: { $in: accessibleStoreIds },
+        status: 'Active'
+    }).select('_id').lean();
 
-    return {
-        ...baseQuery,
+    const accessibleBranches = await Branch.find({ _id: { $in: accessibleStoreIds } });
+    const locCodes = accessibleBranches.map(b => b.locCode);
+    const accessibleUsers = await User.find({ locCode: { $in: locCodes } }).select('_id').lean();
+
+    // Also include admins (store_admins) that belong to accessible stores
+    const accessibleAdmins = await Admin.find({
+        branches: { $in: accessibleStoreIds },
+        isActive: true
+    }).select('_id').lean();
+
+    const accessibleAssigneeIds = [
+        ...accessibleEmployees.map(e => e._id.toString()),
+        ...accessibleUsers.map(u => u._id.toString()),
+        ...accessibleAdmins.map(a => a._id.toString()),
+    ];
+
+    // A task is visible if:
+    //   1. The current admin created it (they are the assigner), OR
+    //   2. The task's assignedTo is someone within their accessible stores
+    const restriction = {
         $or: [
-            { assignedTo: adminId.toString() },
-            { createdBy: adminId },
-            { storeCode: { $in: allLocCodes } }
+            { createdBy: admin._id },
+            { assignedTo: { $in: accessibleAssigneeIds } },
         ]
     };
+
+    if (baseQuery.$or) {
+        const { $or: existingOr, ...rest } = baseQuery;
+        return { ...rest, $and: [{ $or: existingOr }, restriction] };
+    }
+    return { ...baseQuery, ...restriction };
 };
+
