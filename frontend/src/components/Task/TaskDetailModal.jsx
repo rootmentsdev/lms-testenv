@@ -49,7 +49,7 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
   const [selectedAssignee, setSelectedAssignee] = useState('');
   const [loadingAssignees, setLoadingAssignees] = useState(false);
   const [updating, setUpdating] = useState(false);
-  const [autoSubmit, setAutoSubmit] = useState(false);
+  const [showReviewForm, setShowReviewForm] = useState(false);
   const [showExtensionForm, setShowExtensionForm] = useState(false);
   const [extensionDate, setExtensionDate] = useState('');
 
@@ -139,73 +139,35 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
     });
   };
 
-  const handleFileChange = async (e) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setSelectedFile(file);
-      if (autoSubmit) {
-        setAutoSubmit(false);
-        setUpdating(true);
-        try {
-          const base64 = await getBase64(file);
-          const token = localStorage.getItem('token');
-          const res = await fetch(`${baseUrl.baseUrl}api/task/${task.id}/status`, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(token && { Authorization: `Bearer ${token}` }),
-            },
-            body: JSON.stringify({
-              status: 'UNDER REVIEW',
-              fileAttachment: {
-                name: file.name,
-                base64: base64,
-              },
-            }),
-          });
-          const json = await res.json();
-          if (!res.ok) {
-            throw new Error(json.message || 'Failed to submit review');
-          }
-          toast.success('Task submitted for review successfully!');
-          if (onRefresh) onRefresh();
-          onClose();
-        } catch (err) {
-          toast.error(err.message || 'Failed to submit review');
-        } finally {
-          setUpdating(false);
-        }
-      }
-    }
+  const handleReviewButtonClick = () => {
+    setShowReviewForm((prev) => !prev);
+    if (showReviewForm) setSelectedFile(null); // reset file if closing
   };
 
-  const handleReviewButtonClick = () => {
-    setAutoSubmit(true);
-    document.getElementById('review-attachment-file')?.click();
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
+    }
   };
 
   const handleSubmitForReview = async () => {
-    if (!selectedFile) {
-      toast.error('Proof file is required to submit for review');
-      return;
-    }
     setUpdating(true);
     try {
-      const base64 = await getBase64(selectedFile);
       const token = localStorage.getItem('token');
+      const body = { status: 'UNDER REVIEW' };
+
+      if (selectedFile) {
+        const base64 = await getBase64(selectedFile);
+        body.fileAttachment = { name: selectedFile.name, base64 };
+      }
+
       const res = await fetch(`${baseUrl.baseUrl}api/task/${task.id}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           ...(token && { Authorization: `Bearer ${token}` }),
         },
-        body: JSON.stringify({
-          status: 'UNDER REVIEW',
-          fileAttachment: {
-            name: selectedFile.name,
-            base64: base64,
-          },
-        }),
+        body: JSON.stringify(body),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -661,21 +623,56 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
                         </button>
                       )}
                     </div>
+
+                    {/* Inline review form — shown for anyone with canUpdateStatus when Review is toggled */}
+                    {showReviewForm && (
+                      <div className="task-detail-action-group" style={{ marginTop: '12px', width: '100%' }}>
+                        <div className="task-detail-field__label">Submit for Review</div>
+                        <div className="task-detail-review-form">
+                          <input
+                            type="file"
+                            id="review-attachment-file"
+                            onChange={handleFileChange}
+                            style={{ display: 'none' }}
+                          />
+                          <label htmlFor="review-attachment-file" className="task-detail-file-label">
+                            {selectedFile ? selectedFile.name : 'Choose Proof File (optional)…'}
+                          </label>
+                          <button
+                            type="button"
+                            className="task-detail-action-btn task-detail-btn-submit-review"
+                            onClick={handleSubmitForReview}
+                            disabled={updating}
+                          >
+                            Submit
+                          </button>
+                          <button
+                            type="button"
+                            className="task-detail-action-btn"
+                            style={{ background: '#6b7280', color: '#fff', marginLeft: '8px' }}
+                            onClick={() => { setShowReviewForm(false); setSelectedFile(null); }}
+                            disabled={updating}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
  
                 {isAssignedToMe && (
                   <div className="task-detail-action-group">
-                    <div className="task-detail-field__label">Submit for Review</div>
+                    <div className="task-detail-field__label">Submit Proof (Assignee)</div>
                     <div className="task-detail-review-form">
                       <input
                         type="file"
-                        id="review-attachment-file"
+                        id="review-attachment-file-assignee"
                         onChange={handleFileChange}
                         style={{ display: 'none' }}
                       />
-                      <label htmlFor="review-attachment-file" className="task-detail-file-label">
-                        {selectedFile ? selectedFile.name : 'Choose Proof File...'}
+                      <label htmlFor="review-attachment-file-assignee" className="task-detail-file-label">
+                        {selectedFile ? selectedFile.name : 'Choose Proof File…'}
                       </label>
                       <button
                         type="button"
