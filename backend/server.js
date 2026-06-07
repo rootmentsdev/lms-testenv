@@ -23,10 +23,12 @@ import EmployeeRouter from './routes/EmployeeRoute.js'
 import TrainingRouter from './routes/TrainingRoute.js'
 import WalkinRouter from './routes/WalkinRoute.js'
 import TaskRouter from './routes/TaskRoute.js'
+import AutoTaskRouter from './routes/AutoTaskRoute.js'
 
 import { AlertNotification } from './lib/CornJob.js';
 import { startEmployeeAutoSync } from './lib/EmployeeAutoSync.js';
 import { startWalkinStatusSyncCron } from './cron/walkinStatusSyncCron.js';
+import { startAutoTaskCron } from './cron/autoTaskCron.js';
 import { refreshExternalEmployees } from './lib/employeeCache.js';
 import setupSwagger from './swagger.js';
 import { MiddilWare } from './lib/middilWare.js';
@@ -633,6 +635,7 @@ app.use('/api/employee', EmployeeRouter)
 app.use('/api/training', TrainingRouter)
 app.use('/api/walkin', WalkinRouter)
 app.use('/api/task', TaskRouter)
+app.use('/api/auto-task', AutoTaskRouter)
 
 // User Login Tracking Routes
 import UserLoginRouter from './routes/UserLoginRoute.js';
@@ -675,6 +678,9 @@ connectMongoDB().then(() => {
 
     // Start walk-in status auto-sync cron (every 15 minutes)
     startWalkinStatusSyncCron();
+    
+    // Start auto task generation cron (every hour)
+    startAutoTaskCron();
     
     // Start existing notification cron job
     AlertNotification();

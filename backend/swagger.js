@@ -85,6 +85,10 @@ const options = {
             {
                 name: "WhatsApp Integration",
                 description: "WhatsApp webhook and Zoho integration APIs"
+            },
+            {
+                name: "Auto Tasks",
+                description: "Auto Task Templates — recurring schedules that generate real Task documents automatically"
             }
         ]
     },
