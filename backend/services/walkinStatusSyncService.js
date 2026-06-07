@@ -18,7 +18,7 @@ const getPastDateString = (daysAgo) => {
  */
 const extractPhoneNumber = (item) => {
     if (!item) return null;
-    const phoneKeys = ['mobile', 'mobilenumber', 'phone', 'phonenumber', 'contact', 'customermobile', 'custmobile', 'customerphone', 'telephone', 'mobile_no', 'phone_no'];
+    const phoneKeys = ['mobile', 'mobilenumber', 'phone', 'phonenumber', 'phoneno', 'contact', 'customermobile', 'custmobile', 'customerphone', 'telephone', 'mobile_no', 'phone_no'];
     for (const key of Object.keys(item)) {
         if (phoneKeys.includes(key.toLowerCase())) {
             return String(item[key]);
@@ -77,7 +77,17 @@ export const syncWalkinStatuses = async () => {
             const fetchListSafe = async (url, typeName) => {
                 try {
                     const response = await axios.get(url, { timeout: 15000 });
-                    const list = Array.isArray(response.data) ? response.data : (Array.isArray(response.data?.data) ? response.data.data : []);
+                    const rawData = response.data;
+                    let list = [];
+                    if (rawData) {
+                        if (Array.isArray(rawData)) {
+                            list = rawData;
+                        } else if (rawData.dataSet && Array.isArray(rawData.dataSet.data)) {
+                            list = rawData.dataSet.data;
+                        } else if (Array.isArray(rawData.data)) {
+                            list = rawData.data;
+                        }
+                    }
                     return list;
                 } catch (err) {
                     console.warn(`⚠️ [Walkin Status Sync] Failed to fetch ${typeName} for branch ${locCode}:`, err.message);
