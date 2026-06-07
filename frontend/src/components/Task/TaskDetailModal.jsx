@@ -603,14 +603,16 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
                       >
                         Reassigned
                       </button>
-                      <button
-                        type="button"
-                        className="task-detail-action-btn task-detail-btn-review"
-                        onClick={handleReviewButtonClick}
-                        disabled={updating}
-                      >
-                        Review
-                      </button>
+                      {!isAssignedToMe && (
+                        <button
+                          type="button"
+                          className="task-detail-action-btn task-detail-btn-review"
+                          onClick={handleReviewButtonClick}
+                          disabled={updating}
+                        >
+                          Review
+                        </button>
+                      )}
                       {isAssignedToMe && (
                         <button
                           type="button"
@@ -663,7 +665,7 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
  
                 {isAssignedToMe && (
                   <div className="task-detail-action-group">
-                    <div className="task-detail-field__label">Submit Proof (Assignee)</div>
+                    <div className="task-detail-field__label">Submit for Review</div>
                     <div className="task-detail-review-form">
                       <input
                         type="file"
@@ -672,7 +674,7 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
                         style={{ display: 'none' }}
                       />
                       <label htmlFor="review-attachment-file-assignee" className="task-detail-file-label">
-                        {selectedFile ? selectedFile.name : 'Choose Proof File…'}
+                        {selectedFile ? selectedFile.name : 'Choose File…'}
                       </label>
                       <button
                         type="button"
@@ -680,7 +682,7 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
                         onClick={handleSubmitForReview}
                         disabled={updating || !selectedFile}
                       >
-                        Submit
+                        Submit for Review
                       </button>
                     </div>
                   </div>
