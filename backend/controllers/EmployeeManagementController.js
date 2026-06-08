@@ -395,12 +395,15 @@ async function buildProcessedEmployees(admin) {
 
 function applyFilters(employees, { search, store, role }) {
   const q = (search || '').trim().toLowerCase();
+  const cleanQ = q.replace(/\s+/g, '');
   return employees.filter((e) => {
     const matchSearch =
       !q ||
-      [e.username, e.empID, e.workingBranch, e.designation].some((v) =>
-        String(v || '').toLowerCase().includes(q)
-      );
+      [e.username, e.empID, e.workingBranch, e.designation].some((v) => {
+        const val = String(v || '').toLowerCase();
+        const cleanVal = val.replace(/\s+/g, '');
+        return val.includes(q) || cleanVal.includes(cleanQ);
+      });
     const matchStore = !store || store === 'All' || e.workingBranch === store;
     const matchRole = !role || role === 'All' || e.designation === role;
     return matchSearch && matchStore && matchRole;
@@ -728,9 +731,14 @@ export const getAllAppRegisteredEmployees = async (req, res) => {
     });
 
     // ── 6. Apply search / store / role filters ──
+    const cleanSearch = search.replace(/\s+/g, '');
     const filtered = employees.filter((e) => {
       const matchSearch = !search || [e.username, e.empID, e.workingBranch, e.designation, e.email]
-        .some((v) => String(v || '').toLowerCase().includes(search));
+        .some((v) => {
+          const val = String(v || '').toLowerCase();
+          const cleanVal = val.replace(/\s+/g, '');
+          return val.includes(search) || cleanVal.includes(cleanSearch);
+        });
       const matchStore = store === 'All' || 
                          e.workingBranch === store || 
                          e.workingBranch === 'All Stores' ||

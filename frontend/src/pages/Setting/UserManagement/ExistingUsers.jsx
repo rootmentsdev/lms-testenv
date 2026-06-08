@@ -96,14 +96,25 @@ const ExistingUsers = () => {
 
     // Filter and search
     const filteredAdmins = admins.filter((admin) => {
-        const query = searchQuery.toLowerCase();
-        const matchesSearch =
-            admin.name.toLowerCase().includes(query) ||
-            admin.email.toLowerCase().includes(query) ||
-            admin.EmpId.toLowerCase().includes(query) ||
-            formatRole(admin.role).toLowerCase().includes(query);
+        const query = searchQuery.trim().toLowerCase();
+        const cleanQuery = query.replace(/\s+/g, "");
 
-        const matchesRole = roleFilter === "All" || admin.role === roleFilter;
+        const name = String(admin?.name || "").toLowerCase();
+        const email = String(admin?.email || "").toLowerCase();
+        const empId = String(admin?.EmpId || "").toLowerCase();
+        const roleStr = String(formatRole(admin?.role) || "").toLowerCase();
+
+        const cleanEmpId = empId.replace(/\s+/g, "");
+
+        const matchesSearch =
+            !query ||
+            name.includes(query) ||
+            email.includes(query) ||
+            empId.includes(query) ||
+            cleanEmpId.includes(cleanQuery) ||
+            roleStr.includes(query);
+
+        const matchesRole = roleFilter === "All" || admin?.role === roleFilter;
 
         return matchesSearch && matchesRole;
     });
