@@ -129,11 +129,25 @@ const CreateNewUser = () => {
                 return;
             }
         }
-        setForm((prev) => ({ ...prev, [name]: value }));
+        setForm((prev) => {
+            const nextForm = { ...prev, [name]: value };
+            if (name === "userRole") {
+                if (value === "super_admin" || value === "hr_admin") {
+                    setSelectedBranches([]);
+                } else if (value === "employee") {
+                    setSelectedBranches((prevBranches) => prevBranches.slice(0, 1));
+                }
+            }
+            return nextForm;
+        });
     };
 
     const handleSelectBranches = (selectedOptions) => {
-        setSelectedBranches(selectedOptions || []);
+        if (form.userRole === "employee") {
+            setSelectedBranches(selectedOptions ? [selectedOptions] : []);
+        } else {
+            setSelectedBranches(selectedOptions || []);
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -373,10 +387,10 @@ const CreateNewUser = () => {
                                     Stores<span className="text-red-500">*</span>
                                 </label>
                                 <Select
-                                    placeholder="Select Stores user can access"
+                                    placeholder={form.userRole === "employee" ? "Select Store user can access" : "Select Stores user can access"}
                                     options={branches}
-                                    isMulti
-                                    value={selectedBranches}
+                                    isMulti={form.userRole !== "employee"}
+                                    value={form.userRole === "employee" ? (selectedBranches[0] || null) : selectedBranches}
                                     onChange={handleSelectBranches}
                                     styles={customSelectStyles}
                                     isDisabled={form.userRole === "super_admin" || form.userRole === "hr_admin"}

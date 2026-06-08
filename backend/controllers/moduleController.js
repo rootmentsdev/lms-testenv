@@ -4,6 +4,7 @@ import Module from '../model/Module.js'
 import Notification from '../model/Notification.js';
 import TrainingProgress from '../model/Trainingprocessschema.js';
 import User from '../model/User.js';
+import Employee from '../model/Employee.js';
 import Visibility from '../model/Visibility.js';
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcrypt'
@@ -410,9 +411,22 @@ export const getNotifications = async (req, res) => {
                 const user = await User.findById(userId);
                 if (user) {
                     const locCodes = Array.isArray(user.locCode) ? user.locCode : [user.locCode].filter(Boolean);
+                    const userIds = [user._id];
+                    
+                    // Look up employee record to map notifications assigned directly to Employee schema
+                    const employee = await Employee.findOne({
+                        $or: [
+                            { userId: user._id },
+                            { employeeId: { $regex: `^${user.empID}$`, $options: 'i' } }
+                        ]
+                    });
+                    if (employee) {
+                        userIds.push(employee._id);
+                    }
+
                     query = {
                         $or: [
-                            { user: { $in: [user._id] } },
+                            { user: { $in: userIds } },
                             { Role: { $in: [user.designation] } },
                             { branch: { $in: locCodes } }
                         ]
@@ -461,9 +475,22 @@ export const getAllNotifications = async (req, res) => {
                 const user = await User.findById(userId);
                 if (user) {
                     const locCodes = Array.isArray(user.locCode) ? user.locCode : [user.locCode].filter(Boolean);
+                    const userIds = [user._id];
+                    
+                    // Look up employee record to map notifications assigned directly to Employee schema
+                    const employee = await Employee.findOne({
+                        $or: [
+                            { userId: user._id },
+                            { employeeId: { $regex: `^${user.empID}$`, $options: 'i' } }
+                        ]
+                    });
+                    if (employee) {
+                        userIds.push(employee._id);
+                    }
+
                     query = {
                         $or: [
-                            { user: { $in: [user._id] } },
+                            { user: { $in: userIds } },
                             { Role: { $in: [user.designation] } },
                             { branch: { $in: locCodes } }
                         ]

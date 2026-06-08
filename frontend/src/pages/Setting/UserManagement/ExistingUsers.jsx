@@ -606,10 +606,13 @@ const ExistingUsers = () => {
                                 <select
                                     value={editRole}
                                     onChange={(e) => {
-                                        setEditRole(e.target.value);
+                                        const nextRole = e.target.value;
+                                        setEditRole(nextRole);
                                         // Clear stores when switching to full-access roles
-                                        if (e.target.value === "super_admin" || e.target.value === "hr_admin") {
+                                        if (nextRole === "super_admin" || nextRole === "hr_admin") {
                                             setEditSelectedBranches([]);
+                                        } else if (nextRole === "employee") {
+                                            setEditSelectedBranches((prev) => prev.slice(0, 1));
                                         }
                                     }}
                                     className="w-full h-[45px] pl-4 pr-10 border border-gray-200 rounded-xl text-sm font-semibold focus:outline-none focus:border-black transition-all bg-white text-gray-900 appearance-none cursor-pointer"
@@ -637,18 +640,22 @@ const ExistingUsers = () => {
                                 </label>
                             {editRole !== "super_admin" && editRole !== "hr_admin" && (
                                     <div className="flex gap-3 text-xs font-semibold">
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                setEditSelectedBranches(
-                                                    branches.map((b) => ({ value: b._id, label: b.workingBranch }))
-                                                )
-                                            }
-                                            className="text-black hover:underline"
-                                        >
-                                            Select All
-                                        </button>
-                                        <span className="text-gray-300">|</span>
+                                        {editRole !== "employee" && (
+                                            <>
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setEditSelectedBranches(
+                                                            branches.map((b) => ({ value: b._id, label: b.workingBranch }))
+                                                        )
+                                                    }
+                                                    className="text-black hover:underline"
+                                                >
+                                                    Select All
+                                                </button>
+                                                <span className="text-gray-300">|</span>
+                                            </>
+                                        )}
                                         <button
                                             type="button"
                                             onClick={() => setEditSelectedBranches([])}
@@ -667,20 +674,23 @@ const ExistingUsers = () => {
                                 </div>
                             ) : (
                                 <Select
-                                    isMulti
-                                    placeholder="Search and select stores…"
-                                    options={branchSelectOptions}
-                                    value={editSelectedBranches}
-                                    onChange={handleEditStoreChange}
+                                    isMulti={editRole !== "employee"}
+                                    placeholder={editRole === "employee" ? "Search and select store…" : "Search and select stores…"}
+                                    options={editRole === "employee" ? branches.map((branch) => ({
+                                        value: branch._id,
+                                        label: branch.workingBranch,
+                                    })) : branchSelectOptions}
+                                    value={editRole === "employee" ? (editSelectedBranches[0] || null) : editSelectedBranches}
+                                    onChange={editRole === "employee" ? (val) => setEditSelectedBranches(val ? [val] : []) : handleEditStoreChange}
                                     styles={editSelectStyles}
-                                    closeMenuOnSelect={false}
-                                    hideSelectedOptions={true}
+                                    closeMenuOnSelect={editRole === "employee"}
+                                    hideSelectedOptions={editRole !== "employee"}
                                     noOptionsMessage={() => "No stores found"}
                                 />
                             )}
 
                             {/* Count badge */}
-                            {editRole !== "super_admin" && editRole !== "hr_admin" && editSelectedBranches.length > 0 && (
+                            {editRole !== "super_admin" && editRole !== "hr_admin" && editRole !== "employee" && editSelectedBranches.length > 0 && (
                                 <p className="text-xs text-gray-400 mt-2">
                                     {editSelectedBranches.length} store{editSelectedBranches.length > 1 ? "s" : ""} selected
                                 </p>

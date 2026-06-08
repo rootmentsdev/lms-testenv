@@ -7,6 +7,7 @@ import Notification from "../model/Notification.js";
 import TrainingProgress from "../model/Trainingprocessschema.js";
 import { Training } from "../model/Traning.js";
 import User from "../model/User.js";
+import Employee from "../model/Employee.js";
 import mongoose from 'mongoose';
 import { getAccessibleStoreIds, isFullAccessAdmin } from '../lib/permissions.js';
 
@@ -1186,8 +1187,23 @@ export const GetUserMessage = async (req, res) => {
             };
         }
 
+        const userIds = [userData._id];
+        
+        // Find matching employee to include notifications assigned to their employee record
+        if (userData.empID) {
+            const employee = await Employee.findOne({
+                $or: [
+                    { userId: userData._id },
+                    { employeeId: { $regex: `^${userData.empID}$`, $options: 'i' } }
+                ]
+            });
+            if (employee) {
+                userIds.push(employee._id);
+            }
+        }
+
         const queryOr = [
-            { user: { $in: [userData._id] } }
+            { user: { $in: userIds } }
         ];
 
         if (userData.designation) {

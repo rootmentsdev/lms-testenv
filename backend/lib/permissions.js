@@ -141,33 +141,39 @@ export const validateEmployeeAccess = async (adminId, employeeId) => {
  */
 export const buildWalkinFilter = async (adminId, baseQuery = {}) => {
     const admin = await Admin.findById(adminId);
-    if (!admin) {
-        // Fallback: Check if this is a regular User (employee)
-        const user = await User.findById(adminId);
+    if (!admin || admin.role === 'employee') {
+        // Fallback or Admin employee: Check if this is a regular User (employee)
+        const user = admin ? admin : await User.findById(adminId);
         if (!user) return { _id: null }; // Return impossible query if admin or user not found
         
-        // Find the Branch matching the user's locCode/workingBranch
-        const branch = await Branch.findOne({ 
+        // Find the Employee document matching the user
+        const employee = await Employee.findOne({
             $or: [
-                { locCode: user.locCode },
-                { workingBranch: user.workingBranch }
+                { userId: user._id },
+                { employeeId: { $regex: `^${user.empID || user.EmpId || ''}$`, $options: 'i' } }
             ]
         });
-        const accessibleStoreIds = branch ? [branch._id.toString()] : [];
-        const locCodes = [user.locCode];
-        const workingBranches = [user.workingBranch];
 
-        const storeRestriction = [
-            { storeId: { $in: accessibleStoreIds } },
-            { store: { $in: [...locCodes, ...workingBranches].filter(Boolean) } }
-        ];
+        const employeeIds = [user._id.toString()];
+        if (employee) {
+            employeeIds.push(employee._id.toString());
+        }
+
+        const username = user.username || user.name || '';
+        const walkinRestriction = {
+            $or: [
+                { employeeId: { $in: employeeIds } },
+                { createdBy: user._id },
+                { staff: { $regex: `^${username.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' } }
+            ]
+        };
 
         // If baseQuery already has a $or (e.g., from a search filter), combine both using $and
         if (baseQuery.$or) {
             const { $or: existingOr, ...rest } = baseQuery;
-            return { ...rest, $and: [{ $or: existingOr }, { $or: storeRestriction }] };
+            return { ...rest, $and: [{ $or: existingOr }, walkinRestriction] };
         }
-        return { ...baseQuery, $or: storeRestriction };
+        return { ...baseQuery, ...walkinRestriction };
     }
 
     if (isFullAccessAdmin(admin.role)) {

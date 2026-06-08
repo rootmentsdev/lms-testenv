@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import User from './model/User.js';
+import Employee from './model/Employee.js';
 import Admin from './model/Admin.js';
 import Branch from './model/Branch.js';
 import Task from './model/Task.js';
@@ -32,6 +33,7 @@ const runTests = async () => {
   const cleanup = async () => {
     console.log('🧹 Cleaning up temporary test data...');
     await User.deleteMany({ username: /^TEST_TEMP_/ });
+    await Employee.deleteMany({ firstName: /^TEST_TEMP_/ });
     await Admin.deleteMany({ name: /^TEST_TEMP_/ });
     await Branch.deleteMany({ workingBranch: /^TEST_TEMP_/ });
     await Task.deleteMany({ title: /^TEST_TEMP_/ });
@@ -80,6 +82,21 @@ const runTests = async () => {
       workingBranch: 'TEST_TEMP_Branch'
     });
 
+    console.log('⚡ Setting up mock employee 1...');
+    const testEmployee = await Employee.create({
+      employeeId: 'EMP_USR_99_1',
+      firstName: 'TEST_TEMP_Emp1',
+      lastName: 'User',
+      email: 'test_user1_notif@test.com',
+      phoneNumber: '9876543210',
+      department: 'Sales',
+      designation: 'Staff',
+      dateOfJoining: new Date(),
+      salary: 15000,
+      storeId: testBranch._id,
+      userId: testUser._id
+    });
+
     // 4. Setup mock user 2 (reassignee)
     console.log('⚡ Setting up mock user 2...');
     const testUser2 = await User.create({
@@ -89,6 +106,21 @@ const runTests = async () => {
       locCode: '9999',
       designation: 'Staff',
       workingBranch: 'TEST_TEMP_Branch'
+    });
+
+    console.log('⚡ Setting up mock employee 2...');
+    const testEmployee2 = await Employee.create({
+      employeeId: 'EMP_USR_99_2',
+      firstName: 'TEST_TEMP_Emp2',
+      lastName: 'User',
+      email: 'test_user2_notif@test.com',
+      phoneNumber: '9876543211',
+      department: 'Sales',
+      designation: 'Staff',
+      dateOfJoining: new Date(),
+      salary: 15000,
+      storeId: testBranch._id,
+      userId: testUser2._id
     });
 
     // --- TEST 1: Task Assignment Notification ---
@@ -115,7 +147,7 @@ const runTests = async () => {
         title: 'TEST_TEMP_Task_1',
         category: 'Operation',
         subCategory: 'Daily Check',
-        assignedTo: testUser._id.toString(),
+        assignedTo: testEmployee._id.toString(),
         assignedToLabel: testUser.username,
         startDate: '01/06/2026',
         description: 'Test task assignment',
@@ -133,7 +165,7 @@ const runTests = async () => {
 
     // Verify task assignment notification saved to DB
     const notifAssign = await Notification.findOne({
-      user: testUser._id,
+      user: testEmployee._id,
       title: 'New Task Assigned'
     });
     if (!notifAssign) {
@@ -191,7 +223,7 @@ const runTests = async () => {
         role: 'super_admin'
       },
       body: {
-        assignedTo: testUser2._id.toString(),
+        assignedTo: testEmployee2._id.toString(),
         assignedToLabel: testUser2.username
       }
     };
@@ -204,9 +236,9 @@ const runTests = async () => {
     }
     console.log('✅ Task successfully reassigned to User 2.');
 
-    // Verify task reassignment notification saved to DB targeting testUser2
+    // Verify task reassignment notification saved to DB targeting testEmployee2
     const notifReassign = await Notification.findOne({
-      user: testUser2._id,
+      user: testEmployee2._id,
       title: 'Task Reassigned'
     });
     if (!notifReassign) {
@@ -325,7 +357,10 @@ const runTests = async () => {
     if (responseStatus !== 200 || !responseData?.notifications) {
       throw new Error(`Get messages user by email failed: ${JSON.stringify(responseData)}`);
     }
-    console.log(`✅ Retrieved ${responseData.notifications.length} notifications for user by email: ${testUser.email}`);
+    if (responseData.notifications.length !== 3) {
+      throw new Error(`❌ Expected 3 notifications for testUser (2 user, 1 employee), but got ${responseData.notifications.length}`);
+    }
+    console.log(`✅ Retrieved ${responseData.notifications.length} notifications (verified user received notifications from both User ID and linked Employee ID)`);
 
     // Fetch for regular User (testUser) by empID
     const mockReqGetMessagesUserEmpID = {
