@@ -1,5 +1,6 @@
 import express from 'express';
-import { GetUserMessage, UserAssessmentGet, userAssessmentUpdate, Usergetquestions } from '../controllers/FutterAssessment.js';
+import { GetUserMessage, UserAssessmentGet, userAssessmentUpdate, Usergetquestions, GetMobileDashboard } from '../controllers/FutterAssessment.js';
+import { verifyJWT } from '../lib/JWT.js';
 const router = express.Router();
 
 
@@ -218,4 +219,5 @@ router.post('/user/update/assessment', userAssessmentUpdate);
  *         description: Internal server error.
  */
 router.get('/user/get/message/:id',GetUserMessage)
+router.get('/mobile/dashboard', verifyJWT, GetMobileDashboard);
 export default router;

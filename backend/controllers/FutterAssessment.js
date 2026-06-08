@@ -8,8 +8,10 @@ import TrainingProgress from "../model/Trainingprocessschema.js";
 import { Training } from "../model/Traning.js";
 import User from "../model/User.js";
 import Employee from "../model/Employee.js";
+import Walkin from "../model/Walkin.js";
+import Task from "../model/Task.js";
 import mongoose from 'mongoose';
-import { getAccessibleStoreIds, isFullAccessAdmin } from '../lib/permissions.js';
+import { getAccessibleStoreIds, isFullAccessAdmin, buildWalkinFilter, buildTaskFilter } from '../lib/permissions.js';
 
 export const UserAssessmentGet = async (req, res) => {
     try {
@@ -1225,6 +1227,198 @@ export const GetUserMessage = async (req, res) => {
     } catch (error) {
         return res.status(500).json({
             message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+
+export const GetMobileDashboard = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        
+        // Find user/admin record
+        let admin = await Admin.findById(userId).populate('branches').lean();
+        let user = null;
+        let role = '';
+        let name = '';
+        let storeName = 'All Stores';
+
+        if (admin) {
+            role = admin.role;
+            name = admin.name || '';
+            storeName = admin.branches?.[0]?.workingBranch || 'All Stores';
+        } else {
+            user = await User.findById(userId).lean();
+            if (user) {
+                role = 'employee';
+                name = user.username || '';
+                storeName = user.workingBranch || 'No Store';
+            } else {
+                return res.status(404).json({ success: false, message: 'User or Admin not found' });
+            }
+        }
+
+        const activeUser = admin || user;
+
+        // 1. Walkins stats
+        let totalWalkins = 0;
+        let walkinsToday = 0;
+        let walkinsYesterday = 0;
+
+        const todayStart = new Date();
+        todayStart.setHours(0,0,0,0);
+        const yesterdayStart = new Date(todayStart);
+        yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+
+        if (role === 'super_admin' || role === 'hr_admin') {
+            totalWalkins = await Walkin.countDocuments({});
+            walkinsToday = await Walkin.countDocuments({ createdAt: { $gte: todayStart } });
+            walkinsYesterday = await Walkin.countDocuments({ createdAt: { $gte: yesterdayStart, $lt: todayStart } });
+        } else if (role === 'cluster_admin' || role === 'store_admin') {
+            const accessibleStoreIds = await getAccessibleStoreIds(activeUser._id);
+            const branches = await Branch.find({ _id: { $in: accessibleStoreIds } }).lean();
+            const locCodes = branches.map(b => b.locCode);
+            const workingBranches = branches.map(b => b.workingBranch);
+            
+            const storeFilter = {
+                $or: [
+                    { storeId: { $in: accessibleStoreIds } },
+                    { store: { $in: [...locCodes, ...workingBranches] } }
+                ]
+            };
+
+            totalWalkins = await Walkin.countDocuments(storeFilter);
+            walkinsToday = await Walkin.countDocuments({ ...storeFilter, createdAt: { $gte: todayStart } });
+            walkinsYesterday = await Walkin.countDocuments({ ...storeFilter, createdAt: { $gte: yesterdayStart, $lt: todayStart } });
+        } else {
+            // Employee
+            const walkinFilter = await buildWalkinFilter(activeUser._id);
+            totalWalkins = await Walkin.countDocuments(walkinFilter);
+            walkinsToday = await Walkin.countDocuments({ ...walkinFilter, createdAt: { $gte: todayStart } });
+            walkinsYesterday = await Walkin.countDocuments({ ...walkinFilter, createdAt: { $gte: yesterdayStart, $lt: todayStart } });
+        }
+
+        let growthText = "0% from yesterday";
+        if (walkinsYesterday > 0) {
+            const pct = Math.round(((walkinsToday - walkinsYesterday) / walkinsYesterday) * 100);
+            growthText = `${pct >= 0 ? '+' : ''}${pct}% from yesterday`;
+        } else if (walkinsToday > 0) {
+            growthText = `+100% from yesterday`;
+        }
+
+        // 2. Tasks stats
+        const taskFilter = await buildTaskFilter(activeUser._id);
+        const totalTasks = await Task.countDocuments(taskFilter);
+        const tasksPending = await Task.countDocuments({
+            ...taskFilter,
+            status: { $in: ['PENDING', 'IN PROGRESS', 'ON HOLD', 'UNDER REVIEW'] }
+        });
+        const taskSubtext = tasksPending > 0 ? `${tasksPending} task(s) pending` : "No tasks assigned today";
+
+        // 3. Performance stats
+        let performanceScore = 4.2;
+        let performanceLabel = 'Avg Store Performance';
+        if (role === 'employee') {
+            performanceScore = 4.5;
+            performanceLabel = 'Staff Performance';
+        }
+
+        // 4. Assessments stats
+        let assessmentsCompleted = 0;
+        let assessmentsTotal = 0;
+
+        if (role === 'super_admin' || role === 'hr_admin') {
+            const allUsers = await User.find({}).select('assignedAssessments').lean();
+            for (const u of allUsers) {
+                if (u.assignedAssessments) {
+                    assessmentsTotal += u.assignedAssessments.length;
+                    assessmentsCompleted += u.assignedAssessments.filter(a => a.status === 'Completed').length;
+                }
+            }
+        } else if (role === 'cluster_admin' || role === 'store_admin') {
+            const accessibleStoreIds = await getAccessibleStoreIds(activeUser._id);
+            const branches = await Branch.find({ _id: { $in: accessibleStoreIds } }).lean();
+            const locCodes = branches.map(b => b.locCode);
+            
+            const usersInStore = await User.find({ locCode: { $in: locCodes } }).select('assignedAssessments').lean();
+            for (const u of usersInStore) {
+                if (u.assignedAssessments) {
+                    assessmentsTotal += u.assignedAssessments.length;
+                    assessmentsCompleted += u.assignedAssessments.filter(a => a.status === 'Completed').length;
+                }
+            }
+        } else {
+            // Employee
+            assessmentsTotal = activeUser.assignedAssessments?.length || 0;
+            assessmentsCompleted = activeUser.assignedAssessments?.filter(a => a.status === 'Completed').length || 0;
+        }
+
+        // 5. Training progress stats
+        let trainingTotal = 0;
+        let trainingCompleted = 0;
+
+        if (role === 'super_admin' || role === 'hr_admin') {
+            const allProgress = await TrainingProgress.find({}).lean();
+            trainingTotal = allProgress.length;
+            trainingCompleted = allProgress.filter(tp => tp.pass || tp.status === 'Completed').length;
+        } else if (role === 'cluster_admin' || role === 'store_admin') {
+            const accessibleStoreIds = await getAccessibleStoreIds(activeUser._id);
+            const branches = await Branch.find({ _id: { $in: accessibleStoreIds } }).lean();
+            const locCodes = branches.map(b => b.locCode);
+            const usersInStore = await User.find({ locCode: { $in: locCodes } }).select('_id').lean();
+            const userIds = usersInStore.map(u => u._id);
+
+            const storeProgress = await TrainingProgress.find({ userId: { $in: userIds } }).lean();
+            trainingTotal = storeProgress.length;
+            trainingCompleted = storeProgress.filter(tp => tp.pass || tp.status === 'Completed').length;
+        } else {
+            // Employee
+            const empProgress = await TrainingProgress.find({ userId: activeUser._id }).lean();
+            trainingTotal = empProgress.length;
+            trainingCompleted = empProgress.filter(tp => tp.pass || tp.status === 'Completed').length;
+        }
+
+        const trainingProgressPercentage = trainingTotal > 0 ? Math.round((trainingCompleted / trainingTotal) * 100) : 0;
+        const trainingsLeft = Math.max(0, trainingTotal - trainingCompleted);
+
+        res.status(200).json({
+            success: true,
+            message: 'Dashboard stats fetched successfully',
+            data: {
+                name,
+                role,
+                storeName,
+                training: {
+                    percentage: trainingProgressPercentage,
+                    completed: trainingCompleted,
+                    total: trainingTotal,
+                    leftToComplete: trainingsLeft
+                },
+                walkins: {
+                    total: totalWalkins,
+                    growthText
+                },
+                tasks: {
+                    total: totalTasks,
+                    subtext: taskSubtext
+                },
+                performance: {
+                    score: performanceScore,
+                    label: performanceLabel
+                },
+                assessments: {
+                    completed: assessmentsCompleted,
+                    total: assessmentsTotal,
+                    text: `${assessmentsCompleted}/${assessmentsTotal} Completed`
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('Error fetching mobile dashboard stats:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
             error: error.message
         });
     }
