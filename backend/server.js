@@ -33,6 +33,7 @@ import { MiddilWare } from './lib/middilWare.js';
 import Admin from './model/Admin.js';
 import User from './model/User.js';
 import { calculateTrainingProgressStats } from './utils/trainingProgress.js';
+import { applyWatchCompletionRule, getVideoAssessmentInfo, refreshTrainingProgressStatus } from './utils/videoCompletionRules.js';
 
 const app = express();
 setupSwagger(app);
@@ -591,13 +592,15 @@ app.post('/api/video_progress', async (req, res) => {
     video.totalDuration = totalDuration || video.totalDuration || 0;
     video.watchPercentage = watchPercentage || (totalDuration > 0 ? (video.watchTime / totalDuration) * 100 : 0);
     video.lastWatchedAt = new Date();
+    const assessmentInfo = await getVideoAssessmentInfo(videoId);
 
     // Auto-mark as completed if 90% watched
-    if (video.watchPercentage >= 90 && !video.pass) {
+    if (video.watchPercentage >= 90 && !assessmentInfo.hasQuestions && !video.pass) {
       video.pass = true;
       console.log('✅ Video auto-marked as completed (90% watched)');
     }
 
+    const videoCompletion = applyWatchCompletionRule(video, assessmentInfo);
     const allVideosPassed = module.videos.every(v => v.pass === true);
     if (allVideosPassed && !module.pass) {
       module.pass = true;
@@ -612,6 +615,8 @@ app.post('/api/video_progress', async (req, res) => {
     } else if (trainingProgress.modules.some(mod => mod.pass || mod.videos.some(v => v.pass || Number(v.watchPercentage || 0) > 0))) {
       trainingProgress.status = 'In Progress';
     }
+
+    refreshTrainingProgressStatus(trainingProgress);
 
     // Save updated training progress
     await trainingProgress.save();
@@ -638,6 +643,10 @@ app.post('/api/video_progress', async (req, res) => {
         totalDuration: video.totalDuration,
         watchPercentage: video.watchPercentage,
         completed: video.pass,
+        assessmentRequired: video.assessmentRequired,
+        assessmentCompleted: video.assessmentCompleted,
+        assessmentPassed: video.assessmentPassed,
+        requiresAssessment: videoCompletion.requiresAssessment,
         trainingStatus: trainingProgress.status,
         trainingCompleted: trainingProgress.pass,
         progressPercentage: progressStats.progressPercentage,

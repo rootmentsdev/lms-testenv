@@ -10,6 +10,7 @@ import Admin from '../model/Admin.js';
 import { sendCompletionEmail } from '../utils/sendEmail.js';
 import { sendNotification } from '../utils/notificationHelper.js';
 import { calculateTrainingProgressStats } from '../utils/trainingProgress.js';
+import { applyWatchCompletionRule, getVideoAssessmentInfo, refreshTrainingProgressStatus } from '../utils/videoCompletionRules.js';
 dotenv.config()
 
 // Adjust the path to your TrainingProgress model
@@ -924,11 +925,20 @@ export const GetuserTrainingprocess = async (req, res) => {
             videoUri: actualVideo.videoUri, // This is the actual YouTube URL!
             videoTitle: actualVideo.title, // Add both title fields
             questions: actualVideo.questions,
+            hasQuestions: Array.isArray(actualVideo.questions) && actualVideo.questions.length > 0,
+            totalQuestions: Array.isArray(actualVideo.questions) ? actualVideo.questions.length : 0,
             pass: progressVideo ? progressVideo.pass : false,
             watchTime: progressVideo ? progressVideo.watchTime : 0,
             totalDuration: progressVideo ? progressVideo.totalDuration : 0,
             watchPercentage: progressVideo ? progressVideo.watchPercentage : 0,
-            lastWatchedAt: progressVideo ? progressVideo.lastWatchedAt : null
+            lastWatchedAt: progressVideo ? progressVideo.lastWatchedAt : null,
+            assessmentRequired: progressVideo
+              ? Boolean(progressVideo.assessmentRequired)
+              : Array.isArray(actualVideo.questions) && actualVideo.questions.length > 0,
+            assessmentCompleted: progressVideo ? Boolean(progressVideo.assessmentCompleted) : false,
+            assessmentScore: progressVideo ? Number(progressVideo.assessmentScore || 0) : 0,
+            assessmentPassed: progressVideo ? Boolean(progressVideo.assessmentPassed) : false,
+            assessmentCompletedAt: progressVideo ? progressVideo.assessmentCompletedAt : null
           };
         });
         
@@ -959,7 +969,7 @@ export const GetuserTrainingprocess = async (req, res) => {
       modules: enrichedModules
     };
 
-    console.log('✅ Returning enriched training data with', totalVideos, 'videos');
+    console.log('✅ Returning enriched training data with', progressStats.totalVideos, 'videos');
 
     res.status(200).json({
       message: "Data found",
@@ -1040,37 +1050,22 @@ export const UpdateuserTrainingprocess = async (req, res) => {
       });
     }
 
-    // Update video status if not already passed
-    if (!video.pass) {
-      video.pass = true;
-      video.completedAt = new Date(); // Add completion timestamp
-      
-      // Store watch time data if provided
-      if (watchTime && totalDuration) {
-        video.watchTime = watchTime;
-        video.totalDuration = totalDuration;
-        video.watchPercentage = Math.round((watchTime / totalDuration) * 100);
-      }
-    }
+    const assessmentInfo = await getVideoAssessmentInfo(videoId);
 
-    // Update module status if all videos are passed
-    const allVideosPassed = module.videos.every(v => v.pass === true);
-    if (allVideosPassed && !module.pass) {
-      module.pass = true;
-      module.completedAt = new Date(); // Add completion timestamp
-    }
-
-    // Update training status
-    const allModulesPassed = trainingProgress.modules.every(mod => mod.pass === true);
-    const wasAlreadyPassed = trainingProgress.pass === true;
-
-    if (allModulesPassed) {
-      trainingProgress.pass = true;
-      trainingProgress.status = 'Completed';
-      trainingProgress.completedAt = new Date(); // Add completion timestamp
+    if (watchTime || totalDuration) {
+      video.watchTime = Math.max(Number(video.watchTime || 0), Number(watchTime || 0));
+      video.totalDuration = Number(totalDuration || video.totalDuration || 0);
+      video.watchPercentage =
+        video.totalDuration > 0
+          ? Math.round((video.watchTime / video.totalDuration) * 100)
+          : Number(video.watchPercentage || 0);
     } else {
-      trainingProgress.status = 'In Progress';
+      video.watchPercentage = Math.max(Number(video.watchPercentage || 0), 100);
     }
+
+    const wasAlreadyPassed = trainingProgress.pass === true;
+    const videoCompletion = applyWatchCompletionRule(video, assessmentInfo);
+    const { allModulesPassed } = refreshTrainingProgressStatus(trainingProgress);
 
     // Save updated training progress
     await trainingProgress.save();
@@ -1124,6 +1119,15 @@ export const UpdateuserTrainingprocess = async (req, res) => {
           status: trainingProgress.status,
           pass: trainingProgress.pass,
           completedAt: trainingProgress.completedAt
+        },
+        video: {
+          id: video.videoId,
+          completed: video.pass,
+          watchPercentage: video.watchPercentage,
+          assessmentRequired: video.assessmentRequired,
+          assessmentCompleted: video.assessmentCompleted,
+          assessmentPassed: video.assessmentPassed,
+          requiresAssessment: videoCompletion.requiresAssessment
         },
         user: {
           id: user._id,

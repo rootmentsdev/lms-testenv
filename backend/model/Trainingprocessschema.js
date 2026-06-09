@@ -15,6 +15,9 @@ const TrainingProgressSchema = new mongoose.Schema({
         type: Boolean,
         default: false,
     },
+    completedAt: {
+        type: Date,
+    },
     status: {
         type: String,
         default: 'Pending',
@@ -34,6 +37,9 @@ const TrainingProgressSchema = new mongoose.Schema({
                 type: Boolean,
                 default: false,
             },
+            completedAt: {
+                type: Date,
+            },
             videos: [
                 {
                     videoId: {
@@ -44,6 +50,9 @@ const TrainingProgressSchema = new mongoose.Schema({
                     pass: {
                         type: Boolean,
                         default: false,
+                    },
+                    completedAt: {
+                        type: Date,
                     },
                     watchTime: {
                         type: Number,
@@ -60,6 +69,29 @@ const TrainingProgressSchema = new mongoose.Schema({
                     lastWatchedAt: {
                         type: Date,
                         default: Date.now,
+                    },
+                    assessmentRequired: {
+                        type: Boolean,
+                        default: false,
+                    },
+                    assessmentCompleted: {
+                        type: Boolean,
+                        default: false,
+                    },
+                    assessmentScore: {
+                        type: Number,
+                        default: 0,
+                    },
+                    assessmentPassed: {
+                        type: Boolean,
+                        default: false,
+                    },
+                    assessmentAnswers: {
+                        type: mongoose.Schema.Types.Mixed,
+                        default: [],
+                    },
+                    assessmentCompletedAt: {
+                        type: Date,
                     },
                 },
             ],

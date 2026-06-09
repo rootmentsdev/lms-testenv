@@ -4,6 +4,7 @@ import Branch from "../model/Branch.js";
 import Designation from "../model/designation.js"; // Import the destination model
 import User from "../model/User.js";
 import TrainingProgress from "../model/Trainingprocessschema.js";
+import Module from "../model/Module.js";
 import mongoose from "mongoose";
 import bcrypt from 'bcrypt'
 import axios from 'axios'; // Added axios import
@@ -14,6 +15,34 @@ const normalizeBranchKey = (value) => {
     }
     if (value === null || value === undefined) return '';
     return String(value).trim();
+};
+
+const getTrainingKey = (userId, trainingId) => `${userId?.toString()}::${trainingId?.toString()}`;
+
+const isTrainingProgressCompleteForDashboard = (progressRecord, videoIdsWithQuestions) => {
+    const modules = Array.isArray(progressRecord?.modules) ? progressRecord.modules : [];
+    let hasVideos = false;
+
+    for (const module of modules) {
+        const videos = Array.isArray(module?.videos) ? module.videos : [];
+        for (const video of videos) {
+            hasVideos = true;
+            const videoId = video?.videoId?.toString();
+            const requiresQuestionPass = videoId && videoIdsWithQuestions.has(videoId);
+
+            if (requiresQuestionPass) {
+                if (video.assessmentPassed !== true) return false;
+            } else if (video.pass !== true) {
+                return false;
+            }
+        }
+    }
+
+    if (!hasVideos) {
+        return progressRecord?.pass === true || String(progressRecord?.status || '').toLowerCase() === 'completed';
+    }
+
+    return true;
 };
 
 export const createDesignation = async (req, res) => {
@@ -104,6 +133,25 @@ export const HomeBar = async (req, res) => {
             userId: { $in: userIds } 
         });
 
+        const progressModuleIds = [
+            ...new Set(
+                trainingProgressRecords.flatMap((record) =>
+                    (record.modules || []).map((module) => module.moduleId?.toString()).filter(Boolean)
+                )
+            ),
+        ];
+        const moduleDocs = progressModuleIds.length > 0
+          ? await Module.find({ _id: { $in: progressModuleIds } }).select('videos._id videos.questions').lean()
+          : [];
+        const videoIdsWithQuestions = new Set();
+        moduleDocs.forEach((module) => {
+            (module.videos || []).forEach((video) => {
+                if (Array.isArray(video.questions) && video.questions.length > 0) {
+                    videoIdsWithQuestions.add(video._id.toString());
+                }
+            });
+        });
+
         // Build lookup maps
         const userMap = new Map();
         for (const user of users) {
@@ -119,10 +167,12 @@ export const HomeBar = async (req, res) => {
         }
         
         const trainingProgressMap = new Map();
+        const trainingProgressByUserTraining = new Map();
         for (const training of trainingProgressRecords) {
             const key = training.userId.toString();
             if (!trainingProgressMap.has(key)) trainingProgressMap.set(key, []);
             trainingProgressMap.get(key).push(training);
+            trainingProgressByUserTraining.set(getTrainingKey(training.userId, training.trainingId), training);
         }
 
         const allData = branches.map((branch) => {
@@ -137,14 +187,33 @@ export const HomeBar = async (req, res) => {
             branchUsers.forEach((user) => {
                 const assignedTrainings = Array.isArray(user.training) ? user.training : [];
                 const mandatoryTrainings = trainingProgressMap.get(user._id.toString()) || [];
-                const userTrainingCount = assignedTrainings.length + mandatoryTrainings.length;
+                const countedTrainingKeys = new Set();
+                let userTrainingCount = 0;
+
+                assignedTrainings.forEach((item) => {
+                    const trainingId = item.trainingId?._id || item.trainingId;
+                    const trainingKey = getTrainingKey(user._id, trainingId);
+                    countedTrainingKeys.add(trainingKey);
+                    userTrainingCount++;
+                    const progressRecord = trainingProgressByUserTraining.get(trainingKey);
+                    const isComplete = progressRecord
+                      ? isTrainingProgressCompleteForDashboard(progressRecord, videoIdsWithQuestions)
+                      : item.pass === true;
+
+                    if (!isComplete) trainingCountPending++;
+                });
+
+                mandatoryTrainings.forEach((item) => {
+                    const trainingKey = getTrainingKey(item.userId, item.trainingId);
+                    if (countedTrainingKeys.has(trainingKey)) return;
+
+                    countedTrainingKeys.add(trainingKey);
+                    userTrainingCount++;
+                    const isComplete = isTrainingProgressCompleteForDashboard(item, videoIdsWithQuestions);
+                    if (!isComplete) trainingCountPending++;
+                });
 
                 trainingCount += userTrainingCount;
-                trainingCountPending += assignedTrainings.filter((item) => item.pass !== true).length;
-                trainingCountPending += mandatoryTrainings.filter((item) => {
-                    const status = String(item.status || '').toLowerCase();
-                    return item.pass !== true && status !== 'completed';
-                }).length;
                 if (userTrainingCount > 0) employeesInTraining++;
                 
                 // Assessment data

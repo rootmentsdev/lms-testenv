@@ -6,6 +6,7 @@ import User from '../model/User.js';
 import Module from '../model/Module.js'; // Added import for Module
 import { sendNotification } from '../utils/notificationHelper.js';
 import { calculateTrainingProgressStats } from '../utils/trainingProgress.js';
+import { refreshTrainingProgressStatus } from '../utils/videoCompletionRules.js';
 
 const getTrainingVideoStats = (training, progressRecords = []) => {
   const modules = Array.isArray(training?.modules) ? training.modules : [];
@@ -1389,42 +1390,65 @@ export const submitVideoAssessment = async (req, res) => {
         });
 
         const score = totalQuestions > 0 ? (correctAnswers / totalQuestions) * 100 : 0;
-        const passed = score >= 70; // 70% passing threshold
+        const passed = totalQuestions > 0 && correctAnswers === totalQuestions;
+        let savedProgress = null;
+        let progressStats = null;
 
         // Save assessment result to training progress
         if (userId && trainingId && moduleId) {
             try {
-                const TrainingProgress = await import('../model/Trainingprocessschema.js');
-                
                 // Find existing training progress
-                let trainingProgress = await TrainingProgress.default.findOne({
+                let trainingProgress = await TrainingProgress.findOne({
                     userId: userId,
-                    trainingId: trainingId,
-                    moduleId: moduleId
+                    trainingId: trainingId
                 });
 
                 if (trainingProgress) {
-                    // Update existing progress
-                    const videoProgress = trainingProgress.videos.find(v => v.videoId.toString() === videoId);
+                    const progressModule = trainingProgress.modules.find(
+                        (item) => item.moduleId.toString() === moduleId
+                    );
+                    const videoProgress = progressModule?.videos?.find(
+                        (item) => item.videoId.toString() === videoId
+                    );
+
                     if (videoProgress) {
+                        const wasAlreadyPassed = trainingProgress.pass === true;
                         videoProgress.assessmentCompleted = true;
                         videoProgress.assessmentScore = score;
                         videoProgress.assessmentPassed = passed;
                         videoProgress.assessmentAnswers = results;
-                        videoProgress.completedAt = new Date();
-                    } else {
-                        // Add new video progress
-                        trainingProgress.videos.push({
-                            videoId: videoId,
-                            assessmentCompleted: true,
-                            assessmentScore: score,
-                            assessmentPassed: passed,
-                            assessmentAnswers: results,
-                            completedAt: new Date()
-                        });
+                        videoProgress.assessmentRequired = true;
+                        videoProgress.assessmentCompletedAt = new Date();
+                        videoProgress.pass = passed;
+                        videoProgress.completedAt = passed ? new Date() : undefined;
+
+                        const { allModulesPassed } = refreshTrainingProgressStatus(trainingProgress);
+                        await trainingProgress.save();
+
+                        const user = await User.findById(userId);
+                        const userTraining = user?.training?.find(
+                            (item) => item.trainingId.toString() === trainingId
+                        );
+                        if (userTraining) {
+                            userTraining.status = trainingProgress.status;
+                            userTraining.pass = trainingProgress.pass;
+                            userTraining.completedAt = trainingProgress.completedAt;
+                            await user.save();
+                        }
+
+                        if (allModulesPassed && !wasAlreadyPassed) {
+                            await sendNotification({
+                                title: 'Training Completed',
+                                body: `Congratulations! You have completed the training program: "${trainingProgress.trainingName}"`,
+                                userIds: [userId],
+                                senderName: 'LMS System',
+                                category: 'Training'
+                            });
+                        }
+
+                        savedProgress = trainingProgress;
+                        progressStats = calculateTrainingProgressStats(trainingProgress);
                     }
-                    
-                    await trainingProgress.save();
                 }
             } catch (progressError) {
                 console.error('Error saving training progress:', progressError);
@@ -1441,7 +1465,12 @@ export const submitVideoAssessment = async (req, res) => {
                 passed: passed,
                 totalQuestions: totalQuestions,
                 correctAnswers: correctAnswers,
-                results: results
+                results: results,
+                progressPercentage: progressStats?.progressPercentage,
+                progressPercentagePrecise: progressStats?.progressPercentagePrecise,
+                trainingStatus: savedProgress?.status,
+                trainingCompleted: savedProgress?.pass,
+                progressSummary: progressStats
             }
         });
 
