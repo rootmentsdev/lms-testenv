@@ -246,9 +246,25 @@ export const buildTaskFilter = async (adminId, baseQuery = {}) => {
         return { ...baseQuery, ...restriction };
     }
 
-    // ── Super Admin / Admin → full access ─────────────────────────────────────
-    if (admin.role === 'super_admin' || admin.role === 'admin') {
+    // ── Super Admin → full access ─────────────────────────────────────
+    if (admin.role === 'super_admin') {
         return baseQuery;
+    }
+
+    // ── Admin → creator OR assignee (only tasks assigned to them or created by them) ─────
+    if (admin.role === 'admin') {
+        const restriction = {
+            $or: [
+                { createdBy: admin._id },
+                { assignedTo: admin._id.toString() }
+            ]
+        };
+
+        if (baseQuery.$or) {
+            const { $or: existingOr, ...rest } = baseQuery;
+            return { ...rest, $and: [{ $or: existingOr }, restriction] };
+        }
+        return { ...baseQuery, ...restriction };
     }
 
     // ── HR Admin → creator OR assignee ────────────────────────────────────────

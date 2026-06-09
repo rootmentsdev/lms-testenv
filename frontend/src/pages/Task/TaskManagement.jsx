@@ -168,7 +168,6 @@ const TaskManagement = () => {
   }, []);
 
   const [tasks, setTasks] = useState([]);
-  const [myTasks, setMyTasks] = useState([]);
   const [requests, setRequests] = useState([]);
   const [extensions, setExtensions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -192,16 +191,6 @@ const TaskManagement = () => {
           priority: priorityFilter,
           status: statusFilter,
         }),
-        // Only fetch myTasks for super_admin / admin — other roles see scoped tasks in "All Tasks"
-        isGlobalAdmin
-          ? fetchTasks({
-              search: search.trim(),
-              category: categoryFilter,
-              priority: priorityFilter,
-              status: statusFilter,
-              mine: true,
-            })
-          : Promise.resolve({ data: [] }),
         fetchTasks({
           status: 'UNDER REVIEW',
         }),
@@ -210,10 +199,9 @@ const TaskManagement = () => {
         })
       ];
 
-      const [tasksRes, myTasksRes, requestsRes, extensionsRes] = await Promise.all(fetchList);
+      const [tasksRes, requestsRes, extensionsRes] = await Promise.all(fetchList);
 
       setTasks(tasksRes.data || []);
-      setMyTasks(myTasksRes.data || []);
       const userRequests = (requestsRes.data || []).filter(
         (t) => t.createdBy === user?.userId
       );
@@ -226,7 +214,6 @@ const TaskManagement = () => {
     } catch (err) {
       setError(err.message);
       setTasks([]);
-      setMyTasks([]);
       setRequests([]);
       setExtensions([]);
       toast.error(err.message || 'Could not load tasks');
@@ -289,15 +276,12 @@ const TaskManagement = () => {
 
   const totalCount = activeTab === 'tasks'
     ? tasks.length
-    : activeTab === 'mine'
-    ? myTasks.length
     : activeTab === 'requests'
     ? filteredRequests.length
     : filteredExtensions.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const pageItems = tasks.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-  const pageItemsMine = myTasks.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   const pageItemsRequests = filteredRequests.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   const pageItemsExtensions = filteredExtensions.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   const showingCount = String(
@@ -389,17 +373,6 @@ const TaskManagement = () => {
             All Tasks
             <span className="task-mgmt-tab-count">{tasks.length}</span>
           </button>
-          {/* My Tasks tab only shown to super_admin / admin */}
-          {isGlobalAdmin && (
-            <button
-              type="button"
-              className={`task-mgmt-tab-btn ${activeTab === 'mine' ? 'active' : ''}`}
-              onClick={() => setActiveTab('mine')}
-            >
-              My Tasks
-              <span className="task-mgmt-tab-count">{myTasks.length}</span>
-            </button>
-          )}
           <button
             type="button"
             className={`task-mgmt-tab-btn ${activeTab === 'requests' ? 'active' : ''}`}
@@ -460,7 +433,7 @@ const TaskManagement = () => {
           <div className="task-mgmt-table-wrap">
             <table className="task-mgmt-table">
               <thead>
-                {activeTab === 'tasks' || activeTab === 'mine' ? (
+                {activeTab === 'tasks' ? (
                   <tr>
                     <th>Task Title</th>
                     <th>Category</th>
@@ -514,23 +487,21 @@ const TaskManagement = () => {
                       </button>
                     </td>
                   </tr>
-                ) : (activeTab === 'tasks' || activeTab === 'mine'
-                    ? (activeTab === 'mine' ? pageItemsMine : pageItems)
+                ) : (activeTab === 'tasks'
+                    ? pageItems
                     : activeTab === 'requests' ? pageItemsRequests : pageItemsExtensions
                   ).length === 0 ? (
                   <tr>
                     <td colSpan={10} style={{ textAlign: 'center', color: '#9ca3af', padding: '32px' }}>
                       {activeTab === 'tasks'
                         ? 'No tasks found. Create one with + New Task.'
-                        : activeTab === 'mine'
-                        ? 'No tasks assigned to or created by you.'
                         : activeTab === 'requests'
                         ? 'No pending review requests.'
                         : 'No pending extension requests.'}
                     </td>
                   </tr>
                 ) : (
-                  (activeTab === 'mine' ? pageItemsMine : activeTab === 'tasks' ? pageItems : activeTab === 'requests' ? pageItemsRequests : pageItemsExtensions).map((task) => (
+                  (activeTab === 'tasks' ? pageItems : activeTab === 'requests' ? pageItemsRequests : pageItemsExtensions).map((task) => (
                     <tr key={task.id}>
                       <td className="task-mgmt-cell-title" onClick={() => setSelectedTask(task)} style={{ cursor: 'pointer' }}>{task.title}</td>
                       <td><StackCell primary={task.category} secondary={task.categorySub} /></td>
@@ -566,7 +537,7 @@ const TaskManagement = () => {
                       
                       <td className="task-mgmt-desc">{task.description}</td>
                       
-                      {activeTab === 'tasks' || activeTab === 'mine' ? (
+                      {activeTab === 'tasks' ? (
                         <>
                           <td>
                             <span className={`task-mgmt-status ${STATUS_CLASS[task.status] || ''}`}>

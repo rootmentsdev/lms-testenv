@@ -15,8 +15,8 @@ let isRunning = false;
 export const startAutoTaskCron = () => {
   console.log('🕐 Starting Auto Task Generation Scheduler...');
 
-  // Run every hour at the top of the hour
-  cron.schedule('0 * * * *', async () => {
+  // Run every hour at 5 minutes past the hour (staggered to avoid overlapping with walkin sync)
+  cron.schedule('5 * * * *', async () => {
     if (isRunning) {
       console.log('⚠️  [AutoTask Cron] Previous run still in progress. Skipping.');
       return;
@@ -34,5 +34,5 @@ export const startAutoTaskCron = () => {
     }
   });
 
-  console.log('✅  Auto Task Generation Scheduler started (runs every hour)');
+  console.log('✅  Auto Task Generation Scheduler started (runs every hour at :05)');
 };
