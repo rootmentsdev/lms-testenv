@@ -8,7 +8,7 @@ import User from '../model/User.js';
  * Validates if the user is a super admin or hr admin (full access)
  */
 export const isFullAccessAdmin = (adminRole) => {
-    return ['super_admin', 'hr_admin'].includes(adminRole);
+    return ['super_admin', 'admin', 'hr_admin'].includes(adminRole);
 };
 
 /**
@@ -246,9 +246,25 @@ export const buildTaskFilter = async (adminId, baseQuery = {}) => {
         return { ...baseQuery, ...restriction };
     }
 
-    // ── Super Admin / HR Admin → full access ─────────────────────────────────
-    if (isFullAccessAdmin(admin.role)) {
+    // ── Super Admin / Admin → full access ─────────────────────────────────────
+    if (admin.role === 'super_admin' || admin.role === 'admin') {
         return baseQuery;
+    }
+
+    // ── HR Admin → creator OR assignee ────────────────────────────────────────
+    if (admin.role === 'hr_admin') {
+        const restriction = {
+            $or: [
+                { createdBy: admin._id },
+                { assignedTo: admin._id.toString() }
+            ]
+        };
+
+        if (baseQuery.$or) {
+            const { $or: existingOr, ...rest } = baseQuery;
+            return { ...rest, $and: [{ $or: existingOr }, restriction] };
+        }
+        return { ...baseQuery, ...restriction };
     }
 
     // ── Cluster Admin / Store Admin → creator OR assignee in their stores ─────

@@ -215,7 +215,7 @@ const SideNav = () => {
           <NavItem to="/assessments" icon="assessment" label="Assessments" active={is('/assessments')} />
           <NavItem to="/module"      icon="module"     label="Modules"     active={is('/module')} />
           <NavItem to="/branch"      icon="branch"     label="Branches"    active={is('/branch') || is('/Addbranch')} />
-          {(user?.role === 'super_admin' || user?.role === 'hr_admin') && (
+          {(user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin') && (
             <FlyoutNavItem
               icon="settings"
               label="Settings"

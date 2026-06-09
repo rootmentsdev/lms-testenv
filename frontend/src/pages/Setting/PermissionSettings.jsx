@@ -43,44 +43,49 @@ const PermissionSettings = () => {
 
         const result = await fetchData.json();
 
-        if (!result.data || result.data.length < 3) {
+        if (!result.data || !Array.isArray(result.data)) {
           throw new Error("Invalid permission data received");
         }
+
+        const superAdminDoc = result.data.find(d => d.role === "super_admin" || d.role === "admin");
+        const clusterAdminDoc = result.data.find(d => d.role === "cluster_admin");
+        const storeAdminDoc = result.data.find(d => d.role === "store_admin");
+
         setPermissions({
           admin: {
             training: [
-              result.data[0]?.permissions.canCreateTraining || false,
-              result.data[0]?.permissions.canReassignTraining || false,
-              result.data[0]?.permissions.canDeleteTraining || false,
+              superAdminDoc?.permissions?.canCreateTraining || false,
+              superAdminDoc?.permissions?.canReassignTraining || false,
+              superAdminDoc?.permissions?.canDeleteTraining || false,
             ],
             assessment: [
-              result.data[0]?.permissions.canCreateAssessment || false,
-              result.data[0]?.permissions.canReassignAssessment || false,
-              result.data[0]?.permissions.canDeleteAssessment || false,
+              superAdminDoc?.permissions?.canCreateAssessment || false,
+              superAdminDoc?.permissions?.canReassignAssessment || false,
+              superAdminDoc?.permissions?.canDeleteAssessment || false,
             ],
           },
           clusterManager: {
             training: [
-              result.data[1]?.permissions.canCreateTraining || false,
-              result.data[1]?.permissions.canReassignTraining || false,
-              result.data[1]?.permissions.canDeleteTraining || false,
+              clusterAdminDoc?.permissions?.canCreateTraining || false,
+              clusterAdminDoc?.permissions?.canReassignTraining || false,
+              clusterAdminDoc?.permissions?.canDeleteTraining || false,
             ],
             assessment: [
-              result.data[1]?.permissions.canCreateAssessment || false,
-              result.data[1]?.permissions.canReassignAssessment || false,
-              result.data[1]?.permissions.canDeleteAssessment || false,
+              clusterAdminDoc?.permissions?.canCreateAssessment || false,
+              clusterAdminDoc?.permissions?.canReassignAssessment || false,
+              clusterAdminDoc?.permissions?.canDeleteAssessment || false,
             ],
           },
           storeManager: {
             training: [
-              result.data[2]?.permissions.canCreateTraining || false,
-              result.data[2]?.permissions.canReassignTraining || false,
-              result.data[2]?.permissions.canDeleteTraining || false,
+              storeAdminDoc?.permissions?.canCreateTraining || false,
+              storeAdminDoc?.permissions?.canReassignTraining || false,
+              storeAdminDoc?.permissions?.canDeleteTraining || false,
             ],
             assessment: [
-              result.data[2]?.permissions.canCreateAssessment || false,
-              result.data[2]?.permissions.canReassignAssessment || false,
-              result.data[2]?.permissions.canDeleteAssessment || false,
+              storeAdminDoc?.permissions?.canCreateAssessment || false,
+              storeAdminDoc?.permissions?.canReassignAssessment || false,
+              storeAdminDoc?.permissions?.canDeleteAssessment || false,
             ],
           },
         });

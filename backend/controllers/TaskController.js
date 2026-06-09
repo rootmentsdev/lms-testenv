@@ -65,6 +65,7 @@ const ASSIGNED_TO_LABELS = {
 
 const ROLE_LABELS = {
   super_admin: 'Super Admin',
+  admin: 'Admin',
   cluster_admin: 'Cluster Admin',
   store_admin: 'Store Admin',
 };
@@ -391,7 +392,7 @@ export const createTask = async (req, res) => {
       try {
         const targetAdmin = await Admin.findById(target.id).populate('branches');
         if (targetAdmin) {
-          if (targetAdmin.role === 'super_admin' || targetAdmin.role === 'hr_admin') {
+          if (['super_admin', 'admin', 'hr_admin'].includes(targetAdmin.role)) {
             targetStoreName = 'Office';
             targetStoreCode = '';
           } else {
@@ -587,7 +588,7 @@ export const getTasks = async (req, res) => {
     ]);
     const branchByAssignee = {};
     assigneeAdmins.forEach(ad => {
-      if (ad.role === 'super_admin' || ad.role === 'hr_admin') {
+      if (['super_admin', 'admin', 'hr_admin'].includes(ad.role)) {
         branchByAssignee[ad._id.toString()] = 'Office';
       } else {
         branchByAssignee[ad._id.toString()] = ad.branches?.[0]?.workingBranch || '';
@@ -661,7 +662,7 @@ export const getTaskById = async (req, res) => {
       if (assigneeId) {
         const assigneeAdmin = await Admin.findById(assigneeId, { role: 1, branches: 1 }).populate('branches', 'workingBranch').lean();
         if (assigneeAdmin) {
-          assigneeBranch = (assigneeAdmin.role === 'super_admin' || assigneeAdmin.role === 'hr_admin')
+          assigneeBranch = ['super_admin', 'admin', 'hr_admin'].includes(assigneeAdmin.role)
             ? 'Office'
             : (assigneeAdmin.branches?.[0]?.workingBranch || null);
         } else {
@@ -707,7 +708,7 @@ export const getTaskAssignees = async (req, res) => {
 
     // 1. Build generic options list based on role
     const genericOptions = [];
-    if (role === 'super_admin') {
+    if (role === 'super_admin' || role === 'admin') {
       genericOptions.push(
         { value: 'all_employees', label: 'All Employees', type: 'group' },
         { value: 'all_hr_admins', label: 'All HR Admins', type: 'group' },
@@ -739,8 +740,8 @@ export const getTaskAssignees = async (req, res) => {
 
     // 4. Fetch Accessible Admins based on logged-in user's role
     let adminQuery = { isActive: true };
-    if (role === 'super_admin') {
-      adminQuery.role = { $in: ['hr_admin', 'cluster_admin', 'store_admin', 'super_admin'] };
+    if (role === 'super_admin' || role === 'admin') {
+      adminQuery.role = { $in: ['hr_admin', 'cluster_admin', 'store_admin', 'super_admin', 'admin'] };
     } else if (role === 'hr_admin') {
       adminQuery.role = { $in: ['cluster_admin', 'store_admin', 'hr_admin'] };
     } else if (role === 'cluster_admin') {
@@ -766,9 +767,9 @@ export const getTaskAssignees = async (req, res) => {
     admins.forEach(ad => {
       const designation = ad.subRole && ad.subRole !== 'NR' 
         ? ad.subRole 
-        : (ad.role === 'super_admin' ? 'Super Admin' : (ad.role === 'hr_admin' ? 'HR Admin' : (ad.role === 'cluster_admin' ? 'Cluster Admin' : 'Store Admin')));
+        : (ad.role === 'super_admin' ? 'Super Admin' : (ad.role === 'admin' ? 'Admin' : (ad.role === 'hr_admin' ? 'HR Admin' : (ad.role === 'cluster_admin' ? 'Cluster Admin' : 'Store Admin'))));
       
-      const storeName = (ad.role === 'super_admin' || ad.role === 'hr_admin')
+      const storeName = (ad.role === 'super_admin' || ad.role === 'admin' || ad.role === 'hr_admin')
         ? 'Office'
         : (ad.branches && ad.branches.length > 0 ? ad.branches[0].workingBranch : 'Store');
 
@@ -784,8 +785,8 @@ export const getTaskAssignees = async (req, res) => {
     if (isUserAdmin && !individualAssignees.some(ad => ad.value === adminId.toString())) {
       const designation = user.subRole && user.subRole !== 'NR'
         ? user.subRole
-        : (user.role === 'super_admin' ? 'Super Admin' : (user.role === 'hr_admin' ? 'HR Admin' : (user.role === 'cluster_admin' ? 'Cluster Admin' : 'Store Admin')));
-      const storeName = (user.role === 'super_admin' || user.role === 'hr_admin')
+        : (user.role === 'super_admin' ? 'Super Admin' : (user.role === 'admin' ? 'Admin' : (user.role === 'hr_admin' ? 'HR Admin' : (user.role === 'cluster_admin' ? 'Cluster Admin' : 'Store Admin'))));
+      const storeName = (user.role === 'super_admin' || user.role === 'admin' || user.role === 'hr_admin')
         ? 'Office'
         : (user.branches && user.branches.length > 0 ? user.branches[0].workingBranch : 'Store');
 
@@ -1237,7 +1238,7 @@ export const reassignTask = async (req, res) => {
       let targetStoreName = '';
       let targetStoreCode = '';
       if (targetAdmin) {
-        if (targetAdmin.role === 'super_admin' || targetAdmin.role === 'hr_admin') {
+        if (['super_admin', 'admin', 'hr_admin'].includes(targetAdmin.role)) {
           targetStoreName = 'Office';
           targetStoreCode = '';
         } else {

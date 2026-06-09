@@ -7,6 +7,7 @@ import { setUser } from '../../features/auth/authSlice';
 
 const ROLES = [
   { value: 'super_admin',   label: 'Super Admin' },
+  { value: 'admin',         label: 'Admin' },
   { value: 'hr_admin',      label: 'HR Admin' },
 ];
 

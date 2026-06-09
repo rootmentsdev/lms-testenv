@@ -101,28 +101,39 @@ FOLDER STRUCTURE
 
 USER ROLES & PERMISSIONS
 ------------------------
-1. Super Admin / HR Admin
+1. Super Admin / Admin
+   - Full control of the entire platform (global scope)
    - Add/edit/delete users and all platform data
    - Add/edit/delete trainings and assessments
    - Can monitor all walk-ins, tasks, and employees across all stores
    - Can create and manage Clusters and Stores
+   - Both roles are treated identically by the RBAC system
+   - **Role hierarchy:** `super_admin` → `admin` → `hr_admin` → `cluster_admin` → `store_admin`
 
-2. Cluster Admin
+2. HR Admin
+   - Add/edit/delete users and all platform data within their scope
+   - Can monitor walk-ins, tasks, and employees across all stores
+   - **Tasks:** Can only see tasks they created or tasks assigned to them by super_admin/admin
+   - Cannot create new clusters or stores
+
+3. Cluster Admin
    - Has access only to stores (branches) assigned to their cluster
    - Can view and manage walk-ins, tasks, and employees for their assigned stores
+   - **Tasks:** Only sees tasks assigned to or created by them (no global task view)
    - Cannot create new clusters or stores
 
-3. Store Admin
+4. Store Admin
    - Has access to a single assigned store
    - Can view and manage walk-ins, tasks, and employees only for their specific store
+   - **Tasks:** Only sees tasks assigned to or created by them (no global task view)
    - Cannot create new clusters or stores
 
-4. Trainer
+5. Trainer
    - Create/edit training videos
    - Add questions to each video
    - View assigned users
 
-5. User (Learner)
+6. User (Learner)
    - Watch training videos
    - Answer attached questions
    - View personal progress
@@ -394,9 +405,12 @@ The Brynex LMS features a comprehensively documented backend. Swagger UI is avai
 ## RBAC Architecture Note
 The system implements a centralized Role-Based Access Control (RBAC) architecture using `getAccessibleStoreIds` and `isFullAccessAdmin` helpers located in `backend/lib/permissions.js`.
 
-- **Web Admin Panel API endpoints** (Dashboards, Tasks, Walkins, Employees, Overdue items, and Training stats) dynamically filter data according to the current user's role (`super_admin`, `hr_admin`, `cluster_admin`, `store_admin`).
+- **Web Admin Panel API endpoints** (Dashboards, Tasks, Walkins, Employees, Overdue items, and Training stats) dynamically filter data according to the current user's role (`super_admin`, `admin`, `hr_admin`, `cluster_admin`, `store_admin`).
+- `super_admin` and `admin` are treated as **global roles** — they bypass all branch/store filters and see all data.
+- `hr_admin` can see tasks it created or tasks assigned to it; **not** a global task view.
+- `cluster_admin` and `store_admin` are scoped to their assigned branches only.
 - Scoped DB queries automatically filter MongoDB collections based on these helper functions, ensuring secure segregation of data and resolving previously manual iteration loops.
-- **Frontend dropdowns** automatically read `storeId` and `employeeId` from endpoints that respect RBAC logic (`/api/admin/accessible-stores`).  
+- **Frontend dropdowns** automatically read `storeId` and `employeeId` from endpoints that respect RBAC logic (`/api/admin/accessible-stores`).
 GET    /overdue/Training/send/:empId - Send escalation message  
 GET    /user/get/message/:email     - Get messages by email
 
@@ -558,3 +572,37 @@ All endpoints require a Bearer JWT token. Full Swagger documentation is availabl
 - `backend/swagger.js` — Added **Auto Tasks** Swagger tag
 - `frontend/src/features/task/taskFetch.js` — Added `createAutoTask`, `fetchAutoTasks`, `toggleAutoTask`, `deleteAutoTask`, `generateAutoTaskNow` helpers
 - `frontend/src/pages/Task/AutoTask.jsx` — Form now calls `POST /api/auto-task/save` to persist a template instead of creating individual tasks directly
+
+---
+
+## Recent Updates (June 2026 — Session 2)
+
+### New `admin` Role
+- Added a new `admin` role, positioned between `super_admin` and `hr_admin` in the hierarchy.
+- The `admin` role has **identical privileges** to `super_admin` — full global access to all branches, employees, tasks, assessments, and trainings.
+- Updated across: `Admin.js` model, `AdminPermission.js`, `Visibility.js`, `PermissionSettings.jsx`, `CreateAdmin.jsx`, `Header.jsx`, `SideNav.jsx`, and all relevant backend controllers.
+- RBAC checks now treat `['super_admin', 'admin']` as the global-admin whitelist throughout the codebase.
+
+### Task Visibility Scoping
+- **`super_admin` / `admin`:** Can see **All Tasks** globally. Also have a **My Tasks** tab for tasks personally assigned to / created by them.
+- **`hr_admin` / `cluster_admin` / `store_admin`:** The **My Tasks** tab has been **removed**. The **All Tasks** tab already scopes to only tasks created by or assigned to them via `buildTaskFilter` in `backend/lib/permissions.js`. No redundant fetch is made.
+- Frontend: `TaskManagement.jsx` uses `isGlobalAdmin` flag (`super_admin` or `admin`) to conditionally render the My Tasks tab and skip the extra API call for scoped roles.
+
+### Walk-in Status Dropdown — Removed Statuses
+- **Removed** from the walkin status dropdown (in both `WalkinList.jsx` and `WalkinReport.jsx`):
+  - `Booked`
+  - `Rentout`
+  - `Return`
+  - `Booking & Rentout` (report page only)
+- **Remaining valid statuses** (walkin form): `New Walkin`, `Revisit`, `Loss`
+- **Remaining valid statuses** (report filter): `Trial`, `Loss`, `Enquiry`, `Reissue`, `New Booking`, `Revisit Booking`, `Revisit Loss`, `New Walkin`, `Other`
+- Swagger docs in `WalkinRoute.js` updated with the correct enum and removed `Booked` from examples.
+
+### Walk-in `repeatCount` — Date-Based Increment Logic
+- **Rule:** `repeatCount` is now only incremented when a status change occurs on a **different calendar day** from the existing record's `date`.
+  - Same-day edits (corrections, sync updates) → `repeatCount` stays unchanged.
+  - Next-day or later status change → `repeatCount` increments by 1.
+- Applied to both update paths in `WalkinController.js`:
+  1. Direct `_id` edit path (manual edit from list view)
+  2. Contact-lookup update path (sync or app re-submission)
+- Logic uses `substring(0, 10)` to compare `YYYY-MM-DD` portion of the stored `date` string against today's date.

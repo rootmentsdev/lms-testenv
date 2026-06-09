@@ -63,7 +63,8 @@ const router = express.Router();
  *                       example: "Prefers slim fit"
  *                     status:
  *                       type: string
- *                       example: "Booked"
+ *                       enum: [New Walkin, Revisit, Loss]
+ *                       example: "Revisit"
  *                     repeatCount:
  *                       type: integer
  *                       example: 2
@@ -104,7 +105,7 @@ router.get('/check/:contact', OptionalMiddilWare, checkCustomerExists);
  *       **Update/Create logic:**
  *       - If an existing walk-in record with the same contact number is found within the user's role/store limits:
  *         - If the status is `'New Walkin'`, a new record is created with `repeatCount = existing + 1`.
- *         - Otherwise, the existing record is updated and its `repeatCount` is incremented.
+ *         - Otherwise, the existing record is updated. `repeatCount` is incremented **only if the update occurs on a different calendar day** than the record's current `date`. Same-day status changes (edits, corrections, syncs) do **not** increment the counter.
  *       - If no existing walk-in matches, a brand-new record is created.
  *     requestBody:
  *       required: true
@@ -152,7 +153,11 @@ router.get('/check/:contact', OptionalMiddilWare, checkCustomerExists);
  *                 example: "Fitting scheduled"
  *               status:
  *                 type: string
- *                 example: "Booked"
+ *                 description: |
+ *                   Walk-in status. Valid values: `New Walkin`, `Revisit`, `Loss`.
+ *                   Note: `Booked`, `Rentout`, and `Return` have been removed from the dropdown.
+ *                 enum: [New Walkin, Revisit, Loss]
+ *                 example: "Revisit"
  *               date:
  *                 type: string
  *                 description: Date of walk-in, format YYYY-MM-DD (Defaults to today)

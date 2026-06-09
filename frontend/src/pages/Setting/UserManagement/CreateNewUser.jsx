@@ -132,7 +132,7 @@ const CreateNewUser = () => {
         setForm((prev) => {
             const nextForm = { ...prev, [name]: value };
             if (name === "userRole") {
-                if (value === "super_admin" || value === "hr_admin") {
+                if (value === "super_admin" || value === "admin" || value === "hr_admin") {
                     setSelectedBranches([]);
                 } else if (value === "employee") {
                     setSelectedBranches((prevBranches) => prevBranches.slice(0, 1));
@@ -159,13 +159,13 @@ const CreateNewUser = () => {
         }
 
         // Validate role selection
-        if (!["super_admin", "hr_admin", "cluster_admin", "store_admin", "employee"].includes(form.userRole)) {
+        if (!["super_admin", "admin", "hr_admin", "cluster_admin", "store_admin", "employee"].includes(form.userRole)) {
             toast.warning("Please select a valid user role.");
             return;
         }
 
         // Validate branch assignment for non-super/non-hr admins
-        if (form.userRole !== "super_admin" && form.userRole !== "hr_admin" && selectedBranches.length === 0) {
+        if (form.userRole !== "super_admin" && form.userRole !== "admin" && form.userRole !== "hr_admin" && selectedBranches.length === 0) {
             toast.warning("Please select at least one store.");
             return;
         }
@@ -374,6 +374,7 @@ const CreateNewUser = () => {
                                 >
                                     <option value="" disabled>Select User Roles</option>
                                     <option value="super_admin">Super Admin</option>
+                                    <option value="admin">Admin</option>
                                     <option value="hr_admin">HR Admin</option>
                                     <option value="cluster_admin">Cluster Admin</option>
                                     <option value="store_admin">Store Admin</option>
@@ -393,9 +394,9 @@ const CreateNewUser = () => {
                                     value={form.userRole === "employee" ? (selectedBranches[0] || null) : selectedBranches}
                                     onChange={handleSelectBranches}
                                     styles={customSelectStyles}
-                                    isDisabled={form.userRole === "super_admin" || form.userRole === "hr_admin"}
+                                    isDisabled={form.userRole === "super_admin" || form.userRole === "admin" || form.userRole === "hr_admin"}
                                 />
-                                {(form.userRole === "super_admin" || form.userRole === "hr_admin") && (
+                                {(form.userRole === "super_admin" || form.userRole === "admin" || form.userRole === "hr_admin") && (
                                     <span className="text-xs text-gray-400 mt-1 block">Full Access Admin has access to all stores.</span>
                                 )}
                             </div>

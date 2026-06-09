@@ -751,9 +751,10 @@ export const getAllEmployeesWithTrainingDetails = async (req, res) => {
         // Get admin's allowed branches
         const AdminId = req.admin.userId;
         const AdminBranch = await Admin.findById(AdminId).populate('branches');
-        const allowedLocCodes = AdminBranch.branches.map(branch => branch.locCode);
+        const allowedLocCodes = AdminBranch ? AdminBranch.branches.map(branch => branch.locCode) : [];
+        const isGlobalAdmin = AdminBranch ? ['super_admin', 'admin', 'hr_admin'].includes(AdminBranch.role) : false;
         
-        console.log('📊 Admin allowed branches:', allowedLocCodes);
+        console.log('📊 Admin allowed branches:', allowedLocCodes, 'isGlobalAdmin:', isGlobalAdmin);
         
         // Fetch external employee data
         let externalEmployees = [];
@@ -810,6 +811,7 @@ export const getAllEmployeesWithTrainingDetails = async (req, res) => {
         
         // Filter external employees by allowed location codes
         const filteredExternalEmployees = externalEmployees.filter(emp => {
+            if (isGlobalAdmin) return true;
             const storeName = emp?.store_name?.toUpperCase();
             
             // Always include employees with "No Store" - they should be visible to all admins
@@ -830,16 +832,20 @@ export const getAllEmployeesWithTrainingDetails = async (req, res) => {
         console.log(`✅ Filtered external employees: ${filteredExternalEmployees.length}`);
         
         // Get local users in allowed branches + "No Store" employees
-        const localUsers = await User.find({ 
-            $or: [
-                { locCode: { $in: allowedLocCodes } },
-                { workingBranch: 'No Store' },
-                { workingBranch: 'NO STORE' },
-                { workingBranch: 'no store' },
-                { workingBranch: '' },
-                { workingBranch: { $exists: false } }
-            ]
-        });
+        const localUsers = await User.find(
+            isGlobalAdmin
+            ? {}
+            : { 
+                $or: [
+                    { locCode: { $in: allowedLocCodes } },
+                    { workingBranch: 'No Store' },
+                    { workingBranch: 'NO STORE' },
+                    { workingBranch: 'no store' },
+                    { workingBranch: '' },
+                    { workingBranch: { $exists: false } }
+                ]
+            }
+        );
         console.log(`👥 Local users in allowed branches: ${localUsers.length}`);
         
         // Create a map of local users by empID (case-insensitive) for quick lookup
