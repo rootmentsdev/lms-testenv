@@ -268,9 +268,27 @@ export const expireWalkinsToLoss = async () => {
     console.log('🔄 [Walkin Loss Expiry] Job started at:', jobStartedAt.toISOString());
     try {
         const now = new Date();
-        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         
-        console.log(`📅 [Walkin Loss Expiry] Expiry threshold: walk-ins created before ${startOfToday.toISOString()} local time`);
+        // Calculate the local start of today in Asia/Kolkata timezone (UTC+5:30)
+        const formatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Asia/Kolkata',
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric'
+        });
+        const parts = formatter.formatToParts(now);
+        const dateObj = {};
+        parts.forEach(p => { dateObj[p.type] = p.value; });
+        
+        const startOfToday = new Date(Date.UTC(
+            parseInt(dateObj.year, 10),
+            parseInt(dateObj.month, 10) - 1,
+            parseInt(dateObj.day, 10),
+            0, 0, 0, 0
+        ));
+        startOfToday.setTime(startOfToday.getTime() - (5.5 * 60 * 60 * 1000));
+        
+        console.log(`📅 [Walkin Loss Expiry] Expiry threshold: walk-ins created before ${startOfToday.toISOString()} (IST midnight)`);
 
         // Perform bulk update of walk-ins that:
         // 1. status is 'New Walkin'
@@ -280,6 +298,10 @@ export const expireWalkinsToLoss = async () => {
         const result = await Walkin.updateMany(
             {
                 status: 'New Walkin',
+                $or: [
+                    { repeatCount: 1 },
+                    { repeatCount: { $exists: false } }
+                ],
                 createdAt: { $lt: startOfToday },
                 $expr: { $eq: ['$createdAt', '$updatedAt'] }
             },
