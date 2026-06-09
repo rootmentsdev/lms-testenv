@@ -31,6 +31,8 @@ import { refreshExternalEmployees } from './lib/employeeCache.js';
 import setupSwagger from './swagger.js';
 import { MiddilWare } from './lib/middilWare.js';
 import Admin from './model/Admin.js';
+import User from './model/User.js';
+import { calculateTrainingProgressStats } from './utils/trainingProgress.js';
 
 const app = express();
 setupSwagger(app);
@@ -596,8 +598,36 @@ app.post('/api/video_progress', async (req, res) => {
       console.log('✅ Video auto-marked as completed (90% watched)');
     }
 
+    const allVideosPassed = module.videos.every(v => v.pass === true);
+    if (allVideosPassed && !module.pass) {
+      module.pass = true;
+      module.completedAt = new Date();
+    }
+
+    const allModulesPassed = trainingProgress.modules.every(mod => mod.pass === true);
+    if (allModulesPassed) {
+      trainingProgress.pass = true;
+      trainingProgress.status = 'Completed';
+      trainingProgress.completedAt = trainingProgress.completedAt || new Date();
+    } else if (trainingProgress.modules.some(mod => mod.pass || mod.videos.some(v => v.pass || Number(v.watchPercentage || 0) > 0))) {
+      trainingProgress.status = 'In Progress';
+    }
+
     // Save updated training progress
     await trainingProgress.save();
+
+    const user = await User.findById(userId);
+    const userTraining = user?.training?.find(train => train.trainingId.toString() === trainingId);
+    if (userTraining) {
+      userTraining.status = trainingProgress.status;
+      userTraining.pass = trainingProgress.pass;
+      if (trainingProgress.completedAt) {
+        userTraining.completedAt = trainingProgress.completedAt;
+      }
+      await user.save();
+    }
+
+    const progressStats = calculateTrainingProgressStats(trainingProgress);
 
     console.log('↘️  /video_progress updated successfully');
     return res.status(200).json({
@@ -607,7 +637,17 @@ app.post('/api/video_progress', async (req, res) => {
         watchTime: video.watchTime,
         totalDuration: video.totalDuration,
         watchPercentage: video.watchPercentage,
-        completed: video.pass
+        completed: video.pass,
+        trainingStatus: trainingProgress.status,
+        trainingCompleted: trainingProgress.pass,
+        progressPercentage: progressStats.progressPercentage,
+        progressPercentagePrecise: progressStats.progressPercentagePrecise,
+        progressSummary: progressStats,
+        progress: {
+          moduleCompletion: progressStats.moduleCompletionPercentage.toFixed(2) + '%',
+          videoCompletion: progressStats.videoCompletionPercentage.toFixed(2) + '%',
+          overallCompletion: progressStats.progressPercentageText
+        }
       }
     });
 

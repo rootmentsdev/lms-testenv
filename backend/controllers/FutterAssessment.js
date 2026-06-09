@@ -9,6 +9,7 @@ import { Training } from "../model/Traning.js";
 import User from "../model/User.js";
 import mongoose from 'mongoose';
 import { getAccessibleStoreIds, isFullAccessAdmin } from '../lib/permissions.js';
+import { calculateTrainingProgressStats } from '../utils/trainingProgress.js';
 
 export const UserAssessmentGet = async (req, res) => {
     try {
@@ -539,51 +540,24 @@ export const GetAllUserDetailes = async (req, res) => {
             ...mandatoryTrainingsFormatted
         ];
 
-        // Calculate progress percentage for all trainings
-        const calculateProgress = (tp) => {
-            let totalModules = 0;
-            let completedModules = 0;
-            let totalVideos = 0;
-            let completedVideos = 0;
-            const videoCompletionMap = new Map();
-
-            if (tp.modules) {
-                tp.modules.forEach((module) => {
-                    totalModules++;
-                    if (module.pass) completedModules++;
-                    if (module.videos) {
-                        module.videos.forEach((video) => {
-                            totalVideos++;
-                            if (video.pass && !videoCompletionMap.has(video.videoId.toString())) {
-                                completedVideos++;
-                                videoCompletionMap.set(video.videoId.toString(), true);
-                            }
-                        });
-                    }
-                });
-            }
-
-            const moduleCompletion = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
-            const videoCompletion = totalVideos > 0 ? (completedVideos / totalVideos) * 100 : 0;
-            return Math.round(moduleCompletion * 0.4 + videoCompletion * 0.6);
-        };
-
         const allTrainingsFormatted = allTrainings.map(t => {
             const tObj = typeof t.toObject === 'function' ? t.toObject() : t;
             const trainingIdStr = tObj.trainingId?._id?.toString() || tObj.trainingId?.toString();
             
             // Find the progress record in mandatoryTrainings (which contains all TrainingProgress for the user)
             const progressRecord = mandatoryTrainings.find(tp => tp.trainingId?._id?.toString() === trainingIdStr);
-            let progressPercentage = 0;
+            let progressStats = calculateTrainingProgressStats(progressRecord);
             if (progressRecord) {
-                progressPercentage = calculateProgress(progressRecord);
+                progressStats = calculateTrainingProgressStats(progressRecord);
             } else if (tObj.pass || tObj.status === 'Completed' || tObj.status === 'COMPLETED') {
-                progressPercentage = 100;
+                progressStats = calculateTrainingProgressStats({ pass: true });
             }
             
             return {
                 ...tObj,
-                progressPercentage
+                progressPercentage: progressStats.progressPercentage,
+                completionPercentage: progressStats.progressPercentagePrecise.toFixed(2),
+                progressSummary: progressStats
             };
         });
 

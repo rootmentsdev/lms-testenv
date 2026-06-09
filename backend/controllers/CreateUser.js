@@ -9,6 +9,7 @@ import { Training } from '../model/Traning.js';
 import Admin from '../model/Admin.js';
 import { sendCompletionEmail } from '../utils/sendEmail.js';
 import { sendNotification } from '../utils/notificationHelper.js';
+import { calculateTrainingProgressStats } from '../utils/trainingProgress.js';
 dotenv.config()
 
 // Adjust the path to your TrainingProgress model
@@ -821,34 +822,19 @@ export const GetuserTraining = async (req, res) => {
         return {
           trainingId: training.trainingId._id,
           name: training.trainingId.trainingName || 'Unknown Training',
-          completionPercentage: 0
+          completionPercentage: "0.00",
+          progressPercentage: 0
         };
       }
 
-      let totalModules = 0;
-      let completedModules = 0;
-      let totalVideos = 0;
-      let completedVideos = 0;
-
-      // Iterate through modules and calculate completion
-      progress.modules.forEach(module => {
-        totalModules++;
-        if (module.pass) completedModules++;
-
-        module.videos.forEach(video => {
-          totalVideos++;
-          if (video.pass) completedVideos++;
-        });
-      });
-
-      const moduleCompletionPercentage = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
-      const videoCompletionPercentage = totalVideos > 0 ? (completedVideos / totalVideos) * 100 : 0;
-      const overallCompletionPercentage = (moduleCompletionPercentage + videoCompletionPercentage) / 2;
+      const progressStats = calculateTrainingProgressStats(progress);
 
       return {
         trainingId: training.trainingId._id,
         name: training.trainingId.trainingName || 'Unknown Training',
-        completionPercentage: overallCompletionPercentage.toFixed(2)
+        completionPercentage: progressStats.progressPercentagePrecise.toFixed(2),
+        progressPercentage: progressStats.progressPercentage,
+        progressSummary: progressStats
       };
     });
 
@@ -962,32 +948,10 @@ export const GetuserTrainingprocess = async (req, res) => {
       return progressModule;
     });
 
-    // Calculate completion percentages
-    let totalModules = 0;
-    let completedModules = 0;
-    let totalVideos = 0;
-    let completedVideos = 0;
-
-    enrichedModules.forEach(module => {
-      totalModules++;
-      if (module.pass) {
-        completedModules++;
-      }
-
-      module.videos.forEach(video => {
-        totalVideos++;
-        if (video.pass) {
-          completedVideos++;
-        }
-      });
+    const progressStats = calculateTrainingProgressStats({
+      ...trainingData.toObject(),
+      modules: enrichedModules
     });
-
-    // Calculate the completion percentages
-    const moduleCompletionPercentage = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
-    const videoCompletionPercentage = totalVideos > 0 ? (completedVideos / totalVideos) * 100 : 0;
-
-    // Calculate overall percentage (average of module and video completion)
-    const overallCompletionPercentage = (moduleCompletionPercentage + videoCompletionPercentage) / 2;
 
     // Return enriched data with actual video URLs
     const enrichedTrainingData = {
@@ -1000,7 +964,9 @@ export const GetuserTrainingprocess = async (req, res) => {
     res.status(200).json({
       message: "Data found",
       data: enrichedTrainingData,
-      completionPercentage: overallCompletionPercentage.toFixed(2)
+      completionPercentage: progressStats.progressPercentagePrecise.toFixed(2),
+      progressPercentage: progressStats.progressPercentage,
+      progressSummary: progressStats
     });
 
   } catch (error) {
@@ -1146,17 +1112,7 @@ export const UpdateuserTrainingprocess = async (req, res) => {
     // Save updated user status
     await user.save();
 
-    // Calculate completion percentages for response
-    const totalModules = trainingProgress.modules.length;
-    const completedModules = trainingProgress.modules.filter(mod => mod.pass).length;
-    const totalVideos = trainingProgress.modules.reduce((sum, mod) => sum + mod.videos.length, 0);
-    const completedVideos = trainingProgress.modules.reduce((sum, mod) => 
-      sum + mod.videos.filter(v => v.pass).length, 0
-    );
-
-    const moduleCompletionPercentage = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
-    const videoCompletionPercentage = totalVideos > 0 ? (completedVideos / totalVideos) * 100 : 0;
-    const overallCompletionPercentage = (moduleCompletionPercentage + videoCompletionPercentage) / 2;
+    const progressStats = calculateTrainingProgressStats(trainingProgress);
 
     // Send success response
     res.status(200).json({
@@ -1175,9 +1131,11 @@ export const UpdateuserTrainingprocess = async (req, res) => {
           trainingStatus: userTraining ? userTraining.status : 'Not Found'
         },
         progress: {
-          moduleCompletion: moduleCompletionPercentage.toFixed(2) + '%',
-          videoCompletion: videoCompletionPercentage.toFixed(2) + '%',
-          overallCompletion: overallCompletionPercentage.toFixed(2) + '%'
+          moduleCompletion: progressStats.moduleCompletionPercentage.toFixed(2) + '%',
+          videoCompletion: progressStats.videoCompletionPercentage.toFixed(2) + '%',
+          overallCompletion: progressStats.progressPercentageText,
+          progressPercentage: progressStats.progressPercentage,
+          progressPercentagePrecise: progressStats.progressPercentagePrecise
         }
       }
     });
@@ -1322,39 +1280,25 @@ export const GetUserAllTrainings = async (req, res) => {
           return {
             trainingId: training.trainingId._id,
             name: training.trainingId.trainingName || 'Unknown Training',
-            completionPercentage: 0,
+            completionPercentage: "0.00",
+            progressPercentage: 0,
             type: 'assigned'
           };
         }
 
-        let totalModules = 0;
-        let completedModules = 0;
-        let totalVideos = 0;
-        let completedVideos = 0;
-
-        progress.modules.forEach(module => {
-          totalModules++;
-          if (module.pass) completedModules++;
-
-          module.videos.forEach(video => {
-            totalVideos++;
-            if (video.pass) completedVideos++;
-          });
-        });
-
-        const moduleCompletionPercentage = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
-        const videoCompletionPercentage = totalVideos > 0 ? (completedVideos / totalVideos) * 100 : 0;
-        const overallCompletionPercentage = (moduleCompletionPercentage + videoCompletionPercentage) / 2;
+        const progressStats = calculateTrainingProgressStats(progress);
 
         return {
           trainingId: training.trainingId._id,
           name: training.trainingId.trainingName || 'Unknown Training',
-          completionPercentage: overallCompletionPercentage.toFixed(2),
+          completionPercentage: progressStats.progressPercentagePrecise.toFixed(2),
+          progressPercentage: progressStats.progressPercentage,
           type: 'assigned',
-          totalModules,
-          completedModules,
-          totalVideos,
-          completedVideos
+          totalModules: progressStats.totalModules,
+          completedModules: progressStats.completedModules,
+          totalVideos: progressStats.totalVideos,
+          completedVideos: progressStats.completedVideos,
+          progressSummary: progressStats
         };
       })
       .filter(training => training !== null); // Remove null values
@@ -1382,21 +1326,14 @@ export const GetUserAllTrainings = async (req, res) => {
         let completedVideos = 0;
         let completionPercentage = 0;
 
+        let progressStats = calculateTrainingProgressStats(userProgress);
+
         if (userProgress) {
-          // User has progress - calculate from their progress
-          userProgress.modules.forEach(module => {
-            totalModules++;
-            if (module.pass) completedModules++;
-
-            module.videos.forEach(video => {
-              totalVideos++;
-              if (video.pass) completedVideos++;
-            });
-          });
-
-          const moduleCompletionPercentage = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
-          const videoCompletionPercentage = totalVideos > 0 ? (completedVideos / totalVideos) * 100 : 0;
-          completionPercentage = (moduleCompletionPercentage + videoCompletionPercentage) / 2;
+          totalModules = progressStats.totalModules;
+          completedModules = progressStats.completedModules;
+          totalVideos = progressStats.totalVideos;
+          completedVideos = progressStats.completedVideos;
+          completionPercentage = progressStats.progressPercentagePrecise;
         } else {
           // User has no progress - set to 0
           totalModules = training.modules.length;
@@ -1407,13 +1344,15 @@ export const GetUserAllTrainings = async (req, res) => {
           trainingId: training._id,
           name: training.trainingName,
           completionPercentage: completionPercentage.toFixed(2),
+          progressPercentage: progressStats.progressPercentage,
           type: 'mandatory',
           totalModules,
           completedModules,
           totalVideos,
           completedVideos,
           assignedFor: training.Assignedfor,
-          hasUserProgress: !!userProgress
+          hasUserProgress: !!userProgress,
+          progressSummary: progressStats
         };
       })
     );

@@ -5,6 +5,7 @@ import { Training } from '../model/Traning.js';
 import User from '../model/User.js';
 import Module from '../model/Module.js'; // Added import for Module
 import { sendNotification } from '../utils/notificationHelper.js';
+import { calculateTrainingProgressStats } from '../utils/trainingProgress.js';
 
 const getTrainingVideoStats = (training, progressRecords = []) => {
   const modules = Array.isArray(training?.modules) ? training.modules : [];
@@ -919,31 +920,7 @@ export const getUserTrainingProgress = async (req, res) => {
     
     // Format the mandatory trainings to match the user.training structure
     const mandatoryTrainings = trainingProgressRecords.map(progress => {
-      let totalModules = 0;
-      let completedModules = 0;
-      let totalVideos = 0;
-      let completedVideos = 0;
-      const videoCompletionMap = new Map();
-
-      if (progress.modules) {
-        progress.modules.forEach((module) => {
-          totalModules++;
-          if (module.pass) completedModules++;
-          if (module.videos) {
-            module.videos.forEach((video) => {
-              totalVideos++;
-              if (video.pass && !videoCompletionMap.has(video.videoId.toString())) {
-                completedVideos++;
-                videoCompletionMap.set(video.videoId.toString(), true);
-              }
-            });
-          }
-        });
-      }
-
-      const moduleCompletion = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
-      const videoCompletion = totalVideos > 0 ? (completedVideos / totalVideos) * 100 : 0;
-      const progressPercentage = Math.round(moduleCompletion * 0.4 + videoCompletion * 0.6);
+      const progressStats = calculateTrainingProgressStats(progress);
 
       return {
         trainingId: progress.trainingId,
@@ -952,7 +929,9 @@ export const getUserTrainingProgress = async (req, res) => {
         pass: progress.pass,
         assignedAt: progress.createdAt,
         isMandatory: true,
-        progressPercentage
+        progressPercentage: progressStats.progressPercentage,
+        completionPercentage: progressStats.progressPercentagePrecise.toFixed(2),
+        progressSummary: progressStats
       };
     });
     
