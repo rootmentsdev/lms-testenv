@@ -158,7 +158,7 @@ const Header = () => {
                                         Profile
                                     </div>
                                 </Link>
-                                {user?.role === 'super_admin' && (
+                                {(user?.role === 'super_admin' || user?.role === 'admin') && (
                                     <Link to="/settings" onClick={() => setDropOpen(false)}>
                                         <div className="px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
                                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

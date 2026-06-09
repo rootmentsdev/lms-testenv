@@ -130,7 +130,7 @@ export const getAutoTasks = async (req, res) => {
     let query = {};
 
     // Super admin and HR admin can see all templates
-    if (!admin || !['super_admin', 'hr_admin'].includes(admin.role)) {
+    if (!admin || !['super_admin', 'admin', 'hr_admin'].includes(admin.role)) {
       // Others only see their own templates
       query.createdBy = new mongoose.Types.ObjectId(adminId);
     }
@@ -206,7 +206,7 @@ export const updateAutoTask = async (req, res) => {
     // Only creator or super/hr admin can update
     const adminId = req.admin.userId;
     const admin   = await Admin.findById(adminId);
-    const isFullAccess = admin && ['super_admin', 'hr_admin'].includes(admin.role);
+    const isFullAccess = admin && ['super_admin', 'admin', 'hr_admin'].includes(admin.role);
     if (!isFullAccess && template.createdBy.toString() !== adminId.toString()) {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
@@ -272,7 +272,7 @@ export const toggleAutoTask = async (req, res) => {
     // Only creator or super/hr admin can toggle
     const adminId = req.admin.userId;
     const admin   = await Admin.findById(adminId);
-    const isFullAccess = admin && ['super_admin', 'hr_admin'].includes(admin.role);
+    const isFullAccess = admin && ['super_admin', 'admin', 'hr_admin'].includes(admin.role);
     if (!isFullAccess && template.createdBy.toString() !== adminId.toString()) {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
@@ -315,7 +315,7 @@ export const deleteAutoTask = async (req, res) => {
     // Only creator or super/hr admin can delete
     const adminId = req.admin.userId;
     const admin   = await Admin.findById(adminId);
-    const isFullAccess = admin && ['super_admin', 'hr_admin'].includes(admin.role);
+    const isFullAccess = admin && ['super_admin', 'admin', 'hr_admin'].includes(admin.role);
     if (!isFullAccess && template.createdBy.toString() !== adminId.toString()) {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }

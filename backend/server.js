@@ -234,7 +234,7 @@ app.post('/api/employee_range/filtered', MiddilWare, async (req, res) => {
     const AdminId = req.admin.userId;
     const AdminBranch = await Admin.findById(AdminId).populate('branches');
     const allowedLocCodes = AdminBranch.branches.map(branch => branch.locCode);
-    const isGlobalAdmin = AdminBranch.role === 'super_admin' || allowedLocCodes.length === 0;
+    const isGlobalAdmin = ['super_admin', 'admin'].includes(AdminBranch.role) || allowedLocCodes.length === 0;
 
     console.log(`👤 Admin: ${AdminBranch.name} (Role: ${AdminBranch.role})`);
     console.log(`🔐 Allowed location codes: ${isGlobalAdmin ? 'ALL (Super Admin)' : allowedLocCodes.join(', ')}`);

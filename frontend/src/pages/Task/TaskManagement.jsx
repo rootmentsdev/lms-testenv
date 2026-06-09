@@ -155,6 +155,7 @@ const SlideToComplete = ({ onComplete }) => {
 
 const TaskManagement = () => {
   const user = useSelector((state) => state.auth.user);
+  const isGlobalAdmin = ['super_admin', 'admin'].includes(user?.role);
 
   useEffect(() => {
     if (!document.getElementById('dm-sans-font')) {
@@ -184,27 +185,32 @@ const TaskManagement = () => {
     setLoading(true);
     setError(null);
     try {
-      const [tasksRes, myTasksRes, requestsRes, extensionsRes] = await Promise.all([
+      const fetchList = [
         fetchTasks({
           search: search.trim(),
           category: categoryFilter,
           priority: priorityFilter,
           status: statusFilter,
         }),
-        fetchTasks({
-          search: search.trim(),
-          category: categoryFilter,
-          priority: priorityFilter,
-          status: statusFilter,
-          mine: true,
-        }),
+        // Only fetch myTasks for super_admin / admin — other roles see scoped tasks in "All Tasks"
+        isGlobalAdmin
+          ? fetchTasks({
+              search: search.trim(),
+              category: categoryFilter,
+              priority: priorityFilter,
+              status: statusFilter,
+              mine: true,
+            })
+          : Promise.resolve({ data: [] }),
         fetchTasks({
           status: 'UNDER REVIEW',
         }),
         fetchTasks({
           status: 'EXTENSION REQUESTED',
         })
-      ]);
+      ];
+
+      const [tasksRes, myTasksRes, requestsRes, extensionsRes] = await Promise.all(fetchList);
 
       setTasks(tasksRes.data || []);
       setMyTasks(myTasksRes.data || []);
@@ -383,14 +389,17 @@ const TaskManagement = () => {
             All Tasks
             <span className="task-mgmt-tab-count">{tasks.length}</span>
           </button>
-          <button
-            type="button"
-            className={`task-mgmt-tab-btn ${activeTab === 'mine' ? 'active' : ''}`}
-            onClick={() => setActiveTab('mine')}
-          >
-            My Tasks
-            <span className="task-mgmt-tab-count">{myTasks.length}</span>
-          </button>
+          {/* My Tasks tab only shown to super_admin / admin */}
+          {isGlobalAdmin && (
+            <button
+              type="button"
+              className={`task-mgmt-tab-btn ${activeTab === 'mine' ? 'active' : ''}`}
+              onClick={() => setActiveTab('mine')}
+            >
+              My Tasks
+              <span className="task-mgmt-tab-count">{myTasks.length}</span>
+            </button>
+          )}
           <button
             type="button"
             className={`task-mgmt-tab-btn ${activeTab === 'requests' ? 'active' : ''}`}

@@ -37,7 +37,8 @@ const CreateUser = () => {
     // Assign role based on selected option
     const userRole =
       selectedOption === "user" ? "super_admin" :
-        selectedOption === "designation" ? "cluster_admin" : "store_admin";
+        selectedOption === "admin" ? "admin" :
+          selectedOption === "designation" ? "cluster_admin" : "store_admin";
     const updatedForm = {
       ...form,
       userRole,
@@ -203,6 +204,15 @@ const CreateUser = () => {
               <label>
                 <input
                   type="radio"
+                  value="admin"
+                  checked={selectedOption === "admin"}
+                  onChange={() => setSelectedOption("admin")}
+                />{" "}
+                Admin
+              </label>
+              <label>
+                <input
+                  type="radio"
                   value="designation"
                   checked={selectedOption === "designation"}
                   onChange={() => setSelectedOption("designation")}
@@ -220,7 +230,7 @@ const CreateUser = () => {
               </label>
             </div>
 
-            {selectedOption === "user" && (
+            {(selectedOption === "user" || selectedOption === "admin") && (
               <div>
                 <label htmlFor="subRole" className="block text-sm font-semibold text-gray-700">
                   Sub Role

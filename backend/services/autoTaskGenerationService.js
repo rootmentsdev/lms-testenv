@@ -92,7 +92,7 @@ const resolveStore = async (assigneeId) => {
   try {
     const admin = await Admin.findById(assigneeId).populate('branches');
     if (admin) {
-      if (admin.role === 'super_admin' || admin.role === 'hr_admin') {
+      if (['super_admin', 'admin', 'hr_admin'].includes(admin.role)) {
         return { storeName: 'Office', storeCode: '' };
       }
       const branch = admin.branches?.[0];
@@ -206,6 +206,7 @@ const resolveAssignees = async (template, creator) => {
     const adminRoles = [];
     const includeStaff = roleSet.has('employee') || roleSet.has('staff');
     if (roleSet.has('super_admin'))   adminRoles.push('super_admin');
+    if (roleSet.has('admin'))         adminRoles.push('admin');
     if (roleSet.has('hr_admin'))      adminRoles.push('hr_admin');
     if (roleSet.has('cluster_admin')) adminRoles.push('cluster_admin');
     if (roleSet.has('store_admin'))   adminRoles.push('store_admin');
@@ -215,13 +216,13 @@ const resolveAssignees = async (template, creator) => {
       let adminQuery = { role: { $in: adminRoles }, isActive: true };
 
       // Cluster/Store admins: scope to accessible stores
-      if (!['super_admin', 'hr_admin'].includes(creator.role)) {
+      if (!['super_admin', 'admin', 'hr_admin'].includes(creator.role)) {
         adminQuery.branches = { $in: storeIds };
       }
       const admins = await Admin.find(adminQuery).populate('branches');
       admins.forEach(ad => {
         const desig = ad.subRole && ad.subRole !== 'NR' ? ad.subRole : ad.role;
-        const store = (ad.role === 'super_admin' || ad.role === 'hr_admin')
+        const store = (ad.role === 'super_admin' || ad.role === 'admin' || ad.role === 'hr_admin')
           ? 'Office'
           : (ad.branches?.[0]?.workingBranch || 'Store');
         targets.push({ id: ad._id.toString(), label: `${ad.name} - ${desig} - ${store}` });
@@ -342,7 +343,7 @@ export const generateAutoTasks = async (targetDate = null, specificTemplateId = 
 
       const creatorName = creator.name;
       const roleLabels  = {
-        super_admin: 'Super Admin', hr_admin: 'HR Admin',
+        super_admin: 'Super Admin', admin: 'Admin', hr_admin: 'HR Admin',
         cluster_admin: 'Cluster Admin', store_admin: 'Store Admin',
       };
       const roleLabel = roleLabels[creator.role] || creator.role;

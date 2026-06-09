@@ -60,6 +60,7 @@ const PRIORITIES = [
 
 const ROLES = [
   { value: 'super_admin', label: 'Super Admin' },
+  { value: 'admin', label: 'Admin' },
   { value: 'hr_admin', label: 'HR Admin' },
   { value: 'cluster_admin', label: 'Cluster Admin' },
   { value: 'store_admin', label: 'Store Admin' },

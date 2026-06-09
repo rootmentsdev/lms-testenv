@@ -584,7 +584,7 @@ export const CreatingAdminUsers = async (req, res) => {
         }
 
         console.log(name, email, EmpId, role, branches, subRole, phoneNumber);
-        if (role !== 'super_admin') {
+        if (role !== 'super_admin' && role !== 'admin') {
             subRole = "NR";
         }
 
@@ -596,10 +596,10 @@ export const CreatingAdminUsers = async (req, res) => {
         }
 
         // Check if role is valid
-        const validRoles = ['super_admin', 'hr_admin', 'cluster_admin', 'store_admin', 'employee'];
+        const validRoles = ['super_admin', 'admin', 'hr_admin', 'cluster_admin', 'store_admin', 'employee'];
         if (!validRoles.includes(role)) {
             return res.status(400).json({
-                message: "Invalid role provided. Valid roles are: super_admin, hr_admin, cluster_admin, store_admin, employee.",
+                message: "Invalid role provided. Valid roles are: super_admin, admin, hr_admin, cluster_admin, store_admin, employee.",
             });
         }
 
@@ -663,11 +663,11 @@ export const CreatingAdminUsers = async (req, res) => {
             });
         }
 
-        // Public signup restrict to super_admin and hr_admin
+        // Public signup restrict to super_admin, admin, and hr_admin
         // If they want to create cluster/store admin, they must be authenticated
-        if (!req.admin && ['cluster_admin', 'store_admin'].includes(role)) {
+        if (!req.admin && !['super_admin', 'admin', 'hr_admin'].includes(role)) {
             return res.status(403).json({
-                message: "Public signup is only allowed for super_admin and hr_admin. To create cluster/store admins, please log in first.",
+                message: "Public signup is only allowed for super_admin, admin, and hr_admin. To create cluster/store admins, please log in first.",
             });
         }
 
@@ -675,7 +675,7 @@ export const CreatingAdminUsers = async (req, res) => {
         let rolePermissions = await Permission.findOne({ role });
         if (!rolePermissions) {
             console.log(`Permissions not found for role ${role}. Auto-creating default permissions...`);
-            const isSuper = (role === 'super_admin' || role === 'hr_admin');
+            const isSuper = (role === 'super_admin' || role === 'admin' || role === 'hr_admin');
             rolePermissions = new Permission({
                 role: role,
                 permissions: {
@@ -694,7 +694,7 @@ export const CreatingAdminUsers = async (req, res) => {
         // Determine branches/clusters for the admin
         let finalBranches = [];
         let finalClusters = [];
-        if (role === 'super_admin' || role === 'hr_admin') {
+        if (role === 'super_admin' || role === 'admin' || role === 'hr_admin') {
             const allBranches = await Branch.find();
             finalBranches = allBranches.map((branch) => branch._id);
         } else {
@@ -1005,7 +1005,7 @@ export const updateAdminUser = async (req, res) => {
 
                 // 1. Determine branches
                 let finalBranches = [];
-                if (role === 'super_admin' || role === 'hr_admin') {
+                if (role === 'super_admin' || role === 'admin' || role === 'hr_admin') {
                     const allBranches = await Branch.find();
                     finalBranches = allBranches.map((branch) => branch._id);
                 } else {
@@ -1015,7 +1015,7 @@ export const updateAdminUser = async (req, res) => {
                 // 2. Fetch/create permissions
                 let rolePermissions = await Permission.findOne({ role });
                 if (!rolePermissions) {
-                    const isSuper = (role === 'super_admin' || role === 'hr_admin');
+                    const isSuper = (role === 'super_admin' || role === 'admin' || role === 'hr_admin');
                     rolePermissions = new Permission({
                         role: role,
                         permissions: {
@@ -1050,7 +1050,7 @@ export const updateAdminUser = async (req, res) => {
                 const savedAdmin = await newAdmin.save();
 
                 // 5. Re-create matching User record (since some other schemas or components query User collection for designations or logins)
-                const userDesignation = role === 'super_admin' ? 'Super Admin' : (role === 'hr_admin' ? 'HR Admin' : (role === 'cluster_admin' ? 'Cluster Admin' : 'Store Admin'));
+                const userDesignation = role === 'super_admin' ? 'Super Admin' : (role === 'admin' ? 'Admin' : (role === 'hr_admin' ? 'HR Admin' : (role === 'cluster_admin' ? 'Cluster Admin' : 'Store Admin')));
                 let workingBranchStr = "";
                 let finalLocCodes = [];
                 if (finalBranches.length > 0) {
@@ -1151,7 +1151,7 @@ export const updateAdminUser = async (req, res) => {
         }
 
         // Handle branches/clusters based on role
-        if (role === 'super_admin' || role === 'hr_admin') {
+        if (role === 'super_admin' || role === 'admin' || role === 'hr_admin') {
             const allBranches = await Branch.find();
             updateFields.branches = allBranches.map((branch) => branch._id);
             updateFields.assignedClusters = [];
@@ -1163,7 +1163,7 @@ export const updateAdminUser = async (req, res) => {
         // Update permissions if role changed
         let rolePermissions = await Permission.findOne({ role });
         if (!rolePermissions) {
-            const isSuper = (role === 'super_admin' || role === 'hr_admin');
+            const isSuper = (role === 'super_admin' || role === 'admin' || role === 'hr_admin');
             rolePermissions = new Permission({
                 role: role,
                 permissions: {
@@ -1194,7 +1194,7 @@ export const updateAdminUser = async (req, res) => {
                 if (password && password.trim() !== "") {
                     userRecord.password = await bcrypt.hash(password, 10);
                 }
-                const userDesignation = role === 'super_admin' ? 'Super Admin' : (role === 'hr_admin' ? 'HR Admin' : (role === 'cluster_admin' ? 'Cluster Admin' : 'Store Admin'));
+                const userDesignation = role === 'super_admin' ? 'Super Admin' : (role === 'admin' ? 'Admin' : (role === 'hr_admin' ? 'HR Admin' : (role === 'cluster_admin' ? 'Cluster Admin' : 'Store Admin')));
                 userRecord.designation = userDesignation;
 
                 let workingBranchStr = "";

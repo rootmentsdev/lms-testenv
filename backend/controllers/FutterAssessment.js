@@ -1013,6 +1013,22 @@ export const PermissionController = async (req, res) => {
             { new: true }
         );
 
+        // Also update the permissions for the new "admin" role
+        await Permission.findOneAndUpdate(
+            { role: "admin" },
+            {
+                $set: {
+                    "permissions.canCreateTraining": admin.training[0],
+                    "permissions.canCreateAssessment": admin.assessment[0],
+                    "permissions.canReassignTraining": admin.training[1],
+                    "permissions.canReassignAssessment": admin.assessment[1],
+                    "permissions.canDeleteTraining": admin.training[2],
+                    "permissions.canDeleteAssessment": admin.assessment[2],
+                },
+            },
+            { new: true, upsert: true }
+        );
+
         // Update cluster manager permissions
         const ClusterUpdate = await Permission.findOneAndUpdate(
             { role: "cluster_admin" },
@@ -1270,7 +1286,7 @@ export const GetMobileDashboard = async (req, res) => {
         const yesterdayStart = new Date(todayStart);
         yesterdayStart.setDate(yesterdayStart.getDate() - 1);
 
-        if (role === 'super_admin' || role === 'hr_admin') {
+        if (['super_admin', 'admin', 'hr_admin'].includes(role)) {
             totalWalkins = await Walkin.countDocuments({});
             walkinsToday = await Walkin.countDocuments({ createdAt: { $gte: todayStart } });
             walkinsYesterday = await Walkin.countDocuments({ createdAt: { $gte: yesterdayStart, $lt: todayStart } });
@@ -1327,7 +1343,7 @@ export const GetMobileDashboard = async (req, res) => {
         let assessmentsCompleted = 0;
         let assessmentsTotal = 0;
 
-        if (role === 'super_admin' || role === 'hr_admin') {
+        if (['super_admin', 'admin', 'hr_admin'].includes(role)) {
             const allUsers = await User.find({}).select('assignedAssessments').lean();
             for (const u of allUsers) {
                 if (u.assignedAssessments) {
@@ -1357,7 +1373,7 @@ export const GetMobileDashboard = async (req, res) => {
         let trainingTotal = 0;
         let trainingCompleted = 0;
 
-        if (role === 'super_admin' || role === 'hr_admin') {
+        if (['super_admin', 'admin', 'hr_admin'].includes(role)) {
             const allProgress = await TrainingProgress.find({}).lean();
             trainingTotal = allProgress.length;
             trainingCompleted = allProgress.filter(tp => tp.pass || tp.status === 'Completed').length;

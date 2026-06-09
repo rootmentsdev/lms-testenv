@@ -126,7 +126,8 @@ export const saveWalkin = async (req, res) => {
             subCategory,
             remarks,
             status,
-            date
+            date,
+            fileAttachment
         } = req.body;
 
         if (!customerName || !contact) {
@@ -192,7 +193,7 @@ export const saveWalkin = async (req, res) => {
                 finalStaff = lookupUser.name;
                 finalEmployeeId = lookupUser._id;
                 
-                const isSuperOrHrAdmin = lookupUser.role === 'super_admin' || lookupUser.role === 'hr_admin';
+                const isSuperOrHrAdmin = ['super_admin', 'admin', 'hr_admin'].includes(lookupUser.role);
                 if (!isSuperOrHrAdmin || !store || store === '-' || store === '') {
                     if (lookupUser.branches && lookupUser.branches.length > 0) {
                         finalStore = lookupUser.branches[0].workingBranch;
@@ -213,7 +214,7 @@ export const saveWalkin = async (req, res) => {
 
         if (req.admin && !req.admin.isSystem) {
             const adminId = req.admin.userId;
-            const isAdminManager = req.admin.role === 'super_admin' || req.admin.role === 'hr_admin';
+            const isAdminManager = ['super_admin', 'admin', 'hr_admin'].includes(req.admin.role);
             if (!isAdminManager) {
                 if (finalStoreId) {
                     await validateStoreAccess(adminId, finalStoreId);
@@ -249,11 +250,20 @@ export const saveWalkin = async (req, res) => {
             if (finalEmployeeId) walkinRecord.employeeId = finalEmployeeId;
             if (category) walkinRecord.category = category.trim();
             if (subCategory) walkinRecord.subCategory = subCategory.trim();
+            if (fileAttachment && fileAttachment.base64) {
+                walkinRecord.attachment = fileAttachment.base64;
+                walkinRecord.attachmentName = fileAttachment.name;
+            }
             if (remarks) walkinRecord.remarks = remarks.trim();
             if (status) {
                 const trimmedStatus = status.trim();
                 if (walkinRecord.status !== trimmedStatus) {
-                    walkinRecord.repeatCount = (walkinRecord.repeatCount || 1) + 1;
+                    // Only increment repeatCount if the status change happens on a DIFFERENT day
+                    const existingDateStr = walkinRecord.date ? walkinRecord.date.substring(0, 10) : null;
+                    const todayDateStr = todayStr.substring(0, 10);
+                    if (existingDateStr !== todayDateStr) {
+                        walkinRecord.repeatCount = (walkinRecord.repeatCount || 1) + 1;
+                    }
                 }
                 walkinRecord.status = trimmedStatus;
             }
@@ -281,8 +291,12 @@ export const saveWalkin = async (req, res) => {
         );
 
         if (walkinRecord && status !== 'New Walkin' && isSameStore) {
-            // Update existing record to avoid duplicates and increment repeatCount
-            walkinRecord.repeatCount += 1;
+            // Only increment repeatCount if the update happens on a DIFFERENT day than last recorded
+            const existingDateStr = walkinRecord.date ? walkinRecord.date.substring(0, 10) : null;
+            const todayDateStr = todayStr.substring(0, 10);
+            if (existingDateStr !== todayDateStr) {
+                walkinRecord.repeatCount += 1;
+            }
             walkinRecord.customerName = customerName.trim();
             if (functionDate) walkinRecord.functionDate = functionDate.trim();
             if (finalStore) walkinRecord.store = finalStore;
@@ -291,6 +305,10 @@ export const saveWalkin = async (req, res) => {
             if (finalEmployeeId) walkinRecord.employeeId = finalEmployeeId;
             if (category) walkinRecord.category = category.trim();
             if (subCategory) walkinRecord.subCategory = subCategory.trim();
+            if (fileAttachment && fileAttachment.base64) {
+                walkinRecord.attachment = fileAttachment.base64;
+                walkinRecord.attachmentName = fileAttachment.name;
+            }
             if (remarks) walkinRecord.remarks = remarks.trim();
             if (status) walkinRecord.status = status.trim();
             if (createdBy) walkinRecord.createdBy = createdBy;
@@ -318,6 +336,8 @@ export const saveWalkin = async (req, res) => {
                 createdBy: createdBy || undefined,
                 category: category ? category.trim() : '-',
                 subCategory: subCategory ? subCategory.trim() : '-',
+                attachment: (fileAttachment && fileAttachment.base64) ? fileAttachment.base64 : '',
+                attachmentName: (fileAttachment && fileAttachment.name) ? fileAttachment.name : '',
                 remarks: remarks ? remarks.trim() : '-',
                 status: status ? status.trim() : 'New Walkin',
                 repeatCount: nextRepeatCount,

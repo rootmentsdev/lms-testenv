@@ -72,6 +72,14 @@ const walkinSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Admin'
     },
+    attachment: {
+        type: String,
+        default: ''
+    },
+    attachmentName: {
+        type: String,
+        default: ''
+    },
     legacyMeta: {
         type: mongoose.Schema.Types.Mixed,
         default: {}

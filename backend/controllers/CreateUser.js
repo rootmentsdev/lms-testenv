@@ -675,8 +675,8 @@ export const createBranch = async (req, res) => {
     const savedBranch = await newBranch.save();
 
     if (savedBranch) {
-      // Fetch all super_admins from Admin collection
-      const superAdmins = await Admin.find({ role: "super_admin" });
+      // Fetch all super_admins and admins from Admin collection
+      const superAdmins = await Admin.find({ role: { $in: ["super_admin", "admin"] } });
 
       // Update each super_admin by adding the new branch _id to their branches array
       await Promise.all(
@@ -710,8 +710,8 @@ export const GetBranch = async (req, res) => {
       return res.status(404).json({ message: "Admin not found" });
     }
 
-    // Super admin or admin with no branches assigned — return all branches
-    if (!AdminBranch.branches || AdminBranch.branches.length === 0 || AdminBranch.role === 'super_admin') {
+    // Super admin, admin, or admin with no branches assigned — return all branches
+    if (!AdminBranch.branches || AdminBranch.branches.length === 0 || ['super_admin', 'admin'].includes(AdminBranch.role)) {
       const allBranches = await Branch.find({});
 
       const branchesWithCounts = await Promise.all(allBranches.map(async (branch) => {

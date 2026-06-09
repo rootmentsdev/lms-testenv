@@ -17,7 +17,7 @@ function norm(s) {
 }
 function locationKey(name) { return norm(name).split(" ").filter(t=>t&&!BRAND_TOKENS.has(t)).join(" "); }
 
-const STATUS_OPTIONS = ['Booked','Rentout','Return','Trial','Loss','Enquiry','Booking & Rentout','Reissue','New Booking','Revisit Booking','Revisit Loss','New Walkin','Other'];
+const STATUS_OPTIONS = ['Trial','Loss','Enquiry','Reissue','New Booking','Revisit Booking','Revisit Loss','New Walkin','Other'];
 
 const STATUS_COLORS = {
   'Booked':            { bg:'#dcfce7', color:'#16a34a' },
