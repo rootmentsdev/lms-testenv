@@ -1265,30 +1265,8 @@ export const GetMobileDashboard = async (req, res) => {
         let walkinsToday = 0;
         let walkinsYesterday = 0;
 
-        // ── Indian Standard Time (IST) Date Scoping ──
-        // The store locations operate in IST (UTC+5:30). To ensure the day transitions
-        // and stats reset/loss calculations happen precisely at 12:00 AM local time,
-        // we calculate midnight today and yesterday in the Asia/Kolkata timezone.
-        const formatter = new Intl.DateTimeFormat('en-US', {
-            timeZone: 'Asia/Kolkata',
-            year: 'numeric',
-            month: 'numeric',
-            day: 'numeric'
-        });
-        const parts = formatter.formatToParts(new Date());
-        const dateObj = {};
-        parts.forEach(p => { dateObj[p.type] = p.value; });
-        
-        // Midnight today in IST, converted to UTC Date Object
-        const todayStart = new Date(Date.UTC(
-            parseInt(dateObj.year, 10),
-            parseInt(dateObj.month, 10) - 1,
-            parseInt(dateObj.day, 10),
-            0, 0, 0, 0
-        ));
-        todayStart.setTime(todayStart.getTime() - (5.5 * 60 * 60 * 1000));
-        
-        // Midnight yesterday in IST, converted to UTC Date Object
+        const todayStart = new Date();
+        todayStart.setHours(0,0,0,0);
         const yesterdayStart = new Date(todayStart);
         yesterdayStart.setDate(yesterdayStart.getDate() - 1);
 
