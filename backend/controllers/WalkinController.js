@@ -258,12 +258,35 @@ export const saveWalkin = async (req, res) => {
             if (status) {
                 const trimmedStatus = status.trim();
                 if (walkinRecord.status !== trimmedStatus) {
+                    // Check if status was already changed today
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    
+                    const lastChangeDate = walkinRecord.lastStatusChangeDate ? new Date(walkinRecord.lastStatusChangeDate) : null;
+                    const lastChangeDateStart = lastChangeDate ? new Date(lastChangeDate) : null;
+                    if (lastChangeDateStart) {
+                        lastChangeDateStart.setHours(0, 0, 0, 0);
+                    }
+                    
+                    // If status was changed today, prevent another change
+                    if (lastChangeDateStart && lastChangeDateStart.getTime() === today.getTime()) {
+                        return res.status(400).json({
+                            success: false,
+                            message: 'Status can only be changed once per day. Please try again tomorrow.',
+                            lastStatusChange: walkinRecord.lastStatusChangeDate
+                        });
+                    }
+                    
                     // Only increment repeatCount if the status change happens on a DIFFERENT day
                     const existingDateStr = walkinRecord.date ? walkinRecord.date.substring(0, 10) : null;
                     const todayDateStr = todayStr.substring(0, 10);
                     if (existingDateStr !== todayDateStr) {
                         walkinRecord.repeatCount = (walkinRecord.repeatCount || 1) + 1;
                     }
+                    
+                    // Update status change tracking
+                    walkinRecord.lastStatusChangeDate = new Date();
+                    walkinRecord.statusChangedToday = true;
                 }
                 walkinRecord.status = trimmedStatus;
             }
@@ -291,12 +314,34 @@ export const saveWalkin = async (req, res) => {
         );
 
         if (walkinRecord && status !== 'New Walkin' && isSameStore) {
-            // Only increment repeatCount if the update happens on a DIFFERENT day than last recorded
-            const existingDateStr = walkinRecord.date ? walkinRecord.date.substring(0, 10) : null;
-            const todayDateStr = todayStr.substring(0, 10);
-            if (existingDateStr !== todayDateStr) {
-                walkinRecord.repeatCount += 1;
+            // Check if status was already changed today
+            if (status && status.trim() !== walkinRecord.status) {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                
+                const lastChangeDate = walkinRecord.lastStatusChangeDate ? new Date(walkinRecord.lastStatusChangeDate) : null;
+                const lastChangeDateStart = lastChangeDate ? new Date(lastChangeDate) : null;
+                if (lastChangeDateStart) {
+                    lastChangeDateStart.setHours(0, 0, 0, 0);
+                }
+                
+                // If status was changed today, prevent another change
+                if (lastChangeDateStart && lastChangeDateStart.getTime() === today.getTime()) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Status can only be changed once per day. Please try again tomorrow.',
+                        lastStatusChange: walkinRecord.lastStatusChangeDate
+                    });
+                }
+                
+                // Only increment repeatCount if status change happens on a DIFFERENT day than last recorded
+                const existingDateStr = walkinRecord.date ? walkinRecord.date.substring(0, 10) : null;
+                const todayDateStr = todayStr.substring(0, 10);
+                if (existingDateStr !== todayDateStr) {
+                    walkinRecord.repeatCount += 1;
+                }
             }
+            
             walkinRecord.customerName = customerName.trim();
             if (functionDate) walkinRecord.functionDate = functionDate.trim();
             if (finalStore) walkinRecord.store = finalStore;
@@ -310,7 +355,14 @@ export const saveWalkin = async (req, res) => {
                 walkinRecord.attachmentName = fileAttachment.name;
             }
             if (remarks) walkinRecord.remarks = remarks.trim();
-            if (status) walkinRecord.status = status.trim();
+            if (status) {
+                const trimmedStatus = status.trim();
+                if (walkinRecord.status !== trimmedStatus) {
+                    walkinRecord.lastStatusChangeDate = new Date();
+                    walkinRecord.statusChangedToday = true;
+                }
+                walkinRecord.status = trimmedStatus;
+            }
             if (createdBy) walkinRecord.createdBy = createdBy;
             walkinRecord.date = todayStr; // Update to latest visit date
             

@@ -482,7 +482,7 @@ import { buildTaskFilter } from '../lib/permissions.js';
 export const getTasks = async (req, res) => {
   try {
     const adminId = req.admin.userId;
-    const { search, category, priority, status, storeId, employeeId, mine } = req.query;
+    const { search, category, priority, status, storeId, employeeId, mine, mobile } = req.query;
     
     // 1. Build Base Query
     let baseQuery = {};
@@ -558,10 +558,33 @@ export const getTasks = async (req, res) => {
     }
 
     // 2. Wrap with RBAC Filter
-    //    When mine=true: skip the store-scope filter and show only tasks the
-    //    caller personally created OR is directly assigned to.
+    //    For mobile/flutter app: only show tasks assigned to the user (not tasks they created)
+    //    For web: apply normal RBAC filtering
     let secureQuery;
-    if (mine === 'true') {
+    if (mobile === 'true') {
+      // Mobile app: only show tasks assigned to the user
+      const assignedIds = [adminId.toString()];
+      
+      // Also check if this is a User and find associated Employee IDs
+      const user = await User.findById(adminId);
+      if (user) {
+        assignedIds.push(user._id.toString());
+        const employee = await Employee.findOne({
+          $or: [
+            { userId: user._id },
+            { employeeId: { $regex: `^${user.empID}$`, $options: 'i' } }
+          ]
+        });
+        if (employee) {
+          assignedIds.push(employee._id.toString());
+        }
+      }
+      
+      secureQuery = {
+        ...baseQuery,
+        assignedTo: { $in: assignedIds }
+      };
+    } else if (mine === 'true') {
       secureQuery = {
         ...baseQuery,
         $or: [

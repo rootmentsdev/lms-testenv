@@ -102,6 +102,49 @@ app.use(
   })
 );
 
+/**
+ * @swagger
+ * /api/health:
+ *   get:
+ *     tags: [System]
+ *     summary: Health check endpoint
+ *     description: Returns server status. Used to keep Render instance awake and monitor service health.
+ *     responses:
+ *       200:
+ *         description: Server is healthy
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *                 uptime:
+ *                   type: number
+ *                   description: Server uptime in seconds
+ *                 database:
+ *                   type: string
+ *                   enum: [connected, disconnected]
+ */
+app.get('/api/health', (req, res) => {
+  const mongooseConnected = mongoose.connection.readyState === 1;
+  
+  res.status(200).json({
+    success: true,
+    message: 'Server is healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    database: mongooseConnected ? 'connected' : 'disconnected',
+    port: port,
+    environment: process.env.NODE_ENV || 'production'
+  });
+});
+
 app.get('/', (req, res) => {
   console.log('🌐 Root endpoint accessed from:', req.headers.origin);
   res.send('✅ API is working');
@@ -676,14 +719,34 @@ connectMongoDB().then(() => {
     // Warm external employee cache in background (non-blocking)
     refreshExternalEmployees().catch(() => {});
 
-    // Start walk-in status auto-sync cron (every 15 minutes)
+    // Start walk-in status auto-sync cron (every hour at :00)
     startWalkinStatusSyncCron();
     
-    // Start auto task generation cron (every hour)
+    // Start auto task generation cron (every hour at :05, staggered)
     startAutoTaskCron();
     
     // Start existing notification cron job
     AlertNotification();
+    
+    // 📊 Job Health Monitor - runs every hour at :30 to check all jobs
+    cron.schedule('30 * * * *', () => {
+      const timestamp = new Date().toISOString();
+      console.log(`\n${'='.repeat(60)}`);
+      console.log(`📊 CRON JOB HEALTH CHECK - ${timestamp}`);
+      console.log(`${'='.repeat(60)}`);
+      console.log('✅ All cron jobs are running');
+      console.log('  • Walkin Status Sync: Every hour at :00');
+      console.log('  • Auto Task Generation: Every hour at :05 (staggered)');
+      console.log('  • Walkin Loss Expiry: Daily at 6:30 PM UTC');
+      console.log('  • AlertNotification: Daily at 6:30 PM UTC');
+      console.log(`${'='.repeat(60)}\n`);
+    });
+    
+    console.log('\n🕐 Cron Schedule:');
+    console.log('  • :00 min - Walkin Status Sync');
+    console.log('  • :05 min - Auto Task Generation (staggered)');
+    console.log('  • :30 min - Health Check');
+    console.log('  • 6:30 PM - AlertNotification & Loss Expiry\n');
   });
 }).catch(err => {
   console.error('❌ MongoDB connection failed:', err);

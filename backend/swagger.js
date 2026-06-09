@@ -15,7 +15,7 @@ const options = {
         },
         servers: [
             {
-                url: "https://lms-testenv-test.onrender.com/",
+                url: "https://lms-testenv-v0w5.onrender.com/",
                 description: "Live Development Server",
             },
             {

@@ -60,6 +60,14 @@ const walkinSchema = new mongoose.Schema({
         default: 'New Walkin',
         trim: true
     },
+    lastStatusChangeDate: {
+        type: Date,
+        default: null
+    },
+    statusChangedToday: {
+        type: Boolean,
+        default: false
+    },
     storeId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Branch'

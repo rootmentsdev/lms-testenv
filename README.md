@@ -390,7 +390,13 @@ The Brynex LMS features a comprehensively documented backend. Swagger UI is avai
 
 ### 7. Walk-ins & Leads
 - `GET /api/walkin/check/:contact`: Checks if a customer exists by contact phone number (Mobile App lookup).
-- `POST /api/walkin/save`: Saves a new walk-in record (Mobile App lead generation).
+- `POST /api/walkin/save`: Saves a new walk-in record (Mobile App lead generation & Web Dashboard updates).
+  - **Status Change Restriction:** Status can only be changed **once per calendar day** per walk-in record.
+    - Both Flutter mobile app and web dashboard are subject to this restriction.
+    - Attempting a status change on the same day returns HTTP 400: `"Status can only be changed once per day. Please try again tomorrow."`
+    - Example: If a walk-in status is changed from "New Walkin" to "Revisit" at 10 AM, any further status changes for that same walk-in on the same day will be rejected until midnight (00:00).
+  - **RepeatCount Logic:** Only increments on status changes that occur on a **different calendar day** than the record's current date. Same-day edits do not increment the counter.
+  - **Permissions:** Subject to role-based access control (RBAC) — users can only update walk-ins they have access to.
 - `GET /api/walkin/list`: Retrieves walk-ins. Supports `storeId` and `employeeId` query parameters. RBAC scoped.
 
 ### 8. Notifications & Reminders
@@ -606,3 +612,14 @@ All endpoints require a Bearer JWT token. Full Swagger documentation is availabl
   1. Direct `_id` edit path (manual edit from list view)
   2. Contact-lookup update path (sync or app re-submission)
 - Logic uses `substring(0, 10)` to compare `YYYY-MM-DD` portion of the stored `date` string against today's date.
+
+### Walk-in Status Change Limit — Once Per Day Restriction
+- **Constraint:** Each walk-in record can have its status changed **only once per calendar day**.
+  - After a status change is made on a given day, all subsequent status change requests for that same walk-in on the same day are rejected.
+  - Rejection message: `"Status can only be changed once per day. Please try again tomorrow."` (HTTP 400)
+- **Applies To:** Both Flutter mobile app (`/api/walkin/save` with optional auth) and web dashboard (`WalkinList.jsx` inline dropdown).
+- **Implementation:** 
+  - Tracks `lastStatusChangeDate` and `statusChangedToday` fields in the `Walkin` model.
+  - On status update, the controller compares today's midnight with the `lastStatusChangeDate` at midnight. If they match, the request is rejected.
+  - After a successful status change, `lastStatusChangeDate` is set to the current timestamp.
+- **UI Feedback:** In `WalkinList.jsx`, the status dropdown is **disabled** for walk-ins that were changed today, showing visual feedback with gray border (60% opacity).

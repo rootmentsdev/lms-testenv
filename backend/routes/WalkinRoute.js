@@ -102,6 +102,11 @@ router.get('/check/:contact', OptionalMiddilWare, checkCustomerExists);
  *       
  *       **What it does:** Stores a new walk-in entry or updates an existing one. Automatically resolves staff/username, store, storeId, employeeId, and date from the authentication token if they are not provided explicitly.
  *       
+ *       **Status Change Restriction (Mobile & Web):**
+ *       - Status can only be changed **once per calendar day** per walk-in record.
+ *       - If a status change is attempted on the same day, the API returns **HTTP 400** with message: "Status can only be changed once per day. Please try again tomorrow."
+ *       - This applies to both Flutter mobile app and web dashboard requests.
+ *       
  *       **Update/Create logic:**
  *       - If an existing walk-in record with the same contact number is found within the user's role/store limits:
  *         - If the status is `'New Walkin'`, a new record is created with `repeatCount = existing + 1`.
@@ -163,10 +168,15 @@ router.get('/check/:contact', OptionalMiddilWare, checkCustomerExists);
  *                 description: Date of walk-in, format YYYY-MM-DD (Defaults to today)
  *                 example: "2026-05-19"
  *     responses:
- *       201:
+ *       200:
  *         description: Walk-in record saved successfully
  *       400:
- *         description: Bad request - Missing mandatory fields
+ *         description: >
+ *           Bad request. Can occur for:
+ *           - Missing mandatory fields (customerName, contact)
+ *           - Status change already done today: "Status can only be changed once per day. Please try again tomorrow."
+ *       403:
+ *         description: Access denied - User does not have permission to access this walk-in record
  *       500:
  *         description: Internal server error
  */

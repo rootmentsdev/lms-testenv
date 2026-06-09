@@ -117,6 +117,10 @@ const WalkinList = () => {
     });
 
     const [currentAdmin, setCurrentAdmin] = useState(null);
+    
+    // Track walkins that already changed status today
+    const [statusChangedToday, setStatusChangedToday] = useState({});
+    const [updatingStatus, setUpdatingStatus] = useState({});
 
     const safeDateOnly = (dateStr) => {
         if (!dateStr || dateStr === '-') return new Date().toISOString().split('T')[0];
@@ -433,6 +437,49 @@ const WalkinList = () => {
         }
     };
 
+    // Handle inline status change for walkins
+    const handleStatusChange = async (walkinRecord, newStatus) => {
+        const walkinId = walkinRecord._id;
+        if (updatingStatus[walkinId]) return; // Prevent double-click
+        
+        setUpdatingStatus(prev => ({ ...prev, [walkinId]: true }));
+        
+        try {
+            const res = await fetch(`${baseUrl.baseUrl}api/walkin/save`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    _id: walkinId,
+                    status: newStatus,
+                    customerName: walkinRecord.customerName,
+                    contact: walkinRecord.contact
+                })
+            });
+            
+            const json = await res.json();
+            if (json.success) {
+                // Mark this walkin as changed today
+                setStatusChangedToday(prev => ({ ...prev, [walkinId]: true }));
+                // Reload walkins list
+                loadWalkinsList(currentPage);
+            } else {
+                if (json.message && json.message.includes('only be changed once')) {
+                    alert('Status can only be changed once per day. Please try again tomorrow.');
+                    setStatusChangedToday(prev => ({ ...prev, [walkinId]: true }));
+                } else {
+                    alert(`Error: ${json.message}`);
+                }
+            }
+        } catch (err) {
+            alert('Failed to update status. Please try again.');
+        } finally {
+            setUpdatingStatus(prev => ({ ...prev, [walkinId]: false }));
+        }
+    };
+    
     const handleEditClick = (w) => {
         const foundBranch = branches.find(b => b.workingBranch === w.store);
         const storeIdToLoad = w.storeId || (foundBranch ? foundBranch._id : '');
@@ -913,7 +960,7 @@ const WalkinList = () => {
                                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
                                             <thead>
                                                 <tr style={{ borderBottom: '1px solid #f3f4f6', background: '#fafafa' }}>
-                                                    {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'FUNCTION DATE', 'STORE', 'STAFF', 'CATEGORY', 'SUB CATEGORY', 'REMARKS', 'REPEAT COUNT', 'STATUS', ''].map((h, i) => (
+                                                    {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'FUNCTION DATE', 'STORE', 'STAFF', 'CATEGORY', 'SUB CATEGORY', 'REMARKS', 'REPEAT COUNT', 'STATUS', 'EDIT'].map((h, i) => (
                                                         <th key={i} style={{ padding: '8px 12px', textAlign: (h === '#' || h === 'REPEAT COUNT' || h === 'STATUS') ? 'center' : 'left', fontSize: '10px', fontWeight: 600, color: '#9ca3af', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{h}</th>
                                                     ))}
                                                 </tr>
@@ -967,9 +1014,47 @@ const WalkinList = () => {
                                                             <td style={{ padding: '11px 12px', color: '#6b7280', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={w.remarks}>{w.remarks || '–'}</td>
                                                             <td style={{ padding: '11px 12px', textAlign: 'center', color: '#374151' }}>{w.repeatCount}</td>
                                                             <td style={{ padding: '11px 12px', textAlign: 'center' }}>
-                                                                <span style={{ background: sc.bg, color: sc.color, borderRadius: '20px', padding: '2px 8px', fontSize: '10px', fontWeight: 600, whiteSpace: 'nowrap', display: 'inline-block' }}>
-                                                                    {w.status?.toUpperCase()}
-                                                                </span>
+                                                                <select
+                                                                    value={w.status || 'New Walkin'}
+                                                                    onChange={(e) => handleStatusChange(w, e.target.value)}
+                                                                    disabled={statusChangedToday[w._id] || updatingStatus[w._id]}
+                                                                    style={{
+                                                                        padding: '4px 10px',
+                                                                        fontSize: '11px',
+                                                                        fontWeight: 900,
+                                                                        border: statusChangedToday[w._id] ? '1px solid #e5e7eb' : '1px solid transparent',
+                                                                        borderRadius: '20px',
+                                                                        backgroundColor: '#fff',
+                                                                        color: sc.color,
+                                                                        cursor: statusChangedToday[w._id] ? 'not-allowed' : 'pointer',
+                                                                        opacity: statusChangedToday[w._id] ? 0.6 : 1,
+                                                                        transition: 'all 0.2s',
+                                                                        whiteSpace: 'nowrap',
+                                                                        display: 'inline-block',
+                                                                        appearance: 'none',
+                                                                        backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='${sc.color}' stroke-width='2'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+                                                                        backgroundRepeat: 'no-repeat',
+                                                                        backgroundPosition: 'right 4px center',
+                                                                        backgroundSize: '16px',
+                                                                        backgroundAttachment: 'scroll',
+                                                                        paddingRight: '24px'
+                                                                    }}
+                                                                    onMouseEnter={(e) => {
+                                                                        if (!statusChangedToday[w._id] && !updatingStatus[w._id]) {
+                                                                            e.currentTarget.style.border = `1px solid ${sc.color}`;
+                                                                        }
+                                                                    }}
+                                                                    onMouseLeave={(e) => {
+                                                                        if (!statusChangedToday[w._id]) {
+                                                                            e.currentTarget.style.border = '1px solid transparent';
+                                                                        }
+                                                                    }}
+                                                                    title={statusChangedToday[w._id] ? 'Status already changed today. Try again tomorrow.' : 'Change status'}
+                                                                >
+                                                                    <option value="New Walkin">New Walkin</option>
+                                                                    <option value="Loss">Loss</option>
+                                                                    <option value="Revisit">Revisit</option>
+                                                                </select>
                                                             </td>
                                                             <td style={{ padding: '11px 12px', textAlign: 'center' }}>
                                                                 <button
@@ -977,7 +1062,7 @@ const WalkinList = () => {
                                                                     style={{ background: 'none', border: 'none', color: '#4b5563', cursor: 'pointer', padding: '4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', transition: 'color 0.1s' }}
                                                                     onMouseEnter={e => e.currentTarget.style.color = '#111827'}
                                                                     onMouseLeave={e => e.currentTarget.style.color = '#4b5563'}
-                                                                    title="Edit Walk-in"
+                                                                    title="Edit Details"
                                                                 >
                                                                     <FaPen size={12} />
                                                                 </button>
