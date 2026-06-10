@@ -161,7 +161,7 @@ const EmployeeData = () => {
     <div style={{ minHeight:"100vh", background:"#f9fafb", fontFamily:"DM Sans, sans-serif" }}>
       <SideNav />
 
-      <div style={{ marginLeft:"120px", paddingTop:"24px", paddingLeft:"24px", paddingRight:"24px", paddingBottom:"40px" }}>
+      <div className="ml-0 md:ml-[120px]" style={{ paddingTop:"24px", paddingLeft:"24px", paddingRight:"24px", paddingBottom:"40px" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"20px" }}>
           <div>
             <h1 style={{ fontSize:"22px", fontWeight:700, lineHeight:1.2, color:"#111827", margin:0 }}>Employee Management</h1>
@@ -211,7 +211,7 @@ const EmployeeData = () => {
           ) : (
             <>
               <div style={{ overflowX:"auto" }}>
-                <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"13px" }}>
+                <table className="min-w-[800px] md:min-w-full" style={{ width:"100%", borderCollapse:"collapse", fontSize:"13px" }}>
                   <thead>
                     <tr style={{ background:"#f9fafb", borderBottom:"1px solid #f3f4f6" }}>
                       {["EMP ID","EMPLOYEE","STORE","TRAINING PROGRESS","TASKS","TRAINING","ACTIONS"].map(h=>(

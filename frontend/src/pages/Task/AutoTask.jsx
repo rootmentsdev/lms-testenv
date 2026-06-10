@@ -570,7 +570,7 @@ const AutoTask = () => {
 
             {/* Row 2: Description, Priority */}
             <div className="auto-task-grid-12">
-              <div className="auto-task-field" style={{ gridColumn: 'span 6' }}>
+              <div className="auto-task-field col-span-1 md:col-span-6" style={{}}>
                 <label className="auto-task-label">Task Description<span className="auto-task-req">*</span></label>
                 <textarea 
                   placeholder="Enter task description" 
@@ -582,7 +582,7 @@ const AutoTask = () => {
                 />
               </div>
 
-              <div className="auto-task-field" style={{ gridColumn: 'span 6' }}>
+              <div className="auto-task-field col-span-1 md:col-span-6" style={{}}>
                 <label className="auto-task-label">Select Priority<span className="auto-task-req">*</span></label>
                 <PriorityPicker value={priority} onChange={setPriority} />
               </div>
@@ -594,7 +594,7 @@ const AutoTask = () => {
             <div className="auto-task-grid-12">
               
               {/* Repeat Type Button Group */}
-              <div className="auto-task-field" style={{ gridColumn: 'span 4' }}>
+              <div className="auto-task-field col-span-1 md:col-span-4" style={{}}>
                 <label className="auto-task-label">Repeat Type<span className="auto-task-req">*</span></label>
                 <div className="repeat-type-group">
                   {['Daily', 'Weekly', 'Monthly', 'Custom'].map((type) => (
@@ -611,7 +611,7 @@ const AutoTask = () => {
               </div>
 
               {/* Start Date & Time Row */}
-              <div className="auto-task-field" style={{ gridColumn: 'span 4' }}>
+              <div className="auto-task-field col-span-1 md:col-span-4" style={{}}>
                 <label className="auto-task-label">Start Date & Time<span className="auto-task-req">*</span></label>
                 <div className="dateTime-row">
                   <div className="dateTime-col">
@@ -643,7 +643,7 @@ const AutoTask = () => {
               </div>
 
               {/* End Date & Time */}
-              <div className="auto-task-field" style={{ gridColumn: 'span 4' }}>
+              <div className="auto-task-field col-span-1 md:col-span-4" style={{}}>
                 <label className="auto-task-label">End Date & Time</label>
                 <DateInput 
                   value={endDate} 
@@ -658,7 +658,7 @@ const AutoTask = () => {
             <div className="auto-task-grid-12" style={{ marginTop: '24px' }}>
               
               {/* Radio Selector */}
-              <div className="auto-task-field" style={{ gridColumn: 'span 4' }}>
+              <div className="auto-task-field col-span-1 md:col-span-4" style={{}}>
                 <label className="auto-task-label">Assign to<span className="auto-task-req">*</span></label>
                 <div className="assign-radio-group">
                   
@@ -715,7 +715,7 @@ const AutoTask = () => {
 
               {/* Dynamic Target Input Dropdown */}
               {assignTo !== 'employees' && (
-                <div className="auto-task-field" style={{ gridColumn: 'span 8' }}>
+                <div className="auto-task-field col-span-1 md:col-span-8" style={{}}>
                   <label className="auto-task-label">
                     {assignTo === 'store' && 'Store*'}
                     {assignTo === 'role' && 'Role*'}

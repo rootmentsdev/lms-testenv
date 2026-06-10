@@ -261,17 +261,17 @@ const AssessmentsData = () => {
     <div style={{ minHeight: "100vh", background: "#f9fafb", fontFamily: "DM Sans, sans-serif" }}>
       <SideNav />
 
-      <div style={{ marginLeft: "120px", paddingTop: "24px", paddingLeft: "24px", paddingRight: "24px", paddingBottom: "24px" }}>
+      <div className="ml-0 md:ml-[120px]" style={{ paddingTop: "24px", paddingLeft: "24px", paddingRight: "24px", paddingBottom: "24px" }}>
 
         {/* ── Page header ── */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" }}>
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6" style={{}}>
           <div>
             <h1 style={{ fontSize: "22px", fontWeight: 700, lineHeight: 1.2, color: "#111827", margin: 0 }}>Assessments</h1>
             <p style={{ fontSize: "11px", color: "#9ca3af", margin: "4px 0 0" }}>
               Monitor module engagement and performance across all trainings
             </p>
           </div>
-          <div style={{ display: "flex", gap: "10px" }}>
+          <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto" style={{}}>
             <button
               onClick={() => setShowGoogleFormManager(true)}
               style={{ display: "flex", alignItems: "center", gap: "6px", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "9px 16px", fontSize: "13px", fontWeight: 500, color: "#374151", background: "#fff", cursor: "pointer" }}
@@ -295,9 +295,9 @@ const AssessmentsData = () => {
         </div>
 
         {/* ── Search + filter bar ── */}
-        <div style={{ background: "#fff", borderRadius: "14px", border: "1px solid #e5e7eb", padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", marginBottom: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-5 p-4 bg-white rounded-2xl border border-gray-200 shadow-xs" style={{}}>
           {/* Search */}
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1, maxWidth: "320px" }}>
+          <div className="flex items-center gap-2 flex-1 w-full sm:max-w-[320px]" style={{}}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
@@ -311,7 +311,7 @@ const AssessmentsData = () => {
           </div>
 
           {/* Status filter */}
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <div className="flex items-center gap-2 self-start sm:self-auto" style={{}}>
             <span style={{ fontSize: "13px", color: "#374151", fontWeight: 500 }}>Status :</span>
             <div style={{ position: "relative" }}>
               <select
@@ -332,7 +332,7 @@ const AssessmentsData = () => {
 
         {/* ── Cards grid ── */}
         {loading ? (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px" }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" style={{}}>
             {[1, 2, 3].map(i => <SkeletonCard key={i} />)}
           </div>
         ) : error ? (
@@ -342,7 +342,7 @@ const AssessmentsData = () => {
             No assessments found.
           </div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px" }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" style={{}}>
             {filtered.map(item => (
               <AssessmentCard key={item.assessmentId} item={item} />
             ))}
@@ -352,7 +352,7 @@ const AssessmentsData = () => {
         {/* ── Active Google Form section ── */}
         {activeGoogleForm && (
           <div style={{ marginTop: "32px", background: "#fff", borderRadius: "16px", border: "1px solid #e5e7eb", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4" style={{ marginBottom: "16px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                 <div style={{ width: 40, height: 40, borderRadius: 10, background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <FaExternalLinkAlt style={{ color: "#16a34a" }} />
@@ -362,7 +362,7 @@ const AssessmentsData = () => {
                   <p style={{ fontSize: "11px", color: "#9ca3af", margin: "2px 0 0" }}>{activeGoogleForm.title}</p>
                 </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-between md:justify-end" style={{}}>
                 <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "13px", color: "#374151" }}>
                   <input type="checkbox" checked={activeGoogleForm.isActive} onChange={handleToggleActive} style={{ display: "none" }} />
                   <div style={{ width: 40, height: 22, borderRadius: 99, background: activeGoogleForm.isActive ? "#111827" : "#e5e7eb", position: "relative", transition: "background 0.2s", cursor: "pointer" }}

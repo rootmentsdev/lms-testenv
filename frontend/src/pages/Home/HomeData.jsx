@@ -29,12 +29,12 @@ const HomeData = () => {
             <div className="flex">
                 <SideNav />
                 <div className="md:ml-[120px] w-full">
-                    <div className="px-6 mt-6">
+                    <div className="px-4 sm:px-6 mt-6">
                         <DashboardOverview range={range} customRange={customRange} />
                     </div>
 
                     {/* Daily Walkings + Task Overview row */}
-                    <div className="px-6 mt-4 flex gap-4">
+                    <div className="px-4 sm:px-6 mt-4 flex flex-col lg:flex-row gap-4">
                         <DailyWalkings
                             range={range}
                             customRange={customRange}
@@ -45,7 +45,7 @@ const HomeData = () => {
                     </div>
 
                     {/* Training Progress bar chart */}
-                    <div className="px-6 mt-4 mb-8">
+                    <div className="px-4 sm:px-6 mt-4 mb-8">
                         <HomeBar />
                     </div>
                 </div>

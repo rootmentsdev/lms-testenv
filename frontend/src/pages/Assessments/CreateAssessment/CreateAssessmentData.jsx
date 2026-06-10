@@ -190,10 +190,10 @@ const CreateAssessmentData = () => {
     <div style={{ minHeight: "100vh", background: "#f9fafb", fontFamily: "DM Sans, sans-serif" }}>
       <SideNav />
 
-      <div style={{ marginLeft: "120px", paddingTop: "24px", paddingLeft: "24px", paddingRight: "24px", paddingBottom: "24px" }}>
+      <div className="ml-0 md:ml-[120px]" style={{ paddingTop: "24px", paddingLeft: "24px", paddingRight: "24px", paddingBottom: "24px" }}>
 
         {/* ── Page header ── */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" }}>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6" style={{}}>
           <div>
             <button onClick={() => navigate("/assessments")}
               style={{ display: "flex", alignItems: "center", gap: "6px", background: "none", border: "none", cursor: "pointer", color: "#6b7280", fontSize: "13px", fontWeight: 500, padding: 0, marginBottom: "8px" }}>
@@ -232,7 +232,7 @@ const CreateAssessmentData = () => {
         </div>
 
         {/* ── Two-column layout ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "380px 1fr", gap: "20px", alignItems: "start" }}>
+        <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-5 items-start" style={{}}>
 
           {/* ── Left: Assessment details ── */}
           <div style={{ background: "#fff", borderRadius: "14px", border: "1px solid #f0f0f0", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", overflow: "hidden" }}>

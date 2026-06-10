@@ -91,8 +91,7 @@ const TaskOverview = () => {
   }, [tasksResponse, isLoading]);
 
   return (
-    <div style={{
-      flex: "0 0 340px",
+    <div className="w-full lg:w-[340px] flex-shrink-0" style={{
       height: "380px",
       padding: "20px",
       borderRadius: "18px",

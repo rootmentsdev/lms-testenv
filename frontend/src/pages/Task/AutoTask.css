@@ -7,9 +7,17 @@
 }
 
 .auto-task-wrapper {
-  margin-left: 120px;
-  padding: 24px;
-  padding-bottom: 60px;
+  margin-left: 0;
+  padding: 16px;
+  padding-bottom: 80px;
+}
+
+@media (min-width: 768px) {
+  .auto-task-wrapper {
+    margin-left: 120px;
+    padding: 24px;
+    padding-bottom: 60px;
+  }
 }
 
 .auto-task-card {
@@ -17,8 +25,14 @@
   border-radius: 16px;
   border: 1px solid #e5e7eb;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
-  padding: 32px;
+  padding: 16px;
   animation: fadeInTask 0.3s ease-out;
+}
+
+@media (min-width: 640px) {
+  .auto-task-card {
+    padding: 32px;
+  }
 }
 
 @keyframes fadeInTask {
@@ -29,23 +43,47 @@
 /* ── Form Rows and Columns ── */
 .auto-task-grid-4 {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: 1fr;
   gap: 16px;
   margin-bottom: 24px;
+}
+
+@media (min-width: 640px) {
+  .auto-task-grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .auto-task-grid-4 {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 .auto-task-grid-3 {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr;
   gap: 16px;
   margin-bottom: 24px;
 }
 
+@media (min-width: 768px) {
+  .auto-task-grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 .auto-task-grid-12 {
   display: grid;
-  grid-template-columns: repeat(12, 1fr);
+  grid-template-columns: 1fr;
   gap: 16px;
   margin-bottom: 24px;
+}
+
+@media (min-width: 768px) {
+  .auto-task-grid-12 {
+    grid-template-columns: repeat(12, 1fr);
+  }
 }
 
 .auto-task-field {

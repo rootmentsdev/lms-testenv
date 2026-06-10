@@ -1307,8 +1307,8 @@ export const GetMobileDashboard = async (req, res) => {
             walkinsToday = await Walkin.countDocuments({ ...storeFilter, createdAt: { $gte: todayStart } });
             walkinsYesterday = await Walkin.countDocuments({ ...storeFilter, createdAt: { $gte: yesterdayStart, $lt: todayStart } });
         } else {
-            // Employee
-            const walkinFilter = await buildWalkinFilter(activeUser._id);
+            // Employee - only total walkins entered by them (createdBy matching activeUser._id)
+            const walkinFilter = { createdBy: activeUser._id };
             totalWalkins = await Walkin.countDocuments(walkinFilter);
             walkinsToday = await Walkin.countDocuments({ ...walkinFilter, createdAt: { $gte: todayStart } });
             walkinsYesterday = await Walkin.countDocuments({ ...walkinFilter, createdAt: { $gte: yesterdayStart, $lt: todayStart } });

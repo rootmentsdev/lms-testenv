@@ -152,9 +152,9 @@ const WalkinReport = () => {
   return (
     <div style={{ minHeight:'100vh', background:'#f9fafb', fontFamily:"DM Sans, sans-serif" }}>
       <SideNav />
-      <div className="md:hidden sm:block"><ModileNav /></div>
+      <div className="md:hidden"><ModileNav /></div>
 
-      <div style={{ marginLeft:'120px', paddingTop:'24px', paddingLeft:'24px', paddingRight:'24px', paddingBottom:'40px' }}>
+      <div className="ml-0 md:ml-[120px]" style={{ paddingTop:'24px', paddingLeft:'24px', paddingRight:'24px', paddingBottom:'40px' }}>
 
         {/* Page title */}
         <h1 style={{ fontSize:'22px', fontWeight:700, lineHeight:1.2, color:'#111827', margin:'0 0 20px' }}>Walk In Report</h1>
@@ -163,7 +163,7 @@ const WalkinReport = () => {
         <div style={{ background:'#fff', borderRadius:'16px', border:'1px solid #f0f0f0', boxShadow:'0 1px 4px rgba(0,0,0,0.05)', padding:'20px', marginBottom:'20px', width:'100%', boxSizing:'border-box' }}>
           <form onSubmit={handleGenerate}>
             {/* Row 1 */}
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'12px', marginBottom:'12px' }}>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3" style={{}}>
               <div>
                 <label style={lbl}>Start Date <span style={{color:'#ef4444'}}>*</span></label>
                 <div style={{ position:'relative' }}>
@@ -183,7 +183,7 @@ const WalkinReport = () => {
               </div>
             </div>
             {/* Row 2 */}
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'12px', marginBottom:'14px' }}>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3" style={{}}>
               <div>
                 <label style={lbl}>Employee <span style={{color:'#9ca3af', fontWeight:400}}>(Optional)</span></label>
                 <select value={formData.employee} onChange={e=>setFormData(p=>({...p,employee:e.target.value}))} style={{...inp,cursor:'pointer',appearance:'auto'}}>
@@ -247,7 +247,7 @@ const WalkinReport = () => {
               <div style={{ textAlign:'center', padding:'48px', color:'#9ca3af', fontSize:'13px' }}>No records found.</div>
             ) : (
               <div style={{ overflowX:'auto' }}>
-                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'12px', fontFamily:"DM Sans, sans-serif" }}>
+                <table className="min-w-[800px] md:min-w-full" style={{ width:'100%', borderCollapse:'collapse', fontSize:'12px', fontFamily:"DM Sans, sans-serif" }}>
                   <thead>
                     <tr style={{ background:'#f9fafb', borderBottom:'1px solid #f3f4f6' }}>
                       {['#','DATE','CUSTOMER','CONTACT','FUNCTION DATE','STAFF','STATUS','CATEGORY','SUB CATEGORY','REPEAT COUNT','REMARKS'].map(h=>(

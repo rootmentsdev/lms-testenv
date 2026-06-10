@@ -5,7 +5,7 @@ const Home = () => {
     return (
         <>
             <div style={styles.container} className="bg-white">
-                <div className="md:hidden sm:block">
+                <div className="md:hidden">
                     <ModileNav />
                 </div>
                 <div style={styles.middle}>
