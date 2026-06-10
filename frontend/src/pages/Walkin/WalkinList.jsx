@@ -97,6 +97,7 @@ const WalkinList = () => {
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(50);
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
     // Form state for adding Walk-in
     const [formData, setFormData] = useState({
@@ -1147,27 +1148,152 @@ const WalkinList = () => {
                                     </div>
 
                                     {/* Pagination */}
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderTop: '1px solid #f3f4f6', fontSize: '13px', color: '#6b7280' }}>
-                                        <span>Showing {String(Math.min(indexFirst + currentItems.length, totalWalkins)).padStart(2, '0')} of {totalWalkins}</span>
+                                    <div style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        padding: '14px 20px',
+                                        borderTop: '1px solid #f3f4f6',
+                                        fontSize: '13px',
+                                        color: '#6b7280'
+                                    }}>
+                                        <span>Showing {itemsPerPage === 'All' ? totalWalkins : Math.min(Number(itemsPerPage), Math.max(0, totalWalkins - (currentPage - 1) * Number(itemsPerPage)))} of {totalWalkins}</span>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <span>Show:</span>
-                                                <select
-                                                    value={itemsPerPage}
-                                                    onChange={e => {
-                                                        const val = e.target.value;
-                                                        setItemsPerPage(val === 'All' ? 'All' : Number(val));
+                                            <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+                                                <span style={{ marginRight: '8px', color: '#6b7280' }}>Show:</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                                                    style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px',
+                                                        padding: '5px 10px',
+                                                        border: '1px solid #e5e7eb',
+                                                        borderRadius: '8px',
+                                                        background: '#fff',
+                                                        fontSize: '13px',
+                                                        color: '#374151',
+                                                        cursor: 'pointer',
+                                                        fontWeight: '500',
+                                                        outline: 'none',
+                                                        minWidth: '64px',
+                                                        justifyContent: 'space-between',
+                                                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                                                     }}
-                                                    style={{ border: '1px solid #e5e7eb', borderRadius: '6px', padding: '3px 6px', fontSize: '12px', color: '#374151', background: '#fff', outline: 'none', cursor: 'pointer' }}
                                                 >
-                                                    {[50, 100, 200, 'All'].map(val => <option key={val} value={val}>{val}</option>)}
-                                                </select>
+                                                    <span>{itemsPerPage}</span>
+                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: 'transform 0.2s', transform: isDropdownOpen ? 'rotate(180deg)' : 'none' }}>
+                                                        <polyline points="6 9 12 15 18 9" />
+                                                    </svg>
+                                                </button>
+                                                {isDropdownOpen && (
+                                                    <>
+                                                        <div
+                                                            onClick={() => setIsDropdownOpen(false)}
+                                                            style={{ position: 'fixed', inset: 0, zIndex: 998 }}
+                                                        />
+                                                        <div
+                                                            style={{
+                                                                position: 'absolute',
+                                                                bottom: '100%',
+                                                                right: 0,
+                                                                marginBottom: '6px',
+                                                                background: '#4b5563',
+                                                                borderRadius: '10px',
+                                                                boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                                                                padding: '4px',
+                                                                zIndex: 999,
+                                                                minWidth: '80px',
+                                                                border: '1px solid rgba(255,255,255,0.08)'
+                                                            }}
+                                                        >
+                                                            {[50, 100, 200, 'All'].map((opt) => (
+                                                                <button
+                                                                    key={opt}
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setItemsPerPage(opt);
+                                                                        setCurrentPage(1);
+                                                                        setIsDropdownOpen(false);
+                                                                    }}
+                                                                    style={{
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        width: '100%',
+                                                                        padding: '6px 12px 6px 8px',
+                                                                        border: 'none',
+                                                                        background: 'transparent',
+                                                                        color: '#fff',
+                                                                        fontSize: '13px',
+                                                                        textAlign: 'left',
+                                                                        cursor: 'pointer',
+                                                                        borderRadius: '6px',
+                                                                        fontWeight: itemsPerPage === opt ? '600' : '400',
+                                                                        fontFamily: 'inherit'
+                                                                    }}
+                                                                    onMouseEnter={(e) => {
+                                                                        e.currentTarget.style.background = '#2563eb';
+                                                                    }}
+                                                                    onMouseLeave={(e) => {
+                                                                        e.currentTarget.style.background = 'transparent';
+                                                                    }}
+                                                                >
+                                                                    <span style={{ width: '16px', display: 'inline-flex', alignItems: 'center', marginRight: '4px', fontSize: '11px' }}>
+                                                                        {itemsPerPage === opt ? '✓' : ''}
+                                                                    </span>
+                                                                    <span>{opt}</span>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </>
+                                                )}
                                             </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} style={{ width: '30px', height: '30px', border: '1px solid #e5e7eb', borderRadius: '6px', background: '#fff', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', opacity: currentPage === 1 ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#374151' }}>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handlePageChange(currentPage - 1)}
+                                                    disabled={currentPage === 1}
+                                                    style={{
+                                                        width: '36px',
+                                                        height: '36px',
+                                                        border: '1px solid #e5e7eb',
+                                                        borderRadius: '8px',
+                                                        background: '#fff',
+                                                        cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                                                        opacity: currentPage === 1 ? 0.4 : 1,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                                                        color: '#374151'
+                                                    }}
+                                                    onMouseEnter={e => { if (currentPage !== 1) e.currentTarget.style.background = '#f9fafb'; }}
+                                                    onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
+                                                >
                                                     <FaChevronLeft size={10} />
                                                 </button>
-                                                <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages || totalPages === 0} style={{ width: '30px', height: '30px', border: '1px solid #e5e7eb', borderRadius: '6px', background: '#fff', cursor: (currentPage === totalPages || totalPages === 0) ? 'not-allowed' : 'pointer', opacity: (currentPage === totalPages || totalPages === 0) ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#374151' }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handlePageChange(currentPage + 1)}
+                                                    disabled={currentPage === totalPages || totalPages === 0}
+                                                    style={{
+                                                        width: '36px',
+                                                        height: '36px',
+                                                        border: '1px solid #e5e7eb',
+                                                        borderRadius: '8px',
+                                                        background: '#fff',
+                                                        cursor: (currentPage === totalPages || totalPages === 0) ? 'not-allowed' : 'pointer',
+                                                        opacity: (currentPage === totalPages || totalPages === 0) ? 0.4 : 1,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                                                        color: '#374151'
+                                                    }}
+                                                    onMouseEnter={e => { if (currentPage !== totalPages && totalPages !== 0) e.currentTarget.style.background = '#f9fafb'; }}
+                                                    onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
+                                                >
                                                     <FaChevronRight size={10} />
                                                 </button>
                                             </div>
