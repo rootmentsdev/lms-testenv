@@ -320,13 +320,11 @@ const ExistingUsers = () => {
             <div className="hidden md:block z-50">
                 <SideNav />
             </div>
-            <div className="md:hidden">
-                <ModileNav />
-            </div>
+            <ModileNav />
 
             {/* Main Page Area */}
-            <div className="flex-1 ml-0 md:ml-[110px] p-6 flex flex-col min-h-screen">
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex-1 flex flex-col justify-between">
+            <div className="flex-1 min-w-0 ml-0 md:ml-[110px] p-4 md:p-6 pb-24 md:pb-6 flex flex-col min-h-screen">
+                <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-100 flex-1 flex flex-col justify-between">
                     <div>
                         {/* Title & Add User Header */}
                         <div className="flex justify-between items-center mb-6">

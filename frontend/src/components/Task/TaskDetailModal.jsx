@@ -42,7 +42,7 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
   const canUpdateStatus = isAssignedToMe || isMyStore || isAdmin;
   const isTaskCreator = task?.createdBy === user?.userId;
   const shouldShowWorkMap = isAdmin || isTaskCreator;
-  const canEditDetails = isAdmin || isTaskCreator;
+  const canEditDetails = (isAdmin || isTaskCreator) && user?.role !== 'cluster_admin' && user?.role !== 'store_admin';
 
   const [selectedFile, setSelectedFile] = useState(null);
   const [assigneesList, setAssigneesList] = useState([]);

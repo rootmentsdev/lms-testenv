@@ -189,10 +189,7 @@ const LoginAnalytics = () => {
     return (
         <>
             <div className="min-h-screen bg-gray-50">
-                {/* Mobile Navigation */}
-                <div className="md:hidden">
-                    <ModileNav />
-                </div>
+                <ModileNav />
 
                 {/* Desktop Navigation */}
                 <div className="hidden md:block">
@@ -200,7 +197,7 @@ const LoginAnalytics = () => {
                 </div>
 
                 {/* Main Content */}
-                <div className="md:ml-[120px]">
+                <div className="ml-0 md:ml-[120px]">
                     
                     <div className="p-6">
                         <div className="mb-6">

@@ -122,6 +122,7 @@ const WalkinList = () => {
     // Track walkins that already changed status today
     const [statusChangedToday, setStatusChangedToday] = useState({});
     const [updatingStatus, setUpdatingStatus] = useState({});
+    const isRestrictedEdit = (user?.role === 'cluster_admin' || user?.role === 'store_admin') && (formData._id || customerExistsNotification);
 
     const safeDateOnly = (dateStr) => {
         if (!dateStr || dateStr === '-') return new Date().toISOString().split('T')[0];
@@ -731,7 +732,12 @@ const WalkinList = () => {
                                             value={formData.contact}
                                             onChange={handleInputChange}
                                             onBlur={(e) => checkCustomer(e.target.value)}
-                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 font-semibold"
+                                            disabled={isRestrictedEdit}
+                                            className={`w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 font-semibold ${
+                                                isRestrictedEdit 
+                                                    ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200' 
+                                                    : 'bg-white text-gray-800 placeholder-gray-400'
+                                            }`}
                                         />
                                     </div>
                                     <div className="col-span-12 md:col-span-3">
@@ -745,7 +751,12 @@ const WalkinList = () => {
                                             placeholder="Enter Customer Name"
                                             value={formData.customerName}
                                             onChange={handleInputChange}
-                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 font-semibold"
+                                            disabled={isRestrictedEdit}
+                                            className={`w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 font-semibold ${
+                                                isRestrictedEdit 
+                                                    ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200' 
+                                                    : 'bg-white text-gray-800 placeholder-gray-400'
+                                            }`}
                                         />
                                     </div>
                                     <div className="col-span-12 md:col-span-4">
@@ -758,7 +769,12 @@ const WalkinList = () => {
                                             required
                                             value={formData.functionDate}
                                             onChange={handleInputChange}
-                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer placeholder-gray-400 font-semibold"
+                                            disabled={isRestrictedEdit}
+                                            className={`w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 font-semibold ${
+                                                isRestrictedEdit 
+                                                    ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200' 
+                                                    : 'bg-white text-gray-800 cursor-pointer placeholder-gray-400'
+                                            }`}
                                         />
                                     </div>
                                     <div className="col-span-12 md:col-span-2">

@@ -114,7 +114,7 @@ const CreateUser = () => {
   }, []); // Ensure this only runs on component mount
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen flex text-black justify-center items-center">
+    <div className="p-4 sm:p-6 bg-gray-50 min-h-[calc(100vh-160px)] flex text-black justify-center items-center">
       <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl">
         <h1 className="text-2xl font-extrabold mb-6">Create User/Admin</h1>
         <form onSubmit={handleSubmit} className="space-y-6">
