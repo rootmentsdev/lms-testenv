@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useSelector } from "react-redux";
 import SideNav from "../../components/SideNav/SideNav";
 import baseUrl from "../../api/api";
 import { Link } from "react-router-dom";
@@ -9,6 +10,17 @@ const getProgressColor = (pct) => {
   if (pct >= 85) return "#3b82f6"; // blue
   if (pct >= 50) return "#f59e0b"; // orange
   return "#ef4444"; // red
+};
+
+const getRoleRank = (roleOrDesignation) => {
+  const r = String(roleOrDesignation || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (r.includes("superadmin")) return 6;
+  if (r === "admin") return 5;
+  if (r.includes("hradmin")) return 4;
+  if (r.includes("clusteradmin")) return 3;
+  if (r.includes("storeadmin")) return 2;
+  if (r.includes("employee") || r.includes("sales") || r.includes("staff")) return 1;
+  return 1; // Default
 };
 
 const exportCSV = (data) => {
@@ -79,6 +91,8 @@ const mapEmployee = (e) => ({
 });
 
 const EmployeeData = () => {
+  const user = useSelector((state) => state.auth.user);
+  const isRestrictedRole = user?.role === 'cluster_admin' || user?.role === 'store_admin';
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -115,11 +129,28 @@ const EmployeeData = () => {
         const sorted = [...mapped].sort((a, b) => {
           return (a.empID || "").localeCompare(b.empID || "", undefined, { numeric: true, sensitivity: 'base' });
         });
-        setData(sorted);
-        setTotalEmployees(json.totalEmployees ?? json.data.length);
+        
+        // Filter out employees on top of them (higher or equal role) if restricted
+        const filtered = isRestrictedRole ? sorted.filter(e => {
+          const userRank = getRoleRank(user?.role);
+          const empRank = getRoleRank(e.designation);
+          return empRank < userRank;
+        }) : sorted;
+
+        setData(filtered);
+        setTotalEmployees(isRestrictedRole ? filtered.length : (json.totalEmployees ?? json.data.length));
         setTotalPages(json.totalPages ?? 1);
         if (json.filters?.stores?.length) setStores(json.filters.stores);
-        if (json.filters?.roles?.length) setRoles(json.filters.roles);
+        
+        // Also filter the available role options in the dropdown if restricted
+        if (json.filters?.roles?.length) {
+          if (isRestrictedRole) {
+            const userRank = getRoleRank(user?.role);
+            setRoles(json.filters.roles.filter(r => r === 'All' || getRoleRank(r) < userRank));
+          } else {
+            setRoles(json.filters.roles);
+          }
+        }
         setError("");
       } else {
         throw new Error(json.message || "Failed");
@@ -130,7 +161,7 @@ const EmployeeData = () => {
     } finally {
       setLoading(false);
     }
-  }, [token, currentPage, search, storeFilter, roleFilter, itemsPerPage]);
+  }, [token, currentPage, search, storeFilter, roleFilter, itemsPerPage, isRestrictedRole, user?.role]);
 
   useEffect(() => {
     const timer = setTimeout(fetchEmployees, search ? 300 : 0);
@@ -151,7 +182,13 @@ const EmployeeData = () => {
     );
     const json = await res.json();
     if (json.success) {
-      exportCSV((json.data || []).map(mapEmployee));
+      const mapped = (json.data || []).map(mapEmployee);
+      const filtered = isRestrictedRole ? mapped.filter(e => {
+        const userRank = getRoleRank(user?.role);
+        const empRank = getRoleRank(e.designation);
+        return empRank < userRank;
+      }) : mapped;
+      exportCSV(filtered);
     }
   };
 
@@ -167,11 +204,13 @@ const EmployeeData = () => {
             <h1 style={{ fontSize:"22px", fontWeight:700, lineHeight:1.2, color:"#111827", margin:0 }}>Employee Management</h1>
             <p style={{ fontSize:"12px", color:"#9ca3af", margin:"4px 0 0" }}>Store walkings, tasks, and training progress across all locations</p>
           </div>
-          <Link to="/employee/create">
-            <button style={{ background:"#111827", color:"#fff", border:"none", borderRadius:"10px", padding:"9px 18px", fontSize:"13px", fontWeight:600, cursor:"pointer" }}>
-              + New Employee
-            </button>
-          </Link>
+          {!isRestrictedRole && (
+            <Link to="/employee/create">
+              <button style={{ background:"#111827", color:"#fff", border:"none", borderRadius:"10px", padding:"9px 18px", fontSize:"13px", fontWeight:600, cursor:"pointer" }}>
+                + New Employee
+              </button>
+            </Link>
+          )}
         </div>
 
         <div style={{ display:"flex", alignItems:"center", gap:"10px", marginBottom:"16px", flexWrap:"wrap" }}>

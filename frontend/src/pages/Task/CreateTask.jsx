@@ -1,5 +1,6 @@
 import { useState, useRef, useLayoutEffect, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
 import Select, { components } from 'react-select';
 import SideNav from '../../components/SideNav/SideNav';
@@ -266,63 +267,11 @@ const DateInput = ({ value, onChange, required }) => {
   );
 };
 
-const ModeToggle = ({ mode, onChange, disabled }) => {
-  const wrapRef = useRef(null);
-  const btnRefs = useRef([]);
-  const [pill, setPill] = useState({ width: 0, left: 0 });
 
-  const updatePill = useCallback(() => {
-    const idx = mode === 'task' ? 0 : 1;
-    const btn = btnRefs.current[idx];
-    const wrap = wrapRef.current;
-    if (!btn || !wrap) return;
-    const wrapRect = wrap.getBoundingClientRect();
-    const btnRect = btn.getBoundingClientRect();
-    setPill({
-      width: btnRect.width,
-      left: btnRect.left - wrapRect.left,
-    });
-  }, [mode]);
-
-  useLayoutEffect(() => {
-    updatePill();
-    const raf = requestAnimationFrame(updatePill);
-    window.addEventListener('resize', updatePill);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener('resize', updatePill);
-    };
-  }, [updatePill]);
-
-  const options = [
-    { id: 'task', label: 'Task' },
-    { id: 'auto', label: 'Auto Task' },
-  ];
-
-  return (
-    <div ref={wrapRef} className="create-task-toggle" style={{ opacity: disabled ? 0.7 : 1 }}>
-      <div
-        className="create-task-toggle__pill"
-        style={{ width: pill.width, transform: `translateX(${pill.left}px)` }}
-      />
-      {options.map((opt, i) => (
-        <button
-          key={opt.id}
-          ref={(el) => { btnRefs.current[i] = el; }}
-          type="button"
-          disabled={disabled}
-          onClick={() => onChange(opt.id)}
-          className={`create-task-toggle__btn${mode === opt.id ? ' create-task-toggle__btn--active' : ''}`}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
-  );
-};
 
 const CreateTask = () => {
   const navigate = useNavigate();
+  const user = useSelector((state) => state.auth.user);
   const [mode, setMode] = useState('task');
   const [assigneeOptions, setAssigneeOptions] = useState([]);
   const [loadingAssignees, setLoadingAssignees] = useState(false);
@@ -340,7 +289,69 @@ const CreateTask = () => {
         });
         if (response.ok) {
           const json = await response.json();
-          setAssigneeOptions(json.data || []);
+          const rawAssignees = json.data || [];
+          const roleRanks = {
+            super_admin: 5,
+            admin: 5,
+            hr_admin: 4,
+            cluster_admin: 3,
+            store_admin: 2,
+            employee: 1,
+            user: 1
+          };
+          const userRole = user?.role;
+          const userRank = roleRanks[userRole] || 1;
+
+          const getOptionRank = (opt) => {
+            if (opt.role && roleRanks[opt.role]) {
+              return roleRanks[opt.role];
+            }
+            if (opt.label) {
+              const parts = opt.label.split(' - ');
+              if (parts.length >= 3) {
+                const designation = parts[1].trim().toLowerCase();
+                if (designation === 'super admin' || designation === 'admin') return 5;
+                if (designation === 'hr admin') return 4;
+                if (designation === 'cluster admin') return 3;
+                if (designation === 'store admin' || designation === 'store_admin') return 2;
+              }
+            }
+            return 1;
+          };
+
+          const filtered = rawAssignees
+            .filter(opt => {
+              if (opt.type === 'group') {
+                if (opt.value === 'all_hr_admins' && userRank < 4) return false;
+                if (opt.value === 'all_cluster_admins' && userRank < 3) return false;
+                if (opt.value === 'all_store_admins' && userRank < 2) return false;
+                return true;
+              }
+              
+              if (['cluster_admin', 'store_admin', 'hr_admin'].includes(userRole)) {
+                const optRank = getOptionRank(opt);
+                if (optRank > userRank) return false;
+              }
+              return true;
+            })
+            .map(opt => {
+              if (opt.label) {
+                const parts = opt.label.split(' - ');
+                if (parts.length >= 3) {
+                  const storeSegment = parts[parts.length - 1];
+                  const stores = storeSegment.split(',').map(s => s.trim());
+                  if (stores.length > 5 || storeSegment.toLowerCase().includes('all store')) {
+                    parts[parts.length - 1] = 'All Stores';
+                    return {
+                      ...opt,
+                      label: parts.join(' - ')
+                    };
+                  }
+                }
+              }
+              return opt;
+            });
+          setAssigneeOptions(filtered);
         }
       } catch (err) {
         console.error('Error fetching assignees:', err);
@@ -349,7 +360,7 @@ const CreateTask = () => {
       }
     };
     fetchAssignees();
-  }, [token]);
+  }, [token, user?.role]);
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -554,13 +565,6 @@ const CreateTask = () => {
                 <p style={{ fontSize: '12px', color: '#9ca3af', margin: '4px 0 0', fontFamily: 'DM Sans, sans-serif' }}>Track and manage all operational tasks across stores</p>
               </div>
             </div>
-            <ModeToggle mode={mode} onChange={(m) => {
-              if (m === 'auto') {
-                navigate('/task/auto-schedule');
-              } else {
-                setMode(m);
-              }
-            }} disabled={submitting} />
           </div>
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>

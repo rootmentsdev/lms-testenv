@@ -34,9 +34,15 @@ const todayStr = () => {
 
 /** Parse a YYYY-MM-DD string into a Date at midnight UTC */
 const parseDate = (str) => {
-  if (!str) return null;
-  const [y, m, d] = str.split('-').map(Number);
-  return new Date(y, m - 1, d);
+  if (!str || typeof str !== 'string') return null;
+  const trimmed = str.trim();
+  if (!trimmed || trimmed === 'null' || trimmed === 'undefined' || trimmed === 'NaN-NaN-NaN') return null;
+  const parts = trimmed.split('-');
+  if (parts.length !== 3) return null;
+  const [y, m, d] = parts.map(Number);
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
+  const date = new Date(y, m - 1, d);
+  return isNaN(date.getTime()) ? null : date;
 };
 
 /**
@@ -48,7 +54,7 @@ const parseDate = (str) => {
 const shouldGenerateToday = (template, targetDate) => {
   const target = parseDate(targetDate);
   const start  = parseDate(template.startDate);
-  const end    = template.endDate ? parseDate(template.endDate) : null;
+  const end    = parseDate(template.endDate);
 
   if (!target || !start) return false;
 

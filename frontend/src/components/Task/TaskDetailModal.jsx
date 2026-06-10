@@ -110,7 +110,69 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
           });
           const json = await res.json();
           if (json.success) {
-            setAssigneesList(json.data || []);
+            const rawAssignees = json.data || [];
+            const roleRanks = {
+              super_admin: 5,
+              admin: 5,
+              hr_admin: 4,
+              cluster_admin: 3,
+              store_admin: 2,
+              employee: 1,
+              user: 1
+            };
+            const userRole = user?.role;
+            const userRank = roleRanks[userRole] || 1;
+
+            const getOptionRank = (opt) => {
+              if (opt.role && roleRanks[opt.role]) {
+                return roleRanks[opt.role];
+              }
+              if (opt.label) {
+                const parts = opt.label.split(' - ');
+                if (parts.length >= 3) {
+                  const designation = parts[1].trim().toLowerCase();
+                  if (designation === 'super admin' || designation === 'admin') return 5;
+                  if (designation === 'hr admin') return 4;
+                  if (designation === 'cluster admin') return 3;
+                  if (designation === 'store admin' || designation === 'store_admin') return 2;
+                }
+              }
+              return 1;
+            };
+
+            const filteredAndFormatted = rawAssignees
+              .filter(opt => {
+                if (opt.type === 'group') {
+                  if (opt.value === 'all_hr_admins' && userRank < 4) return false;
+                  if (opt.value === 'all_cluster_admins' && userRank < 3) return false;
+                  if (opt.value === 'all_store_admins' && userRank < 2) return false;
+                  return true;
+                }
+                
+                if (['cluster_admin', 'store_admin', 'hr_admin'].includes(userRole)) {
+                  const optRank = getOptionRank(opt);
+                  if (optRank > userRank) return false;
+                }
+                return true;
+              })
+              .map(opt => {
+                if (opt.label) {
+                  const parts = opt.label.split(' - ');
+                  if (parts.length >= 3) {
+                    const storeSegment = parts[parts.length - 1];
+                    const stores = storeSegment.split(',').map(s => s.trim());
+                    if (stores.length > 5 || storeSegment.toLowerCase().includes('all store')) {
+                      parts[parts.length - 1] = 'All Stores';
+                      return {
+                        ...opt,
+                        label: parts.join(' - ')
+                      };
+                    }
+                  }
+                }
+                return opt;
+              });
+            setAssigneesList(filteredAndFormatted);
           }
         } catch (err) {
           console.error('Error fetching assignees:', err);
@@ -120,7 +182,7 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
       };
       fetchAssignees();
     }
-  }, [canReassign, canEditDetails, task]);
+  }, [canReassign, canEditDetails, task, user?.role]);
 
   if (!task) return null;
 
