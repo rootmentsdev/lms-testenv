@@ -290,7 +290,7 @@ const DashboardOverview = ({ range = "7", customRange }) => {
 
   return (
     <div style={{ marginBottom: "24px" }}>
-      <div className="flex items-start justify-between mb-5">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-5">
         <div>
           <h2 className="text-[22px] font-bold text-gray-900 leading-tight">Dashboard Overview</h2>
           <p className="text-[12px] text-gray-400 mt-0.5">Store walkings, tasks, and training progress across all locations</p>
@@ -302,7 +302,7 @@ const DashboardOverview = ({ range = "7", customRange }) => {
         </Link>
       </div>
 
-      <div style={{ display: "flex", gap: "12px", flexWrap: "nowrap" }}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-row gap-3 w-full" style={{}}>
         {cards.map((card) => (
           <StatCard key={card.title} {...card} />
         ))}

@@ -517,13 +517,13 @@ const CreateTask = () => {
     <div style={{ minHeight: '100vh', background: '#f9fafb', fontFamily: "DM Sans, sans-serif" }}>
       <SideNav />
 
-      <div style={{ marginLeft: '120px', paddingTop: '24px', paddingLeft: '24px', paddingRight: '24px', paddingBottom: '40px' }}>
+      <div className="ml-0 md:ml-[120px]" style={{ paddingTop: '24px', paddingLeft: '24px', paddingRight: '24px', paddingBottom: '40px' }}>
         
         {/* Form Container Card (wraps everything including Header) */}
-        <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid #e5e7eb', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', padding: '32px' }}>
+        <div className="p-4 sm:p-8 bg-white rounded-2xl border border-gray-200 shadow-xs" style={{}}>
           
           {/* Header container inside the card */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8" style={{}}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <button
                 type="button"
@@ -566,7 +566,7 @@ const CreateTask = () => {
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             
             {/* Row 1: Title, Category, Sub Category, Assigned To */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4" style={{}}>
               <div>
                 <label style={lbl}>Task Title <span style={req}>*</span></label>
                 <input 
@@ -638,9 +638,9 @@ const CreateTask = () => {
             </div>
 
             {/* Row 2: Deadline, Attach File, Priority */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '16px' }}>
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4" style={{}}>
               {!isAuto ? (
-                <div style={{ gridColumn: 'span 3' }}>
+                <div className="col-span-1 md:col-span-3" style={{}}>
                   <label style={lbl}>Deadline <span style={req}>*</span></label>
                   <DateInput 
                     value={form.deadline} 
@@ -650,19 +650,19 @@ const CreateTask = () => {
                 </div>
               ) : null}
 
-              <div style={{ gridColumn: isAuto ? 'span 3' : 'span 3' }}>
+              <div className="col-span-1 md:col-span-3" style={{}}>
                 <label style={lbl}>Attach File</label>
                 <FileField file={form.file} onChange={(f) => set('file', f)} />
               </div>
 
-              <div style={{ gridColumn: isAuto ? 'span 9' : 'span 6' }}>
+              <div className={isAuto ? "col-span-1 md:col-span-9" : "col-span-1 md:col-span-6"} style={{}}>
                 <label style={lbl}>Select Priority <span style={req}>*</span></label>
                 <PriorityPicker value={form.priority} onChange={(v) => set('priority', v)} />
               </div>
             </div>
 
             {/* Row 3: Description, Additional Info */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4" style={{}}>
               <div>
                 <label style={lbl}>Task Description <span style={req}>*</span></label>
                 <textarea 

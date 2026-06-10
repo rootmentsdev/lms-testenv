@@ -320,12 +320,12 @@ const ExistingUsers = () => {
             <div className="hidden md:block z-50">
                 <SideNav />
             </div>
-            <div className="md:hidden sm:block">
+            <div className="md:hidden">
                 <ModileNav />
             </div>
 
             {/* Main Page Area */}
-            <div className="flex-1 md:ml-[110px] p-6 flex flex-col min-h-screen">
+            <div className="flex-1 ml-0 md:ml-[110px] p-6 flex flex-col min-h-screen">
                 <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex-1 flex flex-col justify-between">
                     <div>
                         {/* Title & Add User Header */}
@@ -381,7 +381,7 @@ const ExistingUsers = () => {
 
                         {/* Table */}
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
+                            <table className="w-full min-w-[800px] md:min-w-full text-left border-collapse">
                                 <thead>
                                     <tr className="border-b border-gray-100 text-xs font-semibold text-gray-400 uppercase tracking-wider bg-gray-50/50">
                                         <th className="py-4 px-4 font-semibold">EMP ID</th>
@@ -615,7 +615,7 @@ const ExistingUsers = () => {
             {/* ── View User Modal (Screenshot 5) ────────────────────────────────── */}
             {isViewModalOpen && selectedUser && (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-3xl w-full max-w-lg p-8 shadow-2xl relative animate-fadeIn">
+                    <div className="bg-white rounded-3xl w-full max-w-lg p-5 sm:p-8 shadow-2xl relative animate-fadeIn">
                         {/* Top back button */}
                         <button
                             onClick={() => setIsViewModalOpen(false)}
@@ -634,7 +634,7 @@ const ExistingUsers = () => {
                         </div>
 
                         {/* User Details Grid */}
-                        <div className="grid grid-cols-3 gap-4 mb-6 text-left py-2 border-b border-gray-100">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 text-left py-2 border-b border-gray-100">
                             <div>
                                 <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
                                     Email
@@ -702,7 +702,7 @@ const ExistingUsers = () => {
             {/* ── Edit User Modal (Screenshot 3) ────────────────────────────────── */}
             {isEditModalOpen && selectedUser && (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-3xl w-full max-w-lg p-8 shadow-2xl relative animate-fadeIn text-left">
+                    <div className="bg-white rounded-3xl w-full max-w-lg p-5 sm:p-8 shadow-2xl relative animate-fadeIn text-left">
                         {/* Top back button */}
                         <button
                             onClick={() => {
@@ -724,7 +724,7 @@ const ExistingUsers = () => {
                         </div>
 
                         {/* Read-only User Details */}
-                        <div className="grid grid-cols-3 gap-4 mb-6 py-2 border-b border-gray-100">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 py-2 border-b border-gray-100">
                             <div>
                                 <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
                                     Email

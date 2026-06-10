@@ -139,9 +139,8 @@ const DailyWalkings = ({ range = "7", customRange, onRangeChange, onCustomRangeC
 
   return (
     <div
+      className="w-full lg:flex-1 min-w-0"
       style={{
-        flex: "1 1 0",
-        minWidth: 0,
         height: "380px",
         padding: "20px",
         borderRadius: "18px",

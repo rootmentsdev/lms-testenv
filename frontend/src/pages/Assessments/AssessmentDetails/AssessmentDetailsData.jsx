@@ -55,7 +55,7 @@ const AssessmentDetailsData = () => {
     <div className="min-h-screen bg-[#f9fafb]" style={{ fontFamily: "DM Sans, sans-serif" }}>
       <SideNav />
 
-      <div className="ml-[110px] px-6 pt-6 pb-10">
+      <div className="ml-0 md:ml-[110px] px-6 pt-6 pb-10">
         <div className="max-w-[1100px] mx-auto">
           <div className="flex items-start justify-between gap-4 mb-5">
             <div>
@@ -108,7 +108,7 @@ const AssessmentDetailsData = () => {
                   <p className="text-[11px] text-gray-400 mt-0.5">Users who received this assessment</p>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-[12px]">
+                  <table className="w-full min-w-[700px] md:min-w-full border-collapse text-[12px]">
                     <thead>
                       <tr className="bg-gray-50 border-b border-gray-100">
                         <th className="px-4 py-3 text-left text-[10px] font-semibold text-gray-400 uppercase">Name</th>

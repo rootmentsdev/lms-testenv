@@ -207,7 +207,7 @@ const CreateEmployee = () => {
     <div style={styles.container}>
       <SideNav />
 
-      <div style={styles.content}>
+      <div className="ml-0 md:ml-[120px]" style={{ paddingTop: "24px", paddingLeft: "24px", paddingRight: "24px", paddingBottom: "40px" }}>
         <div style={styles.header}>
           <button type="button" onClick={() => navigate("/employee")} style={styles.backButton}>
             <svg
@@ -234,9 +234,9 @@ const CreateEmployee = () => {
             </div>
           ) : (
             <form onSubmit={handleSubmit}>
-              <div style={styles.grid}>
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-5 mb-6" style={{}}>
                 {/* Row 1 */}
-                <div style={styles.fieldEmpId}>
+                <div className="col-span-1 md:col-span-2" style={{ display: "flex", flexDirection: "column" }}>
                   <label style={styles.label}>
                     EMP ID<span style={styles.required}>*</span>
                   </label>
@@ -251,7 +251,7 @@ const CreateEmployee = () => {
                   />
                 </div>
 
-                 <div style={styles.fieldUserName}>
+                 <div className="col-span-1 md:col-span-3" style={{ display: "flex", flexDirection: "column" }}>
                   <label style={styles.label}>
                     EMP NAME<span style={styles.required}>*</span>
                   </label>
@@ -266,7 +266,7 @@ const CreateEmployee = () => {
                   />
                 </div>
 
-                <div style={styles.fieldStoreName}>
+                <div className="col-span-1 md:col-span-3" style={{ display: "flex", flexDirection: "column" }}>
                   <label style={styles.label}>
                     Store Name <span style={styles.required}>*</span>
                   </label>
@@ -286,7 +286,7 @@ const CreateEmployee = () => {
                   />
                 </div>
 
-                <div style={styles.fieldUserRole}>
+                <div className="col-span-1 md:col-span-4" style={{ display: "flex", flexDirection: "column" }}>
                   <label style={styles.label}>
                     EMP ROLE <span style={styles.required}>*</span>
                   </label>
@@ -303,7 +303,7 @@ const CreateEmployee = () => {
                 </div>
 
                 {/* Row 2 */}
-                <div style={styles.fieldRow2}>
+                <div className="col-span-1 md:col-span-4" style={{ display: "flex", flexDirection: "column" }}>
                   <label style={styles.label}>
                     Email<span style={styles.required}>*</span>
                   </label>
@@ -318,7 +318,7 @@ const CreateEmployee = () => {
                   />
                 </div>
 
-                <div style={styles.fieldRow2}>
+                <div className="col-span-1 md:col-span-4" style={{ display: "flex", flexDirection: "column" }}>
                   <label style={styles.label}>
                     Phone Number<span style={styles.required}>*</span>
                   </label>
@@ -333,7 +333,7 @@ const CreateEmployee = () => {
                   />
                 </div>
 
-                <div style={styles.fieldRow2}>
+                <div className="col-span-1 md:col-span-4" style={{ display: "flex", flexDirection: "column" }}>
                   <label style={styles.label}>
                     Password<span style={styles.required}>*</span>
                   </label>

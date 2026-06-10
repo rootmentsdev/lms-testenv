@@ -79,7 +79,7 @@ const BranchForm = () => {
     <div style={{ minHeight: "100vh", background: "#f9fafb", fontFamily: "DM Sans, sans-serif" }}>
       <SideNav />
 
-      <div style={{ marginLeft: "120px", paddingTop: "24px", paddingLeft: "24px", paddingRight: "24px", paddingBottom: "24px" }}>
+      <div className="ml-0 md:ml-[120px]" style={{ paddingTop: "24px", paddingLeft: "24px", paddingRight: "24px", paddingBottom: "24px" }}>
 
         {/* ── Page header ── */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" }}>
@@ -116,7 +116,7 @@ const BranchForm = () => {
 
           {/* Form body */}
           <div style={{ padding: "24px" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5" style={{}}>
 
               <Field label="Branch ID" required>
                 <input
@@ -183,9 +183,9 @@ const BranchForm = () => {
                 />
               </Field>
 
-              <div /> {/* spacer */}
+              <div className="hidden md:block" /> {/* spacer */}
 
-              <div style={{ gridColumn: "1 / -1" }}>
+              <div className="col-span-1 md:col-span-2" style={{}}>
                 <Field label="Address">
                   <textarea
                     id="address"

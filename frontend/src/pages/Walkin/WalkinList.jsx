@@ -958,7 +958,7 @@ const WalkinList = () => {
                             ) : (
                                 <>
                                     <div style={{ overflowX: 'auto' }}>
-                                        <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
+                                        <table className="min-w-[1100px] md:min-w-full" style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
                                             <thead>
                                                 <tr style={{ borderBottom: '1px solid #f3f4f6', background: '#fafafa' }}>
                                                     {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'FUNCTION DATE', 'STORE', 'STAFF', 'CATEGORY', 'SUB CATEGORY', 'REMARKS', 'REPEAT COUNT', 'STATUS', 'EDIT'].map((h, i) => {
