@@ -857,18 +857,35 @@ export const getAccessibleEmployees = async (req, res) => {
             return res.status(401).json({ message: "Unauthorized" });
         }
         
-        // Optional storeId filter
-        const { storeId } = req.query;
+        // Support any of storeId, store, or locCode query parameters from clients (like Flutter)
+        const storeParam = req.query.storeId || req.query.store || req.query.locCode;
+        let resolvedStore = null;
+        
+        if (storeParam) {
+            if (mongoose.Types.ObjectId.isValid(storeParam)) {
+                resolvedStore = await Branch.findById(storeParam);
+            }
+            if (!resolvedStore) {
+                resolvedStore = await Branch.findOne({
+                    $or: [
+                        { locCode: storeParam },
+                        { workingBranch: storeParam },
+                        { branchName: storeParam }
+                    ]
+                });
+            }
+        }
+
         let employeeIds = await getAccessibleEmployeeIds(req.admin.userId);
         
         let query = { _id: { $in: employeeIds }, status: 'Active' };
         
-        if (storeId) {
+        if (resolvedStore) {
             const accessibleStoreIds = await getAccessibleStoreIds(req.admin.userId);
-            if (!accessibleStoreIds.includes(storeId)) {
+            if (!accessibleStoreIds.includes(resolvedStore._id.toString())) {
                 return res.status(403).json({ message: "Access denied to this store's employees" });
             }
-            query.storeId = storeId;
+            query.storeId = resolvedStore._id;
         }
 
         let employees = await Employee.find(query);
@@ -879,10 +896,11 @@ export const getAccessibleEmployees = async (req, res) => {
             const branches = await Branch.find({ _id: { $in: accessibleStoreIds } });
             
             let userQuery = {};
-            if (storeId) {
-                const targetBranch = branches.find(b => b._id.toString() === storeId.toString());
-                if (targetBranch) {
-                    userQuery.locCode = targetBranch.locCode;
+            if (resolvedStore) {
+                // Ensure the resolved store is within accessible stores
+                const isAccessible = branches.some(b => b._id.toString() === resolvedStore._id.toString());
+                if (isAccessible) {
+                    userQuery.locCode = resolvedStore.locCode;
                 } else {
                     userQuery.locCode = "NON_EXISTENT";
                 }
@@ -906,6 +924,23 @@ export const getAccessibleEmployees = async (req, res) => {
                 status: 'Active'
             }));
         }
+
+        // --- FILTER OUT ADMINS (from showing up in the Employee dropdown) ---
+        const adminsList = await Admin.find({}).select('email EmpId employeeId').lean();
+        const adminEmails = new Set(adminsList.map(a => a.email?.toLowerCase().trim()).filter(Boolean));
+        const adminEmpIds = new Set([
+            ...adminsList.map(a => a.EmpId?.toLowerCase().trim()).filter(Boolean),
+            ...adminsList.map(a => (a.employeeId || '')?.toLowerCase().trim()).filter(Boolean)
+        ]);
+
+        employees = employees.filter(emp => {
+            const empEmail = emp.email?.toLowerCase().trim();
+            const empId = (emp.employeeId || emp.empID)?.toLowerCase().trim();
+            
+            // Exclude if the email or employee ID matches any admin record
+            const isMatch = adminEmails.has(empEmail) || adminEmpIds.has(empId);
+            return !isMatch;
+        });
 
         res.status(200).json({ employees });
     } catch (error) {

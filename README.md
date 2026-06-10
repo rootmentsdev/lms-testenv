@@ -623,3 +623,7 @@ All endpoints require a Bearer JWT token. Full Swagger documentation is availabl
   - On status update, the controller compares today's midnight with the `lastStatusChangeDate` at midnight. If they match, the request is rejected.
   - After a successful status change, `lastStatusChangeDate` is set to the current timestamp.
 - **UI Feedback:** In `WalkinList.jsx`, the status dropdown is **disabled** for walk-ins that were changed today, showing visual feedback with gray border (60% opacity).
+
+### Accessible Employees Dropdown Updates (June 2026)
+- **Admin Accounts Exclusion:** Admin accounts (Super Admin, Admin, HR Admin, Cluster Admin, and Store Admin) are now explicitly excluded/filtered out from the `/api/admin/accessible-employees` response. This prevents administrators from cluttering the standard employee selection dropdown lists.
+- **Dynamic Store Filtering Resolution:** The `/api/admin/accessible-employees` endpoint has been upgraded to support dynamic, multi-store query resolution. It accepts any of `storeId`, `store`, or `locCode` parameters from client applications (such as Flutter). The backend automatically translates these values (whether they are Mongo ObjectIds, Location Codes, or Working Branch names) to resolve the correct store branch and list only its mapped employees, solving filtering issues for multi-store roles (Cluster, HR, and Admin).

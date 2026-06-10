@@ -34,7 +34,7 @@ router.get('/accessible-stores', MiddilWare, getAccessibleStores);
  *   get:
  *     tags: [Admin]
  *     summary: Retrieve accessible employees for admin
- *     description: Returns a list of employees accessible to the logged-in admin based on their role and assigned branches.
+ *     description: Returns a list of employees accessible to the logged-in admin based on their role and assigned branches. Admins are filtered out from this list.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -42,7 +42,17 @@ router.get('/accessible-stores', MiddilWare, getAccessibleStores);
  *         name: storeId
  *         schema:
  *           type: string
- *         description: Optional store ID to filter employees
+ *         description: Optional store filter (can be storeId/ObjectId, workingBranch name, or locCode)
+ *       - in: query
+ *         name: store
+ *         schema:
+ *           type: string
+ *         description: Optional store filter alias (workingBranch name or locCode)
+ *       - in: query
+ *         name: locCode
+ *         schema:
+ *           type: string
+ *         description: Optional store filter alias (locCode)
  *     responses:
  *       200:
  *         description: A list of employees
