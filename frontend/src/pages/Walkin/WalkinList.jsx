@@ -957,12 +957,46 @@ const WalkinList = () => {
                             ) : (
                                 <>
                                     <div style={{ overflowX: 'auto' }}>
-                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
+                                        <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
                                             <thead>
                                                 <tr style={{ borderBottom: '1px solid #f3f4f6', background: '#fafafa' }}>
-                                                    {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'FUNCTION DATE', 'STORE', 'STAFF', 'CATEGORY', 'SUB CATEGORY', 'REMARKS', 'REPEAT COUNT', 'STATUS', 'EDIT'].map((h, i) => (
-                                                        <th key={i} style={{ padding: '8px 12px', textAlign: (h === '#' || h === 'REPEAT COUNT' || h === 'STATUS') ? 'center' : 'left', fontSize: '10px', fontWeight: 600, color: '#9ca3af', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{h}</th>
-                                                    ))}
+                                                    {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'FUNCTION DATE', 'STORE', 'STAFF', 'CATEGORY', 'SUB CATEGORY', 'REMARKS', 'REPEAT COUNT', 'STATUS', 'EDIT'].map((h, i) => {
+                                                        let colWidth = 'auto';
+                                                        if (h === '#') colWidth = '3%';
+                                                        else if (h === 'DATE') colWidth = '8.5%';
+                                                        else if (h === 'CUSTOMER') colWidth = '9%';
+                                                        else if (h === 'CONTACT') colWidth = '9.5%';
+                                                        else if (h === 'FUNCTION DATE') colWidth = '8.5%';
+                                                        else if (h === 'STORE') colWidth = '8.5%';
+                                                        else if (h === 'STAFF') colWidth = '9%';
+                                                        else if (h === 'CATEGORY') colWidth = '8.5%';
+                                                        else if (h === 'SUB CATEGORY') colWidth = '8.5%';
+                                                        else if (h === 'REMARKS') colWidth = '10%';
+                                                        else if (h === 'REPEAT COUNT') colWidth = '5%';
+                                                        else if (h === 'STATUS') colWidth = '9%';
+                                                        else if (h === 'EDIT') colWidth = '3%';
+
+                                                        return (
+                                                            <th 
+                                                                key={i} 
+                                                                style={{ 
+                                                                    padding: '8px 12px', 
+                                                                    textAlign: (h === '#' || h === 'REPEAT COUNT' || h === 'STATUS') ? 'center' : 'left', 
+                                                                    fontSize: '10px', 
+                                                                    fontWeight: 600, 
+                                                                    color: '#9ca3af', 
+                                                                    letterSpacing: '0.06em', 
+                                                                    whiteSpace: 'nowrap',
+                                                                    width: colWidth,
+                                                                    minWidth: colWidth,
+                                                                    maxWidth: colWidth,
+                                                                    boxSizing: 'border-box'
+                                                                }}
+                                                            >
+                                                                {h}
+                                                            </th>
+                                                        );
+                                                    })}
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -989,21 +1023,45 @@ const WalkinList = () => {
                                                             onMouseEnter={e => e.currentTarget.style.background = '#fafafa'}
                                                             onMouseLeave={e => e.currentTarget.style.background = '#fff'}
                                                         >
-                                                            <td style={{ padding: '11px 12px', textAlign: 'center', color: '#9ca3af' }}>{indexFirst + index + 1}</td>
-                                                            <td style={{ padding: '11px 12px', whiteSpace: 'nowrap', color: '#374151' }}>{safeDateOnly(w.date)}</td>
-                                                            <td style={{ padding: '11px 12px', color: '#111827', fontWeight: 500, whiteSpace: 'nowrap' }}>{w.customerName}</td>
-                                                            <td style={{ padding: '11px 12px', whiteSpace: 'nowrap', color: '#374151' }}>+91 {w.contact}</td>
-                                                            <td style={{ padding: '11px 12px', whiteSpace: 'nowrap', color: '#374151' }}>{w.functionDate}</td>
-                                                            <td style={{ padding: '11px 12px', whiteSpace: 'nowrap', color: '#374151' }}>{w.store}</td>
-                                                            <td style={{ padding: '11px 12px', whiteSpace: 'nowrap', color: '#374151' }}>{w.staff}</td>
-                                                            <td style={{ padding: '11px 12px', color: '#374151' }}>
-                                                                <div className="walkin-marquee-container" style={{ width: '100px' }}>
+                                                            <td style={{ padding: '11px 12px', textAlign: 'center', color: '#9ca3af', width: '3%', minWidth: '3%', maxWidth: '3%', boxSizing: 'border-box' }}>{indexFirst + index + 1}</td>
+                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '8.5%', minWidth: '8.5%', maxWidth: '8.5%', boxSizing: 'border-box' }}>
+                                                                <div className="walkin-marquee-container">
+                                                                    <span className="walkin-marquee-text walkin-anim-scroll">{safeDateOnly(w.date)}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td style={{ padding: '11px 12px', color: '#111827', fontWeight: 500, width: '9%', minWidth: '9%', maxWidth: '9%', boxSizing: 'border-box' }}>
+                                                                <div className="walkin-marquee-container">
+                                                                    <span className="walkin-marquee-text walkin-anim-scroll">{w.customerName || '–'}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '9.5%', minWidth: '9.5%', maxWidth: '9.5%', boxSizing: 'border-box' }}>
+                                                                <div className="walkin-marquee-container">
+                                                                    <span className="walkin-marquee-text walkin-anim-scroll">{w.contact ? `+91 ${w.contact}` : '–'}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '8.5%', minWidth: '8.5%', maxWidth: '8.5%', boxSizing: 'border-box' }}>
+                                                                <div className="walkin-marquee-container">
+                                                                    <span className="walkin-marquee-text walkin-anim-scroll">{w.functionDate || '–'}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '8.5%', minWidth: '8.5%', maxWidth: '8.5%', boxSizing: 'border-box' }}>
+                                                                <div className="walkin-marquee-container">
+                                                                    <span className="walkin-marquee-text walkin-anim-scroll">{w.store || '–'}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '9%', minWidth: '9%', maxWidth: '9%', boxSizing: 'border-box' }}>
+                                                                <div className="walkin-marquee-container">
+                                                                    <span className="walkin-marquee-text walkin-anim-scroll">{w.staff || '–'}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '8.5%', minWidth: '8.5%', maxWidth: '8.5%', boxSizing: 'border-box' }}>
+                                                                <div className="walkin-marquee-container">
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.category || '–'}</span>
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', color: '#374151', whiteSpace: 'nowrap' }}>
-                                                                <div style={{ display: 'inline-flex', alignItems: 'center' }}>
-                                                                    <div className="walkin-marquee-container" style={{ width: '100px' }}>
+                                                            <td style={{ padding: '11px 12px', color: '#374151', whiteSpace: 'nowrap', width: '8.5%', minWidth: '8.5%', maxWidth: '8.5%', boxSizing: 'border-box' }}>
+                                                                <div style={{ display: 'inline-flex', alignItems: 'center', width: '100%' }}>
+                                                                    <div className="walkin-marquee-container" style={{ flex: 1, minWidth: 0 }}>
                                                                         <span className="walkin-marquee-text walkin-anim-scroll">{w.subCategory || '–'}</span>
                                                                     </div>
                                                                     {w.attachment && (
@@ -1011,7 +1069,7 @@ const WalkinList = () => {
                                                                             href={w.attachment} 
                                                                             target="_blank" 
                                                                             rel="noopener noreferrer" 
-                                                                            style={{ marginLeft: '6px', color: '#2563eb', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                                                                            style={{ marginLeft: '6px', color: '#2563eb', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}
                                                                             title={`View attachment: ${w.attachmentName || 'Attachment'}`}
                                                                         >
                                                                             📎
@@ -1019,19 +1077,19 @@ const WalkinList = () => {
                                                                     )}
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', color: '#6b7280' }}>
-                                                                <div className="walkin-marquee-container" style={{ width: '100px' }} title={w.remarks}>
+                                                            <td style={{ padding: '11px 12px', color: '#6b7280', width: '10%', minWidth: '10%', maxWidth: '10%', boxSizing: 'border-box' }}>
+                                                                <div className="walkin-marquee-container" title={w.remarks}>
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.remarks || '–'}</span>
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', textAlign: 'center', color: '#374151' }}>{w.repeatCount}</td>
-                                                            <td style={{ padding: '11px 12px', textAlign: 'center' }}>
+                                                            <td style={{ padding: '11px 12px', textAlign: 'center', color: '#374151', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>{w.repeatCount}</td>
+                                                            <td style={{ padding: '11px 12px', textAlign: 'center', width: '9%', minWidth: '9%', maxWidth: '9%', boxSizing: 'border-box' }}>
                                                                 <select
                                                                     value={w.status || 'New Walkin'}
                                                                     onChange={(e) => handleStatusChange(w, e.target.value)}
                                                                     disabled={statusChangedToday[w._id] || updatingStatus[w._id]}
                                                                     style={{
-                                                                        padding: '4px 10px',
+                                                                        padding: '4px 6px',
                                                                         fontSize: '11px',
                                                                         fontWeight: 900,
                                                                         border: statusChangedToday[w._id] ? '1px solid #e5e7eb' : '1px solid transparent',
@@ -1047,9 +1105,11 @@ const WalkinList = () => {
                                                                         backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='${sc.color}' stroke-width='2'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
                                                                         backgroundRepeat: 'no-repeat',
                                                                         backgroundPosition: 'right 4px center',
-                                                                        backgroundSize: '16px',
+                                                                        backgroundSize: '12px',
                                                                         backgroundAttachment: 'scroll',
-                                                                        paddingRight: '24px'
+                                                                        paddingRight: '18px',
+                                                                        width: '100%',
+                                                                        boxSizing: 'border-box'
                                                                     }}
                                                                     onMouseEnter={(e) => {
                                                                         if (!statusChangedToday[w._id] && !updatingStatus[w._id]) {
@@ -1068,7 +1128,7 @@ const WalkinList = () => {
                                                                     <option value="Revisit">Revisit</option>
                                                                 </select>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', textAlign: 'center' }}>
+                                                            <td style={{ padding: '11px 12px', textAlign: 'center', width: '3%', minWidth: '3%', maxWidth: '3%', boxSizing: 'border-box' }}>
                                                                 <button
                                                                     onClick={() => handleEditClick(w)}
                                                                     style={{ background: 'none', border: 'none', color: '#4b5563', cursor: 'pointer', padding: '4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', transition: 'color 0.1s' }}
@@ -1119,9 +1179,11 @@ const WalkinList = () => {
                         <style>{`
                             @keyframes walkin-spin { to { transform: rotate(360deg); } }
                             .walkin-marquee-container {
+                                container-type: inline-size;
                                 overflow: hidden;
                                 white-space: nowrap;
                                 display: block;
+                                width: 100%;
                             }
                             .walkin-marquee-text {
                                 display: inline-block;
@@ -1135,7 +1197,7 @@ const WalkinList = () => {
                             }
                             @keyframes walkin-marquee-scroll {
                                 0%, 15% { transform: translateX(0); }
-                                85%, 100% { transform: translateX(calc(-100% + 100px)); }
+                                85%, 100% { transform: translateX(calc(-100% + 100cqw)); }
                             }
                         `}</style>
                     </>
