@@ -990,28 +990,40 @@ const WalkinList = () => {
                                                             onMouseLeave={e => e.currentTarget.style.background = '#fff'}
                                                         >
                                                             <td style={{ padding: '11px 12px', textAlign: 'center', color: '#9ca3af' }}>{indexFirst + index + 1}</td>
-                                                            <td style={{ padding: '11px 12px', whiteSpace: 'nowrap', color: '#374151' }}>{w.date}</td>
+                                                            <td style={{ padding: '11px 12px', whiteSpace: 'nowrap', color: '#374151' }}>{safeDateOnly(w.date)}</td>
                                                             <td style={{ padding: '11px 12px', color: '#111827', fontWeight: 500, whiteSpace: 'nowrap' }}>{w.customerName}</td>
                                                             <td style={{ padding: '11px 12px', whiteSpace: 'nowrap', color: '#374151' }}>+91 {w.contact}</td>
                                                             <td style={{ padding: '11px 12px', whiteSpace: 'nowrap', color: '#374151' }}>{w.functionDate}</td>
                                                             <td style={{ padding: '11px 12px', whiteSpace: 'nowrap', color: '#374151' }}>{w.store}</td>
                                                             <td style={{ padding: '11px 12px', whiteSpace: 'nowrap', color: '#374151' }}>{w.staff}</td>
-                                                            <td style={{ padding: '11px 12px', whiteSpace: 'nowrap', color: '#374151' }}>{w.category}</td>
-                                                            <td style={{ padding: '11px 12px', whiteSpace: 'nowrap', color: '#374151' }}>
-                                                                {w.subCategory}
-                                                                {w.attachment && (
-                                                                    <a 
-                                                                        href={w.attachment} 
-                                                                        target="_blank" 
-                                                                        rel="noopener noreferrer" 
-                                                                        style={{ marginLeft: '6px', color: '#2563eb', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
-                                                                        title={`View attachment: ${w.attachmentName || 'Attachment'}`}
-                                                                    >
-                                                                        📎
-                                                                    </a>
-                                                                )}
+                                                            <td style={{ padding: '11px 12px', color: '#374151' }}>
+                                                                <div className="walkin-marquee-container" style={{ width: '100px' }}>
+                                                                    <span className="walkin-marquee-text walkin-anim-scroll">{w.category || '–'}</span>
+                                                                </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', color: '#6b7280', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={w.remarks}>{w.remarks || '–'}</td>
+                                                            <td style={{ padding: '11px 12px', color: '#374151', whiteSpace: 'nowrap' }}>
+                                                                <div style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                                                    <div className="walkin-marquee-container" style={{ width: '100px' }}>
+                                                                        <span className="walkin-marquee-text walkin-anim-scroll">{w.subCategory || '–'}</span>
+                                                                    </div>
+                                                                    {w.attachment && (
+                                                                        <a 
+                                                                            href={w.attachment} 
+                                                                            target="_blank" 
+                                                                            rel="noopener noreferrer" 
+                                                                            style={{ marginLeft: '6px', color: '#2563eb', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                                                                            title={`View attachment: ${w.attachmentName || 'Attachment'}`}
+                                                                        >
+                                                                            📎
+                                                                        </a>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                            <td style={{ padding: '11px 12px', color: '#6b7280' }}>
+                                                                <div className="walkin-marquee-container" style={{ width: '100px' }} title={w.remarks}>
+                                                                    <span className="walkin-marquee-text walkin-anim-scroll">{w.remarks || '–'}</span>
+                                                                </div>
+                                                            </td>
                                                             <td style={{ padding: '11px 12px', textAlign: 'center', color: '#374151' }}>{w.repeatCount}</td>
                                                             <td style={{ padding: '11px 12px', textAlign: 'center' }}>
                                                                 <select
@@ -1104,7 +1116,28 @@ const WalkinList = () => {
                                 </>
                             )}
                         </div>
-                        <style>{`@keyframes walkin-spin{to{transform:rotate(360deg)}}`}</style>
+                        <style>{`
+                            @keyframes walkin-spin { to { transform: rotate(360deg); } }
+                            .walkin-marquee-container {
+                                overflow: hidden;
+                                white-space: nowrap;
+                                display: block;
+                            }
+                            .walkin-marquee-text {
+                                display: inline-block;
+                                min-width: 100%;
+                            }
+                            .walkin-marquee-container:hover .walkin-marquee-text {
+                                animation-play-state: paused;
+                            }
+                            .walkin-anim-scroll {
+                                animation: walkin-marquee-scroll 8s linear infinite;
+                            }
+                            @keyframes walkin-marquee-scroll {
+                                0%, 15% { transform: translateX(0); }
+                                85%, 100% { transform: translateX(calc(-100% + 100px)); }
+                            }
+                        `}</style>
                     </>
                 )}
             </div>
