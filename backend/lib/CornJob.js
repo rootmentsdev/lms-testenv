@@ -4,6 +4,8 @@ import User from "../model/User.js";
 import Admin from "../model/Admin.js";
 import EscalationLevel from '../model/EscalationLevel.js';
 import { sendWhatsAppMessage } from './WhatsAppMessage.js';
+import TrainingProgress from "../model/Trainingprocessschema.js";
+import { sendNotification } from "../utils/notificationHelper.js";
 
 const now = new Date();
 const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -136,8 +138,101 @@ export const AlertNotification = async () => {
             await processDeadlines(user, assessmentsToProcess, "Assessment Notification: Assessment name is", adminData);
         }
 
+        // Check overdue trainings and notify HR Admin
+        await checkOverdueTrainingsForHR();
+
         console.log(`✅ AlertNotification complete`);
     } catch (error) {
         console.error("Error in AlertNotification:", error);
+    }
+};
+
+export const checkOverdueTrainingsForHR = async () => {
+    try {
+        const currentDate = new Date();
+        
+        // 1. Get users with overdue assigned trainings (from User.training array)
+        const overdueAssignedUsers = await User.find({
+            training: {
+                $elemMatch: {
+                    pass: false,
+                    deadline: { $lt: currentDate }
+                }
+            }
+        }).lean();
+
+        // 2. Get overdue mandatory trainings from TrainingProgress collection
+        const overdueMandatoryProgress = await TrainingProgress.find({
+            pass: false,
+            deadline: { $lt: currentDate }
+        }).populate('userId').lean();
+
+        // Use a map to collect unique employees with overdue trainings
+        const overdueEmployees = new Map();
+
+        // Process assigned trainings from User schema
+        overdueAssignedUsers.forEach(user => {
+            const overdueTrainings = user.training.filter(
+                t => t.pass === false && new Date(t.deadline) < currentDate
+            );
+            if (overdueTrainings.length > 0) {
+                const empId = user.empID;
+                if (empId) {
+                    overdueEmployees.set(empId, {
+                        empID: empId,
+                        username: user.username || user.name || "Unknown",
+                        count: overdueTrainings.length
+                    });
+                }
+            }
+        });
+
+        // Process mandatory trainings from TrainingProgress
+        overdueMandatoryProgress.forEach(progress => {
+            const user = progress.userId;
+            if (user && user.empID) {
+                const empId = user.empID;
+                const existing = overdueEmployees.get(empId);
+                if (existing) {
+                    existing.count += 1;
+                } else {
+                    overdueEmployees.set(empId, {
+                        empID: empId,
+                        username: user.username || user.name || "Unknown",
+                        count: 1
+                    });
+                }
+            }
+        });
+
+        const overdueList = Array.from(overdueEmployees.values());
+        console.log(`[HR Overdue Check] Found ${overdueList.length} employees with overdue trainings.`);
+
+        if (overdueList.length === 0) {
+            return; // No overdue trainings, do nothing
+        }
+
+        let title = "Training Overdue Alert";
+        let body = "";
+
+        if (overdueList.length === 1) {
+            const emp = overdueList[0];
+            body = `Training overdue for employee: ${emp.username} (ID: ${emp.empID}).`;
+        } else {
+            body = `Training overdue for ${overdueList.length} employees.`;
+        }
+
+        // Send notification to HR Admin
+        await sendNotification({
+            title,
+            body,
+            roles: ['hr_admin'],
+            category: 'Training',
+            senderName: 'System'
+        });
+
+        console.log(`[HR Overdue Check] Notification sent to HR Admin: "${body}"`);
+    } catch (error) {
+        console.error("Error in checkOverdueTrainingsForHR:", error);
     }
 };

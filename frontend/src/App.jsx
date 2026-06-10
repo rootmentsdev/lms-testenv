@@ -54,6 +54,7 @@ import { setUser } from './features/auth/authSlice.js';
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
 import Header from './components/Header/Header';
+import NotificationPoller from './components/Notification/NotificationPoller';
 
 import baseUrl from './api/api';
 import { useDispatch } from 'react-redux';
@@ -297,6 +298,7 @@ function App() {
         </Suspense>
       </AppErrorBoundary>
       <ToastContainer />
+      <NotificationPoller />
     </>
   );
 }
