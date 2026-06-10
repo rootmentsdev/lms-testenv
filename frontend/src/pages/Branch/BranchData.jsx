@@ -1,4 +1,4 @@
-﻿                                                                                                                                      // // src/pages/Branch/BranchData.jsx
+                                                                                                                                      // // src/pages/Branch/BranchData.jsx
 // import { useEffect, useState } from "react";
 // import Header from "../../components/Header/Header";
 // import { FaPlus, FaEdit, FaBuilding } from "react-icons/fa";
@@ -310,6 +310,7 @@
 // export default BranchData;
 
 import { useEffect, useMemo, useState } from "react";
+import { useSelector } from "react-redux";
 import { FaPlus, FaEdit, FaBuilding, FaSearch, FaEye, FaAngleLeft, FaAngleRight, FaAngleDoubleLeft, FaAngleDoubleRight, FaChevronDown } from "react-icons/fa";
 import { HiUsers, HiAcademicCap, HiClipboardCheck } from "react-icons/hi";
 import SideNav from "../../components/SideNav/SideNav";
@@ -388,6 +389,7 @@ function isHiddenBranch(name) {
 }
 
 const BranchData = () => {
+  const user = useSelector((s) => s.auth.user);
   const [branch, setBranch] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -684,21 +686,23 @@ const BranchData = () => {
         <div className="px-4 sm:px-6 lg:px-6">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mt-4 sm:mt-6 mb-6">
             <h1 className="text-[#212121] text-[22px] font-bold leading-tight">Branch Management</h1>
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-              <Link
-                to={"/branch/audit"}
-                className="flex items-center justify-center gap-3 w-full sm:w-auto bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 px-4 py-2.5 rounded-md transition-colors font-medium"
-              >
-                Branch Audit
-              </Link>
-              <Link
-                to={"/Addbranch"}
-                className="flex items-center justify-center gap-3 w-full sm:w-auto bg-[#212121] hover:bg-[#111111] text-white px-4 py-2.5 rounded-md transition-colors font-medium"
-              >
-                <FaPlus size={14} />
-                Add New Branch
-              </Link>
-            </div>
+            {user?.role !== "cluster_admin" && user?.role !== "store_admin" && (
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                <Link
+                  to={"/branch/audit"}
+                  className="flex items-center justify-center gap-3 w-full sm:w-auto bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 px-4 py-2.5 rounded-md transition-colors font-medium"
+                >
+                  Branch Audit
+                </Link>
+                <Link
+                  to={"/Addbranch"}
+                  className="flex items-center justify-center gap-3 w-full sm:w-auto bg-[#212121] hover:bg-[#111111] text-white px-4 py-2.5 rounded-md transition-colors font-medium"
+                >
+                  <FaPlus size={14} />
+                  Add New Branch
+                </Link>
+              </div>
+            )}
           </div>
           <div className="text-sm text-gray-600 mb-4">Total branches: {branch.length}</div>
         </div>

@@ -229,7 +229,7 @@ const Login = () => {
       `}</style>
 
       <div
-        className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden"
+        className="relative min-h-screen flex items-center justify-center px-4 py-8 overflow-y-auto"
         style={{ backgroundColor: '#212121' }}
       >
         <Particles />

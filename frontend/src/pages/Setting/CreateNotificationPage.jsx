@@ -9,12 +9,10 @@ const CreateNotificationPage = () => {
             <div className="hidden md:block z-50">
                 <SideNav />
             </div>
-            <div className="md:hidden sm:block">
-                <ModileNav />
-            </div>
+            <ModileNav />
 
             {/* Main Content Area */}
-            <div className="flex-1 md:ml-[110px] p-6 flex flex-col">
+            <div className="flex-1 min-w-0 ml-0 md:ml-[110px] p-4 md:p-6 pb-24 md:pb-6 flex flex-col">
                 <CreateCustomNotification />
             </div>
         </div>

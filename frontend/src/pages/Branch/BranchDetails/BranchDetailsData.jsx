@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
+import { useSelector } from "react-redux";
 import SideNav from "../../../components/SideNav/SideNav";
 import { useParams } from "react-router-dom";
 import baseUrl from "../../../api/api";
@@ -36,6 +37,7 @@ const MetricCard = ({ title, value, subtitle, progress, accent = "bg-[#111111]" 
 
 const BranchDetailsData = () => {
   const token = localStorage.getItem("token");
+  const user = useSelector((s) => s.auth.user);
   const { id } = useParams();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState({});
@@ -132,16 +134,18 @@ const BranchDetailsData = () => {
               {branchBrand && <p className="mt-1 text-[13px] text-[#2563eb]">{branchBrand}</p>}
             </div>
 
-            <div className="flex flex-wrap gap-2 lg:mt-0 lg:self-start">
-              <button className="inline-flex h-9 items-center gap-2 rounded-xl border border-[#e5e7eb] bg-white px-3 text-[12px] font-medium text-gray-800 shadow-[0_1px_4px_rgba(0,0,0,0.08)]">
-                <FaCalendarCheck size={10} />
-                Assign Assessment
-              </button>
-              <button className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#111111] px-3 text-[12px] font-medium text-white shadow-[0_1px_4px_rgba(0,0,0,0.08)]">
-                <FaArrowRight size={10} />
-                Create New Assessment
-              </button>
-            </div>
+            {user?.role !== "cluster_admin" && user?.role !== "store_admin" && (
+              <div className="flex flex-wrap gap-2 lg:mt-0 lg:self-start">
+                <button className="inline-flex h-9 items-center gap-2 rounded-xl border border-[#e5e7eb] bg-white px-3 text-[12px] font-medium text-gray-800 shadow-[0_1px_4px_rgba(0,0,0,0.08)]">
+                  <FaCalendarCheck size={10} />
+                  Assign Assessment
+                </button>
+                <button className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#111111] px-3 text-[12px] font-medium text-white shadow-[0_1px_4px_rgba(0,0,0,0.08)]">
+                  <FaArrowRight size={10} />
+                  Create New Assessment
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="grid gap-4 lg:grid-cols-4">

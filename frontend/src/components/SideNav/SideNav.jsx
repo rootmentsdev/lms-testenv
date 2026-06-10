@@ -233,7 +233,9 @@ const SideNav = () => {
           <NavItem to="/employee"    icon="employee"   label="Employees"   active={is('/employee') || location.pathname.startsWith('/detailed/')} />
           <NavItem to="/training"    icon="training"   label="Trainings"   active={is('/training') || is('/alltraining') || is('/createnewtraining')} />
           <NavItem to="/assessments" icon="assessment" label="Assessments" active={is('/assessments')} />
-          <NavItem to="/module"      icon="module"     label="Modules"     active={is('/module')} />
+          {user?.role !== "cluster_admin" && user?.role !== "store_admin" && (
+            <NavItem to="/module"      icon="module"     label="Modules"     active={is('/module')} />
+          )}
           <NavItem to="/branch"      icon="branch"     label="Branches"    active={is('/branch') || is('/Addbranch')} />
           {(user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin') && (
             <FlyoutNavItem

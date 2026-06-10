@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { useSelector } from "react-redux";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import SideNav from "../../../components/SideNav/SideNav";
 import { GoPencil } from "react-icons/go";
@@ -67,7 +68,9 @@ const deduplicateTrainings = (trainings) => {
 };
 
 const EmployeeDetaileData = () => {
+  const user = useSelector((state) => state.auth.user);
   const token = localStorage.getItem("token");
+  const isRestrictedRole = user?.role === 'cluster_admin' || user?.role === 'store_admin';
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -468,31 +471,35 @@ const EmployeeDetaileData = () => {
 
                     {/* Actions panel */}
                     <div className="flex items-center gap-2.5">
-                      <button
-                        onClick={() => {
-                          if (isEditing) handleSave();
-                          else { setIsEditing(true); fetchBranches(); }
-                        }}
-                        disabled={isExternal}
-                        className={`inline-flex items-center gap-2 px-5 py-2 border rounded-full text-sm font-medium transition-all ${
-                          isExternal
-                            ? "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed"
-                            : isEditing
-                              ? "bg-[#016E5B] text-white border-[#016E5B] hover:bg-[#015849] shadow-sm shadow-[#016E5B]/20"
-                              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                        }`}
-                      >
-                        <GoPencil className="w-4 h-4" />
-                        {isEditing ? "Save" : "Edit"}
-                      </button>
+                      {!isRestrictedRole && (
+                        <>
+                          <button
+                            onClick={() => {
+                              if (isEditing) handleSave();
+                              else { setIsEditing(true); fetchBranches(); }
+                            }}
+                            disabled={isExternal}
+                            className={`inline-flex items-center gap-2 px-5 py-2 border rounded-full text-sm font-medium transition-all ${
+                              isExternal
+                                ? "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed"
+                                : isEditing
+                                  ? "bg-[#016E5B] text-white border-[#016E5B] hover:bg-[#015849] shadow-sm shadow-[#016E5B]/20"
+                                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                            }`}
+                          >
+                            <GoPencil className="w-4 h-4" />
+                            {isEditing ? "Save" : "Edit"}
+                          </button>
 
-                      <button
-                        onClick={handleDelete}
-                        className="inline-flex items-center gap-2 px-5 py-2 border border-red-200 hover:bg-red-50 text-red-600 rounded-full text-sm font-medium transition-all"
-                      >
-                        <FaRegTrashCan className="w-4 h-4" />
-                        Delete
-                      </button>
+                          <button
+                            onClick={handleDelete}
+                            className="inline-flex items-center gap-2 px-5 py-2 border border-red-200 hover:bg-red-50 text-red-600 rounded-full text-sm font-medium transition-all"
+                          >
+                            <FaRegTrashCan className="w-4 h-4" />
+                            Delete
+                          </button>
+                        </>
+                      )}
 
                       <button
                         onClick={FetchUserData}
@@ -593,7 +600,9 @@ const EmployeeDetaileData = () => {
                         <input type="text" name="locCode" value={data.locCode || ""} onChange={handleChange}
                           className="w-full mt-1.5 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-emerald-600 focus:outline-none" />
                       ) : (
-                        <p className="text-sm font-semibold text-gray-900 mt-1.5">{data.locCode || "—"}</p>
+                        <p className="text-sm font-semibold text-gray-900 mt-1.5">
+                          {data.locCode && data.locCode.length > 15 ? "ALL" : (data.locCode || "—")}
+                        </p>
                       )}
                     </div>
                   </div>

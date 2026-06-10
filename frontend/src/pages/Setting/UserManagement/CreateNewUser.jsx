@@ -233,12 +233,10 @@ const CreateNewUser = () => {
             <div className="hidden md:block z-50">
                 <SideNav />
             </div>
-            <div className="md:hidden sm:block">
-                <ModileNav />
-            </div>
+            <ModileNav />
 
             {/* Main Content Area */}
-            <div className="flex-1 md:ml-[110px] p-6 flex flex-col">
+            <div className="flex-1 min-w-0 ml-0 md:ml-[110px] p-4 md:p-6 pb-24 md:pb-6 flex flex-col">
                 {/* Back button */}
                 <div className="mb-4">
                     <Link
@@ -250,7 +248,7 @@ const CreateNewUser = () => {
                 </div>
 
                 {/* Form Card */}
-                <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 max-w-6xl w-full mx-auto">
+                <div className="bg-white rounded-2xl p-5 sm:p-8 shadow-sm border border-gray-100 max-w-6xl w-full mx-auto">
                     <h1 className="text-2xl font-semibold text-gray-900 mb-8">Create New User</h1>
 
                     <form onSubmit={handleSubmit} className="space-y-8">
