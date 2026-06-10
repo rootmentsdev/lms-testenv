@@ -46,14 +46,20 @@ const FlyoutNavItem = ({ icon, label, active, items }) => {
   const [open, setOpen]       = useState(false);
   const [pos, setPos]         = useState({ top: 0, left: 0 });
   const triggerRef            = useRef(null);
+  const flyoutRef             = useRef(null);
   const hideTimer             = useRef(null);
 
   const show = () => {
     clearTimeout(hideTimer.current);
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
+      const estimatedHeight = items.length * 45 + 40;
+      let top = rect.top;
+      if (top + estimatedHeight > window.innerHeight) {
+        top = Math.max(10, window.innerHeight - estimatedHeight - 16);
+      }
       setPos({
-        top:  rect.top,
+        top,
         left: rect.right + 8,   // 8px gap from sidebar edge
       });
     }
@@ -66,6 +72,19 @@ const FlyoutNavItem = ({ icon, label, active, items }) => {
 
   // Close on route change
   useEffect(() => () => clearTimeout(hideTimer.current), []);
+
+  // Recalculate position dynamically after mount if actual height causes overflow
+  useEffect(() => {
+    if (open && triggerRef.current && flyoutRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const flyoutHeight = flyoutRef.current.offsetHeight;
+      let top = rect.top;
+      if (top + flyoutHeight > window.innerHeight) {
+        top = Math.max(10, window.innerHeight - flyoutHeight - 16);
+        setPos(prev => ({ ...prev, top }));
+      }
+    }
+  }, [open]);
 
   const base = "flex flex-col items-center justify-center gap-1.5 w-full py-3.5 px-2 rounded-xl cursor-pointer select-none transition-all duration-200 relative";
   const cls  = `${base} ${active ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`;
@@ -82,6 +101,7 @@ const FlyoutNavItem = ({ icon, label, active, items }) => {
       {/* Portal flyout — renders directly on <body>, never clipped */}
       {open && createPortal(
         <div
+          ref={flyoutRef}
           onMouseEnter={() => clearTimeout(hideTimer.current)}
           onMouseLeave={hide}
           style={{
