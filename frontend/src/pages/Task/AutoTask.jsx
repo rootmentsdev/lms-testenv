@@ -1,4 +1,5 @@
 import { useState, useRef, useLayoutEffect, useCallback, useEffect } from 'react';
+import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import Select, { components } from 'react-select';
@@ -247,60 +248,7 @@ const DateInput = ({ value, onChange, required, placeholder }) => {
   );
 };
 
-const ModeToggle = ({ mode, onChange, disabled }) => {
-  const wrapRef = useRef(null);
-  const btnRefs = useRef([]);
-  const [pill, setPill] = useState({ width: 0, left: 0 });
 
-  const updatePill = useCallback(() => {
-    const idx = mode === 'task' ? 0 : 1;
-    const btn = btnRefs.current[idx];
-    const wrap = wrapRef.current;
-    if (!btn || !wrap) return;
-    const wrapRect = wrap.getBoundingClientRect();
-    const btnRect = btn.getBoundingClientRect();
-    setPill({
-      width: btnRect.width,
-      left: btnRect.left - wrapRect.left,
-    });
-  }, [mode]);
-
-  useLayoutEffect(() => {
-    updatePill();
-    const raf = requestAnimationFrame(updatePill);
-    window.addEventListener('resize', updatePill);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener('resize', updatePill);
-    };
-  }, [updatePill]);
-
-  const options = [
-    { id: 'task', label: 'Task' },
-    { id: 'auto', label: 'Auto Task' },
-  ];
-
-  return (
-    <div ref={wrapRef} className="create-task-toggle" style={{ opacity: disabled ? 0.7 : 1 }}>
-      <div
-        className="create-task-toggle__pill"
-        style={{ width: pill.width, transform: `translateX(${pill.left}px)` }}
-      />
-      {options.map((opt, i) => (
-        <button
-          key={opt.id}
-          ref={(el) => { btnRefs.current[i] = el; }}
-          type="button"
-          disabled={disabled}
-          onClick={() => onChange(opt.id)}
-          className={`create-task-toggle__btn${mode === opt.id ? ' create-task-toggle__btn--active' : ''}`}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
-  );
-};
 
 const getCurrentDate = () => {
   return new Date().toISOString().split('T')[0];
@@ -309,6 +257,7 @@ const getCurrentDate = () => {
 const AutoTask = () => {
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
+  const user = useSelector((state) => state.auth.user);
 
   // Form states
   const [title, setTitle] = useState('');
@@ -329,6 +278,14 @@ const AutoTask = () => {
   const [selectedStores, setSelectedStores] = useState([]);
   const [selectedRoles, setSelectedRoles] = useState([]);
   const [selectedIndividuals, setSelectedIndividuals] = useState([]);
+
+  useEffect(() => {
+    if (user?.role === 'store_admin') {
+      setAssignTo('individual');
+    } else if (user?.role === 'cluster_admin') {
+      setAssignTo('store');
+    }
+  }, [user?.role]);
 
   // Loaded Options
   const [storeOptions, setStoreOptions] = useState([]);
@@ -372,8 +329,62 @@ const AutoTask = () => {
         });
         if (response.ok) {
           const json = await response.json();
-          const individualsOnly = (json.data || []).filter(opt => opt.type !== 'group');
-          setAssigneeOptions(individualsOnly);
+          const roleRanks = {
+            super_admin: 5,
+            admin: 5,
+            hr_admin: 4,
+            cluster_admin: 3,
+            store_admin: 2,
+            employee: 1,
+            user: 1
+          };
+          const userRole = user?.role;
+          const userRank = roleRanks[userRole] || 1;
+
+          const getOptionRank = (opt) => {
+            if (opt.role && roleRanks[opt.role]) {
+              return roleRanks[opt.role];
+            }
+            if (opt.label) {
+              const parts = opt.label.split(' - ');
+              if (parts.length >= 3) {
+                const designation = parts[1].trim().toLowerCase();
+                if (designation === 'super admin' || designation === 'admin') return 5;
+                if (designation === 'hr admin') return 4;
+                if (designation === 'cluster admin') return 3;
+                if (designation === 'store admin' || designation === 'store_admin') return 2;
+              }
+            }
+            return 1;
+          };
+
+          const filteredAndFormatted = (json.data || [])
+            .filter(opt => opt.type !== 'group')
+            .filter(opt => {
+              if (['cluster_admin', 'store_admin', 'hr_admin'].includes(userRole)) {
+                const optRank = getOptionRank(opt);
+                if (optRank > userRank) return false;
+              }
+              return true;
+            })
+            .map(opt => {
+              if (opt.label) {
+                const parts = opt.label.split(' - ');
+                if (parts.length >= 3) {
+                  const storeSegment = parts[parts.length - 1];
+                  const stores = storeSegment.split(',').map(s => s.trim());
+                  if (stores.length > 5 || storeSegment.toLowerCase().includes('all store')) {
+                    parts[parts.length - 1] = 'All Stores';
+                    return {
+                      ...opt,
+                      label: parts.join(' - ')
+                    };
+                  }
+                }
+              }
+              return opt;
+            });
+          setAssigneeOptions(filteredAndFormatted);
         }
       } catch (err) {
         console.error('Error fetching assignees:', err);
@@ -382,7 +393,7 @@ const AutoTask = () => {
       }
     };
     fetchAssignees();
-  }, [token]);
+  }, [token, user?.role]);
 
   // Format Date from YYYY-MM-DD to DD-MM-YYYY
   const formatDateStr = (dateStr) => {
@@ -497,7 +508,6 @@ const AutoTask = () => {
                 <p style={{ fontSize: '12px', color: '#9ca3af', margin: '4px 0 0' }}>Create a recurring rule that keeps assigning this task until you pause it</p>
               </div>
             </div>
-            <ModeToggle mode="auto" onChange={(newMode) => { if (newMode === 'task') navigate('/task/create'); }} disabled={submitting} />
           </div>
 
           {/* Form */}
@@ -662,41 +672,47 @@ const AutoTask = () => {
                 <label className="auto-task-label">Assign to<span className="auto-task-req">*</span></label>
                 <div className="assign-radio-group">
                   
-                  <label className="assign-radio-label">
-                    <input 
-                      type="radio" 
-                      name="assignTo" 
-                      value="employees"
-                      checked={assignTo === 'employees'}
-                      onChange={() => setAssignTo('employees')}
-                      className="assign-radio-input"
-                    />
-                    All Employees
-                  </label>
+                  {user?.role !== 'store_admin' && user?.role !== 'cluster_admin' && (
+                    <label className="assign-radio-label">
+                      <input 
+                        type="radio" 
+                        name="assignTo" 
+                        value="employees"
+                        checked={assignTo === 'employees'}
+                        onChange={() => setAssignTo('employees')}
+                        className="assign-radio-input"
+                      />
+                      All Employees
+                    </label>
+                  )}
 
-                  <label className="assign-radio-label">
-                    <input 
-                      type="radio" 
-                      name="assignTo" 
-                      value="store"
-                      checked={assignTo === 'store'}
-                      onChange={() => setAssignTo('store')}
-                      className="assign-radio-input"
-                    />
-                    Store
-                  </label>
+                  {user?.role !== 'store_admin' && (
+                    <label className="assign-radio-label">
+                      <input 
+                        type="radio" 
+                        name="assignTo" 
+                        value="store"
+                        checked={assignTo === 'store'}
+                        onChange={() => setAssignTo('store')}
+                        className="assign-radio-input"
+                      />
+                      Store
+                    </label>
+                  )}
 
-                  <label className="assign-radio-label">
-                    <input 
-                      type="radio" 
-                      name="assignTo" 
-                      value="role"
-                      checked={assignTo === 'role'}
-                      onChange={() => setAssignTo('role')}
-                      className="assign-radio-input"
-                    />
-                    Role
-                  </label>
+                  {user?.role !== 'store_admin' && user?.role !== 'cluster_admin' && (
+                    <label className="assign-radio-label">
+                      <input 
+                        type="radio" 
+                        name="assignTo" 
+                        value="role"
+                        checked={assignTo === 'role'}
+                        onChange={() => setAssignTo('role')}
+                        className="assign-radio-input"
+                      />
+                      Role
+                    </label>
+                  )}
 
                   <label className="assign-radio-label">
                     <input 
