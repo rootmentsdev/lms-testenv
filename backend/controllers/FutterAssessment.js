@@ -1281,38 +1281,78 @@ export const GetMobileDashboard = async (req, res) => {
         let walkinsToday = 0;
         let walkinsYesterday = 0;
 
-        const todayStart = new Date();
-        todayStart.setHours(0,0,0,0);
+        // Calculate local start of today, yesterday, and the current month in Asia/Kolkata timezone (UTC+5:30)
+        const now = new Date();
+        const formatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Asia/Kolkata',
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric'
+        });
+        const parts = formatter.formatToParts(now);
+        const dateObj = {};
+        parts.forEach(p => { dateObj[p.type] = p.value; });
+        
+        // Midnight of today IST
+        const todayStart = new Date(Date.UTC(
+            parseInt(dateObj.year, 10),
+            parseInt(dateObj.month, 10) - 1,
+            parseInt(dateObj.day, 10),
+            0, 0, 0, 0
+        ));
+        todayStart.setTime(todayStart.getTime() - (5.5 * 60 * 60 * 1000));
+        
         const yesterdayStart = new Date(todayStart);
         yesterdayStart.setDate(yesterdayStart.getDate() - 1);
 
+        // Day 1 of the current month IST
+        const monthStart = new Date(Date.UTC(
+            parseInt(dateObj.year, 10),
+            parseInt(dateObj.month, 10) - 1,
+            1, // Day 1
+            0, 0, 0, 0
+        ));
+        monthStart.setTime(monthStart.getTime() - (5.5 * 60 * 60 * 1000));
+
+        let baseFilter = {};
+
         if (['super_admin', 'admin', 'hr_admin'].includes(role)) {
-            totalWalkins = await Walkin.countDocuments({});
-            walkinsToday = await Walkin.countDocuments({ createdAt: { $gte: todayStart } });
-            walkinsYesterday = await Walkin.countDocuments({ createdAt: { $gte: yesterdayStart, $lt: todayStart } });
-        } else if (role === 'cluster_admin' || role === 'store_admin') {
+            // Full Admin overall - all walkins
+            baseFilter = {};
+        } else if (role === 'cluster_admin') {
+            // Cluster Admin - all stores under them
             const accessibleStoreIds = await getAccessibleStoreIds(activeUser._id);
             const branches = await Branch.find({ _id: { $in: accessibleStoreIds } }).lean();
             const locCodes = branches.map(b => b.locCode);
             const workingBranches = branches.map(b => b.workingBranch);
             
-            const storeFilter = {
+            baseFilter = {
                 $or: [
                     { storeId: { $in: accessibleStoreIds } },
                     { store: { $in: [...locCodes, ...workingBranches] } }
                 ]
             };
-
-            totalWalkins = await Walkin.countDocuments(storeFilter);
-            walkinsToday = await Walkin.countDocuments({ ...storeFilter, createdAt: { $gte: todayStart } });
-            walkinsYesterday = await Walkin.countDocuments({ ...storeFilter, createdAt: { $gte: yesterdayStart, $lt: todayStart } });
+        } else if (role === 'store_admin') {
+            // Store Admin - walkins in their store
+            const accessibleStoreIds = await getAccessibleStoreIds(activeUser._id);
+            const branches = await Branch.find({ _id: { $in: accessibleStoreIds } }).lean();
+            const locCodes = branches.map(b => b.locCode);
+            const workingBranches = branches.map(b => b.workingBranch);
+            
+            baseFilter = {
+                $or: [
+                    { storeId: { $in: accessibleStoreIds } },
+                    { store: { $in: [...locCodes, ...workingBranches] } }
+                ]
+            };
         } else {
-            // Employee - only total walkins entered by them (createdBy matching activeUser._id)
-            const walkinFilter = { createdBy: activeUser._id };
-            totalWalkins = await Walkin.countDocuments(walkinFilter);
-            walkinsToday = await Walkin.countDocuments({ ...walkinFilter, createdAt: { $gte: todayStart } });
-            walkinsYesterday = await Walkin.countDocuments({ ...walkinFilter, createdAt: { $gte: yesterdayStart, $lt: todayStart } });
+            // Employee - only walkins created by them
+            baseFilter = { createdBy: activeUser._id };
         }
+
+        totalWalkins = await Walkin.countDocuments({ ...baseFilter, createdAt: { $gte: monthStart } });
+        walkinsToday = await Walkin.countDocuments({ ...baseFilter, createdAt: { $gte: todayStart } });
+        walkinsYesterday = await Walkin.countDocuments({ ...baseFilter, createdAt: { $gte: yesterdayStart, $lt: todayStart } });
 
         let growthText = "0% from yesterday";
         if (walkinsYesterday > 0) {
