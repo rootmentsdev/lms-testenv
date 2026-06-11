@@ -42,6 +42,18 @@ const STATUS_OPTIONS = [
     'New Walkin'
 ];
 
+const FILTER_STATUS_OPTIONS = [
+    'New Walkin',
+    'Loss',
+    'Revisit',
+    'Booked',
+    'Rentout',
+    'Return',
+    'Trial',
+    'Enquiry',
+    'Reissue'
+];
+
 const UPDATE_STATUS_OPTIONS = [
     'Loss',
     'Revisit',
@@ -805,6 +817,9 @@ const WalkinList = () => {
                                                 onChange={handleInputChange}
                                                 className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
                                             >
+                                                {!STATUS_OPTIONS.includes(formData.status) && formData.status && (
+                                                    <option value={formData.status}>{formData.status}</option>
+                                                )}
                                                 {STATUS_OPTIONS.map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
                                             </select>
                                             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
@@ -953,7 +968,7 @@ const WalkinList = () => {
                             />
                             <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '7px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer' }}>
                                 <option value="All">All Status</option>
-                                {STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                {FILTER_STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                             </select>
                             {(user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'cluster_admin') && (
                                 <select value={storeFilter} onChange={e => setStoreFilter(e.target.value)} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '7px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer' }}>
@@ -1140,6 +1155,9 @@ const WalkinList = () => {
                                                                     }}
                                                                     title={statusChangedToday[w._id] ? 'Status already changed today. Try again tomorrow.' : 'Change status'}
                                                                 >
+                                                                    {!['New Walkin', 'Loss', 'Revisit'].includes(w.status) && w.status && (
+                                                                        <option value={w.status}>{w.status}</option>
+                                                                    )}
                                                                     <option value="New Walkin">New Walkin</option>
                                                                     <option value="Loss">Loss</option>
                                                                     <option value="Revisit">Revisit</option>
