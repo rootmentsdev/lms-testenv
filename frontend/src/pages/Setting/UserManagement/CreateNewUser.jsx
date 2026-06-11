@@ -58,8 +58,8 @@ const CreateNewUser = () => {
 
         const fetchEmployees = async () => {
             try {
-                // Fetch all admins + employees from the Admin model (combined list)
-                const response = await fetch(`${baseUrl.baseUrl}api/admin/admin/list`, {
+                // Fetch accessible employees for this admin from the Employee model
+                const response = await fetch(`${baseUrl.baseUrl}api/admin/accessible-employees`, {
                     method: "GET",
                     headers: {
                         "Content-Type": "application/json",
@@ -68,8 +68,7 @@ const CreateNewUser = () => {
                 });
                 if (response.ok) {
                     const data = await response.json();
-                    // Show all employees — admins and ordinary users alike
-                    setEmployees(data.data || []);
+                    setEmployees(data.employees || []);
                 }
             } catch (error) {
                 console.error("Error fetching employees:", error);
@@ -94,12 +93,13 @@ const CreateNewUser = () => {
             return;
         }
 
-        // Find by EmpId (Admin model field)
-        const emp = employees.find(e => e.EmpId === option.value);
+        // Find by employeeId/EmpId
+        const emp = employees.find(e => (e.employeeId || e.EmpId || e.empID) === option.value);
         if (emp) {
             setSelectedEmployee(emp);
+            const name = emp.name || `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || "";
             setForm({
-                userName: emp.name || "",
+                userName: name,
                 email: emp.email || "",
                 phoneNumber: emp.phoneNumber
                     ? emp.phoneNumber.startsWith("+91 ")
@@ -110,10 +110,18 @@ const CreateNewUser = () => {
                 userRole: user?.role === 'cluster_admin' ? 'store_admin' : "",
             });
             // Pre-fill branches if already assigned
-            const mappedBranches = (emp.branches || []).map(b => ({
-                value: b._id,
-                label: b.workingBranch,
-            }));
+            let mappedBranches = [];
+            if (emp.branches) {
+                mappedBranches = (emp.branches || []).map(b => ({
+                    value: b._id,
+                    label: b.workingBranch,
+                }));
+            } else if (emp.storeId) {
+                const matchedBranch = branches.find(b => b.value === emp.storeId || b.value === emp.storeId?._id);
+                if (matchedBranch) {
+                    mappedBranches = [matchedBranch];
+                }
+            }
             setSelectedBranches(mappedBranches);
         }
     };
@@ -267,11 +275,15 @@ const CreateNewUser = () => {
                             </label>
                             <Select
                                 placeholder="Search by name or Emp ID…"
-                                options={employees.map(emp => ({
-                                    value: emp.EmpId,
-                                    label: `${emp.name} (${emp.EmpId}) — ${emp.email}`,
-                                    empId: emp.EmpId || "",
-                                }))}
+                                options={employees.map(emp => {
+                                    const empId = emp.employeeId || emp.EmpId || emp.empID || "";
+                                    const name = emp.name || `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || "Unknown";
+                                    return {
+                                        value: empId,
+                                        label: `${name} (${empId}) — ${emp.email || "No Email"}`,
+                                        empId: empId,
+                                    };
+                                })}
                                 filterOption={employeeFilterOption}
                                 isClearable
                                 onChange={handleSelectEmployee}
