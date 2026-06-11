@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 import Select from "react-select";
 import { toast } from "react-toastify";
 import { FaArrowLeft, FaEye, FaEyeSlash } from "react-icons/fa";
@@ -9,6 +10,7 @@ import ModileNav from "../../../components/SideNav/ModileNav";
 
 const CreateNewUser = () => {
     const navigate = useNavigate();
+    const user = useSelector((s) => s.auth.user);
     const [branches, setBranches] = useState([]);
     const [selectedBranches, setSelectedBranches] = useState([]);
     const [employees, setEmployees] = useState([]);
@@ -23,6 +25,12 @@ const CreateNewUser = () => {
         password: "",
         userRole: "",
     });
+
+    useEffect(() => {
+        if (user?.role === "cluster_admin") {
+            setForm((prev) => ({ ...prev, userRole: "store_admin" }));
+        }
+    }, [user]);
 
     useEffect(() => {
         const fetchBranches = async () => {
@@ -80,7 +88,7 @@ const CreateNewUser = () => {
                 email: "",
                 phoneNumber: "+91 ",
                 password: "",
-                userRole: "",
+                userRole: user?.role === 'cluster_admin' ? 'store_admin' : "",
             });
             setSelectedBranches([]);
             return;
@@ -99,7 +107,7 @@ const CreateNewUser = () => {
                         : `+91 ${emp.phoneNumber}`
                     : "+91 ",
                 password: "",
-                userRole: "",
+                userRole: user?.role === 'cluster_admin' ? 'store_admin' : "",
             });
             // Pre-fill branches if already assigned
             const mappedBranches = (emp.branches || []).map(b => ({
@@ -370,13 +378,19 @@ const CreateNewUser = () => {
                                     onChange={handleInputChange}
                                     className="w-full h-[45px] px-4 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-black transition-all bg-white text-gray-900"
                                 >
-                                    <option value="" disabled>Select User Roles</option>
-                                    <option value="super_admin">Super Admin</option>
-                                    <option value="admin">Admin</option>
-                                    <option value="hr_admin">HR Admin</option>
-                                    <option value="cluster_admin">Cluster Admin</option>
-                                    <option value="store_admin">Store Admin</option>
-                                    <option value="employee">Employee</option>
+                                    {user?.role === 'cluster_admin' ? (
+                                        <option value="store_admin">Store Admin</option>
+                                    ) : (
+                                        <>
+                                            <option value="" disabled>Select User Roles</option>
+                                            <option value="super_admin">Super Admin</option>
+                                            <option value="admin">Admin</option>
+                                            <option value="hr_admin">HR Admin</option>
+                                            <option value="cluster_admin">Cluster Admin</option>
+                                            <option value="store_admin">Store Admin</option>
+                                            <option value="employee">Employee</option>
+                                        </>
+                                    )}
                                 </select>
                             </div>
 

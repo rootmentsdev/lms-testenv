@@ -51,7 +51,7 @@ const ModileNav = () => {
         <MobileNavItem to="/training" icon="training" label="Trainings" active={is('/training')} />
         <MobileNavItem to="/assessments" icon="assessment" label="Assessments" active={is('/assessments')} />
         <MobileNavItem to="/branch" icon="branch" label="Branches" active={is('/branch')} />
-        {(user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin') && (
+        {(user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'cluster_admin') && (
           <MobileNavItem to="/settings/users" icon="settings" label="Settings" active={location.pathname.startsWith('/settings')} />
         )}
       </div>

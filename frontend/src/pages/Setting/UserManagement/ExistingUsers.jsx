@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useSelector } from "react-redux";
 import Select from "react-select";
 import { toast } from "react-toastify";
 import { FaRegEye, FaPlus, FaSearch, FaChevronDown, FaChevronLeft, FaChevronRight, FaTimes } from "react-icons/fa";
@@ -8,6 +9,7 @@ import SideNav from "../../../components/SideNav/SideNav";
 import ModileNav from "../../../components/SideNav/ModileNav";
 
 const ExistingUsers = () => {
+    const user = useSelector((s) => s.auth.user);
     const [admins, setAdmins] = useState([]);
     const [branches, setBranches] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -99,6 +101,10 @@ const ExistingUsers = () => {
 
     // Filter and search
     const filteredAdmins = admins.filter((admin) => {
+        if (user?.role === 'cluster_admin') {
+            if (admin?.role !== 'store_admin' && admin?.role !== 'employee') return false;
+        }
+
         const query = searchQuery.trim().toLowerCase();
         const cleanQuery = query.replace(/\s+/g, "");
 
@@ -356,25 +362,27 @@ const ExistingUsers = () => {
                             </div>
 
                             {/* Filter selection dropdown */}
-                            <div className="relative w-full sm:w-auto">
-                                <select
-                                    value={roleFilter}
-                                    onChange={(e) => {
-                                        setRoleFilter(e.target.value);
-                                        setCurrentPage(1);
-                                    }}
-                                    className="appearance-none h-11 pl-4 pr-10 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-black transition-all bg-white text-gray-900 font-medium cursor-pointer w-full sm:w-48"
-                                >
-                                    <option value="All">Role : All</option>
-                                    <option value="super_admin">Super Admin</option>
-                                    <option value="admin">Admin</option>
-                                    <option value="hr_admin">HR Admin</option>
-                                    <option value="cluster_admin">Cluster Admin</option>
-                                    <option value="store_admin">Store Admin</option>
-                                    <option value="employee">Employee</option>
-                                </select>
-                                <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" size={10} />
-                            </div>
+                            {user?.role !== 'cluster_admin' && (
+                                <div className="relative w-full sm:w-auto">
+                                    <select
+                                        value={roleFilter}
+                                        onChange={(e) => {
+                                            setRoleFilter(e.target.value);
+                                            setCurrentPage(1);
+                                        }}
+                                        className="appearance-none h-11 pl-4 pr-10 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-black transition-all bg-white text-gray-900 font-medium cursor-pointer w-full sm:w-48"
+                                    >
+                                        <option value="All">Role : All</option>
+                                        <option value="super_admin">Super Admin</option>
+                                        <option value="admin">Admin</option>
+                                        <option value="hr_admin">HR Admin</option>
+                                        <option value="cluster_admin">Cluster Admin</option>
+                                        <option value="store_admin">Store Admin</option>
+                                        <option value="employee">Employee</option>
+                                    </select>
+                                    <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" size={10} />
+                                </div>
+                            )}
                         </div>
 
                         {/* Table */}
@@ -763,12 +771,21 @@ const ExistingUsers = () => {
                                     }}
                                     className="w-full h-[45px] pl-4 pr-10 border border-gray-200 rounded-xl text-sm font-semibold focus:outline-none focus:border-black transition-all bg-white text-gray-900 appearance-none cursor-pointer"
                                 >
-                                    <option value="super_admin">Super Admin</option>
-                                    <option value="admin">Admin</option>
-                                    <option value="hr_admin">HR Admin</option>
-                                    <option value="cluster_admin">Cluster Admin</option>
-                                    <option value="store_admin">Store Admin</option>
-                                    <option value="employee">Employee</option>
+                                    {user?.role === 'cluster_admin' ? (
+                                        <>
+                                            <option value="store_admin">Store Admin</option>
+                                            <option value="employee">Employee</option>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <option value="super_admin">Super Admin</option>
+                                            <option value="admin">Admin</option>
+                                            <option value="hr_admin">HR Admin</option>
+                                            <option value="cluster_admin">Cluster Admin</option>
+                                            <option value="store_admin">Store Admin</option>
+                                            <option value="employee">Employee</option>
+                                        </>
+                                    )}
                                 </select>
                                 <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={11} />
                             </div>
