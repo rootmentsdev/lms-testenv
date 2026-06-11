@@ -554,7 +554,11 @@ export const getTasks = async (req, res) => {
       baseQuery.priority = priority;
     }
     if (status && status !== 'All') {
-      baseQuery.status = status;
+      if (status === 'OVERDUE') {
+        baseQuery.status = { $nin: ['COMPLETED', 'IN PROGRESS', 'ON HOLD', 'UNDER REVIEW'] };
+      } else {
+        baseQuery.status = status;
+      }
     }
 
     // 2. Wrap with RBAC Filter
@@ -562,27 +566,57 @@ export const getTasks = async (req, res) => {
     //    For web: apply normal RBAC filtering
     let secureQuery;
     if (mobile === 'true') {
-      // Mobile app: only show tasks assigned to the user
+      // Mobile app: only show tasks assigned to the user (every role admins and employees)
       const assignedIds = [adminId.toString()];
       
-      // Also check if this is a User and find associated Employee IDs
-      const user = await User.findById(adminId);
-      if (user) {
-        assignedIds.push(user._id.toString());
+      let empID = null;
+      
+      // Check if caller is Admin
+      const adminUser = await Admin.findById(adminId);
+      if (adminUser) {
+        empID = adminUser.EmpId;
+      } else {
+        // Check if caller is User
+        const user = await User.findById(adminId);
+        if (user) {
+          empID = user.empID;
+        }
+      }
+      
+      if (empID) {
+        // Add the raw employee ID string itself
+        assignedIds.push(empID.toString());
+        
+        // Find associated Employee ID
         const employee = await Employee.findOne({
-          $or: [
-            { userId: user._id },
-            { employeeId: { $regex: `^${user.empID}$`, $options: 'i' } }
-          ]
+          employeeId: { $regex: `^${empID}$`, $options: 'i' }
         });
         if (employee) {
           assignedIds.push(employee._id.toString());
         }
+        
+        // Find associated User ID
+        const userRecord = await User.findOne({
+          empID: { $regex: `^${empID}$`, $options: 'i' }
+        });
+        if (userRecord) {
+          assignedIds.push(userRecord._id.toString());
+        }
+        
+        // Find associated Admin ID
+        const adminRecord = await Admin.findOne({
+          EmpId: { $regex: `^${empID}$`, $options: 'i' }
+        });
+        if (adminRecord) {
+          assignedIds.push(adminRecord._id.toString());
+        }
       }
+      
+      const uniqueAssignedIds = [...new Set(assignedIds)];
       
       secureQuery = {
         ...baseQuery,
-        assignedTo: { $in: assignedIds }
+        assignedTo: { $in: uniqueAssignedIds }
       };
     } else if (mine === 'true') {
       secureQuery = {
