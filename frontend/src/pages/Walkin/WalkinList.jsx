@@ -51,7 +51,8 @@ const FILTER_STATUS_OPTIONS = [
     'Return',
     'Trial',
     'Enquiry',
-    'Reissue'
+    'Reissue',
+    'Cancel'
 ];
 
 const UPDATE_STATUS_OPTIONS = [
@@ -1044,6 +1045,7 @@ const WalkinList = () => {
                                                         'Trial': { bg: '#e0e7ff', color: '#4338ca' },
                                                         'Loss': { bg: '#fee2e2', color: '#dc2626' },
                                                         'Revisit Loss': { bg: '#fee2e2', color: '#dc2626' },
+                                                        'Cancel': { bg: '#fee2e2', color: '#dc2626' },
                                                         'Enquiry': { bg: '#f3f4f6', color: '#6b7280' },
                                                         'New Walkin': { bg: '#dbeafe', color: '#2563eb' },
                                                         'Reissue': { bg: '#ede9fe', color: '#7c3aed' },
