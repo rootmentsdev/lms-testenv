@@ -1,5 +1,6 @@
 import { Component, useEffect } from 'react';
-import { Route, Routes, useNavigate } from 'react-router-dom';
+import { Route, Routes, useNavigate, Navigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import './App.css';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -57,7 +58,6 @@ import Header from './components/Header/Header';
 import NotificationPoller from './components/Notification/NotificationPoller';
 
 import baseUrl from './api/api';
-import { useDispatch } from 'react-redux';
 
 class AppErrorBoundary extends Component {
   state = { hasError: false };
@@ -117,12 +117,18 @@ class AppErrorBoundary extends Component {
 }
 
 // Layout wrapper that adds the global header to all protected pages
-const ProtectedLayout = ({ children }) => (
-  <ProtectedRoute>
-    <Header />
-    <div style={{ paddingTop: '60px' }}>{children}</div>
-  </ProtectedRoute>
-);
+const ProtectedLayout = ({ children, hideForRoles }) => {
+  const user = useSelector((state) => state.auth.user);
+  if (user && hideForRoles && hideForRoles.includes(user.role)) {
+    return <Navigate to="/" replace />;
+  }
+  return (
+    <ProtectedRoute>
+      <Header />
+      <div style={{ paddingTop: '60px' }}>{children}</div>
+    </ProtectedRoute>
+  );
+};
 
 const preloadProtectedRoutes = () => {
   const routes = [
@@ -249,7 +255,7 @@ function App() {
 
             {/* Protected Routes */}
             <Route path="/" element={<ProtectedLayout><Home /></ProtectedLayout>} />
-            <Route path="/assessments" element={<ProtectedLayout><Assessments /></ProtectedLayout>} />
+            <Route path="/assessments" element={<ProtectedLayout hideForRoles={['store_admin']}><Assessments /></ProtectedLayout>} />
 
             <Route path="/branch" element={<ProtectedLayout><Branch /></ProtectedLayout>} />
             <Route path="/branch/audit" element={<ProtectedLayout><BranchAudit /></ProtectedLayout>} />
@@ -264,25 +270,25 @@ function App() {
             <Route path="/settings/users" element={<ProtectedLayout><ExistingUsers /></ProtectedLayout>} />
             <Route path="/settings/create-user" element={<ProtectedLayout><CreateNewUser /></ProtectedLayout>} />
             <Route path="/settings/create-notification" element={<ProtectedLayout><CreateNotificationPage /></ProtectedLayout>} />
-            <Route path="/alltraining" element={<ProtectedLayout><Training /></ProtectedLayout>} />
-            <Route path="/training" element={<ProtectedLayout><CreateTraining /></ProtectedLayout>} />
-            <Route path="/assigdata" element={<ProtectedLayout><AssignedTrainings /></ProtectedLayout>} />
-            <Route path="/assigtraining/:id" element={<ProtectedLayout><AssingOrdelete /></ProtectedLayout>} />
+            <Route path="/alltraining" element={<ProtectedLayout hideForRoles={['store_admin']}><Training /></ProtectedLayout>} />
+            <Route path="/training" element={<ProtectedLayout hideForRoles={['store_admin']}><CreateTraining /></ProtectedLayout>} />
+            <Route path="/assigdata" element={<ProtectedLayout hideForRoles={['store_admin']}><AssignedTrainings /></ProtectedLayout>} />
+            <Route path="/assigtraining/:id" element={<ProtectedLayout hideForRoles={['store_admin']}><AssingOrdelete /></ProtectedLayout>} />
             <Route path="/createmodule" element={<ProtectedLayout><CreateModule /></ProtectedLayout>} />
             <Route path="/createmodule/:id" element={<ProtectedLayout><CreateModule /></ProtectedLayout>} />
-            <Route path="/createnewtraining" element={<ProtectedLayout><CreateTrainings /></ProtectedLayout>} />
-            <Route path="/createnewtraining/:id" element={<ProtectedLayout><CreateTrainings /></ProtectedLayout>} />
-            <Route path="/reassign/:id" element={<ProtectedLayout><Reassign /></ProtectedLayout>} />
-            <Route path="/create/mandatorytraining" element={<ProtectedLayout><MandatoryTraining /></ProtectedLayout>} />
-            <Route path="/trainingdetails/:id" element={<ProtectedLayout><UserTrainingProgress /></ProtectedLayout>} />
-            <Route path="/create/assessment" element={<ProtectedLayout><CreateAssessment /></ProtectedLayout>} />
-            <Route path="/assessment/assign/:id" element={<ProtectedLayout><AssessmentsAssign /></ProtectedLayout>} />
-            <Route path="/assign/assessment" element={<ProtectedLayout><AssignAssessment /></ProtectedLayout>} />
+            <Route path="/createnewtraining" element={<ProtectedLayout hideForRoles={['store_admin']}><CreateTrainings /></ProtectedLayout>} />
+            <Route path="/createnewtraining/:id" element={<ProtectedLayout hideForRoles={['store_admin']}><CreateTrainings /></ProtectedLayout>} />
+            <Route path="/reassign/:id" element={<ProtectedLayout hideForRoles={['store_admin']}><Reassign /></ProtectedLayout>} />
+            <Route path="/create/mandatorytraining" element={<ProtectedLayout hideForRoles={['store_admin']}><MandatoryTraining /></ProtectedLayout>} />
+            <Route path="/trainingdetails/:id" element={<ProtectedLayout hideForRoles={['store_admin']}><UserTrainingProgress /></ProtectedLayout>} />
+            <Route path="/create/assessment" element={<ProtectedLayout hideForRoles={['store_admin']}><CreateAssessment /></ProtectedLayout>} />
+            <Route path="/assessment/assign/:id" element={<ProtectedLayout hideForRoles={['store_admin']}><AssessmentsAssign /></ProtectedLayout>} />
+            <Route path="/assign/assessment" element={<ProtectedLayout hideForRoles={['store_admin']}><AssignAssessment /></ProtectedLayout>} />
             {/* Test route removed - no longer needed */}
             <Route path="/admin/Notification" element={<ProtectedLayout><Notifications /></ProtectedLayout>} />
 
-            <Route path="/admin/overdue/assessment" element={<ProtectedLayout><AssessmentOverDuedata /></ProtectedLayout>} />
-            <Route path="/admin/overdue/training" element={<ProtectedLayout><TraningOverDuedata /></ProtectedLayout>} />
+            <Route path="/admin/overdue/assessment" element={<ProtectedLayout hideForRoles={['store_admin']}><AssessmentOverDuedata /></ProtectedLayout>} />
+            <Route path="/admin/overdue/training" element={<ProtectedLayout hideForRoles={['store_admin']}><TraningOverDuedata /></ProtectedLayout>} />
             <Route path="/detailed/:id" element={<ProtectedLayout><EmployeeDetaile /></ProtectedLayout>} />
 
             <Route path="/branch/detailed/:id" element={<ProtectedLayout><BranchDetails /></ProtectedLayout>} />

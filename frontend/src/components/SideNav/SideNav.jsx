@@ -231,8 +231,12 @@ const SideNav = () => {
           />
 
           <NavItem to="/employee"    icon="employee"   label="Employees"   active={is('/employee') || location.pathname.startsWith('/detailed/')} />
-          <NavItem to="/training"    icon="training"   label="Trainings"   active={is('/training') || is('/alltraining') || is('/createnewtraining')} />
-          <NavItem to="/assessments" icon="assessment" label="Assessments" active={is('/assessments')} />
+          {user?.role !== 'store_admin' && (
+            <NavItem to="/training"    icon="training"   label="Trainings"   active={is('/training') || is('/alltraining') || is('/createnewtraining')} />
+          )}
+          {user?.role !== 'store_admin' && (
+            <NavItem to="/assessments" icon="assessment" label="Assessments" active={is('/assessments')} />
+          )}
           {user?.role !== "cluster_admin" && user?.role !== "store_admin" && (
             <NavItem to="/module"      icon="module"     label="Modules"     active={is('/module')} />
           )}

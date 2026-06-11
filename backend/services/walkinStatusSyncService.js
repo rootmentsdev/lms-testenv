@@ -35,7 +35,8 @@ const getStatusRank = (status) => {
         'New Walkin': 1,
         'Booked': 2,
         'Rentout': 3,
-        'Return': 4
+        'Return': 4,
+        'Cancel': 5
     };
     return ranks[status] || 1; // Default rank is 1 for any other statuses
 };
@@ -59,6 +60,7 @@ export const syncWalkinStatuses = async () => {
     let totalBookings = 0;
     let totalRentouts = 0;
     let totalReturns = 0;
+    let totalDeletes = 0;
     let totalWalkinsUpdated = 0;
     const errorsList = [];
     const branchResultsList = [];
@@ -72,8 +74,9 @@ export const syncWalkinStatuses = async () => {
             const bookingUrl = `https://rentalapi.rootments.live/api/GetBooking/GetBookingList?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
             const rentoutUrl = `https://rentalapi.rootments.live/api/GetBooking/GetRentoutList?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
             const returnUrl = `https://rentalapi.rootments.live/api/GetBooking/GetReturnList?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
+            const deleteUrl = `https://rentalapi.rootments.live/api/GetBooking/GetDeleteList?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
 
-            // Fetch from all three APIs in parallel, but handle individual request errors safely
+            // Fetch from all four APIs in parallel, but handle individual request errors safely
             const fetchListSafe = async (url, typeName) => {
                 try {
                     const response = await axios.get(url, { timeout: 15000 });
@@ -96,18 +99,20 @@ export const syncWalkinStatuses = async () => {
                 }
             };
 
-            const [bookings, rentouts, returns] = await Promise.all([
+            const [bookings, rentouts, returns, deletes] = await Promise.all([
                 fetchListSafe(bookingUrl, 'Booking'),
                 fetchListSafe(rentoutUrl, 'Rentout'),
-                fetchListSafe(returnUrl, 'Return')
+                fetchListSafe(returnUrl, 'Return'),
+                fetchListSafe(deleteUrl, 'Delete')
             ]);
 
-            console.log(`📊 [Walkin Status Sync] locCode ${locCode}: Bookings = ${bookings.length}, Rentouts = ${rentouts.length}, Returns = ${returns.length}`);
+            console.log(`📊 [Walkin Status Sync] locCode ${locCode}: Bookings = ${bookings.length}, Rentouts = ${rentouts.length}, Returns = ${returns.length}, Deletes = ${deletes.length}`);
             totalBookings += bookings.length;
             totalRentouts += rentouts.length;
             totalReturns += returns.length;
+            totalDeletes += deletes.length;
 
-            // Priority Rule: Return > Rentout > Booked
+            // Priority Rule: Cancel > Return > Rentout > Booked
             const phoneStatusMap = new Map();
 
             // Bookings (Priority 3)
@@ -131,6 +136,14 @@ export const syncWalkinStatuses = async () => {
                 const phone = normalizePhone(extractPhoneNumber(item));
                 if (phone) {
                     phoneStatusMap.set(phone, 'Return');
+                }
+            }
+
+            // Deletes (Priority 4 - Cancel)
+            for (const item of deletes) {
+                const phone = normalizePhone(extractPhoneNumber(item));
+                if (phone) {
+                    phoneStatusMap.set(phone, 'Cancel');
                 }
             }
 
@@ -199,6 +212,7 @@ export const syncWalkinStatuses = async () => {
                 bookings:  bookings.length,
                 rentouts:  rentouts.length,
                 returns:   returns.length,
+                deletes:   deletes.length,
                 matched:   branchWalkinsMatched,
                 updated:   branchWalkinsUpdated,
                 skipped:   branchWalkinsSkipped,
@@ -218,6 +232,7 @@ export const syncWalkinStatuses = async () => {
       - Total Bookings processed: ${totalBookings}
       - Total Rentouts processed: ${totalRentouts}
       - Total Returns processed: ${totalReturns}
+      - Total Deletes processed: ${totalDeletes}
       - Total Walk-ins updated: ${totalWalkinsUpdated}
       - Total locCode errors encountered: ${errorsList.length}
       - Duration: ${durationMs}ms
@@ -235,6 +250,7 @@ export const syncWalkinStatuses = async () => {
                 totalBookings,
                 totalRentouts,
                 totalReturns,
+                totalDeletes,
                 totalWalkinsUpdated,
                 errorsCount: errorsList.length,
             },
@@ -252,6 +268,7 @@ export const syncWalkinStatuses = async () => {
             totalBookings,
             totalRentouts,
             totalReturns,
+            totalDeletes,
             totalWalkinsUpdated,
             errorsCount: errorsList.length,
             errors: errorsList
