@@ -10,53 +10,53 @@ import { validateStoreAccess, validateEmployeeAccess, buildWalkinFilter } from '
 const BRAND_TOKENS = new Set(["zorucci", "grooms", "suitor", "guy", "sg"]);
 
 function canonFixes(s) {
-  return s
-    .replace(/\bedap{1,2}a?l{1,3}y\b/g, "edappally")
-    .replace(/\bedap{1,2}a?l{1,3}i\b/g, "edappally")
-    .replace(/\bmanjeri\b/g, "manjery")
-    .replace(/\bperinthalmana\b/g, "perinthalmanna")
-    .replace(/\bkottakal\b/g, "kottakkal")
-    .replace(/\bkalpeta\b/g, "kalpetta")
-    .replace(/\bzoruc+i\b/g, "zorucci");
+    return s
+        .replace(/\bedap{1,2}a?l{1,3}y\b/g, "edappally")
+        .replace(/\bedap{1,2}a?l{1,3}i\b/g, "edappally")
+        .replace(/\bmanjeri\b/g, "manjery")
+        .replace(/\bperinthalmana\b/g, "perinthalmanna")
+        .replace(/\bkottakal\b/g, "kottakkal")
+        .replace(/\bkalpeta\b/g, "kalpetta")
+        .replace(/\bzoruc+i\b/g, "zorucci");
 }
 
 function norm(s) {
-  const x = String(s || "")
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-  return canonFixes(x);
+    const x = String(s || "")
+        .normalize("NFKD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+    return canonFixes(x);
 }
 
 function locationKey(name) {
-  const tokens = norm(name)
-    .split(" ")
-    .filter((t) => t && !BRAND_TOKENS.has(t));
-  return tokens.join(" ");
+    const tokens = norm(name)
+        .split(" ")
+        .filter((t) => t && !BRAND_TOKENS.has(t));
+    return tokens.join(" ");
 }
 
 const getFormattedDateTime = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
 /**
  * Helper to match stores based on normalized location keys
  */
 function isStoreAllowed(walkinStore, allowedBranches) {
-  const normWalkinStore = locationKey(walkinStore);
-  return allowedBranches.some(branch => {
-    const normBranchName = locationKey(branch.workingBranch);
-    return normBranchName === normWalkinStore || branch.locCode === walkinStore;
-  });
+    const normWalkinStore = locationKey(walkinStore);
+    return allowedBranches.some(branch => {
+        const normBranchName = locationKey(branch.workingBranch);
+        return normBranchName === normWalkinStore || branch.locCode === walkinStore;
+    });
 }
 
 /**
@@ -138,7 +138,7 @@ export const saveWalkin = async (req, res) => {
         }
 
         const trimmedContact = contact.trim();
-        
+
         // Automatically fetch current date and time when adding walk-ins
         const todayStr = _id ? (date || getFormattedDateTime()) : getFormattedDateTime();
 
@@ -151,7 +151,7 @@ export const saveWalkin = async (req, res) => {
 
         // Try to find employee by passed empID / empid or req.admin.userId
         let lookupUser = null;
-        
+
         const passedEmpId = req.body.empID || req.body.empid || req.body.employeeId || req.body.staff;
         if (passedEmpId) {
             lookupUser = await User.findOne({ empID: { $regex: `^${String(passedEmpId).trim()}$`, $options: 'i' } });
@@ -179,7 +179,7 @@ export const saveWalkin = async (req, res) => {
                 finalStaff = lookupUser.username;
                 finalStore = lookupUser.workingBranch;
                 finalEmployeeId = lookupUser._id;
-                
+
                 const branch = await Branch.findOne({
                     $or: [
                         { locCode: lookupUser.locCode },
@@ -192,7 +192,7 @@ export const saveWalkin = async (req, res) => {
             } else {
                 finalStaff = lookupUser.name;
                 finalEmployeeId = lookupUser._id;
-                
+
                 const isSuperOrHrAdmin = ['super_admin', 'admin', 'hr_admin'].includes(lookupUser.role);
                 if (!isSuperOrHrAdmin || !store || store === '-' || store === '') {
                     if (lookupUser.branches && lookupUser.branches.length > 0) {
@@ -261,13 +261,13 @@ export const saveWalkin = async (req, res) => {
                     // Check if status was already changed today
                     const today = new Date();
                     today.setHours(0, 0, 0, 0);
-                    
+
                     const lastChangeDate = walkinRecord.lastStatusChangeDate ? new Date(walkinRecord.lastStatusChangeDate) : null;
                     const lastChangeDateStart = lastChangeDate ? new Date(lastChangeDate) : null;
                     if (lastChangeDateStart) {
                         lastChangeDateStart.setHours(0, 0, 0, 0);
                     }
-                    
+
                     // If status was changed today, prevent another change
                     if (lastChangeDateStart && lastChangeDateStart.getTime() === today.getTime()) {
                         return res.status(400).json({
@@ -276,14 +276,14 @@ export const saveWalkin = async (req, res) => {
                             lastStatusChange: walkinRecord.lastStatusChangeDate
                         });
                     }
-                    
+
                     // Only increment repeatCount if the status change happens on a DIFFERENT day
                     const existingDateStr = walkinRecord.date ? walkinRecord.date.substring(0, 10) : null;
                     const todayDateStr = todayStr.substring(0, 10);
                     if (existingDateStr !== todayDateStr) {
                         walkinRecord.repeatCount = (walkinRecord.repeatCount || 1) + 1;
                     }
-                    
+
                     // Update status change tracking
                     walkinRecord.lastStatusChangeDate = new Date();
                     walkinRecord.statusChangedToday = true;
@@ -318,13 +318,13 @@ export const saveWalkin = async (req, res) => {
             if (status && status.trim() !== walkinRecord.status) {
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
-                
+
                 const lastChangeDate = walkinRecord.lastStatusChangeDate ? new Date(walkinRecord.lastStatusChangeDate) : null;
                 const lastChangeDateStart = lastChangeDate ? new Date(lastChangeDate) : null;
                 if (lastChangeDateStart) {
                     lastChangeDateStart.setHours(0, 0, 0, 0);
                 }
-                
+
                 // If status was changed today, prevent another change
                 if (lastChangeDateStart && lastChangeDateStart.getTime() === today.getTime()) {
                     return res.status(400).json({
@@ -333,7 +333,7 @@ export const saveWalkin = async (req, res) => {
                         lastStatusChange: walkinRecord.lastStatusChangeDate
                     });
                 }
-                
+
                 // Only increment repeatCount if status change happens on a DIFFERENT day than last recorded
                 const existingDateStr = walkinRecord.date ? walkinRecord.date.substring(0, 10) : null;
                 const todayDateStr = todayStr.substring(0, 10);
@@ -341,7 +341,7 @@ export const saveWalkin = async (req, res) => {
                     walkinRecord.repeatCount += 1;
                 }
             }
-            
+
             walkinRecord.customerName = customerName.trim();
             if (functionDate) walkinRecord.functionDate = functionDate.trim();
             if (finalStore) walkinRecord.store = finalStore;
@@ -365,7 +365,7 @@ export const saveWalkin = async (req, res) => {
             }
             if (createdBy) walkinRecord.createdBy = createdBy;
             walkinRecord.date = todayStr; // Update to latest visit date
-            
+
             await walkinRecord.save();
             return res.status(200).json({
                 success: true,
@@ -373,9 +373,21 @@ export const saveWalkin = async (req, res) => {
                 data: walkinRecord
             });
         } else {
-            // ALWAYS Create new record if status is 'New Walkin' or if it is a different store, but preserve repeatCount sequence globally
-            const globalLatest = await Walkin.findOne({ contact: trimmedContact }).sort({ createdAt: -1 });
-            const nextRepeatCount = globalLatest ? globalLatest.repeatCount + 1 : 1;
+            // ALWAYS Create new record if status is 'New Walkin' or if it is a different store.
+            // Query the latest walk-in for this contact AT THE SAME STORE to base the repeatCount on the store-specific history.
+            let storeLatest = null;
+            if (finalStoreId) {
+                storeLatest = await Walkin.findOne({
+                    contact: trimmedContact,
+                    storeId: finalStoreId
+                }).sort({ createdAt: -1 });
+            } else if (finalStore && finalStore !== '-') {
+                storeLatest = await Walkin.findOne({
+                    contact: trimmedContact,
+                    store: finalStore
+                }).sort({ createdAt: -1 });
+            }
+            const nextRepeatCount = storeLatest ? (storeLatest.repeatCount || 1) + 1 : 1;
 
             const newWalkin = new Walkin({
                 customerName: customerName.trim(),
@@ -426,7 +438,7 @@ export const getWalkins = async (req, res) => {
 
         // 1. Build Base Query based on date/frontend filters
         let baseQuery = {};
-        
+
         if (storeId) {
             await validateStoreAccess(adminId, storeId);
             baseQuery.storeId = storeId;
