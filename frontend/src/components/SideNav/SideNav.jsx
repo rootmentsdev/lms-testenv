@@ -237,15 +237,21 @@ const SideNav = () => {
             <NavItem to="/module"      icon="module"     label="Modules"     active={is('/module')} />
           )}
           <NavItem to="/branch"      icon="branch"     label="Branches"    active={is('/branch') || is('/Addbranch')} />
-          {(user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin') && (
+          {(user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'cluster_admin') && (
             <FlyoutNavItem
               icon="settings"
               label="Settings"
               active={is('/settings/users') || is('/settings/create-user') || is('/settings/create-notification')}
-              items={[
-                { to: '/settings/users', label: 'Create User', active: is('/settings/users') || is('/settings/create-user') },
-                { to: '/settings/create-notification', label: 'Create Notification', active: is('/settings/create-notification') },
-              ]}
+              items={
+                user?.role === 'cluster_admin'
+                  ? [
+                      { to: '/settings/users', label: 'Create User', active: is('/settings/users') || is('/settings/create-user') }
+                    ]
+                  : [
+                      { to: '/settings/users', label: 'Create User', active: is('/settings/users') || is('/settings/create-user') },
+                      { to: '/settings/create-notification', label: 'Create Notification', active: is('/settings/create-notification') },
+                    ]
+              }
             />
           )}
 

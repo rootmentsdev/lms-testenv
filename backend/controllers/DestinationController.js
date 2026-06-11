@@ -603,6 +603,13 @@ export const CreatingAdminUsers = async (req, res) => {
             });
         }
 
+        // Cluster admin check: can only assign store_admin or employee
+        if (req.admin?.role === 'cluster_admin' && role !== 'store_admin' && role !== 'employee') {
+            return res.status(403).json({
+                message: "Cluster admins are only allowed to assign store_admin or employee roles.",
+            });
+        }
+
         // Support direct employee user creation
         if (role === 'employee') {
             let workingBranch = "No Store";
@@ -970,9 +977,35 @@ export const handlePermissions = async (req, res) => {
 
 export const getAdminUsers = async (req, res) => {
     try {
-        const admins = await Admin.find({}).populate('branches').populate('assignedClusters').lean();
-        const users = await User.find({}).lean();
+        const loggedInAdminId = req.admin.userId;
+        const loggedInAdmin = await Admin.findById(loggedInAdminId).populate('branches').lean();
+
+        let admins = await Admin.find({}).populate('branches').populate('assignedClusters').lean();
+        let users = await User.find({}).lean();
         const allBranches = await Branch.find({}).lean();
+
+        if (loggedInAdmin && loggedInAdmin.role === 'cluster_admin') {
+            const clusterBranchIds = (loggedInAdmin.branches || []).map(b => b._id.toString());
+            const clusterLocCodes = (loggedInAdmin.branches || []).map(b => String(b.locCode));
+
+            // Filter admins: only keep store_admins that belong to cluster branches
+            admins = admins.filter(a => {
+                if (a.role !== 'store_admin') return false;
+                const adminBranchIds = (a.branches || []).map(b => (b._id || b).toString());
+                return adminBranchIds.some(id => clusterBranchIds.includes(id));
+            });
+
+            // Filter users: only keep employees whose locCode matches cluster branch locCodes
+            users = users.filter(u => {
+                let userLocCodes = [];
+                if (Array.isArray(u.locCode)) {
+                    userLocCodes = u.locCode.map(String);
+                } else if (typeof u.locCode === 'string') {
+                    userLocCodes = u.locCode.split(',').map(s => s.trim());
+                }
+                return userLocCodes.some(code => clusterLocCodes.includes(code));
+            });
+        }
 
         const adminEmpIds = new Set(admins.map(a => String(a.EmpId || '').toLowerCase().trim()));
         const adminEmails = new Set(admins.map(a => String(a.email || '').toLowerCase().trim()));
@@ -1029,6 +1062,14 @@ export const updateAdminUser = async (req, res) => {
     try {
         const { id } = req.params;
         const { name, email, phoneNumber, role, Branch: branches, password } = req.body;
+
+        // Cluster admin check: can only assign store_admin or employee
+        if (req.admin?.role === 'cluster_admin' && role !== 'store_admin' && role !== 'employee') {
+            return res.status(403).json({
+                success: false,
+                message: "Cluster admins are only allowed to assign store_admin or employee roles.",
+            });
+        }
 
         // Check if this is an employee in User collection
         const isEmployee = await User.findById(id);
@@ -1258,8 +1299,27 @@ export const updateAdminUser = async (req, res) => {
 export const deleteAdminUser = async (req, res) => {
     try {
         const { id } = req.params;
-        let deletedUser = null;
 
+        if (req.admin?.role === 'cluster_admin') {
+            let targetUser = null;
+            if (mongoose.isValidObjectId(id)) {
+                targetUser = await User.findById(id) || await Admin.findById(id);
+            }
+            if (!targetUser) {
+                targetUser = await User.findOne({ $or: [{ empID: id }, { email: id }] }) || await Admin.findOne({ email: id });
+            }
+            if (targetUser) {
+                const targetRole = targetUser.role || (targetUser.designation === 'Employee' ? 'employee' : '');
+                if (targetRole !== 'store_admin' && targetRole !== 'employee') {
+                    return res.status(403).json({
+                        success: false,
+                        message: "Cluster admins are only allowed to delete store_admin or employee users.",
+                    });
+                }
+            }
+        }
+
+        let deletedUser = null;
         if (mongoose.isValidObjectId(id)) {
             deletedUser = await User.findByIdAndDelete(id);
         }
