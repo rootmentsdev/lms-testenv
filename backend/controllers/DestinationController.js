@@ -133,6 +133,8 @@ export const HomeBar = async (req, res) => {
             let employeesInTraining = 0;
             let assessmentCount = 0;
             let assessmentCountPending = 0;
+            let overdueEmployeesCount = 0;
+            const currentDate = new Date();
 
             branchUsers.forEach((user) => {
                 const assignedTrainings = Array.isArray(user.training) ? user.training : [];
@@ -150,6 +152,18 @@ export const HomeBar = async (req, res) => {
                 // Assessment data
                 assessmentCount += user.assignedAssessments.length;
                 assessmentCountPending += user.assignedAssessments.filter((item) => item.pass === false).length;
+
+                // Overdue trainings
+                const hasOverdueAssigned = assignedTrainings.some(
+                    (item) => item.pass === false && item.deadline && new Date(item.deadline) < currentDate
+                );
+                const hasOverdueMandatory = mandatoryTrainings.some(
+                    (item) => item.pass === false && item.deadline && new Date(item.deadline) < currentDate
+                );
+
+                if (hasOverdueAssigned || hasOverdueMandatory) {
+                    overdueEmployeesCount++;
+                }
             });
 
             return {
@@ -165,6 +179,7 @@ export const HomeBar = async (req, res) => {
                 branchName: branch.workingBranch,
                 totalEmployees: branchUsers.length,
                 employeesInTraining,
+                overdueEmployeesCount,
             };
         });
 
