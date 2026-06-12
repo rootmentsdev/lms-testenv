@@ -33,8 +33,9 @@ const CustomTooltip = ({ active, payload }) => {
       boxShadow: "0 4px 16px rgba(0,0,0,0.12)", fontSize: "13px", minWidth: "140px",
     }}>
       <p style={{ fontWeight: 700, marginBottom: 4, color: "#111827" }}>{d.fullBranchName || d.branchName || d.name}</p>
-      <p style={{ color: getTierColor(d.pct), margin: "2px 0" }}>Progress: <b>{d.pct}%</b></p>
+      <p style={{ color: getTierColor(d.pct), margin: "2px 0" }}>Progress: <b>{Number(d.pct).toFixed(1)}%</b></p>
       <p style={{ color: "#6b7280", margin: "2px 0" }}>{d.employees} Employees</p>
+      <p style={{ color: "#ef4444", margin: "2px 0" }}>Overdue: <b>{d.overdue}</b></p>
     </div>
   );
 };
@@ -131,6 +132,7 @@ const HomeBar = () => {
         pct: Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 0,
         pendingPct: Number.isFinite(pendingPct) ? Math.max(0, Math.min(100, pendingPct)) : 0,
         employees:  obj.totalEmployees || obj.employees || 0,
+        overdue:    obj.overdueEmployeesCount || 0,
         tier:       getTierLabel(pct),
         color:      getTierColor(pct),
       };
