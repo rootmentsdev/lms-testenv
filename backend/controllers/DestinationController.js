@@ -910,7 +910,11 @@ export const getAccessibleEmployees = async (req, res) => {
             query.storeId = resolvedStore._id;
         }
 
-        let employees = await Employee.find(query);
+        let employees = await Employee.find(query).lean();
+        employees = employees.map(emp => ({
+            ...emp,
+            username: emp.username || `${emp.firstName || ''} ${emp.lastName || ''}`.trim()
+        }));
 
         // Fallback: If no employees are found in employeedata, query User collection and map them
         if (employees.length === 0) {
@@ -947,24 +951,88 @@ export const getAccessibleEmployees = async (req, res) => {
             }));
         }
 
-        // --- FILTER OUT ADMINS (from showing up in the Employee dropdown) ---
-        const adminsList = await Admin.find({}).select('email EmpId employeeId').lean();
+        // Determine allowed admin roles to return as employees based on logged-in admin's role
+        let allowedAdminRoles = ['store_admin', 'cluster_admin'];
+        let excludedAdminRoles = ['super_admin', 'admin', 'hr_admin'];
+        
+        if (req.admin.role === 'store_admin') {
+            allowedAdminRoles = ['store_admin'];
+            excludedAdminRoles = ['super_admin', 'admin', 'hr_admin', 'cluster_admin'];
+        }
+
+        // Fetch store/cluster admins for the selected/accessible stores to include them as employees
+        let storeAdminQuery = { role: { $in: allowedAdminRoles }, isActive: true };
+        if (resolvedStore) {
+            storeAdminQuery.branches = resolvedStore._id;
+        } else {
+            const accessibleStoreIds = await getAccessibleStoreIds(req.admin.userId);
+            storeAdminQuery.branches = { $in: accessibleStoreIds };
+        }
+        
+        const storeAdmins = await Admin.find(storeAdminQuery).lean();
+        const mappedStoreAdmins = storeAdmins.map(sa => {
+            let branchName = "";
+            if (resolvedStore) {
+                branchName = resolvedStore.workingBranch;
+            }
+            return {
+                _id: sa._id,
+                employeeId: sa.EmpId || sa.employeeId || '',
+                username: sa.name,
+                firstName: sa.name.split(' ')[0] || '',
+                lastName: sa.name.split(' ').slice(1).join(' ') || '',
+                email: sa.email,
+                phoneNumber: sa.phoneNumber,
+                designation: sa.role === 'cluster_admin' ? 'Cluster Admin' : 'Store Admin',
+                workingBranch: branchName || (sa.branches && sa.branches.length > 0 ? '' : 'No Store'),
+                status: 'Active'
+            };
+        });
+
+        // Merge mapped store admins with employees
+        const combinedEmployees = [...employees, ...mappedStoreAdmins];
+
+        // Deduplicate the combined list by id, email, or employeeId
+        const seenIds = new Set();
+        const seenEmails = new Set();
+        const seenEmpIds = new Set();
+        
+        const uniqueEmployees = [];
+        for (const emp of combinedEmployees) {
+            const empIdStr = emp._id.toString();
+            const emailKey = emp.email?.toLowerCase().trim();
+            const empCodeKey = (emp.employeeId || emp.empID || '').toString().toLowerCase().trim();
+            
+            if (seenIds.has(empIdStr)) continue;
+            if (emailKey && seenEmails.has(emailKey)) continue;
+            if (empCodeKey && seenEmpIds.has(empCodeKey)) continue;
+            
+            seenIds.add(empIdStr);
+            if (emailKey) seenEmails.add(emailKey);
+            if (empCodeKey) seenEmpIds.add(empCodeKey);
+            
+            uniqueEmployees.push(emp);
+        }
+
+        // --- FILTER OUT NON-STORE/CLUSTER ADMINS (from showing up in the Employee dropdown) ---
+        // Exclude anyone who is a non-store/cluster admin (e.g. super_admin, admin, hr_admin)
+        const adminsList = await Admin.find({ role: { $in: excludedAdminRoles } }).select('email EmpId employeeId').lean();
         const adminEmails = new Set(adminsList.map(a => a.email?.toLowerCase().trim()).filter(Boolean));
         const adminEmpIds = new Set([
             ...adminsList.map(a => a.EmpId?.toLowerCase().trim()).filter(Boolean),
             ...adminsList.map(a => (a.employeeId || '')?.toLowerCase().trim()).filter(Boolean)
         ]);
 
-        employees = employees.filter(emp => {
+        const filteredEmployees = uniqueEmployees.filter(emp => {
             const empEmail = emp.email?.toLowerCase().trim();
             const empId = (emp.employeeId || emp.empID)?.toLowerCase().trim();
             
-            // Exclude if the email or employee ID matches any admin record
+            // Exclude if the email or employee ID matches any non-store admin record
             const isMatch = adminEmails.has(empEmail) || adminEmpIds.has(empId);
             return !isMatch;
         });
 
-        res.status(200).json({ employees });
+        res.status(200).json({ employees: filteredEmployees });
     } catch (error) {
         console.error("Error fetching accessible employees:", error);
         res.status(500).json({ message: "Server error", error: error.message });

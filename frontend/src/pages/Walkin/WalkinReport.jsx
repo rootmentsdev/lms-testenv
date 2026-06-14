@@ -19,6 +19,15 @@ function locationKey(name) { return norm(name).split(" ").filter(t=>t&&!BRAND_TO
 
 const STATUS_OPTIONS = ['Trial','Loss','Enquiry','Reissue','New Booking','Revisit Booking','Revisit Loss','New Walkin','Booked','Rentout','Return','Cancel','Other'];
 
+const HARDCODED_STORES = [
+    'Z-Edapally1', 'G-Edappally', 'SG-Trivandrum', 'Z- Edappal', 'Z.Perinthalmanna',
+    'Z.Kottakkal', 'G.Kottayam', 'G.Perumbavoor', 'G.Thrissur', 'G.Chavakkad',
+    'G.Calicut', 'G.Vadakara', 'G.Edappal', 'G.Perinthalmanna', 'G.Kottakkal',
+    'G.Manjeri', 'G.Palakkad', 'G.Kalpetta', 'G.Kannur', 'G.MG Road',
+    'Dappr Squad', 'office', 'production', 'WAREHOUSE'
+];
+
+
 const STATUS_COLORS = {
   'Booked':            { bg:'#dcfce7', color:'#16a34a' },
   'New Booking':       { bg:'#dcfce7', color:'#16a34a' },
@@ -75,7 +84,14 @@ const WalkinReport = () => {
       try {
         const res  = await fetch(`${baseUrl.baseUrl}api/admin/accessible-stores`, { headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` } });
         const json = await res.json();
-        const list = Array.isArray(json?.stores) ? json.stores : (Array.isArray(json?.data) ? json.data : []);
+        let list = Array.isArray(json?.stores) ? json.stores : (Array.isArray(json?.data) ? json.data : []);
+        
+        if (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin') {
+          const existing = new Set(list.map(b => b.workingBranch));
+          const missing = HARDCODED_STORES.filter(s => !existing.has(s));
+          list = [...missing.map(name => ({ workingBranch: name })), ...list];
+        }
+        
         setBranches(list);
         if (user?.role === 'store_admin' && list.length > 0) setFormData(p=>({...p, store: list[0].workingBranch}));
       } catch(e){ console.error(e); }
@@ -92,6 +108,8 @@ const WalkinReport = () => {
         const selectedBranch = branches.find(b => b.workingBranch === storeName);
         if (selectedBranch && selectedBranch._id) {
           url += `?storeId=${selectedBranch._id}`;
+        } else {
+          url += `?store=${encodeURIComponent(storeName)}`;
         }
       }
       const res = await fetch(url, {

@@ -39,14 +39,22 @@ function locationKey(name) {
 
 const getFormattedDateTime = () => {
     const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    const options = { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+    const formatter = new Intl.DateTimeFormat('en-US', options);
+    const parts = formatter.formatToParts(now);
+    const getVal = (type) => parts.find(p => p.type === type).value;
+    return `${getVal('year')}-${getVal('month')}-${getVal('day')} ${getVal('hour')}:${getVal('minute')}:${getVal('second')}`;
 };
+
+const getLocalDateStringIST = (date) => {
+    if (!date) return null;
+    const options = { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' };
+    const formatter = new Intl.DateTimeFormat('en-US', options);
+    const parts = formatter.formatToParts(date);
+    const getVal = (type) => parts.find(p => p.type === type).value;
+    return `${getVal('year')}-${getVal('month')}-${getVal('day')}`;
+};
+
 
 /**
  * Helper to match stores based on normalized location keys
@@ -124,6 +132,7 @@ export const saveWalkin = async (req, res) => {
             employeeId,
             category,
             subCategory,
+            functionType,
             remarks,
             status,
             date,
@@ -263,6 +272,11 @@ export const saveWalkin = async (req, res) => {
             if (finalEmployeeId) walkinRecord.employeeId = finalEmployeeId;
             if (category) walkinRecord.category = category.trim();
             if (subCategory) walkinRecord.subCategory = subCategory.trim();
+            if (status === 'Loss') {
+                if (functionType) walkinRecord.functionType = functionType.trim();
+            } else {
+                walkinRecord.functionType = '-';
+            }
             if (fileAttachment && fileAttachment.base64) {
                 walkinRecord.attachment = fileAttachment.base64;
                 walkinRecord.attachmentName = fileAttachment.name;
@@ -272,17 +286,10 @@ export const saveWalkin = async (req, res) => {
                 const trimmedStatus = status.trim();
                 if (walkinRecord.status !== trimmedStatus) {
                     // Check if status was already changed today
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
+                    const currentTodayIST = getLocalDateStringIST(new Date());
+                    const lastChangeIST = getLocalDateStringIST(walkinRecord.lastStatusChangeDate);
 
-                    const lastChangeDate = walkinRecord.lastStatusChangeDate ? new Date(walkinRecord.lastStatusChangeDate) : null;
-                    const lastChangeDateStart = lastChangeDate ? new Date(lastChangeDate) : null;
-                    if (lastChangeDateStart) {
-                        lastChangeDateStart.setHours(0, 0, 0, 0);
-                    }
-
-                    // If status was changed today, prevent another change
-                    if (lastChangeDateStart && lastChangeDateStart.getTime() === today.getTime()) {
+                    if (lastChangeIST && lastChangeIST === currentTodayIST) {
                         return res.status(400).json({
                             success: false,
                             message: 'Status can only be changed once per day. Please try again tomorrow.',
@@ -329,17 +336,10 @@ export const saveWalkin = async (req, res) => {
         if (walkinRecord && status !== 'New Walkin' && isSameStore) {
             // Check if status was already changed today
             if (status && status.trim() !== walkinRecord.status) {
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
+                const currentTodayIST = getLocalDateStringIST(new Date());
+                const lastChangeIST = getLocalDateStringIST(walkinRecord.lastStatusChangeDate);
 
-                const lastChangeDate = walkinRecord.lastStatusChangeDate ? new Date(walkinRecord.lastStatusChangeDate) : null;
-                const lastChangeDateStart = lastChangeDate ? new Date(lastChangeDate) : null;
-                if (lastChangeDateStart) {
-                    lastChangeDateStart.setHours(0, 0, 0, 0);
-                }
-
-                // If status was changed today, prevent another change
-                if (lastChangeDateStart && lastChangeDateStart.getTime() === today.getTime()) {
+                if (lastChangeIST && lastChangeIST === currentTodayIST) {
                     return res.status(400).json({
                         success: false,
                         message: 'Status can only be changed once per day. Please try again tomorrow.',
@@ -363,6 +363,11 @@ export const saveWalkin = async (req, res) => {
             if (finalEmployeeId) walkinRecord.employeeId = finalEmployeeId;
             if (category) walkinRecord.category = category.trim();
             if (subCategory) walkinRecord.subCategory = subCategory.trim();
+            if (status === 'Loss') {
+                if (functionType) walkinRecord.functionType = functionType.trim();
+            } else {
+                walkinRecord.functionType = '-';
+            }
             if (fileAttachment && fileAttachment.base64) {
                 walkinRecord.attachment = fileAttachment.base64;
                 walkinRecord.attachmentName = fileAttachment.name;
@@ -413,6 +418,7 @@ export const saveWalkin = async (req, res) => {
                 createdBy: createdBy || undefined,
                 category: category ? category.trim() : '-',
                 subCategory: subCategory ? subCategory.trim() : '-',
+                functionType: (status === 'Loss' && functionType) ? functionType.trim() : '-',
                 attachment: (fileAttachment && fileAttachment.base64) ? fileAttachment.base64 : '',
                 attachmentName: (fileAttachment && fileAttachment.name) ? fileAttachment.name : '',
                 remarks: remarks ? remarks.trim() : '-',
@@ -492,7 +498,7 @@ export const getWalkins = async (req, res) => {
         }
 
         // 3. Fetch filtered walkins directly from MongoDB
-        const baseProjection = 'date customerName contact functionDate store staff managerName category subCategory remarks repeatCount status storeId employeeId createdBy createdAt';
+        const baseProjection = 'date customerName contact functionDate store staff managerName category subCategory functionType remarks repeatCount status storeId employeeId createdBy createdAt lastStatusChangeDate statusChangedToday';
 
         const isCountOnlyFetch = String(countOnly).toLowerCase() === 'true';
         const isChartOnlyFetch = String(chartOnly).toLowerCase() === 'true';
@@ -552,13 +558,22 @@ export const getWalkins = async (req, res) => {
             findQuery.lean(),
         ]);
 
+        const todayStr = getLocalDateStringIST(new Date());
+        const mappedFiltered = filtered.map(w => {
+            const lastChangeStr = getLocalDateStringIST(w.lastStatusChangeDate);
+            return {
+                ...w,
+                statusChangedToday: !!(lastChangeStr && lastChangeStr === todayStr)
+            };
+        });
+
         return res.status(200).json({
             success: true,
             message: 'Walk-ins retrieved successfully',
             count: total,
             page: limitNum > 0 ? pageNum : 1,
             limit: limitNum > 0 ? limitNum : total,
-            data: filtered
+            data: mappedFiltered
         });
 
     } catch (error) {
@@ -580,7 +595,7 @@ export const getAllWalkinsPublic = async (req, res) => {
 
         let filtered = await Walkin.find({})
             .sort({ createdAt: -1 })
-            .select('date customerName contact functionDate store staff managerName category subCategory remarks repeatCount status storeId employeeId createdBy createdAt')
+            .select('date customerName contact functionDate store staff managerName category subCategory functionType remarks repeatCount status storeId employeeId createdBy createdAt lastStatusChangeDate statusChangedToday')
             .lean();
 
         // Date Range Filter
@@ -589,11 +604,20 @@ export const getAllWalkinsPublic = async (req, res) => {
             filtered = filtered.filter(w => w.date >= startDate && w.date <= `${endDate}${endOfDaySuffix}`);
         }
 
+        const todayStr = getLocalDateStringIST(new Date());
+        const mappedFiltered = filtered.map(w => {
+            const lastChangeStr = getLocalDateStringIST(w.lastStatusChangeDate);
+            return {
+                ...w,
+                statusChangedToday: !!(lastChangeStr && lastChangeStr === todayStr)
+            };
+        });
+
         return res.status(200).json({
             success: true,
             message: 'All walk-ins retrieved successfully for external view',
-            count: filtered.length,
-            data: filtered
+            count: mappedFiltered.length,
+            data: mappedFiltered
         });
 
     } catch (error) {
