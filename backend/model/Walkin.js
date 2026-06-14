@@ -46,6 +46,11 @@ const walkinSchema = new mongoose.Schema({
         default: '-',
         trim: true
     },
+    functionType: {
+        type: String,
+        default: '-',
+        trim: true
+    },
     remarks: {
         type: String,
         default: '-',
