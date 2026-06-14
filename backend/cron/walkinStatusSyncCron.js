@@ -7,8 +7,8 @@ let isLossExpiryRunning = false;
 export const startWalkinStatusSyncCron = () => {
     console.log('🕐 Starting Walk-in Status Sync Scheduler...');
 
-    // Run every 1 hour
-    cron.schedule('0 * * * *', async () => {
+    // Run every 15 minutes
+    cron.schedule('*/15 * * * *', async () => {
         if (isRunning) {
             console.log('⚠️ [Walkin Status Sync Cron] Previous sync job is still running. Skipping this execution.');
             return;
@@ -43,6 +43,6 @@ export const startWalkinStatusSyncCron = () => {
         }
     });
 
-    console.log('✅ Walk-in Status Sync Scheduler started (runs every 1 hour, loss expiry runs daily at 12:00 AM)');
+    console.log('✅ Walk-in Status Sync Scheduler started (runs every 15 minutes, loss expiry runs daily at 12:00 AM)');
 };
 

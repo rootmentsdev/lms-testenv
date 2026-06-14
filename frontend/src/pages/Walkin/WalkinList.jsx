@@ -127,7 +127,13 @@ const WalkinList = () => {
         subCategory: '-',
         remarks: '',
         status: 'New Walkin',
-        repeatCount: 1
+        repeatCount: 1,
+        lossProductType: '',
+        lossSizeColour: '',
+        lossSizeOption: '',
+        lossPriceReason: '',
+        lossBudget: '',
+        lossNote: ''
     });
 
     const [currentAdmin, setCurrentAdmin] = useState(null);
@@ -143,28 +149,115 @@ const WalkinList = () => {
         return dateStr.split(' ')[0].split('T')[0];
     };
 
+    const parseRemarks = (remarksStr) => {
+        let lossProductType = '';
+        let lossSizeColour = '';
+        let lossSizeOption = '';
+        let lossPriceReason = '';
+        let lossBudget = '';
+        let lossNote = '';
+        let lossEnquiryGroomComing = '';
+        let lossEnquiryTrailOption = '';
+        let lossEnquiryNextVisitDate = '';
+        let lossEnquiryConfirmReason = '';
+        let lossEnquiryRevisitDate = '';
+
+        if (remarksStr && remarksStr.startsWith('[')) {
+            // Check category prefix to parse correctly
+            if (remarksStr.startsWith('[Product Already Booked]')) {
+                const productMatch = remarksStr.match(/Product:\s*([^|]+)/);
+                if (productMatch) lossProductType = productMatch[1].trim();
+
+                const sizeColourMatch = remarksStr.match(/Size & Colour:\s*([^|]+)/);
+                if (sizeColourMatch) lossSizeColour = sizeColourMatch[1].trim();
+            } else if (remarksStr.startsWith('[Model, Design and Colour Not Available]')) {
+                const productMatch = remarksStr.match(/Product:\s*([^|]+)/);
+                if (productMatch) lossProductType = productMatch[1].trim();
+
+                const sizeColourMatch = remarksStr.match(/Size & Colour:\s*([^|]+)/);
+                if (sizeColourMatch) lossSizeColour = sizeColourMatch[1].trim();
+            } else if (remarksStr.startsWith('[Size]')) {
+                const sizeMatch = remarksStr.match(/Selected:\s*([^|]+)/);
+                if (sizeMatch) lossSizeOption = sizeMatch[1].trim();
+            } else if (remarksStr.startsWith('[Price]')) {
+                const priceReasonMatch = remarksStr.match(/Reason:\s*([^|]+)/);
+                if (priceReasonMatch) lossPriceReason = priceReasonMatch[1].trim();
+
+                const budgetMatch = remarksStr.match(/Budget:\s*([^|]+)/);
+                if (budgetMatch) lossBudget = budgetMatch[1].trim();
+            } else if (remarksStr.startsWith('[Enquiry Without Groom/Bride]')) {
+                const groomMatch = remarksStr.match(/Groom Coming:\s*([^|]+)/);
+                if (groomMatch) lossEnquiryGroomComing = groomMatch[1].trim();
+            } else if (remarksStr.startsWith('[Enquiry Without Trail]')) {
+                const trailMatch = remarksStr.match(/Selected:\s*([^|]+)/);
+                if (trailMatch) lossEnquiryTrailOption = trailMatch[1].trim();
+
+                const nextVisitMatch = remarksStr.match(/Next Visit Date:\s*([^|]+)/);
+                if (nextVisitMatch) lossEnquiryNextVisitDate = nextVisitMatch[1].trim();
+            } else if (remarksStr.startsWith('[Confirm Later]')) {
+                const confirmMatch = remarksStr.match(/Reason:\s*([^|]+)/);
+                if (confirmMatch) lossEnquiryConfirmReason = confirmMatch[1].trim();
+
+                const revisitMatch = remarksStr.match(/Revisit Date:\s*([^|]+)/);
+                if (revisitMatch) lossEnquiryRevisitDate = revisitMatch[1].trim();
+            }
+
+            const noteMatch = remarksStr.match(/Note:\s*(.*)$/);
+            if (noteMatch) {
+                lossNote = noteMatch[1].trim();
+            } else {
+                const prefixMatch = remarksStr.match(/^\[[^\]]+\]\s*(.*)/);
+                if (prefixMatch) {
+                    lossNote = prefixMatch[1].trim();
+                } else {
+                    lossNote = remarksStr;
+                }
+            }
+        } else {
+            lossNote = remarksStr || '';
+        }
+
+        return {
+            lossProductType,
+            lossSizeColour,
+            lossSizeOption,
+            lossPriceReason,
+            lossBudget,
+            lossNote,
+            lossEnquiryGroomComing,
+            lossEnquiryTrailOption,
+            lossEnquiryNextVisitDate,
+            lossEnquiryConfirmReason,
+            lossEnquiryRevisitDate
+        };
+    };
+
     const getResetFormData = (admin = currentAdmin, branchList = branches) => {
         let defStore = '';
         let defStoreId = '';
 
-        if (admin) {
-            if (admin.branches && admin.branches.length > 0) {
-                const adminBranchId = admin.branches[0]?._id || admin.branches[0];
-                const matchedBranch = branchList.find(b =>
-                    b._id === adminBranchId ||
-                    b.workingBranch === admin.branches[0].workingBranch
-                );
-                if (matchedBranch) {
-                    defStore = matchedBranch.workingBranch;
-                    defStoreId = matchedBranch._id;
+        if (user?.role === 'store_admin') {
+            if (admin) {
+                if (admin.branches && admin.branches.length > 0) {
+                    const adminBranchId = admin.branches[0]?._id || admin.branches[0];
+                    const matchedBranch = branchList.find(b =>
+                        b._id === adminBranchId ||
+                        b.workingBranch === admin.branches[0].workingBranch
+                    );
+                    if (matchedBranch) {
+                        defStore = matchedBranch.workingBranch;
+                        defStoreId = matchedBranch._id;
+                    }
                 }
+            }
+
+            if (!defStore && branchList.length > 0) {
+                defStore = branchList[0].workingBranch;
+                defStoreId = branchList[0]._id;
             }
         }
 
-        if (!defStore && branchList.length > 0) {
-            defStore = branchList[0].workingBranch;
-            defStoreId = branchList[0]._id;
-        }
+        const isStoreAdmin = user?.role === 'store_admin';
 
         return {
             _id: '',
@@ -174,13 +267,25 @@ const WalkinList = () => {
             functionDate: new Date().toISOString().split('T')[0],
             store: defStore,
             storeId: defStoreId,
-            staff: admin?.name || '',
-            employeeId: admin?._id || '',
+            staff: '',
+            employeeId: '',
             category: '-',
             subCategory: '-',
+            functionType: '-',
             remarks: '',
             status: 'New Walkin',
-            repeatCount: 1
+            repeatCount: 1,
+            lossProductType: '',
+            lossSizeColour: '',
+            lossSizeOption: '',
+            lossPriceReason: '',
+            lossBudget: '',
+            lossNote: '',
+            lossEnquiryGroomComing: '',
+            lossEnquiryTrailOption: '',
+            lossEnquiryNextVisitDate: '',
+            lossEnquiryConfirmReason: '',
+            lossEnquiryRevisitDate: ''
         };
     };
 
@@ -203,8 +308,17 @@ const WalkinList = () => {
             });
             const walkinJson = await walkinRes.json();
             if (walkinJson?.success) {
-                setWalkins(walkinJson.data || []);
+                const fetchedWalkins = walkinJson.data || [];
+                setWalkins(fetchedWalkins);
                 setTotalWalkins(Number(walkinJson.count || 0));
+
+                const initialStatusChanged = {};
+                fetchedWalkins.forEach(w => {
+                    if (w.statusChangedToday) {
+                        initialStatusChanged[w._id] = true;
+                    }
+                });
+                setStatusChangedToday(initialStatusChanged);
             }
         } catch (err) {
         } finally {
@@ -238,6 +352,9 @@ const WalkinList = () => {
                 }
 
                 setBranches(branchList);
+                if (user?.role === 'store_admin' && branchList.length > 0) {
+                    setStoreFilter(branchList[0].workingBranch);
+                }
 
                 let adminData = null;
                 const adminJson = await adminRes.json();
@@ -258,12 +375,15 @@ const WalkinList = () => {
         if (token) fetchData();
     }, [token, user?.role]);
 
-    // Load employees dynamically based on storeId
-    const loadEmployees = async (storeId) => {
+    // Load employees dynamically based on storeId or store name
+    const loadEmployees = async (storeId, storeName = null) => {
         try {
-            const url = storeId
-                ? `${baseUrl.baseUrl}api/admin/accessible-employees?storeId=${storeId}`
-                : `${baseUrl.baseUrl}api/admin/accessible-employees`;
+            let url = `${baseUrl.baseUrl}api/admin/accessible-employees`;
+            if (storeId) {
+                url += `?storeId=${storeId}`;
+            } else if (storeName) {
+                url += `?store=${encodeURIComponent(storeName)}`;
+            }
             const empRes = await fetch(url, {
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
             });
@@ -274,14 +394,12 @@ const WalkinList = () => {
         }
     };
 
-    // Auto-load employees when storeId changes
+    // Auto-load employees when storeId or store changes
     useEffect(() => {
-        if (token && formData.storeId) {
-            loadEmployees(formData.storeId);
-        } else {
-            setEmployees([]);
+        if (token) {
+            loadEmployees(formData.storeId, formData.storeId ? null : formData.store);
         }
-    }, [formData.storeId, token]);
+    }, [formData.storeId, formData.store, token]);
 
     // Reset page to 1 when filters or page limit changes
     useEffect(() => {
@@ -368,25 +486,30 @@ const WalkinList = () => {
         if (name === 'status') {
             let finalCategory = formData.category;
             let finalSubCategory = formData.subCategory;
+            let finalFunctionType = formData.functionType || '-';
 
             if (value === 'Loss') {
-                finalCategory = 'Product';
+                finalCategory = '';
                 finalSubCategory = 'Select sub category';
+                finalFunctionType = 'Select function type';
             } else if (value === 'Revisit') {
                 if (!['Trial', 'Reissue', 'Loss'].includes(formData.category)) {
                     finalCategory = 'Trial';
                 }
                 finalSubCategory = '-';
+                finalFunctionType = '-';
             } else {
                 finalCategory = '-';
                 finalSubCategory = '-';
+                finalFunctionType = '-';
             }
 
             setFormData(prev => ({
                 ...prev,
                 status: value,
                 category: finalCategory,
-                subCategory: finalSubCategory
+                subCategory: finalSubCategory,
+                functionType: finalFunctionType
             }));
             return;
         }
@@ -406,11 +529,7 @@ const WalkinList = () => {
                 staff: '',
                 employeeId: ''
             }));
-            if (branchId) {
-                loadEmployees(branchId);
-            } else {
-                setEmployees([]);
-            }
+            loadEmployees(branchId, value);
         } else if (name === 'staff') {
             const selectedEmp = employees.find(e => e.username === value);
             setFormData(prev => ({
@@ -438,6 +557,7 @@ const WalkinList = () => {
                 setCustomerData(json.data);
 
                 // Pre-populate fields automatically (Do not override store & staff with historical ones)
+                const parsed = parseRemarks(json.data.remarks || '');
                 setFormData(prev => ({
                     ...prev,
                     customerName: json.data.customerName || prev.customerName,
@@ -447,7 +567,8 @@ const WalkinList = () => {
                     remarks: json.data.remarks || prev.remarks,
                     status: json.data.status || prev.status,
                     repeatCount: json.data.repeatCount || 1,
-                    date: safeDateOnly(json.data.date) || prev.date
+                    date: safeDateOnly(json.data.date) || prev.date,
+                    ...parsed
                 }));
             } else {
                 setCustomerExistsNotification(false);
@@ -509,6 +630,7 @@ const WalkinList = () => {
         const foundBranch = branches.find(b => b.workingBranch === w.store);
         const storeIdToLoad = w.storeId || (foundBranch ? foundBranch._id : '');
 
+        const parsed = parseRemarks(w.remarks || '');
         setFormData({
             _id: w._id,
             date: safeDateOnly(w.date),
@@ -521,9 +643,11 @@ const WalkinList = () => {
             employeeId: w.employeeId || '',
             category: w.category || '-',
             subCategory: w.subCategory || '-',
+            functionType: w.functionType || '-',
             remarks: w.remarks || '',
             status: w.status || 'New Walkin',
-            repeatCount: w.repeatCount || 1
+            repeatCount: w.repeatCount || 1,
+            ...parsed
         });
 
         if (storeIdToLoad) {
@@ -555,6 +679,68 @@ const WalkinList = () => {
                 alert('Please select a Sub Category.');
                 return;
             }
+            if (!formData.functionType || formData.functionType === 'Select function type' || formData.functionType === '-' || formData.functionType === '') {
+                alert('Please select a Function Type.');
+                return;
+            }
+
+            // Subcategory custom validations
+            if (formData.category === 'Product') {
+                if (formData.subCategory === 'Product Already Booked') {
+                    if (!formData.lossProductType || formData.lossProductType === '') {
+                        alert('Please select Which Product.');
+                        return;
+                    }
+                } else if (formData.subCategory === 'Model, Design and Colour Not Available') {
+                    if (!formData.lossProductType || formData.lossProductType === '') {
+                        alert('Please select Which Product.');
+                        return;
+                    }
+                } else if (formData.subCategory === 'Size') {
+                    if (!formData.lossSizeOption || formData.lossSizeOption === '') {
+                        alert('Please select Which Size.');
+                        return;
+                    }
+                } else if (formData.subCategory === 'Price') {
+                    if (!formData.lossPriceReason || formData.lossPriceReason === '') {
+                        alert('Please select a Price Option.');
+                        return;
+                    }
+                    if (!formData.lossBudget || formData.lossBudget.trim() === '') {
+                        alert('Please enter What is the budget.');
+                        return;
+                    }
+                }
+            } else if (formData.category === 'Enquiry') {
+                if (formData.subCategory === 'Enquiry Without Groom/Bride') {
+                    if (!formData.lossEnquiryGroomComing || formData.lossEnquiryGroomComing.trim() === '') {
+                        alert('Please enter when groom/bride is coming.');
+                        return;
+                    }
+                } else if (formData.subCategory === 'Enquiry Without Trail') {
+                    if (!formData.lossEnquiryTrailOption || formData.lossEnquiryTrailOption === '') {
+                        alert('Please select a Trail Option.');
+                        return;
+                    }
+                    if (formData.lossEnquiryTrailOption === 'Long Date') {
+                        if (!formData.lossEnquiryNextVisitDate || formData.lossEnquiryNextVisitDate === '') {
+                            alert('Please enter the next visit plan date.');
+                            return;
+                        }
+                    }
+                } else if (formData.subCategory === 'Confirm Later') {
+                    if (!formData.lossEnquiryConfirmReason || formData.lossEnquiryConfirmReason === '') {
+                        alert('Please select a Confirm Option.');
+                        return;
+                    }
+                    if (formData.lossEnquiryConfirmReason === 'They need to visit other brands') {
+                        if (!formData.lossEnquiryRevisitDate || formData.lossEnquiryRevisitDate === '') {
+                            alert('Please enter when the customer will revisit.');
+                            return;
+                        }
+                    }
+                }
+            }
         } else if (formData.status === 'Revisit') {
             if (!formData.category || formData.category === '-' || formData.category === '') {
                 alert('Please select a Category.');
@@ -571,6 +757,26 @@ const WalkinList = () => {
                     name: selectedFile.name,
                     base64: base64Str
                 };
+            }
+
+            // Serialize custom remarks fields
+            let finalRemarks = formData.remarks || '-';
+            if (formData.status === 'Loss') {
+                if (formData.subCategory === 'Product Already Booked') {
+                    finalRemarks = `[Product Already Booked] Product: ${formData.lossProductType || '-'} | Size & Colour: ${formData.lossSizeColour || '-'} | Note: ${formData.lossNote || '-'}`;
+                } else if (formData.subCategory === 'Model, Design and Colour Not Available') {
+                    finalRemarks = `[Model, Design and Colour Not Available] Product: ${formData.lossProductType || '-'} | Size & Colour: ${formData.lossSizeColour || '-'} | Note: ${formData.lossNote || '-'}`;
+                } else if (formData.subCategory === 'Size') {
+                    finalRemarks = `[Size] Selected: ${formData.lossSizeOption || '-'} | Note: ${formData.lossNote || '-'}`;
+                } else if (formData.subCategory === 'Price') {
+                    finalRemarks = `[Price] Reason: ${formData.lossPriceReason || '-'} | Budget: ${formData.lossBudget || '-'} | Note: ${formData.lossNote || '-'}`;
+                } else if (formData.subCategory === 'Enquiry Without Groom/Bride') {
+                    finalRemarks = `[Enquiry Without Groom/Bride] Groom Coming: ${formData.lossEnquiryGroomComing || '-'} | Note: ${formData.lossNote || '-'}`;
+                } else if (formData.subCategory === 'Enquiry Without Trail') {
+                    finalRemarks = `[Enquiry Without Trail] Selected: ${formData.lossEnquiryTrailOption || '-'} | Next Visit Date: ${formData.lossEnquiryNextVisitDate || '-'} | Note: ${formData.lossNote || '-'}`;
+                } else if (formData.subCategory === 'Confirm Later') {
+                    finalRemarks = `[Confirm Later] Reason: ${formData.lossEnquiryConfirmReason || '-'} | Revisit Date: ${formData.lossEnquiryRevisitDate || '-'} | Note: ${formData.lossNote || '-'}`;
+                }
             }
 
             const res = await fetch(`${baseUrl.baseUrl}api/walkin/save`, {
@@ -590,8 +796,9 @@ const WalkinList = () => {
                     employeeId: formData.employeeId || undefined,
                     category: formData.category,
                     subCategory: formData.subCategory,
+                    functionType: formData.functionType,
                     fileAttachment,
-                    remarks: formData.remarks || '-',
+                    remarks: finalRemarks,
                     status: formData.status,
                     date: formData.date
                 })
@@ -623,6 +830,7 @@ const WalkinList = () => {
 
     const showCategory = formData.status === 'Loss' || formData.status === 'Revisit';
     const showSubCategory = formData.status === 'Loss';
+    const showFunctionType = formData.status === 'Loss';
     const showAttachmentInput = formData.status === 'Loss' && formData.subCategory === 'Model, Design and Colour Not Available';
 
     const getCategoryOptions = () => {
@@ -643,8 +851,7 @@ const WalkinList = () => {
                     'Product Already Booked',
                     'Model, Design and Colour Not Available',
                     'Size',
-                    'Price',
-                    'Budget Restriction'
+                    'Price'
                 ];
             }
             if (formData.category === 'Enquiry') {
@@ -669,11 +876,26 @@ const WalkinList = () => {
         return ['Select sub category'];
     };
 
+    const getFunctionTypeOptions = () => {
+        return [
+            'Select function type',
+            'Hindu Function',
+            'Christian Function',
+            'Muslim Function'
+        ];
+    };
+
     let remarksColSpan = "col-span-12 md:col-span-3";
     if (!showCategory && !showSubCategory) {
         remarksColSpan = "col-span-12 md:col-span-9";
     } else if (showCategory && !showSubCategory) {
         remarksColSpan = "col-span-12 md:col-span-6";
+    } else if (formData.status === 'Loss') {
+        if (showAttachmentInput) {
+            remarksColSpan = "col-span-12 md:col-span-9";
+        } else {
+            remarksColSpan = "col-span-12";
+        }
     } else if (showAttachmentInput) {
         remarksColSpan = "col-span-12";
     }
@@ -826,6 +1048,7 @@ const WalkinList = () => {
                                                     name="store"
                                                     required
                                                     value={formData.store}
+                                                    disabled={user?.role === 'store_admin'}
                                                     onChange={handleInputChange}
                                                     className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
                                                 >
@@ -949,6 +1172,39 @@ const WalkinList = () => {
                                         </div>
                                     )}
 
+                                    {/* Function Type Select (Visible only for Loss) */}
+                                    {showFunctionType && (
+                                        <div className="col-span-12 md:col-span-3">
+                                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                Function Type<span className="text-red-500">*</span>
+                                            </label>
+                                            <div className="relative">
+                                                <select
+                                                    name="functionType"
+                                                    value={formData.functionType}
+                                                    onChange={handleInputChange}
+                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                >
+                                                    {getFunctionTypeOptions().map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
+                                                </select>
+                                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                        <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Conditional Banner for Model, Design and Colour Not Available */}
+                                    {formData.status === 'Loss' && formData.subCategory === 'Model, Design and Colour Not Available' && (
+                                        <div className="col-span-12">
+                                            <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-700 font-semibold mb-1 w-full">
+                                                💡 Attachment is the best option for this category.
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* Optional Attachment Input */}
                                     {showAttachmentInput && (
                                         <div className="col-span-12 md:col-span-3">
@@ -977,20 +1233,414 @@ const WalkinList = () => {
                                         </div>
                                     )}
 
-                                    {/* Remarks Field stretching dynamically to fill remaining grid columns */}
-                                    <div className={remarksColSpan}>
-                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                            Remarks <span className="text-gray-400 font-normal">(Optional)</span>
-                                        </label>
-                                        <textarea
-                                            name="remarks"
-                                            rows={1}
-                                            placeholder="Enter your remarks..."
-                                            value={formData.remarks}
-                                            onChange={handleInputChange}
-                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none"
-                                        />
-                                    </div>
+                                    {/* Custom interactive fields for 'Loss' subcategories or fallback Remarks textarea */}
+                                    {formData.status === 'Loss' && (
+                                        (formData.category === 'Product' && ['Product Already Booked', 'Model, Design and Colour Not Available', 'Size', 'Price'].includes(formData.subCategory)) ||
+                                        (formData.category === 'Enquiry' && ['Enquiry Without Groom/Bride', 'Enquiry Without Trail', 'Confirm Later'].includes(formData.subCategory))
+                                    ) ? (
+                                        <>
+                                            {/* Category: Product */}
+                                            {formData.category === 'Product' && (
+                                                <>
+                                                    {/* Subcategory: Product Already Booked */}
+                                                    {formData.subCategory === 'Product Already Booked' && (
+                                                        <>
+                                                            <div className="col-span-12 md:col-span-3">
+                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                    Which Product<span className="text-red-500">*</span>
+                                                                </label>
+                                                                <div className="relative">
+                                                                    <select
+                                                                        name="lossProductType"
+                                                                        required
+                                                                        value={formData.lossProductType || ''}
+                                                                        onChange={handleInputChange}
+                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                                    >
+                                                                        <option value="">Select Product</option>
+                                                                        <option value="Suite">Suite</option>
+                                                                        <option value="Bengala">Bengala</option>
+                                                                        <option value="Indowestern">Indowestern</option>
+                                                                    </select>
+                                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                        </svg>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="col-span-12 md:col-span-3">
+                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                    Add size and colour
+                                                                </label>
+                                                                <input
+                                                                    type="text"
+                                                                    name="lossSizeColour"
+                                                                    placeholder="e.g. Size 40, Navy Blue"
+                                                                    value={formData.lossSizeColour || ''}
+                                                                    onChange={handleInputChange}
+                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold"
+                                                                />
+                                                            </div>
+                                                            <div className="col-span-12 md:col-span-6">
+                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                    Add Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                </label>
+                                                                <textarea
+                                                                    name="lossNote"
+                                                                    rows={1}
+                                                                    placeholder="Enter notes..."
+                                                                    value={formData.lossNote || ''}
+                                                                    onChange={handleInputChange}
+                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                                />
+                                                            </div>
+                                                        </>
+                                                    )}
+
+                                                    {/* Subcategory: Model, Design and Colour Not Available */}
+                                                    {formData.subCategory === 'Model, Design and Colour Not Available' && (
+                                                        <>
+                                                            <div className="col-span-12 md:col-span-3">
+                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                    Which Product<span className="text-red-500">*</span>
+                                                                </label>
+                                                                <div className="relative">
+                                                                    <select
+                                                                        name="lossProductType"
+                                                                        required
+                                                                        value={formData.lossProductType || ''}
+                                                                        onChange={handleInputChange}
+                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                                    >
+                                                                        <option value="">Select Product</option>
+                                                                        <option value="Suite">Suite</option>
+                                                                        <option value="Bengala">Bengala</option>
+                                                                        <option value="Indowestern">Indowestern</option>
+                                                                    </select>
+                                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                        </svg>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="col-span-12 md:col-span-3">
+                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                    Add size and colour
+                                                                </label>
+                                                                <input
+                                                                    type="text"
+                                                                    name="lossSizeColour"
+                                                                    placeholder="e.g. Size 42, Black"
+                                                                    value={formData.lossSizeColour || ''}
+                                                                    onChange={handleInputChange}
+                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold"
+                                                                />
+                                                            </div>
+                                                            <div className="col-span-12 md:col-span-3">
+                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                    Add Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                </label>
+                                                                <textarea
+                                                                    name="lossNote"
+                                                                    rows={1}
+                                                                    placeholder="Enter notes..."
+                                                                    value={formData.lossNote || ''}
+                                                                    onChange={handleInputChange}
+                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                                />
+                                                            </div>
+                                                        </>
+                                                    )}
+
+                                                    {/* Subcategory: Size */}
+                                                    {formData.subCategory === 'Size' && (
+                                                        <>
+                                                            <div className="col-span-12 md:col-span-6">
+                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                    Which Size<span className="text-red-500">*</span>
+                                                                </label>
+                                                                <div className="relative">
+                                                                    <select
+                                                                        name="lossSizeOption"
+                                                                        required
+                                                                        value={formData.lossSizeOption || ''}
+                                                                        onChange={handleInputChange}
+                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                                    >
+                                                                        <option value="">Select Size Option</option>
+                                                                        <option value="Big Size 46,48">Big Size 46,48</option>
+                                                                        <option value="Small Size 34,32">Small Size 34,32</option>
+                                                                    </select>
+                                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                        </svg>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="col-span-12 md:col-span-6">
+                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                    Add Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                </label>
+                                                                <textarea
+                                                                    name="lossNote"
+                                                                    rows={1}
+                                                                    placeholder="Enter notes..."
+                                                                    value={formData.lossNote || ''}
+                                                                    onChange={handleInputChange}
+                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                                />
+                                                            </div>
+                                                        </>
+                                                    )}
+
+                                                    {/* Subcategory: Price */}
+                                                    {formData.subCategory === 'Price' && (
+                                                        <>
+                                                            <div className="col-span-12 md:col-span-3">
+                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                    Price Option<span className="text-red-500">*</span>
+                                                                </label>
+                                                                <div className="relative">
+                                                                    <select
+                                                                        name="lossPriceReason"
+                                                                        required
+                                                                        value={formData.lossPriceReason || ''}
+                                                                        onChange={handleInputChange}
+                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                                    >
+                                                                        <option value="">Select Price Option</option>
+                                                                        <option value="Rent Too High">Rent Too High</option>
+                                                                        <option value="Budget Restriction">Budget Restriction</option>
+                                                                    </select>
+                                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                        </svg>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            
+                                                            {['Rent Too High', 'Budget Restriction'].includes(formData.lossPriceReason) ? (
+                                                                <>
+                                                                    <div className="col-span-12 md:col-span-3">
+                                                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                            What is the budget?<span className="text-red-500">*</span>
+                                                                        </label>
+                                                                        <input
+                                                                            type="text"
+                                                                            name="lossBudget"
+                                                                            required
+                                                                            placeholder="Enter budget amount"
+                                                                            value={formData.lossBudget || ''}
+                                                                            onChange={handleInputChange}
+                                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="col-span-12 md:col-span-6">
+                                                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                            Add Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                        </label>
+                                                                        <textarea
+                                                                            name="lossNote"
+                                                                            rows={1}
+                                                                            placeholder="Enter notes..."
+                                                                            value={formData.lossNote || ''}
+                                                                            onChange={handleInputChange}
+                                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                                        />
+                                                                    </div>
+                                                                </>
+                                                            ) : (
+                                                                <div className="col-span-12 md:col-span-9">
+                                                                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                        Add Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                    </label>
+                                                                    <textarea
+                                                                        name="lossNote"
+                                                                        rows={1}
+                                                                        placeholder="Enter notes..."
+                                                                        value={formData.lossNote || ''}
+                                                                        onChange={handleInputChange}
+                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                </>
+                                            )}
+
+                                            {/* Category: Enquiry */}
+                                            {formData.category === 'Enquiry' && (
+                                                <>
+                                                    {/* Subcategory: Enquiry Without Groom/Bride */}
+                                                    {formData.subCategory === 'Enquiry Without Groom/Bride' && (
+                                                        <>
+                                                            <div className="col-span-12 md:col-span-6">
+                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                    When groom/bride is coming?<span className="text-red-500">*</span>
+                                                                </label>
+                                                                <input
+                                                                    type="text"
+                                                                    name="lossEnquiryGroomComing"
+                                                                    required
+                                                                    placeholder="e.g. Next Sunday, or specific details"
+                                                                    value={formData.lossEnquiryGroomComing || ''}
+                                                                    onChange={handleInputChange}
+                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold"
+                                                                />
+                                                            </div>
+                                                            <div className="col-span-12 md:col-span-6">
+                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                    Add Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                </label>
+                                                                <textarea
+                                                                    name="lossNote"
+                                                                    rows={1}
+                                                                    placeholder="Enter notes..."
+                                                                    value={formData.lossNote || ''}
+                                                                    onChange={handleInputChange}
+                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                                />
+                                                            </div>
+                                                        </>
+                                                    )}
+
+                                                    {/* Subcategory: Enquiry Without Trail */}
+                                                    {formData.subCategory === 'Enquiry Without Trail' && (
+                                                        <>
+                                                            <div className="col-span-12 md:col-span-3">
+                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                    Trail Option<span className="text-red-500">*</span>
+                                                                </label>
+                                                                <div className="relative">
+                                                                    <select
+                                                                        name="lossEnquiryTrailOption"
+                                                                        required
+                                                                        value={formData.lossEnquiryTrailOption || ''}
+                                                                        onChange={handleInputChange}
+                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                                    >
+                                                                        <option value="">Select Option</option>
+                                                                        <option value="Long Date">Long Date</option>
+                                                                        <option value="Just Visit">Just Visit</option>
+                                                                    </select>
+                                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                        </svg>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="col-span-12 md:col-span-3">
+                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                    Next visit plan date{formData.lossEnquiryTrailOption === 'Long Date' && <span className="text-red-500">*</span>}
+                                                                </label>
+                                                                <input
+                                                                    type="date"
+                                                                    name="lossEnquiryNextVisitDate"
+                                                                    disabled={formData.lossEnquiryTrailOption !== 'Long Date'}
+                                                                    required={formData.lossEnquiryTrailOption === 'Long Date'}
+                                                                    value={formData.lossEnquiryNextVisitDate || ''}
+                                                                    onChange={handleInputChange}
+                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                                                />
+                                                            </div>
+
+                                                            <div className="col-span-12 md:col-span-6">
+                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                    Add Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                </label>
+                                                                <textarea
+                                                                    name="lossNote"
+                                                                    rows={1}
+                                                                    placeholder="Enter notes..."
+                                                                    value={formData.lossNote || ''}
+                                                                    onChange={handleInputChange}
+                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                                />
+                                                            </div>
+                                                        </>
+                                                    )}
+
+                                                    {/* Subcategory: Confirm Later */}
+                                                    {formData.subCategory === 'Confirm Later' && (
+                                                        <>
+                                                            <div className="col-span-12 md:col-span-3">
+                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                    Confirm Option<span className="text-red-500">*</span>
+                                                                </label>
+                                                                <div className="relative">
+                                                                    <select
+                                                                        name="lossEnquiryConfirmReason"
+                                                                        required
+                                                                        value={formData.lossEnquiryConfirmReason || ''}
+                                                                        onChange={handleInputChange}
+                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                                    >
+                                                                        <option value="">Select Option</option>
+                                                                        <option value="They need to visit other brands">They need to visit other brands</option>
+                                                                    </select>
+                                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                        </svg>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="col-span-12 md:col-span-3">
+                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                    When customer will revisit{formData.lossEnquiryConfirmReason === 'They need to visit other brands' && <span className="text-red-500">*</span>}
+                                                                </label>
+                                                                <input
+                                                                    type="date"
+                                                                    name="lossEnquiryRevisitDate"
+                                                                    disabled={formData.lossEnquiryConfirmReason !== 'They need to visit other brands'}
+                                                                    required={formData.lossEnquiryConfirmReason === 'They need to visit other brands'}
+                                                                    value={formData.lossEnquiryRevisitDate || ''}
+                                                                    onChange={handleInputChange}
+                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                                                />
+                                                            </div>
+
+                                                            <div className="col-span-12 md:col-span-6">
+                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                    Add Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                </label>
+                                                                <textarea
+                                                                    name="lossNote"
+                                                                    rows={1}
+                                                                    placeholder="Enter notes..."
+                                                                    value={formData.lossNote || ''}
+                                                                    onChange={handleInputChange}
+                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                                />
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <div className={remarksColSpan}>
+                                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                Remarks <span className="text-gray-400 font-normal">(Optional)</span>
+                                            </label>
+                                            <textarea
+                                                name="remarks"
+                                                rows={1}
+                                                placeholder="Enter your remarks..."
+                                                value={formData.remarks}
+                                                onChange={handleInputChange}
+                                                className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none"
+                                            />
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Admin metadata fields auto-populated in background */}
@@ -1039,12 +1689,27 @@ const WalkinList = () => {
                                 <option value="All">All Status</option>
                                 {FILTER_STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                             </select>
-                            {(user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'cluster_admin') && (
-                                <select value={storeFilter} onChange={e => setStoreFilter(e.target.value)} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '7px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer' }}>
-                                    <option value="All">All Stores</option>
+                            {(user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'cluster_admin' || user?.role === 'store_admin') && (
+                                <select 
+                                    value={storeFilter} 
+                                    disabled={user?.role === 'store_admin'} 
+                                    onChange={e => setStoreFilter(e.target.value)} 
+                                    style={{ 
+                                        border: '1px solid #e5e7eb', 
+                                        borderRadius: '8px', 
+                                        padding: '7px 12px', 
+                                        fontSize: '13px', 
+                                        color: '#374151', 
+                                        outline: 'none', 
+                                        background: '#fff', 
+                                        cursor: user?.role === 'store_admin' ? 'not-allowed' : 'pointer' 
+                                    }}
+                                >
+                                    {user?.role !== 'store_admin' && <option value="All">All Stores</option>}
                                     {branches.map((b, i) => <option key={i} value={b.workingBranch}>{b.workingBranch}</option>)}
                                 </select>
                             )}
+
                         </div>
 
                         {/* Table card */}

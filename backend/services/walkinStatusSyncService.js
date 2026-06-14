@@ -189,7 +189,18 @@ export const syncWalkinStatuses = async () => {
                         if (targetRank > currentRank) {
                             const oldStatus = walkin.status;
                             walkin.status = targetStatus;
-                            walkin.repeatCount = (walkin.repeatCount || 1) + 1;
+
+                            // Calculate today's date string in Asia/Kolkata timezone
+                            const options = { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' };
+                            const formatter = new Intl.DateTimeFormat('en-US', options);
+                            const parts = formatter.formatToParts(new Date());
+                            const getVal = (type) => parts.find(p => p.type === type).value;
+                            const todayDateStr = `${getVal('year')}-${getVal('month')}-${getVal('day')}`;
+
+                            const walkinDateStr = walkin.date ? walkin.date.substring(0, 10) : null;
+                            if (walkinDateStr !== todayDateStr) {
+                                walkin.repeatCount = (walkin.repeatCount || 1) + 1;
+                            }
 
                             await walkin.save();
 
