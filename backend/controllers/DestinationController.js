@@ -183,8 +183,34 @@ export const HomeBar = async (req, res) => {
             };
         });
 
+        // Calculate weighted average training progress across all branches
+        // Exclude legacy/internal branches (same list as frontend dashboardUtils.js)
+        const hiddenBranches = new Set([
+            "office", "production", "warehouse",
+            "suitor guy kochi", "grooms kochi", "sg kochi",
+            "suitor guy calicut", "grooms calicut", "sg calicut",
+            "dappr squad",
+        ]);
+        let weightedCompleted = 0;
+        let weightedTotal = 0;
+        allData.forEach((branch) => {
+            const name = String(branch.branchName || "").toLowerCase().trim();
+            if (hiddenBranches.has(name)) return; // skip hidden branches
+            const total = branch.totalTraining || 0;
+            const completePct = branch.completeTraining || 0;
+            if (total > 0) {
+                weightedCompleted += (completePct / 100) * total;
+                weightedTotal += total;
+            }
+        });
+        const avgTrainingProgress = weightedTotal > 0
+            ? Math.round((weightedCompleted / weightedTotal) * 100)
+            : 0;
+
         const payload = {
             message: "Data fetched for progress",
+            avgTrainingProgress,
+            totalEmployees: users.length,
             data: allData,
         };
 
