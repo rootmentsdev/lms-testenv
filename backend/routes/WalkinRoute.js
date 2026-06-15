@@ -153,7 +153,6 @@ router.get('/check/:contact', OptionalMiddilWare, checkCustomerExists);
  *             required:
  *               - customerName
  *               - contact
- *               - functionDate
  *             properties:
  *               customerName:
  *                 type: string
@@ -188,6 +187,38 @@ router.get('/check/:contact', OptionalMiddilWare, checkCustomerExists);
  *               remarks:
  *                 type: string
  *                 example: "Fitting scheduled"
+ *               notes:
+ *                 type: string
+ *                 description: "General notes or comments on this lead (Optional, mapped to note)"
+ *                 example: "Wants premium fabric"
+ *               lossProductType:
+ *                 type: string
+ *                 description: "The product type for Loss status (Optional)"
+ *                 example: "Suit"
+ *               lossSize:
+ *                 type: string
+ *                 description: "The product size for Loss status (Optional)"
+ *                 example: "38R"
+ *               lossColour:
+ *                 type: string
+ *                 description: "The colour chosen/expected for Loss status (Optional)"
+ *                 example: "Navy Blue"
+ *               lossSalesPrice:
+ *                 type: string
+ *                 description: "The price reason/quoted for Loss status (Optional)"
+ *                 example: "12000"
+ *               lossSelectRemarks:
+ *                 type: string
+ *                 description: "Dropdown selection for price-related Loss reason (Optional)"
+ *                 example: "Budget restriction"
+ *               lossEnquiryTrailOption:
+ *                 type: string
+ *                 description: "The trial option selected for Loss Enquiry (Optional)"
+ *                 example: "visit store"
+ *               lossEnquiryRevisitDate:
+ *                 type: string
+ *                 description: "The expected revisit date for Loss Enquiry confirm later option (Optional)"
+ *                 example: "2026-06-30"
  *               status:
  *                 type: string
  *                 description: |
