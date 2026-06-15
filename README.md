@@ -397,6 +397,24 @@ The Brynex LMS features a comprehensively documented backend. Swagger UI is avai
     - Example: If a walk-in status is changed from "New Walkin" to "Revisit" at 10 AM, any further status changes for that same walk-in on the same day will be rejected until midnight (00:00).
   - **RepeatCount Logic:** Only increments on status changes that occur on a **different calendar day** than the record's current date. Same-day edits do not increment the counter.
   - **Permissions:** Subject to role-based access control (RBAC) — users can only update walk-ins they have access to.
+  - **Sequential Loss Flow & Structured Remarks Formatting:**
+    When submitting status `Loss`, the Flutter application and Web Panel must format `remarks` using these exact string patterns for parsing and pre-population compatibility:
+    - **Category: Customization:**
+      - Format: `[Customization] Product: <product_type> | Size: <size> | Colour: <colour> | Note: <note>`
+    - **Category: Dapper Squad (Non-sales):**
+      - Reason 'product already booked': `[product already booked] Product: <product_type> | Size: <size> | Colour: <colour> | Note: <note>`
+      - Reason 'design and color unavailable': `[design and color unavailable] Product: <product_type> | Note: <note>`
+      - Reason 'price': `[price] Remarks: <price_too_high_or_budget_restriction> | Note: <note>`
+      - Reason 'enquiry': `[enquiry] Note: <note>`
+      - Reason 'size': `[size] Product: <product_type> | Size: <size> | Note: <note>`
+    - **Category: Dapper Squad (Sales):**
+      - Format: `[Sales] Sub Category: <shoe_or_shirt> | Size: <size> | Colour: <colour> | Price: <price> | Note: <note>`
+    - **Category: Enquiry (Non-sales):**
+      - Reason 'enquiry without groom and bride': `[enquiry without groom and bride] Product: <product_type> | Note: <note>`
+      - Reason 'enquiry without trial': `[enquiry without trial] Product: <product_type> | Selected: <long_date_or_just_visit> | Note: <note>`
+      - Reason 'confirm later': `[confirm later] Product: <product_type> | Revisit Date: <revisit_date> | Note: <note>`
+    - **Category: Enquiry (Sales):**
+      - Format: `[Sales] Sub Category: <shoe_or_shirt> | Note: <note>`
 - `GET /api/walkin/list`: Retrieves walk-ins. Supports `storeId` and `employeeId` query parameters. RBAC scoped.
 
 ### 8. Notifications & Reminders

@@ -37,23 +37,28 @@ function locationKey(name) {
     return tokens.join(" ");
 }
 
-const getFormattedDateTime = () => {
-    const now = new Date();
-    const options = { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
-    const formatter = new Intl.DateTimeFormat('en-US', options);
-    const parts = formatter.formatToParts(now);
-    const getVal = (type) => parts.find(p => p.type === type).value;
-    return `${getVal('year')}-${getVal('month')}-${getVal('day')} ${getVal('hour')}:${getVal('minute')}:${getVal('second')}`;
+const getFormattedDateTime = (date = new Date()) => {
+    const d = new Date(date);
+    const istDate = new Date(d.getTime() + (5.5 * 60 * 60 * 1000));
+    const year = istDate.getUTCFullYear();
+    const month = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(istDate.getUTCDate()).padStart(2, '0');
+    const hour = String(istDate.getUTCHours()).padStart(2, '0');
+    const minute = String(istDate.getUTCMinutes()).padStart(2, '0');
+    const second = String(istDate.getUTCSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 };
 
 const getLocalDateStringIST = (date) => {
     if (!date) return null;
-    const options = { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' };
-    const formatter = new Intl.DateTimeFormat('en-US', options);
-    const parts = formatter.formatToParts(date);
-    const getVal = (type) => parts.find(p => p.type === type).value;
-    return `${getVal('year')}-${getVal('month')}-${getVal('day')}`;
+    const d = new Date(date);
+    const istDate = new Date(d.getTime() + (5.5 * 60 * 60 * 1000));
+    const year = istDate.getUTCFullYear();
+    const month = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(istDate.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 };
+
 
 
 /**
