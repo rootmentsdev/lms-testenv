@@ -19,6 +19,20 @@ function locationKey(name) { return norm(name).split(" ").filter(t=>t&&!BRAND_TO
 
 const STATUS_OPTIONS = ['Trial','Loss','Enquiry','Reissue','New Booking','Revisit Booking','Revisit Loss','New Walkin','Booked','Rentout','Return','Cancel','Other'];
 
+const NON_SALES_REASONS = new Set([
+    'Product Already Booked',
+    'Design and Colour Not Available',
+    'Model, Design and Colour Not Available',
+    'Design and Color Unavailable',
+    'Price',
+    'Size',
+    'Enquiry Without Groom and Bride',
+    'Enquiry Without Groom/Bride',
+    'Enquiry Without Trial',
+    'Enquiry Without Trail',
+    'Confirm Later'
+]);
+
 const HARDCODED_STORES = [
     'Z-Edapally1', 'G-Edappally', 'SG-Trivandrum', 'Z- Edappal', 'Z.Perinthalmanna',
     'Z.Kottakkal', 'G.Kottayam', 'G.Perumbavoor', 'G.Thrissur', 'G.Chavakkad',
@@ -47,8 +61,60 @@ const STATUS_COLORS = {
 
 /* ── Export to CSV ───────────────────────────────────────────────────────── */
 const exportCSV = (data) => {
-  const headers = ['#','Date','Customer','Contact','Function Date','Staff','Status','Category','Sub Category','Repeat Count','Remarks'];
-  const rows = data.map((w,i) => [i+1,w.date,w.customerName,w.contact,w.functionDate,w.staff,w.status,w.category,w.subCategory,w.repeatCount,w.remarks||'–']);
+  const headers = ['#','Date','Customer','Contact','Function Date','Function Type','Store','Staff','Category','Product Type','Loss Reason','Sub Category','Remarks','Notes','Booking Date','Rentout Date','Return Date','Repeat Count','Status'];
+  const rows = data.map((w,i) => {
+    const productType = w.lossProductType || '–';
+    const notesText = w.notes || '–';
+
+    let displayLossReason = '–';
+    let displaySubCategory = '–';
+
+    if (w.status === 'Loss' || w.status === 'Revisit Loss') {
+      const isSales = (w.lossProductType || '').toLowerCase().trim() === 'sales';
+      
+      if (w.lossReason && w.lossReason !== '-' && w.lossReason !== '') {
+        displayLossReason = w.lossReason;
+        if (w.lossSelectRemarks && w.lossSelectRemarks !== '-' && w.lossSelectRemarks !== '') {
+          displayLossReason += ` (${w.lossSelectRemarks})`;
+        }
+      } else if (w.subCategory && NON_SALES_REASONS.has(w.subCategory)) {
+        displayLossReason = w.subCategory;
+        if (w.lossSelectRemarks && w.lossSelectRemarks !== '-' && w.lossSelectRemarks !== '') {
+          displayLossReason += ` (${w.lossSelectRemarks})`;
+        }
+      } else if (w.lossSelectRemarks && w.lossSelectRemarks !== '-' && w.lossSelectRemarks !== '') {
+        displayLossReason = w.lossSelectRemarks;
+      }
+
+      if (isSales) {
+        displaySubCategory = w.subCategory || '–';
+      }
+    } else {
+      displaySubCategory = w.subCategory || '–';
+    }
+
+    return [
+      i+1,
+      w.date,
+      w.customerName,
+      w.contact,
+      w.functionDate || '–',
+      w.functionType || '–',
+      w.store || '–',
+      w.staff || '–',
+      w.category || '–',
+      productType,
+      displayLossReason,
+      displaySubCategory,
+      w.remarks || '–',
+      notesText,
+      w.bookingDate ? new Date(w.bookingDate).toISOString().split('T')[0] : '–',
+      w.rentoutDate ? new Date(w.rentoutDate).toISOString().split('T')[0] : '–',
+      w.returnDate ? new Date(w.returnDate).toISOString().split('T')[0] : '–',
+      w.repeatCount,
+      w.status || '–'
+    ];
+  });
   const csv = [headers, ...rows].map(r => r.map(c => `"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob = new Blob([csv], { type:'text/csv' });
   const url = URL.createObjectURL(blob);
@@ -266,37 +332,116 @@ const WalkinReport = () => {
               <div style={{ textAlign:'center', padding:'48px', color:'#9ca3af', fontSize:'13px' }}>No records found.</div>
             ) : (
               <div style={{ overflowX:'auto' }}>
-                <table className="min-w-[800px] md:min-w-full" style={{ width:'100%', borderCollapse:'collapse', fontSize:'12px', fontFamily:"DM Sans, sans-serif" }}>
+                <table style={{ width: '2585px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
                   <thead>
-                    <tr style={{ background:'#f9fafb', borderBottom:'1px solid #f3f4f6' }}>
-                      {['#','DATE','CUSTOMER','CONTACT','FUNCTION DATE','STAFF','STATUS','CATEGORY','SUB CATEGORY','REPEAT COUNT','REMARKS'].map(h=>(
-                        <th key={h} style={{ padding:'10px 14px', textAlign:(h==='#'||h==='REPEAT COUNT')?'center':'left', fontSize:'10px', fontWeight:600, color:'#9ca3af', letterSpacing:'0.06em', whiteSpace:'nowrap' }}>{h}</th>
-                      ))}
+                    <tr style={{ background:'#fafafa', borderBottom:'1px solid #f3f4f6' }}>
+                      {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'FUNCTION DATE', 'FUNCTION TYPE', 'STORE', 'STAFF', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'NOTES', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'REPEAT COUNT', 'STATUS'].map((h, i) => {
+                          let colWidth = 'auto';
+                          if (h === '#') colWidth = '2%';
+                          else if (h === 'DATE') colWidth = '5.5%';
+                          else if (h === 'CUSTOMER') colWidth = '6.5%';
+                          else if (h === 'CONTACT') colWidth = '7%';
+                          else if (h === 'FUNCTION DATE') colWidth = '5.5%';
+                          else if (h === 'FUNCTION TYPE') colWidth = '5.5%';
+                          else if (h === 'STORE') colWidth = '5.5%';
+                          else if (h === 'STAFF') colWidth = '6%';
+                          else if (h === 'CATEGORY') colWidth = '5.5%';
+                          else if (h === 'PRODUCT TYPE') colWidth = '5.5%';
+                          else if (h === 'LOSS REASON') colWidth = '6.5%';
+                          else if (h === 'SUB CATEGORY') colWidth = '6.5%';
+                          else if (h === 'REMARKS') colWidth = '6.5%';
+                          else if (h === 'NOTES') colWidth = '7%';
+                          else if (h === 'BOOKING DATE') colWidth = '5.5%';
+                          else if (h === 'RENTOUT DATE') colWidth = '5.5%';
+                          else if (h === 'RETURN DATE') colWidth = '5.5%';
+                          else if (h === 'REPEAT COUNT') colWidth = '3%';
+                          else if (h === 'STATUS') colWidth = '6%';
+
+                          return (
+                              <th
+                                  key={i}
+                                  style={{
+                                      padding: '8px 12px',
+                                      textAlign: (h === '#' || h === 'REPEAT COUNT' || h === 'STATUS' || h === 'BOOKING DATE' || h === 'RENTOUT DATE' || h === 'RETURN DATE') ? 'center' : 'left',
+                                      fontSize: '10px',
+                                      fontWeight: 600,
+                                      color: '#9ca3af',
+                                      letterSpacing: '0.06em',
+                                      whiteSpace: 'nowrap',
+                                      width: colWidth,
+                                      minWidth: colWidth,
+                                      maxWidth: colWidth,
+                                      boxSizing: 'border-box'
+                                  }}
+                              >
+                                  {h}
+                              </th>
+                          );
+                      })}
                     </tr>
                   </thead>
                   <tbody>
                     {currentItems.map((w,i)=>{
                       const sc = STATUS_COLORS[w.status] || { bg:'#f3f4f6', color:'#6b7280' };
+                      
+                      const productType = w.lossProductType || '–';
+                      const notesText = w.notes || '–';
+
+                      let displayLossReason = '–';
+                      let displaySubCategory = '–';
+
+                      if (w.status === 'Loss' || w.status === 'Revisit Loss') {
+                          const isSales = (w.lossProductType || '').toLowerCase().trim() === 'sales';
+                          
+                          if (w.lossReason && w.lossReason !== '-' && w.lossReason !== '') {
+                              displayLossReason = w.lossReason;
+                              if (w.lossSelectRemarks && w.lossSelectRemarks !== '-' && w.lossSelectRemarks !== '') {
+                                  displayLossReason += ` (${w.lossSelectRemarks})`;
+                              }
+                          } else if (w.subCategory && NON_SALES_REASONS.has(w.subCategory)) {
+                              displayLossReason = w.subCategory;
+                              if (w.lossSelectRemarks && w.lossSelectRemarks !== '-' && w.lossSelectRemarks !== '') {
+                                  displayLossReason += ` (${w.lossSelectRemarks})`;
+                              }
+                          } else if (w.lossSelectRemarks && w.lossSelectRemarks !== '-' && w.lossSelectRemarks !== '') {
+                              displayLossReason = w.lossSelectRemarks;
+                          }
+
+                          if (isSales) {
+                              displaySubCategory = w.subCategory || '–';
+                          }
+                      } else {
+                          displaySubCategory = w.subCategory || '–';
+                      }
+
                       return (
                         <tr key={w._id||i} style={{ borderBottom:'1px solid #f9fafb', background:'#fff' }}
                           onMouseEnter={e=>e.currentTarget.style.background='#fafafa'}
                           onMouseLeave={e=>e.currentTarget.style.background='#fff'}
                         >
-                          <td style={{ padding:'12px 14px', textAlign:'center', color:'#9ca3af' }}>{indexFirst+i+1}</td>
-                          <td style={{ padding:'12px 14px', whiteSpace:'nowrap', color:'#374151' }}>{w.date}</td>
-                          <td style={{ padding:'12px 14px', color:'#111827', fontWeight:500, whiteSpace:'nowrap' }}>{w.customerName}</td>
-                          <td style={{ padding:'12px 14px', whiteSpace:'nowrap', color:'#374151' }}>+91 {w.contact}</td>
-                          <td style={{ padding:'12px 14px', whiteSpace:'nowrap', color:'#374151' }}>{w.functionDate}</td>
-                          <td style={{ padding:'12px 14px', whiteSpace:'nowrap', color:'#374151' }}>{w.staff}</td>
-                          <td style={{ padding:'12px 14px' }}>
+                          <td style={{ padding: '11px 12px', textAlign: 'center', color: '#9ca3af', width: '2%', minWidth: '2%', maxWidth: '2%', boxSizing: 'border-box' }}>{indexFirst+i+1}</td>
+                          <td style={{ padding: '11px 12px', color: '#374151', width: '5.5%', minWidth: '5.5%', maxWidth: '5.5%', boxSizing: 'border-box' }}>{w.date}</td>
+                          <td style={{ padding: '11px 12px', color: '#111827', fontWeight: 500, width: '6.5%', minWidth: '6.5%', maxWidth: '6.5%', boxSizing: 'border-box' }}>{w.customerName}</td>
+                          <td style={{ padding: '11px 12px', color: '#374151', width: '7%', minWidth: '7%', maxWidth: '7%', boxSizing: 'border-box' }}>+91 {w.contact}</td>
+                          <td style={{ padding: '11px 12px', color: '#374151', width: '5.5%', minWidth: '5.5%', maxWidth: '5.5%', boxSizing: 'border-box' }}>{w.functionDate || '–'}</td>
+                          <td style={{ padding: '11px 12px', color: '#374151', width: '5.5%', minWidth: '5.5%', maxWidth: '5.5%', boxSizing: 'border-box' }}>{w.functionType || '–'}</td>
+                          <td style={{ padding: '11px 12px', color: '#374151', width: '5.5%', minWidth: '5.5%', maxWidth: '5.5%', boxSizing: 'border-box' }}>{w.store || '–'}</td>
+                          <td style={{ padding: '11px 12px', color: '#374151', width: '6%', minWidth: '6%', maxWidth: '6%', boxSizing: 'border-box' }}>{w.staff || '–'}</td>
+                          <td style={{ padding: '11px 12px', color: '#374151', width: '5.5%', minWidth: '5.5%', maxWidth: '5.5%', boxSizing: 'border-box' }}>{w.category || '–'}</td>
+                          <td style={{ padding: '11px 12px', color: '#374151', width: '5.5%', minWidth: '5.5%', maxWidth: '5.5%', boxSizing: 'border-box' }}>{productType}</td>
+                          <td style={{ padding: '11px 12px', color: '#374151', width: '6.5%', minWidth: '6.5%', maxWidth: '6.5%', boxSizing: 'border-box' }}>{displayLossReason}</td>
+                          <td style={{ padding: '11px 12px', color: '#374151', width: '6.5%', minWidth: '6.5%', maxWidth: '6.5%', boxSizing: 'border-box' }}>{displaySubCategory}</td>
+                          <td style={{ padding: '11px 12px', color: '#6b7280', width: '6.5%', minWidth: '6.5%', maxWidth: '6.5%', boxSizing: 'border-box' }} title={w.remarks}>{w.remarks||'–'}</td>
+                          <td style={{ padding: '11px 12px', color: '#6b7280', width: '7%', minWidth: '7%', maxWidth: '7%', boxSizing: 'border-box' }} title={notesText}>{notesText}</td>
+                          <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', width: '5.5%', minWidth: '5.5%', maxWidth: '5.5%', boxSizing: 'border-box' }}>{w.bookingDate ? new Date(w.bookingDate).toISOString().split('T')[0] : '–'}</td>
+                          <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', width: '5.5%', minWidth: '5.5%', maxWidth: '5.5%', boxSizing: 'border-box' }}>{w.rentoutDate ? new Date(w.rentoutDate).toISOString().split('T')[0] : '–'}</td>
+                          <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', width: '5.5%', minWidth: '5.5%', maxWidth: '5.5%', boxSizing: 'border-box' }}>{w.returnDate ? new Date(w.returnDate).toISOString().split('T')[0] : '–'}</td>
+                          <td style={{ padding: '11px 12px', textAlign: 'center', color: '#374151', width: '3%', minWidth: '3%', maxWidth: '3%', boxSizing: 'border-box' }}>{w.repeatCount}</td>
+                          <td style={{ padding: '11px 12px', textAlign: 'center', width: '6%', minWidth: '6%', maxWidth: '6%', boxSizing: 'border-box' }}>
                             <span style={{ background:sc.bg, color:sc.color, borderRadius:'20px', padding:'3px 10px', fontSize:'10px', fontWeight:700, whiteSpace:'nowrap', display:'inline-block' }}>
                               {w.status?.toUpperCase()}
                             </span>
                           </td>
-                          <td style={{ padding:'12px 14px', whiteSpace:'nowrap', color:'#374151' }}>{w.category||'–'}</td>
-                          <td style={{ padding:'12px 14px', whiteSpace:'nowrap', color:'#374151' }}>{w.subCategory||'–'}</td>
-                          <td style={{ padding:'12px 14px', textAlign:'center', color:'#374151' }}>{w.repeatCount}</td>
-                          <td style={{ padding:'12px 14px', color:'#6b7280', maxWidth:'140px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }} title={w.remarks}>{w.remarks||'–'}</td>
                         </tr>
                       );
                     })}

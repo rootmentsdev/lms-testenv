@@ -86,6 +86,11 @@ const walkinSchema = new mongoose.Schema({
         default: '',
         trim: true
     },
+    lossReason: {
+        type: String,
+        default: '',
+        trim: true
+    },
     lossEnquiryTrailOption: {
         type: String,
         default: '',
@@ -112,6 +117,18 @@ const walkinSchema = new mongoose.Schema({
     statusChangedToday: {
         type: Boolean,
         default: false
+    },
+    bookingDate: {
+        type: Date,
+        default: null
+    },
+    rentoutDate: {
+        type: Date,
+        default: null
+    },
+    returnDate: {
+        type: Date,
+        default: null
     },
     storeId: {
         type: mongoose.Schema.Types.ObjectId,
