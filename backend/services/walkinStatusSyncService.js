@@ -13,6 +13,16 @@ const getPastDateString = (daysAgo) => {
     return d.toISOString().split('T')[0];
 };
 
+const getLocalDateStringIST = (date) => {
+    if (!date) return null;
+    const d = new Date(date);
+    const istDate = new Date(d.getTime() + (5.5 * 60 * 60 * 1000));
+    const year = istDate.getUTCFullYear();
+    const month = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(istDate.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 /**
  * Helper to dynamically extract mobile/phone numbers case-insensitively from an item object
  */
@@ -191,11 +201,7 @@ export const syncWalkinStatuses = async () => {
                             walkin.status = targetStatus;
 
                             // Calculate today's date string in Asia/Kolkata timezone
-                            const options = { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' };
-                            const formatter = new Intl.DateTimeFormat('en-US', options);
-                            const parts = formatter.formatToParts(new Date());
-                            const getVal = (type) => parts.find(p => p.type === type).value;
-                            const todayDateStr = `${getVal('year')}-${getVal('month')}-${getVal('day')}`;
+                            const todayDateStr = getLocalDateStringIST(new Date());
 
                             const walkinDateStr = walkin.date ? walkin.date.substring(0, 10) : null;
                             if (walkinDateStr !== todayDateStr) {
@@ -220,13 +226,13 @@ export const syncWalkinStatuses = async () => {
             branchResultsList.push({
                 locCode,
                 workingBranch,
-                bookings:  bookings.length,
-                rentouts:  rentouts.length,
-                returns:   returns.length,
-                deletes:   deletes.length,
-                matched:   branchWalkinsMatched,
-                updated:   branchWalkinsUpdated,
-                skipped:   branchWalkinsSkipped,
+                bookings: bookings.length,
+                rentouts: rentouts.length,
+                returns: returns.length,
+                deletes: deletes.length,
+                matched: branchWalkinsMatched,
+                updated: branchWalkinsUpdated,
+                skipped: branchWalkinsSkipped,
             });
 
         } catch (error) {
@@ -252,10 +258,10 @@ export const syncWalkinStatuses = async () => {
     // ── Persist run log to DB ──
     try {
         await CronLog.create({
-            jobType:      'walkin_status_sync',
-            status:       errorsList.length > 0 && totalWalkinsUpdated === 0 ? 'error' : 'success',
-            startedAt:    jobStartedAt,
-            completedAt:  jobCompletedAt,
+            jobType: 'walkin_status_sync',
+            status: errorsList.length > 0 && totalWalkinsUpdated === 0 ? 'error' : 'success',
+            startedAt: jobStartedAt,
+            completedAt: jobCompletedAt,
             durationMs,
             summary: {
                 totalBookings,
@@ -266,7 +272,7 @@ export const syncWalkinStatuses = async () => {
                 errorsCount: errorsList.length,
             },
             branchResults: branchResultsList,
-            errorDetails:  errorsList,
+            errorDetails: errorsList,
         });
         console.log('💾 [Walkin Status Sync] Run log saved to DB.');
     } catch (logErr) {
@@ -296,7 +302,7 @@ export const expireWalkinsToLoss = async () => {
     console.log('🔄 [Walkin Loss Expiry] Job started at:', jobStartedAt.toISOString());
     try {
         const now = new Date();
-        
+
         // Calculate the local start of today in Asia/Kolkata timezone (UTC+5:30)
         const formatter = new Intl.DateTimeFormat('en-US', {
             timeZone: 'Asia/Kolkata',
@@ -307,7 +313,7 @@ export const expireWalkinsToLoss = async () => {
         const parts = formatter.formatToParts(now);
         const dateObj = {};
         parts.forEach(p => { dateObj[p.type] = p.value; });
-        
+
         const startOfToday = new Date(Date.UTC(
             parseInt(dateObj.year, 10),
             parseInt(dateObj.month, 10) - 1,
@@ -315,7 +321,7 @@ export const expireWalkinsToLoss = async () => {
             0, 0, 0, 0
         ));
         startOfToday.setTime(startOfToday.getTime() - (5.5 * 60 * 60 * 1000));
-        
+
         console.log(`📅 [Walkin Loss Expiry] Expiry threshold: walk-ins created before ${startOfToday.toISOString()} (IST midnight)`);
 
         // Perform bulk update of walk-ins that:
@@ -349,9 +355,9 @@ export const expireWalkinsToLoss = async () => {
         // ── Persist run log to DB ──
         try {
             await CronLog.create({
-                jobType:     'walkin_loss_expiry',
-                status:      'success',
-                startedAt:   jobStartedAt,
+                jobType: 'walkin_loss_expiry',
+                status: 'success',
+                startedAt: jobStartedAt,
                 completedAt: jobCompletedAt,
                 durationMs,
                 expiredCount: result.modifiedCount,
@@ -369,11 +375,11 @@ export const expireWalkinsToLoss = async () => {
         // Log the failure too
         try {
             await CronLog.create({
-                jobType:      'walkin_loss_expiry',
-                status:       'error',
-                startedAt:    jobStartedAt,
-                completedAt:  jobCompletedAt,
-                durationMs:   jobCompletedAt - jobStartedAt,
+                jobType: 'walkin_loss_expiry',
+                status: 'error',
+                startedAt: jobStartedAt,
+                completedAt: jobCompletedAt,
+                durationMs: jobCompletedAt - jobStartedAt,
                 errorMessage: error.message,
             });
         } catch { /* silent */ }

@@ -137,7 +137,7 @@ const WalkinList = () => {
     });
 
     const [currentAdmin, setCurrentAdmin] = useState(null);
-    
+
     // Track walkins that already changed status today
     const [statusChangedToday, setStatusChangedToday] = useState({});
     const [updatingStatus, setUpdatingStatus] = useState({});
@@ -161,45 +161,99 @@ const WalkinList = () => {
         let lossEnquiryNextVisitDate = '';
         let lossEnquiryConfirmReason = '';
         let lossEnquiryRevisitDate = '';
+        let lossColour = '';
+        let lossSize = '';
+        let lossSelectRemarks = '';
+        let lossSalesPrice = '';
+        let parsedSubCategory = '';
 
         if (remarksStr && remarksStr.startsWith('[')) {
             // Check category prefix to parse correctly
-            if (remarksStr.startsWith('[Product Already Booked]')) {
+            if (remarksStr.startsWith('[Product Already Booked]') || remarksStr.startsWith('[product already booked]')) {
+                const productMatch = remarksStr.match(/Product:\s*([^|]+)/);
+                if (productMatch) lossProductType = productMatch[1].trim();
+
+                const sizeMatch = remarksStr.match(/Size:\s*([^|]+)/);
+                if (sizeMatch) lossSize = sizeMatch[1].trim();
+
+                const colourMatch = remarksStr.match(/Colour:\s*([^|]+)/);
+                if (colourMatch) lossColour = colourMatch[1].trim();
+
+                const sizeColourMatch = remarksStr.match(/Size & Colour:\s*([^|]+)/);
+                if (sizeColourMatch) lossSizeColour = sizeColourMatch[1].trim();
+            } else if (remarksStr.startsWith('[Model, Design and Colour Not Available]') || remarksStr.startsWith('[design and color unavailable]')) {
                 const productMatch = remarksStr.match(/Product:\s*([^|]+)/);
                 if (productMatch) lossProductType = productMatch[1].trim();
 
                 const sizeColourMatch = remarksStr.match(/Size & Colour:\s*([^|]+)/);
                 if (sizeColourMatch) lossSizeColour = sizeColourMatch[1].trim();
-            } else if (remarksStr.startsWith('[Model, Design and Colour Not Available]')) {
+            } else if (remarksStr.startsWith('[Size]') || remarksStr.startsWith('[size]')) {
                 const productMatch = remarksStr.match(/Product:\s*([^|]+)/);
                 if (productMatch) lossProductType = productMatch[1].trim();
 
-                const sizeColourMatch = remarksStr.match(/Size & Colour:\s*([^|]+)/);
-                if (sizeColourMatch) lossSizeColour = sizeColourMatch[1].trim();
-            } else if (remarksStr.startsWith('[Size]')) {
-                const sizeMatch = remarksStr.match(/Selected:\s*([^|]+)/);
-                if (sizeMatch) lossSizeOption = sizeMatch[1].trim();
-            } else if (remarksStr.startsWith('[Price]')) {
+                const sizeMatch = remarksStr.match(/Size:\s*([^|]+)/);
+                if (sizeMatch) lossSize = sizeMatch[1].trim();
+
+                const sizeOptionMatch = remarksStr.match(/Selected:\s*([^|]+)/);
+                if (sizeOptionMatch) lossSizeOption = sizeOptionMatch[1].trim();
+            } else if (remarksStr.startsWith('[Price]') || remarksStr.startsWith('[price]')) {
+                const remarksMatch = remarksStr.match(/Remarks:\s*([^|]+)/);
+                if (remarksMatch) lossSelectRemarks = remarksMatch[1].trim();
+
                 const priceReasonMatch = remarksStr.match(/Reason:\s*([^|]+)/);
                 if (priceReasonMatch) lossPriceReason = priceReasonMatch[1].trim();
 
                 const budgetMatch = remarksStr.match(/Budget:\s*([^|]+)/);
                 if (budgetMatch) lossBudget = budgetMatch[1].trim();
-            } else if (remarksStr.startsWith('[Enquiry Without Groom/Bride]')) {
+            } else if (remarksStr.startsWith('[Sales]') || remarksStr.startsWith('[sales]')) {
+                lossProductType = 'sales';
+                
+                const subCategoryMatch = remarksStr.match(/Sub Category:\s*([^|]+)/);
+                if (subCategoryMatch) parsedSubCategory = subCategoryMatch[1].trim();
+                
+                const sizeMatch = remarksStr.match(/Size:\s*([^|]+)/);
+                if (sizeMatch) lossSize = sizeMatch[1].trim();
+
+                const colourMatch = remarksStr.match(/Colour:\s*([^|]+)/);
+                if (colourMatch) lossColour = colourMatch[1].trim();
+
+                const priceMatch = remarksStr.match(/Price:\s*([^|]+)/);
+                if (priceMatch) lossSalesPrice = priceMatch[1].trim();
+            } else if (remarksStr.startsWith('[Enquiry Without Groom/Bride]') || remarksStr.startsWith('[enquiry without groom and bride]')) {
+                const productMatch = remarksStr.match(/Product:\s*([^|]+)/);
+                if (productMatch) lossProductType = productMatch[1].trim();
+
                 const groomMatch = remarksStr.match(/Groom Coming:\s*([^|]+)/);
                 if (groomMatch) lossEnquiryGroomComing = groomMatch[1].trim();
-            } else if (remarksStr.startsWith('[Enquiry Without Trail]')) {
+            } else if (remarksStr.startsWith('[Enquiry Without Trail]') || remarksStr.startsWith('[enquiry without trial]')) {
+                const productMatch = remarksStr.match(/Product:\s*([^|]+)/);
+                if (productMatch) lossProductType = productMatch[1].trim();
+
                 const trailMatch = remarksStr.match(/Selected:\s*([^|]+)/);
-                if (trailMatch) lossEnquiryTrailOption = trailMatch[1].trim();
+                if (trailMatch) {
+                    lossEnquiryTrailOption = trailMatch[1].trim().toLowerCase();
+                }
 
                 const nextVisitMatch = remarksStr.match(/Next Visit Date:\s*([^|]+)/);
                 if (nextVisitMatch) lossEnquiryNextVisitDate = nextVisitMatch[1].trim();
-            } else if (remarksStr.startsWith('[Confirm Later]')) {
+            } else if (remarksStr.startsWith('[Confirm Later]') || remarksStr.startsWith('[confirm later]')) {
+                const productMatch = remarksStr.match(/Product:\s*([^|]+)/);
+                if (productMatch) lossProductType = productMatch[1].trim();
+
                 const confirmMatch = remarksStr.match(/Reason:\s*([^|]+)/);
                 if (confirmMatch) lossEnquiryConfirmReason = confirmMatch[1].trim();
 
                 const revisitMatch = remarksStr.match(/Revisit Date:\s*([^|]+)/);
                 if (revisitMatch) lossEnquiryRevisitDate = revisitMatch[1].trim();
+            } else if (remarksStr.startsWith('[Customization]') || remarksStr.startsWith('[customization]')) {
+                const productMatch = remarksStr.match(/Product:\s*([^|]+)/);
+                if (productMatch) lossProductType = productMatch[1].trim();
+
+                const sizeMatch = remarksStr.match(/Size:\s*([^|]+)/);
+                if (sizeMatch) lossSize = sizeMatch[1].trim();
+
+                const colourMatch = remarksStr.match(/Colour:\s*([^|]+)/);
+                if (colourMatch) lossColour = colourMatch[1].trim();
             }
 
             const noteMatch = remarksStr.match(/Note:\s*(.*)$/);
@@ -228,7 +282,12 @@ const WalkinList = () => {
             lossEnquiryTrailOption,
             lossEnquiryNextVisitDate,
             lossEnquiryConfirmReason,
-            lossEnquiryRevisitDate
+            lossEnquiryRevisitDate,
+            lossColour,
+            lossSize,
+            lossSelectRemarks,
+            lossSalesPrice,
+            parsedSubCategory
         };
     };
 
@@ -285,7 +344,11 @@ const WalkinList = () => {
             lossEnquiryTrailOption: '',
             lossEnquiryNextVisitDate: '',
             lossEnquiryConfirmReason: '',
-            lossEnquiryRevisitDate: ''
+            lossEnquiryRevisitDate: '',
+            lossColour: '',
+            lossSize: '',
+            lossSelectRemarks: '',
+            lossSalesPrice: ''
         };
     };
 
@@ -462,7 +525,23 @@ const WalkinList = () => {
             setFormData(prev => ({
                 ...prev,
                 category: value,
-                subCategory: prev.status === 'Loss' ? 'Select sub category' : '-'
+                subCategory: prev.status === 'Loss' ? 
+                    (value === 'Product' ? (prev.lossProductType === 'sales' ? 'Select sub category' : 'Select reason') : (value === 'Dapper Squad' ? 'Select reason' : 'Select sub category')) : '-',
+                lossProductType: '',
+                lossColour: '',
+                lossSize: '',
+                lossSelectRemarks: '',
+                lossSalesPrice: '',
+                lossNote: '',
+                lossSizeColour: '',
+                lossSizeOption: '',
+                lossPriceReason: '',
+                lossBudget: '',
+                lossEnquiryGroomComing: '',
+                lossEnquiryTrailOption: '',
+                lossEnquiryNextVisitDate: '',
+                lossEnquiryConfirmReason: '',
+                lossEnquiryRevisitDate: ''
             }));
             return;
         }
@@ -509,7 +588,49 @@ const WalkinList = () => {
                 status: value,
                 category: finalCategory,
                 subCategory: finalSubCategory,
-                functionType: finalFunctionType
+                functionType: finalFunctionType,
+                lossProductType: '',
+                lossColour: '',
+                lossSize: '',
+                lossSelectRemarks: '',
+                lossSalesPrice: '',
+                lossNote: '',
+                lossSizeColour: '',
+                lossSizeOption: '',
+                lossPriceReason: '',
+                lossBudget: '',
+                lossEnquiryGroomComing: '',
+                lossEnquiryTrailOption: '',
+                lossEnquiryNextVisitDate: '',
+                lossEnquiryConfirmReason: '',
+                lossEnquiryRevisitDate: ''
+            }));
+            return;
+        }
+
+        if (name === 'lossProductType') {
+            setFormData(prev => ({
+                ...prev,
+                lossProductType: value,
+                subCategory: value === 'sales' ? 'Select sub category' : 'Select reason',
+                lossColour: '',
+                lossSize: '',
+                lossSelectRemarks: '',
+                lossSalesPrice: '',
+                lossNote: ''
+            }));
+            return;
+        }
+
+        if (name === 'subCategory' && formData.status === 'Loss') {
+            setFormData(prev => ({
+                ...prev,
+                subCategory: value,
+                lossColour: '',
+                lossSize: '',
+                lossSelectRemarks: '',
+                lossSalesPrice: '',
+                lossNote: ''
             }));
             return;
         }
@@ -558,12 +679,39 @@ const WalkinList = () => {
 
                 // Pre-populate fields automatically (Do not override store & staff with historical ones)
                 const parsed = parseRemarks(json.data.remarks || '');
+                let subCat = json.data.subCategory || '-';
+                if ((!subCat || subCat === '-') && parsed.parsedSubCategory) {
+                    subCat = parsed.parsedSubCategory;
+                }
+                if (json.data.category === 'Enquiry') {
+                    const lower = (subCat || '').toLowerCase().trim();
+                    if (lower === 'enquiry without groom/bride' || lower === 'enquiry without groom and bride') {
+                        subCat = 'enquiry without groom and bride';
+                    } else if (lower === 'enquiry without trail' || lower === 'enquiry without trial') {
+                        subCat = 'enquiry without trial';
+                    } else if (lower === 'confirm later') {
+                        subCat = 'confirm later';
+                    }
+                } else if (json.data.category === 'Dapper Squad') {
+                    const lower = (subCat || '').toLowerCase().trim();
+                    if (lower === 'product already booked') {
+                        subCat = 'product already booked';
+                    } else if (lower === 'model, design and colour not available' || lower === 'design and color unavailable') {
+                        subCat = 'design and color unavailable';
+                    } else if (lower === 'price') {
+                        subCat = 'price';
+                    } else if (lower === 'enquiry') {
+                        subCat = 'enquiry';
+                    } else if (lower === 'size') {
+                        subCat = 'size';
+                    }
+                }
                 setFormData(prev => ({
                     ...prev,
                     customerName: json.data.customerName || prev.customerName,
                     functionDate: safeDateOnly(json.data.functionDate) || prev.functionDate,
                     category: json.data.category || prev.category,
-                    subCategory: json.data.subCategory || prev.subCategory,
+                    subCategory: subCat,
                     remarks: json.data.remarks || prev.remarks,
                     status: json.data.status || prev.status,
                     repeatCount: json.data.repeatCount || 1,
@@ -587,9 +735,9 @@ const WalkinList = () => {
     const handleStatusChange = async (walkinRecord, newStatus) => {
         const walkinId = walkinRecord._id;
         if (updatingStatus[walkinId]) return; // Prevent double-click
-        
+
         setUpdatingStatus(prev => ({ ...prev, [walkinId]: true }));
-        
+
         try {
             const res = await fetch(`${baseUrl.baseUrl}api/walkin/save`, {
                 method: 'POST',
@@ -604,7 +752,7 @@ const WalkinList = () => {
                     contact: walkinRecord.contact
                 })
             });
-            
+
             const json = await res.json();
             if (json.success) {
                 // Mark this walkin as changed today
@@ -625,12 +773,40 @@ const WalkinList = () => {
             setUpdatingStatus(prev => ({ ...prev, [walkinId]: false }));
         }
     };
-    
+
     const handleEditClick = (w) => {
         const foundBranch = branches.find(b => b.workingBranch === w.store);
         const storeIdToLoad = w.storeId || (foundBranch ? foundBranch._id : '');
 
         const parsed = parseRemarks(w.remarks || '');
+        let subCat = w.subCategory || '-';
+        if ((!subCat || subCat === '-') && parsed.parsedSubCategory) {
+            subCat = parsed.parsedSubCategory;
+        }
+        if (w.category === 'Enquiry') {
+            const lower = subCat.toLowerCase().trim();
+            if (lower === 'enquiry without groom/bride' || lower === 'enquiry without groom and bride') {
+                subCat = 'enquiry without groom and bride';
+            } else if (lower === 'enquiry without trail' || lower === 'enquiry without trial') {
+                subCat = 'enquiry without trial';
+            } else if (lower === 'confirm later') {
+                subCat = 'confirm later';
+            }
+        } else if (w.category === 'Dapper Squad') {
+            const lower = subCat.toLowerCase().trim();
+            if (lower === 'product already booked') {
+                subCat = 'product already booked';
+            } else if (lower === 'model, design and colour not available' || lower === 'design and color unavailable') {
+                subCat = 'design and color unavailable';
+            } else if (lower === 'price') {
+                subCat = 'price';
+            } else if (lower === 'enquiry') {
+                subCat = 'enquiry';
+            } else if (lower === 'size') {
+                subCat = 'size';
+            }
+        }
+
         setFormData({
             _id: w._id,
             date: safeDateOnly(w.date),
@@ -642,7 +818,7 @@ const WalkinList = () => {
             staff: w.staff || '',
             employeeId: w.employeeId || '',
             category: w.category || '-',
-            subCategory: w.subCategory || '-',
+            subCategory: subCat,
             functionType: w.functionType || '-',
             remarks: w.remarks || '',
             status: w.status || 'New Walkin',
@@ -671,73 +847,152 @@ const WalkinList = () => {
             return;
         }
         if (formData.status === 'Loss') {
-            if (!formData.category || formData.category === '-' || formData.category === '') {
-                alert('Please select a Category.');
-                return;
-            }
-            if (!formData.subCategory || formData.subCategory === 'Select sub category' || formData.subCategory === '-' || formData.subCategory === '') {
-                alert('Please select a Sub Category.');
-                return;
-            }
             if (!formData.functionType || formData.functionType === 'Select function type' || formData.functionType === '-' || formData.functionType === '') {
                 alert('Please select a Function Type.');
                 return;
             }
+            if (!formData.category || formData.category === '-' || formData.category === '') {
+                alert('Please select a Category.');
+                return;
+            }
 
-            // Subcategory custom validations
             if (formData.category === 'Product') {
-                if (formData.subCategory === 'Product Already Booked') {
-                    if (!formData.lossProductType || formData.lossProductType === '') {
-                        alert('Please select Which Product.');
+                if (!formData.lossProductType || formData.lossProductType === '') {
+                    alert('Please select a Product Type.');
+                    return;
+                }
+
+                if (formData.lossProductType === 'sales') {
+                    if (!formData.subCategory || formData.subCategory === 'Select sub category' || formData.subCategory === '-' || formData.subCategory === '') {
+                        alert('Please select a Sales Sub Category.');
                         return;
                     }
-                } else if (formData.subCategory === 'Model, Design and Colour Not Available') {
-                    if (!formData.lossProductType || formData.lossProductType === '') {
-                        alert('Please select Which Product.');
+                    if (!formData.lossColour || formData.lossColour.trim() === '') {
+                        alert('Please enter a Colour.');
                         return;
                     }
-                } else if (formData.subCategory === 'Size') {
-                    if (!formData.lossSizeOption || formData.lossSizeOption === '') {
-                        alert('Please select Which Size.');
+                    if (!formData.lossSize || formData.lossSize === '') {
+                        alert('Please select a Size.');
                         return;
                     }
-                } else if (formData.subCategory === 'Price') {
-                    if (!formData.lossPriceReason || formData.lossPriceReason === '') {
-                        alert('Please select a Price Option.');
+                    if (!formData.lossSalesPrice || formData.lossSalesPrice.trim() === '') {
+                        alert('Please enter a Price.');
                         return;
                     }
-                    if (!formData.lossBudget || formData.lossBudget.trim() === '') {
-                        alert('Please enter What is the budget.');
+                } else {
+                    if (!formData.subCategory || formData.subCategory === 'Select sub category' || formData.subCategory === 'Select reason' || formData.subCategory === '-' || formData.subCategory === '') {
+                        alert('Please select a Reason.');
                         return;
+                    }
+                    if (formData.subCategory === 'Product Already Booked') {
+                        if (!formData.lossSize || formData.lossSize === '') {
+                            alert('Please select a Size.');
+                            return;
+                        }
+                        if (!formData.lossColour || formData.lossColour.trim() === '') {
+                            alert('Please enter a Colour.');
+                            return;
+                        }
+                    } else if (formData.subCategory === 'Price') {
+                        if (!formData.lossSelectRemarks || formData.lossSelectRemarks === '') {
+                            alert('Please select a Price Option.');
+                            return;
+                        }
+                    } else if (formData.subCategory === 'Size') {
+                        if (!formData.lossSize || formData.lossSize === '') {
+                            alert('Please select a Size.');
+                            return;
+                        }
                     }
                 }
-            } else if (formData.category === 'Enquiry') {
-                if (formData.subCategory === 'Enquiry Without Groom/Bride') {
-                    if (!formData.lossEnquiryGroomComing || formData.lossEnquiryGroomComing.trim() === '') {
-                        alert('Please enter when groom/bride is coming.');
+            } else {
+                if (formData.category === 'Enquiry') {
+                    if (!formData.lossProductType || formData.lossProductType === '') {
+                        alert('Please select a Product Type.');
                         return;
                     }
-                } else if (formData.subCategory === 'Enquiry Without Trail') {
-                    if (!formData.lossEnquiryTrailOption || formData.lossEnquiryTrailOption === '') {
-                        alert('Please select a Trail Option.');
-                        return;
-                    }
-                    if (formData.lossEnquiryTrailOption === 'Long Date') {
-                        if (!formData.lossEnquiryNextVisitDate || formData.lossEnquiryNextVisitDate === '') {
-                            alert('Please enter the next visit plan date.');
+                    if (formData.lossProductType === 'sales') {
+                        if (!formData.subCategory || formData.subCategory === 'Select sub category' || formData.subCategory === '-' || formData.subCategory === '') {
+                            alert('Please select a Sales Sub Category.');
                             return;
                         }
-                    }
-                } else if (formData.subCategory === 'Confirm Later') {
-                    if (!formData.lossEnquiryConfirmReason || formData.lossEnquiryConfirmReason === '') {
-                        alert('Please select a Confirm Option.');
-                        return;
-                    }
-                    if (formData.lossEnquiryConfirmReason === 'They need to visit other brands') {
-                        if (!formData.lossEnquiryRevisitDate || formData.lossEnquiryRevisitDate === '') {
-                            alert('Please enter when the customer will revisit.');
+                    } else {
+                        if (!formData.subCategory || formData.subCategory === 'Select reason' || formData.subCategory === '-' || formData.subCategory === '') {
+                            alert('Please select a Reason.');
                             return;
                         }
+                        if (formData.subCategory === 'enquiry without trial') {
+                            if (!formData.lossEnquiryTrailOption || formData.lossEnquiryTrailOption === '') {
+                                alert('Please select a Remarks Option.');
+                                return;
+                            }
+                        } else if (formData.subCategory === 'confirm later') {
+                            if (!formData.lossEnquiryRevisitDate || formData.lossEnquiryRevisitDate === '') {
+                                alert('Please enter when the customer will revisit.');
+                                return;
+                            }
+                        }
+                    }
+                } else if (formData.category === 'Dapper Squad') {
+                    if (!formData.lossProductType || formData.lossProductType === '') {
+                        alert('Please select a Product Type.');
+                        return;
+                    }
+                    if (formData.lossProductType === 'sales') {
+                        if (!formData.subCategory || formData.subCategory === 'Select sub category' || formData.subCategory === '-' || formData.subCategory === '') {
+                            alert('Please select a Sales Sub Category.');
+                            return;
+                        }
+                        if (!formData.lossColour || formData.lossColour.trim() === '') {
+                            alert('Please enter a Colour.');
+                            return;
+                        }
+                        if (!formData.lossSize || formData.lossSize === '') {
+                            alert('Please select a Size.');
+                            return;
+                        }
+                        if (!formData.lossSalesPrice || formData.lossSalesPrice.trim() === '') {
+                            alert('Please enter a Price.');
+                            return;
+                        }
+                    } else {
+                        if (!formData.subCategory || formData.subCategory === 'Select reason' || formData.subCategory === '-' || formData.subCategory === '') {
+                            alert('Please select a Reason.');
+                            return;
+                        }
+                        if (formData.subCategory === 'product already booked') {
+                            if (!formData.lossSize || formData.lossSize === '') {
+                                alert('Please select a Size.');
+                                return;
+                            }
+                            if (!formData.lossColour || formData.lossColour.trim() === '') {
+                                alert('Please enter a Colour.');
+                                return;
+                            }
+                        } else if (formData.subCategory === 'price') {
+                            if (!formData.lossSelectRemarks || formData.lossSelectRemarks === '') {
+                                alert('Please select a Price Option.');
+                                return;
+                            }
+                        } else if (formData.subCategory === 'size') {
+                            if (!formData.lossSize || formData.lossSize === '') {
+                                alert('Please select a Size.');
+                                return;
+                            }
+                        }
+                    }
+                } else if (formData.category === 'Customization') {
+                    if (!formData.lossProductType || formData.lossProductType === '') {
+                        alert('Please select a Product Type.');
+                        return;
+                    }
+                    if (!formData.lossSize || formData.lossSize === '') {
+                        alert('Please select a Size.');
+                        return;
+                    }
+                    if (!formData.lossColour || formData.lossColour.trim() === '') {
+                        alert('Please enter a Colour.');
+                        return;
                     }
                 }
             }
@@ -762,20 +1017,56 @@ const WalkinList = () => {
             // Serialize custom remarks fields
             let finalRemarks = formData.remarks || '-';
             if (formData.status === 'Loss') {
-                if (formData.subCategory === 'Product Already Booked') {
-                    finalRemarks = `[Product Already Booked] Product: ${formData.lossProductType || '-'} | Size & Colour: ${formData.lossSizeColour || '-'} | Note: ${formData.lossNote || '-'}`;
-                } else if (formData.subCategory === 'Model, Design and Colour Not Available') {
-                    finalRemarks = `[Model, Design and Colour Not Available] Product: ${formData.lossProductType || '-'} | Size & Colour: ${formData.lossSizeColour || '-'} | Note: ${formData.lossNote || '-'}`;
-                } else if (formData.subCategory === 'Size') {
-                    finalRemarks = `[Size] Selected: ${formData.lossSizeOption || '-'} | Note: ${formData.lossNote || '-'}`;
-                } else if (formData.subCategory === 'Price') {
-                    finalRemarks = `[Price] Reason: ${formData.lossPriceReason || '-'} | Budget: ${formData.lossBudget || '-'} | Note: ${formData.lossNote || '-'}`;
-                } else if (formData.subCategory === 'Enquiry Without Groom/Bride') {
-                    finalRemarks = `[Enquiry Without Groom/Bride] Groom Coming: ${formData.lossEnquiryGroomComing || '-'} | Note: ${formData.lossNote || '-'}`;
-                } else if (formData.subCategory === 'Enquiry Without Trail') {
-                    finalRemarks = `[Enquiry Without Trail] Selected: ${formData.lossEnquiryTrailOption || '-'} | Next Visit Date: ${formData.lossEnquiryNextVisitDate || '-'} | Note: ${formData.lossNote || '-'}`;
-                } else if (formData.subCategory === 'Confirm Later') {
-                    finalRemarks = `[Confirm Later] Reason: ${formData.lossEnquiryConfirmReason || '-'} | Revisit Date: ${formData.lossEnquiryRevisitDate || '-'} | Note: ${formData.lossNote || '-'}`;
+                if (formData.category === 'Product') {
+                    if (formData.lossProductType === 'sales') {
+                        finalRemarks = `[Sales] Sub Category: ${formData.subCategory || '-'} | Size: ${formData.lossSize || '-'} | Colour: ${formData.lossColour || '-'} | Price: ${formData.lossSalesPrice || '-'} | Note: ${formData.lossNote || '-'}`;
+                    } else {
+                        if (formData.subCategory === 'Product Already Booked') {
+                            finalRemarks = `[Product Already Booked] Product: ${formData.lossProductType || '-'} | Size: ${formData.lossSize || '-'} | Colour: ${formData.lossColour || '-'} | Note: ${formData.lossNote || '-'}`;
+                        } else if (formData.subCategory === 'Model, Design and Colour Not Available') {
+                            finalRemarks = `[Model, Design and Colour Not Available] Product: ${formData.lossProductType || '-'} | Note: ${formData.lossNote || '-'}`;
+                        } else if (formData.subCategory === 'Size') {
+                            finalRemarks = `[Size] Product: ${formData.lossProductType || '-'} | Size: ${formData.lossSize || '-'} | Note: ${formData.lossNote || '-'}`;
+                        } else if (formData.subCategory === 'Price') {
+                            finalRemarks = `[Price] Remarks: ${formData.lossSelectRemarks || '-'} | Note: ${formData.lossNote || '-'}`;
+                        }
+                    }
+                } else if (formData.category === 'Enquiry') {
+                    if (formData.lossProductType === 'sales') {
+                        finalRemarks = `[Sales] Sub Category: ${formData.subCategory || '-'} | Note: ${formData.lossNote || '-'}`;
+                    } else {
+                        if (formData.subCategory === 'enquiry without groom and bride' || formData.subCategory === 'Enquiry Without Groom/Bride') {
+                            finalRemarks = `[enquiry without groom and bride] Product: ${formData.lossProductType || '-'} | Note: ${formData.lossNote || '-'}`;
+                        } else if (formData.subCategory === 'enquiry without trial' || formData.subCategory === 'Enquiry Without Trail') {
+                            finalRemarks = `[enquiry without trial] Product: ${formData.lossProductType || '-'} | Selected: ${formData.lossEnquiryTrailOption || '-'} | Note: ${formData.lossNote || '-'}`;
+                        } else if (formData.subCategory === 'confirm later' || formData.subCategory === 'Confirm Later') {
+                            finalRemarks = `[confirm later] Product: ${formData.lossProductType || '-'} | Revisit Date: ${formData.lossEnquiryRevisitDate || '-'} | Note: ${formData.lossNote || '-'}`;
+                        } else {
+                            finalRemarks = `[Enquiry] Product: ${formData.lossProductType || '-'} | Reason: ${formData.subCategory || '-'} | Note: ${formData.lossNote || '-'}`;
+                        }
+                    }
+                } else if (formData.category === 'Dapper Squad') {
+                    if (formData.lossProductType === 'sales') {
+                        finalRemarks = `[Sales] Sub Category: ${formData.subCategory || '-'} | Size: ${formData.lossSize || '-'} | Colour: ${formData.lossColour || '-'} | Price: ${formData.lossSalesPrice || '-'} | Note: ${formData.lossNote || '-'}`;
+                    } else {
+                        if (formData.subCategory === 'product already booked' || formData.subCategory === 'Product Already Booked') {
+                            finalRemarks = `[product already booked] Product: ${formData.lossProductType || '-'} | Size: ${formData.lossSize || '-'} | Colour: ${formData.lossColour || '-'} | Note: ${formData.lossNote || '-'}`;
+                        } else if (formData.subCategory === 'design and color unavailable' || formData.subCategory === 'Model, Design and Colour Not Available') {
+                            finalRemarks = `[design and color unavailable] Product: ${formData.lossProductType || '-'} | Note: ${formData.lossNote || '-'}`;
+                        } else if (formData.subCategory === 'size' || formData.subCategory === 'Size') {
+                            finalRemarks = `[size] Product: ${formData.lossProductType || '-'} | Size: ${formData.lossSize || '-'} | Note: ${formData.lossNote || '-'}`;
+                        } else if (formData.subCategory === 'price' || formData.subCategory === 'Price') {
+                            finalRemarks = `[price] Remarks: ${formData.lossSelectRemarks || '-'} | Note: ${formData.lossNote || '-'}`;
+                        } else if (formData.subCategory === 'enquiry') {
+                            finalRemarks = `[enquiry] Note: ${formData.lossNote || '-'}`;
+                        } else {
+                            finalRemarks = `[Dapper Squad] Product: ${formData.lossProductType || '-'} | Reason: ${formData.subCategory || '-'} | Note: ${formData.lossNote || '-'}`;
+                        }
+                    }
+                } else if (formData.category === 'Customization') {
+                    finalRemarks = `[Customization] Product: ${formData.lossProductType || '-'} | Size: ${formData.lossSize || '-'} | Colour: ${formData.lossColour || '-'} | Note: ${formData.lossNote || '-'}`;
+                } else {
+                    finalRemarks = `[${formData.category}] Sub Category: ${formData.subCategory || '-'} | Note: ${formData.lossNote || '-'}`;
                 }
             }
 
@@ -828,14 +1119,28 @@ const WalkinList = () => {
 
     const currentStoreEmployees = employees; // Already filtered by loadEmployees API
 
-    const showCategory = formData.status === 'Loss' || formData.status === 'Revisit';
-    const showSubCategory = formData.status === 'Loss';
+    const showCategory = formData.status === 'Revisit' || (formData.status === 'Loss' && formData.functionType && formData.functionType !== 'Select function type' && formData.functionType !== '-');
+    const showSubCategory = formData.status === 'Loss' && (
+        formData.category === 'Product' || formData.category === 'Enquiry' || formData.category === 'Dapper Squad'
+    ) && formData.lossProductType && formData.lossProductType !== '';
     const showFunctionType = formData.status === 'Loss';
-    const showAttachmentInput = formData.status === 'Loss' && formData.subCategory === 'Model, Design and Colour Not Available';
+    const showAttachmentInput = formData.status === 'Loss' && formData.category === 'Product' && formData.subCategory === 'Model, Design and Colour Not Available';
+
+    const getProductTypeOptions = () => {
+        const isCentralAdmin = ['super_admin', 'admin', 'hr_admin', 'cluster_admin'].includes(user?.role);
+        if (isCentralAdmin) {
+            return ['2 piece suite', '3 piece suite', 'bandgala', 'indowestern', 'kurtha', 'Kids suit', 'item 1', 'item 2', 'item 3', 'sales'];
+        }
+        const storeLower = (formData.store || '').toLowerCase().trim();
+        if (storeLower.includes('zorucci') || storeLower.startsWith('z')) {
+            return ['item 1', 'item 2', 'item 3', 'sales'];
+        }
+        return ['2 piece suite', '3 piece suite', 'bandgala', 'indowestern', 'kurtha', 'Kids suit', 'sales'];
+    };
 
     const getCategoryOptions = () => {
         if (formData.status === 'Loss') {
-            return ['Product', 'Enquiry', 'Dapper Squad'];
+            return ['Product', 'Enquiry', 'Dapper Squad', 'Customization'];
         }
         if (formData.status === 'Revisit') {
             return ['Trial', 'Reissue', 'Loss'];
@@ -846,31 +1151,58 @@ const WalkinList = () => {
     const getSubCategoryOptions = () => {
         if (formData.status === 'Loss') {
             if (formData.category === 'Product') {
-                return [
-                    'Select sub category',
-                    'Product Already Booked',
-                    'Model, Design and Colour Not Available',
-                    'Size',
-                    'Price'
-                ];
+                if (formData.lossProductType === 'sales') {
+                    return [
+                        'Select sub category',
+                        'shoe',
+                        'shirt'
+                    ];
+                } else {
+                    return [
+                        'Select reason',
+                        'Product Already Booked',
+                        'Model, Design and Colour Not Available',
+                        'Price',
+                        'Size'
+                    ];
+                }
             }
             if (formData.category === 'Enquiry') {
-                return [
-                    'Select sub category',
-                    'Enquiry Without Groom/Bride',
-                    'Enquiry Without Trail',
-                    'Confirm Later',
-                    'Shoe and Shirt'
-                ];
+                if (formData.lossProductType === 'sales') {
+                    return [
+                        'Select sub category',
+                        'shoe',
+                        'shirt'
+                    ];
+                } else {
+                    return [
+                        'Select reason',
+                        'enquiry without groom and bride',
+                        'enquiry without trial',
+                        'confirm later'
+                    ];
+                }
             }
             if (formData.category === 'Dapper Squad') {
-                return [
-                    'Select sub category',
-                    'Product Already Booked',
-                    'Model, Design and Colour Not Available',
-                    'Size',
-                    'Price'
-                ];
+                if (formData.lossProductType === 'sales') {
+                    return [
+                        'Select sub category',
+                        'shoe',
+                        'shirt'
+                    ];
+                } else {
+                    return [
+                        'Select reason',
+                        'product already booked',
+                        'design and color unavailable',
+                        'price',
+                        'enquiry',
+                        'size'
+                    ];
+                }
+            }
+            if (formData.category === 'Customization') {
+                return ['Select reason'];
             }
         }
         return ['Select sub category'];
@@ -881,7 +1213,10 @@ const WalkinList = () => {
             'Select function type',
             'Hindu Function',
             'Christian Function',
-            'Muslim Function'
+            'Muslim Function',
+            'Grooms Men',
+            'Office or College',
+            'Others functions'
         ];
     };
 
@@ -978,11 +1313,10 @@ const WalkinList = () => {
                                             onChange={handleInputChange}
                                             onBlur={(e) => checkCustomer(e.target.value)}
                                             disabled={isRestrictedEdit}
-                                            className={`w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 font-semibold ${
-                                                isRestrictedEdit 
-                                                    ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200' 
+                                            className={`w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 font-semibold ${isRestrictedEdit
+                                                    ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200'
                                                     : 'bg-white text-gray-800 placeholder-gray-400'
-                                            }`}
+                                                }`}
                                         />
                                     </div>
                                     <div className="col-span-12 md:col-span-3">
@@ -997,11 +1331,10 @@ const WalkinList = () => {
                                             value={formData.customerName}
                                             onChange={handleInputChange}
                                             disabled={isRestrictedEdit}
-                                            className={`w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 font-semibold ${
-                                                isRestrictedEdit 
-                                                    ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200' 
+                                            className={`w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 font-semibold ${isRestrictedEdit
+                                                    ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200'
                                                     : 'bg-white text-gray-800 placeholder-gray-400'
-                                            }`}
+                                                }`}
                                         />
                                     </div>
                                     <div className="col-span-12 md:col-span-4">
@@ -1015,11 +1348,10 @@ const WalkinList = () => {
                                             value={formData.functionDate}
                                             onChange={handleInputChange}
                                             disabled={isRestrictedEdit}
-                                            className={`w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 font-semibold ${
-                                                isRestrictedEdit 
-                                                    ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200' 
+                                            className={`w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 font-semibold ${isRestrictedEdit
+                                                    ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200'
                                                     : 'bg-white text-gray-800 cursor-pointer placeholder-gray-400'
-                                            }`}
+                                                }`}
                                         />
                                     </div>
                                     <div className="col-span-12 md:col-span-2">
@@ -1097,6 +1429,7 @@ const WalkinList = () => {
 
                                 {/* Row 2: Status, Category, Sub Category, Remarks */}
                                 <div className="grid grid-cols-12 gap-5 pt-1">
+                                    {/* 1. Status Dropdown */}
                                     <div className="col-span-12 md:col-span-3">
                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                                             Status<span className="text-red-500">*</span>
@@ -1122,495 +1455,1195 @@ const WalkinList = () => {
                                         </div>
                                     </div>
 
-                                    {/* Category Select (Visible only for Loss/Revisit) */}
-                                    {showCategory && (
-                                        <div className="col-span-12 md:col-span-3">
-                                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                Category<span className="text-red-500">*</span>
-                                            </label>
-                                            <div className="relative">
-                                                <select
-                                                    name="category"
-                                                    required
-                                                    value={formData.category}
-                                                    onChange={handleInputChange}
-                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
-                                                >
-                                                    <option value="">Select Category</option>
-                                                    {getCategoryOptions().map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
-                                                </select>
-                                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                                                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                                                        <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                                                    </svg>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Sub Category Select (Visible only for Revisit) */}
-                                    {showSubCategory && (
-                                        <div className="col-span-12 md:col-span-3">
-                                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                Sub Category<span className="text-red-500">*</span>
-                                            </label>
-                                            <div className="relative">
-                                                <select
-                                                    name="subCategory"
-                                                    value={formData.subCategory}
-                                                    onChange={handleInputChange}
-                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
-                                                >
-                                                    {getSubCategoryOptions().map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
-                                                </select>
-                                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                                                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                                                        <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                                                    </svg>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Function Type Select (Visible only for Loss) */}
-                                    {showFunctionType && (
-                                        <div className="col-span-12 md:col-span-3">
-                                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                Function Type<span className="text-red-500">*</span>
-                                            </label>
-                                            <div className="relative">
-                                                <select
-                                                    name="functionType"
-                                                    value={formData.functionType}
-                                                    onChange={handleInputChange}
-                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
-                                                >
-                                                    {getFunctionTypeOptions().map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
-                                                </select>
-                                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                                                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                                                        <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                                                    </svg>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Conditional Banner for Model, Design and Colour Not Available */}
-                                    {formData.status === 'Loss' && formData.subCategory === 'Model, Design and Colour Not Available' && (
-                                        <div className="col-span-12">
-                                            <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-700 font-semibold mb-1 w-full">
-                                                💡 Attachment is the best option for this category.
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Optional Attachment Input */}
-                                    {showAttachmentInput && (
-                                        <div className="col-span-12 md:col-span-3">
-                                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                Attachment <span className="text-gray-400 font-normal">(Optional)</span>
-                                            </label>
-                                            <div className="relative">
-                                                <input 
-                                                    type="file" 
-                                                    id="walkin-attachment-file"
-                                                    onChange={handleFileChange} 
-                                                    className="hidden"
-                                                />
-                                                <label 
-                                                    htmlFor="walkin-attachment-file" 
-                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 flex items-center justify-between text-sm focus:outline-none text-gray-600 bg-white cursor-pointer hover:border-gray-400 transition-all font-semibold overflow-hidden"
-                                                >
-                                                    <span className="truncate">
-                                                        {selectedFile ? selectedFile.name : (formData.attachmentName || 'Choose File...')}
-                                                    </span>
-                                                    <svg className="w-4 h-4 text-gray-400 shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                                                    </svg>
-                                                </label>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Custom interactive fields for 'Loss' subcategories or fallback Remarks textarea */}
-                                    {formData.status === 'Loss' && (
-                                        (formData.category === 'Product' && ['Product Already Booked', 'Model, Design and Colour Not Available', 'Size', 'Price'].includes(formData.subCategory)) ||
-                                        (formData.category === 'Enquiry' && ['Enquiry Without Groom/Bride', 'Enquiry Without Trail', 'Confirm Later'].includes(formData.subCategory))
-                                    ) ? (
+                                    {/* IF STATUS IS 'Loss' -> SEQUENTIAL FLOW */}
+                                    {formData.status === 'Loss' ? (
                                         <>
-                                            {/* Category: Product */}
+                                            {/* 1. Function Type Dropdown (always visible first under Loss) */}
+                                            <div className="col-span-12 md:col-span-3">
+                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                    Function Type<span className="text-red-500">*</span>
+                                                </label>
+                                                <div className="relative">
+                                                    <select
+                                                        name="functionType"
+                                                        required
+                                                        value={formData.functionType}
+                                                        onChange={handleInputChange}
+                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                    >
+                                                        {getFunctionTypeOptions().map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
+                                                    </select>
+                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                        </svg>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* 2. Category Dropdown (appears once Function Type is selected) */}
+                                            {formData.functionType && formData.functionType !== 'Select function type' && formData.functionType !== '-' && (
+                                                <div className="col-span-12 md:col-span-3">
+                                                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                        Category<span className="text-red-500">*</span>
+                                                    </label>
+                                                    <div className="relative">
+                                                        <select
+                                                            name="category"
+                                                            required
+                                                            value={formData.category}
+                                                            onChange={handleInputChange}
+                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                        >
+                                                            <option value="">Select Category</option>
+                                                            {getCategoryOptions().map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
+                                                        </select>
+                                                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                            </svg>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* 3. Fields based on Category Selection */}
                                             {formData.category === 'Product' && (
                                                 <>
-                                                    {/* Subcategory: Product Already Booked */}
-                                                    {formData.subCategory === 'Product Already Booked' && (
-                                                        <>
-                                                            <div className="col-span-12 md:col-span-3">
-                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                                    Which Product<span className="text-red-500">*</span>
-                                                                </label>
-                                                                <div className="relative">
-                                                                    <select
-                                                                        name="lossProductType"
-                                                                        required
-                                                                        value={formData.lossProductType || ''}
-                                                                        onChange={handleInputChange}
-                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
-                                                                    >
-                                                                        <option value="">Select Product</option>
-                                                                        <option value="Suite">Suite</option>
-                                                                        <option value="Bengala">Bengala</option>
-                                                                        <option value="Indowestern">Indowestern</option>
-                                                                    </select>
-                                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                                                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                                                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                                                                        </svg>
-                                                                    </div>
-                                                                </div>
+                                                    {/* Product Type Dropdown */}
+                                                    <div className="col-span-12 md:col-span-3">
+                                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                            Product Type<span className="text-red-500">*</span>
+                                                        </label>
+                                                        <div className="relative">
+                                                            <select
+                                                                name="lossProductType"
+                                                                required
+                                                                value={formData.lossProductType || ''}
+                                                                onChange={handleInputChange}
+                                                                className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                            >
+                                                                <option value="">Select Product Type</option>
+                                                                {getProductTypeOptions().map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
+                                                            </select>
+                                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                </svg>
                                                             </div>
-                                                            <div className="col-span-12 md:col-span-3">
-                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                                    Add size and colour
-                                                                </label>
-                                                                <input
-                                                                    type="text"
-                                                                    name="lossSizeColour"
-                                                                    placeholder="e.g. Size 40, Navy Blue"
-                                                                    value={formData.lossSizeColour || ''}
-                                                                    onChange={handleInputChange}
-                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold"
-                                                                />
-                                                            </div>
-                                                            <div className="col-span-12 md:col-span-6">
-                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                                    Add Note <span className="text-gray-400 font-normal">(Optional)</span>
-                                                                </label>
-                                                                <textarea
-                                                                    name="lossNote"
-                                                                    rows={1}
-                                                                    placeholder="Enter notes..."
-                                                                    value={formData.lossNote || ''}
-                                                                    onChange={handleInputChange}
-                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
-                                                                />
-                                                            </div>
-                                                        </>
-                                                    )}
+                                                        </div>
+                                                    </div>
 
-                                                    {/* Subcategory: Model, Design and Colour Not Available */}
-                                                    {formData.subCategory === 'Model, Design and Colour Not Available' && (
+                                                    {/* If Product Type is selected: */}
+                                                    {formData.lossProductType && formData.lossProductType !== '' && (
                                                         <>
-                                                            <div className="col-span-12 md:col-span-3">
-                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                                    Which Product<span className="text-red-500">*</span>
-                                                                </label>
-                                                                <div className="relative">
-                                                                    <select
-                                                                        name="lossProductType"
-                                                                        required
-                                                                        value={formData.lossProductType || ''}
-                                                                        onChange={handleInputChange}
-                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
-                                                                    >
-                                                                        <option value="">Select Product</option>
-                                                                        <option value="Suite">Suite</option>
-                                                                        <option value="Bengala">Bengala</option>
-                                                                        <option value="Indowestern">Indowestern</option>
-                                                                    </select>
-                                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                                                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                                                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                                                                        </svg>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                            <div className="col-span-12 md:col-span-3">
-                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                                    Add size and colour
-                                                                </label>
-                                                                <input
-                                                                    type="text"
-                                                                    name="lossSizeColour"
-                                                                    placeholder="e.g. Size 42, Black"
-                                                                    value={formData.lossSizeColour || ''}
-                                                                    onChange={handleInputChange}
-                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold"
-                                                                />
-                                                            </div>
-                                                            <div className="col-span-12 md:col-span-3">
-                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                                    Add Note <span className="text-gray-400 font-normal">(Optional)</span>
-                                                                </label>
-                                                                <textarea
-                                                                    name="lossNote"
-                                                                    rows={1}
-                                                                    placeholder="Enter notes..."
-                                                                    value={formData.lossNote || ''}
-                                                                    onChange={handleInputChange}
-                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
-                                                                />
-                                                            </div>
-                                                        </>
-                                                    )}
-
-                                                    {/* Subcategory: Size */}
-                                                    {formData.subCategory === 'Size' && (
-                                                        <>
-                                                            <div className="col-span-12 md:col-span-6">
-                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                                    Which Size<span className="text-red-500">*</span>
-                                                                </label>
-                                                                <div className="relative">
-                                                                    <select
-                                                                        name="lossSizeOption"
-                                                                        required
-                                                                        value={formData.lossSizeOption || ''}
-                                                                        onChange={handleInputChange}
-                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
-                                                                    >
-                                                                        <option value="">Select Size Option</option>
-                                                                        <option value="Big Size 46,48">Big Size 46,48</option>
-                                                                        <option value="Small Size 34,32">Small Size 34,32</option>
-                                                                    </select>
-                                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                                                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                                                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                                                                        </svg>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                            <div className="col-span-12 md:col-span-6">
-                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                                    Add Note <span className="text-gray-400 font-normal">(Optional)</span>
-                                                                </label>
-                                                                <textarea
-                                                                    name="lossNote"
-                                                                    rows={1}
-                                                                    placeholder="Enter notes..."
-                                                                    value={formData.lossNote || ''}
-                                                                    onChange={handleInputChange}
-                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
-                                                                />
-                                                            </div>
-                                                        </>
-                                                    )}
-
-                                                    {/* Subcategory: Price */}
-                                                    {formData.subCategory === 'Price' && (
-                                                        <>
-                                                            <div className="col-span-12 md:col-span-3">
-                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                                    Price Option<span className="text-red-500">*</span>
-                                                                </label>
-                                                                <div className="relative">
-                                                                    <select
-                                                                        name="lossPriceReason"
-                                                                        required
-                                                                        value={formData.lossPriceReason || ''}
-                                                                        onChange={handleInputChange}
-                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
-                                                                    >
-                                                                        <option value="">Select Price Option</option>
-                                                                        <option value="Rent Too High">Rent Too High</option>
-                                                                        <option value="Budget Restriction">Budget Restriction</option>
-                                                                    </select>
-                                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                                                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                                                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                                                                        </svg>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                            
-                                                            {['Rent Too High', 'Budget Restriction'].includes(formData.lossPriceReason) ? (
+                                                            {/* IF Product Type is NOT sales -> Show Reason dropdown */}
+                                                            {formData.lossProductType !== 'sales' ? (
                                                                 <>
                                                                     <div className="col-span-12 md:col-span-3">
                                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                                            What is the budget?<span className="text-red-500">*</span>
+                                                                            Select Reason<span className="text-red-500">*</span>
                                                                         </label>
-                                                                        <input
-                                                                            type="text"
-                                                                            name="lossBudget"
-                                                                            required
-                                                                            placeholder="Enter budget amount"
-                                                                            value={formData.lossBudget || ''}
-                                                                            onChange={handleInputChange}
-                                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold"
-                                                                        />
+                                                                        <div className="relative">
+                                                                            <select
+                                                                                name="subCategory"
+                                                                                required
+                                                                                value={formData.subCategory}
+                                                                                onChange={handleInputChange}
+                                                                                className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                                            >
+                                                                                {getSubCategoryOptions().map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
+                                                                            </select>
+                                                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                                </svg>
+                                                                            </div>
+                                                                        </div>
                                                                     </div>
-                                                                    <div className="col-span-12 md:col-span-6">
-                                                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                                            Add Note <span className="text-gray-400 font-normal">(Optional)</span>
-                                                                        </label>
-                                                                        <textarea
-                                                                            name="lossNote"
-                                                                            rows={1}
-                                                                            placeholder="Enter notes..."
-                                                                            value={formData.lossNote || ''}
-                                                                            onChange={handleInputChange}
-                                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
-                                                                        />
-                                                                    </div>
+
+                                                                    {/* Custom fields under non-sales reasons */}
+                                                                    {formData.subCategory === 'Product Already Booked' && (
+                                                                        <>
+                                                                            <div className="col-span-12 md:col-span-3">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Select Size<span className="text-red-500">*</span>
+                                                                                </label>
+                                                                                <div className="relative">
+                                                                                    <select
+                                                                                        name="lossSize"
+                                                                                        required
+                                                                                        value={formData.lossSize || ''}
+                                                                                        onChange={handleInputChange}
+                                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                                                    >
+                                                                                        <option value="">Select Size</option>
+                                                                                        {['32', '34', '36', '38', '40', '42', '44', '46', '48'].map((size) => (
+                                                                                            <option key={size} value={size}>{size}</option>
+                                                                                        ))}
+                                                                                    </select>
+                                                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                                        </svg>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="col-span-12 md:col-span-3">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Colour<span className="text-red-500">*</span>
+                                                                                </label>
+                                                                                <input
+                                                                                    type="text"
+                                                                                    name="lossColour"
+                                                                                    required
+                                                                                    placeholder="Enter Colour"
+                                                                                    value={formData.lossColour || ''}
+                                                                                    onChange={handleInputChange}
+                                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold"
+                                                                                />
+                                                                            </div>
+                                                                            <div className="col-span-12">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                                </label>
+                                                                                <textarea
+                                                                                    name="lossNote"
+                                                                                    rows={1}
+                                                                                    placeholder="Enter notes..."
+                                                                                    value={formData.lossNote || ''}
+                                                                                    onChange={handleInputChange}
+                                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                                                />
+                                                                            </div>
+                                                                        </>
+                                                                    )}
+
+                                                                    {formData.subCategory === 'Model, Design and Colour Not Available' && (
+                                                                        <>
+                                                                            {/* Banner */}
+                                                                            <div className="col-span-12">
+                                                                                <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-700 font-semibold mb-1 w-full">
+                                                                                    💡 Attachment is the best option for this category.
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="col-span-12 md:col-span-3">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Attachment <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                                </label>
+                                                                                <div className="relative">
+                                                                                    <input
+                                                                                        type="file"
+                                                                                        id="walkin-attachment-file"
+                                                                                        onChange={handleFileChange}
+                                                                                        className="hidden"
+                                                                                    />
+                                                                                    <label
+                                                                                        htmlFor="walkin-attachment-file"
+                                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 flex items-center justify-between text-sm focus:outline-none text-gray-600 bg-white cursor-pointer hover:border-gray-400 transition-all font-semibold overflow-hidden"
+                                                                                    >
+                                                                                        <span className="truncate">
+                                                                                            {selectedFile ? selectedFile.name : (formData.attachmentName || 'Choose File...')}
+                                                                                        </span>
+                                                                                        <svg className="w-4 h-4 text-gray-400 shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                                                                        </svg>
+                                                                                    </label>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="col-span-12 md:col-span-9">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                                </label>
+                                                                                <textarea
+                                                                                    name="lossNote"
+                                                                                    rows={1}
+                                                                                    placeholder="Enter notes..."
+                                                                                    value={formData.lossNote || ''}
+                                                                                    onChange={handleInputChange}
+                                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                                                />
+                                                                            </div>
+                                                                        </>
+                                                                    )}
+
+                                                                    {formData.subCategory === 'Price' && (
+                                                                        <>
+                                                                            <div className="col-span-12 md:col-span-3">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Select Remarks<span className="text-red-500">*</span>
+                                                                                </label>
+                                                                                <div className="relative">
+                                                                                    <select
+                                                                                        name="lossSelectRemarks"
+                                                                                        required
+                                                                                        value={formData.lossSelectRemarks || ''}
+                                                                                        onChange={handleInputChange}
+                                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                                                    >
+                                                                                        <option value="">Select Option</option>
+                                                                                        <option value="price too high">price too high</option>
+                                                                                        <option value="budget restriction">budget restriction</option>
+                                                                                    </select>
+                                                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                                        </svg>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="col-span-12 md:col-span-9">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                                </label>
+                                                                                <textarea
+                                                                                    name="lossNote"
+                                                                                    rows={1}
+                                                                                    placeholder="Enter notes..."
+                                                                                    value={formData.lossNote || ''}
+                                                                                    onChange={handleInputChange}
+                                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                                                />
+                                                                            </div>
+                                                                        </>
+                                                                    )}
+
+                                                                    {formData.subCategory === 'Size' && (
+                                                                        <>
+                                                                            <div className="col-span-12 md:col-span-3">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Select Size<span className="text-red-500">*</span>
+                                                                                </label>
+                                                                                <div className="relative">
+                                                                                    <select
+                                                                                        name="lossSize"
+                                                                                        required
+                                                                                        value={formData.lossSize || ''}
+                                                                                        onChange={handleInputChange}
+                                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                                                    >
+                                                                                        <option value="">Select Size</option>
+                                                                                        {['32', '34', '36', '38', '40', '42', '44', '46'].map((size) => (
+                                                                                            <option key={size} value={size}>{size}</option>
+                                                                                        ))}
+                                                                                    </select>
+                                                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                                        </svg>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="col-span-12 md:col-span-9">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                                </label>
+                                                                                <textarea
+                                                                                    name="lossNote"
+                                                                                    rows={1}
+                                                                                    placeholder="Enter notes..."
+                                                                                    value={formData.lossNote || ''}
+                                                                                    onChange={handleInputChange}
+                                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                                                />
+                                                                            </div>
+                                                                        </>
+                                                                    )}
                                                                 </>
                                                             ) : (
-                                                                <div className="col-span-12 md:col-span-9">
-                                                                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                                        Add Note <span className="text-gray-400 font-normal">(Optional)</span>
-                                                                    </label>
-                                                                    <textarea
-                                                                        name="lossNote"
-                                                                        rows={1}
-                                                                        placeholder="Enter notes..."
-                                                                        value={formData.lossNote || ''}
-                                                                        onChange={handleInputChange}
-                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
-                                                                    />
-                                                                </div>
+                                                                <>
+                                                                    {/* IF Product Type IS sales -> Show Sales Sub Category dropdown (shoe, shirt) */}
+                                                                    <div className="col-span-12 md:col-span-3">
+                                                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                            Select Sub Category<span className="text-red-500">*</span>
+                                                                        </label>
+                                                                        <div className="relative">
+                                                                            <select
+                                                                                name="subCategory"
+                                                                                required
+                                                                                value={formData.subCategory}
+                                                                                onChange={handleInputChange}
+                                                                                className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                                            >
+                                                                                {getSubCategoryOptions().map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
+                                                                            </select>
+                                                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                                </svg>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Custom fields under sales categories */}
+                                                                    {formData.subCategory === 'shoe' && (
+                                                                        <>
+                                                                            <div className="col-span-12 md:col-span-3">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Colour<span className="text-red-500">*</span>
+                                                                                </label>
+                                                                                <input
+                                                                                    type="text"
+                                                                                    name="lossColour"
+                                                                                    required
+                                                                                    placeholder="Enter Colour"
+                                                                                    value={formData.lossColour || ''}
+                                                                                    onChange={handleInputChange}
+                                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold"
+                                                                                />
+                                                                            </div>
+                                                                            <div className="col-span-12 md:col-span-3">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Select Size<span className="text-red-500">*</span>
+                                                                                </label>
+                                                                                <div className="relative">
+                                                                                    <select
+                                                                                        name="lossSize"
+                                                                                        required
+                                                                                        value={formData.lossSize || ''}
+                                                                                        onChange={handleInputChange}
+                                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                                                    >
+                                                                                        <option value="">Select Size</option>
+                                                                                        {['6', '7', '8', '9', '10', 'others'].map((size) => (
+                                                                                            <option key={size} value={size}>{size}</option>
+                                                                                        ))}
+                                                                                    </select>
+                                                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                                        </svg>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="col-span-12 md:col-span-3">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Price<span className="text-red-500">*</span>
+                                                                                </label>
+                                                                                <input
+                                                                                    type="text"
+                                                                                    name="lossSalesPrice"
+                                                                                    required
+                                                                                    placeholder="Enter Price"
+                                                                                    value={formData.lossSalesPrice || ''}
+                                                                                    onChange={handleInputChange}
+                                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold"
+                                                                                />
+                                                                            </div>
+                                                                            <div className="col-span-12">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                                </label>
+                                                                                <textarea
+                                                                                    name="lossNote"
+                                                                                    rows={1}
+                                                                                    placeholder="Enter notes..."
+                                                                                    value={formData.lossNote || ''}
+                                                                                    onChange={handleInputChange}
+                                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                                                />
+                                                                            </div>
+                                                                        </>
+                                                                    )}
+
+                                                                    {formData.subCategory === 'shirt' && (
+                                                                        <>
+                                                                            <div className="col-span-12 md:col-span-3">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Colour<span className="text-red-500">*</span>
+                                                                                </label>
+                                                                                <input
+                                                                                    type="text"
+                                                                                    name="lossColour"
+                                                                                    required
+                                                                                    placeholder="Enter Colour"
+                                                                                    value={formData.lossColour || ''}
+                                                                                    onChange={handleInputChange}
+                                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold"
+                                                                                />
+                                                                            </div>
+                                                                            <div className="col-span-12 md:col-span-3">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Select Size<span className="text-red-500">*</span>
+                                                                                </label>
+                                                                                <div className="relative">
+                                                                                    <select
+                                                                                        name="lossSize"
+                                                                                        required
+                                                                                        value={formData.lossSize || ''}
+                                                                                        onChange={handleInputChange}
+                                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                                                    >
+                                                                                        <option value="">Select Size</option>
+                                                                                        {['32', '34', '36', '38', '40', '42', '44', '46'].map((size) => (
+                                                                                            <option key={size} value={size}>{size}</option>
+                                                                                        ))}
+                                                                                    </select>
+                                                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                                        </svg>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="col-span-12 md:col-span-3">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Price<span className="text-red-500">*</span>
+                                                                                </label>
+                                                                                <input
+                                                                                    type="text"
+                                                                                    name="lossSalesPrice"
+                                                                                    required
+                                                                                    placeholder="Enter Price"
+                                                                                    value={formData.lossSalesPrice || ''}
+                                                                                    onChange={handleInputChange}
+                                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold"
+                                                                                />
+                                                                            </div>
+                                                                            <div className="col-span-12">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                                </label>
+                                                                                <textarea
+                                                                                    name="lossNote"
+                                                                                    rows={1}
+                                                                                    placeholder="Enter notes..."
+                                                                                    value={formData.lossNote || ''}
+                                                                                    onChange={handleInputChange}
+                                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                                                />
+                                                                            </div>
+                                                                        </>
+                                                                    )}
+                                                                </>
                                                             )}
                                                         </>
                                                     )}
                                                 </>
                                             )}
 
-                                            {/* Category: Enquiry */}
                                             {formData.category === 'Enquiry' && (
                                                 <>
-                                                    {/* Subcategory: Enquiry Without Groom/Bride */}
-                                                    {formData.subCategory === 'Enquiry Without Groom/Bride' && (
+                                                    {/* Product Type Dropdown */}
+                                                    <div className="col-span-12 md:col-span-3">
+                                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                            Product Type<span className="text-red-500">*</span>
+                                                        </label>
+                                                        <div className="relative">
+                                                            <select
+                                                                name="lossProductType"
+                                                                required
+                                                                value={formData.lossProductType || ''}
+                                                                onChange={handleInputChange}
+                                                                className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                            >
+                                                                <option value="">Select Product Type</option>
+                                                                {getProductTypeOptions().map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
+                                                            </select>
+                                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                </svg>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Once Product Type is selected */}
+                                                    {formData.lossProductType && formData.lossProductType !== '' && (
                                                         <>
-                                                            <div className="col-span-12 md:col-span-6">
+                                                            {formData.lossProductType !== 'sales' ? (
+                                                                <>
+                                                                    {/* Select Reason Dropdown */}
+                                                                    <div className="col-span-12 md:col-span-3">
+                                                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                            Select Reason<span className="text-red-500">*</span>
+                                                                        </label>
+                                                                        <div className="relative">
+                                                                            <select
+                                                                                name="subCategory"
+                                                                                required
+                                                                                value={formData.subCategory}
+                                                                                onChange={handleInputChange}
+                                                                                className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                                            >
+                                                                                {getSubCategoryOptions().map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
+                                                                            </select>
+                                                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                                </svg>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Conditionally render fields based on reason */}
+                                                                    {(formData.subCategory === 'enquiry without groom and bride' || formData.subCategory === 'Enquiry Without Groom/Bride') && (
+                                                                        <div className="col-span-12 md:col-span-6">
+                                                                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                            </label>
+                                                                            <textarea
+                                                                                name="lossNote"
+                                                                                rows={1}
+                                                                                placeholder="Enter notes..."
+                                                                                value={formData.lossNote || ''}
+                                                                                onChange={handleInputChange}
+                                                                                className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                                            />
+                                                                        </div>
+                                                                    )}
+
+                                                                    {(formData.subCategory === 'enquiry without trial' || formData.subCategory === 'Enquiry Without Trail') && (
+                                                                        <>
+                                                                            {/* Remarks Dropdown with long date, just visit */}
+                                                                            <div className="col-span-12 md:col-span-3">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Remarks<span className="text-red-500">*</span>
+                                                                                </label>
+                                                                                <div className="relative">
+                                                                                    <select
+                                                                                        name="lossEnquiryTrailOption"
+                                                                                        required
+                                                                                        value={formData.lossEnquiryTrailOption || ''}
+                                                                                        onChange={handleInputChange}
+                                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                                                    >
+                                                                                        <option value="">Select Option</option>
+                                                                                        <option value="long date">long date</option>
+                                                                                        <option value="just visit">just visit</option>
+                                                                                    </select>
+                                                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                                        </svg>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+
+                                                                            {/* Note box */}
+                                                                            <div className="col-span-12 md:col-span-3">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                                </label>
+                                                                                <textarea
+                                                                                    name="lossNote"
+                                                                                    rows={1}
+                                                                                    placeholder="Enter notes..."
+                                                                                    value={formData.lossNote || ''}
+                                                                                    onChange={handleInputChange}
+                                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                                                />
+                                                                            </div>
+                                                                        </>
+                                                                    )}
+
+                                                                    {(formData.subCategory === 'confirm later' || formData.subCategory === 'Confirm Later') && (
+                                                                        <>
+                                                                            {/* Next visit date calendar selector */}
+                                                                            <div className="col-span-12 md:col-span-3">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Next Visit Date<span className="text-red-500">*</span>
+                                                                                </label>
+                                                                                <input
+                                                                                    type="date"
+                                                                                    name="lossEnquiryRevisitDate"
+                                                                                    required
+                                                                                    value={formData.lossEnquiryRevisitDate || ''}
+                                                                                    onChange={handleInputChange}
+                                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold cursor-pointer"
+                                                                                />
+                                                                            </div>
+
+                                                                            {/* Note box */}
+                                                                            <div className="col-span-12 md:col-span-3">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                                </label>
+                                                                                <textarea
+                                                                                    name="lossNote"
+                                                                                    rows={1}
+                                                                                    placeholder="Enter notes..."
+                                                                                    value={formData.lossNote || ''}
+                                                                                    onChange={handleInputChange}
+                                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                                                />
+                                                                            </div>
+                                                                        </>
+                                                                    )}
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    {/* Select Sub Category Dropdown for sales */}
+                                                                    <div className="col-span-12 md:col-span-3">
+                                                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                            Select Sub Category<span className="text-red-500">*</span>
+                                                                        </label>
+                                                                        <div className="relative">
+                                                                            <select
+                                                                                name="subCategory"
+                                                                                required
+                                                                                value={formData.subCategory}
+                                                                                onChange={handleInputChange}
+                                                                                className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                                            >
+                                                                                {getSubCategoryOptions().map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
+                                                                            </select>
+                                                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                                </svg>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Note box when subCategory is selected (shoe or shirt) */}
+                                                                    {(formData.subCategory === 'shoe' || formData.subCategory === 'shirt') && (
+                                                                        <div className="col-span-12 md:col-span-9">
+                                                                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                            </label>
+                                                                            <textarea
+                                                                                name="lossNote"
+                                                                                rows={1}
+                                                                                placeholder="Enter notes..."
+                                                                                value={formData.lossNote || ''}
+                                                                                onChange={handleInputChange}
+                                                                                className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                                            />
+                                                                        </div>
+                                                                    )}
+                                                                </>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                </>
+                                            )}
+
+                                            {formData.category === 'Dapper Squad' && (
+                                                <>
+                                                    {/* Product Type Dropdown */}
+                                                    <div className="col-span-12 md:col-span-3">
+                                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                            Product Type<span className="text-red-500">*</span>
+                                                        </label>
+                                                        <div className="relative">
+                                                            <select
+                                                                name="lossProductType"
+                                                                required
+                                                                value={formData.lossProductType || ''}
+                                                                onChange={handleInputChange}
+                                                                className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                            >
+                                                                <option value="">Select Product Type</option>
+                                                                {getProductTypeOptions().map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
+                                                            </select>
+                                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                </svg>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Once Product Type is selected */}
+                                                    {formData.lossProductType && formData.lossProductType !== '' && (
+                                                        <>
+                                                            {formData.lossProductType !== 'sales' ? (
+                                                                <>
+                                                                    {/* Select Reason Dropdown */}
+                                                                    <div className="col-span-12 md:col-span-3">
+                                                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                            Select Reason<span className="text-red-500">*</span>
+                                                                        </label>
+                                                                        <div className="relative">
+                                                                            <select
+                                                                                name="subCategory"
+                                                                                required
+                                                                                value={formData.subCategory}
+                                                                                onChange={handleInputChange}
+                                                                                className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                                            >
+                                                                                {getSubCategoryOptions().map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
+                                                                            </select>
+                                                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                                </svg>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Conditionally render fields based on reason */}
+                                                                    {(formData.subCategory === 'product already booked' || formData.subCategory === 'Product Already Booked') && (
+                                                                        <>
+                                                                            <div className="col-span-12 md:col-span-3">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Select Size<span className="text-red-500">*</span>
+                                                                                </label>
+                                                                                <div className="relative">
+                                                                                    <select
+                                                                                        name="lossSize"
+                                                                                        required
+                                                                                        value={formData.lossSize || ''}
+                                                                                        onChange={handleInputChange}
+                                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                                                    >
+                                                                                        <option value="">Select Size</option>
+                                                                                        {['32', '34', '36', '38', '40', '42', '44', '46', '48'].map((size) => (
+                                                                                            <option key={size} value={size}>{size}</option>
+                                                                                        ))}
+                                                                                    </select>
+                                                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                                        </svg>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="col-span-12 md:col-span-3">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Colour<span className="text-red-500">*</span>
+                                                                                </label>
+                                                                                <input
+                                                                                    type="text"
+                                                                                    name="lossColour"
+                                                                                    required
+                                                                                    placeholder="Enter Colour"
+                                                                                    value={formData.lossColour || ''}
+                                                                                    onChange={handleInputChange}
+                                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold"
+                                                                                />
+                                                                            </div>
+                                                                            <div className="col-span-12">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                                </label>
+                                                                                <textarea
+                                                                                    name="lossNote"
+                                                                                    rows={1}
+                                                                                    placeholder="Enter notes..."
+                                                                                    value={formData.lossNote || ''}
+                                                                                    onChange={handleInputChange}
+                                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                                                />
+                                                                            </div>
+                                                                        </>
+                                                                    )}
+
+                                                                    {(formData.subCategory === 'design and color unavailable' || formData.subCategory === 'Model, Design and Colour Not Available') && (
+                                                                        <>
+                                                                            <div className="col-span-12 md:col-span-3">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Attachment <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                                </label>
+                                                                                <div className="relative">
+                                                                                    <input
+                                                                                        type="file"
+                                                                                        id="walkin-attachment-file-ds"
+                                                                                        onChange={handleFileChange}
+                                                                                        className="hidden"
+                                                                                    />
+                                                                                    <label
+                                                                                        htmlFor="walkin-attachment-file-ds"
+                                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 flex items-center justify-between text-sm focus:outline-none text-gray-600 bg-white cursor-pointer hover:border-gray-400 transition-all font-semibold overflow-hidden"
+                                                                                    >
+                                                                                        <span className="truncate">
+                                                                                            {selectedFile ? selectedFile.name : (formData.attachmentName || 'Choose File...')}
+                                                                                        </span>
+                                                                                        <svg className="w-4 h-4 text-gray-400 shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                                                                        </svg>
+                                                                                    </label>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="col-span-12 md:col-span-9">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                                </label>
+                                                                                <textarea
+                                                                                    name="lossNote"
+                                                                                    rows={1}
+                                                                                    placeholder="Enter notes..."
+                                                                                    value={formData.lossNote || ''}
+                                                                                    onChange={handleInputChange}
+                                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                                                />
+                                                                            </div>
+                                                                        </>
+                                                                    )}
+
+                                                                    {(formData.subCategory === 'price' || formData.subCategory === 'Price') && (
+                                                                        <>
+                                                                            <div className="col-span-12 md:col-span-3">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Select Remarks<span className="text-red-500">*</span>
+                                                                                </label>
+                                                                                <div className="relative">
+                                                                                    <select
+                                                                                        name="lossSelectRemarks"
+                                                                                        required
+                                                                                        value={formData.lossSelectRemarks || ''}
+                                                                                        onChange={handleInputChange}
+                                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                                                    >
+                                                                                        <option value="">Select Option</option>
+                                                                                        <option value="price too high">price too high</option>
+                                                                                        <option value="budget restriction">budget restriction</option>
+                                                                                    </select>
+                                                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                                        </svg>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="col-span-12 md:col-span-9">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                                </label>
+                                                                                <textarea
+                                                                                    name="lossNote"
+                                                                                    rows={1}
+                                                                                    placeholder="Enter notes..."
+                                                                                    value={formData.lossNote || ''}
+                                                                                    onChange={handleInputChange}
+                                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                                                />
+                                                                            </div>
+                                                                        </>
+                                                                    )}
+
+                                                                    {formData.subCategory === 'enquiry' && (
+                                                                        <div className="col-span-12">
+                                                                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                            </label>
+                                                                            <textarea
+                                                                                name="lossNote"
+                                                                                rows={1}
+                                                                                placeholder="Enter notes..."
+                                                                                value={formData.lossNote || ''}
+                                                                                onChange={handleInputChange}
+                                                                                className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                                            />
+                                                                        </div>
+                                                                    )}
+
+                                                                    {(formData.subCategory === 'size' || formData.subCategory === 'Size') && (
+                                                                        <>
+                                                                            <div className="col-span-12 md:col-span-3">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Select Size<span className="text-red-500">*</span>
+                                                                                </label>
+                                                                                <div className="relative">
+                                                                                    <select
+                                                                                        name="lossSize"
+                                                                                        required
+                                                                                        value={formData.lossSize || ''}
+                                                                                        onChange={handleInputChange}
+                                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                                                    >
+                                                                                        <option value="">Select Size</option>
+                                                                                        {['32', '34', '36', '38', '40', '42', '44', '46', 'others'].map((size) => (
+                                                                                            <option key={size} value={size}>{size}</option>
+                                                                                        ))}
+                                                                                    </select>
+                                                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                                        </svg>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="col-span-12 md:col-span-9">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                                </label>
+                                                                                <textarea
+                                                                                    name="lossNote"
+                                                                                    rows={1}
+                                                                                    placeholder="Enter notes..."
+                                                                                    value={formData.lossNote || ''}
+                                                                                    onChange={handleInputChange}
+                                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                                                />
+                                                                            </div>
+                                                                        </>
+                                                                    )}
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    {/* Select Sub Category Dropdown for sales */}
+                                                                    <div className="col-span-12 md:col-span-3">
+                                                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                            Select Sub Category<span className="text-red-500">*</span>
+                                                                        </label>
+                                                                        <div className="relative">
+                                                                            <select
+                                                                                name="subCategory"
+                                                                                required
+                                                                                value={formData.subCategory}
+                                                                                onChange={handleInputChange}
+                                                                                className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                                            >
+                                                                                {getSubCategoryOptions().map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
+                                                                            </select>
+                                                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                                </svg>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Custom fields under sales categories */}
+                                                                    {formData.subCategory === 'shoe' && (
+                                                                        <>
+                                                                            <div className="col-span-12 md:col-span-3">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Colour<span className="text-red-500">*</span>
+                                                                                </label>
+                                                                                <input
+                                                                                    type="text"
+                                                                                    name="lossColour"
+                                                                                    required
+                                                                                    placeholder="Enter Colour"
+                                                                                    value={formData.lossColour || ''}
+                                                                                    onChange={handleInputChange}
+                                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold"
+                                                                                />
+                                                                            </div>
+                                                                            <div className="col-span-12 md:col-span-3">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Select Size<span className="text-red-500">*</span>
+                                                                                </label>
+                                                                                <div className="relative">
+                                                                                    <select
+                                                                                        name="lossSize"
+                                                                                        required
+                                                                                        value={formData.lossSize || ''}
+                                                                                        onChange={handleInputChange}
+                                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                                                    >
+                                                                                        <option value="">Select Size</option>
+                                                                                        {['6', '7', '8', '9', '10', 'others'].map((size) => (
+                                                                                            <option key={size} value={size}>{size}</option>
+                                                                                        ))}
+                                                                                    </select>
+                                                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                                        </svg>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="col-span-12 md:col-span-3">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Price<span className="text-red-500">*</span>
+                                                                                </label>
+                                                                                <input
+                                                                                    type="text"
+                                                                                    name="lossSalesPrice"
+                                                                                    required
+                                                                                    placeholder="Enter Price"
+                                                                                    value={formData.lossSalesPrice || ''}
+                                                                                    onChange={handleInputChange}
+                                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold"
+                                                                                />
+                                                                            </div>
+                                                                            <div className="col-span-12">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                                </label>
+                                                                                <textarea
+                                                                                    name="lossNote"
+                                                                                    rows={1}
+                                                                                    placeholder="Enter notes..."
+                                                                                    value={formData.lossNote || ''}
+                                                                                    onChange={handleInputChange}
+                                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                                                />
+                                                                            </div>
+                                                                        </>
+                                                                    )}
+
+                                                                    {formData.subCategory === 'shirt' && (
+                                                                        <>
+                                                                            <div className="col-span-12 md:col-span-3">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Colour<span className="text-red-500">*</span>
+                                                                                </label>
+                                                                                <input
+                                                                                    type="text"
+                                                                                    name="lossColour"
+                                                                                    required
+                                                                                    placeholder="Enter Colour"
+                                                                                    value={formData.lossColour || ''}
+                                                                                    onChange={handleInputChange}
+                                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold"
+                                                                                />
+                                                                            </div>
+                                                                            <div className="col-span-12 md:col-span-3">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Select Size<span className="text-red-500">*</span>
+                                                                                </label>
+                                                                                <div className="relative">
+                                                                                    <select
+                                                                                        name="lossSize"
+                                                                                        required
+                                                                                        value={formData.lossSize || ''}
+                                                                                        onChange={handleInputChange}
+                                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                                                    >
+                                                                                        <option value="">Select Size</option>
+                                                                                        {['32', '34', '36', '38', '40', '42', '44', '46'].map((size) => (
+                                                                                            <option key={size} value={size}>{size}</option>
+                                                                                        ))}
+                                                                                    </select>
+                                                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                                        </svg>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="col-span-12 md:col-span-3">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Price<span className="text-red-500">*</span>
+                                                                                </label>
+                                                                                <input
+                                                                                    type="text"
+                                                                                    name="lossSalesPrice"
+                                                                                    required
+                                                                                    placeholder="Enter Price"
+                                                                                    value={formData.lossSalesPrice || ''}
+                                                                                    onChange={handleInputChange}
+                                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold"
+                                                                                />
+                                                                            </div>
+                                                                            <div className="col-span-12">
+                                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                                    Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                                </label>
+                                                                                <textarea
+                                                                                    name="lossNote"
+                                                                                    rows={1}
+                                                                                    placeholder="Enter notes..."
+                                                                                    value={formData.lossNote || ''}
+                                                                                    onChange={handleInputChange}
+                                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                                                />
+                                                                            </div>
+                                                                        </>
+                                                                    )}
+                                                                </>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                </>
+                                            )}
+
+                                            {formData.category === 'Customization' && (
+                                                <>
+                                                    {/* Product Type Dropdown */}
+                                                    <div className="col-span-12 md:col-span-3">
+                                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                            Product Type<span className="text-red-500">*</span>
+                                                        </label>
+                                                        <div className="relative">
+                                                            <select
+                                                                name="lossProductType"
+                                                                required
+                                                                value={formData.lossProductType || ''}
+                                                                onChange={handleInputChange}
+                                                                className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                            >
+                                                                <option value="">Select Product Type</option>
+                                                                {getProductTypeOptions().map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
+                                                            </select>
+                                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                </svg>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Once Product Type is selected */}
+                                                    {formData.lossProductType && formData.lossProductType !== '' && (
+                                                        <>
+                                                            {/* Size dropdown */}
+                                                            <div className="col-span-12 md:col-span-3">
                                                                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                                    When groom/bride is coming?<span className="text-red-500">*</span>
+                                                                    Select Size<span className="text-red-500">*</span>
+                                                                </label>
+                                                                <div className="relative">
+                                                                    <select
+                                                                        name="lossSize"
+                                                                        required
+                                                                        value={formData.lossSize || ''}
+                                                                        onChange={handleInputChange}
+                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                                    >
+                                                                        <option value="">Select Size</option>
+                                                                        {['32', '34', '36', '38', '40', '42', '44', '46', 'others'].map((size) => (
+                                                                            <option key={size} value={size}>{size}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                        </svg>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Colour input field */}
+                                                            <div className="col-span-12 md:col-span-3">
+                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                                    Colour<span className="text-red-500">*</span>
                                                                 </label>
                                                                 <input
                                                                     type="text"
-                                                                    name="lossEnquiryGroomComing"
+                                                                    name="lossColour"
                                                                     required
-                                                                    placeholder="e.g. Next Sunday, or specific details"
-                                                                    value={formData.lossEnquiryGroomComing || ''}
+                                                                    placeholder="Enter Colour"
+                                                                    value={formData.lossColour || ''}
                                                                     onChange={handleInputChange}
                                                                     className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold"
                                                                 />
                                                             </div>
-                                                            <div className="col-span-12 md:col-span-6">
-                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                                    Add Note <span className="text-gray-400 font-normal">(Optional)</span>
-                                                                </label>
-                                                                <textarea
-                                                                    name="lossNote"
-                                                                    rows={1}
-                                                                    placeholder="Enter notes..."
-                                                                    value={formData.lossNote || ''}
-                                                                    onChange={handleInputChange}
-                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
-                                                                />
-                                                            </div>
-                                                        </>
-                                                    )}
 
-                                                    {/* Subcategory: Enquiry Without Trail */}
-                                                    {formData.subCategory === 'Enquiry Without Trail' && (
-                                                        <>
+                                                            {/* Attach image option */}
                                                             <div className="col-span-12 md:col-span-3">
                                                                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                                    Trail Option<span className="text-red-500">*</span>
+                                                                    Attachment <span className="text-gray-400 font-normal">(Optional)</span>
                                                                 </label>
                                                                 <div className="relative">
-                                                                    <select
-                                                                        name="lossEnquiryTrailOption"
-                                                                        required
-                                                                        value={formData.lossEnquiryTrailOption || ''}
-                                                                        onChange={handleInputChange}
-                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                                    <input
+                                                                        type="file"
+                                                                        id="walkin-attachment-file-custom"
+                                                                        onChange={handleFileChange}
+                                                                        className="hidden"
+                                                                    />
+                                                                    <label
+                                                                        htmlFor="walkin-attachment-file-custom"
+                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 flex items-center justify-between text-sm focus:outline-none text-gray-600 bg-white cursor-pointer hover:border-gray-400 transition-all font-semibold overflow-hidden"
                                                                     >
-                                                                        <option value="">Select Option</option>
-                                                                        <option value="Long Date">Long Date</option>
-                                                                        <option value="Just Visit">Just Visit</option>
-                                                                    </select>
-                                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                                                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                                                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                        <span className="truncate">
+                                                                            {selectedFile ? selectedFile.name : (formData.attachmentName || 'Choose File...')}
+                                                                        </span>
+                                                                        <svg className="w-4 h-4 text-gray-400 shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                                                                         </svg>
-                                                                    </div>
+                                                                    </label>
                                                                 </div>
                                                             </div>
 
-                                                            <div className="col-span-12 md:col-span-3">
+                                                            {/* Note field */}
+                                                            <div className="col-span-12">
                                                                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                                    Next visit plan date{formData.lossEnquiryTrailOption === 'Long Date' && <span className="text-red-500">*</span>}
-                                                                </label>
-                                                                <input
-                                                                    type="date"
-                                                                    name="lossEnquiryNextVisitDate"
-                                                                    disabled={formData.lossEnquiryTrailOption !== 'Long Date'}
-                                                                    required={formData.lossEnquiryTrailOption === 'Long Date'}
-                                                                    value={formData.lossEnquiryNextVisitDate || ''}
-                                                                    onChange={handleInputChange}
-                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
-                                                                />
-                                                            </div>
-
-                                                            <div className="col-span-12 md:col-span-6">
-                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                                    Add Note <span className="text-gray-400 font-normal">(Optional)</span>
-                                                                </label>
-                                                                <textarea
-                                                                    name="lossNote"
-                                                                    rows={1}
-                                                                    placeholder="Enter notes..."
-                                                                    value={formData.lossNote || ''}
-                                                                    onChange={handleInputChange}
-                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
-                                                                />
-                                                            </div>
-                                                        </>
-                                                    )}
-
-                                                    {/* Subcategory: Confirm Later */}
-                                                    {formData.subCategory === 'Confirm Later' && (
-                                                        <>
-                                                            <div className="col-span-12 md:col-span-3">
-                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                                    Confirm Option<span className="text-red-500">*</span>
-                                                                </label>
-                                                                <div className="relative">
-                                                                    <select
-                                                                        name="lossEnquiryConfirmReason"
-                                                                        required
-                                                                        value={formData.lossEnquiryConfirmReason || ''}
-                                                                        onChange={handleInputChange}
-                                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
-                                                                    >
-                                                                        <option value="">Select Option</option>
-                                                                        <option value="They need to visit other brands">They need to visit other brands</option>
-                                                                    </select>
-                                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                                                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                                                                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                                                                        </svg>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="col-span-12 md:col-span-3">
-                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                                    When customer will revisit{formData.lossEnquiryConfirmReason === 'They need to visit other brands' && <span className="text-red-500">*</span>}
-                                                                </label>
-                                                                <input
-                                                                    type="date"
-                                                                    name="lossEnquiryRevisitDate"
-                                                                    disabled={formData.lossEnquiryConfirmReason !== 'They need to visit other brands'}
-                                                                    required={formData.lossEnquiryConfirmReason === 'They need to visit other brands'}
-                                                                    value={formData.lossEnquiryRevisitDate || ''}
-                                                                    onChange={handleInputChange}
-                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
-                                                                />
-                                                            </div>
-
-                                                            <div className="col-span-12 md:col-span-6">
-                                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                                    Add Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                                    Note <span className="text-gray-400 font-normal">(Optional)</span>
                                                                 </label>
                                                                 <textarea
                                                                     name="lossNote"
@@ -1627,19 +2660,49 @@ const WalkinList = () => {
                                             )}
                                         </>
                                     ) : (
-                                        <div className={remarksColSpan}>
-                                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                Remarks <span className="text-gray-400 font-normal">(Optional)</span>
-                                            </label>
-                                            <textarea
-                                                name="remarks"
-                                                rows={1}
-                                                placeholder="Enter your remarks..."
-                                                value={formData.remarks}
-                                                onChange={handleInputChange}
-                                                className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none"
-                                            />
-                                        </div>
+                                        /* STANDARD FLOW (NOT 'Loss') */
+                                        <>
+                                            {/* Category Select (Visible only for Revisit) */}
+                                            {formData.status === 'Revisit' && (
+                                                <div className="col-span-12 md:col-span-3">
+                                                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                        Category<span className="text-red-500">*</span>
+                                                    </label>
+                                                    <div className="relative">
+                                                        <select
+                                                            name="category"
+                                                            required
+                                                            value={formData.category}
+                                                            onChange={handleInputChange}
+                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                        >
+                                                            <option value="">Select Category</option>
+                                                            {getCategoryOptions().map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
+                                                        </select>
+                                                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                            </svg>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Standard Remarks Textarea */}
+                                            <div className={formData.status === 'Revisit' ? "col-span-12 md:col-span-6" : "col-span-12 md:col-span-9"}>
+                                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                    Remarks <span className="text-gray-400 font-normal">(Optional)</span>
+                                                </label>
+                                                <textarea
+                                                    name="remarks"
+                                                    rows={1}
+                                                    placeholder="Enter your remarks..."
+                                                    value={formData.remarks}
+                                                    onChange={handleInputChange}
+                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                />
+                                            </div>
+                                        </>
                                     )}
                                 </div>
 
@@ -1690,19 +2753,19 @@ const WalkinList = () => {
                                 {FILTER_STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                             </select>
                             {(user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'cluster_admin' || user?.role === 'store_admin') && (
-                                <select 
-                                    value={storeFilter} 
-                                    disabled={user?.role === 'store_admin'} 
-                                    onChange={e => setStoreFilter(e.target.value)} 
-                                    style={{ 
-                                        border: '1px solid #e5e7eb', 
-                                        borderRadius: '8px', 
-                                        padding: '7px 12px', 
-                                        fontSize: '13px', 
-                                        color: '#374151', 
-                                        outline: 'none', 
-                                        background: '#fff', 
-                                        cursor: user?.role === 'store_admin' ? 'not-allowed' : 'pointer' 
+                                <select
+                                    value={storeFilter}
+                                    disabled={user?.role === 'store_admin'}
+                                    onChange={e => setStoreFilter(e.target.value)}
+                                    style={{
+                                        border: '1px solid #e5e7eb',
+                                        borderRadius: '8px',
+                                        padding: '7px 12px',
+                                        fontSize: '13px',
+                                        color: '#374151',
+                                        outline: 'none',
+                                        background: '#fff',
+                                        cursor: user?.role === 'store_admin' ? 'not-allowed' : 'pointer'
                                     }}
                                 >
                                     {user?.role !== 'store_admin' && <option value="All">All Stores</option>}
@@ -1743,15 +2806,15 @@ const WalkinList = () => {
                                                         else if (h === 'EDIT') colWidth = '3%';
 
                                                         return (
-                                                            <th 
-                                                                key={i} 
-                                                                style={{ 
-                                                                    padding: '8px 12px', 
-                                                                    textAlign: (h === '#' || h === 'REPEAT COUNT' || h === 'STATUS') ? 'center' : 'left', 
-                                                                    fontSize: '10px', 
-                                                                    fontWeight: 600, 
-                                                                    color: '#9ca3af', 
-                                                                    letterSpacing: '0.06em', 
+                                                            <th
+                                                                key={i}
+                                                                style={{
+                                                                    padding: '8px 12px',
+                                                                    textAlign: (h === '#' || h === 'REPEAT COUNT' || h === 'STATUS') ? 'center' : 'left',
+                                                                    fontSize: '10px',
+                                                                    fontWeight: 600,
+                                                                    color: '#9ca3af',
+                                                                    letterSpacing: '0.06em',
                                                                     whiteSpace: 'nowrap',
                                                                     width: colWidth,
                                                                     minWidth: colWidth,
@@ -1832,10 +2895,10 @@ const WalkinList = () => {
                                                                         <span className="walkin-marquee-text walkin-anim-scroll">{w.subCategory || '–'}</span>
                                                                     </div>
                                                                     {w.attachment && (
-                                                                        <a 
-                                                                            href={w.attachment} 
-                                                                            target="_blank" 
-                                                                            rel="noopener noreferrer" 
+                                                                        <a
+                                                                            href={w.attachment}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
                                                                             style={{ marginLeft: '6px', color: '#2563eb', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}
                                                                             title={`View attachment: ${w.attachmentName || 'Attachment'}`}
                                                                         >

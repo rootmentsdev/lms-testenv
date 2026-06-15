@@ -107,6 +107,38 @@ router.get('/check/:contact', OptionalMiddilWare, checkCustomerExists);
  *       - If a status change is attempted on the same day, the API returns **HTTP 400** with message: "Status can only be changed once per day. Please try again tomorrow."
  *       - This applies to both Flutter mobile app and web dashboard requests.
  *       
+ *       **Structured Remarks Formatting (for Loss Status):**
+ *       For categories under status 'Loss', the `remarks` string MUST follow specific prefixes and patterns so the web panel and mobile client can successfully parse and pre-populate options:
+ *       
+ *       * **Category: Customization:**
+ *         * Format: `[Customization] Product: <product_type> | Size: <size> | Colour: <colour> | Note: <note>`
+ *         
+ *       * **Category: Dapper Squad (Non-sales):**
+ *         * Reason: 'product already booked'
+ *           * Format: `[product already booked] Product: <product_type> | Size: <size> | Colour: <colour> | Note: <note>`
+ *         * Reason: 'design and color unavailable'
+ *           * Format: `[design and color unavailable] Product: <product_type> | Note: <note>`
+ *         * Reason: 'price'
+ *           * Format: `[price] Remarks: <price_too_high_or_budget_restriction> | Note: <note>`
+ *         * Reason: 'enquiry'
+ *           * Format: `[enquiry] Note: <note>`
+ *         * Reason: 'size'
+ *           * Format: `[size] Product: <product_type> | Size: <size> | Note: <note>`
+ *           
+ *       * **Category: Dapper Squad (Sales):**
+ *         * Format: `[Sales] Sub Category: <shoe_or_shirt> | Size: <size> | Colour: <colour> | Price: <price> | Note: <note>`
+ *         
+ *       * **Category: Enquiry (Non-sales):**
+ *         * Reason: 'enquiry without groom and bride'
+ *           * Format: `[enquiry without groom and bride] Product: <product_type> | Note: <note>`
+ *         * Reason: 'enquiry without trial'
+ *           * Format: `[enquiry without trial] Product: <product_type> | Selected: <long_date_or_just_visit> | Note: <note>`
+ *         * Reason: 'confirm later'
+ *           * Format: `[confirm later] Product: <product_type> | Revisit Date: <revisit_date> | Note: <note>`
+ *           
+ *       * **Category: Enquiry (Sales):**
+ *         * Format: `[Sales] Sub Category: <shoe_or_shirt> | Note: <note>`
+ *       
  *       **Update/Create logic:**
  *       - If an existing walk-in record with the same contact number is found within the user's role/store limits:
  *         - If the status is `'New Walkin'`, a new record is created with `repeatCount = existing + 1`.
