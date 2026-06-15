@@ -176,15 +176,16 @@ router.get('/check/:contact', OptionalMiddilWare, checkCustomerExists);
  *                 type: string
  *                 description: "Store ID (Optional: automatically resolved from token)"
  *               functionType:
- *                  type:string
- *                  description:"type of function selected from dropdown or event type"
- *                  example: "hindu function"
+ *                 type: string
+ *                 description: "Type of function selected from dropdown or event type"
+ *                 example: "Hindu Function"
  *               employeeId:
  *                 type: string
  *                 description: "Employee ID (Optional: automatically resolved from token)"
  *               category:
  *                 type: string
- *                 example: "enquiry" or "product" or "dapper squad" or "customisation"
+ *                 enum: [product, enquiry, dapper squad, customisation] 
+ *                 example: "product"
  *               subCategory:
  *                 type: string
  *                 example: "shoe" or "shirt"
