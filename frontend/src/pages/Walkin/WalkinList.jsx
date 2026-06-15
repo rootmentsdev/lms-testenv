@@ -58,7 +58,7 @@ const FILTER_STATUS_OPTIONS = [
 const handleDownloadAndView = (base64Data, filename = 'attachment') => {
     try {
         if (!base64Data) return;
-        
+
         if (!base64Data.startsWith('data:')) {
             const link = document.createElement('a');
             link.href = base64Data;
@@ -72,10 +72,10 @@ const handleDownloadAndView = (base64Data, filename = 'attachment') => {
 
         const parts = base64Data.split(',');
         if (parts.length < 2) return;
-        
+
         const mimeMatch = parts[0].match(/data:(.*?);base64/);
         const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
-        
+
         const byteCharacters = atob(parts[1]);
         const byteNumbers = new Array(byteCharacters.length);
         for (let i = 0; i < byteCharacters.length; i++) {
@@ -84,14 +84,14 @@ const handleDownloadAndView = (base64Data, filename = 'attachment') => {
         const byteArray = new Uint8Array(byteNumbers);
         const blob = new Blob([byteArray], { type: mime });
         const blobUrl = URL.createObjectURL(blob);
-        
+
         const downloadLink = document.createElement('a');
         downloadLink.href = blobUrl;
         downloadLink.download = filename;
         document.body.appendChild(downloadLink);
         downloadLink.click();
         document.body.removeChild(downloadLink);
-        
+
         window.open(blobUrl, '_blank');
     } catch (error) {
         console.error('Error downloading/viewing attachment:', error);
@@ -362,10 +362,10 @@ const WalkinList = () => {
                 if (budgetMatch) lossBudget = budgetMatch[1].trim();
             } else if (remarksStr.startsWith('[Sales]') || remarksStr.startsWith('[sales]')) {
                 lossProductType = 'Sales';
-                
+
                 const subCategoryMatch = remarksStr.match(/Sub Category:\s*([^|]+)/);
                 if (subCategoryMatch) parsedSubCategory = subCategoryMatch[1].trim();
-                
+
                 const sizeMatch = remarksStr.match(/Size:\s*([^|]+)/);
                 if (sizeMatch) lossSize = sizeMatch[1].trim();
 
@@ -681,7 +681,7 @@ const WalkinList = () => {
             setFormData(prev => ({
                 ...prev,
                 category: value,
-                subCategory: prev.status === 'Loss' ? 
+                subCategory: prev.status === 'Loss' ?
                     (value === 'Product' ? ((prev.lossProductType || '').toLowerCase() === 'sales' ? 'Select Sub Category' : 'Select Reason') : (value === 'Dapper Squad' ? 'Select Reason' : 'Select Sub Category')) : '-',
                 lossProductType: '',
                 lossColour: '',
@@ -1104,7 +1104,7 @@ const WalkinList = () => {
                         if (lossReasonLower === 'enquiry without trial' || lossReasonLower === 'enquiry without trail') {
                             if (!formData.lossEnquiryTrailOption || formData.lossEnquiryTrailOption === '') {
                                 alert('Please select a Remarks Option.');
-                                  return;
+                                return;
                             }
                         } else if (lossReasonLower === 'confirm later') {
                             if (!formData.lossEnquiryRevisitDate || formData.lossEnquiryRevisitDate === '') {
@@ -1474,8 +1474,8 @@ const WalkinList = () => {
                                             onBlur={(e) => checkCustomer(e.target.value)}
                                             disabled={isRestrictedEdit}
                                             className={`w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 font-semibold ${isRestrictedEdit
-                                                    ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200'
-                                                    : 'bg-white text-gray-800 placeholder-gray-400'
+                                                ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200'
+                                                : 'bg-white text-gray-800 placeholder-gray-400'
                                                 }`}
                                         />
                                     </div>
@@ -1492,8 +1492,8 @@ const WalkinList = () => {
                                             onChange={handleInputChange}
                                             disabled={isRestrictedEdit}
                                             className={`w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 font-semibold ${isRestrictedEdit
-                                                    ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200'
-                                                    : 'bg-white text-gray-800 placeholder-gray-400'
+                                                ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200'
+                                                : 'bg-white text-gray-800 placeholder-gray-400'
                                                 }`}
                                         />
                                     </div>
@@ -1509,8 +1509,8 @@ const WalkinList = () => {
                                             onChange={handleInputChange}
                                             disabled={isRestrictedEdit}
                                             className={`w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 font-semibold ${isRestrictedEdit
-                                                    ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200'
-                                                    : 'bg-white text-gray-800 cursor-pointer placeholder-gray-400'
+                                                ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200'
+                                                : 'bg-white text-gray-800 cursor-pointer placeholder-gray-400'
                                                 }`}
                                         />
                                     </div>
@@ -1721,7 +1721,7 @@ const WalkinList = () => {
                                                                             </div>
                                                                         </div>
                                                                     </div>
- 
+
                                                                     {/* Custom fields under non-sales reasons */}
                                                                     {formData.lossReason === 'Product Already Booked' && (
                                                                         <>
@@ -1778,7 +1778,7 @@ const WalkinList = () => {
                                                                             </div>
                                                                         </>
                                                                     )}
- 
+
                                                                     {((formData.lossReason || '').toLowerCase().trim() === 'design and colour not available' || (formData.lossReason || '').toLowerCase().trim() === 'design and color unavailable' || (formData.lossReason || '').toLowerCase().trim() === 'model, design and colour not available') && (
                                                                         <>
                                                                             {/* Banner */}
@@ -1826,7 +1826,7 @@ const WalkinList = () => {
                                                                             </div>
                                                                         </>
                                                                     )}
- 
+
                                                                     {formData.lossReason === 'Price' && (
                                                                         <>
                                                                             <div className="col-span-12 md:col-span-3">
@@ -1867,7 +1867,7 @@ const WalkinList = () => {
                                                                             </div>
                                                                         </>
                                                                     )}
- 
+
                                                                     {formData.lossReason === 'Size' && (
                                                                         <>
                                                                             <div className="col-span-12 md:col-span-3">
@@ -2135,7 +2135,7 @@ const WalkinList = () => {
                                                                             </div>
                                                                         </div>
                                                                     </div>
- 
+
                                                                     {/* Conditionally render fields based on reason */}
                                                                     {((formData.lossReason || '').toLowerCase().trim() === 'enquiry without groom and bride' || (formData.lossReason || '').toLowerCase().trim() === 'enquiry without groom/bride') && (
                                                                         <div className="col-span-12 md:col-span-6">
@@ -2152,7 +2152,7 @@ const WalkinList = () => {
                                                                             />
                                                                         </div>
                                                                     )}
- 
+
                                                                     {((formData.lossReason || '').toLowerCase().trim() === 'enquiry without trial' || (formData.lossReason || '').toLowerCase().trim() === 'enquiry without trail') && (
                                                                         <>
                                                                             {/* Remarks Dropdown with long date, just visit */}
@@ -2179,7 +2179,7 @@ const WalkinList = () => {
                                                                                     </div>
                                                                                 </div>
                                                                             </div>
- 
+
                                                                             {/* Note box */}
                                                                             <div className="col-span-12 md:col-span-3">
                                                                                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -2196,7 +2196,7 @@ const WalkinList = () => {
                                                                             </div>
                                                                         </>
                                                                     )}
- 
+
                                                                     {((formData.lossReason || '').toLowerCase().trim() === 'confirm later') && (
                                                                         <>
                                                                             {/* Next visit date calendar selector */}
@@ -2213,7 +2213,7 @@ const WalkinList = () => {
                                                                                     className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold cursor-pointer"
                                                                                 />
                                                                             </div>
- 
+
                                                                             {/* Note box */}
                                                                             <div className="col-span-12 md:col-span-3">
                                                                                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -2332,7 +2332,7 @@ const WalkinList = () => {
                                                                             </div>
                                                                         </div>
                                                                     </div>
- 
+
                                                                     {/* Conditionally render fields based on reason */}
                                                                     {((formData.lossReason || '').toLowerCase().trim() === 'product already booked') && (
                                                                         <>
@@ -2389,7 +2389,7 @@ const WalkinList = () => {
                                                                             </div>
                                                                         </>
                                                                     )}
- 
+
                                                                     {((formData.lossReason || '').toLowerCase().trim() === 'design and colour not available' || (formData.lossReason || '').toLowerCase().trim() === 'design and color unavailable' || (formData.lossReason || '').toLowerCase().trim() === 'model, design and colour not available') && (
                                                                         <>
                                                                             <div className="col-span-12 md:col-span-3">
@@ -2431,7 +2431,7 @@ const WalkinList = () => {
                                                                             </div>
                                                                         </>
                                                                     )}
- 
+
                                                                     {((formData.lossReason || '').toLowerCase().trim() === 'price') && (
                                                                         <>
                                                                             <div className="col-span-12 md:col-span-3">
@@ -2472,7 +2472,7 @@ const WalkinList = () => {
                                                                             </div>
                                                                         </>
                                                                     )}
- 
+
                                                                     {((formData.lossReason || '').toLowerCase().trim() === 'enquiry') && (
                                                                         <div className="col-span-12">
                                                                             <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -2488,7 +2488,7 @@ const WalkinList = () => {
                                                                             />
                                                                         </div>
                                                                     )}
- 
+
                                                                     {((formData.lossReason || '').toLowerCase().trim() === 'size') && (
                                                                         <>
                                                                             <div className="col-span-12 md:col-span-3">
@@ -2965,13 +2965,13 @@ const WalkinList = () => {
                                                         else if (h === 'NOTES') colWidth = '6%';
                                                         else if (h === 'STORE') colWidth = '5%';
                                                         else if (h === 'STAFF') colWidth = '5%';
-                                                        else if (h === 'ATTACHMENT') colWidth = '5%';
+                                                        else if (h === 'ATTACHMENT') colWidth = '2.5%';
                                                         else if (h === 'BOOKING DATE') colWidth = '5%';
                                                         else if (h === 'RENTOUT DATE') colWidth = '5%';
                                                         else if (h === 'RETURN DATE') colWidth = '5%';
-                                                        else if (h === 'REPEAT COUNT') colWidth = '2%';
-                                                        else if (h === 'STATUS') colWidth = '4%';
-                                                        else if (h === 'EDIT') colWidth = '2%';
+                                                        else if (h === 'REPEAT COUNT') colWidth = '3%';
+                                                        else if (h === 'STATUS') colWidth = '6%';
+                                                        else if (h === 'EDIT') colWidth = '1.5%';
 
                                                         return (
                                                             <th
@@ -3015,7 +3015,7 @@ const WalkinList = () => {
                                                         'Reissue': { bg: '#ede9fe', color: '#7c3aed' },
                                                     };
                                                     const sc = statusColors[w.status] || { bg: '#f3f4f6', color: '#6b7280' };
-                                                    
+
                                                     const productType = w.lossProductType || '–';
                                                     const notesText = w.notes || '–';
 
@@ -3024,7 +3024,7 @@ const WalkinList = () => {
 
                                                     if (w.status === 'Loss' || w.status === 'Revisit Loss') {
                                                         const isSales = (w.lossProductType || '').toLowerCase().trim() === 'sales';
-                                                        
+
                                                         // 1. Loss Reason display
                                                         if (w.lossReason && w.lossReason !== '-' && w.lossReason !== '') {
                                                             displayLossReason = w.lossReason;
@@ -3124,7 +3124,7 @@ const WalkinList = () => {
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.staff || '–'}</span>
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', textAlign: 'center', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>
+                                                            <td style={{ padding: '11px 12px', textAlign: 'center', width: '2.5%', minWidth: '2.5%', maxWidth: '2.5%', boxSizing: 'border-box' }}>
                                                                 {w.attachment ? (
                                                                     <button
                                                                         onClick={() => handleDownloadAndView(w.attachment, w.attachmentName || 'attachment')}
@@ -3165,8 +3165,8 @@ const WalkinList = () => {
                                                             <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>
                                                                 {w.returnDate ? new Date(w.returnDate).toISOString().split('T')[0] : '–'}
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', textAlign: 'center', color: '#374151', width: '2%', minWidth: '2%', maxWidth: '2%', boxSizing: 'border-box' }}>{w.repeatCount}</td>
-                                                            <td style={{ padding: '11px 12px', textAlign: 'center', width: '4%', minWidth: '4%', maxWidth: '4%', boxSizing: 'border-box' }}>
+                                                            <td style={{ padding: '11px 12px', textAlign: 'center', color: '#374151', width: '3%', minWidth: '3%', maxWidth: '3%', boxSizing: 'border-box' }}>{w.repeatCount}</td>
+                                                            <td style={{ padding: '11px 12px', textAlign: 'center', width: '6%', minWidth: '6%', maxWidth: '6%', boxSizing: 'border-box' }}>
                                                                 <select
                                                                     value={w.status || 'New Walkin'}
                                                                     onChange={(e) => handleStatusChange(w, e.target.value)}
@@ -3192,7 +3192,9 @@ const WalkinList = () => {
                                                                         backgroundAttachment: 'scroll',
                                                                         paddingRight: '18px',
                                                                         width: '100%',
-                                                                        boxSizing: 'border-box'
+                                                                        boxSizing: 'border-box',
+                                                                        textAlign: 'center',
+                                                                        textAlignLast: 'center'
                                                                     }}
                                                                     onMouseEnter={(e) => {
                                                                         if (!statusChangedToday[w._id] && !updatingStatus[w._id]) {
@@ -3214,7 +3216,7 @@ const WalkinList = () => {
                                                                     <option value="Revisit">Revisit</option>
                                                                 </select>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', textAlign: 'center', width: '2%', minWidth: '2%', maxWidth: '2%', boxSizing: 'border-box' }}>
+                                                            <td style={{ padding: '11px 12px', textAlign: 'center', width: '1.5%', minWidth: '1.5%', maxWidth: '1.5%', boxSizing: 'border-box' }}>
                                                                 <button
                                                                     onClick={() => handleEditClick(w)}
                                                                     style={{ background: 'none', border: 'none', color: '#4b5563', cursor: 'pointer', padding: '4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', transition: 'color 0.1s' }}
