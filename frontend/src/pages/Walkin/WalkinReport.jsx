@@ -3,7 +3,7 @@ import { useSelector } from 'react-redux';
 import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
 import baseUrl from "../../api/api";
-import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { FaChevronLeft, FaChevronRight, FaDownload } from 'react-icons/fa';
 
 /* ── helpers ─────────────────────────────────────────────────────────────── */
 const BRAND_TOKENS = new Set(["zorucci", "grooms", "suitor", "guy", "sg"]);
@@ -59,9 +59,52 @@ const STATUS_COLORS = {
   'Reissue':           { bg:'#ede9fe', color:'#7c3aed' },
 };
 
+const handleDownloadAndView = (base64Data, filename = 'attachment') => {
+  try {
+    if (!base64Data) return;
+    
+    if (!base64Data.startsWith('data:')) {
+      const link = document.createElement('a');
+      link.href = base64Data;
+      link.download = filename;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return;
+    }
+
+    const parts = base64Data.split(',');
+    if (parts.length < 2) return;
+    
+    const mimeMatch = parts[0].match(/data:(.*?);base64/);
+    const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+    
+    const byteCharacters = atob(parts[1]);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: mime });
+    const blobUrl = URL.createObjectURL(blob);
+    
+    const downloadLink = document.createElement('a');
+    downloadLink.href = blobUrl;
+    downloadLink.download = filename;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+    
+    window.open(blobUrl, '_blank');
+  } catch (error) {
+    console.error('Error downloading/viewing attachment:', error);
+  }
+};
+
 /* ── Export to CSV ───────────────────────────────────────────────────────── */
 const exportCSV = (data) => {
-  const headers = ['#','Date','Customer','Contact','Function Date','Function Type','Store','Staff','Category','Product Type','Loss Reason','Sub Category','Remarks','Notes','Booking Date','Rentout Date','Return Date','Repeat Count','Status'];
+  const headers = ['#','Date','Customer','Contact','Function Date','Function Type','Category','Product Type','Loss Reason','Sub Category','Remarks','Notes','Store','Staff','Attachment','Booking Date','Rentout Date','Return Date','Repeat Count','Status'];
   const rows = data.map((w,i) => {
     const productType = w.lossProductType || '–';
     const notesText = w.notes || '–';
@@ -100,14 +143,15 @@ const exportCSV = (data) => {
       w.contact,
       w.functionDate || '–',
       w.functionType || '–',
-      w.store || '–',
-      w.staff || '–',
       w.category || '–',
       productType,
       displayLossReason,
       displaySubCategory,
       w.remarks || '–',
       notesText,
+      w.store || '–',
+      w.staff || '–',
+      w.attachment || '–',
       w.bookingDate ? new Date(w.bookingDate).toISOString().split('T')[0] : '–',
       w.rentoutDate ? new Date(w.rentoutDate).toISOString().split('T')[0] : '–',
       w.returnDate ? new Date(w.returnDate).toISOString().split('T')[0] : '–',
@@ -332,29 +376,30 @@ const WalkinReport = () => {
               <div style={{ textAlign:'center', padding:'48px', color:'#9ca3af', fontSize:'13px' }}>No records found.</div>
             ) : (
               <div style={{ overflowX:'auto' }}>
-                <table style={{ width: '2585px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
+                <table style={{ width: '2680px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
                   <thead>
                     <tr style={{ background:'#fafafa', borderBottom:'1px solid #f3f4f6' }}>
-                      {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'FUNCTION DATE', 'FUNCTION TYPE', 'STORE', 'STAFF', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'NOTES', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'REPEAT COUNT', 'STATUS'].map((h, i) => {
+                      {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'FUNCTION DATE', 'FUNCTION TYPE', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'NOTES', 'STORE', 'STAFF', 'ATTACHMENT', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'REPEAT COUNT', 'STATUS'].map((h, i) => {
                           let colWidth = 'auto';
                           if (h === '#') colWidth = '2%';
-                          else if (h === 'DATE') colWidth = '5.5%';
-                          else if (h === 'CUSTOMER') colWidth = '6.5%';
-                          else if (h === 'CONTACT') colWidth = '7%';
-                          else if (h === 'FUNCTION DATE') colWidth = '5.5%';
-                          else if (h === 'FUNCTION TYPE') colWidth = '5.5%';
-                          else if (h === 'STORE') colWidth = '5.5%';
-                          else if (h === 'STAFF') colWidth = '6%';
-                          else if (h === 'CATEGORY') colWidth = '5.5%';
-                          else if (h === 'PRODUCT TYPE') colWidth = '5.5%';
-                          else if (h === 'LOSS REASON') colWidth = '6.5%';
-                          else if (h === 'SUB CATEGORY') colWidth = '6.5%';
-                          else if (h === 'REMARKS') colWidth = '6.5%';
-                          else if (h === 'NOTES') colWidth = '7%';
-                          else if (h === 'BOOKING DATE') colWidth = '5.5%';
-                          else if (h === 'RENTOUT DATE') colWidth = '5.5%';
-                          else if (h === 'RETURN DATE') colWidth = '5.5%';
-                          else if (h === 'REPEAT COUNT') colWidth = '3%';
+                          else if (h === 'DATE') colWidth = '5%';
+                          else if (h === 'CUSTOMER') colWidth = '6%';
+                          else if (h === 'CONTACT') colWidth = '5%';
+                          else if (h === 'FUNCTION DATE') colWidth = '5%';
+                          else if (h === 'FUNCTION TYPE') colWidth = '5%';
+                          else if (h === 'CATEGORY') colWidth = '5%';
+                          else if (h === 'PRODUCT TYPE') colWidth = '5%';
+                          else if (h === 'LOSS REASON') colWidth = '6%';
+                          else if (h === 'SUB CATEGORY') colWidth = '6%';
+                          else if (h === 'REMARKS') colWidth = '6%';
+                          else if (h === 'NOTES') colWidth = '6%';
+                          else if (h === 'STORE') colWidth = '5%';
+                          else if (h === 'STAFF') colWidth = '5%';
+                          else if (h === 'ATTACHMENT') colWidth = '5%';
+                          else if (h === 'BOOKING DATE') colWidth = '5%';
+                          else if (h === 'RENTOUT DATE') colWidth = '5%';
+                          else if (h === 'RETURN DATE') colWidth = '5%';
+                          else if (h === 'REPEAT COUNT') colWidth = '2%';
                           else if (h === 'STATUS') colWidth = '6%';
 
                           return (
@@ -362,7 +407,7 @@ const WalkinReport = () => {
                                   key={i}
                                   style={{
                                       padding: '8px 12px',
-                                      textAlign: (h === '#' || h === 'REPEAT COUNT' || h === 'STATUS' || h === 'BOOKING DATE' || h === 'RENTOUT DATE' || h === 'RETURN DATE') ? 'center' : 'left',
+                                      textAlign: (h === '#' || h === 'REPEAT COUNT' || h === 'STATUS' || h === 'BOOKING DATE' || h === 'RENTOUT DATE' || h === 'RETURN DATE' || h === 'ATTACHMENT') ? 'center' : 'left',
                                       fontSize: '10px',
                                       fontWeight: 600,
                                       color: '#9ca3af',
@@ -416,27 +461,59 @@ const WalkinReport = () => {
 
                       return (
                         <tr key={w._id||i} style={{ borderBottom:'1px solid #f9fafb', background:'#fff' }}
-                          onMouseEnter={e=>e.currentTarget.style.background='#fafafa'}
-                          onMouseLeave={e=>e.currentTarget.style.background='#fff'}
+                          onMouseEnter={e=>e.currentTarget.style.background = '#fafafa'}
+                          onMouseLeave={e=>e.currentTarget.style.background = '#fff'}
                         >
                           <td style={{ padding: '11px 12px', textAlign: 'center', color: '#9ca3af', width: '2%', minWidth: '2%', maxWidth: '2%', boxSizing: 'border-box' }}>{indexFirst+i+1}</td>
-                          <td style={{ padding: '11px 12px', color: '#374151', width: '5.5%', minWidth: '5.5%', maxWidth: '5.5%', boxSizing: 'border-box' }}>{w.date}</td>
-                          <td style={{ padding: '11px 12px', color: '#111827', fontWeight: 500, width: '6.5%', minWidth: '6.5%', maxWidth: '6.5%', boxSizing: 'border-box' }}>{w.customerName}</td>
-                          <td style={{ padding: '11px 12px', color: '#374151', width: '7%', minWidth: '7%', maxWidth: '7%', boxSizing: 'border-box' }}>+91 {w.contact}</td>
-                          <td style={{ padding: '11px 12px', color: '#374151', width: '5.5%', minWidth: '5.5%', maxWidth: '5.5%', boxSizing: 'border-box' }}>{w.functionDate || '–'}</td>
-                          <td style={{ padding: '11px 12px', color: '#374151', width: '5.5%', minWidth: '5.5%', maxWidth: '5.5%', boxSizing: 'border-box' }}>{w.functionType || '–'}</td>
-                          <td style={{ padding: '11px 12px', color: '#374151', width: '5.5%', minWidth: '5.5%', maxWidth: '5.5%', boxSizing: 'border-box' }}>{w.store || '–'}</td>
-                          <td style={{ padding: '11px 12px', color: '#374151', width: '6%', minWidth: '6%', maxWidth: '6%', boxSizing: 'border-box' }}>{w.staff || '–'}</td>
-                          <td style={{ padding: '11px 12px', color: '#374151', width: '5.5%', minWidth: '5.5%', maxWidth: '5.5%', boxSizing: 'border-box' }}>{w.category || '–'}</td>
-                          <td style={{ padding: '11px 12px', color: '#374151', width: '5.5%', minWidth: '5.5%', maxWidth: '5.5%', boxSizing: 'border-box' }}>{productType}</td>
-                          <td style={{ padding: '11px 12px', color: '#374151', width: '6.5%', minWidth: '6.5%', maxWidth: '6.5%', boxSizing: 'border-box' }}>{displayLossReason}</td>
-                          <td style={{ padding: '11px 12px', color: '#374151', width: '6.5%', minWidth: '6.5%', maxWidth: '6.5%', boxSizing: 'border-box' }}>{displaySubCategory}</td>
-                          <td style={{ padding: '11px 12px', color: '#6b7280', width: '6.5%', minWidth: '6.5%', maxWidth: '6.5%', boxSizing: 'border-box' }} title={w.remarks}>{w.remarks||'–'}</td>
-                          <td style={{ padding: '11px 12px', color: '#6b7280', width: '7%', minWidth: '7%', maxWidth: '7%', boxSizing: 'border-box' }} title={notesText}>{notesText}</td>
-                          <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', width: '5.5%', minWidth: '5.5%', maxWidth: '5.5%', boxSizing: 'border-box' }}>{w.bookingDate ? new Date(w.bookingDate).toISOString().split('T')[0] : '–'}</td>
-                          <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', width: '5.5%', minWidth: '5.5%', maxWidth: '5.5%', boxSizing: 'border-box' }}>{w.rentoutDate ? new Date(w.rentoutDate).toISOString().split('T')[0] : '–'}</td>
-                          <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', width: '5.5%', minWidth: '5.5%', maxWidth: '5.5%', boxSizing: 'border-box' }}>{w.returnDate ? new Date(w.returnDate).toISOString().split('T')[0] : '–'}</td>
-                          <td style={{ padding: '11px 12px', textAlign: 'center', color: '#374151', width: '3%', minWidth: '3%', maxWidth: '3%', boxSizing: 'border-box' }}>{w.repeatCount}</td>
+                          <td style={{ padding: '11px 12px', color: '#374151', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>{w.date}</td>
+                          <td style={{ padding: '11px 12px', color: '#111827', fontWeight: 500, width: '6%', minWidth: '6%', maxWidth: '6%', boxSizing: 'border-box' }}>{w.customerName}</td>
+                          <td style={{ padding: '11px 12px', color: '#374151', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>+91 {w.contact}</td>
+                          <td style={{ padding: '11px 12px', color: '#374151', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>{w.functionDate || '–'}</td>
+                          <td style={{ padding: '11px 12px', color: '#374151', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>{w.functionType || '–'}</td>
+                          <td style={{ padding: '11px 12px', color: '#374151', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>{w.category || '–'}</td>
+                          <td style={{ padding: '11px 12px', color: '#374151', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>{productType}</td>
+                          <td style={{ padding: '11px 12px', color: '#374151', width: '6%', minWidth: '6%', maxWidth: '6%', boxSizing: 'border-box' }}>{displayLossReason}</td>
+                          <td style={{ padding: '11px 12px', color: '#374151', width: '6%', minWidth: '6%', maxWidth: '6%', boxSizing: 'border-box' }}>{displaySubCategory}</td>
+                          <td style={{ padding: '11px 12px', color: '#6b7280', width: '6%', minWidth: '6%', maxWidth: '6%', boxSizing: 'border-box' }} title={w.remarks}>{w.remarks||'–'}</td>
+                          <td style={{ padding: '11px 12px', color: '#6b7280', width: '6%', minWidth: '6%', maxWidth: '6%', boxSizing: 'border-box' }} title={notesText}>{notesText}</td>
+                          <td style={{ padding: '11px 12px', color: '#374151', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>{w.store || '–'}</td>
+                          <td style={{ padding: '11px 12px', color: '#374151', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>{w.staff || '–'}</td>
+                          <td style={{ padding: '11px 12px', textAlign: 'center', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>
+                            {w.attachment ? (
+                              <button
+                                onClick={() => handleDownloadAndView(w.attachment, w.attachmentName || 'attachment')}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  width: '28px',
+                                  height: '28px',
+                                  color: '#2563eb',
+                                  background: '#eff6ff',
+                                  border: '1px solid #bfdbfe',
+                                  borderRadius: '50%',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s',
+                                  boxSizing: 'border-box'
+                                }}
+                                onMouseEnter={e => {
+                                  e.currentTarget.style.background = '#dbeafe';
+                                  e.currentTarget.style.color = '#1d4ed8';
+                                }}
+                                onMouseLeave={e => {
+                                  e.currentTarget.style.background = '#eff6ff';
+                                  e.currentTarget.style.color = '#2563eb';
+                                }}
+                                title="Download and view attachment"
+                              >
+                                <FaDownload size={12} />
+                              </button>
+                            ) : '–'}
+                          </td>
+                          <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>{w.bookingDate ? new Date(w.bookingDate).toISOString().split('T')[0] : '–'}</td>
+                          <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>{w.rentoutDate ? new Date(w.rentoutDate).toISOString().split('T')[0] : '–'}</td>
+                          <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>{w.returnDate ? new Date(w.returnDate).toISOString().split('T')[0] : '–'}</td>
+                          <td style={{ padding: '11px 12px', textAlign: 'center', color: '#374151', width: '2%', minWidth: '2%', maxWidth: '2%', boxSizing: 'border-box' }}>{w.repeatCount}</td>
                           <td style={{ padding: '11px 12px', textAlign: 'center', width: '6%', minWidth: '6%', maxWidth: '6%', boxSizing: 'border-box' }}>
                             <span style={{ background:sc.bg, color:sc.color, borderRadius:'20px', padding:'3px 10px', fontSize:'10px', fontWeight:700, whiteSpace:'nowrap', display:'inline-block' }}>
                               {w.status?.toUpperCase()}
