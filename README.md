@@ -403,9 +403,9 @@ The Brynex LMS features a comprehensively documented backend. Swagger UI is avai
       - Format: `[Customization] Product: <product_type> | Size: <size> | Colour: <colour> | Note: <note>`
     - **Category: Dapper Squad (Non-sales):**
       - Reason 'product already booked': `[product already booked] Product: <product_type> | Size: <size> | Colour: <colour> | Note: <note>`
-      - Reason 'design and color unavailable': `[design and color unavailable] Product: <product_type> | Note: <note>`
+      - Reason 'design and colour not available': `[design and colour not available] Product: <product_type> | Note: <note>` (Legacy formats `[design and color unavailable]` and `[Model, Design and Colour Not Available]` are also parsed correctly)
       - Reason 'price': `[price] Remarks: <price_too_high_or_budget_restriction> | Note: <note>`
-      - Reason 'enquiry': `[enquiry] Note: <note>`
+      - Reason 'enquiry': `[enquiry] Note: <note>` (Commented/Disabled)
       - Reason 'size': `[size] Product: <product_type> | Size: <size> | Note: <note>`
     - **Category: Dapper Squad (Sales):**
       - Format: `[Sales] Sub Category: <shoe_or_shirt> | Size: <size> | Colour: <colour> | Price: <price> | Note: <note>`

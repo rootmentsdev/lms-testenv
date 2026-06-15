@@ -116,12 +116,12 @@ router.get('/check/:contact', OptionalMiddilWare, checkCustomerExists);
  *       * **Category: Dapper Squad (Non-sales):**
  *         * Reason: 'product already booked'
  *           * Format: `[product already booked] Product: <product_type> | Size: <size> | Colour: <colour> | Note: <note>`
- *         * Reason: 'design and color unavailable'
- *           * Format: `[design and color unavailable] Product: <product_type> | Note: <note>`
+ *         * Reason: 'design and colour not available'
+ *           * Format: `[design and colour not available] Product: <product_type> | Note: <note>` (Legacy formats `[design and color unavailable]` and `[Model, Design and Colour Not Available]` are also parsed correctly)
  *         * Reason: 'price'
  *           * Format: `[price] Remarks: <price_too_high_or_budget_restriction> | Note: <note>`
- *         * Reason: 'enquiry'
- *           * Format: `[enquiry] Note: <note>`
+ *         #  * Reason: 'enquiry' (Commented/Disabled)
+ *         #    * Format: `[enquiry] Note: <note>`
  *         * Reason: 'size'
  *           * Format: `[size] Product: <product_type> | Size: <size> | Note: <note>`
  *           
