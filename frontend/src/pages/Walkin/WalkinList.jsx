@@ -159,6 +159,27 @@ const normalizeSubCategory = (val, category = '') => {
     return val.replace(/\b\w/g, c => c.toUpperCase());
 };
 
+const NON_SALES_REASONS = new Set([
+    'Product Already Booked',
+    'Design and Colour Not Available',
+    'Model, Design and Colour Not Available',
+    'Design and Color Unavailable',
+    'Price',
+    'Size',
+    'Enquiry Without Groom and Bride',
+    'Enquiry Without Groom/Bride',
+    'Enquiry Without Trial',
+    'Enquiry Without Trail',
+    'Confirm Later'
+]);
+
+const SALES_SUBCATEGORIES = new Set([
+    'Shoe',
+    'Shirt',
+    'Select Sub Category',
+    'Select sub category'
+]);
+
 const WalkinList = () => {
     const user = useSelector((state) => state.auth.user);
     const token = localStorage.getItem('token');
@@ -223,7 +244,8 @@ const WalkinList = () => {
         lossSizeOption: '',
         lossPriceReason: '',
         lossBudget: '',
-        lossNote: ''
+        lossNote: '',
+        lossReason: ''
     });
 
     const [currentAdmin, setCurrentAdmin] = useState(null);
@@ -438,7 +460,8 @@ const WalkinList = () => {
             lossColour: '',
             lossSize: '',
             lossSelectRemarks: '',
-            lossSalesPrice: ''
+            lossSalesPrice: '',
+            lossReason: ''
         };
     };
 
@@ -622,7 +645,6 @@ const WalkinList = () => {
                 lossSize: '',
                 lossSelectRemarks: '',
                 lossSalesPrice: '',
-                lossNote: '',
                 lossSizeColour: '',
                 lossSizeOption: '',
                 lossPriceReason: '',
@@ -684,7 +706,6 @@ const WalkinList = () => {
                 lossSize: '',
                 lossSelectRemarks: '',
                 lossSalesPrice: '',
-                lossNote: '',
                 lossSizeColour: '',
                 lossSizeOption: '',
                 lossPriceReason: '',
@@ -699,15 +720,38 @@ const WalkinList = () => {
         }
 
         if (name === 'lossProductType') {
+            const isSales = (value || '').toLowerCase() === 'sales';
             setFormData(prev => ({
                 ...prev,
                 lossProductType: value,
-                subCategory: (value || '').toLowerCase() === 'sales' ? 'Select Sub Category' : 'Select Reason',
+                subCategory: isSales ? 'Select Sub Category' : '-',
+                lossReason: isSales ? '' : 'Select Reason',
                 lossColour: '',
                 lossSize: '',
                 lossSelectRemarks: '',
                 lossSalesPrice: '',
-                lossNote: ''
+                lossEnquiryGroomComing: '',
+                lossEnquiryTrailOption: '',
+                lossEnquiryNextVisitDate: '',
+                lossEnquiryConfirmReason: '',
+                lossEnquiryRevisitDate: ''
+            }));
+            return;
+        }
+
+        if (name === 'lossReason' && formData.status === 'Loss') {
+            setFormData(prev => ({
+                ...prev,
+                lossReason: value,
+                lossColour: '',
+                lossSize: '',
+                lossSelectRemarks: '',
+                lossSalesPrice: '',
+                lossEnquiryGroomComing: '',
+                lossEnquiryTrailOption: '',
+                lossEnquiryNextVisitDate: '',
+                lossEnquiryConfirmReason: '',
+                lossEnquiryRevisitDate: ''
             }));
             return;
         }
@@ -719,8 +763,7 @@ const WalkinList = () => {
                 lossColour: '',
                 lossSize: '',
                 lossSelectRemarks: '',
-                lossSalesPrice: '',
-                lossNote: ''
+                lossSalesPrice: ''
             }));
             return;
         }
@@ -769,15 +812,17 @@ const WalkinList = () => {
 
                 // Pre-populate fields automatically (Do not override store & staff with historical ones)
                 const parsed = parseRemarks(json.data.remarks || '');
-                // Override with direct database properties if present
-                if (json.data.notes !== undefined && json.data.notes !== null) parsed.lossNote = json.data.notes;
-                if (json.data.lossProductType !== undefined && json.data.lossProductType !== null) parsed.lossProductType = json.data.lossProductType;
-                if (json.data.lossSize !== undefined && json.data.lossSize !== null) parsed.lossSize = json.data.lossSize;
-                if (json.data.lossColour !== undefined && json.data.lossColour !== null) parsed.lossColour = json.data.lossColour;
-                if (json.data.lossSalesPrice !== undefined && json.data.lossSalesPrice !== null) parsed.lossSalesPrice = json.data.lossSalesPrice;
-                if (json.data.lossSelectRemarks !== undefined && json.data.lossSelectRemarks !== null) parsed.lossSelectRemarks = json.data.lossSelectRemarks;
-                if (json.data.lossEnquiryTrailOption !== undefined && json.data.lossEnquiryTrailOption !== null) parsed.lossEnquiryTrailOption = json.data.lossEnquiryTrailOption;
-                if (json.data.lossEnquiryRevisitDate !== undefined && json.data.lossEnquiryRevisitDate !== null) parsed.lossEnquiryRevisitDate = json.data.lossEnquiryRevisitDate;
+                // Override with direct database properties if present and not empty/default
+                if (json.data.notes && json.data.notes !== '-' && json.data.notes.trim() !== '') parsed.lossNote = json.data.notes;
+                if (json.data.lossProductType && json.data.lossProductType !== '-' && json.data.lossProductType.trim() !== '') {
+                    parsed.lossProductType = normalizeProductType(json.data.lossProductType);
+                }
+                if (json.data.lossSize && json.data.lossSize !== '-' && json.data.lossSize.trim() !== '') parsed.lossSize = json.data.lossSize;
+                if (json.data.lossColour && json.data.lossColour !== '-' && json.data.lossColour.trim() !== '') parsed.lossColour = json.data.lossColour;
+                if (json.data.lossSalesPrice && json.data.lossSalesPrice !== '-' && json.data.lossSalesPrice.trim() !== '') parsed.lossSalesPrice = json.data.lossSalesPrice;
+                if (json.data.lossSelectRemarks && json.data.lossSelectRemarks !== '-' && json.data.lossSelectRemarks.trim() !== '') parsed.lossSelectRemarks = json.data.lossSelectRemarks;
+                if (json.data.lossEnquiryTrailOption && json.data.lossEnquiryTrailOption !== '-' && json.data.lossEnquiryTrailOption.trim() !== '') parsed.lossEnquiryTrailOption = json.data.lossEnquiryTrailOption;
+                if (json.data.lossEnquiryRevisitDate && json.data.lossEnquiryRevisitDate !== '-' && json.data.lossEnquiryRevisitDate.trim() !== '') parsed.lossEnquiryRevisitDate = json.data.lossEnquiryRevisitDate;
 
                 let subCat = json.data.subCategory || '-';
                 if ((!subCat || subCat === '-') && parsed.parsedSubCategory) {
@@ -864,21 +909,31 @@ const WalkinList = () => {
         const storeIdToLoad = w.storeId || (foundBranch ? foundBranch._id : '');
 
         const parsed = parseRemarks(w.remarks || '');
-        // Override with direct database properties if present
-        if (w.notes !== undefined && w.notes !== null) parsed.lossNote = w.notes;
-        if (w.lossProductType !== undefined && w.lossProductType !== null) parsed.lossProductType = w.lossProductType;
-        if (w.lossSize !== undefined && w.lossSize !== null) parsed.lossSize = w.lossSize;
-        if (w.lossColour !== undefined && w.lossColour !== null) parsed.lossColour = w.lossColour;
-        if (w.lossSalesPrice !== undefined && w.lossSalesPrice !== null) parsed.lossSalesPrice = w.lossSalesPrice;
-        if (w.lossSelectRemarks !== undefined && w.lossSelectRemarks !== null) parsed.lossSelectRemarks = w.lossSelectRemarks;
-        if (w.lossEnquiryTrailOption !== undefined && w.lossEnquiryTrailOption !== null) parsed.lossEnquiryTrailOption = w.lossEnquiryTrailOption;
-        if (w.lossEnquiryRevisitDate !== undefined && w.lossEnquiryRevisitDate !== null) parsed.lossEnquiryRevisitDate = w.lossEnquiryRevisitDate;
+        // Override with direct database properties if present and not empty/default
+        if (w.notes && w.notes !== '-' && w.notes.trim() !== '') parsed.lossNote = w.notes;
+        if (w.lossProductType && w.lossProductType !== '-' && w.lossProductType.trim() !== '') {
+            parsed.lossProductType = normalizeProductType(w.lossProductType);
+        }
+        if (w.lossSize && w.lossSize !== '-' && w.lossSize.trim() !== '') parsed.lossSize = w.lossSize;
+        if (w.lossColour && w.lossColour !== '-' && w.lossColour.trim() !== '') parsed.lossColour = w.lossColour;
+        if (w.lossSalesPrice && w.lossSalesPrice !== '-' && w.lossSalesPrice.trim() !== '') parsed.lossSalesPrice = w.lossSalesPrice;
+        if (w.lossSelectRemarks && w.lossSelectRemarks !== '-' && w.lossSelectRemarks.trim() !== '') parsed.lossSelectRemarks = w.lossSelectRemarks;
+        if (w.lossEnquiryTrailOption && w.lossEnquiryTrailOption !== '-' && w.lossEnquiryTrailOption.trim() !== '') parsed.lossEnquiryTrailOption = w.lossEnquiryTrailOption;
+        if (w.lossEnquiryRevisitDate && w.lossEnquiryRevisitDate !== '-' && w.lossEnquiryRevisitDate.trim() !== '') parsed.lossEnquiryRevisitDate = w.lossEnquiryRevisitDate;
+        parsed.lossReason = w.lossReason || (w.status === 'Loss' ? w.subCategory : '');
 
         let subCat = w.subCategory || '-';
         if ((!subCat || subCat === '-') && parsed.parsedSubCategory) {
             subCat = parsed.parsedSubCategory;
         }
         subCat = normalizeSubCategory(subCat, w.category);
+
+        if (w.status === 'Loss' && NON_SALES_REASONS.has(subCat)) {
+            if (!parsed.lossReason || ['Select Reason', 'Select reason', '-', ''].includes(parsed.lossReason)) {
+                parsed.lossReason = subCat;
+            }
+            subCat = '-';
+        }
 
         let funcType = w.functionType || '-';
         if (funcType.toLowerCase().trim() === 'others functions' || funcType.toLowerCase().trim() === 'other functions') {
@@ -936,6 +991,7 @@ const WalkinList = () => {
 
             const prodTypeLower = (formData.lossProductType || '').toLowerCase().trim();
             const subCatLower = (formData.subCategory || '').toLowerCase().trim();
+            const lossReasonLower = (formData.lossReason || '').toLowerCase().trim();
 
             if (formData.category === 'Product') {
                 if (!formData.lossProductType || formData.lossProductType === '') {
@@ -961,11 +1017,11 @@ const WalkinList = () => {
                         return;
                     }
                 } else {
-                    if (!formData.subCategory || ['Select Sub Category', 'Select sub category', 'Select Reason', 'Select reason', '-', ''].includes(formData.subCategory)) {
+                    if (!formData.lossReason || ['Select Sub Category', 'Select sub category', 'Select Reason', 'Select reason', '-', ''].includes(formData.lossReason)) {
                         alert('Please select a Reason.');
                         return;
                     }
-                    if (subCatLower === 'product already booked') {
+                    if (lossReasonLower === 'product already booked') {
                         if (!formData.lossSize || formData.lossSize === '') {
                             alert('Please select a Size.');
                             return;
@@ -974,12 +1030,12 @@ const WalkinList = () => {
                             alert('Please enter a Colour.');
                             return;
                         }
-                    } else if (subCatLower === 'price') {
+                    } else if (lossReasonLower === 'price') {
                         if (!formData.lossSelectRemarks || formData.lossSelectRemarks === '') {
                             alert('Please select a Price Option.');
                             return;
                         }
-                    } else if (subCatLower === 'size') {
+                    } else if (lossReasonLower === 'size') {
                         if (!formData.lossSize || formData.lossSize === '') {
                             alert('Please select a Size.');
                             return;
@@ -998,16 +1054,16 @@ const WalkinList = () => {
                             return;
                         }
                     } else {
-                        if (!formData.subCategory || ['Select Reason', 'Select reason', '-', ''].includes(formData.subCategory)) {
+                        if (!formData.lossReason || ['Select Reason', 'Select reason', '-', ''].includes(formData.lossReason)) {
                             alert('Please select a Reason.');
                             return;
                         }
-                        if (subCatLower === 'enquiry without trial') {
+                        if (lossReasonLower === 'enquiry without trial' || lossReasonLower === 'enquiry without trail') {
                             if (!formData.lossEnquiryTrailOption || formData.lossEnquiryTrailOption === '') {
                                 alert('Please select a Remarks Option.');
-                                return;
+                                  return;
                             }
-                        } else if (subCatLower === 'confirm later') {
+                        } else if (lossReasonLower === 'confirm later') {
                             if (!formData.lossEnquiryRevisitDate || formData.lossEnquiryRevisitDate === '') {
                                 alert('Please enter when the customer will revisit.');
                                 return;
@@ -1037,11 +1093,11 @@ const WalkinList = () => {
                             return;
                         }
                     } else {
-                        if (!formData.subCategory || ['Select Reason', 'Select reason', '-', ''].includes(formData.subCategory)) {
+                        if (!formData.lossReason || ['Select Reason', 'Select reason', '-', ''].includes(formData.lossReason)) {
                             alert('Please select a Reason.');
                             return;
                         }
-                        if (subCatLower === 'product already booked') {
+                        if (lossReasonLower === 'product already booked') {
                             if (!formData.lossSize || formData.lossSize === '') {
                                 alert('Please select a Size.');
                                 return;
@@ -1050,12 +1106,12 @@ const WalkinList = () => {
                                 alert('Please enter a Colour.');
                                 return;
                             }
-                        } else if (subCatLower === 'price') {
+                        } else if (lossReasonLower === 'price') {
                             if (!formData.lossSelectRemarks || formData.lossSelectRemarks === '') {
                                 alert('Please select a Price Option.');
                                 return;
                             }
-                        } else if (subCatLower === 'size') {
+                        } else if (lossReasonLower === 'size') {
                             if (!formData.lossSize || formData.lossSize === '') {
                                 alert('Please select a Size.');
                                 return;
@@ -1095,63 +1151,15 @@ const WalkinList = () => {
                 };
             }
 
-            // Serialize custom remarks fields
-            let finalRemarks = formData.remarks || '-';
-            if (formData.status === 'Loss') {
-                const subCatLower = (formData.subCategory || '').toLowerCase().trim();
-                const prodTypeLower = (formData.lossProductType || '').toLowerCase().trim();
-                if (formData.category === 'Product') {
-                    if (prodTypeLower === 'sales') {
-                        finalRemarks = `[Sales] Sub Category: ${formData.subCategory || '-'} | Size: ${formData.lossSize || '-'} | Colour: ${formData.lossColour || '-'} | Price: ${formData.lossSalesPrice || '-'} | Note: ${formData.lossNote || '-'}`;
-                    } else {
-                        if (subCatLower === 'product already booked') {
-                            finalRemarks = `[Product Already Booked] Product: ${formData.lossProductType || '-'} | Size: ${formData.lossSize || '-'} | Colour: ${formData.lossColour || '-'} | Note: ${formData.lossNote || '-'}`;
-                        } else if (subCatLower === 'design and colour not available' || subCatLower === 'model, design and colour not available' || subCatLower === 'design and color unavailable') {
-                            finalRemarks = `[Design and Colour Not Available] Product: ${formData.lossProductType || '-'} | Note: ${formData.lossNote || '-'}`;
-                        } else if (subCatLower === 'size') {
-                            finalRemarks = `[Size] Product: ${formData.lossProductType || '-'} | Size: ${formData.lossSize || '-'} | Note: ${formData.lossNote || '-'}`;
-                        } else if (subCatLower === 'price') {
-                            finalRemarks = `[Price] Remarks: ${formData.lossSelectRemarks || '-'} | Note: ${formData.lossNote || '-'}`;
-                        }
-                    }
-                } else if (formData.category === 'Enquiry') {
-                    if (prodTypeLower === 'sales') {
-                        finalRemarks = `[Sales] Sub Category: ${formData.subCategory || '-'} | Note: ${formData.lossNote || '-'}`;
-                    } else {
-                        if (subCatLower === 'enquiry without groom and bride' || subCatLower === 'enquiry without groom/bride') {
-                            finalRemarks = `[enquiry without groom and bride] Product: ${formData.lossProductType || '-'} | Note: ${formData.lossNote || '-'}`;
-                        } else if (subCatLower === 'enquiry without trial' || subCatLower === 'enquiry without trail') {
-                            finalRemarks = `[enquiry without trial] Product: ${formData.lossProductType || '-'} | Selected: ${formData.lossEnquiryTrailOption || '-'} | Note: ${formData.lossNote || '-'}`;
-                        } else if (subCatLower === 'confirm later') {
-                            finalRemarks = `[confirm later] Product: ${formData.lossProductType || '-'} | Revisit Date: ${formData.lossEnquiryRevisitDate || '-'} | Note: ${formData.lossNote || '-'}`;
-                        } else {
-                            finalRemarks = `[Enquiry] Product: ${formData.lossProductType || '-'} | Reason: ${formData.subCategory || '-'} | Note: ${formData.lossNote || '-'}`;
-                        }
-                    }
-                } else if (formData.category === 'Dapper Squad') {
-                    if (prodTypeLower === 'sales') {
-                        finalRemarks = `[Sales] Sub Category: ${formData.subCategory || '-'} | Size: ${formData.lossSize || '-'} | Colour: ${formData.lossColour || '-'} | Price: ${formData.lossSalesPrice || '-'} | Note: ${formData.lossNote || '-'}`;
-                    } else {
-                        if (subCatLower === 'product already booked') {
-                            finalRemarks = `[product already booked] Product: ${formData.lossProductType || '-'} | Size: ${formData.lossSize || '-'} | Colour: ${formData.lossColour || '-'} | Note: ${formData.lossNote || '-'}`;
-                        } else if (subCatLower === 'design and colour not available' || subCatLower === 'design and color unavailable' || subCatLower === 'model, design and colour not available') {
-                            finalRemarks = `[design and colour not available] Product: ${formData.lossProductType || '-'} | Note: ${formData.lossNote || '-'}`;
-                        } else if (subCatLower === 'size') {
-                            finalRemarks = `[size] Product: ${formData.lossProductType || '-'} | Size: ${formData.lossSize || '-'} | Note: ${formData.lossNote || '-'}`;
-                        } else if (subCatLower === 'price') {
-                            finalRemarks = `[price] Remarks: ${formData.lossSelectRemarks || '-'} | Note: ${formData.lossNote || '-'}`;
-                        } else if (subCatLower === 'enquiry') {
-                            finalRemarks = `[enquiry] Note: ${formData.lossNote || '-'}`;
-                        } else {
-                            finalRemarks = `[Dapper Squad] Product: ${formData.lossProductType || '-'} | Reason: ${formData.subCategory || '-'} | Note: ${formData.lossNote || '-'}`;
-                        }
-                    }
-                } else if (formData.category === 'Customization') {
-                    finalRemarks = `[Customization] Product: ${formData.lossProductType || '-'} | Size: ${formData.lossSize || '-'} | Colour: ${formData.lossColour || '-'} | Note: ${formData.lossNote || '-'}`;
-                } else {
-                    finalRemarks = `[${formData.category}] Sub Category: ${formData.subCategory || '-'} | Note: ${formData.lossNote || '-'}`;
-                }
-            }
+            const finalRemarks = formData.remarks || '';
+
+            const isSales = (formData.lossProductType || '').toLowerCase().trim() === 'sales';
+            const cleanSubCategory = (formData.status === 'Loss' && isSales)
+                ? ((formData.subCategory && !['Select Sub Category', 'Select sub category', '-', ''].includes(formData.subCategory)) ? formData.subCategory : '-')
+                : ((formData.status === 'Loss') ? '-' : formData.subCategory);
+            const cleanLossReason = (formData.status === 'Loss' && !isSales)
+                ? ((formData.lossReason && !['Select Reason', 'Select reason', '-', ''].includes(formData.lossReason)) ? formData.lossReason : '')
+                : '';
 
             const res = await fetch(`${baseUrl.baseUrl}api/walkin/save`, {
                 method: 'POST',
@@ -1169,7 +1177,7 @@ const WalkinList = () => {
                     staff: formData.staff || 'None',
                     employeeId: formData.employeeId || undefined,
                     category: formData.category,
-                    subCategory: formData.subCategory,
+                    subCategory: cleanSubCategory,
                     functionType: formData.functionType,
                     fileAttachment,
                     remarks: finalRemarks,
@@ -1181,6 +1189,7 @@ const WalkinList = () => {
                     lossSelectRemarks: formData.lossSelectRemarks || '',
                     lossEnquiryTrailOption: formData.lossEnquiryTrailOption || '',
                     lossEnquiryRevisitDate: formData.lossEnquiryRevisitDate || '',
+                    lossReason: cleanLossReason,
                     status: formData.status,
                     date: formData.date
                 })
@@ -1654,9 +1663,9 @@ const WalkinList = () => {
                                                                         </label>
                                                                         <div className="relative">
                                                                             <select
-                                                                                name="subCategory"
+                                                                                name="lossReason"
                                                                                 required
-                                                                                value={formData.subCategory}
+                                                                                value={formData.lossReason || ''}
                                                                                 onChange={handleInputChange}
                                                                                 className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
                                                                             >
@@ -1669,9 +1678,9 @@ const WalkinList = () => {
                                                                             </div>
                                                                         </div>
                                                                     </div>
-
+ 
                                                                     {/* Custom fields under non-sales reasons */}
-                                                                    {formData.subCategory === 'Product Already Booked' && (
+                                                                    {formData.lossReason === 'Product Already Booked' && (
                                                                         <>
                                                                             <div className="col-span-12 md:col-span-3">
                                                                                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -1726,8 +1735,8 @@ const WalkinList = () => {
                                                                             </div>
                                                                         </>
                                                                     )}
-
-                                                                    {((formData.subCategory || '').toLowerCase().trim() === 'design and colour not available' || (formData.subCategory || '').toLowerCase().trim() === 'design and color unavailable' || (formData.subCategory || '').toLowerCase().trim() === 'model, design and colour not available') && (
+ 
+                                                                    {((formData.lossReason || '').toLowerCase().trim() === 'design and colour not available' || (formData.lossReason || '').toLowerCase().trim() === 'design and color unavailable' || (formData.lossReason || '').toLowerCase().trim() === 'model, design and colour not available') && (
                                                                         <>
                                                                             {/* Banner */}
                                                                             <div className="col-span-12">
@@ -1774,8 +1783,8 @@ const WalkinList = () => {
                                                                             </div>
                                                                         </>
                                                                     )}
-
-                                                                    {formData.subCategory === 'Price' && (
+ 
+                                                                    {formData.lossReason === 'Price' && (
                                                                         <>
                                                                             <div className="col-span-12 md:col-span-3">
                                                                                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -1815,8 +1824,8 @@ const WalkinList = () => {
                                                                             </div>
                                                                         </>
                                                                     )}
-
-                                                                    {formData.subCategory === 'Size' && (
+ 
+                                                                    {formData.lossReason === 'Size' && (
                                                                         <>
                                                                             <div className="col-span-12 md:col-span-3">
                                                                                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -2068,9 +2077,9 @@ const WalkinList = () => {
                                                                         </label>
                                                                         <div className="relative">
                                                                             <select
-                                                                                name="subCategory"
+                                                                                name="lossReason"
                                                                                 required
-                                                                                value={formData.subCategory}
+                                                                                value={formData.lossReason || ''}
                                                                                 onChange={handleInputChange}
                                                                                 className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
                                                                             >
@@ -2083,9 +2092,9 @@ const WalkinList = () => {
                                                                             </div>
                                                                         </div>
                                                                     </div>
-
+ 
                                                                     {/* Conditionally render fields based on reason */}
-                                                                    {((formData.subCategory || '').toLowerCase().trim() === 'enquiry without groom and bride' || (formData.subCategory || '').toLowerCase().trim() === 'enquiry without groom/bride') && (
+                                                                    {((formData.lossReason || '').toLowerCase().trim() === 'enquiry without groom and bride' || (formData.lossReason || '').toLowerCase().trim() === 'enquiry without groom/bride') && (
                                                                         <div className="col-span-12 md:col-span-6">
                                                                             <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                                                                                 Note <span className="text-gray-400 font-normal">(Optional)</span>
@@ -2100,8 +2109,8 @@ const WalkinList = () => {
                                                                             />
                                                                         </div>
                                                                     )}
-
-                                                                    {((formData.subCategory || '').toLowerCase().trim() === 'enquiry without trial' || (formData.subCategory || '').toLowerCase().trim() === 'enquiry without trail') && (
+ 
+                                                                    {((formData.lossReason || '').toLowerCase().trim() === 'enquiry without trial' || (formData.lossReason || '').toLowerCase().trim() === 'enquiry without trail') && (
                                                                         <>
                                                                             {/* Remarks Dropdown with long date, just visit */}
                                                                             <div className="col-span-12 md:col-span-3">
@@ -2127,7 +2136,7 @@ const WalkinList = () => {
                                                                                     </div>
                                                                                 </div>
                                                                             </div>
-
+ 
                                                                             {/* Note box */}
                                                                             <div className="col-span-12 md:col-span-3">
                                                                                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -2144,8 +2153,8 @@ const WalkinList = () => {
                                                                             </div>
                                                                         </>
                                                                     )}
-
-                                                                    {((formData.subCategory || '').toLowerCase().trim() === 'confirm later') && (
+ 
+                                                                    {((formData.lossReason || '').toLowerCase().trim() === 'confirm later') && (
                                                                         <>
                                                                             {/* Next visit date calendar selector */}
                                                                             <div className="col-span-12 md:col-span-3">
@@ -2161,7 +2170,7 @@ const WalkinList = () => {
                                                                                     className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold cursor-pointer"
                                                                                 />
                                                                             </div>
-
+ 
                                                                             {/* Note box */}
                                                                             <div className="col-span-12 md:col-span-3">
                                                                                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -2265,9 +2274,9 @@ const WalkinList = () => {
                                                                         </label>
                                                                         <div className="relative">
                                                                             <select
-                                                                                name="subCategory"
+                                                                                name="lossReason"
                                                                                 required
-                                                                                value={formData.subCategory}
+                                                                                value={formData.lossReason || ''}
                                                                                 onChange={handleInputChange}
                                                                                 className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
                                                                             >
@@ -2280,9 +2289,9 @@ const WalkinList = () => {
                                                                             </div>
                                                                         </div>
                                                                     </div>
-
+ 
                                                                     {/* Conditionally render fields based on reason */}
-                                                                    {((formData.subCategory || '').toLowerCase().trim() === 'product already booked') && (
+                                                                    {((formData.lossReason || '').toLowerCase().trim() === 'product already booked') && (
                                                                         <>
                                                                             <div className="col-span-12 md:col-span-3">
                                                                                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -2337,8 +2346,8 @@ const WalkinList = () => {
                                                                             </div>
                                                                         </>
                                                                     )}
-
-                                                                    {((formData.subCategory || '').toLowerCase().trim() === 'design and colour not available' || (formData.subCategory || '').toLowerCase().trim() === 'design and color unavailable' || (formData.subCategory || '').toLowerCase().trim() === 'model, design and colour not available') && (
+ 
+                                                                    {((formData.lossReason || '').toLowerCase().trim() === 'design and colour not available' || (formData.lossReason || '').toLowerCase().trim() === 'design and color unavailable' || (formData.lossReason || '').toLowerCase().trim() === 'model, design and colour not available') && (
                                                                         <>
                                                                             <div className="col-span-12 md:col-span-3">
                                                                                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -2379,8 +2388,8 @@ const WalkinList = () => {
                                                                             </div>
                                                                         </>
                                                                     )}
-
-                                                                    {((formData.subCategory || '').toLowerCase().trim() === 'price') && (
+ 
+                                                                    {((formData.lossReason || '').toLowerCase().trim() === 'price') && (
                                                                         <>
                                                                             <div className="col-span-12 md:col-span-3">
                                                                                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -2420,8 +2429,8 @@ const WalkinList = () => {
                                                                             </div>
                                                                         </>
                                                                     )}
-
-                                                                    {((formData.subCategory || '').toLowerCase().trim() === 'enquiry') && (
+ 
+                                                                    {((formData.lossReason || '').toLowerCase().trim() === 'enquiry') && (
                                                                         <div className="col-span-12">
                                                                             <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                                                                                 Note <span className="text-gray-400 font-normal">(Optional)</span>
@@ -2436,8 +2445,8 @@ const WalkinList = () => {
                                                                             />
                                                                         </div>
                                                                     )}
-
-                                                                    {((formData.subCategory || '').toLowerCase().trim() === 'size') && (
+ 
+                                                                    {((formData.lossReason || '').toLowerCase().trim() === 'size') && (
                                                                         <>
                                                                             <div className="col-span-12 md:col-span-3">
                                                                                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -2894,32 +2903,38 @@ const WalkinList = () => {
                             ) : (
                                 <>
                                     <div style={{ overflowX: 'auto' }}>
-                                        <table className="min-w-[1100px] md:min-w-full" style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
+                                        <table style={{ width: '2585px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
                                             <thead>
                                                 <tr style={{ borderBottom: '1px solid #f3f4f6', background: '#fafafa' }}>
-                                                    {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'FUNCTION DATE', 'STORE', 'STAFF', 'CATEGORY', 'SUB CATEGORY', 'REMARKS', 'UPDATED AT', 'REPEAT COUNT', 'STATUS', 'EDIT'].map((h, i) => {
+                                                    {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'FUNCTION DATE', 'FUNCTION TYPE', 'STORE', 'STAFF', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'NOTES', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'REPEAT COUNT', 'STATUS', 'EDIT'].map((h, i) => {
                                                         let colWidth = 'auto';
-                                                        if (h === '#') colWidth = '3%';
-                                                        else if (h === 'DATE') colWidth = '8.5%';
-                                                        else if (h === 'CUSTOMER') colWidth = '9%';
-                                                        else if (h === 'CONTACT') colWidth = '9.5%';
-                                                        else if (h === 'FUNCTION DATE') colWidth = '8.5%';
-                                                        else if (h === 'STORE') colWidth = '8.5%';
-                                                        else if (h === 'STAFF') colWidth = '9%';
-                                                        else if (h === 'CATEGORY') colWidth = '8.5%';
-                                                        else if (h === 'SUB CATEGORY') colWidth = '8.5%';
-                                                        else if (h === 'REMARKS') colWidth = '7%';
-                                                        else if (h === 'UPDATED AT') colWidth = '8.5%';
-                                                        else if (h === 'REPEAT COUNT') colWidth = '4%';
-                                                        else if (h === 'STATUS') colWidth = '9%';
-                                                        else if (h === 'EDIT') colWidth = '3%';
+                                                        if (h === '#') colWidth = '2%';
+                                                        else if (h === 'DATE') colWidth = '5.5%';
+                                                        else if (h === 'CUSTOMER') colWidth = '6.5%';
+                                                        else if (h === 'CONTACT') colWidth = '7%';
+                                                        else if (h === 'FUNCTION DATE') colWidth = '5.5%';
+                                                        else if (h === 'FUNCTION TYPE') colWidth = '5.5%';
+                                                        else if (h === 'STORE') colWidth = '5.5%';
+                                                        else if (h === 'STAFF') colWidth = '6%';
+                                                        else if (h === 'CATEGORY') colWidth = '5.5%';
+                                                        else if (h === 'PRODUCT TYPE') colWidth = '5.5%';
+                                                        else if (h === 'LOSS REASON') colWidth = '6.5%';
+                                                        else if (h === 'SUB CATEGORY') colWidth = '6.5%';
+                                                        else if (h === 'REMARKS') colWidth = '6.5%';
+                                                        else if (h === 'NOTES') colWidth = '7%';
+                                                        else if (h === 'BOOKING DATE') colWidth = '5.5%';
+                                                        else if (h === 'RENTOUT DATE') colWidth = '5.5%';
+                                                        else if (h === 'RETURN DATE') colWidth = '5.5%';
+                                                        else if (h === 'REPEAT COUNT') colWidth = '3%';
+                                                        else if (h === 'STATUS') colWidth = '6%';
+                                                        else if (h === 'EDIT') colWidth = '2%';
 
                                                         return (
                                                             <th
                                                                 key={i}
                                                                 style={{
                                                                     padding: '8px 12px',
-                                                                    textAlign: (h === '#' || h === 'REPEAT COUNT' || h === 'STATUS' || h === 'UPDATED AT') ? 'center' : 'left',
+                                                                    textAlign: (h === '#' || h === 'REPEAT COUNT' || h === 'STATUS' || h === 'BOOKING DATE' || h === 'RENTOUT DATE' || h === 'RETURN DATE') ? 'center' : 'left',
                                                                     fontSize: '10px',
                                                                     fontWeight: 600,
                                                                     color: '#9ca3af',
@@ -2956,52 +2971,104 @@ const WalkinList = () => {
                                                         'Reissue': { bg: '#ede9fe', color: '#7c3aed' },
                                                     };
                                                     const sc = statusColors[w.status] || { bg: '#f3f4f6', color: '#6b7280' };
+                                                    
+                                                    const productType = w.lossProductType || '–';
+                                                    const notesText = w.notes || '–';
+
+                                                    let displayLossReason = '–';
+                                                    let displaySubCategory = '–';
+
+                                                    if (w.status === 'Loss' || w.status === 'Revisit Loss') {
+                                                        const isSales = (w.lossProductType || '').toLowerCase().trim() === 'sales';
+                                                        
+                                                        // 1. Loss Reason display
+                                                        if (w.lossReason && w.lossReason !== '-' && w.lossReason !== '') {
+                                                            displayLossReason = w.lossReason;
+                                                            if (w.lossSelectRemarks && w.lossSelectRemarks !== '-' && w.lossSelectRemarks !== '') {
+                                                                displayLossReason += ` (${w.lossSelectRemarks})`;
+                                                            }
+                                                        } else if (w.subCategory && NON_SALES_REASONS.has(w.subCategory)) {
+                                                            displayLossReason = w.subCategory;
+                                                            if (w.lossSelectRemarks && w.lossSelectRemarks !== '-' && w.lossSelectRemarks !== '') {
+                                                                displayLossReason += ` (${w.lossSelectRemarks})`;
+                                                            }
+                                                        } else if (w.lossSelectRemarks && w.lossSelectRemarks !== '-' && w.lossSelectRemarks !== '') {
+                                                            displayLossReason = w.lossSelectRemarks;
+                                                        }
+
+                                                        // 2. Sub Category display
+                                                        if (isSales) {
+                                                            if (w.subCategory && w.subCategory !== '-' && !NON_SALES_REASONS.has(w.subCategory)) {
+                                                                displaySubCategory = w.subCategory;
+                                                            }
+                                                        } else {
+                                                            displaySubCategory = '–';
+                                                        }
+                                                    } else {
+                                                        displaySubCategory = (w.subCategory && w.subCategory !== '-') ? w.subCategory : '–';
+                                                    }
+
                                                     return (
                                                         <tr key={w._id || index}
                                                             style={{ borderBottom: '1px solid #f9fafb', background: '#fff', transition: 'background 0.1s' }}
                                                             onMouseEnter={e => e.currentTarget.style.background = '#fafafa'}
                                                             onMouseLeave={e => e.currentTarget.style.background = '#fff'}
                                                         >
-                                                            <td style={{ padding: '11px 12px', textAlign: 'center', color: '#9ca3af', width: '3%', minWidth: '3%', maxWidth: '3%', boxSizing: 'border-box' }}>{indexFirst + index + 1}</td>
-                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '8.5%', minWidth: '8.5%', maxWidth: '8.5%', boxSizing: 'border-box' }}>
+                                                            <td style={{ padding: '11px 12px', textAlign: 'center', color: '#9ca3af', width: '2%', minWidth: '2%', maxWidth: '2%', boxSizing: 'border-box' }}>{indexFirst + index + 1}</td>
+                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '5.5%', minWidth: '5.5%', maxWidth: '5.5%', boxSizing: 'border-box' }}>
                                                                 <div className="walkin-marquee-container">
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{safeDateOnly(w.date)}</span>
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', color: '#111827', fontWeight: 500, width: '9%', minWidth: '9%', maxWidth: '9%', boxSizing: 'border-box' }}>
+                                                            <td style={{ padding: '11px 12px', color: '#111827', fontWeight: 500, width: '6.5%', minWidth: '6.5%', maxWidth: '6.5%', boxSizing: 'border-box' }}>
                                                                 <div className="walkin-marquee-container">
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.customerName || '–'}</span>
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '9.5%', minWidth: '9.5%', maxWidth: '9.5%', boxSizing: 'border-box' }}>
+                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '7%', minWidth: '7%', maxWidth: '7%', boxSizing: 'border-box' }}>
                                                                 <div className="walkin-marquee-container">
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.contact ? `+91 ${w.contact}` : '–'}</span>
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '8.5%', minWidth: '8.5%', maxWidth: '8.5%', boxSizing: 'border-box' }}>
+                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '5.5%', minWidth: '5.5%', maxWidth: '5.5%', boxSizing: 'border-box' }}>
                                                                 <div className="walkin-marquee-container">
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.functionDate || '–'}</span>
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '8.5%', minWidth: '8.5%', maxWidth: '8.5%', boxSizing: 'border-box' }}>
+                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '5.5%', minWidth: '5.5%', maxWidth: '5.5%', boxSizing: 'border-box' }}>
+                                                                <div className="walkin-marquee-container">
+                                                                    <span className="walkin-marquee-text walkin-anim-scroll">{w.functionType || '–'}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '5.5%', minWidth: '5.5%', maxWidth: '5.5%', boxSizing: 'border-box' }}>
                                                                 <div className="walkin-marquee-container">
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.store || '–'}</span>
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '9%', minWidth: '9%', maxWidth: '9%', boxSizing: 'border-box' }}>
+                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '6%', minWidth: '6%', maxWidth: '6%', boxSizing: 'border-box' }}>
                                                                 <div className="walkin-marquee-container">
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.staff || '–'}</span>
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '8.5%', minWidth: '8.5%', maxWidth: '8.5%', boxSizing: 'border-box' }}>
+                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '5.5%', minWidth: '5.5%', maxWidth: '5.5%', boxSizing: 'border-box' }}>
                                                                 <div className="walkin-marquee-container">
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.category || '–'}</span>
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', color: '#374151', whiteSpace: 'nowrap', width: '8.5%', minWidth: '8.5%', maxWidth: '8.5%', boxSizing: 'border-box' }}>
+                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '5.5%', minWidth: '5.5%', maxWidth: '5.5%', boxSizing: 'border-box' }}>
+                                                                <div className="walkin-marquee-container">
+                                                                    <span className="walkin-marquee-text walkin-anim-scroll">{productType}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '6.5%', minWidth: '6.5%', maxWidth: '6.5%', boxSizing: 'border-box' }}>
+                                                                <div className="walkin-marquee-container">
+                                                                    <span className="walkin-marquee-text walkin-anim-scroll">{displayLossReason}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td style={{ padding: '11px 12px', color: '#374151', whiteSpace: 'nowrap', width: '6.5%', minWidth: '6.5%', maxWidth: '6.5%', boxSizing: 'border-box' }}>
                                                                 <div style={{ display: 'inline-flex', alignItems: 'center', width: '100%' }}>
                                                                     <div className="walkin-marquee-container" style={{ flex: 1, minWidth: 0 }}>
-                                                                        <span className="walkin-marquee-text walkin-anim-scroll">{w.subCategory || '–'}</span>
+                                                                        <span className="walkin-marquee-text walkin-anim-scroll">{displaySubCategory}</span>
                                                                     </div>
                                                                     {w.attachment && (
                                                                         <a
@@ -3016,15 +3083,26 @@ const WalkinList = () => {
                                                                     )}
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', color: '#6b7280', width: '7%', minWidth: '7%', maxWidth: '7%', boxSizing: 'border-box' }}>
+                                                            <td style={{ padding: '11px 12px', color: '#6b7280', width: '6.5%', minWidth: '6.5%', maxWidth: '6.5%', boxSizing: 'border-box' }}>
                                                                 <div className="walkin-marquee-container" title={w.remarks}>
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.remarks || '–'}</span>
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', width: '8.5%', minWidth: '8.5%', maxWidth: '8.5%', boxSizing: 'border-box' }}>
-                                                                {w.updatedAt ? new Date(w.updatedAt).toISOString().split('T')[0] : '–'}
+                                                            <td style={{ padding: '11px 12px', color: '#6b7280', width: '7%', minWidth: '7%', maxWidth: '7%', boxSizing: 'border-box' }}>
+                                                                <div className="walkin-marquee-container" title={notesText}>
+                                                                    <span className="walkin-marquee-text walkin-anim-scroll">{notesText}</span>
+                                                                </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', textAlign: 'center', color: '#374151', width: '4%', minWidth: '4%', maxWidth: '4%', boxSizing: 'border-box' }}>{w.repeatCount}</td>
+                                                            <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', width: '5.5%', minWidth: '5.5%', maxWidth: '5.5%', boxSizing: 'border-box' }}>
+                                                                {w.bookingDate ? new Date(w.bookingDate).toISOString().split('T')[0] : '–'}
+                                                            </td>
+                                                            <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', width: '5.5%', minWidth: '5.5%', maxWidth: '5.5%', boxSizing: 'border-box' }}>
+                                                                {w.rentoutDate ? new Date(w.rentoutDate).toISOString().split('T')[0] : '–'}
+                                                            </td>
+                                                            <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', width: '5.5%', minWidth: '5.5%', maxWidth: '5.5%', boxSizing: 'border-box' }}>
+                                                                {w.returnDate ? new Date(w.returnDate).toISOString().split('T')[0] : '–'}
+                                                            </td>
+                                                            <td style={{ padding: '11px 12px', textAlign: 'center', color: '#374151', width: '3%', minWidth: '3%', maxWidth: '3%', boxSizing: 'border-box' }}>{w.repeatCount}</td>
                                                             <td style={{ padding: '11px 12px', textAlign: 'center', width: '9%', minWidth: '9%', maxWidth: '9%', boxSizing: 'border-box' }}>
                                                                 <select
                                                                     value={w.status || 'New Walkin'}

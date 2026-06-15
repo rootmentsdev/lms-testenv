@@ -129,7 +129,7 @@ export const syncWalkinStatuses = async () => {
             for (const item of bookings) {
                 const phone = normalizePhone(extractPhoneNumber(item));
                 if (phone) {
-                    phoneStatusMap.set(phone, 'Booked');
+                    phoneStatusMap.set(phone, { status: 'Booked', item });
                 }
             }
 
@@ -137,7 +137,7 @@ export const syncWalkinStatuses = async () => {
             for (const item of rentouts) {
                 const phone = normalizePhone(extractPhoneNumber(item));
                 if (phone) {
-                    phoneStatusMap.set(phone, 'Rentout');
+                    phoneStatusMap.set(phone, { status: 'Rentout', item });
                 }
             }
 
@@ -145,7 +145,7 @@ export const syncWalkinStatuses = async () => {
             for (const item of returns) {
                 const phone = normalizePhone(extractPhoneNumber(item));
                 if (phone) {
-                    phoneStatusMap.set(phone, 'Return');
+                    phoneStatusMap.set(phone, { status: 'Return', item });
                 }
             }
 
@@ -153,7 +153,7 @@ export const syncWalkinStatuses = async () => {
             for (const item of deletes) {
                 const phone = normalizePhone(extractPhoneNumber(item));
                 if (phone) {
-                    phoneStatusMap.set(phone, 'Cancel');
+                    phoneStatusMap.set(phone, { status: 'Cancel', item });
                 }
             }
 
@@ -189,7 +189,8 @@ export const syncWalkinStatuses = async () => {
                 }
 
                 // Apply hierarchy and perform the updates
-                for (const [normalizedPhone, targetStatus] of phoneStatusMap.entries()) {
+                for (const [normalizedPhone, statusInfo] of phoneStatusMap.entries()) {
+                    const { status: targetStatus, item } = statusInfo;
                     const walkin = walkinMap.get(normalizedPhone);
                     if (walkin) {
                         branchWalkinsMatched++;
@@ -206,6 +207,27 @@ export const syncWalkinStatuses = async () => {
                             const walkinDateStr = walkin.date ? walkin.date.substring(0, 10) : null;
                             if (walkinDateStr !== todayDateStr) {
                                 walkin.repeatCount = (walkin.repeatCount || 1) + 1;
+                            }
+
+                            // Extract dates from external item if present
+                            if (item.bookingDate) {
+                                walkin.bookingDate = new Date(item.bookingDate);
+                            }
+                            if (item.rentOutDate) {
+                                walkin.rentoutDate = new Date(item.rentOutDate);
+                            }
+                            if (item.returnedDate) {
+                                walkin.returnDate = new Date(item.returnedDate);
+                            }
+
+                            // Fallback to current time if status is updated but corresponding date is missing in item
+                            const statusLower = targetStatus.toLowerCase();
+                            if (statusLower.includes('booking') || statusLower === 'booked') {
+                                if (!walkin.bookingDate) walkin.bookingDate = new Date();
+                            } else if (statusLower.includes('rentout') || statusLower === 'rent out') {
+                                if (!walkin.rentoutDate) walkin.rentoutDate = new Date();
+                            } else if (statusLower === 'return') {
+                                if (!walkin.returnDate) walkin.returnDate = new Date();
                             }
 
                             await walkin.save();

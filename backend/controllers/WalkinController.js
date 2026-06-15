@@ -149,7 +149,8 @@ export const saveWalkin = async (req, res) => {
             lossSalesPrice,
             lossSelectRemarks,
             lossEnquiryTrailOption,
-            lossEnquiryRevisitDate
+            lossEnquiryRevisitDate,
+            lossReason
         } = req.body;
 
         // Parse optional fields with fallback to aliases posted from Flutter / Web panel
@@ -161,6 +162,7 @@ export const saveWalkin = async (req, res) => {
         const lossSelectRemarksVal = lossSelectRemarks !== undefined ? lossSelectRemarks : (req.body.priceRemarks !== undefined ? req.body.priceRemarks : req.body.selectRemarks);
         const lossEnquiryTrailOptionVal = lossEnquiryTrailOption !== undefined ? lossEnquiryTrailOption : req.body.trialOption;
         const lossEnquiryRevisitDateVal = lossEnquiryRevisitDate !== undefined ? lossEnquiryRevisitDate : req.body.revisitDate;
+        const lossReasonVal = lossReason !== undefined ? lossReason : req.body.lossReason;
 
         const setOptionalLossFields = (record) => {
             if (notesVal !== undefined) record.notes = String(notesVal).trim();
@@ -171,6 +173,7 @@ export const saveWalkin = async (req, res) => {
             if (lossSelectRemarksVal !== undefined) record.lossSelectRemarks = String(lossSelectRemarksVal).trim();
             if (lossEnquiryTrailOptionVal !== undefined) record.lossEnquiryTrailOption = String(lossEnquiryTrailOptionVal).trim();
             if (lossEnquiryRevisitDateVal !== undefined) record.lossEnquiryRevisitDate = String(lossEnquiryRevisitDateVal).trim();
+            if (lossReasonVal !== undefined) record.lossReason = String(lossReasonVal).trim();
         };
 
         if (!_id && (!customerName || !contact)) {
@@ -342,6 +345,16 @@ export const saveWalkin = async (req, res) => {
                     // Update status change tracking
                     walkinRecord.lastStatusChangeDate = new Date();
                     walkinRecord.statusChangedToday = true;
+
+                    // Automatically populate corresponding dates
+                    const statusLower = trimmedStatus.toLowerCase();
+                    if (statusLower.includes('booking') || statusLower === 'booked') {
+                        walkinRecord.bookingDate = new Date();
+                    } else if (statusLower.includes('rentout') || statusLower === 'rent out') {
+                        walkinRecord.rentoutDate = new Date();
+                    } else if (statusLower === 'return') {
+                        walkinRecord.returnDate = new Date();
+                    }
                 }
                 walkinRecord.status = trimmedStatus;
             }
@@ -417,6 +430,16 @@ export const saveWalkin = async (req, res) => {
                 if (walkinRecord.status !== trimmedStatus) {
                     walkinRecord.lastStatusChangeDate = new Date();
                     walkinRecord.statusChangedToday = true;
+
+                    // Automatically populate corresponding dates
+                    const statusLower = trimmedStatus.toLowerCase();
+                    if (statusLower.includes('booking') || statusLower === 'booked') {
+                        walkinRecord.bookingDate = new Date();
+                    } else if (statusLower.includes('rentout') || statusLower === 'rent out') {
+                        walkinRecord.rentoutDate = new Date();
+                    } else if (statusLower === 'return') {
+                        walkinRecord.returnDate = new Date();
+                    }
                 }
                 walkinRecord.status = trimmedStatus;
             }
@@ -447,6 +470,18 @@ export const saveWalkin = async (req, res) => {
                 }
             }
             const nextRepeatCount = storeLatest ? (storeLatest.repeatCount || 1) + 1 : 1;
+            const initialStatus = status ? status.trim() : 'New Walkin';
+            const statusLower = initialStatus.toLowerCase();
+            let bookingDate = null;
+            let rentoutDate = null;
+            let returnDate = null;
+            if (statusLower.includes('booking') || statusLower === 'booked') {
+                bookingDate = new Date();
+            } else if (statusLower.includes('rentout') || statusLower === 'rent out') {
+                rentoutDate = new Date();
+            } else if (statusLower === 'return') {
+                returnDate = new Date();
+            }
 
             const newWalkin = new Walkin({
                 customerName: customerName ? customerName.trim() : '-',
@@ -459,7 +494,7 @@ export const saveWalkin = async (req, res) => {
                 createdBy: createdBy || undefined,
                 category: category ? category.trim() : '-',
                 subCategory: subCategory ? subCategory.trim() : '-',
-                functionType: (status === 'Loss' && functionType) ? functionType.trim() : '-',
+                functionType: (initialStatus === 'Loss' && functionType) ? functionType.trim() : '-',
                 attachment: (fileAttachment && fileAttachment.base64) ? fileAttachment.base64 : '',
                 attachmentName: (fileAttachment && fileAttachment.name) ? fileAttachment.name : '',
                 remarks: remarks ? remarks.trim() : '-',
@@ -471,7 +506,11 @@ export const saveWalkin = async (req, res) => {
                 lossSelectRemarks: lossSelectRemarksVal !== undefined ? String(lossSelectRemarksVal).trim() : '',
                 lossEnquiryTrailOption: lossEnquiryTrailOptionVal !== undefined ? String(lossEnquiryTrailOptionVal).trim() : '',
                 lossEnquiryRevisitDate: lossEnquiryRevisitDateVal !== undefined ? String(lossEnquiryRevisitDateVal).trim() : '',
-                status: status ? status.trim() : 'New Walkin',
+                lossReason: lossReasonVal !== undefined ? String(lossReasonVal).trim() : '',
+                status: initialStatus,
+                bookingDate,
+                rentoutDate,
+                returnDate,
                 repeatCount: nextRepeatCount,
                 date: todayStr
             });
@@ -547,7 +586,7 @@ export const getWalkins = async (req, res) => {
         }
 
         // 3. Fetch filtered walkins directly from MongoDB
-        const baseProjection = 'date customerName contact functionDate store staff managerName category subCategory functionType remarks repeatCount status storeId employeeId createdBy createdAt updatedAt lastStatusChangeDate statusChangedToday';
+        const baseProjection = 'date customerName contact functionDate store staff managerName category subCategory functionType remarks repeatCount status storeId employeeId createdBy createdAt updatedAt lastStatusChangeDate statusChangedToday bookingDate rentoutDate returnDate lossReason lossProductType lossSize lossColour lossSalesPrice lossSelectRemarks lossEnquiryTrailOption lossEnquiryRevisitDate notes';
 
         const isCountOnlyFetch = String(countOnly).toLowerCase() === 'true';
         const isChartOnlyFetch = String(chartOnly).toLowerCase() === 'true';
@@ -644,7 +683,7 @@ export const getAllWalkinsPublic = async (req, res) => {
 
         let filtered = await Walkin.find({})
             .sort({ createdAt: -1 })
-            .select('date customerName contact functionDate store staff managerName category subCategory functionType remarks repeatCount status storeId employeeId createdBy createdAt updatedAt lastStatusChangeDate statusChangedToday')
+            .select('date customerName contact functionDate store staff managerName category subCategory functionType remarks repeatCount status storeId employeeId createdBy createdAt updatedAt lastStatusChangeDate statusChangedToday bookingDate rentoutDate returnDate lossReason')
             .lean();
 
         // Date Range Filter
