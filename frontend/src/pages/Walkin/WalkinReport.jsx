@@ -395,12 +395,12 @@ const WalkinReport = () => {
                           else if (h === 'NOTES') colWidth = '6%';
                           else if (h === 'STORE') colWidth = '5%';
                           else if (h === 'STAFF') colWidth = '5%';
-                          else if (h === 'ATTACHMENT') colWidth = '5%';
+                          else if (h === 'ATTACHMENT') colWidth = '2.5%';
                           else if (h === 'BOOKING DATE') colWidth = '5%';
                           else if (h === 'RENTOUT DATE') colWidth = '5%';
                           else if (h === 'RETURN DATE') colWidth = '5%';
-                          else if (h === 'REPEAT COUNT') colWidth = '2%';
-                          else if (h === 'STATUS') colWidth = '6%';
+                          else if (h === 'REPEAT COUNT') colWidth = '3%';
+                          else if (h === 'STATUS') colWidth = '7.5%';
 
                           return (
                               <th
@@ -478,7 +478,7 @@ const WalkinReport = () => {
                           <td style={{ padding: '11px 12px', color: '#6b7280', width: '6%', minWidth: '6%', maxWidth: '6%', boxSizing: 'border-box' }} title={notesText}>{notesText}</td>
                           <td style={{ padding: '11px 12px', color: '#374151', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>{w.store || '–'}</td>
                           <td style={{ padding: '11px 12px', color: '#374151', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>{w.staff || '–'}</td>
-                          <td style={{ padding: '11px 12px', textAlign: 'center', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>
+                          <td style={{ padding: '11px 12px', textAlign: 'center', width: '2.5%', minWidth: '2.5%', maxWidth: '2.5%', boxSizing: 'border-box' }}>
                             {w.attachment ? (
                               <button
                                 onClick={() => handleDownloadAndView(w.attachment, w.attachmentName || 'attachment')}
@@ -513,8 +513,8 @@ const WalkinReport = () => {
                           <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>{w.bookingDate ? new Date(w.bookingDate).toISOString().split('T')[0] : '–'}</td>
                           <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>{w.rentoutDate ? new Date(w.rentoutDate).toISOString().split('T')[0] : '–'}</td>
                           <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>{w.returnDate ? new Date(w.returnDate).toISOString().split('T')[0] : '–'}</td>
-                          <td style={{ padding: '11px 12px', textAlign: 'center', color: '#374151', width: '2%', minWidth: '2%', maxWidth: '2%', boxSizing: 'border-box' }}>{w.repeatCount}</td>
-                          <td style={{ padding: '11px 12px', textAlign: 'center', width: '6%', minWidth: '6%', maxWidth: '6%', boxSizing: 'border-box' }}>
+                          <td style={{ padding: '11px 12px', textAlign: 'center', color: '#374151', width: '3%', minWidth: '3%', maxWidth: '3%', boxSizing: 'border-box' }}>{w.repeatCount}</td>
+                          <td style={{ padding: '11px 12px', textAlign: 'center', width: '7.5%', minWidth: '7.5%', maxWidth: '7.5%', boxSizing: 'border-box' }}>
                             <span style={{ background:sc.bg, color:sc.color, borderRadius:'20px', padding:'3px 10px', fontSize:'10px', fontWeight:700, whiteSpace:'nowrap', display:'inline-block' }}>
                               {w.status?.toUpperCase()}
                             </span>

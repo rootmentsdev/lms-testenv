@@ -175,15 +175,19 @@ router.get('/check/:contact', OptionalMiddilWare, checkCustomerExists);
  *               storeId:
  *                 type: string
  *                 description: "Store ID (Optional: automatically resolved from token)"
+ *               functionType:
+ *                  type:string
+ *                  description:"type of function selected from dropdown or event type"
+ *                  example: "hindu function"
  *               employeeId:
  *                 type: string
  *                 description: "Employee ID (Optional: automatically resolved from token)"
  *               category:
  *                 type: string
- *                 example: "Groom"
+ *                 example: "enquiry" or "product" or "dapper squad" or "customisation"
  *               subCategory:
  *                 type: string
- *                 example: "2PCS Suit"
+ *                 example: "shoe" or "shirt"
  *               remarks:
  *                 type: string
  *                 example: "Fitting scheduled"
@@ -211,6 +215,10 @@ router.get('/check/:contact', OptionalMiddilWare, checkCustomerExists);
  *                 type: string
  *                 description: "Dropdown selection for price-related Loss reason (Optional)"
  *                 example: "Budget restriction"
+ *               lossReason:
+ *                 type: string
+ *                 description: "The reason selected for Loss (Optional)"
+ *                 example: "design and color unavaialable"
  *               lossEnquiryTrailOption:
  *                 type: string
  *                 description: "The trial option selected for Loss Enquiry (Optional)"
