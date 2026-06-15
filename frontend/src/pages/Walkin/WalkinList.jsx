@@ -78,9 +78,21 @@ const normalizeProductType = (val) => {
     if (lower === 'indowestern') return 'Indowestern';
     if (lower === 'kurtha') return 'Kurtha';
     if (lower === 'kids suit' || lower === 'kids suite') return 'Kids Suit';
-    if (lower === 'item 1') return 'Item 1';
-    if (lower === 'item 2') return 'Item 2';
-    if (lower === 'item 3') return 'Item 3';
+    if (lower === 'lehanga') return 'Lehanga';
+    if (lower === 'pakistaani lehagha' || lower === 'pakistani lehagha' || lower === 'pakistani lehenga' || lower === 'pakistaani lehenga') return 'Pakistaani Lehagha';
+    if (lower === 'fancy saree') return 'Fancy Saree';
+    if (lower === 'partywear') return 'Partywear';
+    if (lower === 'heaithy dress' || lower === 'healthy dress') return 'Heaithy Dress';
+    if (lower === 'multy colur lehanga' || lower === 'multi color lehenga' || lower === 'multy color lehenga') return 'Multy Colur Lehanga';
+    if (lower === 'pakistaani gown' || lower === 'pakistani gown') return 'Pakistaani Gown';
+    if (lower === 'ball gown') return 'Ball Gown';
+    if (lower === 'body gown') return 'Body Gown';
+    if (lower === 'white gown') return 'White Gown';
+    if (lower === 'turkish gown') return 'Turkish Gown';
+    if (lower === 'arabic gown') return 'Arabic Gown';
+    if (lower === 'arabic lehanga' || lower === 'arabic lehenga') return 'Arabic Lehanga';
+    if (lower === 'jwellery' || lower === 'jewellery' || lower === 'jewelry') return 'Jwellery';
+    if (lower === 'oters' || lower === 'others') return 'Oters';
     if (lower === 'sales') return 'Sales';
     return val.replace(/\b\w/g, c => c.toUpperCase()).replace(/Suite/g, 'Suit').replace(/suite/g, 'suit');
 };
@@ -757,6 +769,16 @@ const WalkinList = () => {
 
                 // Pre-populate fields automatically (Do not override store & staff with historical ones)
                 const parsed = parseRemarks(json.data.remarks || '');
+                // Override with direct database properties if present
+                if (json.data.notes !== undefined && json.data.notes !== null) parsed.lossNote = json.data.notes;
+                if (json.data.lossProductType !== undefined && json.data.lossProductType !== null) parsed.lossProductType = json.data.lossProductType;
+                if (json.data.lossSize !== undefined && json.data.lossSize !== null) parsed.lossSize = json.data.lossSize;
+                if (json.data.lossColour !== undefined && json.data.lossColour !== null) parsed.lossColour = json.data.lossColour;
+                if (json.data.lossSalesPrice !== undefined && json.data.lossSalesPrice !== null) parsed.lossSalesPrice = json.data.lossSalesPrice;
+                if (json.data.lossSelectRemarks !== undefined && json.data.lossSelectRemarks !== null) parsed.lossSelectRemarks = json.data.lossSelectRemarks;
+                if (json.data.lossEnquiryTrailOption !== undefined && json.data.lossEnquiryTrailOption !== null) parsed.lossEnquiryTrailOption = json.data.lossEnquiryTrailOption;
+                if (json.data.lossEnquiryRevisitDate !== undefined && json.data.lossEnquiryRevisitDate !== null) parsed.lossEnquiryRevisitDate = json.data.lossEnquiryRevisitDate;
+
                 let subCat = json.data.subCategory || '-';
                 if ((!subCat || subCat === '-') && parsed.parsedSubCategory) {
                     subCat = parsed.parsedSubCategory;
@@ -842,6 +864,16 @@ const WalkinList = () => {
         const storeIdToLoad = w.storeId || (foundBranch ? foundBranch._id : '');
 
         const parsed = parseRemarks(w.remarks || '');
+        // Override with direct database properties if present
+        if (w.notes !== undefined && w.notes !== null) parsed.lossNote = w.notes;
+        if (w.lossProductType !== undefined && w.lossProductType !== null) parsed.lossProductType = w.lossProductType;
+        if (w.lossSize !== undefined && w.lossSize !== null) parsed.lossSize = w.lossSize;
+        if (w.lossColour !== undefined && w.lossColour !== null) parsed.lossColour = w.lossColour;
+        if (w.lossSalesPrice !== undefined && w.lossSalesPrice !== null) parsed.lossSalesPrice = w.lossSalesPrice;
+        if (w.lossSelectRemarks !== undefined && w.lossSelectRemarks !== null) parsed.lossSelectRemarks = w.lossSelectRemarks;
+        if (w.lossEnquiryTrailOption !== undefined && w.lossEnquiryTrailOption !== null) parsed.lossEnquiryTrailOption = w.lossEnquiryTrailOption;
+        if (w.lossEnquiryRevisitDate !== undefined && w.lossEnquiryRevisitDate !== null) parsed.lossEnquiryRevisitDate = w.lossEnquiryRevisitDate;
+
         let subCat = w.subCategory || '-';
         if ((!subCat || subCat === '-') && parsed.parsedSubCategory) {
             subCat = parsed.parsedSubCategory;
@@ -1141,6 +1173,14 @@ const WalkinList = () => {
                     functionType: formData.functionType,
                     fileAttachment,
                     remarks: finalRemarks,
+                    notes: formData.lossNote || '',
+                    lossProductType: formData.lossProductType || '',
+                    lossSize: formData.lossSize || '',
+                    lossColour: formData.lossColour || '',
+                    lossSalesPrice: formData.lossSalesPrice || '',
+                    lossSelectRemarks: formData.lossSelectRemarks || '',
+                    lossEnquiryTrailOption: formData.lossEnquiryTrailOption || '',
+                    lossEnquiryRevisitDate: formData.lossEnquiryRevisitDate || '',
                     status: formData.status,
                     date: formData.date
                 })
@@ -1181,11 +1221,20 @@ const WalkinList = () => {
         const isCentralAdmin = ['super_admin', 'admin', 'hr_admin', 'cluster_admin'].includes(user?.role);
         let options = [];
         if (isCentralAdmin) {
-            options = ['2 Piece Suit', '3 Piece Suit', 'Bandgala', 'Indowestern', 'Kurtha', 'Kids Suit', 'Item 1', 'Item 2', 'Item 3', 'Sales'];
+            options = [
+                '2 Piece Suit', '3 Piece Suit', 'Bandgala', 'Indowestern', 'Kurtha', 'Kids Suit',
+                'Lehanga', 'Pakistaani Lehagha', 'Fancy Saree', 'Partywear', 'Heaithy Dress',
+                'Multy Colur Lehanga', 'Pakistaani Gown', 'Ball Gown', 'Body Gown', 'White Gown',
+                'Turkish Gown', 'Arabic Gown', 'Arabic Lehanga', 'Jwellery', 'Oters', 'Sales'
+            ];
         } else {
             const storeLower = (formData.store || '').toLowerCase().trim();
             if (storeLower.includes('zorucci') || storeLower.startsWith('z')) {
-                options = ['Item 1', 'Item 2', 'Item 3', 'Sales'];
+                options = [
+                    'Lehanga', 'Pakistaani Lehagha', 'Fancy Saree', 'Partywear', 'Heaithy Dress',
+                    'Multy Colur Lehanga', 'Pakistaani Gown', 'Ball Gown', 'Body Gown', 'White Gown',
+                    'Turkish Gown', 'Arabic Gown', 'Arabic Lehanga', 'Jwellery', 'Oters', 'Sales'
+                ];
             } else {
                 options = ['2 Piece Suit', '3 Piece Suit', 'Bandgala', 'Indowestern', 'Kurtha', 'Kids Suit', 'Sales'];
             }

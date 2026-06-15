@@ -390,15 +390,25 @@ The Brynex LMS features a comprehensively documented backend. Swagger UI is avai
 
 ### 7. Walk-ins & Leads
 - `GET /api/walkin/check/:contact`: Checks if a customer exists by contact phone number (Mobile App lookup).
-- `POST /api/walkin/save`: Saves a new walk-in record (Mobile App lead generation & Web Dashboard updates).
+- `POST /api/walkin/save`: Saves a new walk-in record (Mobile App lead generation & Web Dashboard updates). Requires only `customerName` and `contact` (phone) for creation; all other fields are optional.
   - **Status Change Restriction:** Status can only be changed **once per calendar day** per walk-in record.
     - Both Flutter mobile app and web dashboard are subject to this restriction.
     - Attempting a status change on the same day returns HTTP 400: `"Status can only be changed once per day. Please try again tomorrow."`
     - Example: If a walk-in status is changed from "New Walkin" to "Revisit" at 10 AM, any further status changes for that same walk-in on the same day will be rejected until midnight (00:00).
   - **RepeatCount Logic:** Only increments on status changes that occur on a **different calendar day** than the record's current date. Same-day edits do not increment the counter.
   - **Permissions:** Subject to role-based access control (RBAC) — users can only update walk-ins they have access to.
+  - **Optional Separate Fields (for Flutter & Web):**
+    Instead of combining notes and reasons into the `remarks` string, the backend now supports saving them as separate optional fields. Both the mobile app and web dashboard can post any of these fields directly:
+    - `notes` (String) — General notes or comments (also accepts alias `note` or `lossNote`).
+    - `lossProductType` (String) — Mapped product type (also accepts alias `productType`).
+    - `lossSize` (String) — Product size (also accepts alias `size`).
+    - `lossColour` (String) — Product colour (also accepts alias `colour`, `color`, or `lossColor`).
+    - `lossSalesPrice` (String) — Price or budget (also accepts alias `salesPrice` or `price`).
+    - `lossSelectRemarks` (String) — Price-specific remarks (also accepts alias `priceRemarks` or `selectRemarks`).
+    - `lossEnquiryTrailOption` (String) — Enquiry trial option (also accepts alias `trialOption`).
+    - `lossEnquiryRevisitDate` (String) — Revisit date for enquiry (also accepts alias `revisitDate`).
   - **Sequential Loss Flow & Structured Remarks Formatting:**
-    When submitting status `Loss`, the Flutter application and Web Panel must format `remarks` using these exact string patterns for parsing and pre-population compatibility:
+    When submitting status `Loss`, if remarks are sent combined, the Flutter application and Web Panel parse/pre-populate them using these exact patterns:
     - **Category: Customization:**
       - Format: `[Customization] Product: <product_type> | Size: <size> | Colour: <colour> | Note: <note>`
     - **Category: Dapper Squad (Non-sales):**
@@ -415,7 +425,7 @@ The Brynex LMS features a comprehensively documented backend. Swagger UI is avai
       - Reason 'confirm later': `[confirm later] Product: <product_type> | Revisit Date: <revisit_date> | Note: <note>`
     - **Category: Enquiry (Sales):**
       - Format: `[Sales] Sub Category: <shoe_or_shirt> | Note: <note>`
-- `GET /api/walkin/list`: Retrieves walk-ins. Supports `storeId` and `employeeId` query parameters. RBAC scoped.
+- `GET /api/walkin/list`: Retrieves walk-ins. Mapped fields are returned as part of the JSON response. Supports `storeId` and `employeeId` query parameters. RBAC scoped.
 
 ### 8. Notifications & Reminders
 - `GET /api/admin/home/notification`: Get recent notifications.

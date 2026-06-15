@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const walkinSchema = new mongoose.Schema({
     date: {
         type: String,
-        required: true
+        default: '-'
     },
     customerName: {
         type: String,
@@ -54,6 +54,46 @@ const walkinSchema = new mongoose.Schema({
     remarks: {
         type: String,
         default: '-',
+        trim: true
+    },
+    notes: {
+        type: String,
+        default: '',
+        trim: true
+    },
+    lossProductType: {
+        type: String,
+        default: '',
+        trim: true
+    },
+    lossSize: {
+        type: String,
+        default: '',
+        trim: true
+    },
+    lossColour: {
+        type: String,
+        default: '',
+        trim: true
+    },
+    lossSalesPrice: {
+        type: String,
+        default: '',
+        trim: true
+    },
+    lossSelectRemarks: {
+        type: String,
+        default: '',
+        trim: true
+    },
+    lossEnquiryTrailOption: {
+        type: String,
+        default: '',
+        trim: true
+    },
+    lossEnquiryRevisitDate: {
+        type: String,
+        default: '',
         trim: true
     },
     repeatCount: {

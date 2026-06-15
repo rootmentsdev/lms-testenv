@@ -141,17 +141,46 @@ export const saveWalkin = async (req, res) => {
             remarks,
             status,
             date,
-            fileAttachment
+            fileAttachment,
+            notes,
+            lossProductType,
+            lossSize,
+            lossColour,
+            lossSalesPrice,
+            lossSelectRemarks,
+            lossEnquiryTrailOption,
+            lossEnquiryRevisitDate
         } = req.body;
 
-        if (!customerName || !contact) {
+        // Parse optional fields with fallback to aliases posted from Flutter / Web panel
+        const notesVal = notes !== undefined ? notes : (req.body.note !== undefined ? req.body.note : req.body.lossNote);
+        const lossProductTypeVal = lossProductType !== undefined ? lossProductType : req.body.productType;
+        const lossSizeVal = lossSize !== undefined ? lossSize : req.body.size;
+        const lossColourVal = lossColour !== undefined ? lossColour : (req.body.colour !== undefined ? req.body.colour : (req.body.color !== undefined ? req.body.color : req.body.lossColor));
+        const lossSalesPriceVal = lossSalesPrice !== undefined ? lossSalesPrice : (req.body.salesPrice !== undefined ? req.body.salesPrice : req.body.price);
+        const lossSelectRemarksVal = lossSelectRemarks !== undefined ? lossSelectRemarks : (req.body.priceRemarks !== undefined ? req.body.priceRemarks : req.body.selectRemarks);
+        const lossEnquiryTrailOptionVal = lossEnquiryTrailOption !== undefined ? lossEnquiryTrailOption : req.body.trialOption;
+        const lossEnquiryRevisitDateVal = lossEnquiryRevisitDate !== undefined ? lossEnquiryRevisitDate : req.body.revisitDate;
+
+        const setOptionalLossFields = (record) => {
+            if (notesVal !== undefined) record.notes = String(notesVal).trim();
+            if (lossProductTypeVal !== undefined) record.lossProductType = String(lossProductTypeVal).trim();
+            if (lossSizeVal !== undefined) record.lossSize = String(lossSizeVal).trim();
+            if (lossColourVal !== undefined) record.lossColour = String(lossColourVal).trim();
+            if (lossSalesPriceVal !== undefined) record.lossSalesPrice = String(lossSalesPriceVal).trim();
+            if (lossSelectRemarksVal !== undefined) record.lossSelectRemarks = String(lossSelectRemarksVal).trim();
+            if (lossEnquiryTrailOptionVal !== undefined) record.lossEnquiryTrailOption = String(lossEnquiryTrailOptionVal).trim();
+            if (lossEnquiryRevisitDateVal !== undefined) record.lossEnquiryRevisitDate = String(lossEnquiryRevisitDateVal).trim();
+        };
+
+        if (!_id && (!customerName || !contact)) {
             return res.status(400).json({
                 success: false,
                 message: 'customerName and contact are required fields'
             });
         }
 
-        const trimmedContact = contact.trim();
+        const trimmedContact = contact ? contact.trim() : '-';
 
         // Automatically fetch current date and time when adding walk-ins
         const todayStr = _id ? (date || getFormattedDateTime()) : getFormattedDateTime();
@@ -268,8 +297,8 @@ export const saveWalkin = async (req, res) => {
                 return res.status(404).json({ success: false, message: 'Walk-in record not found or access denied' });
             }
 
-            walkinRecord.customerName = customerName.trim();
-            walkinRecord.contact = trimmedContact;
+            if (customerName !== undefined && customerName !== null) walkinRecord.customerName = customerName.trim();
+            if (contact !== undefined && contact !== null) walkinRecord.contact = trimmedContact;
             if (functionDate) walkinRecord.functionDate = functionDate.trim();
             if (finalStore) walkinRecord.store = finalStore;
             if (finalStaff) walkinRecord.staff = finalStaff;
@@ -287,6 +316,7 @@ export const saveWalkin = async (req, res) => {
                 walkinRecord.attachmentName = fileAttachment.name;
             }
             if (remarks) walkinRecord.remarks = remarks.trim();
+            setOptionalLossFields(walkinRecord);
             if (status) {
                 const trimmedStatus = status.trim();
                 if (walkinRecord.status !== trimmedStatus) {
@@ -326,12 +356,15 @@ export const saveWalkin = async (req, res) => {
             });
         }
 
-        let query = { contact: trimmedContact };
-        if (req.admin) {
-            const adminId = req.admin.userId;
-            query = await buildWalkinFilter(adminId, query);
+        let walkinRecord = null;
+        if (trimmedContact !== '-' && trimmedContact !== '') {
+            let query = { contact: trimmedContact };
+            if (req.admin) {
+                const adminId = req.admin.userId;
+                query = await buildWalkinFilter(adminId, query);
+            }
+            walkinRecord = await Walkin.findOne(query).sort({ createdAt: -1 });
         }
-        let walkinRecord = await Walkin.findOne(query).sort({ createdAt: -1 });
 
         const isSameStore = walkinRecord && (
             locationKey(walkinRecord.store) === locationKey(finalStore) ||
@@ -360,7 +393,7 @@ export const saveWalkin = async (req, res) => {
                 }
             }
 
-            walkinRecord.customerName = customerName.trim();
+            if (customerName !== undefined && customerName !== null) walkinRecord.customerName = customerName.trim();
             if (functionDate) walkinRecord.functionDate = functionDate.trim();
             if (finalStore) walkinRecord.store = finalStore;
             if (finalStaff) walkinRecord.staff = finalStaff;
@@ -378,6 +411,7 @@ export const saveWalkin = async (req, res) => {
                 walkinRecord.attachmentName = fileAttachment.name;
             }
             if (remarks) walkinRecord.remarks = remarks.trim();
+            setOptionalLossFields(walkinRecord);
             if (status) {
                 const trimmedStatus = status.trim();
                 if (walkinRecord.status !== trimmedStatus) {
@@ -399,21 +433,23 @@ export const saveWalkin = async (req, res) => {
             // ALWAYS Create new record if status is 'New Walkin' or if it is a different store.
             // Query the latest walk-in for this contact AT THE SAME STORE to base the repeatCount on the store-specific history.
             let storeLatest = null;
-            if (finalStoreId) {
-                storeLatest = await Walkin.findOne({
-                    contact: trimmedContact,
-                    storeId: finalStoreId
-                }).sort({ createdAt: -1 });
-            } else if (finalStore && finalStore !== '-') {
-                storeLatest = await Walkin.findOne({
-                    contact: trimmedContact,
-                    store: finalStore
-                }).sort({ createdAt: -1 });
+            if (trimmedContact !== '-' && trimmedContact !== '') {
+                if (finalStoreId) {
+                    storeLatest = await Walkin.findOne({
+                        contact: trimmedContact,
+                        storeId: finalStoreId
+                    }).sort({ createdAt: -1 });
+                } else if (finalStore && finalStore !== '-') {
+                    storeLatest = await Walkin.findOne({
+                        contact: trimmedContact,
+                        store: finalStore
+                    }).sort({ createdAt: -1 });
+                }
             }
             const nextRepeatCount = storeLatest ? (storeLatest.repeatCount || 1) + 1 : 1;
 
             const newWalkin = new Walkin({
-                customerName: customerName.trim(),
+                customerName: customerName ? customerName.trim() : '-',
                 contact: trimmedContact,
                 functionDate: functionDate ? functionDate.trim() : '-',
                 store: finalStore,
@@ -427,6 +463,14 @@ export const saveWalkin = async (req, res) => {
                 attachment: (fileAttachment && fileAttachment.base64) ? fileAttachment.base64 : '',
                 attachmentName: (fileAttachment && fileAttachment.name) ? fileAttachment.name : '',
                 remarks: remarks ? remarks.trim() : '-',
+                notes: notesVal !== undefined ? String(notesVal).trim() : '',
+                lossProductType: lossProductTypeVal !== undefined ? String(lossProductTypeVal).trim() : '',
+                lossSize: lossSizeVal !== undefined ? String(lossSizeVal).trim() : '',
+                lossColour: lossColourVal !== undefined ? String(lossColourVal).trim() : '',
+                lossSalesPrice: lossSalesPriceVal !== undefined ? String(lossSalesPriceVal).trim() : '',
+                lossSelectRemarks: lossSelectRemarksVal !== undefined ? String(lossSelectRemarksVal).trim() : '',
+                lossEnquiryTrailOption: lossEnquiryTrailOptionVal !== undefined ? String(lossEnquiryTrailOptionVal).trim() : '',
+                lossEnquiryRevisitDate: lossEnquiryRevisitDateVal !== undefined ? String(lossEnquiryRevisitDateVal).trim() : '',
                 status: status ? status.trim() : 'New Walkin',
                 repeatCount: nextRepeatCount,
                 date: todayStr
