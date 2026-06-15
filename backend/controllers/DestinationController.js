@@ -1259,7 +1259,49 @@ export const updateAdminUser = async (req, res) => {
 
                 return res.status(200).json({ success: true, message: "User promoted to admin successfully", data: savedAdmin });
             } else {
-                // Just update employee in User collection
+                // role === 'employee' — but this User record might belong to a previously
+                // promoted admin (cluster_admin / store_admin), in which case a matching
+                // Admin document also exists and must be deleted to complete the demotion.
+                const parallelAdmin = await Admin.findById(id);
+                if (parallelAdmin) {
+                    // Full Admin → Employee demotion path
+                    const hashedPassword = parallelAdmin.password || isEmployee.password;
+                    const empId = parallelAdmin.EmpId || isEmployee.empID;
+
+                    let workingBranch = "No Store";
+                    let locCode = [];
+                    if (branches && branches.length > 0) {
+                        const branchDocs = await Branch.find({ _id: { $in: branches } });
+                        if (branchDocs && branchDocs.length > 0) {
+                            workingBranch = branchDocs.map(b => b.workingBranch).join(", ");
+                            locCode = branchDocs.map(b => b.locCode);
+                        }
+                    }
+
+                    // Delete both records first
+                    await Admin.findByIdAndDelete(id);
+                    await User.findByIdAndDelete(id);
+                    // Also clean up any stale duplicate records by email/empID
+                    await User.deleteOne({ $or: [{ empID: empId }, { email }], _id: { $ne: id } });
+
+                    // Re-create as pure Employee in User collection
+                    const newUser = new User({
+                        _id: parallelAdmin._id,
+                        username: name,
+                        email,
+                        phoneNumber: phoneNumber || parallelAdmin.phoneNumber || "",
+                        password: password && password.trim() !== "" ? await bcrypt.hash(password, 10) : hashedPassword,
+                        empID: empId,
+                        designation: "Employee",
+                        workingBranch,
+                        locCode,
+                        source: "admin"
+                    });
+                    const savedUser = await newUser.save();
+                    return res.status(200).json({ success: true, message: "Admin demoted to employee successfully", data: savedUser });
+                }
+
+                // Pure employee update (no Admin record exists)
                 const updateFields = {
                     username: name,
                     email,

@@ -69,6 +69,84 @@ const HARDCODED_STORES = [
     'Dappr Squad', 'office', 'production', 'WAREHOUSE'
 ];
 
+const normalizeProductType = (val) => {
+    if (!val) return '';
+    const lower = val.toLowerCase().trim();
+    if (lower === '2 piece suite' || lower === '2 piece suit') return '2 Piece Suit';
+    if (lower === '3 piece suite' || lower === '3 piece suit') return '3 Piece Suit';
+    if (lower === 'bandgala') return 'Bandgala';
+    if (lower === 'indowestern') return 'Indowestern';
+    if (lower === 'kurtha') return 'Kurtha';
+    if (lower === 'kids suit' || lower === 'kids suite') return 'Kids Suit';
+    if (lower === 'item 1') return 'Item 1';
+    if (lower === 'item 2') return 'Item 2';
+    if (lower === 'item 3') return 'Item 3';
+    if (lower === 'sales') return 'Sales';
+    return val.replace(/\b\w/g, c => c.toUpperCase()).replace(/Suite/g, 'Suit').replace(/suite/g, 'suit');
+};
+
+const normalizeSubCategory = (val, category = '') => {
+    if (!val) return '';
+    const lower = val.toLowerCase().trim();
+    const catLower = (category || '').toLowerCase().trim();
+
+    if (catLower === 'enquiry') {
+        if (lower === 'enquiry without groom/bride' || lower === 'enquiry without groom and bride') {
+            return 'Enquiry Without Groom and Bride';
+        }
+        if (lower === 'enquiry without trail' || lower === 'enquiry without trial') {
+            return 'Enquiry Without Trial';
+        }
+        if (lower === 'confirm later') {
+            return 'Confirm Later';
+        }
+        if (lower === 'shoe') return 'Shoe';
+        if (lower === 'shirt') return 'Shirt';
+    }
+
+    if (catLower === 'dapper squad') {
+        if (lower === 'product already booked') {
+            return 'Product Already Booked';
+        }
+        if (lower === 'design and color unavailable' || lower === 'model, design and colour not available' || lower === 'design and colour not available') {
+            return 'Design and Colour Not Available';
+        }
+        if (lower === 'price') {
+            return 'Price';
+        }
+        if (lower === 'enquiry') {
+            return 'Enquiry';
+        }
+        if (lower === 'size') {
+            return 'Size';
+        }
+        if (lower === 'shoe') return 'Shoe';
+        if (lower === 'shirt') return 'Shirt';
+    }
+
+    if (catLower === 'product') {
+        if (lower === 'product already booked') {
+            return 'Product Already Booked';
+        }
+        if (lower === 'model, design and colour not available' || lower === 'design and color unavailable' || lower === 'design and colour not available') {
+            return 'Design and Colour Not Available';
+        }
+        if (lower === 'price') {
+            return 'Price';
+        }
+        if (lower === 'size') {
+            return 'Size';
+        }
+        if (lower === 'shoe') return 'Shoe';
+        if (lower === 'shirt') return 'Shirt';
+    }
+
+    if (lower === 'shoe') return 'Shoe';
+    if (lower === 'shirt') return 'Shirt';
+
+    return val.replace(/\b\w/g, c => c.toUpperCase());
+};
+
 const WalkinList = () => {
     const user = useSelector((state) => state.auth.user);
     const token = localStorage.getItem('token');
@@ -181,7 +259,7 @@ const WalkinList = () => {
 
                 const sizeColourMatch = remarksStr.match(/Size & Colour:\s*([^|]+)/);
                 if (sizeColourMatch) lossSizeColour = sizeColourMatch[1].trim();
-            } else if (remarksStr.startsWith('[Model, Design and Colour Not Available]') || remarksStr.startsWith('[design and color unavailable]')) {
+            } else if (remarksStr.startsWith('[Model, Design and Colour Not Available]') || remarksStr.startsWith('[design and color unavailable]') || remarksStr.startsWith('[design and colour not available]') || remarksStr.startsWith('[Design and Colour Not Available]')) {
                 const productMatch = remarksStr.match(/Product:\s*([^|]+)/);
                 if (productMatch) lossProductType = productMatch[1].trim();
 
@@ -206,7 +284,7 @@ const WalkinList = () => {
                 const budgetMatch = remarksStr.match(/Budget:\s*([^|]+)/);
                 if (budgetMatch) lossBudget = budgetMatch[1].trim();
             } else if (remarksStr.startsWith('[Sales]') || remarksStr.startsWith('[sales]')) {
-                lossProductType = 'sales';
+                lossProductType = 'Sales';
                 
                 const subCategoryMatch = remarksStr.match(/Sub Category:\s*([^|]+)/);
                 if (subCategoryMatch) parsedSubCategory = subCategoryMatch[1].trim();
@@ -272,7 +350,7 @@ const WalkinList = () => {
         }
 
         return {
-            lossProductType,
+            lossProductType: normalizeProductType(lossProductType),
             lossSizeColour,
             lossSizeOption,
             lossPriceReason,
@@ -284,10 +362,10 @@ const WalkinList = () => {
             lossEnquiryConfirmReason,
             lossEnquiryRevisitDate,
             lossColour,
-            lossSize,
+            lossSize: (lossSize === 'others' || lossSize === 'Others') ? 'Others' : lossSize,
             lossSelectRemarks,
             lossSalesPrice,
-            parsedSubCategory
+            parsedSubCategory: normalizeSubCategory(parsedSubCategory)
         };
     };
 
@@ -526,7 +604,7 @@ const WalkinList = () => {
                 ...prev,
                 category: value,
                 subCategory: prev.status === 'Loss' ? 
-                    (value === 'Product' ? (prev.lossProductType === 'sales' ? 'Select sub category' : 'Select reason') : (value === 'Dapper Squad' ? 'Select reason' : 'Select sub category')) : '-',
+                    (value === 'Product' ? ((prev.lossProductType || '').toLowerCase() === 'sales' ? 'Select Sub Category' : 'Select Reason') : (value === 'Dapper Squad' ? 'Select Reason' : 'Select Sub Category')) : '-',
                 lossProductType: '',
                 lossColour: '',
                 lossSize: '',
@@ -569,8 +647,8 @@ const WalkinList = () => {
 
             if (value === 'Loss') {
                 finalCategory = '';
-                finalSubCategory = 'Select sub category';
-                finalFunctionType = 'Select function type';
+                finalSubCategory = 'Select Sub Category';
+                finalFunctionType = 'Select Function Type';
             } else if (value === 'Revisit') {
                 if (!['Trial', 'Reissue', 'Loss'].includes(formData.category)) {
                     finalCategory = 'Trial';
@@ -612,7 +690,7 @@ const WalkinList = () => {
             setFormData(prev => ({
                 ...prev,
                 lossProductType: value,
-                subCategory: value === 'sales' ? 'Select sub category' : 'Select reason',
+                subCategory: (value || '').toLowerCase() === 'sales' ? 'Select Sub Category' : 'Select Reason',
                 lossColour: '',
                 lossSize: '',
                 lossSelectRemarks: '',
@@ -683,35 +761,20 @@ const WalkinList = () => {
                 if ((!subCat || subCat === '-') && parsed.parsedSubCategory) {
                     subCat = parsed.parsedSubCategory;
                 }
-                if (json.data.category === 'Enquiry') {
-                    const lower = (subCat || '').toLowerCase().trim();
-                    if (lower === 'enquiry without groom/bride' || lower === 'enquiry without groom and bride') {
-                        subCat = 'enquiry without groom and bride';
-                    } else if (lower === 'enquiry without trail' || lower === 'enquiry without trial') {
-                        subCat = 'enquiry without trial';
-                    } else if (lower === 'confirm later') {
-                        subCat = 'confirm later';
-                    }
-                } else if (json.data.category === 'Dapper Squad') {
-                    const lower = (subCat || '').toLowerCase().trim();
-                    if (lower === 'product already booked') {
-                        subCat = 'product already booked';
-                    } else if (lower === 'model, design and colour not available' || lower === 'design and color unavailable') {
-                        subCat = 'design and color unavailable';
-                    } else if (lower === 'price') {
-                        subCat = 'price';
-                    } else if (lower === 'enquiry') {
-                        subCat = 'enquiry';
-                    } else if (lower === 'size') {
-                        subCat = 'size';
-                    }
+                subCat = normalizeSubCategory(subCat, json.data.category);
+
+                let funcType = json.data.functionType || '-';
+                if (funcType.toLowerCase().trim() === 'others functions' || funcType.toLowerCase().trim() === 'other functions') {
+                    funcType = 'Other Functions';
                 }
+
                 setFormData(prev => ({
                     ...prev,
                     customerName: json.data.customerName || prev.customerName,
                     functionDate: safeDateOnly(json.data.functionDate) || prev.functionDate,
                     category: json.data.category || prev.category,
                     subCategory: subCat,
+                    functionType: funcType,
                     remarks: json.data.remarks || prev.remarks,
                     status: json.data.status || prev.status,
                     repeatCount: json.data.repeatCount || 1,
@@ -783,28 +846,11 @@ const WalkinList = () => {
         if ((!subCat || subCat === '-') && parsed.parsedSubCategory) {
             subCat = parsed.parsedSubCategory;
         }
-        if (w.category === 'Enquiry') {
-            const lower = subCat.toLowerCase().trim();
-            if (lower === 'enquiry without groom/bride' || lower === 'enquiry without groom and bride') {
-                subCat = 'enquiry without groom and bride';
-            } else if (lower === 'enquiry without trail' || lower === 'enquiry without trial') {
-                subCat = 'enquiry without trial';
-            } else if (lower === 'confirm later') {
-                subCat = 'confirm later';
-            }
-        } else if (w.category === 'Dapper Squad') {
-            const lower = subCat.toLowerCase().trim();
-            if (lower === 'product already booked') {
-                subCat = 'product already booked';
-            } else if (lower === 'model, design and colour not available' || lower === 'design and color unavailable') {
-                subCat = 'design and color unavailable';
-            } else if (lower === 'price') {
-                subCat = 'price';
-            } else if (lower === 'enquiry') {
-                subCat = 'enquiry';
-            } else if (lower === 'size') {
-                subCat = 'size';
-            }
+        subCat = normalizeSubCategory(subCat, w.category);
+
+        let funcType = w.functionType || '-';
+        if (funcType.toLowerCase().trim() === 'others functions' || funcType.toLowerCase().trim() === 'other functions') {
+            funcType = 'Other Functions';
         }
 
         setFormData({
@@ -819,7 +865,7 @@ const WalkinList = () => {
             employeeId: w.employeeId || '',
             category: w.category || '-',
             subCategory: subCat,
-            functionType: w.functionType || '-',
+            functionType: funcType,
             remarks: w.remarks || '',
             status: w.status || 'New Walkin',
             repeatCount: w.repeatCount || 1,
@@ -847,7 +893,7 @@ const WalkinList = () => {
             return;
         }
         if (formData.status === 'Loss') {
-            if (!formData.functionType || formData.functionType === 'Select function type' || formData.functionType === '-' || formData.functionType === '') {
+            if (!formData.functionType || ['Select Function Type', 'Select function type', '-', ''].includes(formData.functionType)) {
                 alert('Please select a Function Type.');
                 return;
             }
@@ -856,14 +902,17 @@ const WalkinList = () => {
                 return;
             }
 
+            const prodTypeLower = (formData.lossProductType || '').toLowerCase().trim();
+            const subCatLower = (formData.subCategory || '').toLowerCase().trim();
+
             if (formData.category === 'Product') {
                 if (!formData.lossProductType || formData.lossProductType === '') {
                     alert('Please select a Product Type.');
                     return;
                 }
 
-                if (formData.lossProductType === 'sales') {
-                    if (!formData.subCategory || formData.subCategory === 'Select sub category' || formData.subCategory === '-' || formData.subCategory === '') {
+                if (prodTypeLower === 'sales') {
+                    if (!formData.subCategory || ['Select Sub Category', 'Select sub category', '-', ''].includes(formData.subCategory)) {
                         alert('Please select a Sales Sub Category.');
                         return;
                     }
@@ -880,11 +929,11 @@ const WalkinList = () => {
                         return;
                     }
                 } else {
-                    if (!formData.subCategory || formData.subCategory === 'Select sub category' || formData.subCategory === 'Select reason' || formData.subCategory === '-' || formData.subCategory === '') {
+                    if (!formData.subCategory || ['Select Sub Category', 'Select sub category', 'Select Reason', 'Select reason', '-', ''].includes(formData.subCategory)) {
                         alert('Please select a Reason.');
                         return;
                     }
-                    if (formData.subCategory === 'Product Already Booked') {
+                    if (subCatLower === 'product already booked') {
                         if (!formData.lossSize || formData.lossSize === '') {
                             alert('Please select a Size.');
                             return;
@@ -893,12 +942,12 @@ const WalkinList = () => {
                             alert('Please enter a Colour.');
                             return;
                         }
-                    } else if (formData.subCategory === 'Price') {
+                    } else if (subCatLower === 'price') {
                         if (!formData.lossSelectRemarks || formData.lossSelectRemarks === '') {
                             alert('Please select a Price Option.');
                             return;
                         }
-                    } else if (formData.subCategory === 'Size') {
+                    } else if (subCatLower === 'size') {
                         if (!formData.lossSize || formData.lossSize === '') {
                             alert('Please select a Size.');
                             return;
@@ -911,22 +960,22 @@ const WalkinList = () => {
                         alert('Please select a Product Type.');
                         return;
                     }
-                    if (formData.lossProductType === 'sales') {
-                        if (!formData.subCategory || formData.subCategory === 'Select sub category' || formData.subCategory === '-' || formData.subCategory === '') {
+                    if (prodTypeLower === 'sales') {
+                        if (!formData.subCategory || ['Select Sub Category', 'Select sub category', '-', ''].includes(formData.subCategory)) {
                             alert('Please select a Sales Sub Category.');
                             return;
                         }
                     } else {
-                        if (!formData.subCategory || formData.subCategory === 'Select reason' || formData.subCategory === '-' || formData.subCategory === '') {
+                        if (!formData.subCategory || ['Select Reason', 'Select reason', '-', ''].includes(formData.subCategory)) {
                             alert('Please select a Reason.');
                             return;
                         }
-                        if (formData.subCategory === 'enquiry without trial') {
+                        if (subCatLower === 'enquiry without trial') {
                             if (!formData.lossEnquiryTrailOption || formData.lossEnquiryTrailOption === '') {
                                 alert('Please select a Remarks Option.');
                                 return;
                             }
-                        } else if (formData.subCategory === 'confirm later') {
+                        } else if (subCatLower === 'confirm later') {
                             if (!formData.lossEnquiryRevisitDate || formData.lossEnquiryRevisitDate === '') {
                                 alert('Please enter when the customer will revisit.');
                                 return;
@@ -938,8 +987,8 @@ const WalkinList = () => {
                         alert('Please select a Product Type.');
                         return;
                     }
-                    if (formData.lossProductType === 'sales') {
-                        if (!formData.subCategory || formData.subCategory === 'Select sub category' || formData.subCategory === '-' || formData.subCategory === '') {
+                    if (prodTypeLower === 'sales') {
+                        if (!formData.subCategory || ['Select Sub Category', 'Select sub category', '-', ''].includes(formData.subCategory)) {
                             alert('Please select a Sales Sub Category.');
                             return;
                         }
@@ -956,11 +1005,11 @@ const WalkinList = () => {
                             return;
                         }
                     } else {
-                        if (!formData.subCategory || formData.subCategory === 'Select reason' || formData.subCategory === '-' || formData.subCategory === '') {
+                        if (!formData.subCategory || ['Select Reason', 'Select reason', '-', ''].includes(formData.subCategory)) {
                             alert('Please select a Reason.');
                             return;
                         }
-                        if (formData.subCategory === 'product already booked') {
+                        if (subCatLower === 'product already booked') {
                             if (!formData.lossSize || formData.lossSize === '') {
                                 alert('Please select a Size.');
                                 return;
@@ -969,12 +1018,12 @@ const WalkinList = () => {
                                 alert('Please enter a Colour.');
                                 return;
                             }
-                        } else if (formData.subCategory === 'price') {
+                        } else if (subCatLower === 'price') {
                             if (!formData.lossSelectRemarks || formData.lossSelectRemarks === '') {
                                 alert('Please select a Price Option.');
                                 return;
                             }
-                        } else if (formData.subCategory === 'size') {
+                        } else if (subCatLower === 'size') {
                             if (!formData.lossSize || formData.lossSize === '') {
                                 alert('Please select a Size.');
                                 return;
@@ -1017,47 +1066,49 @@ const WalkinList = () => {
             // Serialize custom remarks fields
             let finalRemarks = formData.remarks || '-';
             if (formData.status === 'Loss') {
+                const subCatLower = (formData.subCategory || '').toLowerCase().trim();
+                const prodTypeLower = (formData.lossProductType || '').toLowerCase().trim();
                 if (formData.category === 'Product') {
-                    if (formData.lossProductType === 'sales') {
+                    if (prodTypeLower === 'sales') {
                         finalRemarks = `[Sales] Sub Category: ${formData.subCategory || '-'} | Size: ${formData.lossSize || '-'} | Colour: ${formData.lossColour || '-'} | Price: ${formData.lossSalesPrice || '-'} | Note: ${formData.lossNote || '-'}`;
                     } else {
-                        if (formData.subCategory === 'Product Already Booked') {
+                        if (subCatLower === 'product already booked') {
                             finalRemarks = `[Product Already Booked] Product: ${formData.lossProductType || '-'} | Size: ${formData.lossSize || '-'} | Colour: ${formData.lossColour || '-'} | Note: ${formData.lossNote || '-'}`;
-                        } else if (formData.subCategory === 'Model, Design and Colour Not Available') {
-                            finalRemarks = `[Model, Design and Colour Not Available] Product: ${formData.lossProductType || '-'} | Note: ${formData.lossNote || '-'}`;
-                        } else if (formData.subCategory === 'Size') {
+                        } else if (subCatLower === 'design and colour not available' || subCatLower === 'model, design and colour not available' || subCatLower === 'design and color unavailable') {
+                            finalRemarks = `[Design and Colour Not Available] Product: ${formData.lossProductType || '-'} | Note: ${formData.lossNote || '-'}`;
+                        } else if (subCatLower === 'size') {
                             finalRemarks = `[Size] Product: ${formData.lossProductType || '-'} | Size: ${formData.lossSize || '-'} | Note: ${formData.lossNote || '-'}`;
-                        } else if (formData.subCategory === 'Price') {
+                        } else if (subCatLower === 'price') {
                             finalRemarks = `[Price] Remarks: ${formData.lossSelectRemarks || '-'} | Note: ${formData.lossNote || '-'}`;
                         }
                     }
                 } else if (formData.category === 'Enquiry') {
-                    if (formData.lossProductType === 'sales') {
+                    if (prodTypeLower === 'sales') {
                         finalRemarks = `[Sales] Sub Category: ${formData.subCategory || '-'} | Note: ${formData.lossNote || '-'}`;
                     } else {
-                        if (formData.subCategory === 'enquiry without groom and bride' || formData.subCategory === 'Enquiry Without Groom/Bride') {
+                        if (subCatLower === 'enquiry without groom and bride' || subCatLower === 'enquiry without groom/bride') {
                             finalRemarks = `[enquiry without groom and bride] Product: ${formData.lossProductType || '-'} | Note: ${formData.lossNote || '-'}`;
-                        } else if (formData.subCategory === 'enquiry without trial' || formData.subCategory === 'Enquiry Without Trail') {
+                        } else if (subCatLower === 'enquiry without trial' || subCatLower === 'enquiry without trail') {
                             finalRemarks = `[enquiry without trial] Product: ${formData.lossProductType || '-'} | Selected: ${formData.lossEnquiryTrailOption || '-'} | Note: ${formData.lossNote || '-'}`;
-                        } else if (formData.subCategory === 'confirm later' || formData.subCategory === 'Confirm Later') {
+                        } else if (subCatLower === 'confirm later') {
                             finalRemarks = `[confirm later] Product: ${formData.lossProductType || '-'} | Revisit Date: ${formData.lossEnquiryRevisitDate || '-'} | Note: ${formData.lossNote || '-'}`;
                         } else {
                             finalRemarks = `[Enquiry] Product: ${formData.lossProductType || '-'} | Reason: ${formData.subCategory || '-'} | Note: ${formData.lossNote || '-'}`;
                         }
                     }
                 } else if (formData.category === 'Dapper Squad') {
-                    if (formData.lossProductType === 'sales') {
+                    if (prodTypeLower === 'sales') {
                         finalRemarks = `[Sales] Sub Category: ${formData.subCategory || '-'} | Size: ${formData.lossSize || '-'} | Colour: ${formData.lossColour || '-'} | Price: ${formData.lossSalesPrice || '-'} | Note: ${formData.lossNote || '-'}`;
                     } else {
-                        if (formData.subCategory === 'product already booked' || formData.subCategory === 'Product Already Booked') {
+                        if (subCatLower === 'product already booked') {
                             finalRemarks = `[product already booked] Product: ${formData.lossProductType || '-'} | Size: ${formData.lossSize || '-'} | Colour: ${formData.lossColour || '-'} | Note: ${formData.lossNote || '-'}`;
-                        } else if (formData.subCategory === 'design and color unavailable' || formData.subCategory === 'Model, Design and Colour Not Available') {
-                            finalRemarks = `[design and color unavailable] Product: ${formData.lossProductType || '-'} | Note: ${formData.lossNote || '-'}`;
-                        } else if (formData.subCategory === 'size' || formData.subCategory === 'Size') {
+                        } else if (subCatLower === 'design and colour not available' || subCatLower === 'design and color unavailable' || subCatLower === 'model, design and colour not available') {
+                            finalRemarks = `[design and colour not available] Product: ${formData.lossProductType || '-'} | Note: ${formData.lossNote || '-'}`;
+                        } else if (subCatLower === 'size') {
                             finalRemarks = `[size] Product: ${formData.lossProductType || '-'} | Size: ${formData.lossSize || '-'} | Note: ${formData.lossNote || '-'}`;
-                        } else if (formData.subCategory === 'price' || formData.subCategory === 'Price') {
+                        } else if (subCatLower === 'price') {
                             finalRemarks = `[price] Remarks: ${formData.lossSelectRemarks || '-'} | Note: ${formData.lossNote || '-'}`;
-                        } else if (formData.subCategory === 'enquiry') {
+                        } else if (subCatLower === 'enquiry') {
                             finalRemarks = `[enquiry] Note: ${formData.lossNote || '-'}`;
                         } else {
                             finalRemarks = `[Dapper Squad] Product: ${formData.lossProductType || '-'} | Reason: ${formData.subCategory || '-'} | Note: ${formData.lossNote || '-'}`;
@@ -1119,23 +1170,30 @@ const WalkinList = () => {
 
     const currentStoreEmployees = employees; // Already filtered by loadEmployees API
 
-    const showCategory = formData.status === 'Revisit' || (formData.status === 'Loss' && formData.functionType && formData.functionType !== 'Select function type' && formData.functionType !== '-');
+    const showCategory = formData.status === 'Revisit' || (formData.status === 'Loss' && formData.functionType && !['Select Function Type', 'Select function type', '-', ''].includes(formData.functionType));
     const showSubCategory = formData.status === 'Loss' && (
         formData.category === 'Product' || formData.category === 'Enquiry' || formData.category === 'Dapper Squad'
     ) && formData.lossProductType && formData.lossProductType !== '';
     const showFunctionType = formData.status === 'Loss';
-    const showAttachmentInput = formData.status === 'Loss' && formData.category === 'Product' && formData.subCategory === 'Model, Design and Colour Not Available';
+    const showAttachmentInput = formData.status === 'Loss' && formData.category === 'Product' && ((formData.subCategory || '').toLowerCase().trim() === 'design and colour not available' || (formData.subCategory || '').toLowerCase().trim() === 'model, design and colour not available' || (formData.subCategory || '').toLowerCase().trim() === 'design and color unavailable');
 
     const getProductTypeOptions = () => {
         const isCentralAdmin = ['super_admin', 'admin', 'hr_admin', 'cluster_admin'].includes(user?.role);
+        let options = [];
         if (isCentralAdmin) {
-            return ['2 piece suite', '3 piece suite', 'bandgala', 'indowestern', 'kurtha', 'Kids suit', 'item 1', 'item 2', 'item 3', 'sales'];
+            options = ['2 Piece Suit', '3 Piece Suit', 'Bandgala', 'Indowestern', 'Kurtha', 'Kids Suit', 'Item 1', 'Item 2', 'Item 3', 'Sales'];
+        } else {
+            const storeLower = (formData.store || '').toLowerCase().trim();
+            if (storeLower.includes('zorucci') || storeLower.startsWith('z')) {
+                options = ['Item 1', 'Item 2', 'Item 3', 'Sales'];
+            } else {
+                options = ['2 Piece Suit', '3 Piece Suit', 'Bandgala', 'Indowestern', 'Kurtha', 'Kids Suit', 'Sales'];
+            }
         }
-        const storeLower = (formData.store || '').toLowerCase().trim();
-        if (storeLower.includes('zorucci') || storeLower.startsWith('z')) {
-            return ['item 1', 'item 2', 'item 3', 'sales'];
+        if (formData.category === 'Customization') {
+            options = options.filter(opt => opt !== 'Sales');
         }
-        return ['2 piece suite', '3 piece suite', 'bandgala', 'indowestern', 'kurtha', 'Kids suit', 'sales'];
+        return options;
     };
 
     const getCategoryOptions = () => {
@@ -1150,73 +1208,74 @@ const WalkinList = () => {
 
     const getSubCategoryOptions = () => {
         if (formData.status === 'Loss') {
+            const prodTypeLower = (formData.lossProductType || '').toLowerCase().trim();
             if (formData.category === 'Product') {
-                if (formData.lossProductType === 'sales') {
+                if (prodTypeLower === 'sales') {
                     return [
-                        'Select sub category',
-                        'shoe',
-                        'shirt'
+                        'Select Sub Category',
+                        'Shoe',
+                        'Shirt'
                     ];
                 } else {
                     return [
-                        'Select reason',
+                        'Select Reason',
                         'Product Already Booked',
-                        'Model, Design and Colour Not Available',
+                        'Design and Colour Not Available',
                         'Price',
                         'Size'
                     ];
                 }
             }
             if (formData.category === 'Enquiry') {
-                if (formData.lossProductType === 'sales') {
+                if (prodTypeLower === 'sales') {
                     return [
-                        'Select sub category',
-                        'shoe',
-                        'shirt'
+                        'Select Sub Category',
+                        'Shoe',
+                        'Shirt'
                     ];
                 } else {
                     return [
-                        'Select reason',
-                        'enquiry without groom and bride',
-                        'enquiry without trial',
-                        'confirm later'
+                        'Select Reason',
+                        'Enquiry Without Groom and Bride',
+                        'Enquiry Without Trial',
+                        'Confirm Later'
                     ];
                 }
             }
             if (formData.category === 'Dapper Squad') {
-                if (formData.lossProductType === 'sales') {
+                if (prodTypeLower === 'sales') {
                     return [
-                        'Select sub category',
-                        'shoe',
-                        'shirt'
+                        'Select Sub Category',
+                        'Shoe',
+                        'Shirt'
                     ];
                 } else {
                     return [
-                        'Select reason',
-                        'product already booked',
-                        'design and color unavailable',
-                        'price',
-                        'enquiry',
-                        'size'
+                        'Select Reason',
+                        'Product Already Booked',
+                        'Design and Colour Not Available',
+                        'Price',
+                        // 'Enquiry',
+                        'Size'
                     ];
                 }
             }
             if (formData.category === 'Customization') {
-                return ['Select reason'];
+                return ['Select Reason'];
             }
         }
-        return ['Select sub category'];
+        return ['Select Sub Category'];
     };
 
     const getFunctionTypeOptions = () => {
         return [
-            'Select function type',
+            'Select Function Type',
             'Hindu Function',
             'Christian Function',
             'Muslim Function',
             'Grooms Men',
             'Office or College',
-            'Others functions'
+            'Other Functions'
         ];
     };
 
@@ -1482,7 +1541,7 @@ const WalkinList = () => {
                                             </div>
 
                                             {/* 2. Category Dropdown (appears once Function Type is selected) */}
-                                            {formData.functionType && formData.functionType !== 'Select function type' && formData.functionType !== '-' && (
+                                            {formData.functionType && !['Select Function Type', 'Select function type', '-', ''].includes(formData.functionType) && (
                                                 <div className="col-span-12 md:col-span-3">
                                                     <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                                                         Category<span className="text-red-500">*</span>
@@ -1538,7 +1597,7 @@ const WalkinList = () => {
                                                     {formData.lossProductType && formData.lossProductType !== '' && (
                                                         <>
                                                             {/* IF Product Type is NOT sales -> Show Reason dropdown */}
-                                                            {formData.lossProductType !== 'sales' ? (
+                                                            {(formData.lossProductType || '').toLowerCase() !== 'sales' ? (
                                                                 <>
                                                                     <div className="col-span-12 md:col-span-3">
                                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -1619,7 +1678,7 @@ const WalkinList = () => {
                                                                         </>
                                                                     )}
 
-                                                                    {formData.subCategory === 'Model, Design and Colour Not Available' && (
+                                                                    {((formData.subCategory || '').toLowerCase().trim() === 'design and colour not available' || (formData.subCategory || '').toLowerCase().trim() === 'design and color unavailable' || (formData.subCategory || '').toLowerCase().trim() === 'model, design and colour not available') && (
                                                                         <>
                                                                             {/* Banner */}
                                                                             <div className="col-span-12">
@@ -1682,8 +1741,8 @@ const WalkinList = () => {
                                                                                         className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
                                                                                     >
                                                                                         <option value="">Select Option</option>
-                                                                                        <option value="price too high">price too high</option>
-                                                                                        <option value="budget restriction">budget restriction</option>
+                                                                                        <option value="price too high">Price Too High</option>
+                                                                                        <option value="budget restriction">Budget Restriction</option>
                                                                                     </select>
                                                                                     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
                                                                                         <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
@@ -1776,7 +1835,7 @@ const WalkinList = () => {
                                                                     </div>
 
                                                                     {/* Custom fields under sales categories */}
-                                                                    {formData.subCategory === 'shoe' && (
+                                                                    {((formData.subCategory || '').toLowerCase().trim() === 'shoe') && (
                                                                         <>
                                                                             <div className="col-span-12 md:col-span-3">
                                                                                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -1805,7 +1864,7 @@ const WalkinList = () => {
                                                                                         className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
                                                                                     >
                                                                                         <option value="">Select Size</option>
-                                                                                        {['6', '7', '8', '9', '10', 'others'].map((size) => (
+                                                                                        {['6', '7', '8', '9', '10', 'Others'].map((size) => (
                                                                                             <option key={size} value={size}>{size}</option>
                                                                                         ))}
                                                                                     </select>
@@ -1846,7 +1905,7 @@ const WalkinList = () => {
                                                                         </>
                                                                     )}
 
-                                                                    {formData.subCategory === 'shirt' && (
+                                                                    {((formData.subCategory || '').toLowerCase().trim() === 'shirt') && (
                                                                         <>
                                                                             <div className="col-span-12 md:col-span-3">
                                                                                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -1951,7 +2010,7 @@ const WalkinList = () => {
                                                     {/* Once Product Type is selected */}
                                                     {formData.lossProductType && formData.lossProductType !== '' && (
                                                         <>
-                                                            {formData.lossProductType !== 'sales' ? (
+                                                            {(formData.lossProductType || '').toLowerCase() !== 'sales' ? (
                                                                 <>
                                                                     {/* Select Reason Dropdown */}
                                                                     <div className="col-span-12 md:col-span-3">
@@ -1977,7 +2036,7 @@ const WalkinList = () => {
                                                                     </div>
 
                                                                     {/* Conditionally render fields based on reason */}
-                                                                    {(formData.subCategory === 'enquiry without groom and bride' || formData.subCategory === 'Enquiry Without Groom/Bride') && (
+                                                                    {((formData.subCategory || '').toLowerCase().trim() === 'enquiry without groom and bride' || (formData.subCategory || '').toLowerCase().trim() === 'enquiry without groom/bride') && (
                                                                         <div className="col-span-12 md:col-span-6">
                                                                             <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                                                                                 Note <span className="text-gray-400 font-normal">(Optional)</span>
@@ -1993,7 +2052,7 @@ const WalkinList = () => {
                                                                         </div>
                                                                     )}
 
-                                                                    {(formData.subCategory === 'enquiry without trial' || formData.subCategory === 'Enquiry Without Trail') && (
+                                                                    {((formData.subCategory || '').toLowerCase().trim() === 'enquiry without trial' || (formData.subCategory || '').toLowerCase().trim() === 'enquiry without trail') && (
                                                                         <>
                                                                             {/* Remarks Dropdown with long date, just visit */}
                                                                             <div className="col-span-12 md:col-span-3">
@@ -2009,8 +2068,8 @@ const WalkinList = () => {
                                                                                         className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
                                                                                     >
                                                                                         <option value="">Select Option</option>
-                                                                                        <option value="long date">long date</option>
-                                                                                        <option value="just visit">just visit</option>
+                                                                                        <option value="long date">Long Date</option>
+                                                                                        <option value="just visit">Just Visit</option>
                                                                                     </select>
                                                                                     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
                                                                                         <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
@@ -2037,7 +2096,7 @@ const WalkinList = () => {
                                                                         </>
                                                                     )}
 
-                                                                    {(formData.subCategory === 'confirm later' || formData.subCategory === 'Confirm Later') && (
+                                                                    {((formData.subCategory || '').toLowerCase().trim() === 'confirm later') && (
                                                                         <>
                                                                             {/* Next visit date calendar selector */}
                                                                             <div className="col-span-12 md:col-span-3">
@@ -2097,7 +2156,7 @@ const WalkinList = () => {
                                                                     </div>
 
                                                                     {/* Note box when subCategory is selected (shoe or shirt) */}
-                                                                    {(formData.subCategory === 'shoe' || formData.subCategory === 'shirt') && (
+                                                                    {((formData.subCategory || '').toLowerCase().trim() === 'shoe' || (formData.subCategory || '').toLowerCase().trim() === 'shirt') && (
                                                                         <div className="col-span-12 md:col-span-9">
                                                                             <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                                                                                 Note <span className="text-gray-400 font-normal">(Optional)</span>
@@ -2148,7 +2207,7 @@ const WalkinList = () => {
                                                     {/* Once Product Type is selected */}
                                                     {formData.lossProductType && formData.lossProductType !== '' && (
                                                         <>
-                                                            {formData.lossProductType !== 'sales' ? (
+                                                            {(formData.lossProductType || '').toLowerCase() !== 'sales' ? (
                                                                 <>
                                                                     {/* Select Reason Dropdown */}
                                                                     <div className="col-span-12 md:col-span-3">
@@ -2174,7 +2233,7 @@ const WalkinList = () => {
                                                                     </div>
 
                                                                     {/* Conditionally render fields based on reason */}
-                                                                    {(formData.subCategory === 'product already booked' || formData.subCategory === 'Product Already Booked') && (
+                                                                    {((formData.subCategory || '').toLowerCase().trim() === 'product already booked') && (
                                                                         <>
                                                                             <div className="col-span-12 md:col-span-3">
                                                                                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -2230,7 +2289,7 @@ const WalkinList = () => {
                                                                         </>
                                                                     )}
 
-                                                                    {(formData.subCategory === 'design and color unavailable' || formData.subCategory === 'Model, Design and Colour Not Available') && (
+                                                                    {((formData.subCategory || '').toLowerCase().trim() === 'design and colour not available' || (formData.subCategory || '').toLowerCase().trim() === 'design and color unavailable' || (formData.subCategory || '').toLowerCase().trim() === 'model, design and colour not available') && (
                                                                         <>
                                                                             <div className="col-span-12 md:col-span-3">
                                                                                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -2272,7 +2331,7 @@ const WalkinList = () => {
                                                                         </>
                                                                     )}
 
-                                                                    {(formData.subCategory === 'price' || formData.subCategory === 'Price') && (
+                                                                    {((formData.subCategory || '').toLowerCase().trim() === 'price') && (
                                                                         <>
                                                                             <div className="col-span-12 md:col-span-3">
                                                                                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -2287,8 +2346,8 @@ const WalkinList = () => {
                                                                                         className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
                                                                                     >
                                                                                         <option value="">Select Option</option>
-                                                                                        <option value="price too high">price too high</option>
-                                                                                        <option value="budget restriction">budget restriction</option>
+                                                                                        <option value="price too high">Price Too High</option>
+                                                                                        <option value="budget restriction">Budget Restriction</option>
                                                                                     </select>
                                                                                     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
                                                                                         <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
@@ -2313,7 +2372,7 @@ const WalkinList = () => {
                                                                         </>
                                                                     )}
 
-                                                                    {formData.subCategory === 'enquiry' && (
+                                                                    {((formData.subCategory || '').toLowerCase().trim() === 'enquiry') && (
                                                                         <div className="col-span-12">
                                                                             <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                                                                                 Note <span className="text-gray-400 font-normal">(Optional)</span>
@@ -2329,7 +2388,7 @@ const WalkinList = () => {
                                                                         </div>
                                                                     )}
 
-                                                                    {(formData.subCategory === 'size' || formData.subCategory === 'Size') && (
+                                                                    {((formData.subCategory || '').toLowerCase().trim() === 'size') && (
                                                                         <>
                                                                             <div className="col-span-12 md:col-span-3">
                                                                                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -2344,7 +2403,7 @@ const WalkinList = () => {
                                                                                         className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
                                                                                     >
                                                                                         <option value="">Select Size</option>
-                                                                                        {['32', '34', '36', '38', '40', '42', '44', '46', 'others'].map((size) => (
+                                                                                        {['32', '34', '36', '38', '40', '42', '44', '46', 'Others'].map((size) => (
                                                                                             <option key={size} value={size}>{size}</option>
                                                                                         ))}
                                                                                     </select>
@@ -2426,7 +2485,7 @@ const WalkinList = () => {
                                                                                         className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
                                                                                     >
                                                                                         <option value="">Select Size</option>
-                                                                                        {['6', '7', '8', '9', '10', 'others'].map((size) => (
+                                                                                        {['6', '7', '8', '9', '10', 'Others'].map((size) => (
                                                                                             <option key={size} value={size}>{size}</option>
                                                                                         ))}
                                                                                     </select>
@@ -2586,7 +2645,7 @@ const WalkinList = () => {
                                                                         className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
                                                                     >
                                                                         <option value="">Select Size</option>
-                                                                        {['32', '34', '36', '38', '40', '42', '44', '46', 'others'].map((size) => (
+                                                                        {['32', '34', '36', '38', '40', '42', '44', '46', 'Others'].map((size) => (
                                                                             <option key={size} value={size}>{size}</option>
                                                                         ))}
                                                                     </select>
@@ -2789,7 +2848,7 @@ const WalkinList = () => {
                                         <table className="min-w-[1100px] md:min-w-full" style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
                                             <thead>
                                                 <tr style={{ borderBottom: '1px solid #f3f4f6', background: '#fafafa' }}>
-                                                    {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'FUNCTION DATE', 'STORE', 'STAFF', 'CATEGORY', 'SUB CATEGORY', 'REMARKS', 'REPEAT COUNT', 'STATUS', 'EDIT'].map((h, i) => {
+                                                    {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'FUNCTION DATE', 'STORE', 'STAFF', 'CATEGORY', 'SUB CATEGORY', 'REMARKS', 'UPDATED AT', 'REPEAT COUNT', 'STATUS', 'EDIT'].map((h, i) => {
                                                         let colWidth = 'auto';
                                                         if (h === '#') colWidth = '3%';
                                                         else if (h === 'DATE') colWidth = '8.5%';
@@ -2800,8 +2859,9 @@ const WalkinList = () => {
                                                         else if (h === 'STAFF') colWidth = '9%';
                                                         else if (h === 'CATEGORY') colWidth = '8.5%';
                                                         else if (h === 'SUB CATEGORY') colWidth = '8.5%';
-                                                        else if (h === 'REMARKS') colWidth = '10%';
-                                                        else if (h === 'REPEAT COUNT') colWidth = '5%';
+                                                        else if (h === 'REMARKS') colWidth = '7%';
+                                                        else if (h === 'UPDATED AT') colWidth = '8.5%';
+                                                        else if (h === 'REPEAT COUNT') colWidth = '4%';
                                                         else if (h === 'STATUS') colWidth = '9%';
                                                         else if (h === 'EDIT') colWidth = '3%';
 
@@ -2810,7 +2870,7 @@ const WalkinList = () => {
                                                                 key={i}
                                                                 style={{
                                                                     padding: '8px 12px',
-                                                                    textAlign: (h === '#' || h === 'REPEAT COUNT' || h === 'STATUS') ? 'center' : 'left',
+                                                                    textAlign: (h === '#' || h === 'REPEAT COUNT' || h === 'STATUS' || h === 'UPDATED AT') ? 'center' : 'left',
                                                                     fontSize: '10px',
                                                                     fontWeight: 600,
                                                                     color: '#9ca3af',
@@ -2907,12 +2967,15 @@ const WalkinList = () => {
                                                                     )}
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', color: '#6b7280', width: '10%', minWidth: '10%', maxWidth: '10%', boxSizing: 'border-box' }}>
+                                                            <td style={{ padding: '11px 12px', color: '#6b7280', width: '7%', minWidth: '7%', maxWidth: '7%', boxSizing: 'border-box' }}>
                                                                 <div className="walkin-marquee-container" title={w.remarks}>
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.remarks || '–'}</span>
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', textAlign: 'center', color: '#374151', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>{w.repeatCount}</td>
+                                                            <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', width: '8.5%', minWidth: '8.5%', maxWidth: '8.5%', boxSizing: 'border-box' }}>
+                                                                {w.updatedAt ? new Date(w.updatedAt).toISOString().split('T')[0] : '–'}
+                                                            </td>
+                                                            <td style={{ padding: '11px 12px', textAlign: 'center', color: '#374151', width: '4%', minWidth: '4%', maxWidth: '4%', boxSizing: 'border-box' }}>{w.repeatCount}</td>
                                                             <td style={{ padding: '11px 12px', textAlign: 'center', width: '9%', minWidth: '9%', maxWidth: '9%', boxSizing: 'border-box' }}>
                                                                 <select
                                                                     value={w.status || 'New Walkin'}
