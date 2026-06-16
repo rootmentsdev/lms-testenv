@@ -295,10 +295,10 @@ export const saveWalkin = async (req, res) => {
         }
 
         // Sanitize IDs to prevent Cast to ObjectId BSONErrors
-        if (finalStoreId && !mongoose.Types.ObjectId.isValid(finalStoreId)) {
+        if (finalStoreId !== undefined && finalStoreId !== null && !mongoose.Types.ObjectId.isValid(finalStoreId)) {
             finalStoreId = undefined;
         }
-        if (finalEmployeeId && !mongoose.Types.ObjectId.isValid(finalEmployeeId)) {
+        if (finalEmployeeId !== undefined && finalEmployeeId !== null && !mongoose.Types.ObjectId.isValid(finalEmployeeId)) {
             finalEmployeeId = undefined;
         }
 
