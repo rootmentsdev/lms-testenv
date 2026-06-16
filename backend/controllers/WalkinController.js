@@ -285,14 +285,23 @@ export const saveWalkin = async (req, res) => {
             const adminId = req.admin.userId;
             const isAdminManager = ['super_admin', 'admin', 'hr_admin'].includes(req.admin.role);
             if (!isAdminManager) {
-                if (finalStoreId) {
+                if (finalStoreId && mongoose.Types.ObjectId.isValid(finalStoreId)) {
                     await validateStoreAccess(adminId, finalStoreId);
                 }
-                if (finalEmployeeId) {
+                if (finalEmployeeId && mongoose.Types.ObjectId.isValid(finalEmployeeId)) {
                     await validateEmployeeAccess(adminId, finalEmployeeId);
                 }
             }
         }
+
+        // Sanitize IDs to prevent Cast to ObjectId BSONErrors
+        if (finalStoreId && !mongoose.Types.ObjectId.isValid(finalStoreId)) {
+            finalStoreId = undefined;
+        }
+        if (finalEmployeeId && !mongoose.Types.ObjectId.isValid(finalEmployeeId)) {
+            finalEmployeeId = undefined;
+        }
+
 
         // Direct update by _id (e.g. edited from list view)
         if (_id) {
@@ -315,8 +324,8 @@ export const saveWalkin = async (req, res) => {
             if (functionDate) walkinRecord.functionDate = functionDate.trim();
             if (store !== undefined && store !== null) walkinRecord.store = store.trim();
             if (staff !== undefined && staff !== null) walkinRecord.staff = staff.trim();
-            if (storeId !== undefined && storeId !== null) walkinRecord.storeId = storeId;
-            if (employeeId !== undefined && employeeId !== null) walkinRecord.employeeId = employeeId;
+            if (finalStoreId !== undefined && finalStoreId !== null) walkinRecord.storeId = finalStoreId;
+            if (finalEmployeeId !== undefined && finalEmployeeId !== null) walkinRecord.employeeId = finalEmployeeId;
             if (category) walkinRecord.category = category.trim();
             if (subCategory) walkinRecord.subCategory = subCategory.trim();
             if (status === 'Loss') {
