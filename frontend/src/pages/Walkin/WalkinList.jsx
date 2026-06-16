@@ -2998,40 +2998,18 @@ const walkinId = walkinRecord._id;
                             ) : (
                                 <>
                                     <div style={{ overflowX: 'auto' }}>
-                                        <table style={{ width: '2680px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
+                                        <table style={{ width: '2800px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
                                             <thead>
                                                 <tr style={{ borderBottom: '1px solid #f3f4f6', background: '#fafafa' }}>
-                                                    {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'FUNCTION DATE', 'FUNCTION TYPE', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'NOTES', 'STORE', 'STAFF', 'ATTACHMENT', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'REPEAT COUNT', 'STATUS', 'EDIT'].map((h, i) => {
-                                                        let colWidth = 'auto';
-                                                        if (h === '#') colWidth = '2%';
-                                                        else if (h === 'DATE') colWidth = '5%';
-                                                        else if (h === 'CUSTOMER') colWidth = '6%';
-                                                        else if (h === 'CONTACT') colWidth = '5%';
-                                                        else if (h === 'FUNCTION DATE') colWidth = '5%';
-                                                        else if (h === 'FUNCTION TYPE') colWidth = '5%';
-                                                        else if (h === 'CATEGORY') colWidth = '5%';
-                                                        else if (h === 'PRODUCT TYPE') colWidth = '5%';
-                                                        else if (h === 'LOSS REASON') colWidth = '6%';
-                                                        else if (h === 'SUB CATEGORY') colWidth = '6%';
-                                                        else if (h === 'REMARKS') colWidth = '6%';
-                                                        else if (h === 'NOTES') colWidth = '6%';
-                                                        else if (h === 'STORE') colWidth = '5%';
-                                                        else if (h === 'STAFF') colWidth = '5%';
-                                                        else if (h === 'ATTACHMENT') colWidth = '2.5%';
-                                                        else if (h === 'BOOKING DATE') colWidth = '5%';
-                                                        else if (h === 'RENTOUT DATE') colWidth = '5%';
-                                                        else if (h === 'RETURN DATE') colWidth = '5%';
-                                                        else if (h === 'REPEAT COUNT') colWidth = '3%';
-                                                        else if (h === 'STATUS') colWidth = '6%';
-                                                        else if (h === 'EDIT') colWidth = '1.5%';
-
+                                                    {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'FUNCTION DATE', 'FUNCTION TYPE', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'SIZE', 'COLOR', 'NOTES', 'STORE', 'STAFF', 'ATTACHMENT', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'REPEAT COUNT', 'STATUS', 'EDIT'].map((h, i) => {
+                                                        const colWidth = 'calc(100% / 23)';
                                                         return (
                                                             <th
                                                                 key={i}
                                                                 style={{
-                                                                    padding: '8px 12px',
-                                                                    textAlign: (h === '#' || h === 'REPEAT COUNT' || h === 'STATUS' || h === 'BOOKING DATE' || h === 'RENTOUT DATE' || h === 'RETURN DATE' || h === 'ATTACHMENT') ? 'center' : 'left',
-                                                                    fontSize: '10px',
+                                                                    padding: '12px 12px',
+                                                                    textAlign: 'center',
+                                                                    fontSize: '11px',
                                                                     fontWeight: 600,
                                                                     color: '#9ca3af',
                                                                     letterSpacing: '0.06em',
@@ -3110,73 +3088,83 @@ const walkinId = walkinRecord._id;
                                                             onMouseEnter={e => e.currentTarget.style.background = '#fafafa'}
                                                             onMouseLeave={e => e.currentTarget.style.background = '#fff'}
                                                         >
-                                                            <td style={{ padding: '11px 12px', textAlign: 'center', color: '#9ca3af', width: '2%', minWidth: '2%', maxWidth: '2%', boxSizing: 'border-box' }}>{indexFirst + index + 1}</td>
-                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>
+                                                            <td style={{padding: '11px 12px', textAlign: 'center', color: '#9ca3af', boxSizing: 'border-box' }}>{indexFirst + index + 1}</td>
+                                                            <td style={{textAlign: 'center',  padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
                                                                 <div className="walkin-marquee-container">
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{safeDateOnly(w.date)}</span>
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', color: '#111827', fontWeight: 500, width: '6%', minWidth: '6%', maxWidth: '6%', boxSizing: 'border-box' }}>
+                                                            <td style={{textAlign: 'center',  padding: '11px 12px', color: '#111827', fontWeight: 500, boxSizing: 'border-box' }}>
                                                                 <div className="walkin-marquee-container">
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.customerName || '–'}</span>
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>
+                                                            <td style={{textAlign: 'center',  padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
                                                                 <div className="walkin-marquee-container">
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.contact ? `+91 ${w.contact}` : '–'}</span>
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>
+                                                            <td style={{textAlign: 'center',  padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
                                                                 <div className="walkin-marquee-container">
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.functionDate || '–'}</span>
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>
+                                                            <td style={{textAlign: 'center',  padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
                                                                 <div className="walkin-marquee-container">
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.functionType || '–'}</span>
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>
+                                                            <td style={{textAlign: 'center',  padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
                                                                 <div className="walkin-marquee-container">
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.category || '–'}</span>
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>
+                                                            <td style={{textAlign: 'center',  padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
                                                                 <div className="walkin-marquee-container">
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{productType}</span>
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '6%', minWidth: '6%', maxWidth: '6%', boxSizing: 'border-box' }}>
+                                                            <td style={{textAlign: 'center',  padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
                                                                 <div className="walkin-marquee-container">
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{displayLossReason}</span>
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '6%', minWidth: '6%', maxWidth: '6%', boxSizing: 'border-box' }}>
+                                                            <td style={{textAlign: 'center',  padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
                                                                 <div className="walkin-marquee-container">
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{displaySubCategory}</span>
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', color: '#6b7280', width: '6%', minWidth: '6%', maxWidth: '6%', boxSizing: 'border-box' }}>
+                                                            <td style={{textAlign: 'center',  padding: '11px 12px', color: '#6b7280', boxSizing: 'border-box' }}>
                                                                 <div className="walkin-marquee-container" title={w.remarks}>
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.remarks || '–'}</span>
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', color: '#6b7280', width: '6%', minWidth: '6%', maxWidth: '6%', boxSizing: 'border-box' }}>
+                                                            <td style={{ textAlign: 'center', padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
+                                                                <div className="walkin-marquee-container">
+                                                                    <span className="walkin-marquee-text walkin-anim-scroll">{w.lossSize || '–'}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td style={{ textAlign: 'center', padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
+                                                                <div className="walkin-marquee-container">
+                                                                    <span className="walkin-marquee-text walkin-anim-scroll">{w.lossColour || '–'}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td style={{textAlign: 'center',  padding: '11px 12px', color: '#6b7280', boxSizing: 'border-box' }}>
                                                                 <div className="walkin-marquee-container" title={notesText}>
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{notesText}</span>
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>
+                                                            <td style={{textAlign: 'center',  padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
                                                                 <div className="walkin-marquee-container">
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.store || '–'}</span>
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', color: '#374151', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>
+                                                            <td style={{textAlign: 'center',  padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
                                                                 <div className="walkin-marquee-container">
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.staff || '–'}</span>
                                                                 </div>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', textAlign: 'center', width: '2.5%', minWidth: '2.5%', maxWidth: '2.5%', boxSizing: 'border-box' }}>
+                                                            <td style={{padding: '11px 12px', textAlign: 'center', boxSizing: 'border-box' }}>
                                                                 {w.attachment ? (
                                                                     <button
                                                                         onClick={() => handleDownloadAndView(w.attachment, w.attachmentName || 'attachment')}
@@ -3208,17 +3196,17 @@ const walkinId = walkinRecord._id;
                                                                     </button>
                                                                 ) : '–'}
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>
+                                                            <td style={{padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', boxSizing: 'border-box' }}>
                                                                 {w.bookingDate ? new Date(w.bookingDate).toISOString().split('T')[0] : '–'}
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>
+                                                            <td style={{padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', boxSizing: 'border-box' }}>
                                                                 {w.rentoutDate ? new Date(w.rentoutDate).toISOString().split('T')[0] : '–'}
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', width: '5%', minWidth: '5%', maxWidth: '5%', boxSizing: 'border-box' }}>
+                                                            <td style={{padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', boxSizing: 'border-box' }}>
                                                                 {w.returnDate ? new Date(w.returnDate).toISOString().split('T')[0] : '–'}
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', textAlign: 'center', color: '#374151', width: '3%', minWidth: '3%', maxWidth: '3%', boxSizing: 'border-box' }}>{w.repeatCount}</td>
-                                                            <td style={{ padding: '11px 12px', textAlign: 'center', width: '6%', minWidth: '6%', maxWidth: '6%', boxSizing: 'border-box' }}>
+                                                            <td style={{padding: '11px 12px', textAlign: 'center', color: '#374151', boxSizing: 'border-box' }}>{w.repeatCount}</td>
+                                                            <td style={{padding: '11px 12px', textAlign: 'center', boxSizing: 'border-box' }}>
                                                                 <select
                                                                     value={w.status || 'New Walkin'}
                                                                     onChange={(e) => handleStatusChange(w, e.target.value)}
@@ -3268,7 +3256,7 @@ const walkinId = walkinRecord._id;
                                                                     <option value="Revisit">Revisit</option>
                                                                 </select>
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', textAlign: 'center', width: '1.5%', minWidth: '1.5%', maxWidth: '1.5%', boxSizing: 'border-box' }}>
+                                                            <td style={{padding: '11px 12px', textAlign: 'center', boxSizing: 'border-box' }}>
                                                                 <button
                                                                     onClick={() => handleEditClick(w)}
                                                                     style={{ background: 'none', border: 'none', color: '#4b5563', cursor: 'pointer', padding: '4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', transition: 'color 0.1s' }}
