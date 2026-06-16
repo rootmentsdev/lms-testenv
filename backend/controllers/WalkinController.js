@@ -200,9 +200,19 @@ export const saveWalkin = async (req, res) => {
 
         const passedEmpId = req.body.empID || req.body.empid || req.body.employeeId || req.body.staff;
         if (passedEmpId) {
-            lookupUser = await User.findOne({ empID: { $regex: `^${String(passedEmpId).trim()}$`, $options: 'i' } });
+            lookupUser = await User.findOne({ 
+                $or: [
+                    { empID: { $regex: `^${String(passedEmpId).trim()}$`, $options: 'i' } },
+                    { username: { $regex: `^${String(passedEmpId).trim()}$`, $options: 'i' } }
+                ]
+            });
             if (!lookupUser) {
-                lookupUser = await Admin.findOne({ EmpId: { $regex: `^${String(passedEmpId).trim()}$`, $options: 'i' } }).populate('branches');
+                lookupUser = await Admin.findOne({ 
+                    $or: [
+                        { EmpId: { $regex: `^${String(passedEmpId).trim()}$`, $options: 'i' } },
+                        { name: { $regex: `^${String(passedEmpId).trim()}$`, $options: 'i' } }
+                    ]
+                }).populate('branches');
             }
             if (!lookupUser && mongoose.Types.ObjectId.isValid(passedEmpId)) {
                 lookupUser = await User.findById(passedEmpId);
@@ -222,8 +232,8 @@ export const saveWalkin = async (req, res) => {
         if (lookupUser) {
             const isUser = lookupUser.empID !== undefined;
             if (isUser) {
-                finalStaff = lookupUser.username;
-                finalStore = lookupUser.workingBranch;
+                finalStaff = (staff && staff !== '-' && staff !== 'None') ? staff.trim() : lookupUser.username;
+                finalStore = (store && store !== '-' && store !== '') ? store.trim() : lookupUser.workingBranch;
                 finalEmployeeId = lookupUser._id;
 
                 const branch = await Branch.findOne({
@@ -236,7 +246,7 @@ export const saveWalkin = async (req, res) => {
                     finalStoreId = branch._id;
                 }
             } else {
-                finalStaff = lookupUser.name;
+                finalStaff = (staff && staff !== '-' && staff !== 'None') ? staff.trim() : lookupUser.name;
                 finalEmployeeId = lookupUser._id;
 
                 const isSuperOrHrAdmin = ['super_admin', 'admin', 'hr_admin'].includes(lookupUser.role);
@@ -303,10 +313,10 @@ export const saveWalkin = async (req, res) => {
             if (customerName !== undefined && customerName !== null) walkinRecord.customerName = customerName.trim();
             if (contact !== undefined && contact !== null) walkinRecord.contact = trimmedContact;
             if (functionDate) walkinRecord.functionDate = functionDate.trim();
-            if (finalStore) walkinRecord.store = finalStore;
-            if (finalStaff) walkinRecord.staff = finalStaff;
-            if (finalStoreId) walkinRecord.storeId = finalStoreId;
-            if (finalEmployeeId) walkinRecord.employeeId = finalEmployeeId;
+            if (store !== undefined && store !== null) walkinRecord.store = store.trim();
+            if (staff !== undefined && staff !== null) walkinRecord.staff = staff.trim();
+            if (storeId !== undefined && storeId !== null) walkinRecord.storeId = storeId;
+            if (employeeId !== undefined && employeeId !== null) walkinRecord.employeeId = employeeId;
             if (category) walkinRecord.category = category.trim();
             if (subCategory) walkinRecord.subCategory = subCategory.trim();
             if (status === 'Loss') {
@@ -408,10 +418,10 @@ export const saveWalkin = async (req, res) => {
 
             if (customerName !== undefined && customerName !== null) walkinRecord.customerName = customerName.trim();
             if (functionDate) walkinRecord.functionDate = functionDate.trim();
-            if (finalStore) walkinRecord.store = finalStore;
-            if (finalStaff) walkinRecord.staff = finalStaff;
-            if (finalStoreId) walkinRecord.storeId = finalStoreId;
-            if (finalEmployeeId) walkinRecord.employeeId = finalEmployeeId;
+            if (store !== undefined && store !== null) walkinRecord.store = store.trim();
+            if (staff !== undefined && staff !== null) walkinRecord.staff = staff.trim();
+            if (storeId !== undefined && storeId !== null) walkinRecord.storeId = storeId;
+            if (employeeId !== undefined && employeeId !== null) walkinRecord.employeeId = employeeId;
             if (category) walkinRecord.category = category.trim();
             if (subCategory) walkinRecord.subCategory = subCategory.trim();
             if (status === 'Loss') {
