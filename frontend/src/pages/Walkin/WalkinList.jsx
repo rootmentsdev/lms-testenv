@@ -3284,7 +3284,7 @@ const walkinId = walkinRecord._id;
                                         fontSize: '13px',
                                         color: '#6b7280'
                                     }}>
-                                        <span>Showing {itemsPerPage === 'All' ? totalWalkins : Math.min(Number(itemsPerPage), Math.max(0, totalWalkins - (currentPage - 1) * Number(itemsPerPage)))} of {totalWalkins}</span>
+                                        <span>Showing {totalWalkins === 0 ? 0 : indexFirst + 1} to {indexFirst + currentItems.length} of {totalWalkins} entries</span>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
                                                 <span style={{ marginRight: '8px', color: '#6b7280' }}>Show:</span>
