@@ -125,9 +125,11 @@ router.get('/check/:contact', OptionalMiddilWare, checkCustomerExists);
  *                 example: "Jane Doe"
  *               storeId:
  *                 type: string
+ *                 description: "The 24-character hex ObjectId of the store. If an invalid ID (e.g. empty string) is sent, the backend automatically resolves the correct storeId from the store name or employee credentials."
  *                 example: "6a158244cb0a54bf2ec3b7c4"
  *               employeeId:
  *                 type: string
+ *                 description: "The 24-character hex ObjectId of the employee. If an invalid ID (e.g. 'Emp84') is sent, the backend automatically resolves the correct employeeId by doing a database lookup."
  *                 example: "6a1fe984b7cd1be0b146e658"
  *               functionType:
  *                 type: string

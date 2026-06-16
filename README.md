@@ -518,7 +518,7 @@ The mobile app login system now securely authenticates users and auto-provisions
 
 ### Walk-In Role-Based Access & App Flow
 The Walk-in system integrates both mobile app lead capture and web dashboard management:
-- **Mobile App:** Submits leads via `/api/walkin/save`. Uses an optional auth middleware to identify the employee. If the user token is present, the backend securely overrides `store` and `staff` from the logged-in profile. If the status is "New Walkin", it ensures a fresh record is created rather than overwriting.
+- **Mobile App:** Submits leads via `/api/walkin/save`. Uses an optional auth middleware to identify the employee. If the user token is present, the backend securely overrides `store` and `staff` from the logged-in profile. The backend is also resilient to misformatted IDs (e.g. blank strings or string aliases sent instead of Mongoose ObjectIDs for `storeId` or `employeeId`), automatically resolving the correct IDs via credentials or store name lookup. If the status is "New Walkin", it ensures a fresh record is created rather than overwriting.
 - **Web Dashboard:** Managed via `WalkinList.jsx`. 
   - Dynamic store and employee dropdowns are governed by the `api/admin/accessible-stores` and `api/admin/accessible-employees` endpoints.
   - Passes explicit `storeId` and `employeeId` during save. The backend heavily validates these against the logged-in Admin's scope using `validateStoreAccess` and `validateEmployeeAccess`.
