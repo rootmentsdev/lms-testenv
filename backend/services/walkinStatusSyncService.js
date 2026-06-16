@@ -209,16 +209,25 @@ export const syncWalkinStatuses = async () => {
                                 walkin.repeatCount = (walkin.repeatCount || 1) + 1;
                             }
 
-                            // Extract dates from external item if present
-                            if (item.bookingDate) {
-                                walkin.bookingDate = new Date(item.bookingDate);
-                            }
-                            if (item.rentOutDate) {
-                                walkin.rentoutDate = new Date(item.rentOutDate);
-                            }
-                            if (item.returnedDate) {
-                                walkin.returnDate = new Date(item.returnedDate);
-                            }
+                            // Extract dates from external item case-insensitively
+                            const extractDateValue = (itm, keys) => {
+                                for (const key of Object.keys(itm)) {
+                                    if (keys.includes(key.toLowerCase()) && itm[key]) {
+                                        const d = new Date(itm[key]);
+                                        if (!isNaN(d.getTime())) return d;
+                                    }
+                                }
+                                return null;
+                            };
+
+                            const bDate = extractDateValue(item, ['bookingdate', 'booking_date', 'bookeddate', 'date']);
+                            if (bDate) walkin.bookingDate = bDate;
+
+                            const roDate = extractDateValue(item, ['rentoutdate', 'rent_out_date', 'rentdate', 'date']);
+                            if (roDate) walkin.rentoutDate = roDate;
+
+                            const retDate = extractDateValue(item, ['returneddate', 'returndate', 'return_date', 'date']);
+                            if (retDate) walkin.returnDate = retDate;
 
                             // Fallback to current time if status is updated but corresponding date is missing in item
                             const statusLower = targetStatus.toLowerCase();
