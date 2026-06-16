@@ -96,54 +96,8 @@ router.get('/check/:contact', OptionalMiddilWare, checkCustomerExists);
  * /api/walkin/save:
  *   post:
  *     tags: [Walkin]
- *     summary: Save a new walk-in / lead record (Used by Mobile App & Web Dashboard)
- *     description: >
- *       **Where to use:** Use this API in the mobile app or web app to submit the lead creation/edit form.
- *       
- *       **What it does:** Stores a new walk-in entry or updates an existing one. Automatically resolves staff/username, store, storeId, employeeId, and date from the authentication token if they are not provided explicitly.
- *       
- *       **Status Change Restriction (Mobile & Web):**
- *       - Status can only be changed **once per calendar day** per walk-in record.
- *       - If a status change is attempted on the same day, the API returns **HTTP 400** with message: "Status can only be changed once per day. Please try again tomorrow."
- *       - This applies to both Flutter mobile app and web dashboard requests.
- *       
- *       **Structured Remarks Formatting (for Loss Status):**
- *       For categories under status 'Loss', the `remarks` string MUST follow specific prefixes and patterns so the web panel and mobile client can successfully parse and pre-populate options:
- *       
- *       * **Category: Customization:**
- *         * Format: `[Customization] Product: <product_type> | Size: <size> | Colour: <colour> | Note: <note>`
- *         
- *       * **Category: Dapper Squad (Non-sales):**
- *         * Reason: 'product already booked'
- *           * Format: `[product already booked] Product: <product_type> | Size: <size> | Colour: <colour> | Note: <note>`
- *         * Reason: 'design and colour not available'
- *           * Format: `[design and colour not available] Product: <product_type> | Note: <note>` (Legacy formats `[design and color unavailable]` and `[Model, Design and Colour Not Available]` are also parsed correctly)
- *         * Reason: 'price'
- *           * Format: `[price] Remarks: <price_too_high_or_budget_restriction> | Note: <note>`
- *         #  * Reason: 'enquiry' (Commented/Disabled)
- *         #    * Format: `[enquiry] Note: <note>`
- *         * Reason: 'size'
- *           * Format: `[size] Product: <product_type> | Size: <size> | Note: <note>`
- *           
- *       * **Category: Dapper Squad (Sales):**
- *         * Format: `[Sales] Sub Category: <shoe_or_shirt> | Size: <size> | Colour: <colour> | Price: <price> | Note: <note>`
- *         
- *       * **Category: Enquiry (Non-sales):**
- *         * Reason: 'enquiry without groom and bride'
- *           * Format: `[enquiry without groom and bride] Product: <product_type> | Note: <note>`
- *         * Reason: 'enquiry without trial'
- *           * Format: `[enquiry without trial] Product: <product_type> | Selected: <long_date_or_just_visit> | Note: <note>`
- *         * Reason: 'confirm later'
- *           * Format: `[confirm later] Product: <product_type> | Revisit Date: <revisit_date> | Note: <note>`
- *           
- *       * **Category: Enquiry (Sales):**
- *         * Format: `[Sales] Sub Category: <shoe_or_shirt> | Note: <note>`
- *       
- *       **Update/Create logic:**
- *       - If an existing walk-in record with the same contact number is found within the user's role/store limits:
- *         - If the status is `'New Walkin'`, a new record is created with `repeatCount = existing + 1`.
- *         - Otherwise, the existing record is updated. `repeatCount` is incremented **only if the update occurs on a different calendar day** than the record's current `date`. Same-day status changes (edits, corrections, syncs) do **not** increment the counter.
- *       - If no existing walk-in matches, a brand-new record is created.
+ *     summary: Save a new walk-in / lead record
+ *     description: Save or update a walk-in entry from Mobile App or Web Dashboard.
  *     requestBody:
  *       required: true
  *       content:
@@ -162,93 +116,96 @@ router.get('/check/:contact', OptionalMiddilWare, checkCustomerExists);
  *                 example: "9876543210"
  *               functionDate:
  *                 type: string
- *                 description: Date format YYYY-MM-DD
  *                 example: "2026-06-25"
  *               store:
  *                 type: string
- *                 description: "The name of the store generating the lead (Optional: automatically resolved from token)"
- *                 example: "GROOMS Kochi"
+ *                 example: "G-Edappally"
  *               staff:
  *                 type: string
- *                 description: "The employee assigned to this lead (Optional: automatically resolved from token)"
  *                 example: "Jane Doe"
  *               storeId:
  *                 type: string
- *                 description: "Store ID (Optional: automatically resolved from token)"
- *               functionType:
- *                 type: string
- *                 description: "Type of function selected from dropdown or event type"
- *                 example: "Hindu Function"
+ *                 example: "6a158244cb0a54bf2ec3b7c4"
  *               employeeId:
  *                 type: string
- *                 description: "Employee ID (Optional: automatically resolved from token)"
+ *                 example: "6a1fe984b7cd1be0b146e658"
+ *               functionType:
+ *                 type: string
+ *                 enum:
+ *                   - "Hindu Function"
+ *                   - "Christian Function"
+ *                   - "Muslim Function"
+ *                   - "Grooms Men"
+ *                   - "Office or College"
+ *                   - "Others functions"
+ *                 example: "Hindu Function"
  *               category:
  *                 type: string
- *                 enum: [product, enquiry, dapper squad, customisation] 
+ *                 enum:
+ *                   - "product"
+ *                   - "enquiry"
+ *                   - "dapper squad"
+ *                   - "customisation"
  *                 example: "product"
  *               subCategory:
  *                 type: string
- *                 example: "shoe" or "shirt"
+ *                 example: "shirt"
  *               remarks:
  *                 type: string
- *                 example: "Fitting scheduled"
+ *                 example: "Price too High"
  *               notes:
  *                 type: string
- *                 description: "General notes or comments on this lead (Optional, mapped to note)"
- *                 example: "Wants premium fabric"
+ *                 example: "Customer wants premium fabric"
  *               lossProductType:
  *                 type: string
- *                 description: "The product type for Loss status (Optional)"
  *                 example: "Suit"
  *               lossSize:
  *                 type: string
- *                 description: "The product size for Loss status (Optional)"
- *                 example: "38R"
+ *                 example: "38"
  *               lossColour:
  *                 type: string
- *                 description: "The colour chosen/expected for Loss status (Optional)"
  *                 example: "Navy Blue"
  *               lossSalesPrice:
  *                 type: string
- *                 description: "The price reason/quoted for Loss status (Optional)"
  *                 example: "12000"
  *               lossSelectRemarks:
  *                 type: string
- *                 description: "Dropdown selection for price-related Loss reason (Optional)"
  *                 example: "Budget restriction"
  *               lossReason:
  *                 type: string
- *                 description: "The reason selected for Loss (Optional)"
- *                 example: "design and color unavaialable"
+ *                 example: "design and color unavailable"
  *               lossEnquiryTrailOption:
  *                 type: string
- *                 description: "The trial option selected for Loss Enquiry (Optional)"
- *                 example: "visit store"
+ *                 example: "Just Visit"
  *               lossEnquiryRevisitDate:
  *                 type: string
- *                 description: "The expected revisit date for Loss Enquiry confirm later option (Optional)"
  *                 example: "2026-06-30"
+ *               repeatCount:
+ *                 type: integer
+ *                 example: 1
  *               status:
  *                 type: string
- *                 description: |
- *                   Walk-in status. Valid values: `New Walkin`, `Revisit`, `Loss`.
- *                   Note: `Booked`, `Rentout`, and `Return` have been removed from the dropdown.
- *                 enum: [New Walkin, Revisit, Loss]
- *                 example: "Revisit"
+ *                 enum:
+ *                   - "New Walkin"
+ *                   - "Revisit"
+ *                   - "Loss"
+ *                   - "Trial"
+ *                   - "Reissue"
+ *                   - "Booked"
+ *                   - "Rentout"
+ *                   - "Return"
+ *                   - "Other"
+ *                 example: "Loss"
  *               date:
  *                 type: string
- *                 description: Date of walk-in, format YYYY-MM-DD (Defaults to today)
- *                 example: "2026-05-19"
+ *                 example: "2026-06-15"
  *     responses:
  *       200:
  *         description: Walk-in record saved successfully
  *       400:
- *         description: >
- *           Bad request. Can occur for:
- *           - Missing mandatory fields (customerName, contact)
- *           - Status change already done today: "Status can only be changed once per day. Please try again tomorrow."
+ *         description: Bad request
  *       403:
- *         description: Access denied - User does not have permission to access this walk-in record
+ *         description: Access denied
  *       500:
  *         description: Internal server error
  */
