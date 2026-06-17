@@ -118,6 +118,20 @@ const walkinSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    statusHistory: [{
+        status: {
+            type: String,
+            required: true
+        },
+        category: {
+            type: String,
+            default: '-'
+        },
+        date: {
+            type: Date,
+            default: Date.now
+        }
+    }],
     bookingDate: {
         type: Date,
         default: null
@@ -127,6 +141,32 @@ const walkinSchema = new mongoose.Schema({
         default: null
     },
     returnDate: {
+        type: Date,
+        default: null
+    },
+    cancelDate: {
+        type: Date,
+        default: null
+    },
+    cancellationDate: {
+        type: Date,
+        default: null
+    },
+    rentalStatus: {
+        type: String,
+        default: 'New Walkin',
+        trim: true
+    },
+    shoeStatus: {
+        type: String,
+        default: '-',
+        trim: true
+    },
+    billedDate: {
+        type: Date,
+        default: null
+    },
+    billReturnedDate: {
         type: Date,
         default: null
     },
@@ -164,13 +204,22 @@ walkinSchema.index({ storeId: 1 });
 walkinSchema.index({ employeeId: 1 });
 // Dashboard date-range filtering
 walkinSchema.index({ createdAt: -1 });
+// Sort by latest changed or updated
+walkinSchema.index({ updatedAt: -1 });
 // Status filter (New Walkin, Booked, etc.)
 walkinSchema.index({ status: 1 });
+walkinSchema.index({ rentalStatus: 1 });
+walkinSchema.index({ shoeStatus: 1 });
 // Compound: store + createdAt — the most common dashboard query
 walkinSchema.index({ store: 1, createdAt: -1 });
 walkinSchema.index({ storeId: 1, createdAt: -1 });
 walkinSchema.index({ employeeId: 1, createdAt: -1 });
 walkinSchema.index({ contact: 1, createdAt: -1 });
+// Compound: store + updatedAt — optimized query patterns
+walkinSchema.index({ store: 1, updatedAt: -1 });
+walkinSchema.index({ storeId: 1, updatedAt: -1 });
+walkinSchema.index({ employeeId: 1, updatedAt: -1 });
+walkinSchema.index({ contact: 1, updatedAt: -1 });
 
 const Walkin = mongoose.model('Walkin', walkinSchema);
 

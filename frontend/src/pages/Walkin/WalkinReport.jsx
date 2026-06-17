@@ -17,7 +17,7 @@ function norm(s) {
 }
 function locationKey(name) { return norm(name).split(" ").filter(t=>t&&!BRAND_TOKENS.has(t)).join(" "); }
 
-const STATUS_OPTIONS = ['Trial','Loss','Enquiry','Reissue','New Booking','Revisit Booking','Revisit Loss','New Walkin','Booked','Rentout','Return','Cancel','Other'];
+const STATUS_OPTIONS = ['Trial','Loss','Enquiry','Reissue','New Booking','Revisit Booking','Revisit Loss','New Walkin','Booked','Rentout','Return','Cancelled','Billed','Bill Returned','Other'];
 
 const NON_SALES_REASONS = new Set([
     'Product Already Booked',
@@ -42,21 +42,38 @@ const HARDCODED_STORES = [
 ];
 
 
-const STATUS_COLORS = {
-  'Booked':            { bg:'#dcfce7', color:'#16a34a' },
-  'New Booking':       { bg:'#dcfce7', color:'#16a34a' },
-  'Revisit Booking':   { bg:'#dcfce7', color:'#16a34a' },
-  'Rentout':           { bg:'#fce7f3', color:'#be185d' },
-  'Rent Out':          { bg:'#fce7f3', color:'#be185d' },
-  'Booking & Rentout': { bg:'#fce7f3', color:'#be185d' },
-  'Return':            { bg:'#fef3c7', color:'#d97706' },
-  'Trial':             { bg:'#e0e7ff', color:'#4338ca' },
-  'Loss':              { bg:'#fee2e2', color:'#dc2626' },
-  'Revisit Loss':      { bg:'#fee2e2', color:'#dc2626' },
-  'Cancel':            { bg:'#fee2e2', color:'#dc2626' },
-  'Enquiry':           { bg:'#f3f4f6', color:'#6b7280' },
-  'New Walkin':        { bg:'#dbeafe', color:'#2563eb' },
-  'Reissue':           { bg:'#ede9fe', color:'#7c3aed' },
+const getStatusColors = (statusStr) => {
+  const colors = {
+    'Booked':            { bg:'#dcfce7', color:'#16a34a' },
+    'New Booking':       { bg:'#dcfce7', color:'#16a34a' },
+    'Revisit Booking':   { bg:'#dcfce7', color:'#16a34a' },
+    'Rentout':           { bg:'#fce7f3', color:'#be185d' },
+    'Rent Out':          { bg:'#fce7f3', color:'#be185d' },
+    'Booking & Rentout': { bg:'#fce7f3', color:'#be185d' },
+    'Return':            { bg:'#fef3c7', color:'#d97706' },
+    'Trial':             { bg:'#e0e7ff', color:'#4338ca' },
+    'Loss':              { bg:'#fee2e2', color:'#dc2626' },
+    'Revisit Loss':      { bg:'#fee2e2', color:'#dc2626' },
+    'Cancel':            { bg:'#fee2e2', color:'#dc2626' },
+    'Cancelled':         { bg:'#fee2e2', color:'#dc2626' },
+    'Enquiry':           { bg:'#f3f4f6', color:'#6b7280' },
+    'New Walkin':        { bg:'#dbeafe', color:'#2563eb' },
+    'Reissue':           { bg:'#ede9fe', color:'#7c3aed' },
+    'Billed':            { bg:'#f3e8ff', color:'#7e22ce' },
+    'Bill Returned':     { bg:'#fae8ff', color:'#a21caf' }
+  };
+  const s = String(statusStr || '').trim();
+  if (colors[s]) return colors[s];
+  const priorityList = [
+    'Cancelled', 'Cancel', 'Loss', 'Revisit Loss', 'Rentout', 'Rent Out', 
+    'Return', 'Bill Returned', 'Booked', 'New Booking', 'Revisit Booking', 'Billed', 'New Walkin'
+  ];
+  for (const p of priorityList) {
+    if (s.toLowerCase().includes(p.toLowerCase())) {
+      return colors[p];
+    }
+  }
+  return { bg: '#f3f4f6', color: '#6b7280' };
 };
 
 const handleDownloadAndView = (base64Data, filename = 'attachment') => {
@@ -104,7 +121,7 @@ const handleDownloadAndView = (base64Data, filename = 'attachment') => {
 
 /* ── Export to CSV ───────────────────────────────────────────────────────── */
 const exportCSV = (data) => {
-  const headers = ['#','Date','Customer','Contact','Function Date','Function Type','Category','Product Type','Loss Reason','Sub Category','Remarks','Notes','Store','Staff','Attachment','Booking Date','Rentout Date','Return Date','Repeat Count','Status'];
+  const headers = ['#','Date','Customer','Contact','Repeat Count','Status','Function Date','Function Type','Category','Product Type','Loss Reason','Sub Category','Remarks','Notes','Store','Staff','Attachment','Booking Date','Rentout Date','Return Date','Billed Date','Bill Returned Date'];
   const rows = data.map((w,i) => {
     const productType = w.lossProductType || '–';
     const notesText = w.notes || '–';
@@ -141,6 +158,8 @@ const exportCSV = (data) => {
       w.date,
       w.customerName,
       w.contact,
+      w.repeatCount,
+      w.status || '–',
       w.functionDate || '–',
       w.functionType || '–',
       w.category || '–',
@@ -155,8 +174,8 @@ const exportCSV = (data) => {
       w.bookingDate ? new Date(w.bookingDate).toISOString().split('T')[0] : '–',
       w.rentoutDate ? new Date(w.rentoutDate).toISOString().split('T')[0] : '–',
       w.returnDate ? new Date(w.returnDate).toISOString().split('T')[0] : '–',
-      w.repeatCount,
-      w.status || '–'
+      w.billedDate ? new Date(w.billedDate).toISOString().split('T')[0] : '–',
+      w.billReturnedDate ? new Date(w.billReturnedDate).toISOString().split('T')[0] : '–'
     ];
   });
   const csv = [headers, ...rows].map(r => r.map(c => `"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
@@ -376,11 +395,11 @@ const WalkinReport = () => {
               <div style={{ textAlign:'center', padding:'48px', color:'#9ca3af', fontSize:'13px' }}>No records found.</div>
             ) : (
               <div style={{ overflowX:'auto' }}>
-                <table style={{ width: '2800px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
+                <table style={{ width: '3050px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
                   <thead>
                     <tr style={{ background:'#fafafa', borderBottom:'1px solid #f3f4f6' }}>
-                      {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'FUNCTION DATE', 'FUNCTION TYPE', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'SIZE', 'COLOR', 'NOTES', 'STORE', 'STAFF', 'ATTACHMENT', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'REPEAT COUNT', 'STATUS'].map((h, i) => {
-                          const colWidth = 'calc(100% / 22)';
+                      {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'REPEAT COUNT', 'STATUS', 'FUNCTION DATE', 'FUNCTION TYPE', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'SIZE', 'COLOR', 'NOTES', 'STORE', 'STAFF', 'ATTACHMENT', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'BILLED DATE', 'BILL RETURNED DATE'].map((h, i) => {
+                          const colWidth = 'calc(100% / 24)';
                           return (
                               <th
                                   key={i}
@@ -406,7 +425,7 @@ const WalkinReport = () => {
                   </thead>
                   <tbody>
                     {currentItems.map((w,i)=>{
-                      const sc = STATUS_COLORS[w.status] || { bg:'#f3f4f6', color:'#6b7280' };
+                      const sc = getStatusColors(w.status);
                       
                       const productType = w.lossProductType || '–';
                       const notesText = w.notes || '–';
@@ -459,6 +478,16 @@ const WalkinReport = () => {
                                     <span className="walkin-marquee-text walkin-anim-scroll">+91 {w.contact}</span>
                                 </div>
                               </td>
+                          <td style={{ textAlign: 'center', padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
+                                <div className="walkin-marquee-container">
+                                    <span className="walkin-marquee-text walkin-anim-scroll">{w.repeatCount}</span>
+                                </div>
+                              </td>
+                          <td style={{ padding: '11px 12px', textAlign: 'center', boxSizing: 'border-box' }}>
+                            <span style={{ background:sc.bg, color:sc.color, borderRadius:'20px', padding:'3px 10px', fontSize:'10px', fontWeight:700, whiteSpace:'nowrap', display:'inline-block' }}>
+                              {w.status?.toUpperCase()}
+                            </span>
+                          </td>
                           <td style={{textAlign: 'center',  padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
                                 <div className="walkin-marquee-container">
                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.functionDate || '–'}</span>
@@ -566,16 +595,16 @@ const WalkinReport = () => {
                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.returnDate ? new Date(w.returnDate).toISOString().split('T')[0] : '–'}</span>
                                 </div>
                               </td>
-                          <td style={{ padding: '11px 12px', textAlign: 'center', color: '#374151', boxSizing: 'border-box' }}>
+                          <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', boxSizing: 'border-box' }}>
                                 <div className="walkin-marquee-container">
-                                    <span className="walkin-marquee-text walkin-anim-scroll">{w.repeatCount}</span>
+                                    <span className="walkin-marquee-text walkin-anim-scroll">{w.billedDate ? new Date(w.billedDate).toISOString().split('T')[0] : '–'}</span>
                                 </div>
                               </td>
-                          <td style={{ padding: '11px 12px', textAlign: 'center', boxSizing: 'border-box' }}>
-                            <span style={{ background:sc.bg, color:sc.color, borderRadius:'20px', padding:'3px 10px', fontSize:'10px', fontWeight:700, whiteSpace:'nowrap', display:'inline-block' }}>
-                              {w.status?.toUpperCase()}
-                            </span>
-                          </td>
+                          <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', boxSizing: 'border-box' }}>
+                                <div className="walkin-marquee-container">
+                                    <span className="walkin-marquee-text walkin-anim-scroll">{w.billReturnedDate ? new Date(w.billReturnedDate).toISOString().split('T')[0] : '–'}</span>
+                                </div>
+                              </td>
                         </tr>
                       );
                     })}
