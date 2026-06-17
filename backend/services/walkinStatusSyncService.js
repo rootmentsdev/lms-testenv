@@ -4,6 +4,8 @@ import Walkin from '../model/Walkin.js';
 import CronLog from '../model/CronLog.js';
 import { normalizePhone } from '../utils/normalizePhone.js';
 
+let isSyncInProgress = false;
+
 /**
  * Returns YYYY-MM-DD format date string for a given offset of days from today
  */
@@ -46,7 +48,8 @@ const getStatusRank = (status) => {
         'Booked': 2,
         'Rentout': 3,
         'Return': 4,
-        'Cancel': 5
+        'Cancel': 5,
+        'Cancelled': 5
     };
     return ranks[status] || 1; // Default rank is 1 for any other statuses
 };
@@ -55,161 +58,172 @@ const getStatusRank = (status) => {
  * Automatically sync Walkin statuses with the external Rental APIs
  */
 export const syncWalkinStatuses = async () => {
+    if (isSyncInProgress) {
+        console.log('⚠️ [Walkin Status Sync] Previous sync job is still running. Skipping this execution.');
+        return {
+            success: false,
+            message: 'Sync job is already in progress.'
+        };
+    }
+
+    isSyncInProgress = true;
     const jobStartedAt = new Date();
     console.log('🔄 [Walkin Status Sync] Job started at:', jobStartedAt.toISOString());
 
-    const dateFrom = getPastDateString(6); // Last 7 days (Today - 6)
+    const dateFrom = getPastDateString(7); // Last 7 days (Today - 7)
     const dateTo = getPastDateString(0);   // Today (Today - 0)
 
     console.log(`📅 [Walkin Status Sync] Range: ${dateFrom} to ${dateTo}`);
 
-    // Fetch active stores
-    const branches = await Branch.find({ isActive: true });
-    console.log(`🏬 [Walkin Status Sync] Found ${branches.length} active branches to process.`);
+    try {
+        // Fetch active stores
+        const branches = await Branch.find({ isActive: true });
+        console.log(`🏬 [Walkin Status Sync] Found ${branches.length} active branches to process.`);
 
-    let totalBookings = 0;
-    let totalRentouts = 0;
-    let totalReturns = 0;
-    let totalDeletes = 0;
-    let totalWalkinsUpdated = 0;
-    const errorsList = [];
-    const branchResultsList = [];
+        let totalBookings = 0;
+        let totalRentouts = 0;
+        let totalReturns = 0;
+        let totalDeletes = 0;
+        let totalShoeBilled = 0;
+        let totalShoeBillReturned = 0;
+        let totalWalkinsMatched = 0;
+        let totalWalkinsUpdated = 0;
+        let totalWalkinsSameStatus = 0;
+        let totalWalkinsSameDayRepeat = 0;
+        let totalWalkinsSkippedHierarchy = 0;
+        const errorsList = [];
+        const branchResultsList = [];
 
-    for (const branch of branches) {
-        const { locCode, workingBranch, _id: storeId } = branch;
-        console.log(`📍 [Walkin Status Sync] Processing branch: ${workingBranch} (locCode: ${locCode})`);
+        for (const branch of branches) {
+            const { locCode, workingBranch, _id: storeId } = branch;
+            console.log(`📍 [Walkin Status Sync] Processing branch: ${workingBranch} (locCode: ${locCode})`);
 
-        try {
-            // Define endpoints
-            const bookingUrl = `https://rentalapi.rootments.live/api/GetBooking/GetBookingList?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
-            const rentoutUrl = `https://rentalapi.rootments.live/api/GetBooking/GetRentoutList?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
-            const returnUrl = `https://rentalapi.rootments.live/api/GetBooking/GetReturnList?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
-            const deleteUrl = `https://rentalapi.rootments.live/api/GetBooking/GetDeleteList?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
+            try {
+                // Define endpoints
+                const bookingUrl = `https://rentalapi.rootments.live/api/GetBooking/GetBookingList?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
+                const rentoutUrl = `https://rentalapi.rootments.live/api/GetBooking/GetRentoutList?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
+                const returnUrl = `https://rentalapi.rootments.live/api/GetBooking/GetReturnList?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
+                const deleteUrl = `https://rentalapi.rootments.live/api/GetBooking/GetDeleteList?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
+                const shoeBilledUrl = `https://rentalapi.rootments.live/api/GetBooking/GetBilledList?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
+                const shoeBillReturnedUrl = `https://rentalapi.rootments.live/api/GetBooking/GetBillReturnedList?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
 
-            // Fetch from all four APIs in parallel, but handle individual request errors safely
-            const fetchListSafe = async (url, typeName) => {
-                try {
-                    const response = await axios.get(url, { timeout: 15000 });
-                    const rawData = response.data;
-                    let list = [];
-                    if (rawData) {
-                        if (Array.isArray(rawData)) {
-                            list = rawData;
-                        } else if (rawData.dataSet && Array.isArray(rawData.dataSet.data)) {
-                            list = rawData.dataSet.data;
-                        } else if (Array.isArray(rawData.data)) {
-                            list = rawData.data;
+                // Fetch from all six APIs in parallel, but handle individual request errors safely
+                const fetchListSafe = async (url, typeName) => {
+                    try {
+                        const response = await axios.get(url, { timeout: 15000 });
+                        const rawData = response.data;
+                        let list = [];
+                        if (rawData) {
+                            if (Array.isArray(rawData)) {
+                                list = rawData;
+                            } else if (rawData.dataSet && Array.isArray(rawData.dataSet.data)) {
+                                list = rawData.dataSet.data;
+                            } else if (Array.isArray(rawData.data)) {
+                                list = rawData.data;
+                            }
+                        }
+                        return list;
+                    } catch (err) {
+                        console.warn(`⚠️ [Walkin Status Sync] Failed to fetch ${typeName} for branch ${locCode}:`, err.message);
+                        errorsList.push({ branch: locCode, type: typeName, error: err.message });
+                        return [];
+                    }
+                };
+
+                const [bookings, rentouts, returns, deletes, shoeBilled, shoeBillReturned] = await Promise.all([
+                    fetchListSafe(bookingUrl, 'Booking'),
+                    fetchListSafe(rentoutUrl, 'Rentout'),
+                    fetchListSafe(returnUrl, 'Return'),
+                    fetchListSafe(deleteUrl, 'Delete'),
+                    fetchListSafe(shoeBilledUrl, 'ShoeBilled'),
+                    fetchListSafe(shoeBillReturnedUrl, 'ShoeBillReturned')
+                ]);
+
+                console.log(`📊 [Walkin Status Sync] locCode ${locCode}: Bookings = ${bookings.length}, Rentouts = ${rentouts.length}, Returns = ${returns.length}, Deletes = ${deletes.length}, ShoeBilled = ${shoeBilled.length}, ShoeBillReturned = ${shoeBillReturned.length}`);
+                totalBookings += bookings.length;
+                totalRentouts += rentouts.length;
+                totalReturns += returns.length;
+                totalDeletes += deletes.length;
+                totalShoeBilled += shoeBilled.length;
+                totalShoeBillReturned += shoeBillReturned.length;
+
+                // Priority Maps: rental statuses and shoe statuses are independent
+                const phoneRentalMap = new Map();
+                const phoneShoeMap = new Map();
+
+                // 1. Rental Flow Mapping (Priority: Cancelled > Return > Rentout > Booked)
+                for (const item of bookings) {
+                    const phone = normalizePhone(extractPhoneNumber(item));
+                    if (phone) phoneRentalMap.set(phone, { status: 'Booked', item });
+                }
+                for (const item of rentouts) {
+                    const phone = normalizePhone(extractPhoneNumber(item));
+                    if (phone) phoneRentalMap.set(phone, { status: 'Rentout', item });
+                }
+                for (const item of returns) {
+                    const phone = normalizePhone(extractPhoneNumber(item));
+                    if (phone) phoneRentalMap.set(phone, { status: 'Return', item });
+                }
+                for (const item of deletes) {
+                    const phone = normalizePhone(extractPhoneNumber(item));
+                    if (phone) phoneRentalMap.set(phone, { status: 'Cancelled', item });
+                }
+
+                // 2. Shoe Flow Mapping (Priority: Bill Returned > Billed)
+                for (const item of shoeBilled) {
+                    const phone = normalizePhone(extractPhoneNumber(item));
+                    if (phone) phoneShoeMap.set(phone, { status: 'Billed', item });
+                }
+                for (const item of shoeBillReturned) {
+                    const phone = normalizePhone(extractPhoneNumber(item));
+                    if (phone) phoneShoeMap.set(phone, { status: 'Bill Returned', item });
+                }
+
+                // Gather union of all phones to check walk-ins in DB
+                const allPhones = new Set([
+                    ...phoneRentalMap.keys(),
+                    ...phoneShoeMap.keys()
+                ]);
+                const normalizedPhones = Array.from(allPhones);
+
+                let branchWalkinsMatched = 0;
+                let branchWalkinsUpdated = 0;
+                let branchWalkinsSameStatus = 0;
+                let branchWalkinsSameDayRepeat = 0;
+                let branchWalkinsSkippedHierarchy = 0;
+
+                if (normalizedPhones.length > 0) {
+                    const queryPhones = [];
+                    for (const p of normalizedPhones) {
+                        queryPhones.push(p);
+                        queryPhones.push(`+91${p}`);
+                        queryPhones.push(`91${p}`);
+                        queryPhones.push(`0${p}`);
+                    }
+
+                    const walkins = await Walkin.find({
+                        contact: { $in: queryPhones },
+                        storeId: storeId
+                    }).sort({ createdAt: -1 });
+
+                    const walkinMap = new Map();
+                    for (const walkin of walkins) {
+                        const norm = normalizePhone(walkin.contact);
+                        if (norm && !walkinMap.has(norm)) {
+                            walkinMap.set(norm, walkin);
                         }
                     }
-                    return list;
-                } catch (err) {
-                    console.warn(`⚠️ [Walkin Status Sync] Failed to fetch ${typeName} for branch ${locCode}:`, err.message);
-                    errorsList.push({ branch: locCode, type: typeName, error: err.message });
-                    return [];
-                }
-            };
 
-            const [bookings, rentouts, returns, deletes] = await Promise.all([
-                fetchListSafe(bookingUrl, 'Booking'),
-                fetchListSafe(rentoutUrl, 'Rentout'),
-                fetchListSafe(returnUrl, 'Return'),
-                fetchListSafe(deleteUrl, 'Delete')
-            ]);
+                    for (const normalizedPhone of normalizedPhones) {
+                        const walkin = walkinMap.get(normalizedPhone);
+                        if (walkin) {
+                            branchWalkinsMatched++;
+                            totalWalkinsMatched++;
 
-            console.log(`📊 [Walkin Status Sync] locCode ${locCode}: Bookings = ${bookings.length}, Rentouts = ${rentouts.length}, Returns = ${returns.length}, Deletes = ${deletes.length}`);
-            totalBookings += bookings.length;
-            totalRentouts += rentouts.length;
-            totalReturns += returns.length;
-            totalDeletes += deletes.length;
+                            let docUpdated = false;
+                            let rentalStatusChanged = false;
+                            let shoeStatusChanged = false;
 
-            // Priority Rule: Cancel > Return > Rentout > Booked
-            const phoneStatusMap = new Map();
-
-            // Bookings (Priority 3)
-            for (const item of bookings) {
-                const phone = normalizePhone(extractPhoneNumber(item));
-                if (phone) {
-                    phoneStatusMap.set(phone, { status: 'Booked', item });
-                }
-            }
-
-            // Rentouts (Priority 2)
-            for (const item of rentouts) {
-                const phone = normalizePhone(extractPhoneNumber(item));
-                if (phone) {
-                    phoneStatusMap.set(phone, { status: 'Rentout', item });
-                }
-            }
-
-            // Returns (Priority 1)
-            for (const item of returns) {
-                const phone = normalizePhone(extractPhoneNumber(item));
-                if (phone) {
-                    phoneStatusMap.set(phone, { status: 'Return', item });
-                }
-            }
-
-            // Deletes (Priority 4 - Cancel)
-            for (const item of deletes) {
-                const phone = normalizePhone(extractPhoneNumber(item));
-                if (phone) {
-                    phoneStatusMap.set(phone, { status: 'Cancel', item });
-                }
-            }
-
-            // Update matching walk-ins
-            const normalizedPhones = Array.from(phoneStatusMap.keys());
-            let branchWalkinsMatched = 0;
-            let branchWalkinsUpdated = 0;
-            let branchWalkinsSkipped = 0;
-
-            if (normalizedPhones.length > 0) {
-                // Build queries for 4 phone variants to search DB
-                const queryPhones = [];
-                for (const p of normalizedPhones) {
-                    queryPhones.push(p);
-                    queryPhones.push(`+91${p}`);
-                    queryPhones.push(`91${p}`);
-                    queryPhones.push(`0${p}`);
-                }
-
-                // Batch find all matching walk-ins for this branch
-                const walkins = await Walkin.find({
-                    contact: { $in: queryPhones },
-                    storeId: storeId
-                }).sort({ createdAt: -1 });
-
-                // Group by normalized contact to select only the latest walk-in per phone number
-                const walkinMap = new Map();
-                for (const walkin of walkins) {
-                    const norm = normalizePhone(walkin.contact);
-                    if (norm && !walkinMap.has(norm)) {
-                        walkinMap.set(norm, walkin);
-                    }
-                }
-
-                // Apply hierarchy and perform the updates
-                for (const [normalizedPhone, statusInfo] of phoneStatusMap.entries()) {
-                    const { status: targetStatus, item } = statusInfo;
-                    const walkin = walkinMap.get(normalizedPhone);
-                    if (walkin) {
-                        branchWalkinsMatched++;
-                        const currentRank = getStatusRank(walkin.status);
-                        const targetRank = getStatusRank(targetStatus);
-
-                        if (targetRank > currentRank) {
-                            const oldStatus = walkin.status;
-                            walkin.status = targetStatus;
-
-                            // Calculate today's date string in Asia/Kolkata timezone
-                            const todayDateStr = getLocalDateStringIST(new Date());
-
-                            const walkinDateStr = walkin.date ? walkin.date.substring(0, 10) : null;
-                            if (walkinDateStr !== todayDateStr) {
-                                walkin.repeatCount = (walkin.repeatCount || 1) + 1;
-                            }
-
-                            // Extract dates from external item case-insensitively
                             const extractDateValue = (itm, keys) => {
                                 for (const key of Object.keys(itm)) {
                                     if (keys.includes(key.toLowerCase()) && itm[key]) {
@@ -220,108 +234,241 @@ export const syncWalkinStatuses = async () => {
                                 return null;
                             };
 
-                            const bDate = extractDateValue(item, ['bookingdate', 'booking_date', 'bookeddate', 'date']);
-                            if (bDate) walkin.bookingDate = bDate;
+                            // Check Rental update
+                            const rentalInfo = phoneRentalMap.get(normalizedPhone);
+                            if (rentalInfo) {
+                                const targetRentalStatus = rentalInfo.status;
+                                const item = rentalInfo.item;
+                                const currentRentalStatus = walkin.rentalStatus || walkin.status || 'New Walkin';
 
-                            const roDate = extractDateValue(item, ['rentoutdate', 'rent_out_date', 'rentdate', 'date']);
-                            if (roDate) walkin.rentoutDate = roDate;
+                                const normalizeStatusForCompare = (s) => {
+                                    const val = String(s || '').trim().toLowerCase();
+                                    if (val === 'cancel') return 'cancelled';
+                                    return val;
+                                };
 
-                            const retDate = extractDateValue(item, ['returneddate', 'returndate', 'return_date', 'date']);
-                            if (retDate) walkin.returnDate = retDate;
+                                if (normalizeStatusForCompare(currentRentalStatus) !== normalizeStatusForCompare(targetRentalStatus)) {
+                                    const currentRank = getStatusRank(currentRentalStatus);
+                                    const targetRank = getStatusRank(targetRentalStatus);
 
-                            // Fallback to current time if status is updated but corresponding date is missing in item
-                            const statusLower = targetStatus.toLowerCase();
-                            if (statusLower.includes('booking') || statusLower === 'booked') {
-                                if (!walkin.bookingDate) walkin.bookingDate = new Date();
-                            } else if (statusLower.includes('rentout') || statusLower === 'rent out') {
-                                if (!walkin.rentoutDate) walkin.rentoutDate = new Date();
-                            } else if (statusLower === 'return') {
-                                if (!walkin.returnDate) walkin.returnDate = new Date();
+                                    if (targetRank >= currentRank) {
+                                        const oldRental = currentRentalStatus;
+                                        walkin.rentalStatus = targetRentalStatus;
+                                        rentalStatusChanged = true;
+                                        docUpdated = true;
+
+                                        if (targetRentalStatus === 'Booked') {
+                                            const bDate = extractDateValue(item, ['bookingdate', 'booking_date', 'bookeddate', 'date']);
+                                            walkin.bookingDate = bDate || new Date();
+                                        } else if (targetRentalStatus === 'Rentout') {
+                                            const roDate = extractDateValue(item, ['rentoutdate', 'rent_out_date', 'rentdate', 'date']);
+                                            walkin.rentoutDate = roDate || new Date();
+                                        } else if (targetRentalStatus === 'Return') {
+                                            const retDate = extractDateValue(item, ['returneddate', 'returndate', 'return_date', 'date']);
+                                            walkin.returnDate = retDate || new Date();
+                                        } else if (targetRentalStatus === 'Cancelled') {
+                                            const cDate = extractDateValue(item, ['canceldate', 'cancellationdate', 'cancelleddate', 'date']);
+                                            walkin.cancelDate = cDate || new Date();
+                                            walkin.cancellationDate = cDate || new Date();
+                                        }
+
+                                        if (!walkin.statusHistory) {
+                                            walkin.statusHistory = [];
+                                        }
+                                        walkin.statusHistory.push({
+                                            status: targetRentalStatus,
+                                            category: walkin.category && walkin.category !== '-' ? walkin.category : 'Product',
+                                            date: new Date()
+                                        });
+                                        console.log(`✅ [Walkin Status Sync] Rental Flow update for ...${normalizedPhone.slice(-4)}: ${oldRental} ➔ ${targetRentalStatus}`);
+                                    } else {
+                                        branchWalkinsSkippedHierarchy++;
+                                        totalWalkinsSkippedHierarchy++;
+                                        console.log(`ℹ️ [Walkin Status Sync] Skipped rental update for ...${normalizedPhone.slice(-4)}: current '${currentRentalStatus}' >= target '${targetRentalStatus}'`);
+                                    }
+                                }
                             }
 
-                            await walkin.save();
+                            // Check Shoe update
+                            const shoeInfo = phoneShoeMap.get(normalizedPhone);
+                            if (shoeInfo) {
+                                const targetShoeStatus = shoeInfo.status;
+                                const item = shoeInfo.item;
+                                const currentShoeStatus = walkin.shoeStatus || '-';
 
-                            branchWalkinsUpdated++;
-                            totalWalkinsUpdated++;
-                            console.log(`✅ [Walkin Status Sync] Updated lead ending in ...${normalizedPhone.slice(-4)} at ${workingBranch}: ${oldStatus} ➔ ${targetStatus} (repeatCount: ${walkin.repeatCount})`);
-                        } else {
-                            branchWalkinsSkipped++;
-                            console.log(`ℹ️ [Walkin Status Sync] Skipped lead ending in ...${normalizedPhone.slice(-4)} at ${workingBranch}: current status '${walkin.status}' (rank ${currentRank}) >= target status '${targetStatus}' (rank ${targetRank})`);
+                                if (currentShoeStatus !== targetShoeStatus) {
+                                    const getShoeStatusRank = (s) => {
+                                        const ranks = { 'Billed': 1, 'Bill Returned': 2 };
+                                        return ranks[s] || 0;
+                                    };
+                                    const currentShoeRank = getShoeStatusRank(currentShoeStatus);
+                                    const targetShoeRank = getShoeStatusRank(targetShoeStatus);
+
+                                    if (targetShoeRank >= currentShoeRank) {
+                                        const oldShoe = currentShoeStatus;
+                                        walkin.shoeStatus = targetShoeStatus;
+                                        shoeStatusChanged = true;
+                                        docUpdated = true;
+
+                                        if (targetShoeStatus === 'Billed') {
+                                            const bldDate = extractDateValue(item, ['billeddate', 'billdate', 'billingdate', 'date']);
+                                            walkin.billedDate = bldDate || new Date();
+                                        } else if (targetShoeStatus === 'Bill Returned') {
+                                            const brDate = extractDateValue(item, ['billreturneddate', 'returneddate', 'returndate', 'date']);
+                                            walkin.billReturnedDate = brDate || new Date();
+                                        }
+
+                                        if (!walkin.statusHistory) {
+                                            walkin.statusHistory = [];
+                                        }
+                                        walkin.statusHistory.push({
+                                            status: targetShoeStatus,
+                                            category: 'Sales',
+                                            date: new Date()
+                                        });
+                                        console.log(`✅ [Walkin Status Sync] Shoe Flow update for ...${normalizedPhone.slice(-4)}: ${oldShoe} ➔ ${targetShoeStatus}`);
+                                    } else {
+                                        console.log(`ℹ️ [Walkin Status Sync] Skipped shoe update for ...${normalizedPhone.slice(-4)}: current '${currentShoeStatus}' >= target '${targetShoeStatus}'`);
+                                    }
+                                }
+                            }
+
+                            if (docUpdated) {
+                                const todayDateStr = getLocalDateStringIST(new Date());
+                                const walkinDateStr = walkin.date && walkin.date !== '-' ?
+                                    walkin.date.substring(0, 10) :
+                                    (walkin.createdAt ? getLocalDateStringIST(walkin.createdAt) : null);
+
+                                let shouldIncrementRepeat = false;
+                                if (walkinDateStr && walkinDateStr !== todayDateStr) {
+                                    const isCancelledChange = rentalStatusChanged && (walkin.rentalStatus === 'Cancelled');
+                                    if (!isCancelledChange) {
+                                        shouldIncrementRepeat = true;
+                                    }
+                                }
+
+                                if (shouldIncrementRepeat) {
+                                    walkin.repeatCount = (walkin.repeatCount || 1) + 1;
+                                } else if (walkinDateStr === todayDateStr) {
+                                    branchWalkinsSameDayRepeat++;
+                                    totalWalkinsSameDayRepeat++;
+                                }
+
+                                // Recalculate combined status
+                                const getCombinedStatus = (rental, shoe) => {
+                                    const r = (rental || 'New Walkin').trim();
+                                    const s = (shoe || '').trim();
+                                    if (!s || s === '-' || s === 'None') return r;
+                                    if (r === 'New Walkin' || r === '-') return s;
+                                    return `${r}, ${s}`;
+                                };
+
+                                walkin.status = getCombinedStatus(walkin.rentalStatus, walkin.shoeStatus);
+                                await walkin.save();
+
+                                branchWalkinsUpdated++;
+                                totalWalkinsUpdated++;
+                            } else {
+                                branchWalkinsSameStatus++;
+                                totalWalkinsSameStatus++;
+                            }
                         }
                     }
                 }
+
+                console.log(`📈 [Walkin Status Sync] Branch ${locCode} execution results: Matched = ${branchWalkinsMatched}, Updated = ${branchWalkinsUpdated}, SameStatus = ${branchWalkinsSameStatus}, SameDayRepeatSkip = ${branchWalkinsSameDayRepeat}, Skipped (hierarchy/skipped) = ${branchWalkinsSkippedHierarchy}`);
+
+                branchResultsList.push({
+                    locCode,
+                    workingBranch,
+                    bookings: bookings.length,
+                    rentouts: rentouts.length,
+                    returns: returns.length,
+                    deletes: deletes.length,
+                    shoeBilled: shoeBilled.length,
+                    shoeBillReturned: shoeBillReturned.length,
+                    matched: branchWalkinsMatched,
+                    updated: branchWalkinsUpdated,
+                    sameStatus: branchWalkinsSameStatus,
+                    sameDayRepeatSkip: branchWalkinsSameDayRepeat,
+                    skipped: branchWalkinsSkippedHierarchy,
+                });
+
+            } catch (error) {
+                console.error(`❌ [Walkin Status Sync] Unhandled error for locCode ${locCode}:`, error);
+                errorsList.push({ branch: locCode, type: 'All', error: error.message });
             }
-
-            console.log(`📈 [Walkin Status Sync] Branch ${locCode} execution results: Matched = ${branchWalkinsMatched}, Updated = ${branchWalkinsUpdated}, Skipped (hierarchy) = ${branchWalkinsSkipped}`);
-
-            branchResultsList.push({
-                locCode,
-                workingBranch,
-                bookings: bookings.length,
-                rentouts: rentouts.length,
-                returns: returns.length,
-                deletes: deletes.length,
-                matched: branchWalkinsMatched,
-                updated: branchWalkinsUpdated,
-                skipped: branchWalkinsSkipped,
-            });
-
-        } catch (error) {
-            console.error(`❌ [Walkin Status Sync] Unhandled error for locCode ${locCode}:`, error);
-            errorsList.push({ branch: locCode, type: 'All', error: error.message });
         }
-    }
 
-    const jobCompletedAt = new Date();
-    const durationMs = jobCompletedAt - jobStartedAt;
+        const jobCompletedAt = new Date();
+        const durationMs = jobCompletedAt - jobStartedAt;
 
-    console.log('🏁 [Walkin Status Sync] Job completed.');
-    console.log(`📝 [Walkin Status Sync] Summary:
-      - Total Bookings processed: ${totalBookings}
-      - Total Rentouts processed: ${totalRentouts}
-      - Total Returns processed: ${totalReturns}
-      - Total Deletes processed: ${totalDeletes}
-      - Total Walk-ins updated: ${totalWalkinsUpdated}
-      - Total locCode errors encountered: ${errorsList.length}
-      - Duration: ${durationMs}ms
-    `);
+        console.log('🏁 [Walkin Status Sync] Job completed.');
+        console.log(`📝 [Walkin Status Sync] Summary:
+          - Total Bookings processed: ${totalBookings}
+          - Total Rentouts processed: ${totalRentouts}
+          - Total Returns processed: ${totalReturns}
+          - Total Deletes processed: ${totalDeletes}
+          - Total Shoe Billed processed: ${totalShoeBilled}
+          - Total Shoe Bill Returned processed: ${totalShoeBillReturned}
+          - Total Walk-ins matched: ${totalWalkinsMatched}
+          - Total Walk-ins updated: ${totalWalkinsUpdated}
+          - Total Walk-ins skipped (same status): ${totalWalkinsSameStatus}
+          - Total Walk-ins skipped (same day repeat): ${totalWalkinsSameDayRepeat}
+          - Total Walk-ins skipped (hierarchy): ${totalWalkinsSkippedHierarchy}
+          - Total locCode errors encountered: ${errorsList.length}
+          - Duration: ${durationMs}ms
+        `);
 
-    // ── Persist run log to DB ──
-    try {
-        await CronLog.create({
-            jobType: 'walkin_status_sync',
-            status: errorsList.length > 0 && totalWalkinsUpdated === 0 ? 'error' : 'success',
-            startedAt: jobStartedAt,
-            completedAt: jobCompletedAt,
-            durationMs,
+        // ── Persist run log to DB ──
+        try {
+            await CronLog.create({
+                jobType: 'walkin_status_sync',
+                status: errorsList.length > 0 && totalWalkinsUpdated === 0 ? 'error' : 'success',
+                startedAt: jobStartedAt,
+                completedAt: jobCompletedAt,
+                durationMs,
+                summary: {
+                    totalBookings,
+                    totalRentouts,
+                    totalReturns,
+                    totalDeletes,
+                    totalShoeBilled,
+                    totalShoeBillReturned,
+                    totalWalkinsMatched,
+                    totalWalkinsUpdated,
+                    totalWalkinsSameStatus,
+                    totalWalkinsSameDayRepeat,
+                    totalWalkinsSkippedHierarchy,
+                    errorsCount: errorsList.length,
+                },
+                branchResults: branchResultsList,
+                errorDetails: errorsList,
+            });
+            console.log('💾 [Walkin Status Sync] Run log saved to DB.');
+        } catch (logErr) {
+            console.error('⚠️ [Walkin Status Sync] Failed to save run log to DB:', logErr.message);
+        }
+
+        return {
+            success: true,
             summary: {
                 totalBookings,
                 totalRentouts,
                 totalReturns,
                 totalDeletes,
                 totalWalkinsUpdated,
+                totalWalkinsSameStatus,
+                totalWalkinsSameDayRepeat,
+                totalWalkinsSkippedHierarchy,
                 errorsCount: errorsList.length,
-            },
-            branchResults: branchResultsList,
-            errorDetails: errorsList,
-        });
-        console.log('💾 [Walkin Status Sync] Run log saved to DB.');
-    } catch (logErr) {
-        console.error('⚠️ [Walkin Status Sync] Failed to save run log to DB:', logErr.message);
-    }
+                errors: errorsList
+            }
+        };
 
-    return {
-        success: true,
-        summary: {
-            totalBookings,
-            totalRentouts,
-            totalReturns,
-            totalDeletes,
-            totalWalkinsUpdated,
-            errorsCount: errorsList.length,
-            errors: errorsList
-        }
-    };
+    } finally {
+        isSyncInProgress = false;
+    }
 };
 
 /**

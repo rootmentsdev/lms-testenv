@@ -59,6 +59,98 @@ const getLocalDateStringIST = (date) => {
     return `${year}-${month}-${day}`;
 };
 
+const updateStatusAndDates = (walkinRecord, statusInput) => {
+    if (!statusInput) return false;
+    const cleanInput = statusInput.trim();
+    
+    const isShoeStatus = (s) => ['Billed', 'Bill Returned'].includes(s);
+    
+    let rentalUpdated = false;
+    let shoeUpdated = false;
+    
+    if (cleanInput.includes(',')) {
+        const parts = cleanInput.split(',').map(p => p.trim());
+        const shoePart = parts.find(isShoeStatus);
+        const rentalPart = parts.find(p => !isShoeStatus(p));
+        
+        if (rentalPart && walkinRecord.rentalStatus !== rentalPart) {
+            walkinRecord.rentalStatus = rentalPart;
+            rentalUpdated = true;
+        }
+        if (shoePart && walkinRecord.shoeStatus !== shoePart) {
+            walkinRecord.shoeStatus = shoePart;
+            shoeUpdated = true;
+        }
+    } else {
+        if (isShoeStatus(cleanInput)) {
+            if (walkinRecord.shoeStatus !== cleanInput) {
+                walkinRecord.shoeStatus = cleanInput;
+                shoeUpdated = true;
+            }
+        } else {
+            if (walkinRecord.rentalStatus !== cleanInput) {
+                walkinRecord.rentalStatus = cleanInput;
+                rentalUpdated = true;
+            }
+        }
+    }
+    
+    if (rentalUpdated) {
+        const rStatus = walkinRecord.rentalStatus;
+        const statusLower = rStatus.toLowerCase();
+        if (statusLower.includes('booking') || statusLower === 'booked') {
+            walkinRecord.bookingDate = new Date();
+        } else if (statusLower.includes('rentout') || statusLower === 'rent out') {
+            walkinRecord.rentoutDate = new Date();
+        } else if (statusLower === 'return') {
+            walkinRecord.returnDate = new Date();
+        } else if (statusLower === 'cancelled' || statusLower === 'cancel') {
+            walkinRecord.cancelDate = new Date();
+            walkinRecord.cancellationDate = new Date();
+        }
+        
+        if (!walkinRecord.statusHistory) {
+            walkinRecord.statusHistory = [];
+        }
+        walkinRecord.statusHistory.push({
+            status: rStatus,
+            category: walkinRecord.category && walkinRecord.category !== '-' ? walkinRecord.category : 'Product',
+            date: new Date()
+        });
+    }
+    
+    if (shoeUpdated) {
+        const sStatus = walkinRecord.shoeStatus;
+        if (sStatus === 'Billed') {
+            walkinRecord.billedDate = new Date();
+        } else if (sStatus === 'Bill Returned') {
+            walkinRecord.billReturnedDate = new Date();
+        }
+        
+        if (!walkinRecord.statusHistory) {
+            walkinRecord.statusHistory = [];
+        }
+        walkinRecord.statusHistory.push({
+            status: sStatus,
+            category: 'Sales',
+            date: new Date()
+        });
+    }
+    
+    if (rentalUpdated || shoeUpdated) {
+        const getCombinedStatus = (rental, shoe) => {
+            const r = (rental || 'New Walkin').trim();
+            const s = (shoe || '').trim();
+            if (!s || s === '-' || s === 'None') return r;
+            if (r === 'New Walkin' || r === '-') return s;
+            return `${r}, ${s}`;
+        };
+        walkinRecord.status = getCombinedStatus(walkinRecord.rentalStatus, walkinRecord.shoeStatus);
+        return true;
+    }
+    return false;
+};
+
 
 
 /**
@@ -365,17 +457,8 @@ export const saveWalkin = async (req, res) => {
                     walkinRecord.lastStatusChangeDate = new Date();
                     walkinRecord.statusChangedToday = true;
 
-                    // Automatically populate corresponding dates
-                    const statusLower = trimmedStatus.toLowerCase();
-                    if (statusLower.includes('booking') || statusLower === 'booked') {
-                        walkinRecord.bookingDate = new Date();
-                    } else if (statusLower.includes('rentout') || statusLower === 'rent out') {
-                        walkinRecord.rentoutDate = new Date();
-                    } else if (statusLower === 'return') {
-                        walkinRecord.returnDate = new Date();
-                    }
+                    updateStatusAndDates(walkinRecord, trimmedStatus);
                 }
-                walkinRecord.status = trimmedStatus;
             }
             if (createdBy) walkinRecord.createdBy = createdBy;
             walkinRecord.date = todayStr; // Update visit date to the requested value
@@ -450,17 +533,8 @@ export const saveWalkin = async (req, res) => {
                     walkinRecord.lastStatusChangeDate = new Date();
                     walkinRecord.statusChangedToday = true;
 
-                    // Automatically populate corresponding dates
-                    const statusLower = trimmedStatus.toLowerCase();
-                    if (statusLower.includes('booking') || statusLower === 'booked') {
-                        walkinRecord.bookingDate = new Date();
-                    } else if (statusLower.includes('rentout') || statusLower === 'rent out') {
-                        walkinRecord.rentoutDate = new Date();
-                    } else if (statusLower === 'return') {
-                        walkinRecord.returnDate = new Date();
-                    }
+                    updateStatusAndDates(walkinRecord, trimmedStatus);
                 }
-                walkinRecord.status = trimmedStatus;
             }
             if (createdBy) walkinRecord.createdBy = createdBy;
             walkinRecord.date = todayStr; // Update to latest visit date
@@ -490,17 +564,6 @@ export const saveWalkin = async (req, res) => {
             }
             const nextRepeatCount = storeLatest ? (storeLatest.repeatCount || 1) + 1 : 1;
             const initialStatus = status ? status.trim() : 'New Walkin';
-            const statusLower = initialStatus.toLowerCase();
-            let bookingDate = null;
-            let rentoutDate = null;
-            let returnDate = null;
-            if (statusLower.includes('booking') || statusLower === 'booked') {
-                bookingDate = new Date();
-            } else if (statusLower.includes('rentout') || statusLower === 'rent out') {
-                rentoutDate = new Date();
-            } else if (statusLower === 'return') {
-                returnDate = new Date();
-            }
 
             const newWalkin = new Walkin({
                 customerName: customerName ? customerName.trim() : '-',
@@ -526,13 +589,10 @@ export const saveWalkin = async (req, res) => {
                 lossEnquiryTrailOption: lossEnquiryTrailOptionVal !== undefined ? String(lossEnquiryTrailOptionVal).trim() : '',
                 lossEnquiryRevisitDate: lossEnquiryRevisitDateVal !== undefined ? String(lossEnquiryRevisitDateVal).trim() : '',
                 lossReason: lossReasonVal !== undefined ? String(lossReasonVal).trim() : '',
-                status: initialStatus,
-                bookingDate,
-                rentoutDate,
-                returnDate,
                 repeatCount: nextRepeatCount,
                 date: todayStr
             });
+            updateStatusAndDates(newWalkin, initialStatus);
             await newWalkin.save();
             return res.status(201).json({
                 success: true,
@@ -581,7 +641,34 @@ export const getWalkins = async (req, res) => {
         }
 
         if (status && status !== 'All') {
-            baseQuery.status = status;
+            let statusCondition;
+            if (status === 'Cancelled' || status === 'Cancel') {
+                statusCondition = {
+                    $or: [
+                        { rentalStatus: { $in: ['Cancel', 'Cancelled'] } },
+                        { shoeStatus: { $in: ['Cancel', 'Cancelled'] } },
+                        { status: { $regex: '\\b(Cancel|Cancelled)\\b', $options: 'i' } }
+                    ]
+                };
+            } else {
+                const escapedStatus = status.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                statusCondition = {
+                    $or: [
+                        { rentalStatus: status },
+                        { shoeStatus: status },
+                        { status: { $regex: `\\b${escapedStatus}\\b`, $options: 'i' } }
+                    ]
+                };
+            }
+            if (baseQuery.$or) {
+                baseQuery.$and = [
+                    { $or: baseQuery.$or },
+                    statusCondition
+                ];
+                delete baseQuery.$or;
+            } else {
+                baseQuery.$or = statusCondition.$or;
+            }
         }
 
         if (store && store !== 'All') {
@@ -605,7 +692,7 @@ export const getWalkins = async (req, res) => {
         }
 
         // 3. Fetch filtered walkins directly from MongoDB
-        const baseProjection = 'date customerName contact functionDate store staff managerName category subCategory functionType remarks repeatCount status storeId employeeId createdBy createdAt updatedAt lastStatusChangeDate statusChangedToday bookingDate rentoutDate returnDate lossReason lossProductType lossSize lossColour lossSalesPrice lossSelectRemarks lossEnquiryTrailOption lossEnquiryRevisitDate notes attachment attachmentName';
+        const baseProjection = 'date customerName contact functionDate store staff managerName category subCategory functionType remarks repeatCount status storeId employeeId createdBy createdAt updatedAt lastStatusChangeDate statusChangedToday bookingDate rentoutDate returnDate cancelDate cancellationDate lossReason lossProductType lossSize lossColour lossSalesPrice lossSelectRemarks lossEnquiryTrailOption lossEnquiryRevisitDate notes attachment attachmentName statusHistory rentalStatus shoeStatus billedDate billReturnedDate';
 
         const isCountOnlyFetch = String(countOnly).toLowerCase() === 'true';
         const isChartOnlyFetch = String(chartOnly).toLowerCase() === 'true';
@@ -653,7 +740,7 @@ export const getWalkins = async (req, res) => {
         }
 
         let findQuery = Walkin.find(secureQuery)
-            .sort({ createdAt: -1 })
+            .sort({ updatedAt: -1 })
             .select(baseProjection);
 
         if (limitNum > 0) {
@@ -701,8 +788,8 @@ export const getAllWalkinsPublic = async (req, res) => {
         const { startDate, endDate } = req.query;
 
         let filtered = await Walkin.find({})
-            .sort({ createdAt: -1 })
-            .select('date customerName contact functionDate store staff managerName category subCategory functionType remarks repeatCount status storeId employeeId createdBy createdAt updatedAt lastStatusChangeDate statusChangedToday bookingDate rentoutDate returnDate lossReason attachment attachmentName')
+            .sort({ updatedAt: -1 })
+            .select('date customerName contact functionDate store staff managerName category subCategory functionType remarks repeatCount status storeId employeeId createdBy createdAt updatedAt lastStatusChangeDate statusChangedToday bookingDate rentoutDate returnDate cancelDate cancellationDate lossReason attachment attachmentName statusHistory rentalStatus shoeStatus billedDate billReturnedDate')
             .lean();
 
         // Date Range Filter

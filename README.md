@@ -655,3 +655,104 @@ All endpoints require a Bearer JWT token. Full Swagger documentation is availabl
 ### Accessible Employees Dropdown Updates (June 2026)
 - **Admin Accounts Exclusion:** Admin accounts (Super Admin, Admin, HR Admin, Cluster Admin, and Store Admin) are now explicitly excluded/filtered out from the `/api/admin/accessible-employees` response. This prevents administrators from cluttering the standard employee selection dropdown lists.
 - **Dynamic Store Filtering Resolution:** The `/api/admin/accessible-employees` endpoint has been upgraded to support dynamic, multi-store query resolution. It accepts any of `storeId`, `store`, or `locCode` parameters from client applications (such as Flutter). The backend automatically translates these values (whether they are Mongo ObjectIds, Location Codes, or Working Branch names) to resolve the correct store branch and list only its mapped employees, solving filtering issues for multi-store roles (Cluster, HR, and Admin).
+
+---
+
+## Recent Updates (June 2026 — Session 3)
+
+### Walk-In Auto Status Sync — Shoe Sales Flow Added
+
+The existing Walk-In status sync cron job has been extended to support **shoe sales tracking** alongside the existing dress rental tracking. The two flows are fully **independent** — a walk-in can have both a rental status and a shoe status at the same time.
+
+#### External APIs Used (6 total)
+
+| # | API | Status Set |
+|---|---|---|
+| 1 | `GetBookingList` | `Booked` (Rental) |
+| 2 | `GetRentoutList` | `Rentout` (Rental) |
+| 3 | `GetReturnList` | `Return` (Rental) |
+| 4 | `GetDeleteList` | `Cancelled` (Rental) |
+| 5 | `GetBilledList` ✨ NEW | `Billed` (Shoe) |
+| 6 | `GetBillReturnedList` ✨ NEW | `Bill Returned` (Shoe) |
+
+All 6 APIs are fetched in parallel per branch using `Promise.all()` with a 15-second timeout. A `404` from any shoe API is handled gracefully (logged but does not abort the sync for other APIs).
+
+#### Status Hierarchy (Independent Flows)
+
+**Rental Flow** (priority: Cancelled ≥ Return > Rentout > Booked):
+- `Booked` → `Rentout` → `Return` → `Cancelled`
+
+**Shoe Flow** (priority: Bill Returned > Billed):
+- `Billed` → `Bill Returned`
+
+#### Composite Status Display Rules
+
+| Rental Status | Shoe Status | Combined `status` Field |
+|---|---|---|
+| `New Walkin` | `Billed` | `Billed` |
+| `Booked` | _(none)_ | `Booked` |
+| `Booked` | `Billed` | `Booked, Billed` |
+| `Return` | `Bill Returned` | `Return, Bill Returned` |
+| `Cancelled` | _(none)_ | `Cancelled` |
+
+The `status` field on the Walkin document is always recomputed as `getCombinedStatus(rentalStatus, shoeStatus)` whenever either sub-status changes.
+
+#### New Walkin Schema Fields
+
+| Field | Type | Description |
+|---|---|---|
+| `rentalStatus` | String | Rental-only status (`New Walkin`, `Booked`, `Rentout`, `Return`, `Cancelled`) |
+| `shoeStatus` | String | Shoe-only status (`-`, `Billed`, `Bill Returned`) |
+| `billedDate` | Date | Timestamp when shoe was billed (from API) |
+| `billReturnedDate` | Date | Timestamp when shoe bill was returned (from API) |
+
+#### Status History
+
+Every status change (rental or shoe) pushes an entry to `statusHistory`:
+```json
+{ "status": "Billed", "category": "Sales", "date": "2026-06-17T00:00:00.000Z" }
+```
+Rental entries use the walk-in's actual `category` field; Shoe entries always use `category: "Sales"`.
+
+#### CronLog Schema Fix
+
+The `CronLog` schema was updated to correctly persist all sync counters:
+
+**`summary` subdocument** — added:
+- `totalShoeBilled`
+- `totalShoeBillReturned`
+- `totalWalkinsSameStatus`
+- `totalWalkinsSameDayRepeat`
+- `totalWalkinsSkippedHierarchy`
+
+**`branchResults` array** — added:
+- `shoeBilled`
+- `shoeBillReturned`
+- `sameStatus`
+- `sameDayRepeatSkip`
+
+#### Files Modified
+
+| File | Change |
+|---|---|
+| `backend/services/walkinStatusSyncService.js` | Added `GetBilledList` + `GetBillReturnedList` API fetch; independent `phoneShoeMap`; composite status logic |
+| `backend/model/Walkin.js` | Added `shoeStatus`, `billedDate`, `billReturnedDate` fields + indexes |
+| `backend/model/CronLog.js` | Added missing shoe count fields to `summary` and `branchResults` |
+| `backend/controllers/WalkinController.js` | Updated `baseProjection` to include all shoe fields |
+| `frontend/src/pages/Walkin/WalkinList.jsx` | Added `Billed`/`Bill Returned` color badges; shoe dates in history modal |
+| `frontend/src/pages/Walkin/WalkinReport.jsx` | Added shoe status columns and CSV export |
+
+---
+
+### Task Management — Tab Order & Rename
+
+- **Tab order changed:**
+  1. All Tasks _(unchanged)_
+  2. **Extension Requests** _(moved from 3rd to 2nd)_
+  3. **Review Requests** _(renamed from "Requests", moved from 2nd to 3rd)_
+
+- **Admin visibility:** Admins (`super_admin` / `admin`) now see **all** Extension Requests and Review Requests across all users. Non-admin users continue to see only their own submissions.
+
+| File Modified | Change |
+|---|---|
+| `frontend/src/pages/Task/TaskManagement.jsx` | Reordered tab buttons; renamed "Requests" → "Review Requests"; admin now bypasses user-filter for both request types |

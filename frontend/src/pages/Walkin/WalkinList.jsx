@@ -3,7 +3,7 @@ import { useSelector } from 'react-redux';
 import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
 import baseUrl from "../../api/api";
-import { FaChevronLeft, FaChevronRight, FaPen, FaDownload } from 'react-icons/fa';
+import { FaChevronLeft, FaChevronRight, FaPen, FaDownload, FaEye } from 'react-icons/fa';
 
 /* ---------- Normalization and Spelling fixes helpers ---------- */
 const BRAND_TOKENS = new Set(["zorucci", "grooms", "suitor", "guy", "sg"]);
@@ -52,7 +52,9 @@ const FILTER_STATUS_OPTIONS = [
     'Trial',
     'Enquiry',
     'Reissue',
-    'Cancel'
+    'Cancelled',
+    'Billed',
+    'Bill Returned'
 ];
 
 const handleDownloadAndView = (base64Data, filename = 'attachment') => {
@@ -223,6 +225,40 @@ const SALES_SUBCATEGORIES = new Set([
     'Select sub category'
 ]);
 
+const getStatusColors = (statusStr) => {
+    const colors = {
+        'Booked': { bg: '#dcfce7', color: '#16a34a' },
+        'New Booking': { bg: '#dcfce7', color: '#16a34a' },
+        'Revisit Booking': { bg: '#dcfce7', color: '#16a34a' },
+        'Rentout': { bg: '#fce7f3', color: '#be185d' },
+        'Rent Out': { bg: '#fce7f3', color: '#be185d' },
+        'Booking & Rentout': { bg: '#fce7f3', color: '#be185d' },
+        'Return': { bg: '#fef3c7', color: '#d97706' },
+        'Trial': { bg: '#e0e7ff', color: '#4338ca' },
+        'Loss': { bg: '#fee2e2', color: '#dc2626' },
+        'Revisit Loss': { bg: '#fee2e2', color: '#dc2626' },
+        'Cancel': { bg: '#fee2e2', color: '#dc2626' },
+        'Cancelled': { bg: '#fee2e2', color: '#dc2626' },
+        'Enquiry': { bg: '#f3f4f6', color: '#6b7280' },
+        'New Walkin': { bg: '#dbeafe', color: '#2563eb' },
+        'Reissue': { bg: '#ede9fe', color: '#7c3aed' },
+        'Billed': { bg: '#f3e8ff', color: '#7e22ce' },
+        'Bill Returned': { bg: '#fae8ff', color: '#a21caf' }
+    };
+    const s = String(statusStr || '').trim();
+    if (colors[s]) return colors[s];
+    const priorityList = [
+        'Cancelled', 'Cancel', 'Loss', 'Revisit Loss', 'Rentout', 'Rent Out', 
+        'Return', 'Bill Returned', 'Booked', 'New Booking', 'Revisit Booking', 'Billed', 'New Walkin'
+    ];
+    for (const p of priorityList) {
+        if (s.toLowerCase().includes(p.toLowerCase())) {
+            return colors[p];
+        }
+    }
+    return { bg: '#f3f4f6', color: '#6b7280' };
+};
+
 const WalkinList = () => {
     const user = useSelector((state) => state.auth.user);
     const token = localStorage.getItem('token');
@@ -256,6 +292,8 @@ const WalkinList = () => {
     // Toggle state between Walkin List View and dynamic Add Walkin Form Page View matching screenshot
     const [showAddView, setShowAddView] = useState(false);
     const [showStatusModal, setShowStatusModal] = useState(false);
+    const [showHistoryModal, setShowHistoryModal] = useState(false);
+    const [selectedHistoryWalkin, setSelectedHistoryWalkin] = useState(null);
 
 
     // Customer Exists detection
@@ -2160,6 +2198,11 @@ const WalkinList = () => {
         }
     };
 
+    const handleShowHistory = (w) => {
+        setSelectedHistoryWalkin(w);
+        setShowHistoryModal(true);
+    };
+
     // Handle inline status change for walkins
     const handleStatusChange = async (walkinRecord, newStatus) => {
         if (newStatus === 'Loss' || newStatus === 'Revisit') {
@@ -2571,21 +2614,28 @@ const WalkinList = () => {
     const getProductTypeOptions = () => {
         const isCentralAdmin = ['super_admin', 'admin', 'hr_admin', 'cluster_admin'].includes(user?.role);
         let options = [];
-        if (isCentralAdmin) {
-            options = [
-                '2 Piece Suit', '3 Piece Suit', 'Bandgala', 'Indowestern', 'Kurtha', 'Kids Suit',
-                'Lehenga', 'Pakistani Lehenga', 'Arabic Lehenga', 'Gown', 'Body Cons', 'Saree', 'Party Wear', 'Sharara', 'Peplum', 'Jewellery'
-            ];
-        } else {
-            const storeLower = (formData.store || '').toLowerCase().trim();
+        const storeLower = (formData.store || '').toLowerCase().trim();
+
+        if (storeLower) {
             if (storeLower.includes('zorucci') || storeLower.startsWith('z')) {
                 options = [
-                    'Lehenga', 'Pakistani Lehenga', 'Arabic Lehenga', 'Gown', 'Body Cons', 'Saree', 'Party Wear', 'Sharara', 'Peplum', 'Jewellery'
+                    'Lehenga', 'Pakistani Lehenga', 'Arabic Lehenga', 'Gown', 'Body Cons', 'Saree', 'Party Wear', 'Sharara', 'Peplum', 'Jewellery', 'Sales'
+                ];
+            } else {
+                options = ['2 Piece Suit', '3 Piece Suit', 'Bandgala', 'Indowestern', 'Kurtha', 'Kids Suit', 'Sales'];
+            }
+        } else {
+            if (isCentralAdmin) {
+                options = [
+                    '2 Piece Suit', '3 Piece Suit', 'Bandgala', 'Indowestern', 'Kurtha', 'Kids Suit',
+                    'Lehenga', 'Pakistani Lehenga', 'Arabic Lehenga', 'Gown', 'Body Cons', 'Saree', 'Party Wear', 'Sharara', 'Peplum', 'Jewellery',
+                    'Sales'
                 ];
             } else {
                 options = ['2 Piece Suit', '3 Piece Suit', 'Bandgala', 'Indowestern', 'Kurtha', 'Kids Suit', 'Sales'];
             }
         }
+
         if (formData.category === 'Customization') {
             options = options.filter(opt => opt !== 'Sales');
         }
@@ -2994,11 +3044,11 @@ const WalkinList = () => {
                             ) : (
                                 <>
                                     <div style={{ overflowX: 'auto' }}>
-                                        <table style={{ width: '2800px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
+                                        <table style={{ width: '3150px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
                                             <thead>
                                                 <tr style={{ borderBottom: '1px solid #f3f4f6', background: '#fafafa' }}>
-                                                    {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'FUNCTION DATE', 'FUNCTION TYPE', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'SIZE', 'COLOR', 'NOTES', 'STORE', 'STAFF', 'ATTACHMENT', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'REPEAT COUNT', 'STATUS', 'EDIT'].map((h, i) => {
-                                                        const colWidth = 'calc(100% / 23)';
+                                                    {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'REPEAT COUNT', 'STATUS', 'HISTORY', 'FUNCTION DATE', 'FUNCTION TYPE', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'SIZE', 'COLOR', 'NOTES', 'STORE', 'STAFF', 'ATTACHMENT', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'BILLED DATE', 'BILL RETURNED DATE', 'EDIT'].map((h, i) => {
+                                                        const colWidth = 'calc(100% / 26)';
                                                         return (
                                                             <th
                                                                 key={i}
@@ -3024,23 +3074,7 @@ const WalkinList = () => {
                                             </thead>
                                             <tbody>
                                                 {currentItems.map((w, index) => {
-                                                    const statusColors = {
-                                                        'Booked': { bg: '#dcfce7', color: '#16a34a' },
-                                                        'New Booking': { bg: '#dcfce7', color: '#16a34a' },
-                                                        'Revisit Booking': { bg: '#dcfce7', color: '#16a34a' },
-                                                        'Rentout': { bg: '#fce7f3', color: '#be185d' },
-                                                        'Rent Out': { bg: '#fce7f3', color: '#be185d' },
-                                                        'Booking & Rentout': { bg: '#fce7f3', color: '#be185d' },
-                                                        'Return': { bg: '#fef3c7', color: '#d97706' },
-                                                        'Trial': { bg: '#e0e7ff', color: '#4338ca' },
-                                                        'Loss': { bg: '#fee2e2', color: '#dc2626' },
-                                                        'Revisit Loss': { bg: '#fee2e2', color: '#dc2626' },
-                                                        'Cancel': { bg: '#fee2e2', color: '#dc2626' },
-                                                        'Enquiry': { bg: '#f3f4f6', color: '#6b7280' },
-                                                        'New Walkin': { bg: '#dbeafe', color: '#2563eb' },
-                                                        'Reissue': { bg: '#ede9fe', color: '#7c3aed' },
-                                                    };
-                                                    const sc = statusColors[w.status] || { bg: '#f3f4f6', color: '#6b7280' };
+                                                    const sc = getStatusColors(w.status);
 
                                                     const productType = w.lossProductType || '–';
                                                     const notesText = w.notes || '–';
@@ -3099,6 +3133,87 @@ const WalkinList = () => {
                                                                 <div className="walkin-marquee-container">
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.contact ? `+91 ${w.contact}` : '–'}</span>
                                                                 </div>
+                                                            </td>
+                                                            <td style={{ padding: '11px 12px', textAlign: 'center', color: '#374151', boxSizing: 'border-box' }}>{w.repeatCount}</td>
+                                                            <td style={{ padding: '11px 12px', textAlign: 'center', boxSizing: 'border-box' }}>
+                                                                <select
+                                                                    value={w.status || 'New Walkin'}
+                                                                    onChange={(e) => handleStatusChange(w, e.target.value)}
+                                                                    disabled={statusChangedToday[w._id] || updatingStatus[w._id]}
+                                                                    style={{
+                                                                        padding: '4px 6px',
+                                                                        fontSize: '11px',
+                                                                        fontWeight: 900,
+                                                                        border: statusChangedToday[w._id] ? '1px solid #e5e7eb' : '1px solid transparent',
+                                                                        borderRadius: '20px',
+                                                                        backgroundColor: sc.bg,
+                                                                        color: sc.color,
+                                                                        cursor: statusChangedToday[w._id] ? 'not-allowed' : 'pointer',
+                                                                        opacity: statusChangedToday[w._id] ? 0.6 : 1,
+                                                                        transition: 'all 0.2s',
+                                                                        whiteSpace: 'nowrap',
+                                                                        display: 'inline-block',
+                                                                        appearance: 'none',
+                                                                        backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='${sc.color}' stroke-width='2'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+                                                                        backgroundRepeat: 'no-repeat',
+                                                                        backgroundPosition: 'right 4px center',
+                                                                        backgroundSize: '12px',
+                                                                        backgroundAttachment: 'scroll',
+                                                                        paddingRight: '18px',
+                                                                        width: '100%',
+                                                                        boxSizing: 'border-box',
+                                                                        textAlign: 'center',
+                                                                        textAlignLast: 'center'
+                                                                    }}
+                                                                    onMouseEnter={(e) => {
+                                                                        if (!statusChangedToday[w._id] && !updatingStatus[w._id]) {
+                                                                            e.currentTarget.style.border = `1px solid ${sc.color}`;
+                                                                        }
+                                                                    }}
+                                                                    onMouseLeave={(e) => {
+                                                                        if (!statusChangedToday[w._id]) {
+                                                                            e.currentTarget.style.border = '1px solid transparent';
+                                                                        }
+                                                                    }}
+                                                                    title={statusChangedToday[w._id] ? 'Status already changed today. Try again tomorrow.' : 'Change status'}
+                                                                >
+                                                                    {!['New Walkin', 'Loss', 'Revisit'].includes(w.status) && w.status && (
+                                                                        <option value={w.status}>{w.status}</option>
+                                                                    )}
+                                                                    <option value="New Walkin">New Walkin</option>
+                                                                    <option value="Loss">Loss</option>
+                                                                    <option value="Revisit">Revisit</option>
+                                                                </select>
+                                                            </td>
+                                                            <td style={{ padding: '11px 12px', textAlign: 'center', boxSizing: 'border-box' }}>
+                                                                <button
+                                                                    onClick={() => handleShowHistory(w)}
+                                                                    style={{
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                        width: '28px',
+                                                                        height: '28px',
+                                                                        color: '#4b5563',
+                                                                        background: '#f3f4f6',
+                                                                        border: '1px solid #e5e7eb',
+                                                                        borderRadius: '50%',
+                                                                        cursor: 'pointer',
+                                                                        transition: 'all 0.2s',
+                                                                        boxSizing: 'border-box'
+                                                                    }}
+                                                                    onMouseEnter={e => {
+                                                                        e.currentTarget.style.background = '#e5e7eb';
+                                                                        e.currentTarget.style.color = '#111827';
+                                                                    }}
+                                                                    onMouseLeave={e => {
+                                                                        e.currentTarget.style.background = '#f3f4f6';
+                                                                        e.currentTarget.style.color = '#4b5563';
+                                                                    }}
+                                                                    title="View Status Change History"
+                                                                >
+                                                                    <FaEye size={12} />
+                                                                </button>
                                                             </td>
                                                             <td style={{ textAlign: 'center', padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
                                                                 <div className="walkin-marquee-container">
@@ -3201,56 +3316,11 @@ const WalkinList = () => {
                                                             <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', boxSizing: 'border-box' }}>
                                                                 {w.returnDate ? new Date(w.returnDate).toISOString().split('T')[0] : '–'}
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', textAlign: 'center', color: '#374151', boxSizing: 'border-box' }}>{w.repeatCount}</td>
-                                                            <td style={{ padding: '11px 12px', textAlign: 'center', boxSizing: 'border-box' }}>
-                                                                <select
-                                                                    value={w.status || 'New Walkin'}
-                                                                    onChange={(e) => handleStatusChange(w, e.target.value)}
-                                                                    disabled={statusChangedToday[w._id] || updatingStatus[w._id]}
-                                                                    style={{
-                                                                        padding: '4px 6px',
-                                                                        fontSize: '11px',
-                                                                        fontWeight: 900,
-                                                                        border: statusChangedToday[w._id] ? '1px solid #e5e7eb' : '1px solid transparent',
-                                                                        borderRadius: '20px',
-                                                                        backgroundColor: '#fff',
-                                                                        color: sc.color,
-                                                                        cursor: statusChangedToday[w._id] ? 'not-allowed' : 'pointer',
-                                                                        opacity: statusChangedToday[w._id] ? 0.6 : 1,
-                                                                        transition: 'all 0.2s',
-                                                                        whiteSpace: 'nowrap',
-                                                                        display: 'inline-block',
-                                                                        appearance: 'none',
-                                                                        backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='${sc.color}' stroke-width='2'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
-                                                                        backgroundRepeat: 'no-repeat',
-                                                                        backgroundPosition: 'right 4px center',
-                                                                        backgroundSize: '12px',
-                                                                        backgroundAttachment: 'scroll',
-                                                                        paddingRight: '18px',
-                                                                        width: '100%',
-                                                                        boxSizing: 'border-box',
-                                                                        textAlign: 'center',
-                                                                        textAlignLast: 'center'
-                                                                    }}
-                                                                    onMouseEnter={(e) => {
-                                                                        if (!statusChangedToday[w._id] && !updatingStatus[w._id]) {
-                                                                            e.currentTarget.style.border = `1px solid ${sc.color}`;
-                                                                        }
-                                                                    }}
-                                                                    onMouseLeave={(e) => {
-                                                                        if (!statusChangedToday[w._id]) {
-                                                                            e.currentTarget.style.border = '1px solid transparent';
-                                                                        }
-                                                                    }}
-                                                                    title={statusChangedToday[w._id] ? 'Status already changed today. Try again tomorrow.' : 'Change status'}
-                                                                >
-                                                                    {!['New Walkin', 'Loss', 'Revisit'].includes(w.status) && w.status && (
-                                                                        <option value={w.status}>{w.status}</option>
-                                                                    )}
-                                                                    <option value="New Walkin">New Walkin</option>
-                                                                    <option value="Loss">Loss</option>
-                                                                    <option value="Revisit">Revisit</option>
-                                                                </select>
+                                                            <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', boxSizing: 'border-box' }}>
+                                                                {w.billedDate ? new Date(w.billedDate).toISOString().split('T')[0] : '–'}
+                                                            </td>
+                                                            <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', boxSizing: 'border-box' }}>
+                                                                {w.billReturnedDate ? new Date(w.billReturnedDate).toISOString().split('T')[0] : '–'}
                                                             </td>
                                                             <td style={{ padding: '11px 12px', textAlign: 'center', boxSizing: 'border-box' }}>
                                                                 <button
@@ -3485,6 +3555,220 @@ const WalkinList = () => {
                                 className="px-5 py-2.5 text-sm font-semibold text-white bg-gray-800 rounded-lg hover:bg-black transition-colors shadow-sm"
                             >
                                 Save Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Walk-in Status History Modal */}
+            {showHistoryModal && selectedHistoryWalkin && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4 py-6 animate-fade-in">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col border border-gray-100 transform transition-all">
+                        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-gray-50">
+                            <div>
+                                <h3 className="text-base font-bold text-gray-900">Status Change History</h3>
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                    Customer: <span className="font-semibold text-gray-700">{selectedHistoryWalkin.customerName}</span> ({selectedHistoryWalkin.contact})
+                                </p>
+                            </div>
+                            <button onClick={() => { setShowHistoryModal(false); setSelectedHistoryWalkin(null); }} className="text-gray-400 hover:text-gray-600 transition-colors p-1.5 rounded-lg hover:bg-gray-100">
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div className="p-6 overflow-y-auto max-h-[60vh]">
+                            {/* Chronological timeline layout */}
+                            {(() => {
+                                const history = [];
+                                
+                                // Initial visit
+                                const initialDate = selectedHistoryWalkin.createdAt || selectedHistoryWalkin.date;
+                                history.push({
+                                    status: 'New Walkin',
+                                    category: selectedHistoryWalkin.category || '-',
+                                    date: initialDate
+                                });
+
+                                if (selectedHistoryWalkin.statusHistory && selectedHistoryWalkin.statusHistory.length > 0) {
+                                    selectedHistoryWalkin.statusHistory.forEach(h => {
+                                        if (h.status !== 'New Walkin') {
+                                            history.push({
+                                                status: h.status,
+                                                category: h.category || '-',
+                                                date: h.date
+                                            });
+                                        }
+                                    });
+                                }
+
+                                // Helper function to ensure actual DB date overrides sync/manual update date
+                                const ensureOrUpdateStatusDate = (statusNames, targetDate, defaultCategory = null) => {
+                                    if (!targetDate) return;
+                                    const parsedTargetDate = new Date(targetDate);
+                                    if (isNaN(parsedTargetDate.getTime())) return;
+
+                                    const existingIndex = history.findIndex(h => statusNames.map(s => s.toLowerCase()).includes(h.status.toLowerCase().trim()));
+                                    if (existingIndex !== -1) {
+                                        history[existingIndex].date = parsedTargetDate;
+                                    } else {
+                                        history.push({
+                                            status: statusNames[0],
+                                            category: defaultCategory || selectedHistoryWalkin.category || 'Product',
+                                            date: parsedTargetDate
+                                        });
+                                    }
+                                };
+
+                                // Ensure actual date fields are mapped correctly
+                                if (selectedHistoryWalkin.bookingDate) {
+                                    ensureOrUpdateStatusDate(['Booked', 'New Booking', 'Revisit Booking'], selectedHistoryWalkin.bookingDate);
+                                }
+                                if (selectedHistoryWalkin.rentoutDate) {
+                                    ensureOrUpdateStatusDate(['Rentout', 'Rent Out', 'Booking & Rentout'], selectedHistoryWalkin.rentoutDate);
+                                }
+                                if (selectedHistoryWalkin.returnDate) {
+                                    ensureOrUpdateStatusDate(['Return'], selectedHistoryWalkin.returnDate);
+                                }
+                                if (selectedHistoryWalkin.cancelDate || selectedHistoryWalkin.cancellationDate) {
+                                    ensureOrUpdateStatusDate(['Cancel', 'Cancelled'], selectedHistoryWalkin.cancelDate || selectedHistoryWalkin.cancellationDate);
+                                }
+                                if (selectedHistoryWalkin.billedDate) {
+                                    ensureOrUpdateStatusDate(['Billed'], selectedHistoryWalkin.billedDate, 'Sales');
+                                }
+                                if (selectedHistoryWalkin.billReturnedDate) {
+                                    ensureOrUpdateStatusDate(['Bill Returned'], selectedHistoryWalkin.billReturnedDate, 'Sales');
+                                }
+
+                                // Fallback for the current status if not already present in the history
+                                const currentStatus = selectedHistoryWalkin.status || 'New Walkin';
+                                if (currentStatus.includes(',')) {
+                                    const parts = currentStatus.split(',').map(p => p.trim());
+                                    parts.forEach(p => {
+                                        const hasPInHistory = history.some(h => h.status.toLowerCase().trim() === p.toLowerCase().trim());
+                                        if (!hasPInHistory) {
+                                            let statusDate = selectedHistoryWalkin.lastStatusChangeDate || selectedHistoryWalkin.updatedAt;
+                                            let cat = selectedHistoryWalkin.category || '-';
+                                            if (p === 'Booked') statusDate = selectedHistoryWalkin.bookingDate;
+                                            if (p === 'Rentout') statusDate = selectedHistoryWalkin.rentoutDate;
+                                            if (p === 'Return') statusDate = selectedHistoryWalkin.returnDate;
+                                            if (p === 'Cancelled') statusDate = selectedHistoryWalkin.cancelDate || selectedHistoryWalkin.cancellationDate;
+                                            if (p === 'Billed') { statusDate = selectedHistoryWalkin.billedDate; cat = 'Sales'; }
+                                            if (p === 'Bill Returned') { statusDate = selectedHistoryWalkin.billReturnedDate; cat = 'Sales'; }
+
+                                            history.push({
+                                                status: p,
+                                                category: cat,
+                                                date: statusDate || new Date()
+                                            });
+                                        }
+                                    });
+                                } else {
+                                    const hasCurrentInHistory = history.some(h => h.status.toLowerCase().trim() === currentStatus.toLowerCase().trim());
+                                    if (!hasCurrentInHistory && currentStatus !== 'New Walkin') {
+                                        let statusDate = selectedHistoryWalkin.lastStatusChangeDate || selectedHistoryWalkin.updatedAt;
+                                        let cat = selectedHistoryWalkin.category || '-';
+                                        if (currentStatus === 'Booked') statusDate = selectedHistoryWalkin.bookingDate;
+                                        if (currentStatus === 'Rentout') statusDate = selectedHistoryWalkin.rentoutDate;
+                                        if (currentStatus === 'Return') statusDate = selectedHistoryWalkin.returnDate;
+                                        if (currentStatus === 'Cancelled') statusDate = selectedHistoryWalkin.cancelDate || selectedHistoryWalkin.cancellationDate;
+                                        if (currentStatus === 'Billed') { statusDate = selectedHistoryWalkin.billedDate; cat = 'Sales'; }
+                                        if (currentStatus === 'Bill Returned') { statusDate = selectedHistoryWalkin.billReturnedDate; cat = 'Sales'; }
+
+                                        history.push({
+                                            status: currentStatus,
+                                            category: cat,
+                                            date: statusDate || new Date()
+                                        });
+                                    }
+                                }
+
+                                // Parse, sort, and deduplicate consecutive equivalent statuses
+                                const parsedHistory = history.map(item => ({
+                                    status: item.status,
+                                    category: item.category,
+                                    date: item.date ? new Date(item.date) : new Date()
+                                })).sort((a, b) => a.date - b.date);
+
+                                // Filter out consecutive equivalent statuses (no actual change)
+                                const filteredHistory = [];
+                                for (let k = 0; k < parsedHistory.length; k++) {
+                                    const current = parsedHistory[k];
+                                    if (k > 0) {
+                                        const prev = parsedHistory[k - 1];
+                                        const curStatusLower = String(current.status || '').trim().toLowerCase();
+                                        const prevStatusLower = String(prev.status || '').trim().toLowerCase();
+
+                                        const isEquivalent = (curStatusLower === prevStatusLower) ||
+                                            (['cancel', 'cancelled'].includes(curStatusLower) && ['cancel', 'cancelled'].includes(prevStatusLower)) ||
+                                            (['booked', 'new booking', 'revisit booking'].includes(curStatusLower) && ['booked', 'new booking', 'revisit booking'].includes(prevStatusLower)) ||
+                                            (['rentout', 'rent out', 'booking & rentout'].includes(curStatusLower) && ['rentout', 'rent out', 'booking & rentout'].includes(prevStatusLower));
+
+                                        if (isEquivalent) {
+                                            continue;
+                                        }
+                                    }
+                                    filteredHistory.push(current);
+                                }
+
+                                if (filteredHistory.length === 0) {
+                                    return <div className="text-center text-sm text-gray-500 py-6">No status change history found.</div>;
+                                }
+
+                                return (
+                                    <div className="relative border-l border-gray-200 ml-3 pl-6 space-y-6">
+                                        {filteredHistory.map((item, idx) => {
+                                            const sc = getStatusColors(item.status);
+
+                                            return (
+                                                <div key={idx} className="relative">
+                                                    {/* Timeline marker */}
+                                                    <span className="absolute -left-[30px] top-1 flex h-3 w-3 items-center justify-center rounded-full bg-white border border-gray-300">
+                                                        <span className="h-1.5 w-1.5 rounded-full bg-gray-400" />
+                                                    </span>
+                                                    <div className="flex flex-col gap-1">
+                                                        <div className="flex items-center gap-3">
+                                                            <span style={{
+                                                                background: sc.bg,
+                                                                color: sc.color,
+                                                                borderRadius: '20px',
+                                                                padding: '2px 8px',
+                                                                fontSize: '9px',
+                                                                fontWeight: 800,
+                                                                whiteSpace: 'nowrap',
+                                                                display: 'inline-block'
+                                                            }}>
+                                                                {item.status.toUpperCase()}{item.category && item.category.trim() !== '' && item.category.trim() !== '-' && item.category.trim().toLowerCase() !== 'none' && item.category.trim().toLowerCase() !== 'select category' ? ` (${item.category})` : ''}
+                                                            </span>
+                                                            {idx === filteredHistory.length - 1 && (
+                                                                <span className="text-[9px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded font-semibold">Active</span>
+                                                            )}
+                                                        </div>
+                                                        <span className="text-[11px] text-gray-500 font-medium">
+                                                            {item.date.toLocaleString('en-IN', {
+                                                                day: '2-digit',
+                                                                month: 'short',
+                                                                year: 'numeric',
+                                                                hour: '2-digit',
+                                                                minute: '2-digit',
+                                                                hour12: true
+                                                            })}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                        <div className="px-6 py-4 border-t border-gray-100 flex justify-end bg-gray-50 rounded-b-2xl">
+                            <button
+                                onClick={() => { setShowHistoryModal(false); setSelectedHistoryWalkin(null); }}
+                                className="px-4 py-2 text-xs font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all cursor-pointer shadow-xs"
+                            >
+                                Close
                             </button>
                         </div>
                     </div>
