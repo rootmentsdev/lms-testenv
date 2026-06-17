@@ -59,7 +59,7 @@ const getStatusRank = (status) => {
  */
 export const syncWalkinStatuses = async () => {
     if (isSyncInProgress) {
-        console.log('⚠️ [Walkin Status Sync] Previous sync job is still running. Skipping this execution.');
+        console.log('⚠️ [Walkin Status Sync] Sync Skipped (Already Running).');
         return {
             success: false,
             message: 'Sync job is already in progress.'
@@ -68,7 +68,7 @@ export const syncWalkinStatuses = async () => {
 
     isSyncInProgress = true;
     const jobStartedAt = new Date();
-    console.log('🔄 [Walkin Status Sync] Job started at:', jobStartedAt.toISOString());
+    console.log('🔄 [Walkin Status Sync] Sync Started at:', jobStartedAt.toISOString());
 
     const dateFrom = getPastDateString(7); // Last 7 days (Today - 7)
     const dateTo = getPastDateString(0);   // Today (Today - 0)
@@ -91,6 +91,8 @@ export const syncWalkinStatuses = async () => {
         let totalWalkinsSameStatus = 0;
         let totalWalkinsSameDayRepeat = 0;
         let totalWalkinsSkippedHierarchy = 0;
+        let totalStatusChanges = 0;
+        let totalRepeatCountChanges = 0;
         const errorsList = [];
         const branchResultsList = [];
 
@@ -219,17 +221,20 @@ export const syncWalkinStatuses = async () => {
                 let branchWalkinsSkippedHierarchy = 0;
 
                 if (normalizedPhones.length > 0) {
-                    const queryPhones = [];
+                    const queryFilters = [];
                     for (const p of normalizedPhones) {
-                        queryPhones.push(p);
-                        queryPhones.push(`+91${p}`);
-                        queryPhones.push(`91${p}`);
-                        queryPhones.push(`0${p}`);
+                        queryFilters.push({ contact: p });
+                        queryFilters.push({ contact: `+91${p}` });
+                        queryFilters.push({ contact: `91${p}` });
+                        queryFilters.push({ contact: `0${p}` });
+                        
+                        const regexStr = p.split('').join('\\D*') + '$';
+                        queryFilters.push({ contact: { $regex: regexStr } });
                     }
 
                     const walkins = await Walkin.find({
-                        contact: { $in: queryPhones },
-                        storeId: storeId
+                        storeId: storeId,
+                        $or: queryFilters
                     }).sort({ createdAt: -1 });
 
                     const walkinMap = new Map();
@@ -421,19 +426,30 @@ export const syncWalkinStatuses = async () => {
                                     walkin.date.substring(0, 10) :
                                     (walkin.createdAt ? getLocalDateStringIST(walkin.createdAt) : null);
 
-                                let shouldIncrementRepeat = false;
-                                if (walkinDateStr && walkinDateStr !== todayDateStr) {
-                                    const isCancelledChange = rentalStatusChanged && (walkin.rentalStatus === 'Cancelled');
-                                    if (!isCancelledChange) {
-                                        shouldIncrementRepeat = true;
-                                    }
-                                }
+                                if (rentalStatusChanged || shoeStatusChanged) {
+                                    totalStatusChanges++;
+                                    const getCombinedStatus = (rental, shoe) => {
+                                        const r = (rental || 'New Walkin').trim();
+                                        const s = (shoe || '').trim();
+                                        if (!s || s === '-' || s === 'None') return r;
+                                        if (r === 'New Walkin' || r === '-') return s;
+                                        return `${r}, ${s}`;
+                                    };
+                                    const nextCombinedStatus = getCombinedStatus(walkin.rentalStatus, walkin.shoeStatus);
+                                    
+                                    const isCancelled = walkin.rentalStatus === 'Cancelled' || walkin.rentalStatus === 'Cancel' || 
+                                                        nextCombinedStatus.includes('Cancelled') || nextCombinedStatus.includes('Cancel');
 
-                                if (shouldIncrementRepeat) {
-                                    walkin.repeatCount = (walkin.repeatCount || 1) + 1;
-                                } else if (walkinDateStr === todayDateStr) {
-                                    branchWalkinsSameDayRepeat++;
-                                    totalWalkinsSameDayRepeat++;
+                                    if (walkinDateStr && walkinDateStr !== todayDateStr) {
+                                        if (!isCancelled) {
+                                            walkin.repeatCount = (walkin.repeatCount || 1) + 1;
+                                            totalRepeatCountChanges++;
+                                            console.log(`📈 [Walkin Status Sync] Incrementing repeatCount to ${walkin.repeatCount} for ...${normalizedPhone.slice(-4)}`);
+                                        }
+                                    } else if (walkinDateStr === todayDateStr) {
+                                        branchWalkinsSameDayRepeat++;
+                                        totalWalkinsSameDayRepeat++;
+                                    }
                                 }
 
                                 // Recalculate combined status
@@ -446,7 +462,11 @@ export const syncWalkinStatuses = async () => {
                                 };
 
                                 walkin.status = getCombinedStatus(walkin.rentalStatus, walkin.shoeStatus);
-                                await walkin.save();
+                                if (rentalStatusChanged || shoeStatusChanged) {
+                                    await walkin.save();
+                                } else {
+                                    await walkin.save({ timestamps: false });
+                                }
 
                                 branchWalkinsUpdated++;
                                 totalWalkinsUpdated++;
@@ -495,6 +515,8 @@ export const syncWalkinStatuses = async () => {
           - Total Shoe Bill Returned processed: ${totalShoeBillReturned}
           - Total Walk-ins matched: ${totalWalkinsMatched}
           - Total Walk-ins updated: ${totalWalkinsUpdated}
+          - Total Status Changes: ${totalStatusChanges}
+          - Total Repeat Count Changes: ${totalRepeatCountChanges}
           - Total Walk-ins skipped (same status): ${totalWalkinsSameStatus}
           - Total Walk-ins skipped (same day repeat): ${totalWalkinsSameDayRepeat}
           - Total Walk-ins skipped (hierarchy): ${totalWalkinsSkippedHierarchy}
@@ -519,6 +541,8 @@ export const syncWalkinStatuses = async () => {
                     totalShoeBillReturned,
                     totalWalkinsMatched,
                     totalWalkinsUpdated,
+                    totalStatusChanges,
+                    totalRepeatCountChanges,
                     totalWalkinsSameStatus,
                     totalWalkinsSameDayRepeat,
                     totalWalkinsSkippedHierarchy,
@@ -532,6 +556,8 @@ export const syncWalkinStatuses = async () => {
             console.error('⚠️ [Walkin Status Sync] Failed to save run log to DB:', logErr.message);
         }
 
+        console.log('🏁 [Walkin Status Sync] Sync Completed.');
+
         return {
             success: true,
             summary: {
@@ -540,6 +566,8 @@ export const syncWalkinStatuses = async () => {
                 totalReturns,
                 totalDeletes,
                 totalWalkinsUpdated,
+                totalStatusChanges,
+                totalRepeatCountChanges,
                 totalWalkinsSameStatus,
                 totalWalkinsSameDayRepeat,
                 totalWalkinsSkippedHierarchy,
@@ -548,6 +576,26 @@ export const syncWalkinStatuses = async () => {
             }
         };
 
+    } catch (error) {
+        console.error('❌ [Walkin Status Sync] Sync Failed:', error);
+
+        // ── Persist error run log to DB ──
+        try {
+            await CronLog.create({
+                jobType: 'walkin_status_sync',
+                status: 'error',
+                startedAt: jobStartedAt,
+                completedAt: new Date(),
+                durationMs: new Date() - jobStartedAt,
+                errorMessage: error.message,
+                errorDetails: [{ branch: 'All', type: 'Fatal', error: error.message }],
+            });
+            console.log('💾 [Walkin Status Sync] Error run log saved to DB.');
+        } catch (logErr) {
+            console.error('⚠️ [Walkin Status Sync] Failed to save error run log to DB:', logErr.message);
+        }
+
+        throw error;
     } finally {
         isSyncInProgress = false;
     }
