@@ -446,10 +446,11 @@ export const saveWalkin = async (req, res) => {
                         });
                     }
 
-                    // Only increment repeatCount if the status change happens on a DIFFERENT day
+                    // Only increment repeatCount if the status change happens on a DIFFERENT day and is not Cancelled
                     const existingDateStr = walkinRecord.date ? walkinRecord.date.substring(0, 10) : null;
                     const todayDateStr = todayStr.substring(0, 10);
-                    if (existingDateStr !== todayDateStr) {
+                    const isCancelled = trimmedStatus === 'Cancelled' || trimmedStatus === 'Cancel' || trimmedStatus.includes('Cancelled') || trimmedStatus.includes('Cancel');
+                    if (existingDateStr !== todayDateStr && !isCancelled) {
                         walkinRecord.repeatCount = (walkinRecord.repeatCount || 1) + 1;
                     }
 
@@ -500,10 +501,11 @@ export const saveWalkin = async (req, res) => {
                     });
                 }
 
-                // Only increment repeatCount if status change happens on a DIFFERENT day than last recorded
+                // Only increment repeatCount if status change happens on a DIFFERENT day than last recorded and is not Cancelled
                 const existingDateStr = walkinRecord.date ? walkinRecord.date.substring(0, 10) : null;
                 const todayDateStr = todayStr.substring(0, 10);
-                if (existingDateStr !== todayDateStr) {
+                const isCancelled = status.trim() === 'Cancelled' || status.trim() === 'Cancel' || status.trim().includes('Cancelled') || status.trim().includes('Cancel');
+                if (existingDateStr !== todayDateStr && !isCancelled) {
                     walkinRecord.repeatCount += 1;
                 }
             }
