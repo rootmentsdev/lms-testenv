@@ -319,6 +319,12 @@ router.post('/save', OptionalMiddilWare, saveWalkin);
  *                             date:
  *                               type: string
  *                               format: date-time
+ *       401:
+ *         description: Unauthorized - Missing or invalid token
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/list', MiddilWare, getWalkins);
 
 /**
  * @swagger
