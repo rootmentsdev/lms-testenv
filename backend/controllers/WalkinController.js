@@ -431,9 +431,11 @@ export const saveWalkin = async (req, res) => {
             }
             if (remarks) walkinRecord.remarks = remarks.trim();
             setOptionalLossFields(walkinRecord);
+            let statusChanged = false;
             if (status) {
                 const trimmedStatus = status.trim();
                 if (walkinRecord.status !== trimmedStatus) {
+                    statusChanged = true;
                     // Check if status was already changed today
                     const currentTodayIST = getLocalDateStringIST(new Date());
                     const lastChangeIST = getLocalDateStringIST(walkinRecord.lastStatusChangeDate);
@@ -464,7 +466,11 @@ export const saveWalkin = async (req, res) => {
             if (createdBy) walkinRecord.createdBy = createdBy;
             walkinRecord.date = todayStr; // Update visit date to the requested value
 
-            await walkinRecord.save();
+            if (statusChanged) {
+                await walkinRecord.save();
+            } else {
+                await walkinRecord.save({ timestamps: false });
+            }
             return res.status(200).json({
                 success: true,
                 message: 'Walk-in updated successfully',
@@ -488,8 +494,10 @@ export const saveWalkin = async (req, res) => {
         );
 
         if (walkinRecord && status !== 'New Walkin' && isSameStore) {
+            let statusChanged = false;
             // Check if status was already changed today
             if (status && status.trim() !== walkinRecord.status) {
+                statusChanged = true;
                 const currentTodayIST = getLocalDateStringIST(new Date());
                 const lastChangeIST = getLocalDateStringIST(walkinRecord.lastStatusChangeDate);
 
@@ -541,7 +549,11 @@ export const saveWalkin = async (req, res) => {
             if (createdBy) walkinRecord.createdBy = createdBy;
             walkinRecord.date = todayStr; // Update to latest visit date
 
-            await walkinRecord.save();
+            if (statusChanged) {
+                await walkinRecord.save();
+            } else {
+                await walkinRecord.save({ timestamps: false });
+            }
             return res.status(200).json({
                 success: true,
                 message: 'Existing walk-in updated successfully',
