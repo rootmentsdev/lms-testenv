@@ -265,7 +265,11 @@ export const syncWalkinStatuses = async () => {
                                 for (const key of priorityKeys) {
                                     const val = itemKeyMap[key.toLowerCase()];
                                     if (val) {
-                                        const d = new Date(val);
+                                        let dateStr = String(val).trim();
+                                        if (!dateStr.endsWith('Z') && !dateStr.includes('+') && !dateStr.includes('-') && dateStr.includes('T')) {
+                                            dateStr = dateStr + '+05:30';
+                                        }
+                                        const d = new Date(dateStr);
                                         if (!isNaN(d.getTime())) return d;
                                     }
                                 }
