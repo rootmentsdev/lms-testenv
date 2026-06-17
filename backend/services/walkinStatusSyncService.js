@@ -147,6 +147,14 @@ export const syncWalkinStatuses = async () => {
                 totalShoeBilled += shoeBilled.length;
                 totalShoeBillReturned += shoeBillReturned.length;
 
+                // Specific API maps to source exact dates from their respective endpoints
+                const bookingMap = new Map();
+                const rentoutMap = new Map();
+                const returnMap = new Map();
+                const cancelMap = new Map();
+                const shoeBilledMap = new Map();
+                const shoeBillReturnedMap = new Map();
+
                 // Priority Maps: rental statuses and shoe statuses are independent
                 const phoneRentalMap = new Map();
                 const phoneShoeMap = new Map();
@@ -154,29 +162,47 @@ export const syncWalkinStatuses = async () => {
                 // 1. Rental Flow Mapping (Priority: Cancelled > Return > Rentout > Booked)
                 for (const item of bookings) {
                     const phone = normalizePhone(extractPhoneNumber(item));
-                    if (phone) phoneRentalMap.set(phone, { status: 'Booked', item });
+                    if (phone) {
+                        bookingMap.set(phone, item);
+                        phoneRentalMap.set(phone, { status: 'Booked', item });
+                    }
                 }
                 for (const item of rentouts) {
                     const phone = normalizePhone(extractPhoneNumber(item));
-                    if (phone) phoneRentalMap.set(phone, { status: 'Rentout', item });
+                    if (phone) {
+                        rentoutMap.set(phone, item);
+                        phoneRentalMap.set(phone, { status: 'Rentout', item });
+                    }
                 }
                 for (const item of returns) {
                     const phone = normalizePhone(extractPhoneNumber(item));
-                    if (phone) phoneRentalMap.set(phone, { status: 'Return', item });
+                    if (phone) {
+                        returnMap.set(phone, item);
+                        phoneRentalMap.set(phone, { status: 'Return', item });
+                    }
                 }
                 for (const item of deletes) {
                     const phone = normalizePhone(extractPhoneNumber(item));
-                    if (phone) phoneRentalMap.set(phone, { status: 'Cancelled', item });
+                    if (phone) {
+                        cancelMap.set(phone, item);
+                        phoneRentalMap.set(phone, { status: 'Cancelled', item });
+                    }
                 }
 
                 // 2. Shoe Flow Mapping (Priority: Bill Returned > Billed)
                 for (const item of shoeBilled) {
                     const phone = normalizePhone(extractPhoneNumber(item));
-                    if (phone) phoneShoeMap.set(phone, { status: 'Billed', item });
+                    if (phone) {
+                        shoeBilledMap.set(phone, item);
+                        phoneShoeMap.set(phone, { status: 'Billed', item });
+                    }
                 }
                 for (const item of shoeBillReturned) {
                     const phone = normalizePhone(extractPhoneNumber(item));
-                    if (phone) phoneShoeMap.set(phone, { status: 'Bill Returned', item });
+                    if (phone) {
+                        shoeBillReturnedMap.set(phone, item);
+                        phoneShoeMap.set(phone, { status: 'Bill Returned', item });
+                    }
                 }
 
                 // Gather union of all phones to check walk-ins in DB
@@ -224,10 +250,17 @@ export const syncWalkinStatuses = async () => {
                             let rentalStatusChanged = false;
                             let shoeStatusChanged = false;
 
-                            const extractDateValue = (itm, keys) => {
-                                for (const key of Object.keys(itm)) {
-                                    if (keys.includes(key.toLowerCase()) && itm[key]) {
-                                        const d = new Date(itm[key]);
+                            // Iterates the priority list first so the most specific field wins.
+                            // Case-insensitive: 'rentOutDate' matches key 'rentoutdate' in the list.
+                            const extractDateValue = (itm, priorityKeys) => {
+                                const itemKeyMap = {};
+                                for (const k of Object.keys(itm)) {
+                                    itemKeyMap[k.toLowerCase()] = itm[k];
+                                }
+                                for (const key of priorityKeys) {
+                                    const val = itemKeyMap[key.toLowerCase()];
+                                    if (val) {
+                                        const d = new Date(val);
                                         if (!isNaN(d.getTime())) return d;
                                     }
                                 }
@@ -238,8 +271,45 @@ export const syncWalkinStatuses = async () => {
                             const rentalInfo = phoneRentalMap.get(normalizedPhone);
                             if (rentalInfo) {
                                 const targetRentalStatus = rentalInfo.status;
-                                const item = rentalInfo.item;
                                 const currentRentalStatus = walkin.rentalStatus || walkin.status || 'New Walkin';
+
+                                // Sourced dates strictly from their specific API endpoints
+                                const bookingItem = bookingMap.get(normalizedPhone);
+                                if (bookingItem) {
+                                    const bDate = extractDateValue(bookingItem, ['bookingDate', 'bookingdate', 'booking_date', 'bookeddate']);
+                                    if (bDate && (!walkin.bookingDate || walkin.bookingDate.getTime() !== bDate.getTime())) {
+                                        walkin.bookingDate = bDate;
+                                        docUpdated = true;
+                                    }
+                                }
+
+                                const rentoutItem = rentoutMap.get(normalizedPhone);
+                                if (rentoutItem) {
+                                    const roDate = extractDateValue(rentoutItem, ['rentOutDate', 'rentoutdate', 'rent_out_date', 'rentdate']);
+                                    if (roDate && (!walkin.rentoutDate || walkin.rentoutDate.getTime() !== roDate.getTime())) {
+                                        walkin.rentoutDate = roDate;
+                                        docUpdated = true;
+                                    }
+                                }
+
+                                const returnItem = returnMap.get(normalizedPhone);
+                                if (returnItem) {
+                                    const retDate = extractDateValue(returnItem, ['returnedDate', 'returneddate', 'returndate', 'return_date']);
+                                    if (retDate && (!walkin.returnDate || walkin.returnDate.getTime() !== retDate.getTime())) {
+                                        walkin.returnDate = retDate;
+                                        docUpdated = true;
+                                    }
+                                }
+
+                                const cancelItem = cancelMap.get(normalizedPhone);
+                                if (cancelItem) {
+                                    const cDate = extractDateValue(cancelItem, ['cancelDate', 'canceldate', 'cancellationdate', 'cancelleddate']);
+                                    if (cDate && (!walkin.cancelDate || walkin.cancelDate.getTime() !== cDate.getTime())) {
+                                        walkin.cancelDate = cDate;
+                                        walkin.cancellationDate = cDate;
+                                        docUpdated = true;
+                                    }
+                                }
 
                                 const normalizeStatusForCompare = (s) => {
                                     const val = String(s || '').trim().toLowerCase();
@@ -257,19 +327,15 @@ export const syncWalkinStatuses = async () => {
                                         rentalStatusChanged = true;
                                         docUpdated = true;
 
+                                        let matchedDate = null;
                                         if (targetRentalStatus === 'Booked') {
-                                            const bDate = extractDateValue(item, ['bookingdate', 'booking_date', 'bookeddate', 'date']);
-                                            walkin.bookingDate = bDate || new Date();
+                                            matchedDate = walkin.bookingDate;
                                         } else if (targetRentalStatus === 'Rentout') {
-                                            const roDate = extractDateValue(item, ['rentoutdate', 'rent_out_date', 'rentdate', 'date']);
-                                            walkin.rentoutDate = roDate || new Date();
+                                            matchedDate = walkin.rentoutDate;
                                         } else if (targetRentalStatus === 'Return') {
-                                            const retDate = extractDateValue(item, ['returneddate', 'returndate', 'return_date', 'date']);
-                                            walkin.returnDate = retDate || new Date();
+                                            matchedDate = walkin.returnDate;
                                         } else if (targetRentalStatus === 'Cancelled') {
-                                            const cDate = extractDateValue(item, ['canceldate', 'cancellationdate', 'cancelleddate', 'date']);
-                                            walkin.cancelDate = cDate || new Date();
-                                            walkin.cancellationDate = cDate || new Date();
+                                            matchedDate = walkin.cancelDate;
                                         }
 
                                         if (!walkin.statusHistory) {
@@ -278,7 +344,7 @@ export const syncWalkinStatuses = async () => {
                                         walkin.statusHistory.push({
                                             status: targetRentalStatus,
                                             category: walkin.category && walkin.category !== '-' ? walkin.category : 'Product',
-                                            date: new Date()
+                                            date: matchedDate || new Date()
                                         });
                                         console.log(`✅ [Walkin Status Sync] Rental Flow update for ...${normalizedPhone.slice(-4)}: ${oldRental} ➔ ${targetRentalStatus}`);
                                     } else {
@@ -293,8 +359,25 @@ export const syncWalkinStatuses = async () => {
                             const shoeInfo = phoneShoeMap.get(normalizedPhone);
                             if (shoeInfo) {
                                 const targetShoeStatus = shoeInfo.status;
-                                const item = shoeInfo.item;
                                 const currentShoeStatus = walkin.shoeStatus || '-';
+
+                                const shoeBilledItem = shoeBilledMap.get(normalizedPhone);
+                                if (shoeBilledItem) {
+                                    const bldDate = extractDateValue(shoeBilledItem, ['billedDate', 'billingDate', 'billeddate', 'billdate', 'billingdate']);
+                                    if (bldDate && (!walkin.billedDate || walkin.billedDate.getTime() !== bldDate.getTime())) {
+                                        walkin.billedDate = bldDate;
+                                        docUpdated = true;
+                                    }
+                                }
+
+                                const shoeBillReturnedItem = shoeBillReturnedMap.get(normalizedPhone);
+                                if (shoeBillReturnedItem) {
+                                    const brDate = extractDateValue(shoeBillReturnedItem, ['billReturnedDate', 'returnedDate', 'billreturneddate', 'returneddate', 'returndate']);
+                                    if (brDate && (!walkin.billReturnedDate || walkin.billReturnedDate.getTime() !== brDate.getTime())) {
+                                        walkin.billReturnedDate = brDate;
+                                        docUpdated = true;
+                                    }
+                                }
 
                                 if (currentShoeStatus !== targetShoeStatus) {
                                     const getShoeStatusRank = (s) => {
@@ -310,12 +393,11 @@ export const syncWalkinStatuses = async () => {
                                         shoeStatusChanged = true;
                                         docUpdated = true;
 
+                                        let matchedShoeDate = null;
                                         if (targetShoeStatus === 'Billed') {
-                                            const bldDate = extractDateValue(item, ['billeddate', 'billdate', 'billingdate', 'date']);
-                                            walkin.billedDate = bldDate || new Date();
+                                            matchedShoeDate = walkin.billedDate;
                                         } else if (targetShoeStatus === 'Bill Returned') {
-                                            const brDate = extractDateValue(item, ['billreturneddate', 'returneddate', 'returndate', 'date']);
-                                            walkin.billReturnedDate = brDate || new Date();
+                                            matchedShoeDate = walkin.billReturnedDate;
                                         }
 
                                         if (!walkin.statusHistory) {
@@ -324,7 +406,7 @@ export const syncWalkinStatuses = async () => {
                                         walkin.statusHistory.push({
                                             status: targetShoeStatus,
                                             category: 'Sales',
-                                            date: new Date()
+                                            date: matchedShoeDate || new Date()
                                         });
                                         console.log(`✅ [Walkin Status Sync] Shoe Flow update for ...${normalizedPhone.slice(-4)}: ${oldShoe} ➔ ${targetShoeStatus}`);
                                     } else {

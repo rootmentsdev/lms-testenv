@@ -71,7 +71,7 @@ const cronLogSchema = new mongoose.Schema(
         errorDetails: [
             {
                 branch: String,
-                type:   String,
+                type:   { type: String },
                 error:  String,
             }
         ],

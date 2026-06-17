@@ -3739,7 +3739,12 @@ const WalkinList = () => {
                                                                 whiteSpace: 'nowrap',
                                                                 display: 'inline-block'
                                                             }}>
-                                                                {item.status.toUpperCase()}{item.category && item.category.trim() !== '' && item.category.trim() !== '-' && item.category.trim().toLowerCase() !== 'none' && item.category.trim().toLowerCase() !== 'select category' ? ` (${item.category})` : ''}
+                                                                {(() => {
+                                                                    const statusLower = (item.status || '').toLowerCase();
+                                                                    const shouldShowCat = statusLower.includes('loss') || statusLower.includes('lost') || statusLower.includes('revisit');
+                                                                    const hasValidCat = item.category && item.category.trim() !== '' && item.category.trim() !== '-' && item.category.trim().toLowerCase() !== 'none' && item.category.trim().toLowerCase() !== 'select category';
+                                                                    return `${item.status.toUpperCase()}${shouldShowCat && hasValidCat ? ` (${item.category})` : ''}`;
+                                                                })()}
                                                             </span>
                                                             {idx === filteredHistory.length - 1 && (
                                                                 <span className="text-[9px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded font-semibold">Active</span>
