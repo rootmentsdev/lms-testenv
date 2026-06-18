@@ -415,7 +415,7 @@ The Brynex LMS features a comprehensively documented backend. Swagger UI is avai
       - Reason 'product already booked': `[product already booked] Product: <product_type> | Size: <size> | Colour: <colour> | Note: <note>`
       - Reason 'design and colour not available': `[design and colour not available] Product: <product_type> | Note: <note>` (Legacy formats `[design and color unavailable]` and `[Model, Design and Colour Not Available]` are also parsed correctly)
       - Reason 'price': `[price] Remarks: <price_too_high_or_budget_restriction> | Note: <note>`
-      - Reason 'enquiry': `[enquiry] Note: <note>` (Commented/Disabled)
+      - Reason 'enquiry': `[enquiry] Revisit Date: <revisit_date> | Note: <note>` — Requires Next Visit Date selection before notes
       - Reason 'size': `[size] Product: <product_type> | Size: <size> | Note: <note>`
     - **Category: Dapper Squad (Sales):**
       - Format: `[Sales] Sub Category: <shoe_or_shirt> | Size: <size> | Colour: <colour> | Price: <price> | Note: <note>`
@@ -705,6 +705,7 @@ The `status` field on the Walkin document is always recomputed as `getCombinedSt
 | `shoeStatus` | String | Shoe-only status (`-`, `Billed`, `Bill Returned`) |
 | `billedDate` | Date | Timestamp when shoe was billed (from API) |
 | `billReturnedDate` | Date | Timestamp when shoe bill was returned (from API) |
+| `invoiceNo` | String | Invoice number assigned by auto-sync from external rental/billing APIs. Used as the primary key for matching walk-ins to external API records. |
 
 #### Status History
 
@@ -735,7 +736,7 @@ The `CronLog` schema was updated to correctly persist all sync counters:
 
 | File | Change |
 |---|---|
-| `backend/services/walkinStatusSyncService.js` | Added `GetBilledList` + `GetBillReturnedList` API fetch; independent `phoneShoeMap`; composite status logic |
+| `backend/services/walkinStatusSyncService.js` | Rewritten to use **invoice-based matching** (rental flow) + phone-based matching (shoe flow); added `invoiceNo` first-time assignment; `extractInvoiceNo` and `getCombinedStatus` helpers |
 | `backend/model/Walkin.js` | Added `shoeStatus`, `billedDate`, `billReturnedDate` fields + indexes |
 | `backend/model/CronLog.js` | Added missing shoe count fields to `summary` and `branchResults` |
 | `backend/controllers/WalkinController.js` | Updated `baseProjection` to include all shoe fields |
@@ -756,3 +757,50 @@ The `CronLog` schema was updated to correctly persist all sync counters:
 | File Modified | Change |
 |---|---|
 | `frontend/src/pages/Task/TaskManagement.jsx` | Reordered tab buttons; renamed "Requests" → "Review Requests"; admin now bypasses user-filter for both request types |
+
+---
+
+## Recent Updates (June 2026 — Session 4)
+
+### Walk-In Sync — Invoice-Based Matching
+
+The walk-in auto-sync cron service has been rewritten to use **invoice number** as the primary matching key for the rental flow (Booking, Rentout, Return, Cancel APIs). The shoe flow (Billed, Bill Returned) continues using phone-based matching.
+
+#### How Invoice Matching Works
+
+1. **First sync:** When a walk-in with no `invoiceNo` is matched to an external API record (by phone number + date proximity), the invoice number from the API response is extracted and saved to the walk-in.
+2. **Subsequent syncs:** Walk-ins with an `invoiceNo` are looked up directly by invoice number — no phone/date matching needed.
+3. **Invoice extraction:** The `extractInvoiceNo()` helper reads the invoice number from whichever key the external API provides (`invoiceno`, `invoice_no`, `invoice`, `billno`, `bill_no`).
+
+#### New Schema Field
+
+| Field | Type | Description |
+|---|---|---|
+| `invoiceNo` | String | Invoice number from external APIs. Sparse index + compound index with `storeId`. |
+
+#### Files Modified
+
+| File | Change |
+|---|---|
+| `backend/model/Walkin.js` | Added `invoiceNo` field with sparse + compound indexes |
+| `backend/services/walkinStatusSyncService.js` | Full rewrite: invoice-based matching, `extractInvoiceNo()` + `getCombinedStatus()` helpers |
+| `backend/controllers/WalkinController.js` | Added `invoiceNo` to `baseProjection` |
+| `backend/routes/WalkinRoute.js` | Added `invoiceNo` to Swagger save schema and list response schema; updated sync description |
+
+---
+
+### Dapper Squad — Enquiry Reason with Next Visit Date
+
+The **Enquiry** option has been enabled in the Dapper Squad category's "Select Reason" dropdown. When selected, a **Next Visit Date** date picker (required) is shown before the optional Note field.
+
+#### Changes
+
+- **Dropdown:** Uncommented `'Enquiry'` in `getSubCategoryOptions()` for Dapper Squad non-sales flow
+- **Form UI:** When `lossReason === 'Enquiry'`, renders a required date picker (`lossEnquiryRevisitDate`) followed by an optional Note textarea
+- **Validation:** Added validation check — submitting with Enquiry selected but no revisit date shows an alert
+- **Remarks format:** `[enquiry] Revisit Date: <date> | Note: <note>`
+- **Backend:** No API changes needed — `lossEnquiryRevisitDate` and `lossReason` fields were already handled generically by the controller
+
+| File | Change |
+|---|---|
+| `frontend/src/pages/Walkin/WalkinList.jsx` | Enabled Enquiry option; added Next Visit Date picker; added validation |
