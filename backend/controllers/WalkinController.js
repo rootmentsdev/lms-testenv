@@ -706,7 +706,7 @@ export const getWalkins = async (req, res) => {
         }
 
         // 3. Fetch filtered walkins directly from MongoDB
-        const baseProjection = 'date customerName contact functionDate store staff managerName category subCategory functionType remarks repeatCount status storeId employeeId createdBy createdAt updatedAt lastStatusChangeDate statusChangedToday bookingDate rentoutDate returnDate cancelDate cancellationDate lossReason lossProductType lossSize lossColour lossSalesPrice lossSelectRemarks lossEnquiryTrailOption lossEnquiryRevisitDate notes attachment attachmentName statusHistory rentalStatus shoeStatus billedDate billReturnedDate';
+        const baseProjection = 'date customerName contact functionDate store staff managerName category subCategory functionType remarks repeatCount status storeId employeeId createdBy createdAt updatedAt lastStatusChangeDate statusChangedToday bookingDate rentoutDate returnDate cancelDate cancellationDate lossReason lossProductType lossSize lossColour lossSalesPrice lossSelectRemarks lossEnquiryTrailOption lossEnquiryRevisitDate notes attachment attachmentName statusHistory rentalStatus shoeStatus billedDate billReturnedDate invoiceNo';
 
         const isCountOnlyFetch = String(countOnly).toLowerCase() === 'true';
         const isChartOnlyFetch = String(chartOnly).toLowerCase() === 'true';
@@ -803,7 +803,7 @@ export const getAllWalkinsPublic = async (req, res) => {
 
         let filtered = await Walkin.find({})
             .sort({ updatedAt: -1 })
-            .select('date customerName contact functionDate store staff managerName category subCategory functionType remarks repeatCount status storeId employeeId createdBy createdAt updatedAt lastStatusChangeDate statusChangedToday bookingDate rentoutDate returnDate cancelDate cancellationDate lossReason attachment attachmentName statusHistory rentalStatus shoeStatus billedDate billReturnedDate')
+            .select('date customerName contact functionDate store staff managerName category subCategory functionType remarks repeatCount status storeId employeeId createdBy createdAt updatedAt lastStatusChangeDate statusChangedToday bookingDate rentoutDate returnDate cancelDate cancellationDate lossReason lossProductType lossSize lossColour lossSalesPrice lossSelectRemarks lossEnquiryTrailOption lossEnquiryRevisitDate notes attachment attachmentName statusHistory rentalStatus shoeStatus billedDate billReturnedDate invoiceNo')
             .lean();
 
         // Date Range Filter

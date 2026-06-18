@@ -202,6 +202,10 @@ router.get('/check/:contact', OptionalMiddilWare, checkCustomerExists);
  *                   - "Bill Returned"
  *                   - "Other"
  *                 example: "Loss"
+ *               invoiceNo:
+ *                 type: string
+ *                 description: "Invoice number assigned automatically by the auto-sync cron from external rental/billing APIs. Read-only — set by the system, not by client."
+ *                 example: "INV-2026-001234"
  *               date:
  *                 type: string
  *                 example: "2026-06-15"
@@ -299,6 +303,10 @@ router.post('/save', OptionalMiddilWare, saveWalkin);
  *                         type: string
  *                         format: date-time
  *                         description: "Date when shoe was billed (from GetBilledList API) ✨ NEW"
+ *                       invoiceNo:
+ *                         type: string
+ *                         description: "Invoice number assigned by auto-sync from external rental/billing APIs"
+ *                         example: "INV-2026-001234"
  *                       billReturnedDate:
  *                         type: string
  *                         format: date-time
@@ -380,6 +388,11 @@ router.get('/all', getAllWalkinsPublic);
  *       Returns the history of cron job executions for walk-in status syncing.
  *       
  *       **Sync logic:** Every run fetches 6 external APIs per branch (GetBookingList, GetRentoutList, GetReturnList,
+ *       GetDeleteList, GetBilledList, GetBillReturnedList). Matching uses **invoice number** (from booking/rentout/return/delete
+ *       APIs) as the primary key. Shoe APIs (Billed/BillReturned) continue using phone-based matching.
+ *       Walk-ins are assigned an `invoiceNo` during their first sync match and all subsequent syncs use it for lookup.
+ *       
+ *       Previously fetched 6 external APIs per branch (GetBookingList, GetRentoutList, GetReturnList,
  *       GetDeleteList, GetBilledList ✨, GetBillReturnedList ✨) and updates walk-in statuses independently
  *       across two flows: **Rental** (Booked → Rentout → Return → Cancelled) and **Shoe Sales** (Billed → Bill Returned).
  *       
