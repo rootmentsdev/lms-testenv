@@ -190,6 +190,11 @@ const walkinSchema = new mongoose.Schema({
         type: String,
         default: ''
     },
+    invoiceNo: {
+        type: String,
+        default: null,
+        trim: true
+    },
     legacyMeta: {
         type: mongoose.Schema.Types.Mixed,
         default: {}
@@ -220,6 +225,9 @@ walkinSchema.index({ store: 1, updatedAt: -1 });
 walkinSchema.index({ storeId: 1, updatedAt: -1 });
 walkinSchema.index({ employeeId: 1, updatedAt: -1 });
 walkinSchema.index({ contact: 1, updatedAt: -1 });
+// Invoice-based matching for sync
+walkinSchema.index({ invoiceNo: 1 }, { sparse: true });
+walkinSchema.index({ storeId: 1, invoiceNo: 1 });
 
 const Walkin = mongoose.model('Walkin', walkinSchema);
 
