@@ -1197,19 +1197,37 @@ const WalkinList = () => {
                                             )}
 
                                             {((formData.lossReason || '').toLowerCase().trim() === 'enquiry') && (
-                                                <div className="col-span-12">
-                                                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                        Note <span className="text-gray-400 font-normal">(Optional)</span>
-                                                    </label>
-                                                    <textarea
-                                                        name="lossNote"
-                                                        rows={1}
-                                                        placeholder="Enter notes..."
-                                                        value={formData.lossNote || ''}
-                                                        onChange={handleInputChange}
-                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
-                                                    />
-                                                </div>
+                                                <>
+                                                    {/* Next visit date calendar selector */}
+                                                    <div className="col-span-12 md:col-span-3">
+                                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                            Next Visit Date<span className="text-red-500">*</span>
+                                                        </label>
+                                                        <input
+                                                            type="date"
+                                                            name="lossEnquiryRevisitDate"
+                                                            required
+                                                            value={formData.lossEnquiryRevisitDate || ''}
+                                                            onChange={handleInputChange}
+                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold cursor-pointer"
+                                                        />
+                                                    </div>
+
+                                                    {/* Note box */}
+                                                    <div className="col-span-12 md:col-span-3">
+                                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                        </label>
+                                                        <textarea
+                                                            name="lossNote"
+                                                            rows={1}
+                                                            placeholder="Enter notes..."
+                                                            value={formData.lossNote || ''}
+                                                            onChange={handleInputChange}
+                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                        />
+                                                    </div>
+                                                </>
                                             )}
 
                                             {((formData.lossReason || '').toLowerCase().trim() === 'size') && (
@@ -2496,6 +2514,11 @@ const WalkinList = () => {
                                 alert('Please select a Price Option.');
                                 return;
                             }
+                        } else if (lossReasonLower === 'enquiry') {
+                            if (!formData.lossEnquiryRevisitDate || formData.lossEnquiryRevisitDate === '') {
+                                alert('Please enter when the customer will revisit.');
+                                return;
+                            }
                         } else if (lossReasonLower === 'size') {
                             if (!formData.lossSize || formData.lossSize === '') {
                                 alert('Please select a Size.');
@@ -2701,7 +2724,7 @@ const WalkinList = () => {
                         'Product Already Booked',
                         'Design and Colour Not Available',
                         'Price',
-                        // 'Enquiry',
+                        'Enquiry',
                         'Size'
                     ];
                 }
