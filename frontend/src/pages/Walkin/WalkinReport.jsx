@@ -148,16 +148,29 @@ const exportCSV = (data) => {
     'BILL RETURNED DATE'
   ];
 
-  const rows = data.map((w, i) => {
-    const productType = w.lossProductType || '–';
-    const notesText = w.notes || '–';
+  // Helper: format a date string as plain text for Excel (avoids ########)
+  const fmtDate = (val) => {
+    if (!val) return '-';
+    try {
+      const d = new Date(val);
+      if (isNaN(d.getTime())) return String(val).split('T')[0];
+      const yyyy = d.getFullYear();
+      const mm   = String(d.getMonth() + 1).padStart(2, '0');
+      const dd   = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    } catch { return '-'; }
+  };
 
-    let displayLossReason = '–';
-    let displaySubCategory = '–';
+  const rows = data.map((w, i) => {
+    const productType = w.lossProductType || '-';
+    const notesText = w.notes || '-';
+
+    let displayLossReason = '-';
+    let displaySubCategory = '-';
 
     if (w.status === 'Loss' || w.status === 'Revisit Loss') {
       const isSales = (w.lossProductType || '').toLowerCase().trim() === 'sales';
-      
+
       if (w.lossReason && w.lossReason !== '-' && w.lossReason !== '') {
         displayLossReason = w.lossReason;
         if (w.lossSelectRemarks && w.lossSelectRemarks !== '-' && w.lossSelectRemarks !== '') {
@@ -173,42 +186,48 @@ const exportCSV = (data) => {
       }
 
       if (isSales) {
-        displaySubCategory = w.subCategory || '–';
+        displaySubCategory = w.subCategory || '-';
       }
     } else {
-      displaySubCategory = w.subCategory || '–';
+      displaySubCategory = w.subCategory || '-';
     }
+
+    // Use a raw date string for the walkin date (already YYYY-MM-DD or similar)
+    const walkinDate = w.date ? (w.date.includes('T') ? fmtDate(w.date) : w.date.split(' ')[0]) : '-';
+    const functionDate = w.functionDate ? fmtDate(w.functionDate) : '-';
 
     return [
       i + 1,
-      w.date ? w.date.split(' ')[0] : '–',
-      w.customerName || '–',
-      w.contact ? `+91 ${w.contact}` : '–',
+      walkinDate,
+      w.customerName || '-',
+      w.contact ? `+91 ${w.contact}` : '-',
       w.repeatCount || 1,
-      w.status || '–',
-      w.functionDate || '–',
-      w.functionType || '–',
-      w.category || '–',
+      w.status || '-',
+      functionDate,
+      w.functionType || '-',
+      w.category || '-',
       productType,
       displayLossReason,
       displaySubCategory,
-      w.remarks || '–',
-      w.lossSize || '–',
-      w.lossColour || '–',
+      w.remarks || '-',
+      w.lossSize || '-',
+      w.lossColour || '-',
       notesText,
-      w.store || '–',
-      w.staff || '–',
-      w.attachment ? (w.attachmentName || 'Yes') : '–',
-      w.bookingDate ? new Date(w.bookingDate).toISOString().split('T')[0] : '–',
-      w.rentoutDate ? new Date(w.rentoutDate).toISOString().split('T')[0] : '–',
-      w.returnDate ? new Date(w.returnDate).toISOString().split('T')[0] : '–',
-      w.billedDate ? new Date(w.billedDate).toISOString().split('T')[0] : '–',
-      w.billReturnedDate ? new Date(w.billReturnedDate).toISOString().split('T')[0] : '–'
+      w.store || '-',
+      w.staff || '-',
+      w.attachment ? (w.attachmentName || 'Yes') : '-',
+      fmtDate(w.bookingDate),
+      fmtDate(w.rentoutDate),
+      fmtDate(w.returnDate),
+      fmtDate(w.billedDate),
+      fmtDate(w.billReturnedDate)
     ];
   });
 
-  const csv = [headers, ...rows].map(r => r.map(c => {
-    let s = String(c || '');
+  const csv = [headers, ...rows].map((r, rowIdx) => r.map((c, colIdx) => {
+    let s = String(c ?? '');
+    // Strip any en/em dashes that were used as placeholders (use plain hyphen instead)
+    s = s.replace(/\u2013|\u2014/g, '-');
     // Clean up any newlines to prevent row-splitting bugs in CSV files
     s = s.replace(/[\r\n]+/g, ' ');
     // Escape quotes as per standard CSV rules
@@ -414,14 +433,11 @@ const WalkinReport = () => {
                   <input type="text" placeholder="Search" value={tableSearch} onChange={e=>{setTableSearch(e.target.value);setCurrentPage(1);}} style={{ border:'none', outline:'none', fontSize:'13px', color:'#374151', background:'transparent', width:'180px' }} />
                 </div>
               </div>
-              {/* Export buttons */}
+              {/* Export button – single button only */}
               <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
                 <button onClick={()=>exportCSV(displayed)} style={{ display:'flex', alignItems:'center', gap:'6px', border:'1px solid #e5e7eb', borderRadius:'8px', padding:'7px 14px', fontSize:'13px', fontWeight:500, color:'#374151', background:'#f9fafb', cursor:'pointer' }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  Export
-                </button>
-                <button onClick={()=>exportCSV(displayed)} style={{ width:'34px', height:'34px', background:'#16a34a', border:'none', borderRadius:'8px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8" fill="none" stroke="white" strokeWidth="2"/></svg>
+                  Export CSV
                 </button>
               </div>
             </div>
