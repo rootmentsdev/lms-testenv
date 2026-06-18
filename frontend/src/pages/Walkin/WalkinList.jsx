@@ -3044,11 +3044,42 @@ const WalkinList = () => {
                             ) : (
                                 <>
                                     <div style={{ overflowX: 'auto' }}>
-                                        <table style={{ width: '3150px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
+                                        <table style={{ width: '3305px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
                                             <thead>
                                                 <tr style={{ borderBottom: '1px solid #f3f4f6', background: '#fafafa' }}>
                                                     {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'REPEAT COUNT', 'STATUS', 'HISTORY', 'FUNCTION DATE', 'FUNCTION TYPE', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'SIZE', 'COLOR', 'NOTES', 'STORE', 'STAFF', 'ATTACHMENT', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'BILLED DATE', 'BILL RETURNED DATE', 'EDIT'].map((h, i) => {
-                                                        const colWidth = 'calc(100% / 26)';
+                                                        const getColWidth = (header) => {
+                                                            const widths = {
+                                                              '#': '50px',
+                                                              'DATE': '100px',
+                                                              'CUSTOMER': '160px',
+                                                              'CONTACT': '125px',
+                                                              'REPEAT COUNT': '110px',
+                                                              'STATUS': '130px',
+                                                              'HISTORY': '90px',
+                                                              'FUNCTION DATE': '115px',
+                                                              'FUNCTION TYPE': '140px',
+                                                              'CATEGORY': '115px',
+                                                              'PRODUCT TYPE': '130px',
+                                                              'LOSS REASON': '200px',
+                                                              'SUB CATEGORY': '130px',
+                                                              'REMARKS': '200px',
+                                                              'SIZE': '70px',
+                                                              'COLOR': '85px',
+                                                              'NOTES': '200px',
+                                                              'STORE': '140px',
+                                                              'STAFF': '155px',
+                                                              'ATTACHMENT': '110px',
+                                                              'BOOKING DATE': '110px',
+                                                              'RENTOUT DATE': '110px',
+                                                              'RETURN DATE': '110px',
+                                                              'BILLED DATE': '110px',
+                                                              'BILL RETURNED DATE': '165px',
+                                                              'EDIT': '80px'
+                                                            };
+                                                            return widths[header] || '120px';
+                                                        };
+                                                        const colWidth = getColWidth(h);
                                                         return (
                                                             <th
                                                                 key={i}

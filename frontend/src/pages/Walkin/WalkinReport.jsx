@@ -121,8 +121,34 @@ const handleDownloadAndView = (base64Data, filename = 'attachment') => {
 
 /* ── Export to CSV ───────────────────────────────────────────────────────── */
 const exportCSV = (data) => {
-  const headers = ['#','Date','Customer','Contact','Repeat Count','Status','Function Date','Function Type','Category','Product Type','Loss Reason','Sub Category','Remarks','Notes','Store','Staff','Attachment','Booking Date','Rentout Date','Return Date','Billed Date','Bill Returned Date'];
-  const rows = data.map((w,i) => {
+  const headers = [
+    '#', 
+    'DATE', 
+    'CUSTOMER', 
+    'CONTACT', 
+    'REPEAT COUNT', 
+    'STATUS', 
+    'FUNCTION DATE', 
+    'FUNCTION TYPE', 
+    'CATEGORY', 
+    'PRODUCT TYPE', 
+    'LOSS REASON', 
+    'SUB CATEGORY', 
+    'REMARKS', 
+    'SIZE', 
+    'COLOR', 
+    'NOTES', 
+    'STORE', 
+    'STAFF', 
+    'ATTACHMENT', 
+    'BOOKING DATE', 
+    'RENTOUT DATE', 
+    'RETURN DATE', 
+    'BILLED DATE', 
+    'BILL RETURNED DATE'
+  ];
+
+  const rows = data.map((w, i) => {
     const productType = w.lossProductType || '–';
     const notesText = w.notes || '–';
 
@@ -154,11 +180,11 @@ const exportCSV = (data) => {
     }
 
     return [
-      i+1,
-      w.date,
-      w.customerName,
-      w.contact,
-      w.repeatCount,
+      i + 1,
+      w.date ? w.date.split(' ')[0] : '–',
+      w.customerName || '–',
+      w.contact ? `+91 ${w.contact}` : '–',
+      w.repeatCount || 1,
       w.status || '–',
       w.functionDate || '–',
       w.functionType || '–',
@@ -167,10 +193,12 @@ const exportCSV = (data) => {
       displayLossReason,
       displaySubCategory,
       w.remarks || '–',
+      w.lossSize || '–',
+      w.lossColour || '–',
       notesText,
       w.store || '–',
       w.staff || '–',
-      w.attachment || '–',
+      w.attachment ? (w.attachmentName || 'Yes') : '–',
       w.bookingDate ? new Date(w.bookingDate).toISOString().split('T')[0] : '–',
       w.rentoutDate ? new Date(w.rentoutDate).toISOString().split('T')[0] : '–',
       w.returnDate ? new Date(w.returnDate).toISOString().split('T')[0] : '–',
@@ -178,10 +206,22 @@ const exportCSV = (data) => {
       w.billReturnedDate ? new Date(w.billReturnedDate).toISOString().split('T')[0] : '–'
     ];
   });
-  const csv = [headers, ...rows].map(r => r.map(c => `"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
-  const blob = new Blob([csv], { type:'text/csv' });
+
+  const csv = [headers, ...rows].map(r => r.map(c => {
+    let s = String(c || '');
+    // Clean up any newlines to prevent row-splitting bugs in CSV files
+    s = s.replace(/[\r\n]+/g, ' ');
+    // Escape quotes as per standard CSV rules
+    return `"${s.replace(/"/g, '""')}"`;
+  }).join(',')).join('\n');
+
+  // Prefixing with UTF-8 BOM (\uFEFF) forces Excel to read the CSV as UTF-8 encoding
+  const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download='walkin-report.csv'; a.click();
+  const a = document.createElement('a'); 
+  a.href = url; 
+  a.download = 'walkin-report.csv'; 
+  a.click();
   URL.revokeObjectURL(url);
 };
 
@@ -395,11 +435,40 @@ const WalkinReport = () => {
               <div style={{ textAlign:'center', padding:'48px', color:'#9ca3af', fontSize:'13px' }}>No records found.</div>
             ) : (
               <div style={{ overflowX:'auto' }}>
-                <table style={{ width: '3050px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
+                <table style={{ width: '3135px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
                   <thead>
                     <tr style={{ background:'#fafafa', borderBottom:'1px solid #f3f4f6' }}>
                       {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'REPEAT COUNT', 'STATUS', 'FUNCTION DATE', 'FUNCTION TYPE', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'SIZE', 'COLOR', 'NOTES', 'STORE', 'STAFF', 'ATTACHMENT', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'BILLED DATE', 'BILL RETURNED DATE'].map((h, i) => {
-                          const colWidth = 'calc(100% / 24)';
+                          const getColWidth = (header) => {
+                            const widths = {
+                              '#': '50px',
+                              'DATE': '100px',
+                              'CUSTOMER': '160px',
+                              'CONTACT': '125px',
+                              'REPEAT COUNT': '110px',
+                              'STATUS': '130px',
+                              'FUNCTION DATE': '115px',
+                              'FUNCTION TYPE': '140px',
+                              'CATEGORY': '115px',
+                              'PRODUCT TYPE': '130px',
+                              'LOSS REASON': '200px',
+                              'SUB CATEGORY': '130px',
+                              'REMARKS': '200px',
+                              'SIZE': '70px',
+                              'COLOR': '85px',
+                              'NOTES': '200px',
+                              'STORE': '140px',
+                              'STAFF': '155px',
+                              'ATTACHMENT': '110px',
+                              'BOOKING DATE': '110px',
+                              'RENTOUT DATE': '110px',
+                              'RETURN DATE': '110px',
+                              'BILLED DATE': '110px',
+                              'BILL RETURNED DATE': '165px'
+                            };
+                            return widths[header] || '120px';
+                          };
+                          const colWidth = getColWidth(h);
                           return (
                               <th
                                   key={i}
@@ -772,7 +841,30 @@ const WalkinReport = () => {
           </div>
         )}
       </div>
-      <style>{`@keyframes report-spin{to{transform:rotate(360deg)}}`}</style>
+      <style>{`
+        @keyframes report-spin{to{transform:rotate(360deg)}}
+        .walkin-marquee-container {
+            container-type: inline-size;
+            overflow: hidden;
+            white-space: nowrap;
+            display: block;
+            width: 100%;
+        }
+        .walkin-marquee-text {
+            display: inline-block;
+            min-width: 100%;
+        }
+        .walkin-marquee-container:hover .walkin-marquee-text {
+            animation-play-state: paused;
+        }
+        .walkin-anim-scroll {
+            animation: walkin-marquee-scroll 8s linear infinite;
+        }
+        @keyframes walkin-marquee-scroll {
+            0%, 15% { transform: translateX(0); }
+            85%, 100% { transform: translateX(calc(-100% + 100cqw)); }
+        }
+      `}</style>
     </div>
   );
 };
