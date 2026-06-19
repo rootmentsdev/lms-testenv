@@ -154,8 +154,8 @@ export const syncWalkinStatuses = async () => {
                 const rentoutUrl = `https://rentalapi.rootments.live/api/GetBooking/GetRentoutList?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
                 const returnUrl = `https://rentalapi.rootments.live/api/GetBooking/GetReturnList?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
                 const deleteUrl = `https://rentalapi.rootments.live/api/GetBooking/GetDeleteList?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
-                const shoeBilledUrl = `https://rentalapi.rootments.live/api/GetBooking/GetBilledList?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
-                const shoeBillReturnedUrl = `https://rentalapi.rootments.live/api/GetBooking/GetBillReturnedList?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
+                const shoeBilledUrl = `https://backend.brynex.com/api/external/shoe-sales/bookings?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
+                const shoeBillReturnedUrl = `https://backend.brynex.com/api/external/shoe-sales/returns?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
 
                 // Fetch from all six APIs in parallel, but handle individual request errors safely
                 const fetchListSafe = async (url, typeName) => {
