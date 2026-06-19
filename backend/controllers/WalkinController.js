@@ -411,6 +411,46 @@ export const saveWalkin = async (req, res) => {
                 return res.status(404).json({ success: false, message: 'Walk-in record not found or access denied' });
             }
 
+            const incomingStatus = status ? status.trim() : '';
+            if (incomingStatus === 'New Walkin' && walkinRecord.status !== 'New Walkin') {
+                // Reset option: Keep existing walk-in with the same data, and create a brand new one with repeatCount = 1
+                const newWalkin = new Walkin({
+                    customerName: customerName ? customerName.trim() : walkinRecord.customerName,
+                    contact: trimmedContact !== '-' ? trimmedContact : walkinRecord.contact,
+                    functionDate: functionDate ? functionDate.trim() : walkinRecord.functionDate,
+                    store: store ? store.trim() : walkinRecord.store,
+                    staff: staff ? staff.trim() : walkinRecord.staff,
+                    storeId: finalStoreId || walkinRecord.storeId,
+                    employeeId: finalEmployeeId || walkinRecord.employeeId,
+                    createdBy: createdBy || walkinRecord.createdBy,
+                    category: category ? category.trim() : walkinRecord.category,
+                    subCategory: subCategory ? subCategory.trim() : walkinRecord.subCategory,
+                    functionType: '-',
+                    attachment: (fileAttachment && fileAttachment.base64) ? fileAttachment.base64 : walkinRecord.attachment,
+                    attachmentName: (fileAttachment && fileAttachment.name) ? fileAttachment.name : walkinRecord.attachmentName,
+                    remarks: remarks ? remarks.trim() : walkinRecord.remarks,
+                    notes: notesVal !== undefined ? String(notesVal).trim() : walkinRecord.notes,
+                    lossProductType: lossProductTypeVal !== undefined ? String(lossProductTypeVal).trim() : walkinRecord.lossProductType,
+                    lossSize: lossSizeVal !== undefined ? String(lossSizeVal).trim() : walkinRecord.lossSize,
+                    lossColour: lossColourVal !== undefined ? String(lossColourVal).trim() : walkinRecord.lossColour,
+                    lossSalesPrice: lossSalesPriceVal !== undefined ? String(lossSalesPriceVal).trim() : walkinRecord.lossSalesPrice,
+                    lossSelectRemarks: lossSelectRemarksVal !== undefined ? String(lossSelectRemarksVal).trim() : walkinRecord.lossSelectRemarks,
+                    lossEnquiryTrailOption: lossEnquiryTrailOptionVal !== undefined ? String(lossEnquiryTrailOptionVal).trim() : walkinRecord.lossEnquiryTrailOption,
+                    lossEnquiryRevisitDate: lossEnquiryRevisitDateVal !== undefined ? String(lossEnquiryRevisitDateVal).trim() : walkinRecord.lossEnquiryRevisitDate,
+                    lossReason: lossReasonVal !== undefined ? String(lossReasonVal).trim() : walkinRecord.lossReason,
+                    repeatCount: 1,
+                    date: todayStr
+                });
+                updateStatusAndDates(newWalkin, 'New Walkin');
+                await newWalkin.save();
+
+                return res.status(201).json({
+                    success: true,
+                    message: 'New walk-in reset created successfully',
+                    data: newWalkin
+                });
+            }
+
             if (customerName !== undefined && customerName !== null) walkinRecord.customerName = customerName.trim();
             if (contact !== undefined && contact !== null) walkinRecord.contact = trimmedContact;
             if (functionDate) walkinRecord.functionDate = functionDate.trim();
@@ -576,8 +616,8 @@ export const saveWalkin = async (req, res) => {
                     }).sort({ createdAt: -1 });
                 }
             }
-            const nextRepeatCount = storeLatest ? (storeLatest.repeatCount || 1) + 1 : 1;
             const initialStatus = status ? status.trim() : 'New Walkin';
+            const nextRepeatCount = initialStatus === 'New Walkin' ? 1 : (storeLatest ? (storeLatest.repeatCount || 1) + 1 : 1);
 
             const newWalkin = new Walkin({
                 customerName: customerName ? customerName.trim() : '-',
