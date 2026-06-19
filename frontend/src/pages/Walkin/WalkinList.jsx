@@ -3190,54 +3190,72 @@ const WalkinList = () => {
                                                             </td>
                                                             <td style={{ padding: '11px 12px', textAlign: 'center', color: '#374151', boxSizing: 'border-box' }}>{w.repeatCount}</td>
                                                             <td style={{ padding: '11px 12px', textAlign: 'center', boxSizing: 'border-box' }}>
-                                                                <select
-                                                                    value={w.status || 'New Walkin'}
-                                                                    onChange={(e) => handleStatusChange(w, e.target.value)}
-                                                                    disabled={statusChangedToday[w._id] || updatingStatus[w._id]}
-                                                                    style={{
-                                                                        padding: '4px 6px',
-                                                                        fontSize: '11px',
-                                                                        fontWeight: 900,
-                                                                        border: statusChangedToday[w._id] ? '1px solid #e5e7eb' : '1px solid transparent',
-                                                                        borderRadius: '20px',
-                                                                        backgroundColor: sc.bg,
-                                                                        color: sc.color,
-                                                                        cursor: statusChangedToday[w._id] ? 'not-allowed' : 'pointer',
-                                                                        opacity: statusChangedToday[w._id] ? 0.6 : 1,
-                                                                        transition: 'all 0.2s',
-                                                                        whiteSpace: 'nowrap',
-                                                                        display: 'inline-block',
-                                                                        appearance: 'none',
-                                                                        backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='${sc.color}' stroke-width='2'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
-                                                                        backgroundRepeat: 'no-repeat',
-                                                                        backgroundPosition: 'right 4px center',
-                                                                        backgroundSize: '12px',
-                                                                        backgroundAttachment: 'scroll',
-                                                                        paddingRight: '18px',
-                                                                        width: '100%',
-                                                                        boxSizing: 'border-box',
-                                                                        textAlign: 'center',
-                                                                        textAlignLast: 'center'
-                                                                    }}
-                                                                    onMouseEnter={(e) => {
-                                                                        if (!statusChangedToday[w._id] && !updatingStatus[w._id]) {
-                                                                            e.currentTarget.style.border = `1px solid ${sc.color}`;
-                                                                        }
-                                                                    }}
-                                                                    onMouseLeave={(e) => {
-                                                                        if (!statusChangedToday[w._id]) {
-                                                                            e.currentTarget.style.border = '1px solid transparent';
-                                                                        }
-                                                                    }}
-                                                                    title={statusChangedToday[w._id] ? 'Status already changed today. Try again tomorrow.' : 'Change status'}
-                                                                >
-                                                                    {!['New Walkin', 'Loss', 'Revisit'].includes(w.status) && w.status && (
-                                                                        <option value={w.status}>{w.status}</option>
-                                                                    )}
-                                                                    <option value="New Walkin">New Walkin</option>
-                                                                    <option value="Loss">Loss</option>
-                                                                    <option value="Revisit">Revisit</option>
-                                                                </select>
+                                                                 <div
+                                                                     style={{ position: 'relative', width: '110px', margin: '0 auto' }}
+                                                                     onMouseEnter={(e) => {
+                                                                         if (!statusChangedToday[w._id] && !updatingStatus[w._id]) {
+                                                                             const span = e.currentTarget.querySelector('.walkin-marquee-text');
+                                                                             if (span) span.style.border = `1px solid ${sc.color}`;
+                                                                         }
+                                                                     }}
+                                                                     onMouseLeave={(e) => {
+                                                                         if (!statusChangedToday[w._id]) {
+                                                                             const span = e.currentTarget.querySelector('.walkin-marquee-text');
+                                                                             if (span) span.style.border = '1px solid transparent';
+                                                                         }
+                                                                     }}
+                                                                 >
+                                                                     <div className="walkin-marquee-container">
+                                                                         <span
+                                                                             className="walkin-marquee-text walkin-anim-scroll"
+                                                                             style={{
+                                                                                 padding: '4px 6px',
+                                                                                 paddingRight: '18px',
+                                                                                 fontSize: '11px',
+                                                                                 fontWeight: 900,
+                                                                                 borderRadius: '20px',
+                                                                                 backgroundColor: sc.bg,
+                                                                                 color: sc.color,
+                                                                                 whiteSpace: 'nowrap',
+                                                                                 display: 'inline-block',
+                                                                                 backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='${sc.color}' stroke-width='2'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+                                                                                 backgroundRepeat: 'no-repeat',
+                                                                                 backgroundPosition: 'right 4px center',
+                                                                                 backgroundSize: '12px',
+                                                                                 boxSizing: 'border-box',
+                                                                                 textAlign: 'center',
+                                                                                 border: statusChangedToday[w._id] ? '1px solid #e5e7eb' : '1px solid transparent',
+                                                                                 transition: 'all 0.2s',
+                                                                                 opacity: statusChangedToday[w._id] ? 0.6 : 1
+                                                                             }}
+                                                                         >
+                                                                             {w.status || 'New Walkin'}
+                                                                         </span>
+                                                                     </div>
+                                                                     <select
+                                                                         value={w.status || 'New Walkin'}
+                                                                         onChange={(e) => handleStatusChange(w, e.target.value)}
+                                                                         disabled={statusChangedToday[w._id] || updatingStatus[w._id]}
+                                                                         style={{
+                                                                             position: 'absolute',
+                                                                             top: 0,
+                                                                             left: 0,
+                                                                             width: '100%',
+                                                                             height: '100%',
+                                                                             opacity: 0,
+                                                                             cursor: statusChangedToday[w._id] ? 'not-allowed' : 'pointer',
+                                                                             boxSizing: 'border-box'
+                                                                         }}
+                                                                         title={statusChangedToday[w._id] ? 'Status already changed today. Try again tomorrow.' : 'Change status'}
+                                                                     >
+                                                                         {!['New Walkin', 'Loss', 'Revisit'].includes(w.status) && w.status && (
+                                                                             <option value={w.status}>{w.status}</option>
+                                                                         )}
+                                                                         <option value="New Walkin">New Walkin</option>
+                                                                         <option value="Loss">Loss</option>
+                                                                         <option value="Revisit">Revisit</option>
+                                                                     </select>
+                                                                 </div>
                                                             </td>
                                                             <td style={{ padding: '11px 12px', textAlign: 'center', boxSizing: 'border-box' }}>
                                                                 <button
