@@ -706,6 +706,7 @@ The `status` field on the Walkin document is always recomputed as `getCombinedSt
 | `billedDate` | Date | Timestamp when shoe was billed (from API) |
 | `billReturnedDate` | Date | Timestamp when shoe bill was returned (from API) |
 | `invoiceNo` | String | Invoice number assigned by auto-sync from external rental/billing APIs. Used as the primary key for matching walk-ins to external API records. |
+| `shoeInvoiceNo` | String | Shoe invoice number assigned by auto-sync from external shoe billing APIs. Used as the primary key for matching walk-ins to external shoe API records. |
 
 #### Status History
 
@@ -764,28 +765,29 @@ The `CronLog` schema was updated to correctly persist all sync counters:
 
 ### Walk-In Sync — Invoice-Based Matching
 
-The walk-in auto-sync cron service has been rewritten to use **invoice number** as the primary matching key for the rental flow (Booking, Rentout, Return, Cancel APIs). The shoe flow (Billed, Bill Returned) continues using phone-based matching.
+The walk-in auto-sync cron service has been rewritten to use **invoice number** as the primary matching key for both the rental flow (Booking, Rentout, Return, Cancel APIs) using `invoiceNo` and the shoe flow (Billed, Bill Returned APIs) using `shoeInvoiceNo`. This prevents any status clashing when customers have multiple transactions or walk-ins.
 
 #### How Invoice Matching Works
 
-1. **First sync:** When a walk-in with no `invoiceNo` is matched to an external API record (by phone number + date proximity), the invoice number from the API response is extracted and saved to the walk-in.
-2. **Subsequent syncs:** Walk-ins with an `invoiceNo` are looked up directly by invoice number — no phone/date matching needed.
+1. **First sync:** When a walk-in with no `invoiceNo` or `shoeInvoiceNo` is matched to an external API record (by phone number + date proximity), the respective invoice number from the API response is extracted and saved to the walk-in.
+2. **Subsequent syncs:** Walk-ins are looked up directly by `invoiceNo` or `shoeInvoiceNo` — no phone/date matching needed.
 3. **Invoice extraction:** The `extractInvoiceNo()` helper reads the invoice number from whichever key the external API provides (`invoiceno`, `invoice_no`, `invoice`, `billno`, `bill_no`).
 
-#### New Schema Field
+#### New Schema Fields
 
 | Field | Type | Description |
 |---|---|---|
-| `invoiceNo` | String | Invoice number from external APIs. Sparse index + compound index with `storeId`. |
+| `invoiceNo` | String | Rental invoice number from external APIs. Sparse index + compound index with `storeId`. |
+| `shoeInvoiceNo` | String | Shoe invoice number from external APIs. Sparse index + compound index with `storeId`. |
 
 #### Files Modified
 
 | File | Change |
 |---|---|
-| `backend/model/Walkin.js` | Added `invoiceNo` field with sparse + compound indexes |
-| `backend/services/walkinStatusSyncService.js` | Full rewrite: invoice-based matching, `extractInvoiceNo()` + `getCombinedStatus()` helpers |
-| `backend/controllers/WalkinController.js` | Added `invoiceNo` to `baseProjection` |
-| `backend/routes/WalkinRoute.js` | Added `invoiceNo` to Swagger save schema and list response schema; updated sync description |
+| `backend/model/Walkin.js` | Added `invoiceNo` and `shoeInvoiceNo` fields with sparse + compound indexes |
+| `backend/services/walkinStatusSyncService.js` | Full rewrite: invoice-based matching for both rental and shoe flows, `extractInvoiceNo()` + `getCombinedStatus()` helpers |
+| `backend/controllers/WalkinController.js` | Added `invoiceNo` and `shoeInvoiceNo` to projections |
+| `backend/routes/WalkinRoute.js` | Added fields to Swagger schemas; updated sync description |
 
 ---
 

@@ -154,8 +154,8 @@ export const syncWalkinStatuses = async () => {
                 const rentoutUrl = `https://rentalapi.rootments.live/api/GetBooking/GetRentoutList?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
                 const returnUrl = `https://rentalapi.rootments.live/api/GetBooking/GetReturnList?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
                 const deleteUrl = `https://rentalapi.rootments.live/api/GetBooking/GetDeleteList?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
-                const shoeBilledUrl = `https://rentalapi.rootments.live/api/GetBooking/GetBilledList?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
-                const shoeBillReturnedUrl = `https://rentalapi.rootments.live/api/GetBooking/GetBillReturnedList?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
+                const shoeBilledUrl = `https://backend.brynex.com/api/external/shoe-sales/bookings?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
+                const shoeBillReturnedUrl = `https://backend.brynex.com/api/external/shoe-sales/returns?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
 
                 // Fetch from all six APIs in parallel, but handle individual request errors safely
                 const fetchListSafe = async (url, typeName) => {
@@ -206,9 +206,9 @@ export const syncWalkinStatuses = async () => {
                 const shoeBillReturnedMap = new Map();
 
                 // Priority Maps: rental statuses and shoe statuses are independent
-                // Rental flow will be invoice-based, shoe flow remains phone-based
+                // Both flows will be invoice-based
                 const invoiceRentalMap = new Map(); // invoiceNo -> { status, phone, item }
-                const phoneShoeMap = new Map();
+                const invoiceShoeMap = new Map();   // shoeInvoiceNo -> { status, phone, item }
 
                 // 1. Rental Flow Mapping (Priority: Cancelled > Return > Rentout > Booked)
                 for (const item of bookings) {
@@ -247,29 +247,32 @@ export const syncWalkinStatuses = async () => {
                 // 2. Shoe Flow Mapping (Priority: Bill Returned > Billed)
                 for (const item of shoeBilled) {
                     const phone = normalizePhone(extractPhoneNumber(item));
-                    if (phone) {
-                        shoeBilledMap.set(phone, item);
-                        phoneShoeMap.set(phone, { status: 'Billed', item });
+                    const shoeInvoiceNo = extractInvoiceNo(item);
+                    if (shoeInvoiceNo && phone) {
+                        shoeBilledMap.set(shoeInvoiceNo, item);
+                        invoiceShoeMap.set(shoeInvoiceNo, { status: 'Billed', phone, item });
                     }
                 }
                 for (const item of shoeBillReturned) {
                     const phone = normalizePhone(extractPhoneNumber(item));
-                    if (phone) {
-                        shoeBillReturnedMap.set(phone, item);
-                        phoneShoeMap.set(phone, { status: 'Bill Returned', item });
+                    const shoeInvoiceNo = extractInvoiceNo(item);
+                    if (shoeInvoiceNo && phone) {
+                        shoeBillReturnedMap.set(shoeInvoiceNo, item);
+                        invoiceShoeMap.set(shoeInvoiceNo, { status: 'Bill Returned', phone, item });
                     }
                 }
 
-                // Gather union of all phones to check walk-ins in DB (for unassigned or shoe flow matching)
+                // Gather union of all phones to check walk-ins in DB
                 const allPhones = new Set();
                 for (const info of invoiceRentalMap.values()) {
                     allPhones.add(info.phone);
                 }
-                for (const phone of phoneShoeMap.keys()) {
-                    allPhones.add(phone);
+                for (const info of invoiceShoeMap.values()) {
+                    allPhones.add(info.phone);
                 }
                 const normalizedPhones = Array.from(allPhones);
                 const invoiceNos = Array.from(invoiceRentalMap.keys());
+                const shoeInvoiceNos = Array.from(invoiceShoeMap.keys());
 
                 let branchWalkinsMatched = 0;
                 let branchWalkinsUpdated = 0;
@@ -281,6 +284,10 @@ export const syncWalkinStatuses = async () => {
                 // Match by existing invoiceNo
                 if (invoiceNos.length > 0) {
                     queryFilters.push({ invoiceNo: { $in: invoiceNos } });
+                }
+                // Match by existing shoeInvoiceNo
+                if (shoeInvoiceNos.length > 0) {
+                    queryFilters.push({ shoeInvoiceNo: { $in: shoeInvoiceNos } });
                 }
                 // Match by phone number formats
                 for (const p of normalizedPhones) {
@@ -301,20 +308,33 @@ export const syncWalkinStatuses = async () => {
                     }).sort({ createdAt: -1 });
                 }
 
-                // Group retrieved walkins by invoiceNo and unassigned walkins by phone
+                // Group retrieved walkins by invoiceNo, shoeInvoiceNo, and unassigned lists by phone
                 const invoiceToWalkinMap = new Map();
-                const phoneToUnassignedWalkinsMap = new Map(); // phone -> Array of walkins (sorted by createdAt desc)
+                const shoeInvoiceToWalkinMap = new Map();
+                const phoneToUnassignedRentalWalkins = new Map(); // phone -> Array of walkins (no invoiceNo)
+                const phoneToUnassignedShoeWalkins = new Map();   // phone -> Array of walkins (no shoeInvoiceNo)
 
                 for (const walkin of walkins) {
                     if (walkin.invoiceNo) {
                         invoiceToWalkinMap.set(walkin.invoiceNo, walkin);
-                    } else {
-                        const norm = normalizePhone(walkin.contact);
-                        if (norm) {
-                            if (!phoneToUnassignedWalkinsMap.has(norm)) {
-                                phoneToUnassignedWalkinsMap.set(norm, []);
+                    }
+                    if (walkin.shoeInvoiceNo) {
+                        shoeInvoiceToWalkinMap.set(walkin.shoeInvoiceNo, walkin);
+                    }
+                    
+                    const norm = normalizePhone(walkin.contact);
+                    if (norm) {
+                        if (!walkin.invoiceNo) {
+                            if (!phoneToUnassignedRentalWalkins.has(norm)) {
+                                phoneToUnassignedRentalWalkins.set(norm, []);
                             }
-                            phoneToUnassignedWalkinsMap.get(norm).push(walkin);
+                            phoneToUnassignedRentalWalkins.get(norm).push(walkin);
+                        }
+                        if (!walkin.shoeInvoiceNo) {
+                            if (!phoneToUnassignedShoeWalkins.has(norm)) {
+                                phoneToUnassignedShoeWalkins.set(norm, []);
+                            }
+                            phoneToUnassignedShoeWalkins.get(norm).push(walkin);
                         }
                     }
                 }
@@ -340,7 +360,7 @@ export const syncWalkinStatuses = async () => {
 
                     // If not found by invoiceNo, perform the first-time assignment
                     if (!walkin) {
-                        const unassignedList = phoneToUnassignedWalkinsMap.get(rentalInfo.phone) || [];
+                        const unassignedList = phoneToUnassignedRentalWalkins.get(rentalInfo.phone) || [];
                         if (unassignedList.length > 0) {
                             // Find the best walkin whose creation date is closest to (but <=) transaction booking/creation date.
                             let txDate = null;
@@ -497,37 +517,84 @@ export const syncWalkinStatuses = async () => {
                     }
                 }
 
-                // Helper to find the newest walkin for a phone (for shoe flow)
-                const getNewestWalkinForPhone = (phone) => {
-                    for (const w of walkins) {
-                        const norm = normalizePhone(w.contact);
-                        if (norm === phone) {
-                            return w;
+                // 2. Process Shoe updates using shoe invoice-based mapping
+                for (const [shoeInvoiceNo, shoeInfo] of invoiceShoeMap.entries()) {
+                    let walkin = shoeInvoiceToWalkinMap.get(shoeInvoiceNo);
+
+                    // If not found by shoeInvoiceNo, perform the first-time assignment
+                    if (!walkin) {
+                        const unassignedList = phoneToUnassignedShoeWalkins.get(shoeInfo.phone) || [];
+                        if (unassignedList.length > 0) {
+                            // Find the best walkin whose creation date is closest to transaction shoe billing date.
+                            let txDate = null;
+                            const billedItem = shoeBilledMap.get(shoeInvoiceNo);
+                            if (billedItem) {
+                                txDate = extractDateValue(billedItem, ['billedDate', 'billingDate', 'billeddate', 'billdate', 'billingdate']);
+                            }
+                            if (!txDate) {
+                                const billReturnedItem = shoeBillReturnedMap.get(shoeInvoiceNo);
+                                if (billReturnedItem) {
+                                    txDate = extractDateValue(billReturnedItem, ['billReturnedDate', 'returnedDate', 'billreturneddate', 'returneddate', 'returndate']);
+                                }
+                            }
+                            if (!txDate) {
+                                txDate = new Date();
+                            }
+
+                            let bestMatchIdx = -1;
+                            let minDiff = Infinity;
+
+                            for (let i = 0; i < unassignedList.length; i++) {
+                                const w = unassignedList[i];
+                                const wDate = w.createdAt || w.updatedAt || new Date();
+                                const diff = txDate.getTime() - wDate.getTime();
+                                if (diff >= 0 && diff < minDiff) {
+                                    minDiff = diff;
+                                    bestMatchIdx = i;
+                                }
+                            }
+
+                            // Fallback if no walkin has createdAt <= txDate
+                            if (bestMatchIdx === -1) {
+                                let minAbsDiff = Infinity;
+                                for (let i = 0; i < unassignedList.length; i++) {
+                                    const w = unassignedList[i];
+                                    const wDate = w.createdAt || w.updatedAt || new Date();
+                                    const diff = Math.abs(txDate.getTime() - wDate.getTime());
+                                    if (diff < minAbsDiff) {
+                                        minAbsDiff = diff;
+                                        bestMatchIdx = i;
+                                    }
+                                }
+                            }
+
+                            if (bestMatchIdx !== -1) {
+                                walkin = unassignedList[bestMatchIdx];
+                                unassignedList.splice(bestMatchIdx, 1); // Remove so it won't be reused for another shoe invoice
+                                walkin.shoeInvoiceNo = shoeInvoiceNo;
+                                shoeInvoiceToWalkinMap.set(shoeInvoiceNo, walkin);
+                                console.log(`🔗 [Walkin Status Sync] Assigned shoeInvoiceNo '${shoeInvoiceNo}' to walkin ...${shoeInfo.phone.slice(-4)} (ID: ${walkin._id})`);
+                            }
                         }
                     }
-                    return null;
-                };
 
-                // 2. Process Shoe updates (phone-based)
-                for (const [phone, shoeInfo] of phoneShoeMap.entries()) {
-                    const walkin = getNewestWalkinForPhone(phone);
                     if (walkin) {
                         const tracker = getTracker(walkin);
                         const targetShoeStatus = shoeInfo.status;
                         const currentShoeStatus = tracker.walkin.shoeStatus || '-';
 
-                        const shoeBilledItem = shoeBilledMap.get(phone);
-                        if (shoeBilledItem) {
-                            const bldDate = extractDateValue(shoeBilledItem, ['billedDate', 'billingDate', 'billeddate', 'billdate', 'billingdate']);
+                        const billedItem = shoeBilledMap.get(shoeInvoiceNo);
+                        if (billedItem) {
+                            const bldDate = extractDateValue(billedItem, ['billedDate', 'billingDate', 'billeddate', 'billdate', 'billingdate']);
                             if (bldDate && (!tracker.walkin.billedDate || tracker.walkin.billedDate.getTime() !== bldDate.getTime())) {
                                 tracker.walkin.billedDate = bldDate;
                                 tracker.docUpdated = true;
                             }
                         }
 
-                        const shoeBillReturnedItem = shoeBillReturnedMap.get(phone);
-                        if (shoeBillReturnedItem) {
-                            const brDate = extractDateValue(shoeBillReturnedItem, ['billReturnedDate', 'returnedDate', 'billreturneddate', 'returneddate', 'returndate']);
+                        const billReturnedItem = shoeBillReturnedMap.get(shoeInvoiceNo);
+                        if (billReturnedItem) {
+                            const brDate = extractDateValue(billReturnedItem, ['billReturnedDate', 'returnedDate', 'billreturneddate', 'returneddate', 'returndate']);
                             if (brDate && (!tracker.walkin.billReturnedDate || tracker.walkin.billReturnedDate.getTime() !== brDate.getTime())) {
                                 tracker.walkin.billReturnedDate = brDate;
                                 tracker.docUpdated = true;
@@ -563,11 +630,13 @@ export const syncWalkinStatuses = async () => {
                                     category: 'Sales',
                                     date: matchedShoeDate || new Date()
                                 });
-                                console.log(`✅ [Walkin Status Sync] Shoe Flow update for ...${phone.slice(-4)}: ${oldShoe} ➔ ${targetShoeStatus}`);
+                                console.log(`✅ [Walkin Status Sync] Shoe Flow update for shoeInvoice ${shoeInvoiceNo} (...${shoeInfo.phone.slice(-4)}): ${oldShoe} ➔ ${targetShoeStatus}`);
                             } else {
-                                console.log(`ℹ️ [Walkin Status Sync] Skipped shoe update for ...${phone.slice(-4)}: current '${currentShoeStatus}' >= target '${targetShoeStatus}'`);
+                                console.log(`ℹ️ [Walkin Status Sync] Skipped shoe update for shoeInvoice ${shoeInvoiceNo} (...${shoeInfo.phone.slice(-4)}): current '${currentShoeStatus}' >= target '${targetShoeStatus}'`);
                             }
                         }
+                    } else {
+                        console.log(`⚠️ [Walkin Status Sync] No unassigned walkin found for shoeInvoiceNo '${shoeInvoiceNo}' (phone: ${shoeInfo.phone})`);
                     }
                 }
 
