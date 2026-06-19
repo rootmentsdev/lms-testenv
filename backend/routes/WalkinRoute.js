@@ -206,6 +206,10 @@ router.get('/check/:contact', OptionalMiddilWare, checkCustomerExists);
  *                 type: string
  *                 description: "Invoice number assigned automatically by the auto-sync cron from external rental/billing APIs. Read-only — set by the system, not by client."
  *                 example: "INV-2026-001234"
+ *               shoeInvoiceNo:
+ *                 type: string
+ *                 description: "Shoe invoice number assigned automatically by the auto-sync cron from external shoe billing APIs. Read-only — set by the system, not by client."
+ *                 example: "SHOE-2026-00987"
  *               date:
  *                 type: string
  *                 example: "2026-06-15"
@@ -307,6 +311,10 @@ router.post('/save', OptionalMiddilWare, saveWalkin);
  *                         type: string
  *                         description: "Invoice number assigned by auto-sync from external rental/billing APIs"
  *                         example: "INV-2026-001234"
+ *                       shoeInvoiceNo:
+ *                         type: string
+ *                         description: "Shoe invoice number assigned by auto-sync from external shoe billing APIs"
+ *                         example: "SHOE-2026-00987"
  *                       billReturnedDate:
  *                         type: string
  *                         format: date-time
@@ -388,9 +396,8 @@ router.get('/all', getAllWalkinsPublic);
  *       Returns the history of cron job executions for walk-in status syncing.
  *       
  *       **Sync logic:** Every run fetches 6 external APIs per branch (GetBookingList, GetRentoutList, GetReturnList,
- *       GetDeleteList, GetBilledList, GetBillReturnedList). Matching uses **invoice number** (from booking/rentout/return/delete
- *       APIs) as the primary key. Shoe APIs (Billed/BillReturned) continue using phone-based matching.
- *       Walk-ins are assigned an `invoiceNo` during their first sync match and all subsequent syncs use it for lookup.
+ *       GetDeleteList, GetBilledList, GetBillReturnedList). Matching uses **invoiceNo** (for rental flow) and **shoeInvoiceNo** (for shoe flow)
+ *       as primary keys. Walk-ins are assigned their respective invoice numbers during their first sync match, and subsequent syncs use them for exact lookups.
  *       
  *       Previously fetched 6 external APIs per branch (GetBookingList, GetRentoutList, GetReturnList,
  *       GetDeleteList, GetBilledList ✨, GetBillReturnedList ✨) and updates walk-in statuses independently
