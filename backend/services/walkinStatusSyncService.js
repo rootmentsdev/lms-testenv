@@ -154,8 +154,8 @@ export const syncWalkinStatuses = async () => {
                 const rentoutUrl = `https://rentalapi.rootments.live/api/GetBooking/GetRentoutList?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
                 const returnUrl = `https://rentalapi.rootments.live/api/GetBooking/GetReturnList?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
                 const deleteUrl = `https://rentalapi.rootments.live/api/GetBooking/GetDeleteList?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
-                const shoeBilledUrl = `https://backend.brynex.com/api/external/shoe-sales/bookings?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
-                const shoeBillReturnedUrl = `https://backend.brynex.com/api/external/shoe-sales/returns?LocCode=${locCode}&DateFrom=${dateFrom}&DateTo=${dateTo}`;
+                const shoeBilledUrl = `https://backend.brynex.com/api/external/shoe-sales/bookings?fromDate=${dateFrom}&toDate=${dateTo}&locCode=${locCode}`;
+                const shoeBillReturnedUrl = `https://backend.brynex.com/api/external/shoe-sales/returns?fromDate=${dateFrom}&toDate=${dateTo}&locCode=${locCode}`;
 
                 // Fetch from all six APIs in parallel, but handle individual request errors safely
                 const fetchListSafe = async (url, typeName) => {
@@ -534,7 +534,7 @@ export const syncWalkinStatuses = async () => {
                             if (!txDate) {
                                 const billReturnedItem = shoeBillReturnedMap.get(shoeInvoiceNo);
                                 if (billReturnedItem) {
-                                    txDate = extractDateValue(billReturnedItem, ['billReturnedDate', 'returnedDate', 'billreturneddate', 'returneddate', 'returndate']);
+                                    txDate = extractDateValue(billReturnedItem, ['billedReturnedDate', 'billedreturneddate', 'billReturnedDate', 'returnedDate', 'billreturneddate', 'returneddate', 'returndate']);
                                 }
                             }
                             if (!txDate) {
@@ -594,7 +594,7 @@ export const syncWalkinStatuses = async () => {
 
                         const billReturnedItem = shoeBillReturnedMap.get(shoeInvoiceNo);
                         if (billReturnedItem) {
-                            const brDate = extractDateValue(billReturnedItem, ['billReturnedDate', 'returnedDate', 'billreturneddate', 'returneddate', 'returndate']);
+                            const brDate = extractDateValue(billReturnedItem, ['billedReturnedDate', 'billedreturneddate', 'billReturnedDate', 'returnedDate', 'billreturneddate', 'returneddate', 'returndate']);
                             if (brDate && (!tracker.walkin.billReturnedDate || tracker.walkin.billReturnedDate.getTime() !== brDate.getTime())) {
                                 tracker.walkin.billReturnedDate = brDate;
                                 tracker.docUpdated = true;
@@ -660,16 +660,28 @@ export const syncWalkinStatuses = async () => {
                             const isCancelled = walkin.rentalStatus === 'Cancelled' || walkin.rentalStatus === 'Cancel' || 
                                                 nextCombinedStatus.includes('Cancelled') || nextCombinedStatus.includes('Cancel');
 
+                            const lastChangeIST = getLocalDateStringIST(walkin.lastStatusChangeDate);
+
                             if (walkinDateStr && walkinDateStr !== todayDateStr) {
                                 if (!isCancelled) {
-                                    walkin.repeatCount = (walkin.repeatCount || 1) + 1;
-                                    totalRepeatCountChanges++;
-                                    console.log(`📈 [Walkin Status Sync] Incrementing repeatCount to ${walkin.repeatCount} for ...${normalizePhone(walkin.contact).slice(-4)}`);
+                                    if (lastChangeIST && lastChangeIST === todayDateStr) {
+                                        console.log(`ℹ️ [Walkin Status Sync] Skipping repeatCount increment for ...${normalizePhone(walkin.contact).slice(-4)}: status already updated today (${todayDateStr})`);
+                                        branchWalkinsSameDayRepeat++;
+                                        totalWalkinsSameDayRepeat++;
+                                    } else {
+                                        walkin.repeatCount = (walkin.repeatCount || 1) + 1;
+                                        totalRepeatCountChanges++;
+                                        console.log(`📈 [Walkin Status Sync] Incrementing repeatCount to ${walkin.repeatCount} for ...${normalizePhone(walkin.contact).slice(-4)}`);
+                                    }
                                 }
                             } else if (walkinDateStr === todayDateStr) {
                                 branchWalkinsSameDayRepeat++;
                                 totalWalkinsSameDayRepeat++;
                             }
+
+                            // Update status change tracking fields
+                            walkin.lastStatusChangeDate = new Date();
+                            walkin.statusChangedToday = true;
                         }
 
                         walkin.status = getCombinedStatus(walkin.rentalStatus, walkin.shoeStatus);

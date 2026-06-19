@@ -17,7 +17,20 @@ function norm(s) {
 }
 function locationKey(name) { return norm(name).split(" ").filter(t=>t&&!BRAND_TOKENS.has(t)).join(" "); }
 
-const STATUS_OPTIONS = ['Trial','Loss','Enquiry','Reissue','New Booking','Revisit Booking','Revisit Loss','New Walkin','Booked','Rentout','Return','Cancelled','Billed','Bill Returned','Other'];
+const STATUS_OPTIONS = [
+  'New Walkin',
+  'Loss',
+  'Revisit',
+  'Booked',
+  'Rentout',
+  'Return',
+  'Trial',
+  'Enquiry',
+  'Reissue',
+  'Cancelled',
+  'Billed',
+  'Bill Returned'
+];
 
 const NON_SALES_REASONS = new Set([
     'Product Already Booked',
@@ -329,7 +342,22 @@ const WalkinReport = () => {
         let data = json.data || [];
         if (formData.store && formData.store !== 'All') data = data.filter(w => locationKey(w.store) === locationKey(formData.store));
         if (formData.employee) data = data.filter(w => w.staff === formData.employee);
-        if (selectedStatus) data = data.filter(w => w.status === selectedStatus);
+        if (selectedStatus) {
+          data = data.filter(w => {
+            if (!w.status) return false;
+            const wStatus = String(w.status).trim().toLowerCase();
+            const target = selectedStatus.trim().toLowerCase();
+            if (target === 'cancelled' || target === 'cancel') {
+              return wStatus.includes('cancel') || wStatus.includes('cancelled') || 
+                     String(w.rentalStatus).toLowerCase().includes('cancel') || 
+                     String(w.shoeStatus).toLowerCase().includes('cancel');
+            }
+            const parts = wStatus.split(',').map(p => p.trim());
+            return parts.includes(target) || 
+                   String(w.rentalStatus).trim().toLowerCase() === target || 
+                   String(w.shoeStatus).trim().toLowerCase() === target;
+          });
+        }
         setReportData(data);
         setReportGenerated(true);
         setCurrentPage(1);
@@ -344,7 +372,20 @@ const WalkinReport = () => {
   const displayed = reportData.filter(w => {
     const q = tableSearch.toLowerCase();
     const matchSearch = !q || w.customerName?.toLowerCase().includes(q) || w.contact?.includes(q) || w.staff?.toLowerCase().includes(q);
-    const matchStatus = tableStatus === 'All' || w.status === tableStatus;
+    const matchStatus = tableStatus === 'All' || (() => {
+      if (!w.status) return false;
+      const wStatus = String(w.status).trim().toLowerCase();
+      const target = tableStatus.trim().toLowerCase();
+      if (target === 'cancelled' || target === 'cancel') {
+        return wStatus.includes('cancel') || wStatus.includes('cancelled') || 
+               String(w.rentalStatus).toLowerCase().includes('cancel') || 
+               String(w.shoeStatus).toLowerCase().includes('cancel');
+      }
+      const parts = wStatus.split(',').map(p => p.trim());
+      return parts.includes(target) || 
+             String(w.rentalStatus).trim().toLowerCase() === target || 
+             String(w.shoeStatus).trim().toLowerCase() === target;
+    })();
     return matchSearch && matchStatus;
   });
 
@@ -569,9 +610,25 @@ const WalkinReport = () => {
                                 </div>
                               </td>
                           <td style={{ padding: '11px 12px', textAlign: 'center', boxSizing: 'border-box' }}>
-                            <span style={{ background:sc.bg, color:sc.color, borderRadius:'20px', padding:'3px 10px', fontSize:'10px', fontWeight:700, whiteSpace:'nowrap', display:'inline-block' }}>
-                              {w.status?.toUpperCase()}
-                            </span>
+                            <div className="walkin-marquee-container" style={{ width: '110px', margin: '0 auto' }}>
+                              <span
+                                className="walkin-marquee-text walkin-anim-scroll"
+                                style={{
+                                  background: sc.bg,
+                                  color: sc.color,
+                                  borderRadius: '20px',
+                                  padding: '3px 10px',
+                                  fontSize: '10px',
+                                  fontWeight: 700,
+                                  whiteSpace: 'nowrap',
+                                  display: 'inline-block',
+                                  boxSizing: 'border-box',
+                                  textAlign: 'center'
+                                }}
+                              >
+                                {w.status?.toUpperCase()}
+                              </span>
+                            </div>
                           </td>
                           <td style={{textAlign: 'center',  padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
                                 <div className="walkin-marquee-container">
