@@ -425,7 +425,7 @@ const WalkinReport = () => {
               <div>
                 <label style={lbl}>Store Name <span style={{color:'#ef4444'}}>*</span></label>
                 <select value={formData.store} disabled={user?.role==='store_admin'} onChange={e=>setFormData(p=>({...p,store:e.target.value,employee:''}))} style={{...inp,cursor:'pointer',appearance:'auto'}}>
-                  {user?.role !== 'store_admin' && <option value="All">Select Store</option>}
+                  {user?.role !== 'store_admin' && <option value="All">All Store</option>}
                   {branches.map((b,i)=><option key={i} value={b.workingBranch}>{b.workingBranch}</option>)}
                 </select>
               </div>
@@ -442,7 +442,7 @@ const WalkinReport = () => {
               <div>
                 <label style={lbl}>Status <span style={{color:'#9ca3af', fontWeight:400}}>(Optional)</span></label>
                 <select value={selectedStatus} onChange={e=>setSelectedStatus(e.target.value)} style={{...inp,cursor:'pointer',appearance:'auto'}}>
-                  <option value="">Choose Status</option>
+                  <option value="">All Status</option>
                   {STATUS_OPTIONS.map(s=><option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
