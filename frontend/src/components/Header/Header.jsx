@@ -132,8 +132,10 @@ const Header = () => {
                                 {initials}
                             </div>
                             {/* Name + role */}
-                            <div className="hidden md:flex flex-col items-start leading-tight">
-                                <span className="text-[13px] font-semibold text-gray-900">{displayName}</span>
+                            <div className="hidden md:flex flex-col items-start leading-tight" style={{ width: '130px' }}>
+                                <div className="header-marquee-container">
+                                    <span className="text-[13px] font-semibold text-gray-900 header-marquee-text">{displayName}</span>
+                                </div>
                                 <span className="text-[11px] text-gray-400">{roleLabel}</span>
                             </div>
                             {/* Chevron */}
@@ -188,6 +190,25 @@ const Header = () => {
                 @keyframes headerDropIn {
                     from { opacity: 0; transform: translateY(-6px) scale(0.97); }
                     to   { opacity: 1; transform: translateY(0) scale(1); }
+                }
+                .header-marquee-container {
+                    container-type: inline-size;
+                    overflow: hidden;
+                    white-space: nowrap;
+                    display: block;
+                    width: 100%;
+                }
+                .header-marquee-text {
+                    display: inline-block;
+                    min-width: 100%;
+                    animation: header-marquee-scroll 6s linear infinite;
+                }
+                .header-marquee-container:hover .header-marquee-text {
+                    animation-play-state: paused;
+                }
+                @keyframes header-marquee-scroll {
+                    0%, 15% { transform: translateX(0); }
+                    85%, 100% { transform: translateX(min(0px, calc(-100% + 100cqw))); }
                 }
             `}</style>
 
