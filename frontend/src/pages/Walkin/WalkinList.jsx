@@ -36,6 +36,12 @@ function locationKey(name) {
     return tokens.join(" ");
 }
 
+const isSalesProductType = (val) => {
+    if (!val) return false;
+    const lower = String(val).toLowerCase().trim();
+    return lower === 'sales' || lower === 'sale products' || lower === 'sale';
+};
+
 const STATUS_OPTIONS = [
     'Loss',
     'Revisit',
@@ -119,7 +125,7 @@ const normalizeProductType = (val) => {
     const lower = val.toLowerCase().trim();
     if (lower === '2 piece suite' || lower === '2 piece suit') return '2 Piece Suit';
     if (lower === '3 piece suite' || lower === '3 piece suit') return '3 Piece Suit';
-    if (lower === 'bandgala') return 'Bandgala';
+    if (lower === 'bandgala' || lower === 'bandhgala') return 'Bandhgala';
     if (lower === 'indowestern') return 'Indowestern';
     if (lower === 'kurtha') return 'Kurtha';
     if (lower === 'kids suit' || lower === 'kids suite') return 'Kids Suit';
@@ -138,7 +144,7 @@ const normalizeProductType = (val) => {
     if (lower === 'arabic lehanga' || lower === 'arabic lehenga') return 'Arabic Lehanga';
     if (lower === 'jwellery' || lower === 'jewellery' || lower === 'jewelry') return 'Jwellery';
     if (lower === 'oters' || lower === 'others') return 'Oters';
-    if (lower === 'sales') return 'Sales';
+    if (lower === 'sales' || lower === 'sale' || lower === 'sale products') return 'Sale Products';
     return val.replace(/\b\w/g, c => c.toUpperCase()).replace(/Suite/g, 'Suit').replace(/suite/g, 'suit');
 };
 
@@ -421,7 +427,7 @@ const WalkinList = () => {
                             {formData.lossProductType && formData.lossProductType !== '' && (
                                 <>
                                     {/* IF Product Type is NOT sales -> Show Reason dropdown */}
-                                    {(formData.lossProductType || '').toLowerCase() !== 'sales' ? (
+                                    {!isSalesProductType(formData.lossProductType) ? (
                                         <>
                                             <div className="col-span-12 md:col-span-3">
                                                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -461,7 +467,7 @@ const WalkinList = () => {
                                                                 className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
                                                             >
                                                                 <option value="">Select Size</option>
-                                                                {['32', '34', '36', '38', '40', '42', '44', '46', '48'].map((size) => (
+                                                                {['32', '34', '36', '38', '40', '42', '44', '46', '48', 'Others'].map((size) => (
                                                                     <option key={size} value={size}>{size}</option>
                                                                 ))}
                                                             </select>
@@ -493,10 +499,10 @@ const WalkinList = () => {
                                                         <textarea
                                                             name="lossNote"
                                                             rows={1}
-                                                            placeholder="Enter notes..."
+                                                            placeholder="Product Category / Item Name"
                                                             value={formData.lossNote || ''}
                                                             onChange={handleInputChange}
-                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-300 resize-none font-semibold"
                                                         />
                                                     </div>
                                                 </>
@@ -541,54 +547,29 @@ const WalkinList = () => {
                                                         <textarea
                                                             name="lossNote"
                                                             rows={1}
-                                                            placeholder="Enter notes..."
+                                                            placeholder="Product Category / Item Name"
                                                             value={formData.lossNote || ''}
                                                             onChange={handleInputChange}
-                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-300 resize-none font-semibold"
                                                         />
                                                     </div>
                                                 </>
                                             )}
 
                                             {formData.lossReason === 'Price' && (
-                                                <>
-                                                    <div className="col-span-12 md:col-span-3">
-                                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Select Remarks<span className="text-red-500">*</span>
-                                                        </label>
-                                                        <div className="relative">
-                                                            <select
-                                                                name="lossSelectRemarks"
-                                                                required
-                                                                value={formData.lossSelectRemarks || ''}
-                                                                onChange={handleInputChange}
-                                                                className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
-                                                            >
-                                                                <option value="">Select Option</option>
-                                                                <option value="price too high">Price Too High</option>
-                                                                <option value="budget restriction">Budget Restriction</option>
-                                                            </select>
-                                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                                                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                                                                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                                                                </svg>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="col-span-12 md:col-span-9">
-                                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
-                                                        </label>
-                                                        <textarea
-                                                            name="lossNote"
-                                                            rows={1}
-                                                            placeholder="Enter notes..."
-                                                            value={formData.lossNote || ''}
-                                                            onChange={handleInputChange}
-                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
-                                                        />
-                                                    </div>
-                                                </>
+                                                <div className="col-span-12">
+                                                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                        Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                    </label>
+                                                    <textarea
+                                                        name="lossNote"
+                                                        rows={1}
+                                                        placeholder="Product Category / Item Name"
+                                                        value={formData.lossNote || ''}
+                                                        onChange={handleInputChange}
+                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-300 resize-none font-semibold"
+                                                    />
+                                                </div>
                                             )}
 
                                             {formData.lossReason === 'Size' && (
@@ -606,7 +587,7 @@ const WalkinList = () => {
                                                                 className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
                                                             >
                                                                 <option value="">Select Size</option>
-                                                                {['32', '34', '36', '38', '40', '42', '44', '46'].map((size) => (
+                                                                {['32', '34', '36', '38', '40', '42', '44', '46', '48', 'Others'].map((size) => (
                                                                     <option key={size} value={size}>{size}</option>
                                                                 ))}
                                                             </select>
@@ -624,10 +605,10 @@ const WalkinList = () => {
                                                         <textarea
                                                             name="lossNote"
                                                             rows={1}
-                                                            placeholder="Enter notes..."
+                                                            placeholder="Product Category / Item Name"
                                                             value={formData.lossNote || ''}
                                                             onChange={handleInputChange}
-                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-300 resize-none font-semibold"
                                                         />
                                                     </div>
                                                 </>
@@ -701,12 +682,11 @@ const WalkinList = () => {
                                                     </div>
                                                     <div className="col-span-12 md:col-span-3">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Price<span className="text-red-500">*</span>
+                                                            Price <span className="text-gray-400 font-normal">(Optional)</span>
                                                         </label>
                                                         <input
                                                             type="text"
                                                             name="lossSalesPrice"
-                                                            required
                                                             placeholder="Enter Price"
                                                             value={formData.lossSalesPrice || ''}
                                                             onChange={handleInputChange}
@@ -720,10 +700,10 @@ const WalkinList = () => {
                                                         <textarea
                                                             name="lossNote"
                                                             rows={1}
-                                                            placeholder="Enter notes..."
+                                                            placeholder="Product Category / Item Name"
                                                             value={formData.lossNote || ''}
                                                             onChange={handleInputChange}
-                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-300 resize-none font-semibold"
                                                         />
                                                     </div>
                                                 </>
@@ -758,7 +738,7 @@ const WalkinList = () => {
                                                                 className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
                                                             >
                                                                 <option value="">Select Size</option>
-                                                                {['32', '34', '36', '38', '40', '42', '44', '46'].map((size) => (
+                                                                {['32', '34', '36', '38', '40', '42', '44', '46', '48', 'Others'].map((size) => (
                                                                     <option key={size} value={size}>{size}</option>
                                                                 ))}
                                                             </select>
@@ -771,12 +751,11 @@ const WalkinList = () => {
                                                     </div>
                                                     <div className="col-span-12 md:col-span-3">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Price<span className="text-red-500">*</span>
+                                                            Price <span className="text-gray-400 font-normal">(Optional)</span>
                                                         </label>
                                                         <input
                                                             type="text"
                                                             name="lossSalesPrice"
-                                                            required
                                                             placeholder="Enter Price"
                                                             value={formData.lossSalesPrice || ''}
                                                             onChange={handleInputChange}
@@ -790,10 +769,10 @@ const WalkinList = () => {
                                                         <textarea
                                                             name="lossNote"
                                                             rows={1}
-                                                            placeholder="Enter notes..."
+                                                            placeholder="Product Category / Item Name"
                                                             value={formData.lossNote || ''}
                                                             onChange={handleInputChange}
-                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-300 resize-none font-semibold"
                                                         />
                                                     </div>
                                                 </>
@@ -834,7 +813,7 @@ const WalkinList = () => {
                             {/* Once Product Type is selected */}
                             {formData.lossProductType && formData.lossProductType !== '' && (
                                 <>
-                                    {(formData.lossProductType || '').toLowerCase() !== 'sales' ? (
+                                    {!isSalesProductType(formData.lossProductType) ? (
                                         <>
                                             {/* Select Reason Dropdown */}
                                             <div className="col-span-12 md:col-span-3">
@@ -868,10 +847,10 @@ const WalkinList = () => {
                                                     <textarea
                                                         name="lossNote"
                                                         rows={1}
-                                                        placeholder="Enter notes..."
+                                                        placeholder="Product Category / Item Name"
                                                         value={formData.lossNote || ''}
                                                         onChange={handleInputChange}
-                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-300 resize-none font-semibold"
                                                     />
                                                 </div>
                                             )}
@@ -911,10 +890,10 @@ const WalkinList = () => {
                                                         <textarea
                                                             name="lossNote"
                                                             rows={1}
-                                                            placeholder="Enter notes..."
+                                                            placeholder="Product Category / Item Name"
                                                             value={formData.lossNote || ''}
                                                             onChange={handleInputChange}
-                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-300 resize-none font-semibold"
                                                         />
                                                     </div>
                                                 </>
@@ -945,10 +924,10 @@ const WalkinList = () => {
                                                         <textarea
                                                             name="lossNote"
                                                             rows={1}
-                                                            placeholder="Enter notes..."
+                                                            placeholder="Product Category / Item Name"
                                                             value={formData.lossNote || ''}
                                                             onChange={handleInputChange}
-                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-300 resize-none font-semibold"
                                                         />
                                                     </div>
                                                 </>
@@ -988,10 +967,10 @@ const WalkinList = () => {
                                                     <textarea
                                                         name="lossNote"
                                                         rows={1}
-                                                        placeholder="Enter notes..."
+                                                        placeholder="Product Category / Item Name"
                                                         value={formData.lossNote || ''}
                                                         onChange={handleInputChange}
-                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                        className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-300 resize-none font-semibold"
                                                     />
                                                 </div>
                                             )}
@@ -1031,7 +1010,7 @@ const WalkinList = () => {
                             {/* Once Product Type is selected */}
                             {formData.lossProductType && formData.lossProductType !== '' && (
                                 <>
-                                    {(formData.lossProductType || '').toLowerCase() !== 'sales' ? (
+                                    {!isSalesProductType(formData.lossProductType) ? (
                                         <>
                                             {/* Select Reason Dropdown */}
                                             <div className="col-span-12 md:col-span-3">
@@ -1072,7 +1051,7 @@ const WalkinList = () => {
                                                                 className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
                                                             >
                                                                 <option value="">Select Size</option>
-                                                                {['32', '34', '36', '38', '40', '42', '44', '46', '48'].map((size) => (
+                                                                {['32', '34', '36', '38', '40', '42', '44', '46', '48', 'Others'].map((size) => (
                                                                     <option key={size} value={size}>{size}</option>
                                                                 ))}
                                                             </select>
@@ -1104,10 +1083,10 @@ const WalkinList = () => {
                                                         <textarea
                                                             name="lossNote"
                                                             rows={1}
-                                                            placeholder="Enter notes..."
+                                                            placeholder="Product Category / Item Name"
                                                             value={formData.lossNote || ''}
                                                             onChange={handleInputChange}
-                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-300 resize-none font-semibold"
                                                         />
                                                     </div>
                                                 </>
@@ -1146,10 +1125,10 @@ const WalkinList = () => {
                                                         <textarea
                                                             name="lossNote"
                                                             rows={1}
-                                                            placeholder="Enter notes..."
+                                                            placeholder="Product Category / Item Name"
                                                             value={formData.lossNote || ''}
                                                             onChange={handleInputChange}
-                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-300 resize-none font-semibold"
                                                         />
                                                     </div>
                                                 </>
@@ -1187,10 +1166,10 @@ const WalkinList = () => {
                                                         <textarea
                                                             name="lossNote"
                                                             rows={1}
-                                                            placeholder="Enter notes..."
+                                                            placeholder="Product Category / Item Name"
                                                             value={formData.lossNote || ''}
                                                             onChange={handleInputChange}
-                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-300 resize-none font-semibold"
                                                         />
                                                     </div>
                                                 </>
@@ -1221,10 +1200,10 @@ const WalkinList = () => {
                                                         <textarea
                                                             name="lossNote"
                                                             rows={1}
-                                                            placeholder="Enter notes..."
+                                                            placeholder="Product Category / Item Name"
                                                             value={formData.lossNote || ''}
                                                             onChange={handleInputChange}
-                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-300 resize-none font-semibold"
                                                         />
                                                     </div>
                                                 </>
@@ -1245,7 +1224,7 @@ const WalkinList = () => {
                                                                 className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
                                                             >
                                                                 <option value="">Select Size</option>
-                                                                {['32', '34', '36', '38', '40', '42', '44', '46', 'Others'].map((size) => (
+                                                                {['32', '34', '36', '38', '40', '42', '44', '46', '48', 'Others'].map((size) => (
                                                                     <option key={size} value={size}>{size}</option>
                                                                 ))}
                                                             </select>
@@ -1263,10 +1242,10 @@ const WalkinList = () => {
                                                         <textarea
                                                             name="lossNote"
                                                             rows={1}
-                                                            placeholder="Enter notes..."
+                                                            placeholder="Product Category / Item Name"
                                                             value={formData.lossNote || ''}
                                                             onChange={handleInputChange}
-                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-300 resize-none font-semibold"
                                                         />
                                                     </div>
                                                 </>
@@ -1298,7 +1277,7 @@ const WalkinList = () => {
                                             </div>
 
                                             {/* Custom fields under sales categories */}
-                                            {formData.subCategory === 'shoe' && (
+                                            {((formData.subCategory || '').toLowerCase().trim() === 'shoe') && (
                                                 <>
                                                     <div className="col-span-12 md:col-span-3">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -1340,12 +1319,11 @@ const WalkinList = () => {
                                                     </div>
                                                     <div className="col-span-12 md:col-span-3">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Price<span className="text-red-500">*</span>
+                                                            Price <span className="text-gray-400 font-normal">(Optional)</span>
                                                         </label>
                                                         <input
                                                             type="text"
                                                             name="lossSalesPrice"
-                                                            required
                                                             placeholder="Enter Price"
                                                             value={formData.lossSalesPrice || ''}
                                                             onChange={handleInputChange}
@@ -1359,16 +1337,16 @@ const WalkinList = () => {
                                                         <textarea
                                                             name="lossNote"
                                                             rows={1}
-                                                            placeholder="Enter notes..."
+                                                            placeholder="Product Category / Item Name"
                                                             value={formData.lossNote || ''}
                                                             onChange={handleInputChange}
-                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-300 resize-none font-semibold"
                                                         />
                                                     </div>
                                                 </>
                                             )}
 
-                                            {formData.subCategory === 'shirt' && (
+                                            {((formData.subCategory || '').toLowerCase().trim() === 'shirt') && (
                                                 <>
                                                     <div className="col-span-12 md:col-span-3">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -1397,7 +1375,7 @@ const WalkinList = () => {
                                                                 className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
                                                             >
                                                                 <option value="">Select Size</option>
-                                                                {['32', '34', '36', '38', '40', '42', '44', '46'].map((size) => (
+                                                                {['32', '34', '36', '38', '40', '42', '44', '46', '48', 'Others'].map((size) => (
                                                                     <option key={size} value={size}>{size}</option>
                                                                 ))}
                                                             </select>
@@ -1410,12 +1388,11 @@ const WalkinList = () => {
                                                     </div>
                                                     <div className="col-span-12 md:col-span-3">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Price<span className="text-red-500">*</span>
+                                                            Price <span className="text-gray-400 font-normal">(Optional)</span>
                                                         </label>
                                                         <input
                                                             type="text"
                                                             name="lossSalesPrice"
-                                                            required
                                                             placeholder="Enter Price"
                                                             value={formData.lossSalesPrice || ''}
                                                             onChange={handleInputChange}
@@ -1429,10 +1406,10 @@ const WalkinList = () => {
                                                         <textarea
                                                             name="lossNote"
                                                             rows={1}
-                                                            placeholder="Enter notes..."
+                                                            placeholder="Product Category / Item Name"
                                                             value={formData.lossNote || ''}
                                                             onChange={handleInputChange}
-                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-300 resize-none font-semibold"
                                                         />
                                                     </div>
                                                 </>
@@ -1487,7 +1464,7 @@ const WalkinList = () => {
                                                 className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
                                             >
                                                 <option value="">Select Size</option>
-                                                {['32', '34', '36', '38', '40', '42', '44', '46', 'Others'].map((size) => (
+                                                {['32', '34', '36', '38', '40', '42', '44', '46', '48', 'Others'].map((size) => (
                                                     <option key={size} value={size}>{size}</option>
                                                 ))}
                                             </select>
@@ -1549,10 +1526,10 @@ const WalkinList = () => {
                                         <textarea
                                             name="lossNote"
                                             rows={1}
-                                            placeholder="Enter notes..."
+                                            placeholder="Product Category / Item Name"
                                             value={formData.lossNote || ''}
                                             onChange={handleInputChange}
-                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-300 resize-none font-semibold"
                                         />
                                     </div>
                                 </>
@@ -1590,19 +1567,21 @@ const WalkinList = () => {
                     )}
 
                     {/* Standard Remarks Textarea */}
-                    <div className={formData.status === 'Revisit' ? "col-span-12 md:col-span-6" : "col-span-12 md:col-span-9"}>
-                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                            Remarks <span className="text-gray-400 font-normal">(Optional)</span>
-                        </label>
-                        <textarea
-                            name="remarks"
-                            rows={1}
-                            placeholder="Enter your remarks..."
-                            value={formData.remarks}
-                            onChange={handleInputChange}
-                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
-                        />
-                    </div>
+                    {formData.status !== 'New Walkin' && (
+                        <div className={formData.status === 'Revisit' ? "col-span-12 md:col-span-6" : "col-span-12 md:col-span-9"}>
+                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                Remarks <span className="text-gray-400 font-normal">(Optional)</span>
+                            </label>
+                            <textarea
+                                name="remarks"
+                                rows={1}
+                                placeholder="Enter your remarks..."
+                                value={formData.remarks}
+                                onChange={handleInputChange}
+                                className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-400 resize-none font-semibold"
+                            />
+                        </div>
+                    )}
                 </>
             )}
         </>
@@ -1672,8 +1651,8 @@ const WalkinList = () => {
 
                 const budgetMatch = remarksStr.match(/Budget:\s*([^|]+)/);
                 if (budgetMatch) lossBudget = budgetMatch[1].trim();
-            } else if (remarksStr.startsWith('[Sales]') || remarksStr.startsWith('[sales]')) {
-                lossProductType = 'Sales';
+            } else if (remarksStr.startsWith('[Sales]') || remarksStr.startsWith('[sales]') || remarksStr.startsWith('[Sale Products]') || remarksStr.startsWith('[sale products]')) {
+                lossProductType = 'Sale Products';
 
                 const subCategoryMatch = remarksStr.match(/Sub Category:\s*([^|]+)/);
                 if (subCategoryMatch) parsedSubCategory = subCategoryMatch[1].trim();
@@ -1994,7 +1973,7 @@ const WalkinList = () => {
                 ...prev,
                 category: value,
                 subCategory: prev.status === 'Loss' ?
-                    (value === 'Product' ? ((prev.lossProductType || '').toLowerCase() === 'sales' ? 'Select Sub Category' : 'Select Reason') : (value === 'Dapper Squad' ? 'Select Reason' : 'Select Sub Category')) : '-',
+                    (value === 'Product' ? (isSalesProductType(prev.lossProductType) ? 'Select Sub Category' : 'Select Reason') : (value === 'Dapper Squad' ? 'Select Reason' : 'Select Sub Category')) : '-',
                 lossProductType: '',
                 lossColour: '',
                 lossSize: '',
@@ -2056,6 +2035,7 @@ const WalkinList = () => {
                 category: finalCategory,
                 subCategory: finalSubCategory,
                 functionType: finalFunctionType,
+                remarks: value === 'New Walkin' ? '' : prev.remarks,
                 lossProductType: '',
                 lossColour: '',
                 lossSize: '',
@@ -2075,7 +2055,7 @@ const WalkinList = () => {
         }
 
         if (name === 'lossProductType') {
-            const isSales = (value || '').toLowerCase() === 'sales';
+            const isSales = isSalesProductType(value);
             setFormData(prev => ({
                 ...prev,
                 lossProductType: value,
@@ -2402,7 +2382,7 @@ const WalkinList = () => {
                     return;
                 }
 
-                if (prodTypeLower === 'sales') {
+                if (isSalesProductType(prodTypeLower)) {
                     if (!formData.subCategory || ['Select Sub Category', 'Select sub category', '-', ''].includes(formData.subCategory)) {
                         alert('Please select a Sales Sub Category.');
                         return;
@@ -2413,10 +2393,6 @@ const WalkinList = () => {
                     }
                     if (!formData.lossSize || formData.lossSize === '') {
                         alert('Please select a Size.');
-                        return;
-                    }
-                    if (!formData.lossSalesPrice || formData.lossSalesPrice.trim() === '') {
-                        alert('Please enter a Price.');
                         return;
                     }
                 } else {
@@ -2433,11 +2409,7 @@ const WalkinList = () => {
                             alert('Please enter a Colour.');
                             return;
                         }
-                    } else if (lossReasonLower === 'price') {
-                        if (!formData.lossSelectRemarks || formData.lossSelectRemarks === '') {
-                            alert('Please select a Price Option.');
-                            return;
-                        }
+
                     } else if (lossReasonLower === 'size') {
                         if (!formData.lossSize || formData.lossSize === '') {
                             alert('Please select a Size.');
@@ -2451,7 +2423,7 @@ const WalkinList = () => {
                         alert('Please select a Product Type.');
                         return;
                     }
-                    if (prodTypeLower === 'sales') {
+                    if (isSalesProductType(prodTypeLower)) {
                         if (!formData.subCategory || ['Select Sub Category', 'Select sub category', '-', ''].includes(formData.subCategory)) {
                             alert('Please select a Sales Sub Category.');
                             return;
@@ -2478,7 +2450,7 @@ const WalkinList = () => {
                         alert('Please select a Product Type.');
                         return;
                     }
-                    if (prodTypeLower === 'sales') {
+                    if (isSalesProductType(prodTypeLower)) {
                         if (!formData.subCategory || ['Select Sub Category', 'Select sub category', '-', ''].includes(formData.subCategory)) {
                             alert('Please select a Sales Sub Category.');
                             return;
@@ -2489,10 +2461,6 @@ const WalkinList = () => {
                         }
                         if (!formData.lossSize || formData.lossSize === '') {
                             alert('Please select a Size.');
-                            return;
-                        }
-                        if (!formData.lossSalesPrice || formData.lossSalesPrice.trim() === '') {
-                            alert('Please enter a Price.');
                             return;
                         }
                     } else {
@@ -2561,7 +2529,7 @@ const WalkinList = () => {
 
             const finalRemarks = formData.remarks || '';
 
-            const isSales = (formData.lossProductType || '').toLowerCase().trim() === 'sales';
+            const isSales = isSalesProductType(formData.lossProductType);
             const cleanSubCategory = (formData.status === 'Loss' && isSales)
                 ? ((formData.subCategory && !['Select Sub Category', 'Select sub category', '-', ''].includes(formData.subCategory)) ? formData.subCategory : '-')
                 : ((formData.status === 'Loss') ? '-' : formData.subCategory);
@@ -2642,25 +2610,25 @@ const WalkinList = () => {
         if (storeLower) {
             if (storeLower.includes('zorucci') || storeLower.startsWith('z')) {
                 options = [
-                    'Lehenga', 'Pakistani Lehenga', 'Arabic Lehenga', 'Gown', 'Body Cons', 'Saree', 'Party Wear', 'Sharara', 'Peplum', 'Jewellery', 'Sales'
+                    'Lehenga', 'Pakistani Lehenga', 'Arabic Lehenga', 'Gown', 'Body Cons', 'Saree', 'Party Wear', 'Sharara', 'Peplum', 'Jewellery', 'Sale Products'
                 ];
             } else {
-                options = ['2 Piece Suit', '3 Piece Suit', 'Bandgala', 'Indowestern', 'Kurtha', 'Kids Suit', 'Sales'];
+                options = ['2 Piece Suit', '3 Piece Suit', 'Bandhgala', 'Indowestern', 'Kurtha', 'Kids Suit', 'Sale Products'];
             }
         } else {
             if (isCentralAdmin) {
                 options = [
-                    '2 Piece Suit', '3 Piece Suit', 'Bandgala', 'Indowestern', 'Kurtha', 'Kids Suit',
+                    '2 Piece Suit', '3 Piece Suit', 'Bandhgala', 'Indowestern', 'Kurtha', 'Kids Suit',
                     'Lehenga', 'Pakistani Lehenga', 'Arabic Lehenga', 'Gown', 'Body Cons', 'Saree', 'Party Wear', 'Sharara', 'Peplum', 'Jewellery',
-                    'Sales'
+                    'Sale Products'
                 ];
             } else {
-                options = ['2 Piece Suit', '3 Piece Suit', 'Bandgala', 'Indowestern', 'Kurtha', 'Kids Suit', 'Sales'];
+                options = ['2 Piece Suit', '3 Piece Suit', 'Bandhgala', 'Indowestern', 'Kurtha', 'Kids Suit', 'Sale Products'];
             }
         }
 
         if (formData.category === 'Customization') {
-            options = options.filter(opt => opt !== 'Sales');
+            options = options.filter(opt => opt !== 'Sale Products');
         }
         return options;
     };
@@ -2677,9 +2645,8 @@ const WalkinList = () => {
 
     const getSubCategoryOptions = () => {
         if (formData.status === 'Loss') {
-            const prodTypeLower = (formData.lossProductType || '').toLowerCase().trim();
             if (formData.category === 'Product') {
-                if (prodTypeLower === 'sales') {
+                if (isSalesProductType(formData.lossProductType)) {
                     return [
                         'Select Sub Category',
                         'Shoe',
@@ -2696,7 +2663,7 @@ const WalkinList = () => {
                 }
             }
             if (formData.category === 'Enquiry') {
-                if (prodTypeLower === 'sales') {
+                if (isSalesProductType(formData.lossProductType)) {
                     return [
                         'Select Sub Category',
                         'Shoe',
@@ -2712,7 +2679,7 @@ const WalkinList = () => {
                 }
             }
             if (formData.category === 'Dapper Squad') {
-                if (prodTypeLower === 'sales') {
+                if (isSalesProductType(formData.lossProductType)) {
                     return [
                         'Select Sub Category',
                         'Shoe',
@@ -3137,7 +3104,7 @@ const WalkinList = () => {
                                                     let displaySubCategory = '–';
 
                                                     if (w.status === 'Loss' || w.status === 'Revisit Loss') {
-                                                        const isSales = (w.lossProductType || '').toLowerCase().trim() === 'sales';
+                                                        const isSales = isSalesProductType(w.lossProductType);
 
                                                         // 1. Loss Reason display
                                                         if (w.lossReason && w.lossReason !== '-' && w.lossReason !== '') {
