@@ -42,12 +42,7 @@ const SUB_CATEGORIES = {
   ]
 };
 const TIMES = ['12:00am','12:30am','1:00am','1:30am','2:00am','2:30am','3:00am','3:30am','4:00am','4:30am','5:00am','5:30am','6:00am','6:30am','7:00am','7:30am','8:00am','8:30am','9:00am','9:30am','10:00am','10:30am','11:00am','11:30am','12:00pm','12:30pm','1:00pm','1:30pm','2:00pm','2:30pm','3:00pm','3:30pm','4:00pm','4:30pm','5:00pm','5:30pm','6:00pm','6:30pm','7:00pm','7:30pm','8:00pm','8:30pm','9:00pm','9:30pm','10:00pm','10:30pm','11:00pm','11:30pm'];
-const PRIORITIES = [
-  { label: 'Urgent', color: '#ef4444' },
-  { label: 'High',   color: '#f59e0b' },
-  { label: 'Normal', color: '#3b82f6' },
-  { label: 'Low',    color: '#9ca3af' },
-];
+
 
 const CheckboxOption = (props) => {
   return (
@@ -142,61 +137,7 @@ const getCurrentTime = () => {
   return `${hours}:${strMinutes}${ampm}`;
 };
 
-const PriorityPicker = ({ value, onChange }) => {
-  const getActiveStyles = (label) => {
-    switch (label) {
-      case 'Urgent':
-        return { background: '#fef2f2', border: '1.5px solid #ef4444', text: '#991b1b', fontWeight: 600 };
-      case 'High':
-        return { background: '#fffbeb', border: '1.5px solid #f59e0b', text: '#92400e', fontWeight: 600 };
-      case 'Normal':
-        return { background: '#eff6ff', border: '1.5px solid #3b82f6', text: '#1e40af', fontWeight: 600 };
-      case 'Low':
-        return { background: '#f9fafb', border: '1.5px solid #9ca3af', text: '#374151', fontWeight: 600 };
-      default:
-        return {};
-    }
-  };
 
-  return (
-    <div style={{
-      display: 'flex',
-      flexWrap: 'wrap',
-      gap: '10px',
-      marginTop: '4px',
-    }}>
-      {PRIORITIES.map((p) => {
-        const selected = value === p.label;
-        const active = selected ? getActiveStyles(p.label) : {};
-        return (
-          <button
-            key={p.label}
-            type="button"
-            onClick={() => onChange(p.label)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '7px 14px',
-              borderRadius: '999px',
-              border: selected ? active.border : '1px solid #e5e7eb',
-              background: selected ? active.background : '#fff',
-              fontSize: '13px',
-              fontWeight: selected ? active.fontWeight : 500,
-              color: selected ? active.text : '#374151',
-              cursor: 'pointer',
-              fontFamily: "DM Sans, sans-serif",
-              transition: 'all 0.2s ease',
-            }}
-          >
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: p.color, flexShrink: 0 }} />
-            {p.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-};
 
 const FileField = ({ file, onChange }) => (
   <label
@@ -372,7 +313,7 @@ const CreateTask = () => {
     deadline: getCurrentDate(),
     description: '',
     additionalInfo: '',
-    priority: 'Normal',
+    priority: 'Urgent',
     file: null,
   });
 
@@ -500,7 +441,7 @@ const CreateTask = () => {
       for (const assignee of individualAssignees) {
         await createTask({
           mode: mode,
-          title: form.title,
+          title: form.category,
           category: form.category,
           subCategory: form.subCategory,
           assignedTo: assignee.value,
@@ -511,7 +452,7 @@ const CreateTask = () => {
           endTime: isAuto ? currentStartT : '11:59pm',
           description: form.description,
           additionalInfo: form.additionalInfo,
-          priority: form.priority,
+          priority: 'Urgent',
           fileAttachment,
         });
       }
@@ -569,19 +510,8 @@ const CreateTask = () => {
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             
-            {/* Row 1: Title, Category, Sub Category, Assigned To */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4" style={{}}>
-              <div>
-                <label style={lbl}>Task Title <span style={req}>*</span></label>
-                <input 
-                  type="text" 
-                  placeholder="Enter task title" 
-                  value={form.title} 
-                  onChange={(e) => set('title', e.target.value)} 
-                  required 
-                  className="premium-input"
-                />
-              </div>
+            {/* Row 1: Category, Sub Category, Assigned To */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4" style={{}}>
               <div>
                 <label style={lbl}>Category <span style={req}>*</span></label>
                 <div style={{ position: 'relative' }}>
@@ -589,6 +519,7 @@ const CreateTask = () => {
                     value={form.category} 
                     onChange={(e) => {
                       set('category', e.target.value);
+                      set('title', e.target.value);
                       set('subCategory', '');
                     }} 
                     required 
@@ -641,10 +572,10 @@ const CreateTask = () => {
               </div>
             </div>
 
-            {/* Row 2: Deadline, Attach File, Priority */}
+            {/* Row 2: Deadline, Attach File */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4" style={{}}>
               {!isAuto ? (
-                <div className="col-span-1 md:col-span-3" style={{}}>
+                <div className="col-span-1 md:col-span-6" style={{}}>
                   <label style={lbl}>Deadline <span style={req}>*</span></label>
                   <DateInput 
                     value={form.deadline} 
@@ -654,14 +585,9 @@ const CreateTask = () => {
                 </div>
               ) : null}
 
-              <div className="col-span-1 md:col-span-3" style={{}}>
+              <div className={isAuto ? "col-span-1 md:col-span-12" : "col-span-1 md:col-span-6"} style={{}}>
                 <label style={lbl}>Attach File</label>
                 <FileField file={form.file} onChange={(f) => set('file', f)} />
-              </div>
-
-              <div className={isAuto ? "col-span-1 md:col-span-9" : "col-span-1 md:col-span-6"} style={{}}>
-                <label style={lbl}>Select Priority <span style={req}>*</span></label>
-                <PriorityPicker value={form.priority} onChange={(v) => set('priority', v)} />
               </div>
             </div>
 
