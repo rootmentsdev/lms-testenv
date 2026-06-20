@@ -132,7 +132,7 @@ const Header = () => {
                                 {initials}
                             </div>
                             {/* Name + role */}
-                            <div className="hidden md:flex flex-col items-start leading-tight" style={{ width: '130px' }}>
+                            <div className="hidden md:flex flex-col items-start leading-tight" style={{ maxWidth: '130px', width: 'max-content' }}>
                                 <div className="header-marquee-container">
                                     <span className="text-[13px] font-semibold text-gray-900 header-marquee-text">{displayName}</span>
                                 </div>
