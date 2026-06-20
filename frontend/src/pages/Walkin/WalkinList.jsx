@@ -1277,7 +1277,7 @@ const WalkinList = () => {
                                             </div>
 
                                             {/* Custom fields under sales categories */}
-                                            {formData.subCategory === 'shoe' && (
+                                            {((formData.subCategory || '').toLowerCase().trim() === 'shoe') && (
                                                 <>
                                                     <div className="col-span-12 md:col-span-3">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -1346,7 +1346,7 @@ const WalkinList = () => {
                                                 </>
                                             )}
 
-                                            {formData.subCategory === 'shirt' && (
+                                            {((formData.subCategory || '').toLowerCase().trim() === 'shirt') && (
                                                 <>
                                                     <div className="col-span-12 md:col-span-3">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
