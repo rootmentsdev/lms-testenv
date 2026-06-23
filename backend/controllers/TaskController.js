@@ -205,6 +205,14 @@ const mapTaskForClient = (doc, overrideBranch) => {
     attachmentName: task.attachmentName || '',
     reviewAttachment: reviewAttachmentVal,
     reviewAttachmentName: task.reviewAttachmentName || '',
+    attachments: (task.attachments || []).map((att, idx) => ({
+      id: att._id?.toString() || idx,
+      name: att.name || 'attachment',
+      uploadedByName: att.uploadedByName || 'Unknown',
+      uploadedAt: att.uploadedAt,
+      step: att.step || 'ASSIGNED',
+      url: `/api/task/${taskId}/attachment/${idx}`
+    })),
     requestedExtensionDate: task.requestedExtensionDate || '',
     previousStatus: task.previousStatus || '',
     workMap: (() => {
@@ -439,6 +447,14 @@ export const createTask = async (req, res) => {
         assignedByRole: subRole ? `${roleLabel} · ${subRole}` : roleLabel,
         attachment,
         attachmentName,
+        attachments: attachment ? [{
+          name: attachmentName,
+          file: attachment,
+          uploadedBy: creator._id.toString(),
+          uploadedByName: isCreatorAdmin ? creator.name : creator.username,
+          uploadedAt: new Date(),
+          step: 'ASSIGNED'
+        }] : [],
         workMap: [{
           assignedTo: target.id,
           assignedToLabel: target.label,
@@ -1130,6 +1146,22 @@ export const updateTaskStatus = async (req, res) => {
       }
     }
 
+    // Resolve executor's display name
+    let executorName = 'Unknown';
+    try {
+      const executorAdmin = await Admin.findById(userId);
+      if (executorAdmin) {
+        executorName = executorAdmin.name;
+      } else {
+        const executorUser = await User.findById(userId);
+        if (executorUser) {
+          executorName = executorUser.username;
+        }
+      }
+    } catch (err) {
+      console.error('Error resolving executor details:', err);
+    }
+
     // Only the creator (assigner) can mark a task as COMPLETED.
     const isTaskCreator = task.createdBy.toString() === userId.toString();
 
@@ -1152,22 +1184,18 @@ export const updateTaskStatus = async (req, res) => {
 
       task.reviewAttachment = fileAttachment.base64;
       task.reviewAttachmentName = fileAttachment.name;
-    }
 
-    // Resolve executor's display name
-    let executorName = 'Unknown';
-    try {
-      const executorAdmin = await Admin.findById(userId);
-      if (executorAdmin) {
-        executorName = executorAdmin.name;
-      } else {
-        const executorUser = await User.findById(userId);
-        if (executorUser) {
-          executorName = executorUser.username;
-        }
+      if (!task.attachments) {
+        task.attachments = [];
       }
-    } catch (err) {
-      console.error('Error resolving executor details:', err);
+      task.attachments.push({
+        name: fileAttachment.name,
+        file: fileAttachment.base64,
+        uploadedBy: userId.toString(),
+        uploadedByName: executorName,
+        uploadedAt: new Date(),
+        step: 'UNDER REVIEW'
+      });
     }
 
     if (!task.workMap) {
@@ -1205,6 +1233,20 @@ export const updateTaskStatus = async (req, res) => {
         assignedAt: new Date(),
         action: 'REASSIGNED'
       });
+
+      if (fileAttachment && fileAttachment.base64) {
+        if (!task.attachments) {
+          task.attachments = [];
+        }
+        task.attachments.push({
+          name: fileAttachment.name,
+          file: fileAttachment.base64,
+          uploadedBy: userId.toString(),
+          uploadedByName: executorName,
+          uploadedAt: new Date(),
+          step: 'REASSIGNED'
+        });
+      }
 
       // Update store details
       try {
@@ -1329,7 +1371,7 @@ export const updateTaskStatus = async (req, res) => {
 export const reassignTask = async (req, res) => {
   try {
     const { id } = req.params;
-    const { assignedTo, assignedToLabel, category, subCategory } = req.body;
+    const { assignedTo, assignedToLabel, category, subCategory, fileAttachment } = req.body;
     if (!assignedTo) {
       return res.status(400).json({ success: false, message: 'assignedTo is required' });
     }
@@ -1418,6 +1460,20 @@ export const reassignTask = async (req, res) => {
       assignedAt: new Date(),
       action: 'REASSIGNED'
     });
+
+    if (fileAttachment && fileAttachment.base64) {
+      if (!task.attachments) {
+        task.attachments = [];
+      }
+      task.attachments.push({
+        name: fileAttachment.name,
+        file: fileAttachment.base64,
+        uploadedBy: userId.toString(),
+        uploadedByName: reassignerName,
+        uploadedAt: new Date(),
+        step: 'REASSIGNED'
+      });
+    }
 
     // Update storeName and storeCode to the new assignee's store dynamically
     try {
@@ -1553,6 +1609,41 @@ export const getTaskReviewAttachment = async (req, res) => {
   } catch (error) {
     console.error('Error fetching task review attachment:', error);
     return res.status(500).send('Failed to fetch task review attachment');
+  }
+};
+
+export const getTaskAttachmentByIndex = async (req, res) => {
+  try {
+    const { id, index } = req.params;
+    const task = await Task.findOne({
+      $or: [{ taskCode: id }, ...(id.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: id }] : [])],
+    });
+
+    if (!task || !task.attachments || !task.attachments[index]) {
+      return res.status(404).send('Attachment not found');
+    }
+
+    const att = task.attachments[index];
+    const attachmentVal = normalizeAttachmentToDataUri(att.file);
+
+    if (attachmentVal.startsWith('data:')) {
+      const matches = attachmentVal.match(/^data:([^;]+);base64,(.*)$/i);
+      if (!matches) {
+        return res.status(400).send('Invalid data URI format');
+      }
+      const contentType = matches[1];
+      const base64Data = matches[2];
+      const buffer = Buffer.from(base64Data, 'base64');
+      
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `inline; filename="${att.name || 'attachment'}"`);
+      return res.send(buffer);
+    } else {
+      return res.status(400).send('Invalid attachment format');
+    }
+  } catch (error) {
+    console.error('Error fetching task attachment by index:', error);
+    return res.status(500).send('Failed to fetch task attachment');
   }
 };
 

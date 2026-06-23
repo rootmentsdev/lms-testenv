@@ -31,6 +31,14 @@ const taskSchema = new mongoose.Schema({
   attachmentName: { type: String, default: '' },
   reviewAttachment: { type: String, default: '' },
   reviewAttachmentName: { type: String, default: '' },
+  attachments: [{
+    name: { type: String },
+    file: { type: String }, // Base64 data string
+    uploadedBy: { type: String },
+    uploadedByName: { type: String },
+    uploadedAt: { type: Date, default: Date.now },
+    step: { type: String } // 'ASSIGNED', 'REASSIGNED', or 'UNDER REVIEW'
+  }],
   workMap: [{
     assignedTo: { type: String },
     assignedToLabel: { type: String },

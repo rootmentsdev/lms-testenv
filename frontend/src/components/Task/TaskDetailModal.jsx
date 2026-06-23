@@ -95,6 +95,7 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
   const canEditDetails = (isAdmin || isTaskCreator) && user?.role !== 'cluster_admin' && user?.role !== 'store_admin';
 
   const [selectedFile, setSelectedFile] = useState(null);
+  const [reassignFile, setReassignFile] = useState(null);
   const [assigneesList, setAssigneesList] = useState([]);
   const [selectedAssignee, setSelectedAssignee] = useState('');
   const [loadingAssignees, setLoadingAssignees] = useState(false);
@@ -298,6 +299,12 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
     }
   };
 
+  const handleReassignFileChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      setReassignFile(e.target.files[0]);
+    }
+  };
+
   const handleSubmitForReview = async () => {
     setUpdating(true);
     try {
@@ -381,24 +388,32 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
     setUpdating(true);
     try {
       const token = localStorage.getItem('token');
+      const body = {
+        assignedTo: selectedAssignee,
+        assignedToLabel: option.label,
+        category: selectedCategory,
+        subCategory: selectedSubCategory,
+      };
+
+      if (reassignFile) {
+        const base64 = await getBase64(reassignFile);
+        body.fileAttachment = { name: reassignFile.name, base64 };
+      }
+
       const res = await fetch(`${baseUrl.baseUrl}api/task/${task.id}/reassign`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           ...(token && { Authorization: `Bearer ${token}` }),
         },
-        body: JSON.stringify({
-          assignedTo: selectedAssignee,
-          assignedToLabel: option.label,
-          category: selectedCategory,
-          subCategory: selectedSubCategory,
-        }),
+        body: JSON.stringify(body),
       });
       const json = await res.json();
       if (!res.ok) {
         throw new Error(json.message || 'Failed to reassign task');
       }
       toast.success('Task reassigned successfully!');
+      setReassignFile(null);
       if (onRefresh) onRefresh();
       onClose();
     } catch (err) {
@@ -732,6 +747,45 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
           </>
         ) : null}
 
+        {task.attachments && task.attachments.length > 0 ? (
+          <>
+            <div className="task-detail-divider" />
+            <div className="task-detail-workmap-section">
+              <div className="task-detail-field__label">Task Attachments History</div>
+              <div className="task-detail-attachments-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '12px', marginTop: '12px' }}>
+                {task.attachments.map((att, idx) => (
+                  <div key={att.id || idx} style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px', background: '#f9fafb', position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '10px', fontWeight: 'bold', background: att.step === 'ASSIGNED' ? '#e0f2fe' : att.step === 'REASSIGNED' ? '#fef3c7' : '#f3e8ff', color: att.step === 'ASSIGNED' ? '#0369a1' : att.step === 'REASSIGNED' ? '#d97706' : '#7e22ce', padding: '2px 8px', borderRadius: '9999px', textTransform: 'uppercase' }}>
+                        {att.step === 'ASSIGNED' ? 'Initial' : att.step === 'REASSIGNED' ? 'Reassigned' : 'Review'}
+                      </span>
+                      <span style={{ fontSize: '10px', color: '#9ca3af' }}>{att.uploadedAt ? new Date(att.uploadedAt).toLocaleDateString() : ''}</span>
+                    </div>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#111827', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={att.name}>
+                      {att.name || 'attachment'}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#4b5563' }}>
+                      Uploaded by: <strong>{att.uploadedByName || 'Unknown'}</strong>
+                    </div>
+                    <a
+                      href={`${baseUrl.baseUrl.replace(/\/$/, '')}${att.url}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="task-detail-action-btn"
+                      style={{ fontSize: '11px', padding: '6px 12px', marginTop: '4px', textDecoration: 'none', background: '#111827', color: '#fff', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', width: 'fit-content' }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                      </svg>
+                      Download
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        ) : null}
+
         {task.status !== 'COMPLETED' && (canUpdateStatus || canReassign || isAssignedToMe) ? (
           <>
             <div className="task-detail-divider" />
@@ -964,6 +1018,31 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
                               <polyline points="6 9 12 15 18 9" />
                             </svg>
                           </div>
+                        </div>
+                      </div>
+
+                      <div className="task-detail-action-group" style={{ gridColumn: 'span 3' }}>
+                        <div className="task-detail-field__label" style={{ fontSize: '10px', marginBottom: '4px' }}>Attachment (Optional)</div>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <input
+                            type="file"
+                            id="reassign-attachment-file"
+                            onChange={handleReassignFileChange}
+                            style={{ display: 'none' }}
+                          />
+                          <label htmlFor="reassign-attachment-file" className="task-detail-file-label" style={{ flex: 1, margin: 0, maxWidth: 'none', height: '38px', borderRadius: '8px', border: '1px dashed #d1d5db', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', cursor: 'pointer', background: '#fff' }}>
+                            {reassignFile ? reassignFile.name : 'Click to upload task completion attachment (optional)…'}
+                          </label>
+                          {reassignFile && (
+                            <button
+                              type="button"
+                              onClick={() => setReassignFile(null)}
+                              className="task-detail-action-btn"
+                              style={{ background: '#ef4444', color: '#fff', padding: '0 12px', height: '38px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                            >
+                              Clear
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
