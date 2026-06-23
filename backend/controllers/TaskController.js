@@ -1329,7 +1329,7 @@ export const updateTaskStatus = async (req, res) => {
 export const reassignTask = async (req, res) => {
   try {
     const { id } = req.params;
-    const { assignedTo, assignedToLabel } = req.body;
+    const { assignedTo, assignedToLabel, category, subCategory } = req.body;
     if (!assignedTo) {
       return res.status(400).json({ success: false, message: 'assignedTo is required' });
     }
@@ -1402,6 +1402,14 @@ export const reassignTask = async (req, res) => {
     task.assignedTo = resolvedAssignedTo;
     task.assignedToLabel = resolvedAssignedToLabel;
     task.status = 'REASSIGNED'; // Reset status to REASSIGNED
+
+    if (category) {
+      task.category = category;
+      task.title = category; // Dynamically set category as the title
+    }
+    if (subCategory) {
+      task.subCategory = subCategory;
+    }
 
     task.workMap.push({
       assignedTo: resolvedAssignedTo,

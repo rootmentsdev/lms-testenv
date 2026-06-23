@@ -8,39 +8,14 @@ import { createTask } from '../../features/task/taskFetch';
 import baseUrl from '../../api/api';
 import './CreateTask.css';
 
-const CATEGORIES = [
-  'REPORTS&PERFORMANCE',
-  'STORE HYGIENE&CLEANING',
-  'INVENTORY AUDIT&MANAGEMENT',
-  'EMPLOYEE MANAGEMENT&DEVELOPMENT',
-  'MAINTENANCE'
+const SYSTEM_ROLES = [
+  { value: 'super_admin', label: 'Super Admin' },
+  { value: 'admin', label: 'Admin' },
+  { value: 'hr_admin', label: 'HR Admin' },
+  { value: 'cluster_admin', label: 'Cluster Admin' },
+  { value: 'store_admin', label: 'Store Admin' },
+  { value: 'employee', label: 'Employee' },
 ];
-const SUB_CATEGORIES = {
-  'REPORTS&PERFORMANCE': [
-    'POS REPORTS',
-    'PERFORMANCE REPORTS',
-    'RECORDS&DOCUMENTS'
-  ],
-  'STORE HYGIENE&CLEANING': [
-    'DEEP CLEANING',
-    'VISUAL MERCHANDISING',
-    'PRODUCT CLEANING'
-  ],
-  'INVENTORY AUDIT&MANAGEMENT': [
-    'STOCK VALUATION&VERIFICATION',
-    'INTER STORE STOCK TRANSFER'
-  ],
-  'EMPLOYEE MANAGEMENT&DEVELOPMENT': [
-    'EMPLOYEE TRAININGS',
-    'EMPLOYEE PERFORMANCE REVIEW',
-    'EMPLOYEE SPECIFIC TASK'
-  ],
-  'MAINTENANCE': [
-    'ELECTRICAL',
-    'PLUMBING',
-    'CLEANING'
-  ]
-};
 const TIMES = ['12:00am','12:30am','1:00am','1:30am','2:00am','2:30am','3:00am','3:30am','4:00am','4:30am','5:00am','5:30am','6:00am','6:30am','7:00am','7:30am','8:00am','8:30am','9:00am','9:30am','10:00am','10:30am','11:00am','11:30am','12:00pm','12:30pm','1:00pm','1:30pm','2:00pm','2:30pm','3:00pm','3:30pm','4:00pm','4:30pm','5:00pm','5:30pm','6:00pm','6:30pm','7:00pm','7:30pm','8:00pm','8:30pm','9:00pm','9:30pm','10:00pm','10:30pm','11:00pm','11:30pm'];
 const PRIORITIES = [
   { label: 'Urgent', color: '#ef4444' },
@@ -379,6 +354,185 @@ const CreateTask = () => {
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
   const isAuto = mode === 'auto';
 
+  const [categoriesList, setCategoriesList] = useState([]);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatRoles, setNewCatRoles] = useState([]);
+  const [newCatSubs, setNewCatSubs] = useState([]);
+  const [subInputVal, setSubInputVal] = useState('');
+  const [manageCategories, setManageCategories] = useState([]);
+  const [inlineSubInputs, setInlineSubInputs] = useState({});
+
+  const fetchCategories = useCallback(async () => {
+    try {
+      const response = await fetch(`${baseUrl.baseUrl}api/task-category`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      });
+      if (response.ok) {
+        const json = await response.json();
+        setCategoriesList(json.data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching categories:', err);
+    }
+  }, [token]);
+
+  const fetchManageCategories = useCallback(async () => {
+    if (!['super_admin', 'admin'].includes(user?.role)) return;
+    try {
+      const response = await fetch(`${baseUrl.baseUrl}api/task-category?manage=true`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      });
+      if (response.ok) {
+        const json = await response.json();
+        setManageCategories(json.data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching manage categories:', err);
+    }
+  }, [token, user?.role]);
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
+
+  useEffect(() => {
+    if (showCategoryModal) {
+      fetchManageCategories();
+    }
+  }, [showCategoryModal, fetchManageCategories]);
+
+  const handleAddCategory = async (e) => {
+    e.preventDefault();
+    if (!newCatName.trim()) {
+      toast.error('Category name is required');
+      return;
+    }
+    try {
+      const response = await fetch(`${baseUrl.baseUrl}api/task-category`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify({
+          name: newCatName.trim(),
+          subCategories: newCatSubs,
+          allowedRoles: newCatRoles
+        })
+      });
+      const json = await response.json();
+      if (response.ok) {
+        toast.success('Category added successfully!');
+        setNewCatName('');
+        setNewCatRoles([]);
+        setNewCatSubs([]);
+        setSubInputVal('');
+        fetchManageCategories();
+        fetchCategories();
+      } else {
+        toast.error(json.message || 'Failed to add category');
+      }
+    } catch (err) {
+      toast.error('Failed to add category');
+    }
+  };
+
+  const handleDeleteCategory = async (catId) => {
+    if (!window.confirm('Are you sure you want to delete this category?')) return;
+    try {
+      const response = await fetch(`${baseUrl.baseUrl}api/task-category/${catId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        }
+      });
+      const json = await response.json();
+      if (response.ok) {
+        toast.success('Category deleted successfully!');
+        fetchManageCategories();
+        fetchCategories();
+        const deletedCat = manageCategories.find(c => c._id === catId);
+        if (deletedCat && form.category === deletedCat.name) {
+          set('category', '');
+          set('subCategory', '');
+        }
+      } else {
+        toast.error(json.message || 'Failed to delete category');
+      }
+    } catch (err) {
+      toast.error('Failed to delete category');
+    }
+  };
+
+  const handleAddSubCategoryToExisting = async (cat) => {
+    const val = inlineSubInputs[cat._id]?.trim();
+    if (!val) {
+      toast.error('Subcategory name cannot be empty');
+      return;
+    }
+    const updatedSubs = [...cat.subCategories, val];
+    try {
+      const response = await fetch(`${baseUrl.baseUrl}api/task-category/${cat._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify({
+          subCategories: updatedSubs
+        })
+      });
+      const json = await response.json();
+      if (response.ok) {
+        toast.success('Subcategory added!');
+        setInlineSubInputs(p => ({ ...p, [cat._id]: '' }));
+        fetchManageCategories();
+        fetchCategories();
+      } else {
+        toast.error(json.message || 'Failed to add subcategory');
+      }
+    } catch (err) {
+      toast.error('Failed to add subcategory');
+    }
+  };
+
+  const handleDeleteSubCategoryFromExisting = async (cat, subIndex) => {
+    const updatedSubs = cat.subCategories.filter((_, idx) => idx !== subIndex);
+    try {
+      const response = await fetch(`${baseUrl.baseUrl}api/task-category/${cat._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify({
+          subCategories: updatedSubs
+        })
+      });
+      const json = await response.json();
+      if (response.ok) {
+        toast.success('Subcategory deleted!');
+        fetchManageCategories();
+        fetchCategories();
+        if (form.category === cat.name && form.subCategory === cat.subCategories[subIndex]) {
+          set('subCategory', '');
+        }
+      } else {
+        toast.error(json.message || 'Failed to delete subcategory');
+      }
+    } catch (err) {
+      toast.error('Failed to delete subcategory');
+    }
+  };
+
   const handleAssigneeChange = (selected, actionMeta) => {
     const nextSelected = [...(selected || [])];
     const { action, option } = actionMeta;
@@ -500,7 +654,7 @@ const CreateTask = () => {
       for (const assignee of individualAssignees) {
         await createTask({
           mode: mode,
-          title: form.title,
+          title: form.category,
           category: form.category,
           subCategory: form.subCategory,
           assignedTo: assignee.value,
@@ -565,23 +719,41 @@ const CreateTask = () => {
                 <p style={{ fontSize: '12px', color: '#9ca3af', margin: '4px 0 0', fontFamily: 'DM Sans, sans-serif' }}>Track and manage all operational tasks across stores</p>
               </div>
             </div>
+            {['super_admin', 'admin'].includes(user?.role) && (
+              <button
+                type="button"
+                onClick={() => setShowCategoryModal(true)}
+                style={{
+                  background: '#111827',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '10px',
+                  padding: '10px 20px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontFamily: "DM Sans, sans-serif",
+                  transition: 'background 0.2s',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#374151'}
+                onMouseLeave={(e) => e.currentTarget.style.background = '#111827'}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                Manage Categories
+              </button>
+            )}
           </div>
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             
-            {/* Row 1: Title, Category, Sub Category, Assigned To */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4" style={{}}>
-              <div>
-                <label style={lbl}>Task Title <span style={req}>*</span></label>
-                <input 
-                  type="text" 
-                  placeholder="Enter task title" 
-                  value={form.title} 
-                  onChange={(e) => set('title', e.target.value)} 
-                  required 
-                  className="premium-input"
-                />
-              </div>
+            {/* Row 1: Category, Sub Category, Assigned To */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4" style={{}}>
               <div>
                 <label style={lbl}>Category <span style={req}>*</span></label>
                 <div style={{ position: 'relative' }}>
@@ -596,7 +768,7 @@ const CreateTask = () => {
                     style={{ cursor: 'pointer', appearance: 'none', paddingRight: '28px' }}
                   >
                     <option value="">Select Options</option>
-                    {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                    {categoriesList.map((c) => <option key={c._id} value={c.name}>{c.name}</option>)}
                   </select>
                   <div style={{ pointerEvents: 'none', position: 'absolute', top: 0, bottom: 0, right: 0, display: 'flex', alignItems: 'center', paddingRight: '12px', color: '#6b7280' }}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -616,7 +788,7 @@ const CreateTask = () => {
                     style={{ cursor: 'pointer', appearance: 'none', paddingRight: '28px' }}
                   >
                     <option value="">Select Options</option>
-                    {(SUB_CATEGORIES[form.category] || []).map((s) => <option key={s} value={s}>{s}</option>)}
+                    {((categoriesList.find(c => c.name === form.category)?.subCategories) || []).map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
                   <div style={{ pointerEvents: 'none', position: 'absolute', top: 0, bottom: 0, right: 0, display: 'flex', alignItems: 'center', paddingRight: '12px', color: '#6b7280' }}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -714,6 +886,204 @@ const CreateTask = () => {
           </form>
         </div>
       </div>
+
+      {/* Category Management Modal */}
+      {showCategoryModal && (
+        <div className="cat-modal-overlay" onClick={() => setShowCategoryModal(false)}>
+          <div className="cat-modal-container" onClick={(e) => e.stopPropagation()}>
+            <div className="cat-modal-header">
+              <h3 className="cat-modal-title">Manage Task Categories</h3>
+              <button className="cat-modal-close-btn" onClick={() => setShowCategoryModal(false)}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="cat-modal-content">
+              {/* Add New Category Section */}
+              <div className="cat-section">
+                <h4 className="cat-section-title">Add New Category</h4>
+                <form onSubmit={handleAddCategory} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div>
+                    <label style={{ ...lbl, marginBottom: '4px' }}>Category Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. MARKETING"
+                      value={newCatName}
+                      onChange={(e) => setNewCatName(e.target.value)}
+                      className="premium-input"
+                      style={{ height: '36px' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ ...lbl, marginBottom: '4px' }}>Allowed Roles</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                      {SYSTEM_ROLES.map((role) => {
+                        const checked = newCatRoles.includes(role.value);
+                        return (
+                          <label key={role.value} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => {
+                                if (checked) {
+                                  setNewCatRoles(newCatRoles.filter(r => r !== role.value));
+                                } else {
+                                  setNewCatRoles([...newCatRoles, role.value]);
+                                }
+                              }}
+                            />
+                            {role.label}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ ...lbl, marginBottom: '4px' }}>Add Subcategory</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input
+                        type="text"
+                        placeholder="e.g. CAMPAIGNS"
+                        value={subInputVal}
+                        onChange={(e) => setSubInputVal(e.target.value)}
+                        className="premium-input"
+                        style={{ height: '36px', flex: 1 }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (subInputVal.trim()) {
+                            setNewCatSubs([...newCatSubs, subInputVal.trim()]);
+                            setSubInputVal('');
+                          }
+                        }}
+                        className="cat-btn-small"
+                        style={{ height: '36px' }}
+                      >
+                        Add Sub
+                      </button>
+                    </div>
+                    {newCatSubs.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+                        {newCatSubs.map((sub, index) => (
+                          <span key={index} className="cat-sub-tag">
+                            {sub}
+                            <button
+                              type="button"
+                              onClick={() => setNewCatSubs(newCatSubs.filter((_, i) => i !== index))}
+                              className="cat-sub-delete-btn"
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="cat-btn-small"
+                    style={{ height: '38px', alignSelf: 'flex-start', marginTop: '4px' }}
+                  >
+                    Save Category
+                  </button>
+                </form>
+              </div>
+
+              {/* Existing Categories Section */}
+              <div className="cat-section" style={{ marginTop: '10px' }}>
+                <h4 className="cat-section-title">Existing Categories</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {manageCategories.length === 0 ? (
+                    <div style={{ color: '#9ca3af', fontSize: '13px', textAlign: 'center', padding: '16px' }}>
+                      No categories found.
+                    </div>
+                  ) : (
+                    manageCategories.map((cat) => (
+                      <div key={cat._id} className="cat-item-card">
+                        <div className="cat-item-header">
+                          <div>
+                            <span className="cat-item-name">{cat.name}</span>
+                            <div className="cat-item-roles">
+                              {cat.allowedRoles.map((roleVal) => {
+                                const matchedRole = SYSTEM_ROLES.find(r => r.value === roleVal);
+                                return (
+                                  <span key={roleVal} className="cat-role-tag">
+                                    {matchedRole ? matchedRole.label : roleVal}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="cat-delete-btn"
+                            onClick={() => handleDeleteCategory(cat._id)}
+                            title="Delete Category"
+                          >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="3 6 5 6 21 6" />
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                              <line x1="10" y1="11" x2="10" y2="17" />
+                              <line x1="14" y1="11" x2="14" y2="17" />
+                            </svg>
+                          </button>
+                        </div>
+
+                        <div style={{ marginTop: '8px' }}>
+                          <label style={{ ...lbl, fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>Subcategories</label>
+                          <div className="cat-item-subs">
+                            {cat.subCategories.length === 0 ? (
+                              <span style={{ color: '#9ca3af', fontSize: '12px' }}>No subcategories</span>
+                            ) : (
+                              cat.subCategories.map((sub, idx) => (
+                                <span key={idx} className="cat-sub-tag">
+                                  {sub}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteSubCategoryFromExisting(cat, idx)}
+                                    className="cat-sub-delete-btn"
+                                  >
+                                    ✕
+                                  </button>
+                                </span>
+                              ))
+                            )}
+                          </div>
+                          
+                          <div className="cat-inline-add-sub">
+                            <input
+                              type="text"
+                              placeholder="New subcategory"
+                              value={inlineSubInputs[cat._id] || ''}
+                              onChange={(e) => setInlineSubInputs({ ...inlineSubInputs, [cat._id]: e.target.value })}
+                              className="cat-input-small"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleAddSubCategoryToExisting(cat)}
+                              className="cat-btn-small"
+                              style={{ height: '32px' }}
+                            >
+                              Add
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

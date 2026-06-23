@@ -8,40 +8,7 @@ import { createAutoTask } from '../../features/task/taskFetch';
 import baseUrl from '../../api/api';
 import './AutoTask.css';
 
-const CATEGORIES = [
-  'REPORTS&PERFORMANCE',
-  'STORE HYGIENE&CLEANING',
-  'INVENTORY AUDIT&MANAGEMENT',
-  'EMPLOYEE MANAGEMENT&DEVELOPMENT',
-  'MAINTENANCE'
-];
-
-const SUB_CATEGORIES = {
-  'REPORTS&PERFORMANCE': [
-    'POS REPORTS',
-    'PERFORMANCE REPORTS',
-    'RECORDS&DOCUMENTS'
-  ],
-  'STORE HYGIENE&CLEANING': [
-    'DEEP CLEANING',
-    'VISUAL MERCHANDISING',
-    'PRODUCT CLEANING'
-  ],
-  'INVENTORY AUDIT&MANAGEMENT': [
-    'STOCK VALUATION&VERIFICATION',
-    'INTER STORE STOCK TRANSFER'
-  ],
-  'EMPLOYEE MANAGEMENT&DEVELOPMENT': [
-    'EMPLOYEE TRAININGS',
-    'EMPLOYEE PERFORMANCE REVIEW',
-    'EMPLOYEE SPECIFIC TASK'
-  ],
-  'MAINTENANCE': [
-    'ELECTRICAL',
-    'PLUMBING',
-    'CLEANING'
-  ]
-};
+// Dynamic task categories loaded from the database
 
 const TIMES = [
   '12:00am','12:30am','01:00am','01:30am','02:00am','02:30am','03:00am','03:30am',
@@ -280,6 +247,27 @@ const AutoTask = () => {
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
   const [subCategory, setSubCategory] = useState('');
+  const [categoriesList, setCategoriesList] = useState([]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch(`${baseUrl.baseUrl}api/task-category`, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        });
+        if (response.ok) {
+          const json = await response.json();
+          setCategoriesList(json.data || []);
+        }
+      } catch (err) {
+        console.error('Error fetching categories:', err);
+      }
+    };
+    fetchCategories();
+  }, [token]);
   const [file, setFile] = useState(null);
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('Urgent');
@@ -497,7 +485,7 @@ const AutoTask = () => {
 
       // Map form state to AutoTaskTemplate payload
       const payload = {
-        title:       title.trim(),
+        title:       category,
         category,
         subCategory,
         description: description.trim(),
@@ -574,19 +562,8 @@ const AutoTask = () => {
           {/* Form */}
           <form onSubmit={handleSubmit}>
             
-            {/* Row 1: Title, Category, Sub Category, Attach File */}
-            <div className="auto-task-grid-4">
-              <div className="auto-task-field">
-                <label className="auto-task-label">Task Title<span className="auto-task-req">*</span></label>
-                <input 
-                  type="text" 
-                  placeholder="Enter task title" 
-                  value={title} 
-                  onChange={(e) => setTitle(e.target.value)} 
-                  required 
-                  className="premium-input"
-                />
-              </div>
+            {/* Row 1: Category, Sub Category, Attach File */}
+            <div className="auto-task-grid-3">
 
               <div className="auto-task-field">
                 <label className="auto-task-label">Category<span className="auto-task-req">*</span></label>
@@ -602,7 +579,7 @@ const AutoTask = () => {
                     style={{ cursor: 'pointer', appearance: 'none', paddingRight: '28px' }}
                   >
                     <option value="">Select Options</option>
-                    {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                    {categoriesList.map((c) => <option key={c._id} value={c.name}>{c.name}</option>)}
                   </select>
                   <div style={{ pointerEvents: 'none', position: 'absolute', top: 0, bottom: 0, right: 0, display: 'flex', alignItems: 'center', paddingRight: '12px', color: '#6b7280' }}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -623,7 +600,7 @@ const AutoTask = () => {
                     style={{ cursor: 'pointer', appearance: 'none', paddingRight: '28px' }}
                   >
                     <option value="">Select Options</option>
-                    {(SUB_CATEGORIES[category] || []).map((s) => <option key={s} value={s}>{s}</option>)}
+                    {((categoriesList.find(c => c.name === category)?.subCategories) || []).map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
                   <div style={{ pointerEvents: 'none', position: 'absolute', top: 0, bottom: 0, right: 0, display: 'flex', alignItems: 'center', paddingRight: '12px', color: '#6b7280' }}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

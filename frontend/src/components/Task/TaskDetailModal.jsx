@@ -1,8 +1,58 @@
 import { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
+import Select from 'react-select';
 import baseUrl from '../../api/api';
 import './TaskDetailModal.css';
+
+const selectStyles = {
+  control: (base, state) => ({
+    ...base,
+    border: '1px solid #d1d5db',
+    borderRadius: '8px',
+    minHeight: '38px',
+    height: '38px',
+    boxShadow: state.isFocused ? '0 0 0 1px #111827' : 'none',
+    borderColor: state.isFocused ? '#111827' : '#d1d5db',
+    '&:hover': {
+      borderColor: state.isFocused ? '#111827' : '#d1d5db',
+    },
+    fontFamily: 'inherit',
+    fontSize: '13px',
+    color: '#374151',
+  }),
+  valueContainer: (base) => ({
+    ...base,
+    padding: '0 12px',
+    height: '36px',
+    display: 'flex',
+    alignItems: 'center',
+  }),
+  input: (base) => ({
+    ...base,
+    margin: '0px',
+  }),
+  dropdownIndicator: (base) => ({
+    ...base,
+    padding: '4px 8px',
+  }),
+  indicatorsContainer: (base) => ({
+    ...base,
+    height: '36px',
+  }),
+  option: (base, state) => ({
+    ...base,
+    backgroundColor: state.isSelected ? '#f3f4f6' : state.isFocused ? '#f9fafb' : '#fff',
+    color: '#374151',
+    fontFamily: 'inherit',
+    fontSize: '13px',
+    cursor: 'pointer',
+    padding: '8px 12px',
+    '&:active': {
+      backgroundColor: '#f3f4f6',
+    },
+  }),
+};
 
 const PRIORITY_COLOR = {
   High: '#f59e0b',
@@ -52,6 +102,10 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [showExtensionForm, setShowExtensionForm] = useState(false);
   const [extensionDate, setExtensionDate] = useState('');
+
+  const [categoriesList, setCategoriesList] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedSubCategory, setSelectedSubCategory] = useState('');
 
   // Editing state
   const [isEditing, setIsEditing] = useState(false);
@@ -184,6 +238,38 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
     }
   }, [canReassign, canEditDetails, task, user?.role]);
 
+  useEffect(() => {
+    if (canReassign && task) {
+      const fetchCategories = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const response = await fetch(`${baseUrl.baseUrl}api/task-category`, {
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+          });
+          if (response.ok) {
+            const json = await response.json();
+            const list = json.data || [];
+            setCategoriesList(list);
+            
+            // Populate category/subcategory from current task if available
+            if (task.category) {
+              setSelectedCategory(task.category);
+              if (task.subCategory) {
+                setSelectedSubCategory(task.subCategory);
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Error fetching categories:', err);
+        }
+      };
+      fetchCategories();
+    }
+  }, [canReassign, task]);
+
   if (!task) return null;
 
   const categoryLine = task.categoryDetail
@@ -271,9 +357,23 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
     }
   };
 
+  const handleCategoryChange = (e) => {
+    const catName = e.target.value;
+    setSelectedCategory(catName);
+    setSelectedSubCategory('');
+  };
+
   const handleReassign = async () => {
     if (!selectedAssignee) {
       toast.error('Please select an assignee');
+      return;
+    }
+    if (!selectedCategory) {
+      toast.error('Please select a category');
+      return;
+    }
+    if (!selectedSubCategory) {
+      toast.error('Please select a subcategory');
       return;
     }
     const option = assigneesList.find((opt) => opt.value === selectedAssignee);
@@ -290,6 +390,8 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
         body: JSON.stringify({
           assignedTo: selectedAssignee,
           assignedToLabel: option.label,
+          category: selectedCategory,
+          subCategory: selectedSubCategory,
         }),
       });
       const json = await res.json();
@@ -783,36 +885,103 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
                 )}
               </div>
  
-              {canReassign && (
-                <div className="task-detail-actions-row mt-4">
-                  <div className="task-detail-action-group" style={{ width: '100%' }}>
+              {canReassign && (() => {
+                const categoryOptions = [...categoriesList];
+                if (selectedCategory && !categoryOptions.some(c => c.name === selectedCategory)) {
+                  categoryOptions.push({ name: selectedCategory, subCategories: selectedSubCategory ? [selectedSubCategory] : [] });
+                }
+                const currentCategoryObj = categoriesList.find(c => c.name === selectedCategory);
+                const subCategoriesList = currentCategoryObj ? currentCategoryObj.subCategories : [];
+
+                return (
+                  <div className="task-detail-actions-row mt-4" style={{ flexDirection: 'column', gap: '12px' }}>
                     <div className="task-detail-field__label">Reassign Task</div>
-                    <div className="task-detail-reassign-form">
-                      <select
-                        value={selectedAssignee}
-                        onChange={(e) => setSelectedAssignee(e.target.value)}
-                        className="task-detail-select"
-                        disabled={loadingAssignees || updating}
-                      >
-                        <option value="">Select Assignee...</option>
-                        {assigneesList.map((opt) => (
-                          <option key={opt.value} value={opt.value} disabled={opt.type === 'group'}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
+                    
+                    <div className="task-detail-reassign-grid" style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                      gap: '16px',
+                      width: '100%'
+                    }}>
+                      <div className="task-detail-action-group">
+                        <div className="task-detail-field__label" style={{ fontSize: '10px', marginBottom: '4px' }}>Assignee</div>
+                        <Select
+                          options={assigneesList.map(opt => ({ ...opt, isDisabled: opt.type === 'group' }))}
+                          value={assigneesList.find(opt => opt.value === selectedAssignee) || null}
+                          onChange={(val) => setSelectedAssignee(val ? val.value : '')}
+                          placeholder="Select Assignee..."
+                          styles={selectStyles}
+                          isSearchable={true}
+                          isLoading={loadingAssignees}
+                          isDisabled={updating}
+                        />
+                      </div>
+
+                      <div className="task-detail-action-group">
+                        <div className="task-detail-field__label" style={{ fontSize: '10px', marginBottom: '4px' }}>Category</div>
+                        <div style={{ position: 'relative' }}>
+                          <select
+                            value={selectedCategory}
+                            onChange={handleCategoryChange}
+                            className="task-detail-select"
+                            disabled={updating}
+                            style={{ appearance: 'none', paddingRight: '28px' }}
+                          >
+                            <option value="">Select Category...</option>
+                            {categoryOptions.map((c) => (
+                              <option key={c.name} value={c.name}>
+                                {c.name}
+                              </option>
+                            ))}
+                          </select>
+                          <div style={{ pointerEvents: 'none', position: 'absolute', top: 0, bottom: 0, right: 0, display: 'flex', alignItems: 'center', paddingRight: '12px', color: '#6b7280' }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="6 9 12 15 18 9" />
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="task-detail-action-group">
+                        <div className="task-detail-field__label" style={{ fontSize: '10px', marginBottom: '4px' }}>Sub Category</div>
+                        <div style={{ position: 'relative' }}>
+                          <select
+                            value={selectedSubCategory}
+                            onChange={(e) => setSelectedSubCategory(e.target.value)}
+                            className="task-detail-select"
+                            disabled={updating || !selectedCategory}
+                            style={{ appearance: 'none', paddingRight: '28px' }}
+                          >
+                            <option value="">Select Sub Category...</option>
+                            {subCategoriesList.map((s) => (
+                              <option key={s} value={s}>
+                                {s}
+                              </option>
+                            ))}
+                          </select>
+                          <div style={{ pointerEvents: 'none', position: 'absolute', top: 0, bottom: 0, right: 0, display: 'flex', alignItems: 'center', paddingRight: '12px', color: '#6b7280' }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="6 9 12 15 18 9" />
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px', width: '100%' }}>
                       <button
                         type="button"
                         className="task-detail-action-btn task-detail-btn-reassign"
                         onClick={handleReassign}
-                        disabled={updating || !selectedAssignee}
+                        disabled={updating || !selectedAssignee || !selectedCategory || !selectedSubCategory}
+                        style={{ minWidth: '120px' }}
                       >
                         Reassign
                       </button>
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
           </>
         ) : null}

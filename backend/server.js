@@ -24,6 +24,8 @@ import TrainingRouter from './routes/TrainingRoute.js'
 import WalkinRouter from './routes/WalkinRoute.js'
 import TaskRouter from './routes/TaskRoute.js'
 import AutoTaskRouter from './routes/AutoTaskRoute.js'
+import CategoryRouter from './routes/CategoryRoute.js'
+import { seedDefaultCategories } from './model/Category.js'
 
 import { AlertNotification } from './lib/CornJob.js';
 import { startEmployeeAutoSync } from './lib/EmployeeAutoSync.js';
@@ -679,6 +681,7 @@ app.use('/api/training', TrainingRouter)
 app.use('/api/walkin', WalkinRouter)
 app.use('/api/task', TaskRouter)
 app.use('/api/auto-task', AutoTaskRouter)
+app.use('/api/task-category', CategoryRouter)
 
 // User Login Tracking Routes
 import UserLoginRouter from './routes/UserLoginRoute.js';
@@ -704,7 +707,10 @@ cron.schedule("30 18 * * *", async () => {
   }
 }, { timezone: "Asia/Kolkata" });
 
-connectMongoDB().then(() => {
+connectMongoDB().then(async () => {
+  // Seed categories
+  await seedDefaultCategories();
+
   app.listen(port, '0.0.0.0', () => {
     console.log(`✅ Server running on port ${port}`);
     
