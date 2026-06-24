@@ -71,13 +71,16 @@ const STATUS_CLASS = {
   REASSIGNED: 'task-detail-status--reassigned',
 };
 
-const DetailField = ({ label, primary, secondary, children }) => (
+const DetailField = ({ label, primary, secondary, icon, children }) => (
   <div className="task-detail-field">
-    <div className="task-detail-field__label">{label}</div>
+    <div className="task-detail-field__label-container">
+      {icon && <span className="task-detail-field__icon">{icon}</span>}
+      <div className="task-detail-field__label">{label}</div>
+    </div>
     {children || (
       <>
         <div className="task-detail-field__primary">{primary}</div>
-        {secondary ? <div className="task-detail-field__secondary">{secondary}</div> : null}
+        {secondary && secondary !== primary ? <div className="task-detail-field__secondary">{secondary}</div> : null}
       </>
     )}
   </div>
@@ -383,6 +386,10 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
       toast.error('Please select a subcategory');
       return;
     }
+    if (!reassignFile) {
+      toast.error('Task completion attachment is required for reassignment');
+      return;
+    }
     const option = assigneesList.find((opt) => opt.value === selectedAssignee);
     if (!option) return;
     setUpdating(true);
@@ -600,63 +607,137 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
           </svg>
           Back
         </button>
-
         <h2 id="task-detail-title" className="task-detail-title">{task.title}</h2>
-        <p className="task-detail-category">{categoryLine}</p>
-
-        <div className="task-detail-divider" />
-
-        <div className="task-detail-row task-detail-row--2">
-          <DetailField
-            label="ASSIGNED BY :"
-            primary={task.assignedBy}
-            secondary={task.assignedByRole}
-          />
-          <DetailField
-            label="ASSIGNED DATE :"
-            primary={task.assignedDate}
-            secondary={task.assignedTime}
-          />
+        <div className="task-detail-category-container">
+          <span className="task-detail-category-badge">{task.category}</span>
+          {task.categoryDetail && (
+            <>
+              <span className="task-detail-category-separator">/</span>
+              <span className="task-detail-subcategory-badge">{task.categoryDetail}</span>
+            </>
+          )}
         </div>
 
         <div className="task-detail-divider" />
 
-        <div className="task-detail-grid-3">
-          <DetailField
-            label="ASSIGNED TO"
-            primary={task.assignee}
-            secondary={task.assigneeRole}
-          />
-          <DetailField
-            label="START DATE :"
-            primary={task.startDateDetail || task.startDate}
-            secondary={task.startTime}
-          />
-          <DetailField
-            label="END DATE :"
-            primary={task.endDateDetail || task.endDate}
-            secondary={task.endTime}
-          />
+        <div className="task-detail-section-card">
+          <div className="task-detail-grid-2">
+            <DetailField
+              label="Assigned By"
+              primary={task.assignedBy}
+              secondary={task.assignedByRole}
+              icon={
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+              }
+            />
+            <DetailField
+              label="Assigned Date"
+              primary={task.assignedDate}
+              secondary={task.assignedTime}
+              icon={
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8" y1="2" x2="8" y2="6" />
+                  <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+              }
+            />
+          </div>
+        </div>
 
-          <DetailField label="DESCRIPTION" primary={desc} />
-          
-          <DetailField label="PRIORITY">
-            <div className="task-detail-priority">
-              <span
-                className="task-detail-priority-dot"
-                style={{ background: PRIORITY_COLOR[task.priority] || '#9ca3af' }}
-              />
-              {task.priority}
-            </div>
-          </DetailField>
+        <div className="task-detail-section-card">
+          <div className="task-detail-grid-3">
+            <DetailField
+              label="Assigned To"
+              primary={task.assignee}
+              secondary={task.assigneeRole}
+              icon={
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+              }
+            />
+            <DetailField
+              label="Start Date"
+              primary={task.startDateDetail || task.startDate}
+              secondary={task.startTime}
+              icon={
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8" y1="2" x2="8" y2="6" />
+                  <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+              }
+            />
+            <DetailField
+              label="End Date"
+              primary={task.endDateDetail || task.endDate}
+              secondary={task.endTime}
+              icon={
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8" y1="2" x2="8" y2="6" />
+                  <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+              }
+            />
 
-          <DetailField label="STATUS">
-            <div>
-              <span className={`task-detail-status ${STATUS_CLASS[task.status] || ''}`}>
-                {task.status}
-              </span>
-            </div>
-          </DetailField>
+            <DetailField
+              label="Description"
+              primary={desc}
+              icon={
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="21" y1="10" x2="3" y2="10" />
+                  <line x1="21" y1="6" x2="3" y2="6" />
+                  <line x1="21" y1="14" x2="3" y2="14" />
+                  <line x1="21" y1="18" x2="3" y2="18" />
+                </svg>
+              }
+            />
+            
+            <DetailField
+              label="Priority"
+              icon={
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                  <line x1="4" y1="22" x2="4" y2="15" />
+                </svg>
+              }
+            >
+              <div className="task-detail-priority">
+                <span
+                  className="task-detail-priority-dot"
+                  style={{ background: PRIORITY_COLOR[task.priority] || '#9ca3af' }}
+                />
+                {task.priority}
+              </div>
+            </DetailField>
+
+            <DetailField
+              label="Status"
+              icon={
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+              }
+            >
+              <div>
+                <span className={`task-detail-status ${STATUS_CLASS[task.status] || ''}`}>
+                  {task.status}
+                </span>
+              </div>
+            </DetailField>
+          </div>
         </div>
 
         {shouldShowWorkMap && (
@@ -729,23 +810,68 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
           </>
         ) : null}
 
-        {task.reviewAttachment ? (
-          <>
-            <div className="task-detail-divider" />
-            <div className="task-detail-row">
-              <DetailField label="REVIEW PROOF">
-                <a
-                  href={`${baseUrl.baseUrl.replace(/\/$/, '')}${task.reviewAttachment}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: '#7e22ce', textDecoration: 'underline', fontWeight: 500 }}
-                >
-                  {task.reviewAttachmentName || 'View Review Proof'}
-                </a>
-              </DetailField>
-            </div>
-          </>
-        ) : null}
+        {(() => {
+          const proofAttachments = (task.attachments || []).filter(
+            (att) => att.step === 'REASSIGNED' || att.step === 'UNDER REVIEW'
+          );
+          if (proofAttachments.length === 0 && !task.reviewAttachment) return null;
+
+          const seen = new Set();
+          const uniqueProofs = [];
+          
+          if (task.reviewAttachment) {
+            uniqueProofs.push({
+              name: task.reviewAttachmentName || 'View Review Proof',
+              url: task.reviewAttachment
+            });
+            seen.add(task.reviewAttachment);
+            if (task.reviewAttachmentName) {
+              seen.add(task.reviewAttachmentName);
+            }
+          }
+          
+          proofAttachments.forEach(att => {
+            if (!seen.has(att.url) && !seen.has(att.name)) {
+              uniqueProofs.push({
+                name: att.name || 'View Proof',
+                url: att.url
+              });
+              seen.add(att.url);
+              if (att.name) {
+                seen.add(att.name);
+              }
+            }
+          });
+
+          if (uniqueProofs.length === 0) return null;
+
+          return (
+            <>
+              <div className="task-detail-divider" />
+              <div className="task-detail-row">
+                <DetailField label="REVIEW PROOFS">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {uniqueProofs.map((proof, idx) => (
+                      <a
+                        key={idx}
+                        href={`${baseUrl.baseUrl.replace(/\/$/, '')}${proof.url}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: '#7e22ce', textDecoration: 'underline', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                        </svg>
+                        {proof.name}
+                      </a>
+                    ))}
+                  </div>
+                </DetailField>
+              </div>
+            </>
+          );
+        })()}
 
         {task.attachments && task.attachments.length > 0 ? (
           <>
@@ -951,112 +1077,122 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
                   <div className="task-detail-actions-row mt-4" style={{ flexDirection: 'column', gap: '12px' }}>
                     <div className="task-detail-field__label">Reassign Task</div>
                     
-                    <div className="task-detail-reassign-grid" style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                      gap: '16px',
-                      width: '100%'
-                    }}>
-                      <div className="task-detail-action-group">
-                        <div className="task-detail-field__label" style={{ fontSize: '10px', marginBottom: '4px' }}>Assignee</div>
-                        <Select
-                          options={assigneesList.map(opt => ({ ...opt, isDisabled: opt.type === 'group' }))}
-                          value={assigneesList.find(opt => opt.value === selectedAssignee) || null}
-                          onChange={(val) => setSelectedAssignee(val ? val.value : '')}
-                          placeholder="Select Assignee..."
-                          styles={selectStyles}
-                          isSearchable={true}
-                          isLoading={loadingAssignees}
-                          isDisabled={updating}
-                        />
-                      </div>
-
-                      <div className="task-detail-action-group">
-                        <div className="task-detail-field__label" style={{ fontSize: '10px', marginBottom: '4px' }}>Category</div>
-                        <div style={{ position: 'relative' }}>
-                          <select
-                            value={selectedCategory}
-                            onChange={handleCategoryChange}
-                            className="task-detail-select"
-                            disabled={updating}
-                            style={{ appearance: 'none', paddingRight: '28px' }}
-                          >
-                            <option value="">Select Category...</option>
-                            {categoryOptions.map((c) => (
-                              <option key={c.name} value={c.name}>
-                                {c.name}
-                              </option>
-                            ))}
-                          </select>
-                          <div style={{ pointerEvents: 'none', position: 'absolute', top: 0, bottom: 0, right: 0, display: 'flex', alignItems: 'center', paddingRight: '12px', color: '#6b7280' }}>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="6 9 12 15 18 9" />
-                            </svg>
+                    <div className="task-detail-reassign-card">
+                      <div className="task-detail-field__label">Reassign Task</div>
+                      
+                      <div className="task-detail-reassign-grid">
+                        <div className="task-detail-action-group">
+                          <div className="task-detail-field__label" style={{ fontSize: '10px', marginBottom: '4px' }}>
+                            Assignee <span style={{ color: '#ef4444' }}>*</span>
                           </div>
-                        </div>
-                      </div>
-
-                      <div className="task-detail-action-group">
-                        <div className="task-detail-field__label" style={{ fontSize: '10px', marginBottom: '4px' }}>Sub Category</div>
-                        <div style={{ position: 'relative' }}>
-                          <select
-                            value={selectedSubCategory}
-                            onChange={(e) => setSelectedSubCategory(e.target.value)}
-                            className="task-detail-select"
-                            disabled={updating || !selectedCategory}
-                            style={{ appearance: 'none', paddingRight: '28px' }}
-                          >
-                            <option value="">Select Sub Category...</option>
-                            {subCategoriesList.map((s) => (
-                              <option key={s} value={s}>
-                                {s}
-                              </option>
-                            ))}
-                          </select>
-                          <div style={{ pointerEvents: 'none', position: 'absolute', top: 0, bottom: 0, right: 0, display: 'flex', alignItems: 'center', paddingRight: '12px', color: '#6b7280' }}>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="6 9 12 15 18 9" />
-                            </svg>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="task-detail-action-group" style={{ gridColumn: 'span 3' }}>
-                        <div className="task-detail-field__label" style={{ fontSize: '10px', marginBottom: '4px' }}>Attachment (Optional)</div>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          <input
-                            type="file"
-                            id="reassign-attachment-file"
-                            onChange={handleReassignFileChange}
-                            style={{ display: 'none' }}
+                          <Select
+                            options={assigneesList.map(opt => ({ ...opt, isDisabled: opt.type === 'group' }))}
+                            value={assigneesList.find(opt => opt.value === selectedAssignee) || null}
+                            onChange={(val) => setSelectedAssignee(val ? val.value : '')}
+                            placeholder="Select Assignee..."
+                            styles={selectStyles}
+                            isSearchable={true}
+                            isLoading={loadingAssignees}
+                            isDisabled={updating}
                           />
-                          <label htmlFor="reassign-attachment-file" className="task-detail-file-label" style={{ flex: 1, margin: 0, maxWidth: 'none', height: '38px', borderRadius: '8px', border: '1px dashed #d1d5db', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', cursor: 'pointer', background: '#fff' }}>
-                            {reassignFile ? reassignFile.name : 'Click to upload task completion attachment (optional)…'}
-                          </label>
-                          {reassignFile && (
-                            <button
-                              type="button"
-                              onClick={() => setReassignFile(null)}
-                              className="task-detail-action-btn"
-                              style={{ background: '#ef4444', color: '#fff', padding: '0 12px', height: '38px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                        </div>
+
+                        <div className="task-detail-action-group">
+                          <div className="task-detail-field__label" style={{ fontSize: '10px', marginBottom: '4px' }}>
+                            Category <span style={{ color: '#ef4444' }}>*</span>
+                          </div>
+                          <div style={{ position: 'relative' }}>
+                            <select
+                              value={selectedCategory}
+                              onChange={handleCategoryChange}
+                              className="task-detail-select"
+                              disabled={updating}
+                              style={{ appearance: 'none', paddingRight: '28px' }}
                             >
-                              Clear
-                            </button>
-                          )}
+                              <option value="">Select Category...</option>
+                              {categoryOptions.map((c) => (
+                                <option key={c.name} value={c.name}>
+                                  {c.name}
+                                </option>
+                              ))}
+                            </select>
+                            <div style={{ pointerEvents: 'none', position: 'absolute', top: 0, bottom: 0, right: 0, display: 'flex', alignItems: 'center', paddingRight: '12px', color: '#6b7280' }}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="6 9 12 15 18 9" />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="task-detail-action-group">
+                          <div className="task-detail-field__label" style={{ fontSize: '10px', marginBottom: '4px' }}>
+                            Sub Category <span style={{ color: '#ef4444' }}>*</span>
+                          </div>
+                          <div style={{ position: 'relative' }}>
+                            <select
+                              value={selectedSubCategory}
+                              onChange={(e) => setSelectedSubCategory(e.target.value)}
+                              className="task-detail-select"
+                              disabled={updating || !selectedCategory}
+                              style={{ appearance: 'none', paddingRight: '28px' }}
+                            >
+                              <option value="">Select Sub Category...</option>
+                              {subCategoriesList.map((s) => (
+                                <option key={s} value={s}>
+                                  {s}
+                                </option>
+                              ))}
+                            </select>
+                            <div style={{ pointerEvents: 'none', position: 'absolute', top: 0, bottom: 0, right: 0, display: 'flex', alignItems: 'center', paddingRight: '12px', color: '#6b7280' }}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="6 9 12 15 18 9" />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="task-detail-action-group" style={{ gridColumn: 'span 3' }}>
+                          <div className="task-detail-field__label" style={{ fontSize: '10px', marginBottom: '4px' }}>
+                            Attachment <span style={{ color: '#ef4444' }}>*</span>
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <input
+                              type="file"
+                              id="reassign-attachment-file"
+                              onChange={handleReassignFileChange}
+                              style={{ display: 'none' }}
+                            />
+                            <label htmlFor="reassign-attachment-file" className="task-detail-file-label" style={{ flex: 1, margin: 0, maxWidth: 'none', height: '38px', borderRadius: '8px', border: '1px dashed #d1d5db', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', cursor: 'pointer', background: '#fff' }}>
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', color: reassignFile ? '#2563eb' : '#6b7280' }}>
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                              </svg>
+                              {reassignFile ? reassignFile.name : 'Click to upload task completion attachment (required)…'}
+                            </label>
+                            {reassignFile && (
+                              <button
+                                type="button"
+                                onClick={() => setReassignFile(null)}
+                                className="task-detail-action-btn"
+                                style={{ background: '#ef4444', color: '#fff', padding: '0 12px', height: '38px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                              >
+                                Clear
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px', width: '100%' }}>
-                      <button
-                        type="button"
-                        className="task-detail-action-btn task-detail-btn-reassign"
-                        onClick={handleReassign}
-                        disabled={updating || !selectedAssignee || !selectedCategory || !selectedSubCategory}
-                        style={{ minWidth: '120px' }}
-                      >
-                        Reassign
-                      </button>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px', width: '100%' }}>
+                        <button
+                          type="button"
+                          className="task-detail-action-btn task-detail-btn-reassign"
+                          onClick={handleReassign}
+                          disabled={updating || !selectedAssignee || !selectedCategory || !selectedSubCategory || !reassignFile}
+                          style={{ minWidth: '120px' }}
+                        >
+                          Reassign
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
