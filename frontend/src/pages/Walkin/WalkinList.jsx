@@ -1852,7 +1852,7 @@ const WalkinList = () => {
                 const branchJson = await branchRes.json();
                 let branchList = Array.isArray(branchJson?.stores) ? branchJson.stores : (Array.isArray(branchJson?.data) ? branchJson.data : []);
 
-                if (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin') {
+                if (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'telecaller') {
                     // Force the dropdown to show the hardcoded stores to ensure it's not empty,
                     // and merge any DB ones to prevent duplicates.
                     const existing = new Set(branchList.map(b => b.workingBranch));
