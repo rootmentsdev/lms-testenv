@@ -16,15 +16,15 @@ export const isFullAccessAdmin = (adminRole) => {
  */
 export const getAccessibleStoreIds = async (adminId) => {
     const admin = await Admin.findById(adminId).populate('branches assignedClusters');
-    if (!admin) {
+    if (!admin || admin.role === 'employee') {
         // Fallback: Check if this is a regular User (employee)
-        const user = await User.findById(adminId);
+        const user = admin ? admin : await User.findById(adminId);
         if (!user) return [];
         
         // Find the Branch matching the user's locCode/workingBranch
         const branch = await Branch.findOne({ 
             $or: [
-                { locCode: user.locCode },
+                { locCode: user.locCode || user.LocCode },
                 { workingBranch: user.workingBranch }
             ]
         });
@@ -75,14 +75,14 @@ export const getAccessibleEmployeeIds = async (adminId, storeId = null) => {
     const admin = await Admin.findById(adminId);
     let accessibleStoreIds = [];
     
-    if (!admin) {
+    if (!admin || admin.role === 'employee') {
         // Fallback: Check if this is a regular User (employee)
-        const user = await User.findById(adminId);
+        const user = admin ? admin : await User.findById(adminId);
         if (!user) return [];
         
         const branch = await Branch.findOne({ 
             $or: [
-                { locCode: user.locCode },
+                { locCode: user.locCode || user.LocCode },
                 { workingBranch: user.workingBranch }
             ]
         });
@@ -223,15 +223,15 @@ export const buildWalkinFilter = async (adminId, baseQuery = {}) => {
 export const buildTaskFilter = async (adminId, baseQuery = {}) => {
     const admin = await Admin.findById(adminId);
 
-    // ── Employee / User (not in Admin collection) ─────────────────────────────
-    if (!admin) {
-        const user = await User.findById(adminId);
+    // ── Employee / User ───────────────────────────────────────────────────────
+    if (!admin || admin.role === 'employee') {
+        const user = admin ? admin : await User.findById(adminId);
         if (!user) return { _id: null };
 
         const employee = await Employee.findOne({
             $or: [
                 { userId: user._id },
-                { employeeId: { $regex: `^${user.empID}$`, $options: 'i' } }
+                { employeeId: { $regex: `^${user.empID || user.EmpId}$`, $options: 'i' } }
             ]
         });
 

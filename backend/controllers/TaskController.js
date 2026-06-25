@@ -516,7 +516,7 @@ export const getTasks = async (req, res) => {
     if (employeeId) {
       // 1. Determine caller identity and role
       const callerAdmin = await Admin.findById(adminId);
-      if (callerAdmin) {
+      if (callerAdmin && callerAdmin.role !== 'employee') {
         // If they are not full access (Super/HR Admin), validate they have store/cluster access to this employee
         if (!isFullAccessAdmin(callerAdmin.role)) {
           const accessibleStoreIds = await getAccessibleStoreIds(adminId);
@@ -547,7 +547,7 @@ export const getTasks = async (req, res) => {
         }
       } else {
         // Regular user/employee: can only view their own tasks
-        const callerUser = await User.findById(adminId);
+        const callerUser = callerAdmin || await User.findById(adminId);
         if (!callerUser) {
           return res.status(404).json({ success: false, message: 'User not found' });
         }
@@ -555,8 +555,8 @@ export const getTasks = async (req, res) => {
         const callerEmployee = await Employee.findOne({
           $or: [
             { email: callerUser.email },
-            { contactNo: callerUser.contactNo },
-            { username: callerUser.username }
+            { contactNo: callerUser.contactNo || callerUser.phoneNumber },
+            { username: callerUser.username || callerUser.name }
           ]
         });
         const allowedIds = [callerUser._id.toString()];
@@ -778,8 +778,8 @@ export const getTaskAssignees = async (req, res) => {
     let role = user ? user.role : '';
     let isUserAdmin = true;
 
-    if (!user) {
-      user = await User.findById(adminId);
+    if (!user || user.role === 'employee') {
+      user = user || await User.findById(adminId);
       if (!user) {
         return res.status(404).json({ success: false, message: 'User or Admin not found' });
       }

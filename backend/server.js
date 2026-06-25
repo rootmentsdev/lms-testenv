@@ -35,6 +35,8 @@ import { refreshExternalEmployees } from './lib/employeeCache.js';
 import setupSwagger from './swagger.js';
 import { MiddilWare } from './lib/middilWare.js';
 import Admin from './model/Admin.js';
+import User from './model/User.js';
+import bcrypt from 'bcrypt';
 
 const app = express();
 setupSwagger(app);
@@ -707,9 +709,81 @@ cron.schedule("30 18 * * *", async () => {
   }
 }, { timezone: "Asia/Kolkata" });
 
+async function seedTestEmployee() {
+  try {
+    const { default: Branch } = await import('./model/Branch.js');
+
+    // Find the Z-Edapally1 branch or fall back
+    const targetBranch = await Branch.findOne({ workingBranch: { $regex: '^z-edapally1$', $options: 'i' } })
+      || await Branch.findOne({ locCode: '144' })
+      || await Branch.findOne()
+      || { workingBranch: 'Office', locCode: '102' };
+
+    const locCodeVal = targetBranch.locCode || '102';
+    const workingBranchVal = targetBranch.workingBranch || 'Office';
+    const branchIdVal = targetBranch._id;
+
+    // Check if test employee user already exists in User collection
+    let existingUser = await User.findOne({ empID: 'emp8899' });
+    let existingAdmin = await Admin.findOne({ EmpId: 'Emp8899' });
+
+    const hashedPassword = await bcrypt.hash('password123', 10);
+    const sharedId = existingUser?._id || existingAdmin?._id || new mongoose.Types.ObjectId();
+
+    if (!existingUser) {
+      console.log('🌱 Seeding test employee Emp8899...');
+      const newUser = new User({
+        _id: sharedId,
+        username: 'Test Employee 8899',
+        email: 'emp8899@company.com',
+        password: hashedPassword,
+        empID: 'emp8899',
+        locCode: locCodeVal,
+        designation: 'Employee',
+        workingBranch: workingBranchVal,
+        source: 'app',
+      });
+      await newUser.save();
+      console.log('✅ Test employee Emp8899 seeded in User collection.');
+    } else {
+      // Update existing user branch/locCode
+      existingUser.locCode = locCodeVal;
+      existingUser.workingBranch = workingBranchVal;
+      await existingUser.save();
+      console.log('🔄 Updated existing test employee branch to ' + workingBranchVal + ' in User collection.');
+    }
+
+    if (!existingAdmin) {
+      const newAdmin = new Admin({
+        _id: sharedId,
+        name: 'Test Employee 8899',
+        email: 'emp8899@company.com',
+        EmpId: 'Emp8899',
+        role: 'employee',
+        subRole: 'NR',
+        password: hashedPassword,
+        isActive: true,
+        branches: branchIdVal ? [branchIdVal] : [],
+      });
+      await newAdmin.save();
+      console.log('✅ Test employee Emp8899 seeded in Admin collection.');
+    } else {
+      // Update existing admin branches
+      existingAdmin.branches = branchIdVal ? [branchIdVal] : [];
+      await existingAdmin.save();
+      console.log('🔄 Updated existing test employee branch to ' + workingBranchVal + ' in Admin collection.');
+    }
+  } catch (error) {
+    console.error('❌ Error seeding test employee:', error);
+  }
+}
+
 connectMongoDB().then(async () => {
   // Seed categories
   await seedDefaultCategories();
+
+  // Seed test employee Emp8899
+  await seedTestEmployee();
 
   app.listen(port, '0.0.0.0', () => {
     console.log(`✅ Server running on port ${port}`);
