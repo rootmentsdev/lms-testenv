@@ -367,6 +367,7 @@ export const generateAutoTasks = async (targetDate = null, specificTemplateId = 
       const roleLabels  = {
         super_admin: 'Super Admin', admin: 'Admin', hr_admin: 'HR Admin',
         cluster_admin: 'Cluster Admin', store_admin: 'Store Admin',
+        telecaller: 'Telecaller',
       };
       const roleLabel = roleLabels[creator.role] || creator.role;
       const subRole   = creator.subRole && creator.subRole !== 'NR' ? creator.subRole : '';

@@ -61,6 +61,7 @@ const ASSIGNED_TO_LABELS = {
   store_admin: 'Store Admin',
   cluster_admin: 'Cluster Admin',
   all_stores: 'All Stores',
+  telecaller: 'Telecaller',
 };
 
 const ROLE_LABELS = {
@@ -68,6 +69,7 @@ const ROLE_LABELS = {
   admin: 'Admin',
   cluster_admin: 'Cluster Admin',
   store_admin: 'Store Admin',
+  telecaller: 'Telecaller',
 };
 
 /** Map form priority to table display priority */
@@ -877,7 +879,7 @@ export const getTaskAssignees = async (req, res) => {
     admins.forEach(ad => {
       const designation = ad.subRole && ad.subRole !== 'NR' 
         ? ad.subRole 
-        : (ad.role === 'super_admin' ? 'Super Admin' : (ad.role === 'admin' ? 'Admin' : (ad.role === 'hr_admin' ? 'HR Admin' : (ad.role === 'cluster_admin' ? 'Cluster Admin' : 'Store Admin'))));
+        : (ad.role === 'super_admin' ? 'Super Admin' : (ad.role === 'admin' ? 'Admin' : (ad.role === 'hr_admin' ? 'HR Admin' : (ad.role === 'cluster_admin' ? 'Cluster Admin' : (ad.role === 'telecaller' ? 'Telecaller' : 'Store Admin')))));
       
       let storeName = (ad.role === 'super_admin' || ad.role === 'admin' || ad.role === 'hr_admin')
         ? 'All Store'
@@ -902,7 +904,7 @@ export const getTaskAssignees = async (req, res) => {
     if (isUserAdmin && !individualAssignees.some(ad => ad.value === adminId.toString())) {
       const designation = user.subRole && user.subRole !== 'NR'
         ? user.subRole
-        : (user.role === 'super_admin' ? 'Super Admin' : (user.role === 'admin' ? 'Admin' : (user.role === 'hr_admin' ? 'HR Admin' : (user.role === 'cluster_admin' ? 'Cluster Admin' : 'Store Admin'))));
+        : (user.role === 'super_admin' ? 'Super Admin' : (user.role === 'admin' ? 'Admin' : (user.role === 'hr_admin' ? 'HR Admin' : (user.role === 'cluster_admin' ? 'Cluster Admin' : (user.role === 'telecaller' ? 'Telecaller' : 'Store Admin')))));
       let storeName = (user.role === 'super_admin' || user.role === 'admin' || user.role === 'hr_admin')
         ? 'All Store'
         : (user.branches && user.branches.length > 0 ? user.branches[0].workingBranch : 'Store');
