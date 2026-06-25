@@ -218,6 +218,13 @@ export const checkCustomerExists = async (req, res) => {
  */
 export const saveWalkin = async (req, res) => {
     try {
+        if (req.admin && req.admin.role === 'telecaller') {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied: Telecallers are not allowed to add or edit walk-ins.'
+            });
+        }
+
         let {
             _id,
             customerName,
@@ -726,7 +733,13 @@ export const getWalkins = async (req, res) => {
         }
 
         if (store && store !== 'All') {
-            baseQuery.store = { $regex: `^${store.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' };
+            const storeNames = store.split(',').map(s => s.trim()).filter(Boolean);
+            if (storeNames.length > 1) {
+                const regexes = storeNames.map(name => new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'));
+                baseQuery.store = { $in: regexes };
+            } else if (storeNames.length === 1) {
+                baseQuery.store = { $regex: `^${storeNames[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' };
+            }
         }
 
         if (search && search.trim()) {

@@ -257,6 +257,10 @@ const exportCSV = (data) => {
   URL.revokeObjectURL(url);
 };
 
+
+
+
+
 const WalkinReport = () => {
   const user  = useSelector(s => s.auth.user);
   const token = localStorage.getItem('token');
@@ -267,8 +271,12 @@ const WalkinReport = () => {
   const [employees, setEmployees] = useState([]);
   const [loading,   setLoading]   = useState(true);
 
-  const [formData, setFormData] = useState({ startDate: today, endDate: today, store: 'All', employee: '' });
-  const [selectedStatus, setSelectedStatus] = useState('');
+  const [formData, setFormData] = useState({ startDate: today, endDate: today });
+  
+  // Selected values states
+  const [selectedStore, setSelectedStore] = useState('All');
+  const [selectedEmployee, setSelectedEmployee] = useState('All');
+  const [selectedStatus, setSelectedStatus] = useState('All');
 
   const [reportGenerated, setReportGenerated] = useState(false);
   const [reportData,      setReportData]      = useState([]);
@@ -294,25 +302,19 @@ const WalkinReport = () => {
         }
         
         setBranches(list);
-        if (user?.role === 'store_admin' && list.length > 0) setFormData(p=>({...p, store: list[0].workingBranch}));
+        if ((user?.role === 'store_admin' || user?.role === 'telecaller') && list.length > 0) {
+          setSelectedStore(list[0].workingBranch);
+        }
       } catch(e){ console.error(e); }
       finally { setLoading(false); }
     };
     if (token) load();
   }, [token, user?.role]);
 
-  // Load employees dynamically based on selected store
-  const loadEmployeesForStore = async (storeName) => {
+  // Load all employees once to filter client-side
+  const loadAllEmployees = async () => {
     try {
-      let url = `${baseUrl.baseUrl}api/admin/accessible-employees`;
-      if (storeName && storeName !== 'All') {
-        const selectedBranch = branches.find(b => b.workingBranch === storeName);
-        if (selectedBranch && selectedBranch._id) {
-          url += `?storeId=${selectedBranch._id}`;
-        } else {
-          url += `?store=${encodeURIComponent(storeName)}`;
-        }
-      }
+      const url = `${baseUrl.baseUrl}api/admin/accessible-employees`;
       const res = await fetch(url, {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
       });
@@ -326,11 +328,19 @@ const WalkinReport = () => {
 
   useEffect(() => {
     if (token && branches.length > 0) {
-      loadEmployeesForStore(formData.store);
+      loadAllEmployees();
     }
-  }, [token, formData.store, branches]);
+  }, [token, branches.length]);
 
-  const storeEmployees = employees;
+  // Cascading client-side employee filtering based on selected store
+  const filteredEmployees = React.useMemo(() => {
+    if (!selectedStore || selectedStore === 'All') return employees;
+    return employees.filter(e => {
+      if (!e.workingBranch) return false;
+      const eBranches = e.workingBranch.split(',').map(b => b.trim());
+      return eBranches.some(eb => locationKey(eb) === locationKey(selectedStore));
+    });
+  }, [employees, selectedStore]);
 
   const handleGenerate = async (e) => {
     e.preventDefault();
@@ -340,24 +350,37 @@ const WalkinReport = () => {
       const json = await res.json();
       if (json.success) {
         let data = json.data || [];
-        if (formData.store && formData.store !== 'All') data = data.filter(w => locationKey(w.store) === locationKey(formData.store));
-        if (formData.employee) data = data.filter(w => w.staff === formData.employee);
-        if (selectedStatus) {
-          data = data.filter(w => {
-            if (!w.status) return false;
-            const wStatus = String(w.status).trim().toLowerCase();
-            const target = selectedStatus.trim().toLowerCase();
-            if (target === 'cancelled' || target === 'cancel') {
-              return wStatus.includes('cancel') || wStatus.includes('cancelled') || 
-                     String(w.rentalStatus).toLowerCase().includes('cancel') || 
-                     String(w.shoeStatus).toLowerCase().includes('cancel');
-            }
-            const parts = wStatus.split(',').map(p => p.trim());
-            return parts.includes(target) || 
-                   String(w.rentalStatus).trim().toLowerCase() === target || 
-                   String(w.shoeStatus).trim().toLowerCase() === target;
-          });
+        
+        // Filter by store
+        if (selectedStore && selectedStore !== 'All') {
+          data = data.filter(w => locationKey(w.store) === locationKey(selectedStore));
         }
+        
+        // Filter by employee
+        if (selectedEmployee && selectedEmployee !== 'All') {
+          data = data.filter(w => w.staff === selectedEmployee);
+        }
+        
+        // Filter by status
+        const matchStatus = (w, targetStatus) => {
+          if (!w.status) return false;
+          const wStatus = String(w.status).trim().toLowerCase();
+          const target = targetStatus.trim().toLowerCase();
+          if (target === 'cancelled' || target === 'cancel') {
+            return wStatus.includes('cancel') || wStatus.includes('cancelled') || 
+                   String(w.rentalStatus).toLowerCase().includes('cancel') || 
+                   String(w.shoeStatus).toLowerCase().includes('cancel');
+          }
+          const parts = wStatus.split(',').map(p => p.trim());
+          return parts.includes(target) || 
+                 String(w.rentalStatus).trim().toLowerCase() === target || 
+                 String(w.shoeStatus).trim().toLowerCase() === target;
+        };
+
+        if (selectedStatus && selectedStatus !== 'All') {
+          data = data.filter(w => matchStatus(w, selectedStatus));
+        }
+
         setReportData(data);
         setReportGenerated(true);
         setCurrentPage(1);
@@ -424,9 +447,17 @@ const WalkinReport = () => {
               </div>
               <div>
                 <label style={lbl}>Store Name <span style={{color:'#ef4444'}}>*</span></label>
-                <select value={formData.store} disabled={user?.role==='store_admin'} onChange={e=>setFormData(p=>({...p,store:e.target.value,employee:''}))} style={{...inp,cursor:'pointer',appearance:'auto'}}>
+                <select
+                  value={selectedStore}
+                  disabled={user?.role === 'store_admin'}
+                  onChange={e => {
+                    setSelectedStore(e.target.value);
+                    setSelectedEmployee('All');
+                  }}
+                  style={{...inp, cursor: user?.role === 'store_admin' ? 'not-allowed' : 'pointer', appearance: 'auto'}}
+                >
                   {user?.role !== 'store_admin' && <option value="All">All Store</option>}
-                  {branches.map((b,i)=><option key={i} value={b.workingBranch}>{b.workingBranch}</option>)}
+                  {branches.map((b, i) => <option key={i} value={b.workingBranch}>{b.workingBranch}</option>)}
                 </select>
               </div>
             </div>
@@ -434,16 +465,24 @@ const WalkinReport = () => {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3" style={{}}>
               <div>
                 <label style={lbl}>Employee <span style={{color:'#9ca3af', fontWeight:400}}>(Optional)</span></label>
-                <select value={formData.employee} onChange={e=>setFormData(p=>({...p,employee:e.target.value}))} style={{...inp,cursor:'pointer',appearance:'auto'}}>
-                  <option value="">All Employees</option>
-                  {storeEmployees.map((e,i)=><option key={i} value={e.username}>{e.username}</option>)}
+                <select
+                  value={selectedEmployee}
+                  onChange={e => setSelectedEmployee(e.target.value)}
+                  style={{...inp, cursor: 'pointer', appearance: 'auto'}}
+                >
+                  <option value="All">All Employees</option>
+                  {filteredEmployees.map((e, i) => <option key={i} value={e.username}>{e.username}</option>)}
                 </select>
               </div>
               <div>
                 <label style={lbl}>Status <span style={{color:'#9ca3af', fontWeight:400}}>(Optional)</span></label>
-                <select value={selectedStatus} onChange={e=>setSelectedStatus(e.target.value)} style={{...inp,cursor:'pointer',appearance:'auto'}}>
-                  <option value="">All Status</option>
-                  {STATUS_OPTIONS.map(s=><option key={s} value={s}>{s}</option>)}
+                <select
+                  value={selectedStatus}
+                  onChange={e => setSelectedStatus(e.target.value)}
+                  style={{...inp, cursor: 'pointer', appearance: 'auto'}}
+                >
+                  <option value="All">All Status</option>
+                  {STATUS_OPTIONS.map((s, i) => <option key={i} value={s}>{s}</option>)}
                 </select>
               </div>
             </div>
@@ -452,6 +491,8 @@ const WalkinReport = () => {
             </button>
           </form>
         </div>
+
+
 
         {/* Results table */}
         {reportGenerated && (

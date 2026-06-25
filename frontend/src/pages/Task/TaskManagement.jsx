@@ -359,41 +359,45 @@ const TaskManagement = () => {
             <h1 className="task-mgmt-title task-mgmt-title--heavy">Task Management</h1>
             <p className="task-mgmt-subtitle">Track and manage all operational tasks across stores</p>
           </div>
-          <Link to="/task/create" className="task-mgmt-new-btn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            New Task
-          </Link>
+          {user?.role !== 'telecaller' && (
+            <Link to="/task/create" className="task-mgmt-new-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              New Task
+            </Link>
+          )}
         </div>
 
-        <div className="task-mgmt-tabs">
-          <button
-            type="button"
-            className={`task-mgmt-tab-btn ${activeTab === 'tasks' ? 'active' : ''}`}
-            onClick={() => setActiveTab('tasks')}
-          >
-            All Tasks
-            <span className="task-mgmt-tab-count">{tasks.length}</span>
-          </button>
-          <button
-            type="button"
-            className={`task-mgmt-tab-btn ${activeTab === 'extensions' ? 'active' : ''}`}
-            onClick={() => setActiveTab('extensions')}
-          >
-            Extension Requests
-            <span className="task-mgmt-tab-count">{extensions.length}</span>
-          </button>
-          <button
-            type="button"
-            className={`task-mgmt-tab-btn ${activeTab === 'requests' ? 'active' : ''}`}
-            onClick={() => setActiveTab('requests')}
-          >
-            Review Requests
-            <span className="task-mgmt-tab-count">{requests.length}</span>
-          </button>
-        </div>
+        {user?.role !== 'telecaller' && (
+          <div className="task-mgmt-tabs">
+            <button
+              type="button"
+              className={`task-mgmt-tab-btn ${activeTab === 'tasks' ? 'active' : ''}`}
+              onClick={() => setActiveTab('tasks')}
+            >
+              All Tasks
+              <span className="task-mgmt-tab-count">{tasks.length}</span>
+            </button>
+            <button
+              type="button"
+              className={`task-mgmt-tab-btn ${activeTab === 'extensions' ? 'active' : ''}`}
+              onClick={() => setActiveTab('extensions')}
+            >
+              Extension Requests
+              <span className="task-mgmt-tab-count">{extensions.length}</span>
+            </button>
+            <button
+              type="button"
+              className={`task-mgmt-tab-btn ${activeTab === 'requests' ? 'active' : ''}`}
+              onClick={() => setActiveTab('requests')}
+            >
+              Review Requests
+              <span className="task-mgmt-tab-count">{requests.length}</span>
+            </button>
+          </div>
+        )}
 
         <div className="task-mgmt-toolbar">
           <div className="task-mgmt-search">
