@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useSelector } from "react-redux";
 import { normalizeBranchProgress } from "../../features/dashboard/dashboardUtils";
 import { fetchDashboardTasks, fetchHomeProgress, fetchHomeProgressChart, fetchWeeklyWalkinCount } from "../../features/dashboard/dashboardFetch";
 
@@ -101,6 +102,7 @@ const formatDateLabel = (value) => {
 };
 
 const DashboardOverview = ({ range = "7", customRange }) => {
+  const user = useSelector((state) => state.auth.user);
   const [summaryResponse, setSummaryResponse] = useState(null);
   const [chartResponse, setChartResponse] = useState(null);
   const [walkinCount, setWalkinCount] = useState(0);
@@ -297,11 +299,13 @@ const DashboardOverview = ({ range = "7", customRange }) => {
           <h2 className="text-[22px] font-bold text-gray-900 leading-tight">Dashboard Overview</h2>
           <p className="text-[12px] text-gray-400 mt-0.5">Store walkings, tasks, and training progress across all locations</p>
         </div>
-        <Link to="/walkin/list">
-          <button className="bg-gray-900 text-white text-[13px] font-semibold px-5 py-2 rounded-xl hover:bg-gray-700 transition-colors flex-shrink-0">
-            + Add Walk In
-          </button>
-        </Link>
+        {user?.role !== 'telecaller' && (
+          <Link to="/walkin/list">
+            <button className="bg-gray-900 text-white text-[13px] font-semibold px-5 py-2 rounded-xl hover:bg-gray-700 transition-colors flex-shrink-0">
+              + Add Walk In
+            </button>
+          </Link>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-row gap-3 w-full" style={{}}>

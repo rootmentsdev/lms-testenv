@@ -264,7 +264,6 @@ const getStatusColors = (statusStr) => {
     }
     return { bg: '#f3f4f6', color: '#6b7280' };
 };
-
 const WalkinList = () => {
     const user = useSelector((state) => state.auth.user);
     const token = localStorage.getItem('token');
@@ -1853,7 +1852,7 @@ const WalkinList = () => {
                 const branchJson = await branchRes.json();
                 let branchList = Array.isArray(branchJson?.stores) ? branchJson.stores : (Array.isArray(branchJson?.data) ? branchJson.data : []);
 
-                if (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin') {
+                if (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'telecaller') {
                     // Force the dropdown to show the hardcoded stores to ensure it's not empty,
                     // and merge any DB ones to prevent duplicates.
                     const existing = new Set(branchList.map(b => b.workingBranch));
@@ -2975,16 +2974,18 @@ const WalkinList = () => {
                         {/* Header */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '24px', marginBottom: '16px' }}>
                             <h1 style={{ fontSize: '22px', fontWeight: 700, lineHeight: 1.2, color: '#111827', margin: 0 }}>Walk In List</h1>
-                            <button
-                                onClick={() => {
-                                    setFormData(getResetFormData());
-                                    setSelectedFile(null);
-                                    setShowAddView(true);
-                                }}
-                                style={{ background: '#111827', color: '#fff', border: 'none', borderRadius: '10px', padding: '9px 18px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
-                            >
-                                + New Walk In
-                            </button>
+                            {user?.role !== 'telecaller' && (
+                                <button
+                                    onClick={() => {
+                                        setFormData(getResetFormData());
+                                        setSelectedFile(null);
+                                        setShowAddView(true);
+                                    }}
+                                    style={{ background: '#111827', color: '#fff', border: 'none', borderRadius: '10px', padding: '9px 18px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                >
+                                    + New Walk In
+                                </button>
+                            )}
                         </div>
 
                         {/* Filters */}
@@ -3000,7 +3001,7 @@ const WalkinList = () => {
                                 <option value="All">All Status</option>
                                 {FILTER_STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                             </select>
-                            {(user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'cluster_admin' || user?.role === 'store_admin') && (
+                            {(user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'cluster_admin' || user?.role === 'store_admin' || user?.role === 'telecaller') && (
                                 <select
                                     value={storeFilter}
                                     disabled={user?.role === 'store_admin'}
@@ -3034,10 +3035,10 @@ const WalkinList = () => {
                             ) : (
                                 <>
                                     <div style={{ overflowX: 'auto' }}>
-                                        <table style={{ width: '3305px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
+                                        <table style={{ width: user?.role === 'telecaller' ? '3225px' : '3305px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
                                             <thead>
                                                 <tr style={{ borderBottom: '1px solid #f3f4f6', background: '#fafafa' }}>
-                                                    {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'REPEAT COUNT', 'STATUS', 'HISTORY', 'FUNCTION DATE', 'FUNCTION TYPE', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'SIZE', 'COLOR', 'NOTES', 'STORE', 'STAFF', 'ATTACHMENT', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'BILLED DATE', 'BILL RETURNED DATE', 'EDIT'].map((h, i) => {
+                                                    {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'REPEAT COUNT', 'STATUS', 'HISTORY', 'FUNCTION DATE', 'FUNCTION TYPE', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'SIZE', 'COLOR', 'NOTES', 'STORE', 'STAFF', 'ATTACHMENT', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'BILLED DATE', 'BILL RETURNED DATE', 'EDIT'].filter(h => h !== 'EDIT' || user?.role !== 'telecaller').map((h, i) => {
                                                         const getColWidth = (header) => {
                                                             const widths = {
                                                               '#': '50px',
@@ -3177,7 +3178,7 @@ const WalkinList = () => {
                                                                              className="walkin-marquee-text walkin-anim-scroll"
                                                                              style={{
                                                                                  padding: '4px 6px',
-                                                                                 paddingRight: '18px',
+                                                                                 paddingRight: user?.role === 'telecaller' ? '6px' : '18px',
                                                                                  fontSize: '11px',
                                                                                  fontWeight: 900,
                                                                                  borderRadius: '20px',
@@ -3185,7 +3186,7 @@ const WalkinList = () => {
                                                                                  color: sc.color,
                                                                                  whiteSpace: 'nowrap',
                                                                                  display: 'inline-block',
-                                                                                 backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='${sc.color}' stroke-width='2'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+                                                                                 backgroundImage: user?.role === 'telecaller' ? 'none' : `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='${sc.color}' stroke-width='2'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
                                                                                  backgroundRepeat: 'no-repeat',
                                                                                  backgroundPosition: 'right 4px center',
                                                                                  backgroundSize: '12px',
@@ -3202,7 +3203,7 @@ const WalkinList = () => {
                                                                      <select
                                                                          value={w.status || 'New Walkin'}
                                                                          onChange={(e) => handleStatusChange(w, e.target.value)}
-                                                                         disabled={statusChangedToday[w._id] || updatingStatus[w._id]}
+                                                                         disabled={statusChangedToday[w._id] || updatingStatus[w._id] || user?.role === 'telecaller'}
                                                                          style={{
                                                                              position: 'absolute',
                                                                              top: 0,
@@ -3210,10 +3211,10 @@ const WalkinList = () => {
                                                                              width: '100%',
                                                                              height: '100%',
                                                                              opacity: 0,
-                                                                             cursor: statusChangedToday[w._id] ? 'not-allowed' : 'pointer',
+                                                                             cursor: (statusChangedToday[w._id] || user?.role === 'telecaller') ? 'not-allowed' : 'pointer',
                                                                              boxSizing: 'border-box'
                                                                          }}
-                                                                         title={statusChangedToday[w._id] ? 'Status already changed today. Try again tomorrow.' : 'Change status'}
+                                                                         title={user?.role === 'telecaller' ? 'You do not have permission to change status.' : (statusChangedToday[w._id] ? 'Status already changed today. Try again tomorrow.' : 'Change status')}
                                                                      >
                                                                          {!['New Walkin', 'Loss', 'Revisit'].includes(w.status) && w.status && (
                                                                              <option value={w.status}>{w.status}</option>
@@ -3361,17 +3362,19 @@ const WalkinList = () => {
                                                             <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', boxSizing: 'border-box' }}>
                                                                 {w.billReturnedDate ? new Date(w.billReturnedDate).toISOString().split('T')[0] : '–'}
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', textAlign: 'center', boxSizing: 'border-box' }}>
-                                                                <button
-                                                                    onClick={() => handleEditClick(w)}
-                                                                    style={{ background: 'none', border: 'none', color: '#4b5563', cursor: 'pointer', padding: '4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', transition: 'color 0.1s' }}
-                                                                    onMouseEnter={e => e.currentTarget.style.color = '#111827'}
-                                                                    onMouseLeave={e => e.currentTarget.style.color = '#4b5563'}
-                                                                    title="Edit Details"
-                                                                >
-                                                                    <FaPen size={12} />
-                                                                </button>
-                                                            </td>
+                                                            {user?.role !== 'telecaller' && (
+                                                                <td style={{ padding: '11px 12px', textAlign: 'center', boxSizing: 'border-box' }}>
+                                                                    <button
+                                                                        onClick={() => handleEditClick(w)}
+                                                                        style={{ background: 'none', border: 'none', color: '#4b5563', cursor: 'pointer', padding: '4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', transition: 'color 0.1s' }}
+                                                                        onMouseEnter={e => e.currentTarget.style.color = '#111827'}
+                                                                        onMouseLeave={e => e.currentTarget.style.color = '#4b5563'}
+                                                                        title="Edit Details"
+                                                                    >
+                                                                        <FaPen size={12} />
+                                                                    </button>
+                                                                </td>
+                                                            )}
                                                         </tr>
                                                     );
                                                 })}
@@ -3728,7 +3731,18 @@ const WalkinList = () => {
                                     status: item.status,
                                     category: item.category,
                                     date: item.date ? new Date(item.date) : new Date()
-                                })).sort((a, b) => a.date - b.date);
+                                })).sort((a, b) => {
+                                    const aTime = a.date.getTime();
+                                    const bTime = b.date.getTime();
+                                    // If dates are identical or within 10 seconds, 'New Walkin' goes first
+                                    if (Math.abs(aTime - bTime) < 10000) {
+                                        const aIsNew = String(a.status || '').toLowerCase().trim() === 'new walkin';
+                                        const bIsNew = String(b.status || '').toLowerCase().trim() === 'new walkin';
+                                        if (aIsNew && !bIsNew) return -1;
+                                        if (!aIsNew && bIsNew) return 1;
+                                    }
+                                    return aTime - bTime;
+                                });
 
                                 // Filter out consecutive equivalent statuses (no actual change)
                                 const filteredHistory = [];

@@ -637,10 +637,10 @@ export const CreatingAdminUsers = async (req, res) => {
         }
 
         // Check if role is valid
-        const validRoles = ['super_admin', 'admin', 'hr_admin', 'cluster_admin', 'store_admin', 'employee'];
+        const validRoles = ['super_admin', 'admin', 'hr_admin', 'cluster_admin', 'store_admin', 'telecaller', 'employee'];
         if (!validRoles.includes(role)) {
             return res.status(400).json({
-                message: "Invalid role provided. Valid roles are: super_admin, admin, hr_admin, cluster_admin, store_admin, employee.",
+                message: "Invalid role provided. Valid roles are: super_admin, admin, hr_admin, cluster_admin, store_admin, telecaller, employee.",
             });
         }
 
@@ -746,8 +746,8 @@ export const CreatingAdminUsers = async (req, res) => {
             const allBranches = await Branch.find();
             finalBranches = allBranches.map((branch) => branch._id);
         } else {
-            // For store_admin and cluster_admin
-            if (role === 'store_admin' || role === 'cluster_admin') {
+            // For store_admin, cluster_admin and telecaller
+            if (role === 'store_admin' || role === 'cluster_admin' || role === 'telecaller') {
                 if (!branches || branches.length === 0) {
                     return res.status(400).json({
                         message: `Branches must be provided for the role: ${role}.`,
@@ -978,11 +978,11 @@ export const getAccessibleEmployees = async (req, res) => {
         }
 
         // Determine allowed admin roles to return as employees based on logged-in admin's role
-        let allowedAdminRoles = ['store_admin', 'cluster_admin'];
+        let allowedAdminRoles = ['store_admin', 'cluster_admin', 'telecaller'];
         let excludedAdminRoles = ['super_admin', 'admin', 'hr_admin'];
         
-        if (req.admin.role === 'store_admin') {
-            allowedAdminRoles = ['store_admin'];
+        if (req.admin.role === 'store_admin' || req.admin.role === 'telecaller') {
+            allowedAdminRoles = ['store_admin', 'telecaller'];
             excludedAdminRoles = ['super_admin', 'admin', 'hr_admin', 'cluster_admin'];
         }
 
@@ -1382,7 +1382,7 @@ export const updateAdminUser = async (req, res) => {
             const allBranches = await Branch.find();
             updateFields.branches = allBranches.map((branch) => branch._id);
             updateFields.assignedClusters = [];
-        } else if (role === 'store_admin' || role === 'cluster_admin') {
+        } else if (role === 'store_admin' || role === 'cluster_admin' || role === 'telecaller') {
             updateFields.branches = branches || [];
             updateFields.assignedClusters = [];
         }

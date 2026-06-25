@@ -256,6 +256,245 @@ const exportCSV = (data) => {
   a.click();
   URL.revokeObjectURL(url);
 };
+/* ── CustomSelect Dropdown Component ────────────────────────────────────────── */
+const CustomSelect = ({
+  id,
+  label,
+  options,
+  value, // array of values (always multi)
+  onChange,
+  disabled,
+  placeholder
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const dropdownRef = React.useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+        setSearch('');
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filteredOptions = options.filter(opt =>
+    String(opt.label || opt.value || '').toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handleSelectOption = (optVal) => {
+    const currentValues = Array.isArray(value) ? value : [];
+    if (currentValues.includes(optVal)) {
+      onChange(currentValues.filter(v => v !== optVal));
+    } else {
+      onChange([...currentValues, optVal]);
+    }
+  };
+
+  const handleSelectAll = () => {
+    onChange(options.map(opt => opt.value));
+  };
+
+  const handleClearAll = () => {
+    onChange([]);
+  };
+
+  const getDisplayText = () => {
+    const currentValues = Array.isArray(value) ? value : [];
+    if (currentValues.length === 0) return placeholder || 'All Selected';
+    if (currentValues.length === options.length) return `All (${options.length}) Selected`;
+    if (currentValues.length <= 2) {
+      return options
+        .filter(opt => currentValues.includes(opt.value))
+        .map(opt => opt.label)
+        .join(', ');
+    }
+    return `${currentValues.length} Selected`;
+  };
+
+  const isSelected = (optVal) => {
+    const currentValues = Array.isArray(value) ? value : [];
+    return currentValues.includes(optVal);
+  };
+
+  return (
+    <div ref={dropdownRef} style={{ position: 'relative', width: '100%', fontFamily: "DM Sans, sans-serif" }}>
+      {/* Label */}
+      <span style={{ fontSize: '11px', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>
+        {label}
+      </span>
+
+      {/* Trigger or Search input */}
+      {isOpen ? (
+        <div style={{ position: 'relative' }}>
+          <input
+            id={id ? `${id}-search-input` : undefined}
+            autoFocus
+            type="text"
+            placeholder="Type to filter..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{
+              border: '1px solid #111827',
+              borderRadius: '8px',
+              padding: '7px 32px 7px 12px',
+              fontSize: '12px',
+              color: '#374151',
+              background: '#fff',
+              outline: 'none',
+              width: '100%',
+              boxSizing: 'border-box',
+              minHeight: '32px'
+            }}
+          />
+          <span
+            onClick={() => {
+              setIsOpen(false);
+              setSearch('');
+            }}
+            style={{
+              position: 'absolute',
+              right: '12px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              cursor: 'pointer',
+              color: '#9ca3af',
+              fontSize: '12px',
+              userSelect: 'none'
+            }}
+          >
+            ✕
+          </span>
+        </div>
+      ) : (
+        <div
+          id={id ? `${id}-trigger` : undefined}
+          onClick={() => !disabled && setIsOpen(true)}
+          style={{
+            border: '1px solid #e5e7eb',
+            borderRadius: '8px',
+            padding: '7px 12px',
+            fontSize: '12px',
+            color: disabled ? '#9ca3af' : '#374151',
+            background: disabled ? '#f3f4f6' : '#fff',
+            cursor: disabled ? 'not-allowed' : 'pointer',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            minHeight: '32px',
+            boxSizing: 'border-box',
+            position: 'relative',
+            userSelect: 'none'
+          }}
+        >
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '90%' }}>
+            {getDisplayText()}
+          </span>
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{
+              transition: 'transform 0.2s',
+              color: '#6b7280'
+            }}
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
+      )}
+
+      {/* Dropdown Panel */}
+      {isOpen && (
+        <div
+          id={id ? `${id}-panel` : undefined}
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            marginTop: '4px',
+            background: '#fff',
+            borderRadius: '8px',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05)',
+            border: '1px solid #e5e7eb',
+            zIndex: 1000,
+            padding: '8px',
+            boxSizing: 'border-box'
+          }}
+        >
+          {/* Header Controls (Select All / Clear All) */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', paddingBottom: '6px', borderBottom: '1px solid #f3f4f6' }}>
+            <span style={{ fontSize: '11px', color: '#6b7280' }}>
+              {options.length > 0 ? `${value.length}/${options.length} Selected` : '0 Selected'}
+            </span>
+            <div style={{ display: 'flex', gap: '12px', fontSize: '10px' }}>
+              <span id={id ? `${id}-select-all` : undefined} onClick={handleSelectAll} style={{ color: '#2563eb', cursor: 'pointer', fontWeight: 500, userSelect: 'none' }}>Select All</span>
+              <span id={id ? `${id}-clear-all` : undefined} onClick={handleClearAll} style={{ color: '#ef4444', cursor: 'pointer', fontWeight: 500, userSelect: 'none' }}>Clear All</span>
+            </div>
+          </div>
+
+          {/* Options List */}
+          <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            {filteredOptions.length === 0 ? (
+              <div style={{ padding: '8px', fontSize: '11px', color: '#9ca3af', textAlign: 'center' }}>No results found</div>
+            ) : (
+              filteredOptions.map((opt, optIdx) => {
+                const selected = isSelected(opt.value);
+                return (
+                  <div
+                    key={opt.value}
+                    id={id ? `${id}-opt-${optIdx}` : undefined}
+                    onClick={() => handleSelectOption(opt.value)}
+                    style={{
+                      padding: '6px 8px',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      color: selected ? '#111827' : '#4b5563',
+                      background: selected ? '#f3f4f6' : 'transparent',
+                      cursor: 'pointer',
+                      fontWeight: selected ? 600 : 400,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      justifyContent: 'space-between',
+                      userSelect: 'none'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        readOnly
+                        style={{
+                          width: '12px',
+                          height: '12px',
+                          cursor: 'pointer',
+                          accentColor: '#111827'
+                        }}
+                      />
+                      <span>{opt.label}</span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+
 
 const WalkinReport = () => {
   const user  = useSelector(s => s.auth.user);
@@ -267,8 +506,12 @@ const WalkinReport = () => {
   const [employees, setEmployees] = useState([]);
   const [loading,   setLoading]   = useState(true);
 
-  const [formData, setFormData] = useState({ startDate: today, endDate: today, store: 'All', employee: '' });
-  const [selectedStatus, setSelectedStatus] = useState('');
+  const [formData, setFormData] = useState({ startDate: today, endDate: today });
+  
+  // Selected values states
+  const [selectedStores, setSelectedStores] = useState([]);
+  const [selectedEmployees, setSelectedEmployees] = useState([]);
+  const [selectedStatuses, setSelectedStatuses] = useState([]);
 
   const [reportGenerated, setReportGenerated] = useState(false);
   const [reportData,      setReportData]      = useState([]);
@@ -287,32 +530,26 @@ const WalkinReport = () => {
         const json = await res.json();
         let list = Array.isArray(json?.stores) ? json.stores : (Array.isArray(json?.data) ? json.data : []);
         
-        if (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin') {
+        if (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'telecaller') {
           const existing = new Set(list.map(b => b.workingBranch));
           const missing = HARDCODED_STORES.filter(s => !existing.has(s));
           list = [...missing.map(name => ({ workingBranch: name })), ...list];
         }
         
         setBranches(list);
-        if (user?.role === 'store_admin' && list.length > 0) setFormData(p=>({...p, store: list[0].workingBranch}));
+        if (user?.role === 'store_admin' && list.length > 0) {
+          setSelectedStores([list[0].workingBranch]);
+        }
       } catch(e){ console.error(e); }
       finally { setLoading(false); }
     };
     if (token) load();
   }, [token, user?.role]);
 
-  // Load employees dynamically based on selected store
-  const loadEmployeesForStore = async (storeName) => {
+  // Load all employees once to filter client-side
+  const loadAllEmployees = async () => {
     try {
-      let url = `${baseUrl.baseUrl}api/admin/accessible-employees`;
-      if (storeName && storeName !== 'All') {
-        const selectedBranch = branches.find(b => b.workingBranch === storeName);
-        if (selectedBranch && selectedBranch._id) {
-          url += `?storeId=${selectedBranch._id}`;
-        } else {
-          url += `?store=${encodeURIComponent(storeName)}`;
-        }
-      }
+      const url = `${baseUrl.baseUrl}api/admin/accessible-employees`;
       const res = await fetch(url, {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
       });
@@ -326,11 +563,21 @@ const WalkinReport = () => {
 
   useEffect(() => {
     if (token && branches.length > 0) {
-      loadEmployeesForStore(formData.store);
+      loadAllEmployees();
     }
-  }, [token, formData.store, branches]);
+  }, [token, branches.length]);
 
-  const storeEmployees = employees;
+  // Cascading client-side employee filtering based on selected store(s)
+  const filteredEmployees = React.useMemo(() => {
+    if (selectedStores.length === 0) return employees;
+    return employees.filter(e => {
+      if (!e.workingBranch) return false;
+      const eBranches = e.workingBranch.split(',').map(b => b.trim());
+      return eBranches.some(eb =>
+        selectedStores.some(selStore => locationKey(eb) === locationKey(selStore))
+      );
+    });
+  }, [employees, selectedStores]);
 
   const handleGenerate = async (e) => {
     e.preventDefault();
@@ -340,24 +587,38 @@ const WalkinReport = () => {
       const json = await res.json();
       if (json.success) {
         let data = json.data || [];
-        if (formData.store && formData.store !== 'All') data = data.filter(w => locationKey(w.store) === locationKey(formData.store));
-        if (formData.employee) data = data.filter(w => w.staff === formData.employee);
-        if (selectedStatus) {
-          data = data.filter(w => {
-            if (!w.status) return false;
-            const wStatus = String(w.status).trim().toLowerCase();
-            const target = selectedStatus.trim().toLowerCase();
-            if (target === 'cancelled' || target === 'cancel') {
-              return wStatus.includes('cancel') || wStatus.includes('cancelled') || 
-                     String(w.rentalStatus).toLowerCase().includes('cancel') || 
-                     String(w.shoeStatus).toLowerCase().includes('cancel');
-            }
-            const parts = wStatus.split(',').map(p => p.trim());
-            return parts.includes(target) || 
-                   String(w.rentalStatus).trim().toLowerCase() === target || 
-                   String(w.shoeStatus).trim().toLowerCase() === target;
-          });
+        
+        // Filter by store(s)
+        if (Array.isArray(selectedStores) && selectedStores.length > 0) {
+          const selectedKeys = selectedStores.map(locationKey);
+          data = data.filter(w => selectedKeys.includes(locationKey(w.store)));
         }
+        
+        // Filter by employee(s)
+        if (Array.isArray(selectedEmployees) && selectedEmployees.length > 0) {
+          data = data.filter(w => selectedEmployees.includes(w.staff));
+        }
+        
+        // Filter by status(es)
+        const matchStatus = (w, targetStatus) => {
+          if (!w.status) return false;
+          const wStatus = String(w.status).trim().toLowerCase();
+          const target = targetStatus.trim().toLowerCase();
+          if (target === 'cancelled' || target === 'cancel') {
+            return wStatus.includes('cancel') || wStatus.includes('cancelled') || 
+                   String(w.rentalStatus).toLowerCase().includes('cancel') || 
+                   String(w.shoeStatus).toLowerCase().includes('cancel');
+          }
+          const parts = wStatus.split(',').map(p => p.trim());
+          return parts.includes(target) || 
+                 String(w.rentalStatus).trim().toLowerCase() === target || 
+                 String(w.shoeStatus).trim().toLowerCase() === target;
+        };
+
+        if (Array.isArray(selectedStatuses) && selectedStatuses.length > 0) {
+          data = data.filter(w => selectedStatuses.some(status => matchStatus(w, status)));
+        }
+
         setReportData(data);
         setReportGenerated(true);
         setCurrentPage(1);
@@ -423,28 +684,41 @@ const WalkinReport = () => {
                 <input type="date" name="endDate" required value={formData.endDate} onChange={e=>setFormData(p=>({...p,endDate:e.target.value}))} style={inp} />
               </div>
               <div>
-                <label style={lbl}>Store Name <span style={{color:'#ef4444'}}>*</span></label>
-                <select value={formData.store} disabled={user?.role==='store_admin'} onChange={e=>setFormData(p=>({...p,store:e.target.value,employee:''}))} style={{...inp,cursor:'pointer',appearance:'auto'}}>
-                  {user?.role !== 'store_admin' && <option value="All">All Store</option>}
-                  {branches.map((b,i)=><option key={i} value={b.workingBranch}>{b.workingBranch}</option>)}
-                </select>
+                <CustomSelect
+                  id="store-select"
+                  label={<span>Store Name <span style={{color:'#ef4444'}}>*</span></span>}
+                  options={branches.map(b => ({ value: b.workingBranch, label: b.workingBranch }))}
+                  value={selectedStores}
+                  onChange={(val) => {
+                    setSelectedStores(val);
+                    setSelectedEmployees([]);
+                  }}
+                  disabled={user?.role === 'store_admin'}
+                  placeholder="All Store"
+                />
               </div>
             </div>
             {/* Row 2 */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3" style={{}}>
               <div>
-                <label style={lbl}>Employee <span style={{color:'#9ca3af', fontWeight:400}}>(Optional)</span></label>
-                <select value={formData.employee} onChange={e=>setFormData(p=>({...p,employee:e.target.value}))} style={{...inp,cursor:'pointer',appearance:'auto'}}>
-                  <option value="">All Employees</option>
-                  {storeEmployees.map((e,i)=><option key={i} value={e.username}>{e.username}</option>)}
-                </select>
+                <CustomSelect
+                  id="employee-select"
+                  label={<span>Employee <span style={{color:'#9ca3af', fontWeight:400}}>(Optional)</span></span>}
+                  options={filteredEmployees.map(e => ({ value: e.username, label: e.username }))}
+                  value={selectedEmployees}
+                  onChange={setSelectedEmployees}
+                  placeholder="All Employees"
+                />
               </div>
               <div>
-                <label style={lbl}>Status <span style={{color:'#9ca3af', fontWeight:400}}>(Optional)</span></label>
-                <select value={selectedStatus} onChange={e=>setSelectedStatus(e.target.value)} style={{...inp,cursor:'pointer',appearance:'auto'}}>
-                  <option value="">All Status</option>
-                  {STATUS_OPTIONS.map(s=><option key={s} value={s}>{s}</option>)}
-                </select>
+                <CustomSelect
+                  id="status-select"
+                  label={<span>Status <span style={{color:'#9ca3af', fontWeight:400}}>(Optional)</span></span>}
+                  options={STATUS_OPTIONS.map(s => ({ value: s, label: s }))}
+                  value={selectedStatuses}
+                  onChange={setSelectedStatuses}
+                  placeholder="All Status"
+                />
               </div>
             </div>
             <button type="submit" style={{ background:'#111827', color:'#fff', border:'none', borderRadius:'8px', padding:'8px 20px', fontSize:'12px', fontWeight:600, cursor:'pointer' }}>
@@ -452,6 +726,8 @@ const WalkinReport = () => {
             </button>
           </form>
         </div>
+
+
 
         {/* Results table */}
         {reportGenerated && (

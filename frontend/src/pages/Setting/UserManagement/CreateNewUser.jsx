@@ -175,7 +175,7 @@ const CreateNewUser = () => {
         }
 
         // Validate role selection
-        if (!["super_admin", "admin", "hr_admin", "cluster_admin", "store_admin", "employee"].includes(form.userRole)) {
+        if (!["super_admin", "admin", "hr_admin", "cluster_admin", "store_admin", "telecaller", "employee"].includes(form.userRole)) {
             toast.warning("Please select a valid user role.");
             return;
         }
@@ -400,6 +400,7 @@ const CreateNewUser = () => {
                                             <option value="hr_admin">HR Admin</option>
                                             <option value="cluster_admin">Cluster Admin</option>
                                             <option value="store_admin">Store Admin</option>
+                                            <option value="telecaller">Telecaller</option>
                                             <option value="employee">Employee</option>
                                         </>
                                     )}

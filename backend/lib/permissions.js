@@ -49,6 +49,12 @@ export const getAccessibleStoreIds = async (adminId) => {
         return Array.from(branchIds);
     }
 
+    if (admin.role === 'telecaller') {
+        // Telecallers have access to all stores (even if assigned to office)
+        const allBranches = await Branch.find({ isActive: true }).select('_id');
+        return allBranches.map(b => b._id.toString());
+    }
+
     if (admin.role === 'store_admin') {
         // Can access only specifically assigned stores
         return admin.branches.map(b => (b._id || b).toString());
@@ -284,6 +290,19 @@ export const buildTaskFilter = async (adminId, baseQuery = {}) => {
                 { createdBy: admin._id },
                 { assignedTo: admin._id.toString() }
             ]
+        };
+
+        if (baseQuery.$or) {
+            const { $or: existingOr, ...rest } = baseQuery;
+            return { ...rest, $and: [{ $or: existingOr }, restriction] };
+        }
+        return { ...baseQuery, ...restriction };
+    }
+
+    // ── Telecaller → see only tasks assigned directly to them ──────────────────
+    if (admin.role === 'telecaller') {
+        const restriction = {
+            assignedTo: admin._id.toString()
         };
 
         if (baseQuery.$or) {
