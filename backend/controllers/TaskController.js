@@ -158,7 +158,7 @@ const normalizeAttachmentToDataUri = (str) => {
   return str;
 };
 
-export const mapTaskForClient = (doc, overrideBranch, requesterRole) => {
+export const mapTaskForClient = (doc, overrideBranch, requesterInfo) => {
   const task = doc.toObject ? doc.toObject() : doc;
   const status = computeStatus(task);
   const priority = normalizePriority(task.priority);
@@ -176,10 +176,23 @@ export const mapTaskForClient = (doc, overrideBranch, requesterRole) => {
     reviewAttachmentVal = `/api/task/${taskId}/review-attachment`;
   }
 
-  const isAdmin = ['super_admin', 'admin'].includes(requesterRole);
-  const titleToShow = (isAdmin && task.adminTitle) ? task.adminTitle : (task.title || '');
-  const categoryToShow = (isAdmin && task.adminCategory) ? task.adminCategory : (task.category || '');
-  const subCategoryToShow = (isAdmin && task.adminSubCategory) ? task.adminSubCategory : (task.subCategory || '');
+  let requesterRole = '';
+  let requesterId = '';
+
+  if (typeof requesterInfo === 'object' && requesterInfo !== null) {
+    requesterRole = requesterInfo.role || '';
+    requesterId = requesterInfo.userId || '';
+  } else {
+    requesterRole = requesterInfo || '';
+  }
+
+  const isAssignee = requesterId && task.assignedTo === requesterId.toString();
+  const isEmployee = ['employee', 'user'].includes(requesterRole);
+  const showAdminDetails = requesterId ? !isAssignee : !isEmployee;
+
+  const titleToShow = (showAdminDetails && task.adminTitle) ? task.adminTitle : (task.title || '');
+  const categoryToShow = (showAdminDetails && task.adminCategory) ? task.adminCategory : (task.category || '');
+  const subCategoryToShow = (showAdminDetails && task.adminSubCategory) ? task.adminSubCategory : (task.subCategory || '');
 
   return {
     id: taskId,
@@ -191,6 +204,9 @@ export const mapTaskForClient = (doc, overrideBranch, requesterRole) => {
     adminTitle: task.adminTitle || '',
     adminCategory: task.adminCategory || '',
     adminSubCategory: task.adminSubCategory || '',
+    reassignedTitle: task.title || '',
+    reassignedCategory: task.category || '',
+    reassignedSubCategory: task.subCategory || '',
     assignedTo: task.assignedTo,
     createdBy: task.createdBy?.toString() || '',
     assignee: task.assignedToLabel || ASSIGNED_TO_LABELS[task.assignedTo] || task.assignedTo,
@@ -494,7 +510,7 @@ export const createTask = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: 'Task created successfully',
-      data: mapTaskForClient(createdTasks[0], null, req.admin.role),
+      data: mapTaskForClient(createdTasks[0], null, req.admin),
     });
   } catch (error) {
     console.error('Error creating task:', error);
@@ -684,7 +700,7 @@ export const getTasks = async (req, res) => {
       branchByAssignee[u._id.toString()] = u.workingBranch || '';
     });
 
-    let mapped = tasks.map((t) => mapTaskForClient(t, branchByAssignee[t.assignedTo?.toString()] || null, req.admin.role));
+    let mapped = tasks.map((t) => mapTaskForClient(t, branchByAssignee[t.assignedTo?.toString()] || null, req.admin));
 
     if (search) {
       const q = search.toLowerCase();
@@ -760,7 +776,7 @@ export const getTaskById = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      data: mapTaskForClient(task, assigneeBranch, req.admin.role),
+      data: mapTaskForClient(task, assigneeBranch, req.admin),
     });
   } catch (error) {
     console.error('Error fetching task:', error);
@@ -1369,7 +1385,7 @@ export const updateTaskStatus = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: 'Task status updated successfully',
-      data: mapTaskForClient(task, null, req.admin.role),
+      data: mapTaskForClient(task, null, req.admin),
     });
   } catch (error) {
     console.error('Error updating task status:', error);
@@ -1534,7 +1550,7 @@ export const reassignTask = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: 'Task reassigned successfully',
-      data: mapTaskForClient(task, null, req.admin.role),
+      data: mapTaskForClient(task, null, req.admin),
     });
   } catch (error) {
     console.error('Error reassigning task:', error);
@@ -1728,7 +1744,7 @@ export const requestExtension = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: 'Extension request submitted successfully',
-      data: mapTaskForClient(task, null, req.admin.role),
+      data: mapTaskForClient(task, null, req.admin),
     });
   } catch (error) {
     console.error('Error requesting task extension:', error);
@@ -1837,7 +1853,7 @@ export const resolveExtensionRequest = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: `Extension request ${action.toLowerCase()}d successfully`,
-      data: mapTaskForClient(task, null, req.admin.role),
+      data: mapTaskForClient(task, null, req.admin),
     });
   } catch (error) {
     console.error('Error resolving extension request:', error);
@@ -1946,7 +1962,7 @@ export const updateTaskDetails = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: 'Task details updated successfully',
-      data: mapTaskForClient(task, null, req.admin.role),
+      data: mapTaskForClient(task, null, req.admin),
     });
   } catch (error) {
     console.error('Error updating task details:', error);
