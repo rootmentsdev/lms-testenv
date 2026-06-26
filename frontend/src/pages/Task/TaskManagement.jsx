@@ -431,7 +431,11 @@ const TaskManagement = () => {
             <div className="task-mgmt-filter">
               <label>Status :</label>
               <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
-                {['All', 'COMPLETED', 'IN PROGRESS', 'PENDING', 'OVERDUE', 'ON HOLD', 'UNDER REVIEW', 'REASSIGNED', 'EXTENSION REQUESTED'].map((s) => <option key={s} value={s}>{s}</option>)}
+                {['All', 'COMPLETED', 'IN PROGRESS', 'PENDING', 'OVERDUE', 'ON HOLD', 'UNDER REVIEW', 'REASSIGNED', 'EXTENSION REQUESTED'].map((s) => (
+                  <option key={s} value={s}>
+                    {s === 'IN PROGRESS' ? 'TO DO' : s}
+                  </option>
+                ))}
               </select>
             </div>
           )}
@@ -549,7 +553,7 @@ const TaskManagement = () => {
                         <>
                           <td>
                             <span className={`task-mgmt-status ${STATUS_CLASS[task.status] || ''}`}>
-                              {task.status}
+                              {task.status === 'IN PROGRESS' ? 'TO DO' : task.status}
                             </span>
                           </td>
                           <td>

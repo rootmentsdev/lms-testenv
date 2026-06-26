@@ -409,7 +409,7 @@ export const generateAutoTasks = async (targetDate = null, specificTemplateId = 
             endTime:      tmpl.endTime || tmpl.startTime || '',
             description:  tmpl.description || '',
             priority:     tmpl.priority,
-            status:       'PENDING',
+            status:       'IN PROGRESS',
             storeName,
             storeCode,
             createdBy:    creator._id,

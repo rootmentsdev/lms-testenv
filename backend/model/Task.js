@@ -21,7 +21,7 @@ const taskSchema = new mongoose.Schema({
   status: {
     type: String,
     enum: ['PENDING', 'IN PROGRESS', 'COMPLETED', 'OVERDUE', 'ON HOLD', 'UNDER REVIEW', 'REASSIGNED', 'EXTENSION REQUESTED'],
-    default: 'PENDING',
+    default: 'IN PROGRESS',
   },
   requestedExtensionDate: { type: String, default: '' },
   previousStatus: { type: String, default: '' },
@@ -61,6 +61,8 @@ taskSchema.index({ createdAt: -1 });
 taskSchema.index({ category: 1 });
 taskSchema.index({ priority: 1 });
 taskSchema.index({ status: 1 });
+taskSchema.index({ assignedTo: 1 });
+taskSchema.index({ createdBy: 1 });
 // Compound index for auto-task duplicate prevention
 taskSchema.index({ autoTaskTemplateId: 1, generatedForDate: 1, assignedTo: 1 }, { sparse: true });
 

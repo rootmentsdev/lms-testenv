@@ -164,16 +164,24 @@ export const mapTaskForClient = (doc, overrideBranch, requesterInfo) => {
   const priority = normalizePriority(task.priority);
   const taskId = task.taskCode || task._id?.toString();
 
-  let attachmentVal = task.attachment || '';
-  attachmentVal = normalizeAttachmentToDataUri(attachmentVal);
-  if (attachmentVal.startsWith('data:')) {
+  let attachmentVal = '';
+  if (task.attachmentName) {
     attachmentVal = `/api/task/${taskId}/attachment`;
+  } else if (task.attachment) {
+    attachmentVal = normalizeAttachmentToDataUri(task.attachment);
+    if (attachmentVal.startsWith('data:')) {
+      attachmentVal = `/api/task/${taskId}/attachment`;
+    }
   }
 
-  let reviewAttachmentVal = task.reviewAttachment || '';
-  reviewAttachmentVal = normalizeAttachmentToDataUri(reviewAttachmentVal);
-  if (reviewAttachmentVal.startsWith('data:')) {
+  let reviewAttachmentVal = '';
+  if (task.reviewAttachmentName) {
     reviewAttachmentVal = `/api/task/${taskId}/review-attachment`;
+  } else if (task.reviewAttachment) {
+    reviewAttachmentVal = normalizeAttachmentToDataUri(task.reviewAttachment);
+    if (reviewAttachmentVal.startsWith('data:')) {
+      reviewAttachmentVal = `/api/task/${taskId}/review-attachment`;
+    }
   }
 
   let requesterRole = '';
@@ -468,7 +476,7 @@ export const createTask = async (req, res) => {
         description,
         additionalInfo,
         priority,
-        status: 'PENDING',
+        status: 'IN PROGRESS',
         storeName: targetStoreName,
         storeCode: targetStoreCode,
         createdBy: creator._id,
@@ -680,7 +688,10 @@ export const getTasks = async (req, res) => {
 
 
     // 3. Fetch filtered tasks directly from MongoDB
-    let tasks = await Task.find(secureQuery).sort({ createdAt: -1 }).lean();
+    let tasks = await Task.find(secureQuery)
+      .select({ attachment: 0, reviewAttachment: 0, 'attachments.file': 0 })
+      .sort({ createdAt: -1 })
+      .lean();
 
     // 4. Batch-resolve assignee working branches (2 queries total)
     const assigneeIds = [...new Set(tasks.map(t => t.assignedTo?.toString()).filter(Boolean))];
@@ -751,7 +762,7 @@ export const getTaskById = async (req, res) => {
     const { id } = req.params;
     const task = await Task.findOne({
       $or: [{ taskCode: id }, ...(id.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: id }] : [])],
-    });
+    }).select({ attachment: 0, reviewAttachment: 0, 'attachments.file': 0 });
 
     if (!task) {
       return res.status(404).json({ success: false, message: 'Task not found' });

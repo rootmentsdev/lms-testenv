@@ -733,7 +733,7 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
             >
               <div>
                 <span className={`task-detail-status ${STATUS_CLASS[task.status] || ''}`}>
-                  {task.status}
+                  {task.status === 'IN PROGRESS' ? 'TO DO' : task.status}
                 </span>
               </div>
             </DetailField>
@@ -929,7 +929,7 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
                         onClick={() => handleUpdateStatus('IN PROGRESS')}
                         disabled={updating}
                       >
-                        In Progress
+                        To Do
                       </button>
                       <button
                         type="button"
