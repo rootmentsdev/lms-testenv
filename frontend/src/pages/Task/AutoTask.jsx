@@ -21,9 +21,6 @@ const TIMES = [
 
 const PRIORITIES = [
   { label: 'Urgent', color: '#ef4444' },
-  { label: 'High',   color: '#f59e0b' },
-  { label: 'Normal', color: '#3b82f6' },
-  { label: 'Low',    color: '#9ca3af' },
 ];
 
 const ROLES = [

@@ -512,7 +512,7 @@ const TaskManagement = () => {
                   (activeTab === 'tasks' ? pageItems : activeTab === 'requests' ? pageItemsRequests : pageItemsExtensions).map((task) => (
                     <tr key={task.id}>
                       <td className="task-mgmt-cell-title" onClick={() => setSelectedTask(task)} style={{ cursor: 'pointer' }}>{task.title}</td>
-                      <td><StackCell primary={task.category} secondary={task.categorySub} /></td>
+                      <td><StackCell primary={task.category} secondary={task.categoryDetail ? `${task.categoryDetail} · ${task.categorySub}` : task.categorySub} /></td>
                       <td><StackCell primary={task.assignee} secondary={task.assigneeSub} /></td>
                       <td>
                         <span className="task-mgmt-priority">
