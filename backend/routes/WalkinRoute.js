@@ -248,6 +248,16 @@ router.post('/save', OptionalMiddilWare, saveWalkin);
  *         schema:
  *           type: string
  *         description: Upper boundary date filter (YYYY-MM-DD)
+ *       - in: query
+ *         name: updatedStartDate
+ *         schema:
+ *           type: string
+ *         description: Lower boundary date filter based on updatedAt (ISO 8601 string)
+ *       - in: query
+ *         name: updatedEndDate
+ *         schema:
+ *           type: string
+ *         description: Upper boundary date filter based on updatedAt (ISO 8601 string)
  *     responses:
  *       200:
  *         description: Walk-ins retrieved successfully

@@ -676,7 +676,7 @@ export const saveWalkin = async (req, res) => {
  */
 export const getWalkins = async (req, res) => {
     try {
-        const { startDate, endDate, storeId, employeeId, page, limit, search = '', status = '', store = '', dashboard = '', countOnly = '', chartOnly = '' } = req.query;
+        const { startDate, endDate, updatedStartDate, updatedEndDate, storeId, employeeId, page, limit, search = '', status = '', store = '', dashboard = '', countOnly = '', chartOnly = '' } = req.query;
         const adminId = req.admin.userId;
 
         const pageNum = parseInt(page, 10) || 1;
@@ -699,6 +699,17 @@ export const getWalkins = async (req, res) => {
         if (startDate && endDate) {
             const endOfDaySuffix = endDate.includes(' ') ? '' : ' 23:59:59';
             baseQuery.date = { $gte: startDate, $lte: `${endDate}${endOfDaySuffix}` };
+        }
+
+        // Updated At Range Filter
+        if (updatedStartDate || updatedEndDate) {
+            baseQuery.updatedAt = {};
+            if (updatedStartDate) {
+                baseQuery.updatedAt.$gte = new Date(updatedStartDate);
+            }
+            if (updatedEndDate) {
+                baseQuery.updatedAt.$lte = new Date(updatedEndDate);
+            }
         }
 
         if (status && status !== 'All') {
@@ -852,18 +863,31 @@ export const getWalkins = async (req, res) => {
  */
 export const getAllWalkinsPublic = async (req, res) => {
     try {
-        const { startDate, endDate } = req.query;
+        const { startDate, endDate, updatedStartDate, updatedEndDate } = req.query;
 
-        let filtered = await Walkin.find({})
-            .sort({ updatedAt: -1 })
-            .select('date customerName contact functionDate store staff managerName category subCategory functionType remarks repeatCount status storeId employeeId createdBy createdAt updatedAt lastStatusChangeDate statusChangedToday bookingDate rentoutDate returnDate cancelDate cancellationDate lossReason lossProductType lossSize lossColour lossSalesPrice lossSelectRemarks lossEnquiryTrailOption lossEnquiryRevisitDate notes attachment attachmentName statusHistory rentalStatus shoeStatus billedDate billReturnedDate invoiceNo shoeInvoiceNo')
-            .lean();
+        let query = {};
 
         // Date Range Filter
         if (startDate && endDate) {
             const endOfDaySuffix = endDate.includes(' ') ? '' : ' 23:59:59';
-            filtered = filtered.filter(w => w.date >= startDate && w.date <= `${endDate}${endOfDaySuffix}`);
+            query.date = { $gte: startDate, $lte: `${endDate}${endOfDaySuffix}` };
         }
+
+        // Updated At Range Filter
+        if (updatedStartDate || updatedEndDate) {
+            query.updatedAt = {};
+            if (updatedStartDate) {
+                query.updatedAt.$gte = new Date(updatedStartDate);
+            }
+            if (updatedEndDate) {
+                query.updatedAt.$lte = new Date(updatedEndDate);
+            }
+        }
+
+        let filtered = await Walkin.find(query)
+            .sort({ updatedAt: -1 })
+            .select('date customerName contact functionDate store staff managerName category subCategory functionType remarks repeatCount status storeId employeeId createdBy createdAt updatedAt lastStatusChangeDate statusChangedToday bookingDate rentoutDate returnDate cancelDate cancellationDate lossReason lossProductType lossSize lossColour lossSalesPrice lossSelectRemarks lossEnquiryTrailOption lossEnquiryRevisitDate notes attachment attachmentName statusHistory rentalStatus shoeStatus billedDate billReturnedDate invoiceNo shoeInvoiceNo')
+            .lean();
 
         const todayStr = getLocalDateStringIST(new Date());
         const mappedFiltered = filtered.map(w => {

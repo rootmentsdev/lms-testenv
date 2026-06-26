@@ -293,6 +293,8 @@ const WalkinList = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
     const [storeFilter, setStoreFilter] = useState('All');
+    const [filterStartDate, setFilterStartDate] = useState('');
+    const [filterEndDate, setFilterEndDate] = useState('');
 
     // Toggle state between Walkin List View and dynamic Add Walkin Form Page View matching screenshot
     const [showAddView, setShowAddView] = useState(false);
@@ -1798,10 +1800,36 @@ const WalkinList = () => {
         };
     };
 
+    const getUpdatedDateRange = () => {
+        let updatedStartDate = '';
+        let updatedEndDate = '';
+
+        if (filterStartDate) {
+            const parts = filterStartDate.split('-');
+            const year = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10) - 1;
+            const day = parseInt(parts[2], 10);
+
+            const start = new Date(year, month, day, 0, 0, 0, 0);
+            updatedStartDate = start.toISOString();
+        }
+        if (filterEndDate) {
+            const parts = filterEndDate.split('-');
+            const year = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10) - 1;
+            const day = parseInt(parts[2], 10);
+
+            const end = new Date(year, month, day, 23, 59, 59, 999);
+            updatedEndDate = end.toISOString();
+        }
+        return { updatedStartDate, updatedEndDate };
+    };
+
     // Fetch walkins dynamically from live API
     const loadWalkinsList = async (pageToLoad = 1) => {
         try {
             setWalkinsLoading(true);
+            const { updatedStartDate, updatedEndDate } = getUpdatedDateRange();
             const params = new URLSearchParams({
                 search: searchQuery.trim(),
                 status: statusFilter,
@@ -1809,6 +1837,8 @@ const WalkinList = () => {
                 page: pageToLoad,
                 limit: itemsPerPage === 'All' ? 0 : itemsPerPage
             });
+            if (updatedStartDate) params.append('updatedStartDate', updatedStartDate);
+            if (updatedEndDate) params.append('updatedEndDate', updatedEndDate);
             const walkinRes = await fetch(`${baseUrl.baseUrl}api/walkin/list?${params.toString()}`, {
                 headers: {
                     'Content-Type': 'application/json',
@@ -1913,7 +1943,7 @@ const WalkinList = () => {
     // Reset page to 1 when filters or page limit changes
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchQuery, statusFilter, storeFilter, itemsPerPage]);
+    }, [searchQuery, statusFilter, storeFilter, itemsPerPage, filterStartDate, filterEndDate]);
 
     // Fetch walkins whenever page, limit, filters, or loading state changes
     // Debounce search-triggered fetches so we don't fire on every keystroke
@@ -1926,7 +1956,7 @@ const WalkinList = () => {
         } else {
             loadWalkinsList(currentPage);
         }
-    }, [currentPage, itemsPerPage, searchQuery, statusFilter, storeFilter, loading]);
+    }, [currentPage, itemsPerPage, searchQuery, statusFilter, storeFilter, filterStartDate, filterEndDate, loading]);
 
     // Auto-refresh the list page data every 5 minutes
     useEffect(() => {
@@ -1937,7 +1967,7 @@ const WalkinList = () => {
         }, 5 * 60 * 1000);
 
         return () => clearInterval(intervalId);
-    }, [currentPage, itemsPerPage, searchQuery, statusFilter, storeFilter, token, loading, showAddView]);
+    }, [currentPage, itemsPerPage, searchQuery, statusFilter, storeFilter, filterStartDate, filterEndDate, token, loading, showAddView]);
 
     const totalPages = itemsPerPage === 'All' ? 1 : Math.ceil(totalWalkins / itemsPerPage);
     const indexFirst = itemsPerPage === 'All' ? 0 : (currentPage - 1) * itemsPerPage;
@@ -3001,6 +3031,45 @@ const WalkinList = () => {
                                 <option value="All">All Status</option>
                                 {FILTER_STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                             </select>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <input
+                                    type="date"
+                                    value={filterStartDate}
+                                    onChange={e => setFilterStartDate(e.target.value)}
+                                    style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '7px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer' }}
+                                />
+                                <span style={{ fontSize: '13px', color: '#6b7280' }}>to</span>
+                                <input
+                                    type="date"
+                                    value={filterEndDate}
+                                    onChange={e => setFilterEndDate(e.target.value)}
+                                    style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '7px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer' }}
+                                />
+                                {(filterStartDate || filterEndDate) && (
+                                    <button
+                                        onClick={() => {
+                                            setFilterStartDate('');
+                                            setFilterEndDate('');
+                                        }}
+                                        style={{
+                                            background: '#f3f4f6',
+                                            border: '1px solid #e5e7eb',
+                                            borderRadius: '8px',
+                                            padding: '7px 12px',
+                                            fontSize: '13px',
+                                            color: '#374151',
+                                            cursor: 'pointer',
+                                            outline: 'none',
+                                            fontWeight: 500,
+                                            transition: 'all 0.2s'
+                                        }}
+                                        onMouseEnter={e => e.target.style.background = '#e5e7eb'}
+                                        onMouseLeave={e => e.target.style.background = '#f3f4f6'}
+                                    >
+                                        Clear Range
+                                    </button>
+                                )}
+                            </div>
                             {(user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'cluster_admin' || user?.role === 'store_admin' || user?.role === 'telecaller') && (
                                 <select
                                     value={storeFilter}
