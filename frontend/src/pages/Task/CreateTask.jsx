@@ -19,9 +19,6 @@ const SYSTEM_ROLES = [
 const TIMES = ['12:00am','12:30am','1:00am','1:30am','2:00am','2:30am','3:00am','3:30am','4:00am','4:30am','5:00am','5:30am','6:00am','6:30am','7:00am','7:30am','8:00am','8:30am','9:00am','9:30am','10:00am','10:30am','11:00am','11:30am','12:00pm','12:30pm','1:00pm','1:30pm','2:00pm','2:30pm','3:00pm','3:30pm','4:00pm','4:30pm','5:00pm','5:30pm','6:00pm','6:30pm','7:00pm','7:30pm','8:00pm','8:30pm','9:00pm','9:30pm','10:00pm','10:30pm','11:00pm','11:30pm'];
 const PRIORITIES = [
   { label: 'Urgent', color: '#ef4444' },
-  { label: 'High',   color: '#f59e0b' },
-  { label: 'Normal', color: '#3b82f6' },
-  { label: 'Low',    color: '#9ca3af' },
 ];
 
 const CheckboxOption = (props) => {
@@ -342,12 +339,12 @@ const CreateTask = () => {
   const [form, setForm] = useState({
     title: '',
     category: '',
-    subCategory: '',
+    subCategories: [],
     assignedTo: [],
     deadline: getCurrentDate(),
     description: '',
     additionalInfo: '',
-    priority: 'Normal',
+    priority: 'Urgent',
     file: null,
   });
 
@@ -462,7 +459,7 @@ const CreateTask = () => {
         const deletedCat = manageCategories.find(c => c._id === catId);
         if (deletedCat && form.category === deletedCat.name) {
           set('category', '');
-          set('subCategory', '');
+          set('subCategories', []);
         }
       } else {
         toast.error(json.message || 'Failed to delete category');
@@ -522,8 +519,9 @@ const CreateTask = () => {
         toast.success('Subcategory deleted!');
         fetchManageCategories();
         fetchCategories();
-        if (form.category === cat.name && form.subCategory === cat.subCategories[subIndex]) {
-          set('subCategory', '');
+        if (form.category === cat.name) {
+          const subCatName = cat.subCategories[subIndex];
+          set('subCategories', (form.subCategories || []).filter(s => s.value !== subCatName));
         }
       } else {
         toast.error(json.message || 'Failed to delete subcategory');
@@ -635,6 +633,11 @@ const CreateTask = () => {
       toast.error('Please select at least one assignee.');
       return;
     }
+    const selectedSubCategories = form.subCategories || [];
+    if (selectedSubCategories.length === 0) {
+      toast.error('Please select at least one subcategory.');
+      return;
+    }
     setSubmitting(true);
     try {
       let fileAttachment = null;
@@ -652,22 +655,24 @@ const CreateTask = () => {
       const currentStartT = getCurrentTime();
 
       for (const assignee of individualAssignees) {
-        await createTask({
-          mode: mode,
-          title: form.category,
-          category: form.category,
-          subCategory: form.subCategory,
-          assignedTo: assignee.value,
-          assignedToLabel: assignee.label,
-          startDate: currentStart,
-          startTime: currentStartT,
-          endDate: isAuto ? currentStart : form.deadline,
-          endTime: isAuto ? currentStartT : '11:59pm',
-          description: form.description,
-          additionalInfo: form.additionalInfo,
-          priority: form.priority,
-          fileAttachment,
-        });
+        for (const subCat of selectedSubCategories) {
+          await createTask({
+            mode: mode,
+            title: form.category,
+            category: form.category,
+            subCategory: subCat.value,
+            assignedTo: assignee.value,
+            assignedToLabel: assignee.label,
+            startDate: currentStart,
+            startTime: currentStartT,
+            endDate: isAuto ? currentStart : form.deadline,
+            endTime: isAuto ? currentStartT : '11:59pm',
+            description: form.description,
+            additionalInfo: form.additionalInfo,
+            priority: form.priority,
+            fileAttachment,
+          });
+        }
       }
       toast.success(isAuto ? 'Auto task saved successfully!' : 'Task saved successfully!');
       navigate('/task');
@@ -761,7 +766,7 @@ const CreateTask = () => {
                     value={form.category} 
                     onChange={(e) => {
                       set('category', e.target.value);
-                      set('subCategory', '');
+                      set('subCategories', []);
                     }} 
                     required 
                     className="premium-input"
@@ -779,23 +784,17 @@ const CreateTask = () => {
               </div>
               <div>
                 <label style={lbl}>Sub Category <span style={req}>*</span></label>
-                <div style={{ position: 'relative' }}>
-                  <select 
-                    value={form.subCategory} 
-                    onChange={(e) => set('subCategory', e.target.value)} 
-                    required 
-                    className="premium-input"
-                    style={{ cursor: 'pointer', appearance: 'none', paddingRight: '28px' }}
-                  >
-                    <option value="">Select Options</option>
-                    {((categoriesList.find(c => c.name === form.category)?.subCategories) || []).map((s) => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                  <div style={{ pointerEvents: 'none', position: 'absolute', top: 0, bottom: 0, right: 0, display: 'flex', alignItems: 'center', paddingRight: '12px', color: '#6b7280' }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="6 9 12 15 18 9" />
-                    </svg>
-                  </div>
-                </div>
+                <Select
+                  isMulti
+                  closeMenuOnSelect={false}
+                  hideSelectedOptions={false}
+                  components={{ Option: CheckboxOption }}
+                  options={((categoriesList.find(c => c.name === form.category)?.subCategories) || []).map((s) => ({ value: s, label: s }))}
+                  value={form.subCategories}
+                  onChange={(selected) => set('subCategories', selected || [])}
+                  placeholder="Select Options"
+                  styles={selectStyles}
+                />
               </div>
               <div>
                 <label style={lbl}>Assigned To <span style={req}>*</span></label>
