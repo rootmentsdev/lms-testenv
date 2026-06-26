@@ -433,6 +433,8 @@ export const flutterLogin = async (req, res) => {
               'Z-EDAPALLY1': '144',
               'G-EDAPPALLY': '702',
               'SG-TRIVANDRUM': '700',
+              'G-TRIVANDRUM': '700',
+              'G.TRIVANDRUM': '700',
               'Z- EDAPPAL': '100',
               'Z.PERINTHALMANNA': '133',
               'Z.KOTTAKKAL': '122',
