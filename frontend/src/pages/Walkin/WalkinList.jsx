@@ -3035,14 +3035,15 @@ const WalkinList = () => {
                             ) : (
                                 <>
                                     <div style={{ overflowX: 'auto' }}>
-                                        <table style={{ width: user?.role === 'telecaller' ? '3225px' : '3305px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
+                                        <table style={{ width: user?.role === 'telecaller' ? '3355px' : '3435px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
                                             <thead>
                                                 <tr style={{ borderBottom: '1px solid #f3f4f6', background: '#fafafa' }}>
-                                                    {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'REPEAT COUNT', 'STATUS', 'HISTORY', 'FUNCTION DATE', 'FUNCTION TYPE', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'SIZE', 'COLOR', 'NOTES', 'STORE', 'STAFF', 'ATTACHMENT', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'BILLED DATE', 'BILL RETURNED DATE', 'EDIT'].filter(h => h !== 'EDIT' || user?.role !== 'telecaller').map((h, i) => {
+                                                    {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'REPEAT COUNT', 'STATUS', 'HISTORY', 'FUNCTION DATE', 'FUNCTION TYPE', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'SIZE', 'COLOR', 'NOTES', 'STORE', 'STAFF', 'ATTACHMENT', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'BILLED DATE', 'BILL RETURNED DATE', 'NEXT VISIT DATE', 'EDIT'].filter(h => h !== 'EDIT' || user?.role !== 'telecaller').map((h, i) => {
                                                         const getColWidth = (header) => {
                                                             const widths = {
                                                               '#': '50px',
                                                               'DATE': '100px',
+                                                              'NEXT VISIT DATE': '130px',
                                                               'CUSTOMER': '160px',
                                                               'CONTACT': '125px',
                                                               'REPEAT COUNT': '110px',
@@ -3361,6 +3362,13 @@ const WalkinList = () => {
                                                             </td>
                                                             <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', boxSizing: 'border-box' }}>
                                                                 {w.billReturnedDate ? new Date(w.billReturnedDate).toISOString().split('T')[0] : '–'}
+                                                            </td>
+                                                            <td style={{ textAlign: 'center', padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
+                                                                <div className="walkin-marquee-container">
+                                                                    <span className="walkin-marquee-text walkin-anim-scroll">
+                                                                        {(w.lossEnquiryRevisitDate && w.lossEnquiryRevisitDate !== '-') ? w.lossEnquiryRevisitDate.split(' ')[0].split('T')[0] : '–'}
+                                                                    </span>
+                                                                </div>
                                                             </td>
                                                             {user?.role !== 'telecaller' && (
                                                                 <td style={{ padding: '11px 12px', textAlign: 'center', boxSizing: 'border-box' }}>
