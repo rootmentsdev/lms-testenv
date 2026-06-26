@@ -158,7 +158,8 @@ const exportCSV = (data) => {
     'RENTOUT DATE', 
     'RETURN DATE', 
     'BILLED DATE', 
-    'BILL RETURNED DATE'
+    'BILL RETURNED DATE',
+    'NEXT VISIT DATE'
   ];
 
   // Helper: format a date string as plain text for Excel (avoids ########)
@@ -233,7 +234,8 @@ const exportCSV = (data) => {
       fmtDate(w.rentoutDate),
       fmtDate(w.returnDate),
       fmtDate(w.billedDate),
-      fmtDate(w.billReturnedDate)
+      fmtDate(w.billReturnedDate),
+      w.lossEnquiryRevisitDate ? fmtDate(w.lossEnquiryRevisitDate) : '-'
     ];
   });
 
@@ -768,14 +770,15 @@ const WalkinReport = () => {
               <div style={{ textAlign:'center', padding:'48px', color:'#9ca3af', fontSize:'13px' }}>No records found.</div>
             ) : (
               <div style={{ overflowX:'auto' }}>
-                <table style={{ width: '3135px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
+                <table style={{ width: '3265px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
                   <thead>
                     <tr style={{ background:'#fafafa', borderBottom:'1px solid #f3f4f6' }}>
-                      {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'REPEAT COUNT', 'STATUS', 'FUNCTION DATE', 'FUNCTION TYPE', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'SIZE', 'COLOR', 'NOTES', 'STORE', 'STAFF', 'ATTACHMENT', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'BILLED DATE', 'BILL RETURNED DATE'].map((h, i) => {
+                      {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'REPEAT COUNT', 'STATUS', 'FUNCTION DATE', 'FUNCTION TYPE', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'SIZE', 'COLOR', 'NOTES', 'STORE', 'STAFF', 'ATTACHMENT', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'BILLED DATE', 'BILL RETURNED DATE', 'NEXT VISIT DATE'].map((h, i) => {
                           const getColWidth = (header) => {
                             const widths = {
                               '#': '50px',
                               'DATE': '100px',
+                              'NEXT VISIT DATE': '130px',
                               'CUSTOMER': '160px',
                               'CONTACT': '125px',
                               'REPEAT COUNT': '110px',
@@ -1021,6 +1024,13 @@ const WalkinReport = () => {
                           <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', boxSizing: 'border-box' }}>
                                 <div className="walkin-marquee-container">
                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.billReturnedDate ? new Date(w.billReturnedDate).toISOString().split('T')[0] : '–'}</span>
+                                </div>
+                              </td>
+                          <td style={{textAlign: 'center',  padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
+                                <div className="walkin-marquee-container">
+                                    <span className="walkin-marquee-text walkin-anim-scroll">
+                                        {(w.lossEnquiryRevisitDate && w.lossEnquiryRevisitDate !== '-') ? w.lossEnquiryRevisitDate.split(' ')[0].split('T')[0] : '–'}
+                                    </span>
                                 </div>
                               </td>
                         </tr>
