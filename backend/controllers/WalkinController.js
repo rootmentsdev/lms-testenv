@@ -4,6 +4,7 @@ import User from '../model/User.js';
 import Branch from '../model/Branch.js';
 import CronLog from '../model/CronLog.js';
 import WalkinCount from '../model/WalkinCount.js';
+import WalkinCameraCheck from '../model/WalkinCameraCheck.js';
 import mongoose from 'mongoose';
 import { validateStoreAccess, validateEmployeeAccess, buildWalkinFilter } from '../lib/permissions.js';
 
@@ -950,10 +951,21 @@ export const getCronLogs = async (req, res) => {
     }
 };
 
-/**
- * GET /api/walkin/walkin-count
- * Returns calculated inApp counts and saved telecaller camera counts for comparison.
- */
+const BACKEND_CATEGORIES = [
+    { key: 'total_walkin', label: 'TOTAL WALKIN' },
+    { key: 'walkin', label: 'WALKIN' },
+    { key: 'new_loss', label: 'NEW LOSS' },
+    { key: 'repeat_loss', label: 'REPEAT LOSS' },
+    { key: 'repeat_rentout', label: 'REPEAT RENTOUT' },
+    { key: 'repeat_return', label: 'REPEAT RETURN' },
+    { key: 'revisit_repeat_trial', label: 'REVISIT REPEAT TRIAL' },
+    { key: 'repeat_booking', label: 'REPEAT BOOKING' },
+    { key: 'new_walkin_booking', label: 'NEW WALKIN BOOKING' },
+    { key: 'new_walkin_rentout', label: 'NEW WALKIN RENTOUT' },
+    { key: 'revisit_reissue', label: 'REVISIT REISSUE' },
+    { key: 'revisit_loss', label: 'REVISIT LOSS' },
+    { key: 'others', label: 'OTHERS' }
+];
 export const getWalkinCountPageData = async (req, res) => {
     try {
         const { date, store } = req.query; // date is YYYY-MM-DD, store is store name
@@ -964,11 +976,29 @@ export const getWalkinCountPageData = async (req, res) => {
         // 1. Resolve store branch and storeId
         let resolvedStoreName = store;
         let resolvedStoreId = null;
+        let queryConditions = [];
 
-        const branch = await Branch.findOne({ workingBranch: { $regex: `^${store.trim()}$`, $options: 'i' } });
-        if (branch) {
-            resolvedStoreId = branch._id;
-            resolvedStoreName = branch.workingBranch;
+        if (store.toLowerCase() !== 'all') {
+            const branch = await Branch.findOne({ workingBranch: { $regex: `^${store.trim()}$`, $options: 'i' } });
+            if (branch) {
+                resolvedStoreId = branch._id;
+                resolvedStoreName = branch.workingBranch;
+                queryConditions.push({
+                    $or: [
+                        { store: resolvedStoreName },
+                        { storeId: resolvedStoreId }
+                    ]
+                });
+            } else {
+                resolvedStoreId = new mongoose.Types.ObjectId();
+                resolvedStoreName = store;
+                queryConditions.push({
+                    $or: [
+                        { store: resolvedStoreName },
+                        { storeId: resolvedStoreId }
+                    ]
+                });
+            }
         }
 
         // 2. Fetch all walkins for this store that have activity on the selected date
@@ -980,24 +1010,22 @@ export const getWalkinCountPageData = async (req, res) => {
         const startOfDay = new Date(year, month, day, 0, 0, 0, 0);
         const endOfDay = new Date(year, month, day, 23, 59, 59, 999);
 
-        const walkins = await Walkin.find({
-            $and: [
-                {
-                    $or: [
-                        { store: resolvedStoreName },
-                        { storeId: resolvedStoreId }
-                    ]
-                },
-                {
-                    $or: [
-                        { date: date },
-                        { createdAt: { $gte: startOfDay, $lte: endOfDay } },
-                        { updatedAt: { $gte: startOfDay, $lte: endOfDay } },
-                        { 'statusHistory.date': { $gte: startOfDay, $lte: endOfDay } }
-                    ]
-                }
+        const dateQuery = {
+            $or: [
+                { date: date },
+                { createdAt: { $gte: startOfDay, $lte: endOfDay } },
+                { updatedAt: { $gte: startOfDay, $lte: endOfDay } },
+                { 'statusHistory.date': { $gte: startOfDay, $lte: endOfDay } }
             ]
-        }).lean();
+        };
+
+        if (queryConditions.length > 0) {
+            queryConditions.push(dateQuery);
+        } else {
+            queryConditions = [dateQuery];
+        }
+
+        const walkins = await Walkin.find({ $and: queryConditions }).lean();
 
         // 3. Compute inApp counts based on the specified rules
         const counts = {
@@ -1012,7 +1040,8 @@ export const getWalkinCountPageData = async (req, res) => {
             new_walkin_booking: 0,
             new_walkin_rentout: 0,
             revisit_reissue: 0,
-            revisit_loss: 0
+            revisit_loss: 0,
+            others: 0
         };
 
         const toDateStrIST = (dateVal) => {
@@ -1090,9 +1119,8 @@ export const getWalkinCountPageData = async (req, res) => {
             }
 
             // 7. Revisit repeat trial
-            const isTrialSubCategory = w.subCategory && String(w.subCategory).toLowerCase().trim() === 'trial';
             const hasTrialStatus = statusesOnDay.has('Trial') || (updatedOnDay && w.status === 'Trial');
-            if (!createdOnDay && updatedOnDay && (hasTrialStatus || isTrialSubCategory)) {
+            if (!createdOnDay && hasTrialStatus) {
                 counts.revisit_repeat_trial++;
             }
 
@@ -1135,9 +1163,8 @@ export const getWalkinCountPageData = async (req, res) => {
             }
 
             // 11. Revisit reissue
-            const isReissueSubCategory = w.subCategory && String(w.subCategory).toLowerCase().trim() === 'reissue';
             const hasReissueStatus = statusesOnDay.has('Reissue') || (updatedOnDay && w.status === 'Reissue');
-            if (!createdOnDay && updatedOnDay && (hasReissueStatus || isReissueSubCategory)) {
+            if (!createdOnDay && updatedOnDay && hasReissueStatus) {
                 counts.revisit_reissue++;
             }
 
@@ -1145,15 +1172,105 @@ export const getWalkinCountPageData = async (req, res) => {
             if (!createdOnDay && (statusesOnDay.has('Revisit Loss') || (updatedOnDay && w.status === 'Revisit Loss'))) {
                 counts.revisit_loss++;
             }
+
+            // 13. Others
+            const hasOtherStatus = statusesOnDay.has('Other') || statusesOnDay.has('Others') || (updatedOnDay && (w.status === 'Other' || w.status === 'Others'));
+            if (hasOtherStatus) {
+                counts.others++;
+            }
         });
 
-        // 4. Fetch saved telecaller count details (if any)
-        const savedCount = await WalkinCount.findOne({ date, storeId: resolvedStoreId }).lean();
+        // 4. Fetch camera checker entries for this date & store
+        let cameraChecksQuery = { date };
+        if (store.toLowerCase() !== 'all') {
+            cameraChecksQuery.storeId = resolvedStoreId;
+        }
+        const cameraChecks = await WalkinCameraCheck.find(cameraChecksQuery)
+            .populate('createdBy', 'name role')
+            .lean();
+
+        // Calculate sums per statusKey
+        const cameraCheckSums = {};
+        cameraChecks.forEach(cc => {
+            cameraCheckSums[cc.statusKey] = (cameraCheckSums[cc.statusKey] || 0) + cc.inCamCount;
+        });
+
+        // 5. Fetch saved comparison details (if any)
+        let savedCount = null;
+        if (store.toLowerCase() === 'all') {
+            const savedCounts = await WalkinCount.find({ date }).lean();
+            if (savedCounts.length > 0) {
+                const aggregatedCounts = BACKEND_CATEGORIES.map(cat => {
+                    let totalInCam = 0;
+                    let totalSalesReport = 0;
+                    let hasInCam = false;
+                    let hasSalesReport = false;
+
+                    savedCounts.forEach(sc => {
+                        const existing = sc.counts.find(c => c.statusKey === cat.key);
+                        if (existing) {
+                            if (existing.inCam !== '-') {
+                                totalInCam += Number(existing.inCam) || 0;
+                                hasInCam = true;
+                            }
+                            if (existing.salesReport !== '-') {
+                                totalSalesReport += Number(existing.salesReport) || 0;
+                                hasSalesReport = true;
+                            }
+                        }
+                    });
+
+                    const ccSum = cameraCheckSums[cat.key];
+                    const inCamVal = ccSum !== undefined ? String(ccSum) : (hasInCam ? String(totalInCam) : '-');
+
+                    return {
+                        statusKey: cat.key,
+                        inCam: inCamVal,
+                        salesReport: hasSalesReport ? String(totalSalesReport) : '-',
+                        timeSeen: '',
+                        remarks: ''
+                    };
+                });
+
+                savedCount = {
+                    date,
+                    store: 'All',
+                    storeId: null,
+                    counts: aggregatedCounts
+                };
+            }
+        } else {
+            savedCount = await WalkinCount.findOne({ date, storeId: resolvedStoreId }).lean();
+        }
+
+        if (savedCount) {
+            // Overwrite inCam fields with updated camera check sums
+            savedCount.counts = BACKEND_CATEGORIES.map(cat => {
+                const existing = savedCount.counts.find(c => c.statusKey === cat.key);
+                const ccSum = cameraCheckSums[cat.key];
+                const inCamVal = ccSum !== undefined ? String(ccSum) : (existing ? existing.inCam : '-');
+                return {
+                    statusKey: cat.key,
+                    inCam: inCamVal,
+                    salesReport: existing ? existing.salesReport : '-',
+                    timeSeen: existing ? existing.timeSeen : '',
+                    remarks: existing ? existing.remarks : ''
+                };
+            });
+        } else {
+            savedCount = {
+                date,
+                store: resolvedStoreName,
+                storeId: resolvedStoreId,
+                counts: defaultCounts
+            };
+        }
 
         return res.status(200).json({
             success: true,
             inApp: counts,
-            saved: savedCount || null
+            saved: savedCount,
+            cameraChecks
         });
 
     } catch (error) {
@@ -1205,6 +1322,195 @@ export const saveWalkinCountPageData = async (req, res) => {
 
     } catch (error) {
         console.error('Error in saveWalkinCountPageData:', error);
+        return res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
+    }
+};
+
+/**
+ * Synchronize WalkinCount inCam totals based on WalkinCameraCheck logs
+ */
+const syncWalkinCountInCam = async (date, storeId, storeName) => {
+    const cameraChecks = await WalkinCameraCheck.find({ date, storeId });
+    const sums = {};
+    cameraChecks.forEach(cc => {
+        sums[cc.statusKey] = (sums[cc.statusKey] || 0) + cc.inCamCount;
+    });
+
+    let walkinCountDoc = await WalkinCount.findOne({ date, storeId });
+    if (!walkinCountDoc) {
+        const countsArray = BACKEND_CATEGORIES.map(cat => ({
+            statusKey: cat.key,
+            inCam: sums[cat.key] !== undefined ? String(sums[cat.key]) : '-',
+            salesReport: '-',
+            timeSeen: '',
+            remarks: ''
+        }));
+        await WalkinCount.create({
+            date,
+            store: storeName,
+            storeId,
+            counts: countsArray
+        });
+    } else {
+        BACKEND_CATEGORIES.forEach(cat => {
+            const idx = walkinCountDoc.counts.findIndex(c => c.statusKey === cat.key);
+            const newInCamVal = sums[cat.key] !== undefined ? String(sums[cat.key]) : '-';
+            if (idx > -1) {
+                walkinCountDoc.counts[idx].inCam = newInCamVal;
+            } else {
+                walkinCountDoc.counts.push({
+                    statusKey: cat.key,
+                    inCam: newInCamVal,
+                    salesReport: '-',
+                    timeSeen: '',
+                    remarks: ''
+                });
+            }
+        });
+        await walkinCountDoc.save();
+    }
+};
+
+/**
+ * POST /api/walkin/camera-check
+ * Saves or updates a camera checker log entry.
+ */
+export const saveCameraCheckEntry = async (req, res) => {
+    try {
+        const { id, date, store, statusKey, timeDuration, inCamCount, remarks } = req.body;
+        const adminId = req.admin.userId;
+
+        if (!date || !store || !statusKey || !timeDuration || inCamCount === undefined) {
+            return res.status(400).json({ success: false, message: 'date, store, statusKey, timeDuration, and inCamCount are required' });
+        }
+
+        let resolvedStoreId = null;
+        const branch = await Branch.findOne({ workingBranch: { $regex: `^${store.trim()}$`, $options: 'i' } });
+        if (branch) {
+            resolvedStoreId = branch._id;
+        } else {
+            return res.status(404).json({ success: false, message: 'Store not found' });
+        }
+
+        if (id) {
+            const duplicate = await WalkinCameraCheck.findOne({
+                _id: { $ne: id },
+                date,
+                storeId: resolvedStoreId,
+                statusKey,
+                timeDuration
+            });
+            if (duplicate) {
+                return res.status(400).json({ success: false, message: 'A log for this date, store, status, and time duration already exists' });
+            }
+
+            await WalkinCameraCheck.findByIdAndUpdate(id, {
+                date,
+                store: branch.workingBranch,
+                storeId: resolvedStoreId,
+                statusKey,
+                timeDuration,
+                inCamCount: Number(inCamCount),
+                remarks: remarks || '',
+                createdBy: adminId
+            });
+        } else {
+            await WalkinCameraCheck.findOneAndUpdate(
+                { date, storeId: resolvedStoreId, statusKey, timeDuration },
+                {
+                    date,
+                    store: branch.workingBranch,
+                    storeId: resolvedStoreId,
+                    statusKey,
+                    timeDuration,
+                    inCamCount: Number(inCamCount),
+                    remarks: remarks || '',
+                    createdBy: adminId
+                },
+                { upsert: true, new: true, runValidators: true }
+            );
+        }
+
+        await syncWalkinCountInCam(date, resolvedStoreId, branch.workingBranch);
+
+        const updatedChecks = await WalkinCameraCheck.find({ date, storeId: resolvedStoreId })
+            .populate('createdBy', 'name role')
+            .lean();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Camera check log saved successfully',
+            cameraChecks: updatedChecks
+        });
+    } catch (error) {
+        console.error('Error in saveCameraCheckEntry:', error);
+        return res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
+    }
+};
+
+/**
+ * GET /api/walkin/camera-check
+ * Retrieves the camera checker log entries for a given date and store.
+ */
+export const getCameraCheckEntries = async (req, res) => {
+    try {
+        const { date, store } = req.query;
+        if (!date || !store) {
+            return res.status(400).json({ success: false, message: 'Date and Store are required' });
+        }
+
+        let resolvedStoreId = null;
+        const branch = await Branch.findOne({ workingBranch: { $regex: `^${store.trim()}$`, $options: 'i' } });
+        if (branch) {
+            resolvedStoreId = branch._id;
+        } else {
+            return res.status(404).json({ success: false, message: 'Store not found' });
+        }
+
+        const cameraChecks = await WalkinCameraCheck.find({ date, storeId: resolvedStoreId })
+            .populate('createdBy', 'name role')
+            .lean();
+
+        return res.status(200).json({
+            success: true,
+            cameraChecks
+        });
+    } catch (error) {
+        console.error('Error in getCameraCheckEntries:', error);
+        return res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
+    }
+};
+
+/**
+ * DELETE /api/walkin/camera-check/:id
+ * Deletes a camera check log entry.
+ */
+export const deleteCameraCheckEntry = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const check = await WalkinCameraCheck.findById(id);
+        if (!check) {
+            return res.status(404).json({ success: false, message: 'Camera check entry not found' });
+        }
+
+        const { date, storeId, store } = check;
+
+        await WalkinCameraCheck.findByIdAndDelete(id);
+
+        await syncWalkinCountInCam(date, storeId, store);
+
+        const updatedChecks = await WalkinCameraCheck.find({ date, storeId })
+            .populate('createdBy', 'name role')
+            .lean();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Camera check entry deleted successfully',
+            cameraChecks: updatedChecks
+        });
+    } catch (error) {
+        console.error('Error in deleteCameraCheckEntry:', error);
         return res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
     }
 };

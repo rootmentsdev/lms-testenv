@@ -1,5 +1,5 @@
 import express from 'express';
-import { checkCustomerExists, saveWalkin, getWalkins, getAllWalkinsPublic, getCronLogs, getWalkinCountPageData, saveWalkinCountPageData } from '../controllers/WalkinController.js';
+import { checkCustomerExists, saveWalkin, getWalkins, getAllWalkinsPublic, getCronLogs, getWalkinCountPageData, saveWalkinCountPageData, saveCameraCheckEntry, getCameraCheckEntries, deleteCameraCheckEntry } from '../controllers/WalkinController.js';
 import { MiddilWare } from '../lib/middilWare.js';
 
 const router = express.Router();
@@ -594,5 +594,9 @@ router.get('/walkin-count', MiddilWare, getWalkinCountPageData);
  *         description: Saved successfully
  */
 router.post('/walkin-count/save', MiddilWare, saveWalkinCountPageData);
+
+router.post('/camera-check', MiddilWare, saveCameraCheckEntry);
+router.get('/camera-check', MiddilWare, getCameraCheckEntries);
+router.delete('/camera-check/:id', MiddilWare, deleteCameraCheckEntry);
 
 export default router;
