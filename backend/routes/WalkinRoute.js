@@ -1,5 +1,5 @@
 import express from 'express';
-import { checkCustomerExists, saveWalkin, getWalkins, getAllWalkinsPublic, getCronLogs } from '../controllers/WalkinController.js';
+import { checkCustomerExists, saveWalkin, getWalkins, getAllWalkinsPublic, getCronLogs, getWalkinCountPageData, saveWalkinCountPageData } from '../controllers/WalkinController.js';
 import { MiddilWare } from '../lib/middilWare.js';
 
 const router = express.Router();
@@ -530,5 +530,69 @@ router.get('/all', getAllWalkinsPublic);
  *         description: Internal server error
  */
 router.get('/cron-logs', MiddilWare, getCronLogs);
+
+/**
+ * @swagger
+ * /api/walkin/walkin-count:
+ *   get:
+ *     tags: [Walkin]
+ *     summary: Get comparison walk-in count page data
+ *     description: Returns in-app walk-in count metrics and saved camera check details for comparison.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: date
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Date formatted as YYYY-MM-DD
+ *       - in: query
+ *         name: store
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Store/branch name
+ *     responses:
+ *       200:
+ *         description: Counts retrieved successfully
+ */
+router.get('/walkin-count', MiddilWare, getWalkinCountPageData);
+
+/**
+ * @swagger
+ * /api/walkin/walkin-count/save:
+ *   post:
+ *     tags: [Walkin]
+ *     summary: Save comparison counts
+ *     description: Persists telecaller's camera counts, sales reports, time seen, and remarks.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - date
+ *               - store
+ *               - counts
+ *             properties:
+ *               date:
+ *                 type: string
+ *                 example: "2026-06-23"
+ *               store:
+ *                 type: string
+ *                 example: "G-Edappally"
+ *               counts:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *     responses:
+ *       200:
+ *         description: Saved successfully
+ */
+router.post('/walkin-count/save', MiddilWare, saveWalkinCountPageData);
 
 export default router;

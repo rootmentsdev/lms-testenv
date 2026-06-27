@@ -3,6 +3,7 @@ import Admin from '../model/Admin.js';
 import User from '../model/User.js';
 import Branch from '../model/Branch.js';
 import CronLog from '../model/CronLog.js';
+import WalkinCount from '../model/WalkinCount.js';
 import mongoose from 'mongoose';
 import { validateStoreAccess, validateEmployeeAccess, buildWalkinFilter } from '../lib/permissions.js';
 
@@ -946,5 +947,264 @@ export const getCronLogs = async (req, res) => {
             message: 'Failed to fetch cron logs',
             error: error.message
         });
+    }
+};
+
+/**
+ * GET /api/walkin/walkin-count
+ * Returns calculated inApp counts and saved telecaller camera counts for comparison.
+ */
+export const getWalkinCountPageData = async (req, res) => {
+    try {
+        const { date, store } = req.query; // date is YYYY-MM-DD, store is store name
+        if (!date || !store) {
+            return res.status(400).json({ success: false, message: 'Date and Store are required' });
+        }
+
+        // 1. Resolve store branch and storeId
+        let resolvedStoreName = store;
+        let resolvedStoreId = null;
+
+        const branch = await Branch.findOne({ workingBranch: { $regex: `^${store.trim()}$`, $options: 'i' } });
+        if (branch) {
+            resolvedStoreId = branch._id;
+            resolvedStoreName = branch.workingBranch;
+        }
+
+        // 2. Fetch all walkins for this store that have activity on the selected date
+        const parts = date.split('-');
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+
+        const startOfDay = new Date(year, month, day, 0, 0, 0, 0);
+        const endOfDay = new Date(year, month, day, 23, 59, 59, 999);
+
+        const walkins = await Walkin.find({
+            $and: [
+                {
+                    $or: [
+                        { store: resolvedStoreName },
+                        { storeId: resolvedStoreId }
+                    ]
+                },
+                {
+                    $or: [
+                        { date: date },
+                        { createdAt: { $gte: startOfDay, $lte: endOfDay } },
+                        { updatedAt: { $gte: startOfDay, $lte: endOfDay } },
+                        { 'statusHistory.date': { $gte: startOfDay, $lte: endOfDay } }
+                    ]
+                }
+            ]
+        }).lean();
+
+        // 3. Compute inApp counts based on the specified rules
+        const counts = {
+            total_walkin: 0,
+            walkin: 0,
+            new_loss: 0,
+            repeat_loss: 0,
+            repeat_rentout: 0,
+            repeat_return: 0,
+            revisit_repeat_trial: 0,
+            repeat_booking: 0,
+            new_walkin_booking: 0,
+            new_walkin_rentout: 0,
+            revisit_reissue: 0,
+            revisit_loss: 0
+        };
+
+        const toDateStrIST = (dateVal) => {
+            if (!dateVal) return null;
+            const d = new Date(dateVal);
+            if (isNaN(d.getTime())) return null;
+            const istDate = new Date(d.getTime() + (5.5 * 60 * 60 * 1000));
+            const y = istDate.getUTCFullYear();
+            const m = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+            const dayStr = String(istDate.getUTCDate()).padStart(2, '0');
+            return `${y}-${m}-${dayStr}`;
+        };
+
+        walkins.forEach(w => {
+            const createdAtStr = w.date && w.date !== '-' ? w.date : toDateStrIST(w.createdAt);
+            const updatedAtStr = toDateStrIST(w.updatedAt);
+            const historyOnSelectedDate = (w.statusHistory || []).filter(h => toDateStrIST(h.date) === date);
+            
+            const createdOnDay = createdAtStr === date;
+            
+            // Build the set of status updates on that day
+            const statusesOnDay = new Set(historyOnSelectedDate.map(h => h.status));
+            
+            // Fallbacks: if updatedAt is today or if status matches without history
+            const updatedOnDay = updatedAtStr === date || historyOnSelectedDate.length > 0;
+            if (updatedOnDay && statusesOnDay.size === 0 && w.status) {
+                statusesOnDay.add(w.status);
+            }
+
+            // 1. Total walkin
+            if (updatedOnDay && !createdOnDay) {
+                counts.total_walkin++;
+            }
+
+            // 2. walkin
+            if (createdOnDay) {
+                counts.walkin++;
+            }
+
+            // 3. New Loss
+            const hasLossStatus = statusesOnDay.has('Loss') || (updatedOnDay && w.status === 'Loss');
+            if (createdOnDay && hasLossStatus) {
+                counts.new_loss++;
+            }
+
+            // 4. Repeat loss
+            if (!createdOnDay && (statusesOnDay.has('Loss') || (updatedOnDay && w.status === 'Loss'))) {
+                counts.repeat_loss++;
+            }
+
+            // 5. Repeat rentout
+            const hasRentoutStatus = Array.from(statusesOnDay).some(st => {
+                const s = String(st || '');
+                return s.includes('Rentout') || s.includes('Rent Out') || s.includes('Booking & Rentout') || s.includes('Billed');
+            }) || (updatedOnDay && (
+                String(w.status || '').includes('Rentout') || 
+                String(w.status || '').includes('Rent Out') || 
+                String(w.status || '').includes('Booking & Rentout') || 
+                String(w.status || '').includes('Billed')
+            ));
+            if (!createdOnDay && hasRentoutStatus) {
+                counts.repeat_rentout++;
+            }
+
+            // 6. Repeat return
+            const hasReturnStatus = Array.from(statusesOnDay).some(st => {
+                const s = String(st || '');
+                return s.includes('Return') || s.includes('Bill Returned');
+            }) || (updatedOnDay && (
+                String(w.status || '').includes('Return') || 
+                String(w.status || '').includes('Bill Returned')
+            ));
+            if (!createdOnDay && hasReturnStatus) {
+                counts.repeat_return++;
+            }
+
+            // 7. Revisit repeat trial
+            const isTrialSubCategory = w.subCategory && String(w.subCategory).toLowerCase().trim() === 'trial';
+            const hasTrialStatus = statusesOnDay.has('Trial') || (updatedOnDay && w.status === 'Trial');
+            if (!createdOnDay && updatedOnDay && (hasTrialStatus || isTrialSubCategory)) {
+                counts.revisit_repeat_trial++;
+            }
+
+            // 8. Repeat booking
+            const hasBookingStatus = Array.from(statusesOnDay).some(st => {
+                const s = String(st || '');
+                return s.includes('Booked') || s.includes('Booking');
+            }) || (updatedOnDay && (
+                String(w.status || '').includes('Booked') || 
+                String(w.status || '').includes('Booking')
+            ));
+            if (!createdOnDay && hasBookingStatus) {
+                counts.repeat_booking++;
+            }
+
+            // 9. New walkin booking
+            const hasBookingStatusForNew = Array.from(statusesOnDay).some(st => {
+                const s = String(st || '');
+                return s.includes('Booked') || s.includes('Booking');
+            }) || (
+                String(w.status || '').includes('Booked') || 
+                String(w.status || '').includes('Booking')
+            );
+            if (createdOnDay && hasBookingStatusForNew) {
+                counts.new_walkin_booking++;
+            }
+
+            // 10. New walkin rentout
+            const hasRentoutStatusForNew = Array.from(statusesOnDay).some(st => {
+                const s = String(st || '');
+                return s.includes('Rentout') || s.includes('Rent Out') || s.includes('Booking & Rentout') || s.includes('Billed');
+            }) || (
+                String(w.status || '').includes('Rentout') || 
+                String(w.status || '').includes('Rent Out') || 
+                String(w.status || '').includes('Booking & Rentout') || 
+                String(w.status || '').includes('Billed')
+            );
+            if (createdOnDay && hasRentoutStatusForNew) {
+                counts.new_walkin_rentout++;
+            }
+
+            // 11. Revisit reissue
+            const isReissueSubCategory = w.subCategory && String(w.subCategory).toLowerCase().trim() === 'reissue';
+            const hasReissueStatus = statusesOnDay.has('Reissue') || (updatedOnDay && w.status === 'Reissue');
+            if (!createdOnDay && updatedOnDay && (hasReissueStatus || isReissueSubCategory)) {
+                counts.revisit_reissue++;
+            }
+
+            // 12. Revisit loss
+            if (!createdOnDay && (statusesOnDay.has('Revisit Loss') || (updatedOnDay && w.status === 'Revisit Loss'))) {
+                counts.revisit_loss++;
+            }
+        });
+
+        // 4. Fetch saved telecaller count details (if any)
+        const savedCount = await WalkinCount.findOne({ date, storeId: resolvedStoreId }).lean();
+
+        return res.status(200).json({
+            success: true,
+            inApp: counts,
+            saved: savedCount || null
+        });
+
+    } catch (error) {
+        console.error('Error in getWalkinCountPageData:', error);
+        return res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
+    }
+};
+
+/**
+ * POST /api/walkin/walkin-count/save
+ * Saves or updates telecaller entered counts, times, and remarks for comparison.
+ */
+export const saveWalkinCountPageData = async (req, res) => {
+    try {
+        const { date, store, counts } = req.body;
+        const adminId = req.admin.userId;
+
+        if (!date || !store || !Array.isArray(counts)) {
+            return res.status(400).json({ success: false, message: 'Date, Store, and Counts array are required' });
+        }
+
+        // 1. Resolve store branch and storeId
+        let resolvedStoreId = null;
+        const branch = await Branch.findOne({ workingBranch: { $regex: `^${store.trim()}$`, $options: 'i' } });
+        if (branch) {
+            resolvedStoreId = branch._id;
+        } else {
+            return res.status(404).json({ success: false, message: 'Store not found' });
+        }
+
+        // 2. Find and update or create
+        const updated = await WalkinCount.findOneAndUpdate(
+            { date, storeId: resolvedStoreId },
+            {
+                date,
+                store: branch.workingBranch,
+                storeId: resolvedStoreId,
+                counts,
+                createdBy: adminId
+            },
+            { upsert: true, new: true, runValidators: true }
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: 'Walkin count page data saved successfully',
+            data: updated
+        });
+
+    } catch (error) {
+        console.error('Error in saveWalkinCountPageData:', error);
+        return res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
     }
 };
