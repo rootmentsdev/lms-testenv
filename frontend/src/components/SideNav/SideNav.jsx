@@ -20,6 +20,8 @@ const ICONS = {
   assessment: ["M9 11l3 3L22 4", "M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"],
   module:     ["M4 6h16M4 12h16M4 18h16"],
   branch:     ["M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z", "M9 22V12h6v10"],
+  storeAnalysis: ["M21.21 15.89A10 10 0 1 1 8 2.83", "M22 12A10 10 0 0 0 12 2v10z"],
+  storeInsights: ["M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z", "M8.5 14.5l2.5-2.5 3 3 4.5-4.5", "M15 11.5h3v3"],
   settings:   ["M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z", "M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"],
   logout:     ["M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4", "M16 17l5-5-5-5", "M21 12H9"],
 };
@@ -248,6 +250,21 @@ const SideNav = () => {
           )}
           {user?.role !== 'telecaller' && (
             <NavItem to="/branch"      icon="branch"     label="Branches"    active={is('/branch') || is('/Addbranch')} />
+          )}
+          {user?.role !== 'telecaller' && (
+            <FlyoutNavItem
+              icon="storeAnalysis"
+              label="Store Analysis"
+              active={location.pathname.startsWith('/store-analysis/')}
+              items={[
+                { to: '/store-analysis/dsr-report', label: 'DSR Report', active: is('/store-analysis/dsr-report') },
+                { to: '/store-analysis/growth-comparison', label: 'Growth Comparison', active: is('/store-analysis/growth-comparison') },
+                { to: '/store-analysis/google-review-task', label: 'Google Review & Task Completion', active: is('/store-analysis/google-review-task') }
+              ]}
+            />
+          )}
+          {user?.role !== 'telecaller' && (
+            <NavItem to="/store-insights" icon="storeInsights" label="Store Insights" active={is('/store-insights')} />
           )}
           {user?.role !== 'telecaller' && (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'cluster_admin') && (
             <FlyoutNavItem
