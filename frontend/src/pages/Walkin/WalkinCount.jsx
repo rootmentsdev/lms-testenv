@@ -3,7 +3,7 @@ import { useSelector } from 'react-redux';
 import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
 import baseUrl from "../../api/api";
-import { FaSave, FaCheckCircle, FaUndo, FaTrashAlt, FaPlusCircle, FaVideo, FaEdit, FaClock } from 'react-icons/fa';
+import { FaSave, FaCheckCircle, FaUndo, FaTrashAlt, FaPlusCircle, FaVideo, FaEdit, FaClock, FaDownload } from 'react-icons/fa';
 
 const CATEGORIES = [
     { key: 'total_walkin', label: 'TOTAL WALKIN' },
@@ -60,214 +60,159 @@ const TIME_SLOTS = [
     "11:30 PM to 12:00 AM"
 ];
 
-const ClockPicker = ({ label, hour, min, period, onChange }) => {
-    const [activeMode, setActiveMode] = useState('hour'); // 'hour' or 'minute'
-    
-    const hours = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-    const minutes = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
+const TimeRangeSlider = ({ value, onChange }) => {
+    const RANGE_TIMES = [
+        '09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM',
+        '12:00 PM', '12:30 PM', '01:00 PM', '01:30 PM', '02:00 PM', '02:30 PM',
+        '03:00 PM', '03:30 PM', '04:00 PM', '04:30 PM', '05:00 PM', '05:30 PM',
+        '06:00 PM', '06:30 PM', '07:00 PM', '07:30 PM', '08:00 PM', '08:30 PM',
+        '09:00 PM', '09:30 PM', '10:00 PM', '10:30 PM', '11:00 PM', '11:30 PM',
+        '12:00 AM'
+    ];
 
-    // Calculate angle for the clock pointer hand
-    const selectedHourNum = Number(hour);
-    const hourIndex = hours.indexOf(selectedHourNum);
-    const hourAngle = hourIndex >= 0 ? hourIndex * 30 : 0;
-
-    const minuteAngle = Number(min) * 6; // 6 degrees per minute
-
-    const angle = activeMode === 'hour' ? hourAngle : minuteAngle;
-    const handColor = activeMode === 'hour' ? '#ef4444' : '#2563eb';
-
-    const handleClockClick = (e) => {
-        const rect = e.currentTarget.getBoundingClientRect();
-        const x = e.clientX - rect.left - 80;
-        const y = e.clientY - rect.top - 80;
+    // Parse value (e.g. "10:00 AM to 10:30 AM") to get indices
+    const parseIndices = (val) => {
+        const defaultIndices = [0, 1]; // "09:00 AM to 09:30 AM"
+        if (!val) return defaultIndices;
+        const parts = val.split(' to ');
+        if (parts.length !== 2) return defaultIndices;
         
-        let clickAngle = Math.atan2(y, x) * 180 / Math.PI + 90;
-        if (clickAngle < 0) clickAngle += 360;
-
-        if (activeMode === 'hour') {
-            let h = Math.round(clickAngle / 30);
-            if (h === 0) h = 12;
-            onChange('hour', String(h).padStart(2, '0'));
-            // Auto-switch to minutes mode
-            setTimeout(() => setActiveMode('minute'), 250);
-        } else {
-            let m = Math.round(clickAngle / 6) % 60;
-            onChange('min', String(m).padStart(2, '0'));
-        }
+        let startIdx = RANGE_TIMES.indexOf(parts[0]);
+        let endIdx = RANGE_TIMES.indexOf(parts[1]);
+        
+        if (startIdx === -1) startIdx = 0;
+        if (endIdx === -1) endIdx = 1;
+        
+        return [startIdx, endIdx];
     };
 
+    const [startIdx, endIdx] = parseIndices(value);
+
+    const handleTrackClickOrDrag = (clientX, trackElement) => {
+        const rect = trackElement.getBoundingClientRect();
+        const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+        const clickedIdx = Math.round(pct * (RANGE_TIMES.length - 1));
+
+        // Determine which handle is closer
+        const distStart = Math.abs(clickedIdx - startIdx);
+        const distEnd = Math.abs(clickedIdx - endIdx);
+
+        let newStart = startIdx;
+        let newEnd = endIdx;
+
+        if (distStart < distEnd) {
+            newStart = Math.min(clickedIdx, endIdx - 1);
+        } else {
+            newEnd = Math.max(clickedIdx, startIdx + 1);
+        }
+
+        const formatted = `${RANGE_TIMES[newStart]} to ${RANGE_TIMES[newEnd]}`;
+        onChange(formatted);
+    };
+
+    const handleMouseDown = (e) => {
+        const trackElement = e.currentTarget;
+        handleTrackClickOrDrag(e.clientX, trackElement);
+
+        const handleMouseMove = (moveEvent) => {
+            handleTrackClickOrDrag(moveEvent.clientX, trackElement);
+        };
+
+        const handleMouseUp = () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+    };
+
+    const handleTouchStart = (e) => {
+        const trackElement = e.currentTarget;
+        if (e.touches.length > 0) {
+            handleTrackClickOrDrag(e.touches[0].clientX, trackElement);
+        }
+
+        const handleTouchMove = (moveEvent) => {
+            if (moveEvent.touches.length > 0) {
+                handleTrackClickOrDrag(moveEvent.touches[0].clientX, trackElement);
+            }
+        };
+
+        const handleTouchEnd = () => {
+            document.removeEventListener('touchmove', handleTouchMove);
+            document.removeEventListener('touchend', handleTouchEnd);
+        };
+
+        document.addEventListener('touchmove', handleTouchMove);
+        document.addEventListener('touchend', handleTouchEnd);
+    };
+
+    const startPct = (startIdx / (RANGE_TIMES.length - 1)) * 100;
+    const endPct = (endIdx / (RANGE_TIMES.length - 1)) * 100;
+
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#f9fafb', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '12px', width: '220px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: '#4b5563', marginBottom: '8px', textTransform: 'uppercase' }}>{label}</span>
-            
-            {/* Mode Switcher Display */}
-            <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '12px' }}>
-                <button
-                    type="button"
-                    onClick={() => setActiveMode('hour')}
-                    style={{
-                        background: activeMode === 'hour' ? '#fee2e2' : 'transparent',
-                        color: activeMode === 'hour' ? '#ef4444' : '#4b5563',
-                        border: 'none',
-                        borderRadius: '6px',
-                        padding: '4px 8px',
-                        fontSize: '18px',
-                        fontWeight: '700',
-                        cursor: 'pointer',
-                        outline: 'none'
-                    }}
-                >
-                    {String(hour).padStart(2, '0')}
-                </button>
-                <span style={{ fontSize: '18px', fontWeight: '700', color: '#9ca3af' }}>:</span>
-                <button
-                    type="button"
-                    onClick={() => setActiveMode('minute')}
-                    style={{
-                        background: activeMode === 'minute' ? '#dbeafe' : 'transparent',
-                        color: activeMode === 'minute' ? '#2563eb' : '#4b5563',
-                        border: 'none',
-                        borderRadius: '6px',
-                        padding: '4px 8px',
-                        fontSize: '18px',
-                        fontWeight: '700',
-                        cursor: 'pointer',
-                        outline: 'none'
-                    }}
-                >
-                    {String(min).padStart(2, '0')}
-                </button>
+        <div style={{ display: 'flex', flexDirection: 'column', width: '280px', padding: '12px 8px 8px 8px', background: '#f9fafb', borderRadius: '12px', userSelect: 'none' }}>
+            {/* Range Text Display */}
+            <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '12px' }}>
+                <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase' }}>Selected Duration</span>
+                <span style={{ fontSize: '14px', fontWeight: 700, color: '#111827', marginTop: '2px' }}>
+                    {RANGE_TIMES[startIdx]} to {RANGE_TIMES[endIdx]}
+                </span>
             </div>
 
-            {/* Clock Face */}
+            {/* Track Slider */}
             <div 
-                onClick={handleClockClick}
-                style={{ position: 'relative', width: '160px', height: '160px', background: '#fff', borderRadius: '50%', border: '1px solid #e5e7eb', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.03)', cursor: 'pointer' }}
+                onMouseDown={handleMouseDown}
+                onTouchStart={handleTouchStart}
+                style={{ position: 'relative', width: '100%', height: '32px', display: 'flex', alignItems: 'center', cursor: 'pointer' }}
             >
-                {/* Center Pivot */}
-                <div style={{ position: 'absolute', top: 'calc(50% - 4px)', left: 'calc(50% - 4px)', width: '8px', height: '8px', background: handColor, borderRadius: '50%', zIndex: 10 }} />
-                
-                {/* Clock Pointer Hand */}
+                {/* Gray Background Bar */}
+                <div style={{ width: '100%', height: '6px', background: '#e5e7eb', borderRadius: '3px', position: 'absolute' }} />
+
+                {/* Highlight Segment */}
+                <div style={{ 
+                    height: '6px', 
+                    background: '#111827', 
+                    position: 'absolute', 
+                    left: `${startPct}%`, 
+                    width: `${endPct - startPct}%`,
+                    borderRadius: '3px'
+                }} />
+
+                {/* Left Bubble Handle */}
                 <div style={{ 
                     position: 'absolute', 
-                    top: '50%', 
-                    left: '50%', 
-                    width: '2px', 
-                    height: '52px', 
-                    background: handColor, 
-                    transformOrigin: 'bottom center',
-                    transform: `translate(-50%, -100%) rotate(${angle}deg)`,
-                    transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                    zIndex: 5
-                }}>
-                    {/* Hand Tip dot */}
-                    <div style={{ 
-                        position: 'absolute', 
-                        top: 0, 
-                        left: '-4px', 
-                        width: '10px', 
-                        height: '10px', 
-                        background: handColor, 
-                        borderRadius: '50%' 
-                    }} />
-                </div>
+                    left: `calc(${startPct}% - 10px)`, 
+                    width: '20px', 
+                    height: '20px', 
+                    borderRadius: '50%', 
+                    background: '#fff', 
+                    border: '2.5px solid #111827', 
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                    pointerEvents: 'none'
+                }} />
 
-                {/* Clock Numbers Overlay */}
-                <div style={{ pointerEvents: 'none', position: 'absolute', width: '100%', height: '100%', top: 0, left: 0 }}>
-                    {activeMode === 'hour' ? (
-                        hours.map((h, i) => {
-                            const hAngle = (i * 30 - 90) * Math.PI / 180;
-                            const radius = 55; // pixels from center
-                            const left = 80 + Math.cos(hAngle) * radius;
-                            const top = 80 + Math.sin(hAngle) * radius;
-                            const isSelected = Number(hour) === h;
-
-                            return (
-                                <div
-                                    key={h}
-                                    style={{
-                                        position: 'absolute',
-                                        left: `${left}px`,
-                                        top: `${top}px`,
-                                        transform: 'translate(-50%, -50%)',
-                                        width: '24px',
-                                        height: '24px',
-                                        borderRadius: '50%',
-                                        background: isSelected ? '#ef4444' : 'transparent',
-                                        color: isSelected ? '#fff' : '#374151',
-                                        fontSize: '11px',
-                                        fontWeight: isSelected ? '700' : '500',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                    }}
-                                >
-                                    {h}
-                                </div>
-                            );
-                        })
-                    ) : (
-                        minutes.map((m, i) => {
-                            const mAngle = (i * 30 - 90) * Math.PI / 180;
-                            const radius = 55; // pixels from center
-                            const left = 80 + Math.cos(mAngle) * radius;
-                            const top = 80 + Math.sin(mAngle) * radius;
-                            const isSelected = Number(min) === Number(m);
-
-                            return (
-                                <div
-                                    key={m}
-                                    style={{
-                                        position: 'absolute',
-                                        left: `${left}px`,
-                                        top: `${top}px`,
-                                        transform: 'translate(-50%, -50%)',
-                                        width: '24px',
-                                        height: '24px',
-                                        borderRadius: '50%',
-                                        background: isSelected ? '#2563eb' : 'transparent',
-                                        color: isSelected ? '#fff' : '#374151',
-                                        fontSize: '11px',
-                                        fontWeight: isSelected ? '700' : '500',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                    }}
-                                >
-                                    {m}
-                                </div>
-                            );
-                        })
-                    )}
-                </div>
+                {/* Right Bubble Handle */}
+                <div style={{ 
+                    position: 'absolute', 
+                    left: `calc(${endPct}% - 10px)`, 
+                    width: '20px', 
+                    height: '20px', 
+                    borderRadius: '50%', 
+                    background: '#fff', 
+                    border: '2.5px solid #111827', 
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                    pointerEvents: 'none'
+                }} />
             </div>
 
-            {/* Period Selector (AM/PM only) */}
-            <div style={{ display: 'flex', gap: '8px', width: '100%', marginTop: '12px' }}>
-                <div style={{ display: 'flex', flex: 1, background: '#e5e7eb', borderRadius: '8px', padding: '2px' }}>
-                    {['AM', 'PM'].map(p => (
-                        <button
-                            key={p}
-                            type="button"
-                            onClick={() => onChange('period', p)}
-                            style={{
-                                flex: 1,
-                                border: 'none',
-                                background: period === p ? '#111827' : 'transparent',
-                                color: period === p ? '#fff' : '#4b5563',
-                                borderRadius: '6px',
-                                padding: '4px 0',
-                                fontSize: '11px',
-                                fontWeight: period === p ? '700' : '500',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s',
-                                outline: 'none'
-                            }}
-                        >
-                            {p}
-                        </button>
-                    ))}
-                </div>
+            {/* Slider Marks */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 2px', marginTop: '2px' }}>
+                <span style={{ fontSize: '9px', color: '#9ca3af', fontWeight: 600 }}>9 AM</span>
+                <span style={{ fontSize: '9px', color: '#9ca3af', fontWeight: 600 }}>12 PM</span>
+                <span style={{ fontSize: '9px', color: '#9ca3af', fontWeight: 600 }}>6 PM</span>
+                <span style={{ fontSize: '9px', color: '#9ca3af', fontWeight: 600 }}>12 AM</span>
             </div>
         </div>
     );
@@ -317,7 +262,7 @@ const WalkinCount = () => {
     const [cameraForm, setCameraForm] = useState({
         statusKey: 'total_walkin',
         store: '',
-        timeDuration: TIME_SLOTS[0],
+        timeDuration: '09:00 AM to 09:30 AM',
         inCamCount: '',
         remarks: '',
         date: new Date().toISOString().split('T')[0],
@@ -326,59 +271,8 @@ const WalkinCount = () => {
     const [cameraChecks, setCameraChecks] = useState([]);
     const [savingCameraCheck, setSavingCameraCheck] = useState(false);
 
-    // Clock Picker Local State & Handlers
+    // Time Slider Local Toggle State
     const [showClockPicker, setShowClockPicker] = useState(false);
-
-    const parseTimeRange = (rangeStr) => {
-        const defaultVal = {
-            startHour: '10', startMin: '00', startPeriod: 'AM',
-            endHour: '10', endMin: '30', endPeriod: 'AM'
-        };
-        if (!rangeStr) return defaultVal;
-        const parts = rangeStr.split(' to ');
-        if (parts.length !== 2) return defaultVal;
-        
-        const parseSingle = (timeStr) => {
-            const [time, period] = timeStr.split(' ');
-            const [hour, min] = time.split(':');
-            return { hour: Number(hour).toString(), min, period };
-        };
-
-        try {
-            const start = parseSingle(parts[0]);
-            const end = parseSingle(parts[1]);
-            return {
-                startHour: start.hour,
-                startMin: start.min,
-                startPeriod: start.period,
-                endHour: end.hour,
-                endMin: end.min,
-                endPeriod: end.period
-            };
-        } catch (e) {
-            return defaultVal;
-        }
-    };
-
-    const timeState = parseTimeRange(cameraForm.timeDuration);
-
-    const handleTimeChange = (type, field, val) => {
-        const current = { ...timeState };
-        if (type === 'start') {
-            current[field === 'hour' ? 'startHour' : field === 'min' ? 'startMin' : 'startPeriod'] = val;
-        } else {
-            current[field === 'hour' ? 'endHour' : field === 'min' ? 'endMin' : 'endPeriod'] = val;
-        }
-
-        const startH = String(current.startHour).padStart(2, '0');
-        const endH = String(current.endHour).padStart(2, '0');
-        const formatted = `${startH}:${current.startMin} ${current.startPeriod} to ${endH}:${current.endMin} ${current.endPeriod}`;
-
-        setCameraForm(prev => ({
-            ...prev,
-            timeDuration: formatted
-        }));
-    };
 
     // Autofill form if a camera check log already exists for the selected date, store, category, and time slot
     useEffect(() => {
@@ -657,6 +551,42 @@ const WalkinCount = () => {
         }
     };
 
+    const handleDownloadReport = () => {
+        let csvContent = "";
+        
+        // Add title and info header
+        csvContent += `Walk In Count Comparison Report\r\n`;
+        csvContent += `Store Branch: ${storeFilter}\r\n`;
+        csvContent += `Selected Date: ${selectedDate}\r\n\r\n`;
+        
+        // Add table headers
+        csvContent += `STATUS CATEGORY,IN CAM,SALES REPORT,IN APP\r\n`;
+        
+        // Add rows
+        CATEGORIES.forEach(cat => {
+            const inCam = rowValues[cat.key]?.inCam || '-';
+            const salesReport = rowValues[cat.key]?.salesReport || '-';
+            const inAppVal = inAppCounts[cat.key] ?? 0;
+            
+            const escapedLabel = `"${cat.label.replace(/"/g, '""')}"`;
+            const escapedInCam = `"${String(inCam).replace(/"/g, '""')}"`;
+            const escapedSalesReport = `"${String(salesReport).replace(/"/g, '""')}"`;
+            const escapedInApp = `"${String(inAppVal).replace(/"/g, '""')}"`;
+            
+            csvContent += `${escapedLabel},${escapedInCam},${escapedSalesReport},${escapedInApp}\r\n`;
+        });
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `WalkinCount_Report_${storeFilter}_${selectedDate}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
     return (
         <div className="mb-[70px] text-[14px] min-h-screen" style={{ fontFamily: "DM Sans, sans-serif", background: '#f9fafb' }}>
             <SideNav />
@@ -755,31 +685,16 @@ const WalkinCount = () => {
                                     border: '1px solid #e5e7eb',
                                     boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
                                     padding: '16px',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '12px',
                                     zIndex: 100,
                                 }}>
-                                    <div style={{ display: 'flex', gap: '16px' }}>
-                                        <ClockPicker
-                                            label="Start Time"
-                                            hour={timeState.startHour}
-                                            min={timeState.startMin}
-                                            period={timeState.startPeriod}
-                                            onChange={(field, val) => handleTimeChange('start', field, val)}
-                                        />
-                                        <ClockPicker
-                                            label="End Time"
-                                            hour={timeState.endHour}
-                                            min={timeState.endMin}
-                                            period={timeState.endPeriod}
-                                            onChange={(field, val) => handleTimeChange('end', field, val)}
-                                        />
-                                    </div>
+                                    <TimeRangeSlider
+                                        value={cameraForm.timeDuration}
+                                        onChange={(newVal) => setCameraForm(prev => ({ ...prev, timeDuration: newVal }))}
+                                    />
                                     <button
                                         type="button"
                                         onClick={() => setShowClockPicker(false)}
-                                        style={{ alignSelf: 'flex-end', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', outline: 'none' }}
+                                        style={{ alignSelf: 'flex-end', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', outline: 'none', marginTop: '12px' }}
                                     >
                                         Done
                                     </button>
@@ -937,6 +852,19 @@ const WalkinCount = () => {
                 {/* Main Table Card */}
                 {storeFilter ? (
                     <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid #e5e7eb', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+                        {/* Table Header area with Title and Export Button */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid #e5e7eb', background: '#fff' }}>
+                            <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>
+                                Comparison Statistics
+                            </h2>
+                            <button
+                                type="button"
+                                onClick={handleDownloadReport}
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#111827', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 14px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s', outline: 'none' }}
+                            >
+                                <FaDownload /> Export Report
+                            </button>
+                        </div>
                         {loading ? (
                             <div style={{ display: 'flex', justifyContent: 'center', padding: '80px' }}>
                                 <div style={{ width: '32px', height: '32px', border: '3px solid #e5e7eb', borderTopColor: '#111827', borderRadius: '50%', animation: 'walkincount-spin 0.8s linear infinite' }} />
