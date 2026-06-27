@@ -871,9 +871,11 @@ export const expireWalkinsToLoss = async () => {
             },
             {
                 $set: {
-                    status: 'Loss',
-                    updatedAt: now
+                    status: 'Loss'
                 }
+            },
+            {
+                timestamps: false
             }
         );
 

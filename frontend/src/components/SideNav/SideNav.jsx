@@ -194,7 +194,7 @@ const SideNav = () => {
   const location = useLocation();
 
   const is       = (path) => location.pathname === path;
-  const isWalkin = is('/walkin/list') || is('/walkin/report');
+  const isWalkin = is('/walkin/list') || is('/walkin/report') || is('/walkin/count');
 
   return (
     <>
@@ -215,6 +215,9 @@ const SideNav = () => {
             items={[
               { to: '/walkin/list',   label: 'Walkin List',   active: is('/walkin/list') },
               { to: '/walkin/report', label: 'Walkin Report', active: is('/walkin/report') },
+              ...(user?.role === 'telecaller' || user?.role === 'super_admin' || user?.role === 'admin'
+                ? [{ to: '/walkin/count', label: 'Walkin Count', active: is('/walkin/count') }]
+                : [])
             ]}
           />
 
