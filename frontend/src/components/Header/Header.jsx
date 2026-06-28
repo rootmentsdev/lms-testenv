@@ -6,18 +6,18 @@ import LogoutConfirmation from "../LogoutConfirmation/LogoutConfirmation";
 import { logout } from "../../features/auth/authSlice";
 
 const Header = () => {
-    const navigate  = useNavigate();
-    const dispatch  = useDispatch();
-    const dropRef   = useRef(null);
+    const navigate = useNavigate();
+    const dispatch = useDispatch();
+    const dropRef = useRef(null);
 
-    const [search, setSearch]               = useState('');
+    const [search, setSearch] = useState('');
     const [searchResults, setSearchResults] = useState([]);
-    const [searchUsers, setSearchUsers]     = useState([]);
-    const [isSearching, setIsSearching]     = useState(false);
-    const [dropOpen, setDropOpen]           = useState(false);
-    const [showLogout, setShowLogout]       = useState(false);
+    const [searchUsers, setSearchUsers] = useState([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const [dropOpen, setDropOpen] = useState(false);
+    const [showLogout, setShowLogout] = useState(false);
 
-    const user  = useSelector((s) => s.auth.user);
+    const user = useSelector((s) => s.auth.user);
     const token = localStorage.getItem('token');
 
     // Display name — prefer username, fall back to role label
@@ -89,12 +89,10 @@ const Header = () => {
             >
                 {/* ── Left: Logo + brand name ── */}
                 <Link to="/" className="flex items-center gap-3 no-underline select-none">
-                    <div className="w-14 h-14 overflow-hidden rounded-full border-4 shadow-sm">
-                        <img src="/Brynex.jpeg" alt="Brynex LMS" className="w-full h-full object-cover" />
-                    </div>
+                    <img src="/logo.png" alt="Brynex LMS" className="w-12 h-12 object-contain select-none" />
                     <div className="flex flex-col ml-3">
                         <h1 className="text-xl font-bold text-gray-800 tracking-wide">
-                            BRYNEX LMS
+                            BRYNEX ONE
                         </h1>
                         <span className="text-[9px] font-medium tracking-widest uppercase text-gray-400" style={{ letterSpacing: '0.18em' }}>
                             BRYNEX APPAREL PVT.LTD
@@ -155,7 +153,7 @@ const Header = () => {
                                 <Link to="/admin/profile" onClick={() => setDropOpen(false)}>
                                     <div className="px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
                                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
                                         </svg>
                                         Profile
                                     </div>
@@ -167,7 +165,7 @@ const Header = () => {
                                     className="w-full px-4 py-3 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2"
                                 >
                                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+                                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
                                     </svg>
                                     Logout
                                 </button>
