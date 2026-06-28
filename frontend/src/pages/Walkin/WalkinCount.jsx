@@ -560,24 +560,22 @@ const WalkinCount = () => {
         csvContent += `Selected Date: ${selectedDate}\r\n\r\n`;
         
         // Add table headers
-        csvContent += `STATUS CATEGORY,IN CAM,SALES REPORT,IN APP,TIME SEEN,REMARKS\r\n`;
+        csvContent += `STATUS CATEGORY,IN CAM,SALES REPORT,IN APP,REMARKS\r\n`;
         
         // Add rows
         CATEGORIES.forEach(cat => {
             const inCam = rowValues[cat.key]?.inCam || '-';
             const salesReport = rowValues[cat.key]?.salesReport || '-';
             const inAppVal = inAppCounts[cat.key] ?? 0;
-            const timeSeen = rowValues[cat.key]?.timeSeen || '-';
             const remarks = rowValues[cat.key]?.remarks || '-';
             
             const escapedLabel = `"${cat.label.replace(/"/g, '""')}"`;
             const escapedInCam = `"${String(inCam).replace(/"/g, '""')}"`;
             const escapedSalesReport = `"${String(salesReport).replace(/"/g, '""')}"`;
             const escapedInApp = `"${String(inAppVal).replace(/"/g, '""')}"`;
-            const escapedTimeSeen = `"${String(timeSeen).replace(/"/g, '""')}"`;
             const escapedRemarks = `"${String(remarks).replace(/"/g, '""')}"`;
             
-            csvContent += `${escapedLabel},${escapedInCam},${escapedSalesReport},${escapedInApp},${escapedTimeSeen},${escapedRemarks}\r\n`;
+            csvContent += `${escapedLabel},${escapedInCam},${escapedSalesReport},${escapedInApp},${escapedRemarks}\r\n`;
         });
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
