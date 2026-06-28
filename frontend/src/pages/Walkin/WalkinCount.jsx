@@ -880,6 +880,7 @@ const WalkinCount = () => {
                                             <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '150px' }}>IN CAM</th>
                                             <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '180px' }}>SALES REPORT</th>
                                             <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '150px' }}>IN APP</th>
+                                            <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151' }}>REMARKS</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -900,6 +901,9 @@ const WalkinCount = () => {
                                                     </td>
                                                     <td style={{ padding: '12px 20px', fontWeight: 700, color: inAppVal > 0 ? '#2563eb' : '#6b7280', fontSize: '14px' }}>
                                                         {inAppVal}
+                                                    </td>
+                                                    <td style={{ padding: '12px 20px', color: '#6b7280', fontStyle: rowValues[cat.key].remarks ? 'normal' : 'italic' }}>
+                                                        {rowValues[cat.key].remarks || '-'}
                                                     </td>
                                                 </tr>
                                             );
