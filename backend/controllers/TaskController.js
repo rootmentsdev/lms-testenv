@@ -1252,7 +1252,7 @@ export const updateTaskStatus = async (req, res) => {
     }
 
     if (normalizedStatus === 'REASSIGNED') {
-      const { assignedTo, assignedToLabel } = req.body;
+      const { assignedTo, assignedToLabel, reassignedCategory, reassignedSubCategory } = req.body;
       if (!assignedTo) {
         return res.status(400).json({
           success: false,
@@ -1265,6 +1265,16 @@ export const updateTaskStatus = async (req, res) => {
 
       task.assignedTo = resolvedAssignedTo;
       task.assignedToLabel = resolvedAssignedToLabel;
+
+      if (reassignedCategory) {
+        task.category = reassignedCategory;
+        task.reassignedCategory = reassignedCategory;
+        task.title = reassignedCategory;
+      }
+      if (reassignedSubCategory) {
+        task.subCategory = reassignedSubCategory;
+        task.reassignedSubCategory = reassignedSubCategory;
+      }
 
       task.workMap.push({
         assignedTo: resolvedAssignedTo,
@@ -1490,10 +1500,12 @@ export const reassignTask = async (req, res) => {
 
     if (category) {
       task.category = category;
+      task.reassignedCategory = category;
       task.title = category; // Dynamically set category as the title
     }
     if (subCategory) {
       task.subCategory = subCategory;
+      task.reassignedSubCategory = subCategory;
     }
 
     task.workMap.push({

@@ -316,6 +316,30 @@ const DSRReport = () => {
   const [selectedStore, setSelectedStore] = useState("All");
   const [selectedReport, setSelectedReport] = useState("Revenue Vs Target");
   const [activeTab, setActiveTab] = useState("MTD");
+  const [customStartDate, setCustomStartDate] = useState("2026-06-22");
+  const [customEndDate, setCustomEndDate] = useState("2026-06-28");
+
+  const getCustomDateRangeString = () => {
+    if (!customStartDate || !customEndDate) return "Custom Range";
+    const start = new Date(customStartDate);
+    const end = new Date(customEndDate);
+    
+    const startMonth = start.toLocaleString("en-US", { month: "long" });
+    const startDay = String(start.getDate()).padStart(2, "0");
+    const startYear = start.getFullYear();
+    
+    const endMonth = end.toLocaleString("en-US", { month: "long" });
+    const endDay = String(end.getDate()).padStart(2, "0");
+    const endYear = end.getFullYear();
+
+    if (startYear !== endYear) {
+      return `${startMonth} ${startDay}, ${startYear} - ${endMonth} ${endDay}, ${endYear}`;
+    }
+    if (startMonth === endMonth) {
+      return `${startMonth} ${startDay}-${endDay}, ${startYear}`;
+    }
+    return `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${startYear}`;
+  };
   
   // Custom dropdown states
   const [storeDropdownOpen, setStoreDropdownOpen] = useState(false);
@@ -327,10 +351,10 @@ const DSRReport = () => {
   const [modalMonth, setModalMonth] = useState("June");
   const [modalTarget, setModalTarget] = useState("");
   const [activeWeek, setActiveWeek] = useState(1);
-  const [week1Dates, setWeek1Dates] = useState("01 - 10 Jun");
-  const [week2Dates, setWeek2Dates] = useState("11 - 17 Jun");
-  const [week3Dates, setWeek3Dates] = useState("Select Days");
-  const [week4Dates, setWeek4Dates] = useState("Select Days");
+  const [week1Dates, setWeek1Dates] = useState(() => localStorage.getItem("week1Dates") || "01 - 10 Jun");
+  const [week2Dates, setWeek2Dates] = useState(() => localStorage.getItem("week2Dates") || "11 - 17 Jun");
+  const [week3Dates, setWeek3Dates] = useState(() => localStorage.getItem("week3Dates") || "Select Days");
+  const [week4Dates, setWeek4Dates] = useState(() => localStorage.getItem("week4Dates") || "Select Days");
   const [weeklyTargets, setWeeklyTargets] = useState(() => {
     try {
       const stored = localStorage.getItem("weeklyTargets");
@@ -340,11 +364,45 @@ const DSRReport = () => {
     }
   });
 
-  const getStoreTarget = (storeName, defaultTarget, isWtd) => {
+  const getCurrentWeekId = () => {
+    const today = new Date();
+    const todayDateNum = today.getDate();
+
+    const weeks = [
+      { id: 1, val: week1Dates },
+      { id: 2, val: week2Dates },
+      { id: 3, val: week3Dates },
+      { id: 4, val: week4Dates },
+    ];
+
+    for (const w of weeks) {
+      if (w.val && w.val !== "Select Days") {
+        const parts = w.val.split("-");
+        if (parts.length === 2) {
+          const startDay = parseInt(parts[0].trim(), 10);
+          const endPart = parts[1].trim().split(" ");
+          const endDay = parseInt(endPart[0], 10);
+
+          if (!isNaN(startDay) && !isNaN(endDay)) {
+            if (todayDateNum >= startDay && todayDateNum <= endDay) {
+              return w.id;
+            }
+          }
+        }
+      }
+    }
+
+    if (todayDateNum <= 10) return 1;
+    if (todayDateNum <= 17) return 2;
+    if (todayDateNum <= 24) return 3;
+    return 4;
+  };
+
+  const getStoreTarget = (storeName, defaultTarget, activeTabVal, customFactorVal) => {
     const storeTargetObj = weeklyTargets[storeName] || {};
     
     // Monthly (MTD) is the sum of all weeks
-    if (!isWtd) {
+    if (activeTabVal === "MTD") {
       const hasCustomWeeks = [1, 2, 3, 4].some(wId => storeTargetObj[wId] !== undefined);
       if (!hasCustomWeeks) {
         return defaultTarget;
@@ -361,12 +419,35 @@ const DSRReport = () => {
       return sum;
     }
     
-    // Weekly (WTD) shows the active week target (Week 2 since June 16-22 belongs to mid-month Week 2/3)
-    const currentWeekId = 2; 
-    if (storeTargetObj[currentWeekId] !== undefined) {
-      return storeTargetObj[currentWeekId];
+    if (activeTabVal === "WTD") {
+      // Weekly (WTD) shows the active week target
+      const currentWeekId = getCurrentWeekId(); 
+      if (storeTargetObj[currentWeekId] !== undefined) {
+        return storeTargetObj[currentWeekId];
+      }
+      return Math.round(defaultTarget * 0.23);
     }
-    return Math.round(defaultTarget * 0.23);
+
+    if (activeTabVal === "Custom") {
+      // For Custom date range, compute proportional target based on MTD target and customFactor
+      // First, get the full month target
+      const hasCustomWeeks = [1, 2, 3, 4].some(wId => storeTargetObj[wId] !== undefined);
+      let mtdTarget = defaultTarget;
+      if (hasCustomWeeks) {
+        let sum = 0;
+        for (let wId = 1; wId <= 4; wId++) {
+          if (storeTargetObj[wId] !== undefined) {
+            sum += storeTargetObj[wId];
+          } else {
+            sum += Math.round(defaultTarget * 0.23);
+          }
+        }
+        mtdTarget = sum;
+      }
+      return Math.round(mtdTarget * customFactorVal);
+    }
+    
+    return defaultTarget;
   };
 
   const handleSubmitTarget = (store, val, month) => {
@@ -491,6 +572,22 @@ const DSRReport = () => {
     fetchBranches();
   }, []);
 
+  useEffect(() => {
+    localStorage.setItem("week1Dates", week1Dates);
+  }, [week1Dates]);
+
+  useEffect(() => {
+    localStorage.setItem("week2Dates", week2Dates);
+  }, [week2Dates]);
+
+  useEffect(() => {
+    localStorage.setItem("week3Dates", week3Dates);
+  }, [week3Dates]);
+
+  useEffect(() => {
+    localStorage.setItem("week4Dates", week4Dates);
+  }, [week4Dates]);
+
   const getMTDDateRangeString = () => {
     const today = new Date();
     const monthName = today.toLocaleString("en-US", { month: "long" });
@@ -536,8 +633,15 @@ const DSRReport = () => {
 
   // Generate dynamic DSR data based on fetched branches (with mock fallback)
   const dsrData = useMemo(() => {
-    const isWtd = activeTab === "WTD";
-    
+    let customFactor = 1.0;
+    if (activeTab === "Custom") {
+      const start = new Date(customStartDate);
+      const end = new Date(customEndDate);
+      const diffTime = Math.abs(end - start);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      customFactor = isNaN(diffDays) ? 1.0 : diffDays / 30.0;
+    }
+
     const list = branches.length > 0
       ? branches.map((b, index) => {
           const sl = String(index + 1).padStart(2, "0");
@@ -546,22 +650,36 @@ const DSRReport = () => {
           const rawAchieved = mockItem ? mockItem.achieved : 95000;
           
           const defaultTarget = mockItem ? mockItem.target : 100000;
-          const target = getStoreTarget(name, defaultTarget, isWtd);
-          const achieved = isWtd ? Math.round(rawAchieved * 0.23) : rawAchieved;
+          const target = getStoreTarget(name, defaultTarget, activeTab, customFactor);
+          
+          let achieved = rawAchieved;
+          if (activeTab === "WTD") {
+            achieved = Math.round(rawAchieved * 0.23);
+          } else if (activeTab === "Custom") {
+            achieved = Math.round(rawAchieved * customFactor);
+          }
+
           const balance = target - achieved;
           const pct = target > 0 ? Math.round((achieved / target) * 100) : 0;
           return { sl, name, target, achieved, balance, pct };
         })
       : mockDSRData.map((item) => {
           const defaultTarget = item.target;
-          const target = getStoreTarget(item.name, defaultTarget, isWtd);
-          const achieved = isWtd ? Math.round(item.achieved * 0.23) : item.achieved;
+          const target = getStoreTarget(item.name, defaultTarget, activeTab, customFactor);
+          
+          let achieved = item.achieved;
+          if (activeTab === "WTD") {
+            achieved = Math.round(item.achieved * 0.23);
+          } else if (activeTab === "Custom") {
+            achieved = Math.round(item.achieved * customFactor);
+          }
+
           const balance = target - achieved;
           const pct = target > 0 ? Math.round((achieved / target) * 100) : 0;
           return { ...item, target, achieved, balance, pct };
         });
     return list;
-  }, [branches, weeklyTargets, activeTab]);
+  }, [branches, weeklyTargets, activeTab, customStartDate, customEndDate]);
 
   // Generate dynamic Sales Funnel data based on fetched branches (with mock fallback)
   const funnelRows = useMemo(() => {
@@ -950,7 +1068,7 @@ const DSRReport = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* MTD / WTD switcher */}
+            {/* MTD / WTD / Custom switcher */}
             <div className="flex bg-[#e5e7eb] p-1 rounded-xl shadow-sm">
               <button 
                 onClick={() => setActiveTab("MTD")}
@@ -972,7 +1090,41 @@ const DSRReport = () => {
               >
                 WTD
               </button>
+              <button 
+                onClick={() => setActiveTab("Custom")}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  activeTab === "Custom" 
+                    ? "bg-[#18181b] text-white shadow-sm" 
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                Custom
+              </button>
             </div>
+
+            {activeTab === "Custom" && (
+              <div className="flex items-center gap-2 bg-[#f9fafb] border border-gray-200 rounded-xl px-3 py-1.5 shadow-sm">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">From:</span>
+                  <input 
+                    type="date" 
+                    value={customStartDate} 
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="border-none bg-transparent text-xs font-bold text-gray-700 outline-none p-0 focus:ring-0 cursor-pointer"
+                  />
+                </div>
+                <div className="h-4 w-px bg-gray-200"></div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">To:</span>
+                  <input 
+                    type="date" 
+                    value={customEndDate} 
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="border-none bg-transparent text-xs font-bold text-gray-700 outline-none p-0 focus:ring-0 cursor-pointer"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Assign Target Button */}
             <button 
@@ -1117,7 +1269,11 @@ const DSRReport = () => {
             <div className="px-6 py-5">
               <h2 className="text-[17px] font-bold text-gray-900">Revenue Vs Target</h2>
               <p className="text-gray-400 text-xs mt-0.5 font-medium font-sans">
-                {activeTab === "MTD" ? getMTDDateRangeString() : getWTDDateRangeString()}
+                {activeTab === "MTD" 
+                  ? getMTDDateRangeString() 
+                  : activeTab === "WTD" 
+                    ? getWTDDateRangeString() 
+                    : getCustomDateRangeString()}
               </p>
             </div>
 
@@ -1197,7 +1353,13 @@ const DSRReport = () => {
           <div className="bg-white rounded-[20px] shadow-sm border border-gray-100 overflow-hidden">
             <div className="px-6 py-5 flex justify-between items-center">
               <h2 className="text-[17px] font-bold text-gray-900">Sales Funnel</h2>
-              <p className="text-gray-400 text-xs font-semibold">June 01-22, 2026</p>
+              <p className="text-gray-400 text-xs font-semibold">
+                {activeTab === "MTD" 
+                  ? getMTDDateRangeString() 
+                  : activeTab === "WTD" 
+                    ? getWTDDateRangeString() 
+                    : getCustomDateRangeString()}
+              </p>
             </div>
 
             {/* Sales Funnel Grid Table */}
@@ -1342,7 +1504,13 @@ const DSRReport = () => {
           <div className="bg-white rounded-[20px] shadow-sm border border-gray-100 overflow-hidden">
             <div className="px-6 py-5 flex justify-between items-center">
               <h2 className="text-[17px] font-bold text-gray-900">Category Contribution</h2>
-              <p className="text-gray-400 text-xs font-semibold">June 01-22, 2026</p>
+              <p className="text-gray-400 text-xs font-semibold">
+                {activeTab === "MTD" 
+                  ? getMTDDateRangeString() 
+                  : activeTab === "WTD" 
+                    ? getWTDDateRangeString() 
+                    : getCustomDateRangeString()}
+              </p>
             </div>
 
             {/* Category Contribution Table */}
