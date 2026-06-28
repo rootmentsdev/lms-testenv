@@ -1,4 +1,4 @@
-import { Component, useEffect } from 'react';
+import { Component, useEffect, useState } from 'react';
 import { Route, Routes, useNavigate, Navigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import './App.css';
@@ -192,6 +192,17 @@ function App() {
   const dispatch = useDispatch();
   const user = useSelector((state) => state.auth.user);
 
+  const [showSplash, setShowSplash] = useState(true);
+  const [splashFade, setSplashFade] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSplashFade(true);
+      setTimeout(() => setShowSplash(false), 600);
+    }, 2200);
+    return () => clearTimeout(timer);
+  }, []);
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -241,6 +252,19 @@ function App() {
 
   return (
     <>
+      {showSplash && (
+        <div className={`brynex-splash-overlay ${splashFade ? 'fade-out' : ''}`}>
+          <div className="brynex-splash-logo-container">
+            <div className="brynex-neon-ring" />
+            <img src="/logo.png" className="brynex-splash-logo select-none" alt="Logo" />
+          </div>
+          <h1 className="brynex-splash-title">BRYNEX ONE</h1>
+          <span className="brynex-splash-subtitle">Brynex Apparel Pvt.Ltd</span>
+          <div className="brynex-splash-progress-track">
+            <div className="brynex-splash-progress-bar" />
+          </div>
+        </div>
+      )}
       <AppErrorBoundary>
         <Suspense fallback={<div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
           <HashLoader color="#016E5B" size={50} />
