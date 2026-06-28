@@ -9,13 +9,13 @@ const CATEGORIES = [
     { key: 'total_walkin', label: 'TOTAL WALKIN' },
     { key: 'walkin', label: 'WALKIN' },
     { key: 'new_loss', label: 'NEW LOSS' },
+    { key: 'new_walkin_booking', label: 'NEW WALKIN BOOKING' },
+    { key: 'new_walkin_rentout', label: 'NEW WALKIN RENTOUT' },
     { key: 'repeat_loss', label: 'REPEAT LOSS' },
     { key: 'repeat_rentout', label: 'REPEAT RENTOUT' },
     { key: 'repeat_return', label: 'REPEAT RETURN' },
     { key: 'revisit_repeat_trial', label: 'REVISIT REPEAT TRIAL' },
     { key: 'repeat_booking', label: 'REPEAT BOOKING' },
-    { key: 'new_walkin_booking', label: 'NEW WALKIN BOOKING' },
-    { key: 'new_walkin_rentout', label: 'NEW WALKIN RENTOUT' },
     { key: 'revisit_reissue', label: 'REVISIT REISSUE' },
     { key: 'revisit_loss', label: 'REVISIT LOSS' },
     { key: 'others', label: 'OTHERS' }
@@ -560,20 +560,24 @@ const WalkinCount = () => {
         csvContent += `Selected Date: ${selectedDate}\r\n\r\n`;
         
         // Add table headers
-        csvContent += `STATUS CATEGORY,IN CAM,SALES REPORT,IN APP\r\n`;
+        csvContent += `STATUS CATEGORY,IN CAM,SALES REPORT,IN APP,TIME SEEN,REMARKS\r\n`;
         
         // Add rows
         CATEGORIES.forEach(cat => {
             const inCam = rowValues[cat.key]?.inCam || '-';
             const salesReport = rowValues[cat.key]?.salesReport || '-';
             const inAppVal = inAppCounts[cat.key] ?? 0;
+            const timeSeen = rowValues[cat.key]?.timeSeen || '-';
+            const remarks = rowValues[cat.key]?.remarks || '-';
             
             const escapedLabel = `"${cat.label.replace(/"/g, '""')}"`;
             const escapedInCam = `"${String(inCam).replace(/"/g, '""')}"`;
             const escapedSalesReport = `"${String(salesReport).replace(/"/g, '""')}"`;
             const escapedInApp = `"${String(inAppVal).replace(/"/g, '""')}"`;
+            const escapedTimeSeen = `"${String(timeSeen).replace(/"/g, '""')}"`;
+            const escapedRemarks = `"${String(remarks).replace(/"/g, '""')}"`;
             
-            csvContent += `${escapedLabel},${escapedInCam},${escapedSalesReport},${escapedInApp}\r\n`;
+            csvContent += `${escapedLabel},${escapedInCam},${escapedSalesReport},${escapedInApp},${escapedTimeSeen},${escapedRemarks}\r\n`;
         });
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
