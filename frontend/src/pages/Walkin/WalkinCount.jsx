@@ -560,22 +560,28 @@ const WalkinCount = () => {
         csvContent += `Selected Date: ${selectedDate}\r\n\r\n`;
         
         // Add table headers
-        csvContent += `STATUS CATEGORY,IN CAM,SALES REPORT,IN APP,REMARKS\r\n`;
+        csvContent += `STATUS CATEGORY,IN CAM,TIME SLOT,SALES REPORT,IN APP,REMARKS\r\n`;
         
         // Add rows
         CATEGORIES.forEach(cat => {
             const inCam = rowValues[cat.key]?.inCam || '-';
+            const slots = cameraChecks
+                .filter(cc => cc.statusKey === cat.key)
+                .map(cc => cc.timeDuration)
+                .filter(Boolean);
+            const slotText = slots.length > 0 ? slots.join(', ') : '-';
             const salesReport = rowValues[cat.key]?.salesReport || '-';
             const inAppVal = inAppCounts[cat.key] ?? 0;
             const remarks = rowValues[cat.key]?.remarks || '-';
             
             const escapedLabel = `"${cat.label.replace(/"/g, '""')}"`;
             const escapedInCam = `"${String(inCam).replace(/"/g, '""')}"`;
+            const escapedSlot = `"${String(slotText).replace(/"/g, '""')}"`;
             const escapedSalesReport = `"${String(salesReport).replace(/"/g, '""')}"`;
             const escapedInApp = `"${String(inAppVal).replace(/"/g, '""')}"`;
             const escapedRemarks = `"${String(remarks).replace(/"/g, '""')}"`;
             
-            csvContent += `${escapedLabel},${escapedInCam},${escapedSalesReport},${escapedInApp},${escapedRemarks}\r\n`;
+            csvContent += `${escapedLabel},${escapedInCam},${escapedSlot},${escapedSalesReport},${escapedInApp},${escapedRemarks}\r\n`;
         });
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -878,6 +884,7 @@ const WalkinCount = () => {
                                         <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
                                             <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '220px' }}>STATUS CATEGORY</th>
                                             <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '150px' }}>IN CAM</th>
+                                            <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '180px' }}>TIME SLOT</th>
                                             <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '180px' }}>SALES REPORT</th>
                                             <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '150px' }}>IN APP</th>
                                             <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151' }}>REMARKS</th>
@@ -887,6 +894,11 @@ const WalkinCount = () => {
                                         {CATEGORIES.map((cat, idx) => {
                                             const inAppVal = inAppCounts[cat.key] ?? 0;
                                             const isEven = idx % 2 === 0;
+                                            const slots = cameraChecks
+                                                .filter(cc => cc.statusKey === cat.key)
+                                                .map(cc => cc.timeDuration)
+                                                .filter(Boolean);
+                                            const slotText = slots.length > 0 ? slots.join(', ') : '-';
                                             
                                             return (
                                                 <tr key={cat.key} style={{ borderBottom: '1px solid #f3f4f6', background: isEven ? '#fff' : '#fcfcfc', transition: 'background 0.15s' }}>
@@ -895,6 +907,9 @@ const WalkinCount = () => {
                                                     </td>
                                                     <td style={{ padding: '12px 20px', fontWeight: 700, color: '#111827' }}>
                                                         {rowValues[cat.key].inCam || '-'}
+                                                    </td>
+                                                    <td style={{ padding: '12px 20px', color: '#4b5563', fontWeight: 500 }}>
+                                                        {slotText}
                                                     </td>
                                                     <td style={{ padding: '12px 20px', color: '#374151' }}>
                                                         {rowValues[cat.key].salesReport || '-'}
