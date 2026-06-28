@@ -260,7 +260,7 @@ const WalkinCount = () => {
 
     // Camera Checker States
     const [cameraForm, setCameraForm] = useState({
-        statusKey: 'total_walkin',
+        statusKey: '',
         store: '',
         timeDuration: '09:00 AM to 09:30 AM',
         inCamCount: '',
@@ -270,6 +270,16 @@ const WalkinCount = () => {
     });
     const [cameraChecks, setCameraChecks] = useState([]);
     const [savingCameraCheck, setSavingCameraCheck] = useState(false);
+
+    // Date range selection for log viewer
+    const [logStartDate, setLogStartDate] = useState(selectedDate);
+    const [logEndDate, setLogEndDate] = useState(selectedDate);
+
+    // Sync log date range with selectedDate by default
+    useEffect(() => {
+        setLogStartDate(selectedDate);
+        setLogEndDate(selectedDate);
+    }, [selectedDate]);
 
     // Time Slider Local Toggle State
     const [showClockPicker, setShowClockPicker] = useState(false);
@@ -349,7 +359,7 @@ const WalkinCount = () => {
         try {
             setLoading(true);
             setMessage({ text: '', type: '' });
-            const url = `${baseUrl.baseUrl}api/walkin/walkin-count?date=${selectedDate}&store=${encodeURIComponent(storeFilter)}`;
+            const url = `${baseUrl.baseUrl}api/walkin/walkin-count?date=${selectedDate}&store=${encodeURIComponent(storeFilter)}&startDate=${logStartDate}&endDate=${logEndDate}`;
             const res = await fetch(url, {
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
             });
@@ -403,7 +413,7 @@ const WalkinCount = () => {
     // Load data when filters change
     useEffect(() => {
         loadCountData();
-    }, [selectedDate, storeFilter]);
+    }, [selectedDate, storeFilter, logStartDate, logEndDate]);
 
     // Handle Input Changes
     const handleInputChange = (categoryKey, field, val) => {
@@ -473,6 +483,10 @@ const WalkinCount = () => {
             setMessage({ text: 'Please select a valid store for the camera check entry.', type: 'error' });
             return;
         }
+        if (!cameraForm.statusKey) {
+            setMessage({ text: 'Please select a status category.', type: 'error' });
+            return;
+        }
         if (!cameraForm.inCamCount || isNaN(cameraForm.inCamCount) || Number(cameraForm.inCamCount) < 0) {
             setMessage({ text: 'Please enter a valid in-cam count.', type: 'error' });
             return;
@@ -505,6 +519,7 @@ const WalkinCount = () => {
                 // Reset form inputs except store, slot, and date
                 setCameraForm(prev => ({
                     ...prev,
+                    statusKey: '',
                     inCamCount: '',
                     remarks: '',
                     editingId: null
@@ -560,28 +575,22 @@ const WalkinCount = () => {
         csvContent += `Selected Date: ${selectedDate}\r\n\r\n`;
         
         // Add table headers
-        csvContent += `STATUS CATEGORY,IN CAM,TIME SLOT,SALES REPORT,IN APP,REMARKS\r\n`;
+        csvContent += `STATUS CATEGORY,IN CAM,SALES REPORT,IN APP,REMARKS\r\n`;
         
         // Add rows
         CATEGORIES.forEach(cat => {
             const inCam = rowValues[cat.key]?.inCam || '-';
-            const slots = cameraChecks
-                .filter(cc => cc.statusKey === cat.key)
-                .map(cc => cc.timeDuration)
-                .filter(Boolean);
-            const slotText = slots.length > 0 ? slots.join(', ') : '-';
             const salesReport = rowValues[cat.key]?.salesReport || '-';
             const inAppVal = inAppCounts[cat.key] ?? 0;
             const remarks = rowValues[cat.key]?.remarks || '-';
             
             const escapedLabel = `"${cat.label.replace(/"/g, '""')}"`;
             const escapedInCam = `"${String(inCam).replace(/"/g, '""')}"`;
-            const escapedSlot = `"${String(slotText).replace(/"/g, '""')}"`;
             const escapedSalesReport = `"${String(salesReport).replace(/"/g, '""')}"`;
             const escapedInApp = `"${String(inAppVal).replace(/"/g, '""')}"`;
             const escapedRemarks = `"${String(remarks).replace(/"/g, '""')}"`;
             
-            csvContent += `${escapedLabel},${escapedInCam},${escapedSlot},${escapedSalesReport},${escapedInApp},${escapedRemarks}\r\n`;
+            csvContent += `${escapedLabel},${escapedInCam},${escapedSalesReport},${escapedInApp},${escapedRemarks}\r\n`;
         });
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -589,6 +598,42 @@ const WalkinCount = () => {
         const link = document.createElement("a");
         link.setAttribute("href", url);
         link.setAttribute("download", `WalkinCount_Report_${storeFilter}_${selectedDate}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleDownloadCameraChecksReport = () => {
+        let csvContent = "";
+        csvContent += `Logged Camera Checks Report\r\n`;
+        csvContent += `Store Branch: ${storeFilter}\r\n`;
+        csvContent += `Date Range: ${logStartDate} to ${logEndDate}\r\n\r\n`;
+        csvContent += `DATE,TIME SLOT,STATUS CATEGORY,IN CAM,REMARKS,LOGGED BY\r\n`;
+        
+        cameraChecks.forEach(log => {
+            const categoryLabel = CATEGORIES.find(cat => cat.key === log.statusKey)?.label || log.statusKey;
+            const dateVal = log.date || '-';
+            const timeSlot = log.timeDuration || '-';
+            const inCam = log.inCamCount || 0;
+            const remarks = log.remarks || '-';
+            const loggedBy = `${log.createdBy?.name || 'Unknown'} (${log.createdBy?.role || 'user'})`;
+            
+            const escapedDate = `"${String(dateVal).replace(/"/g, '""')}"`;
+            const escapedTime = `"${String(timeSlot).replace(/"/g, '""')}"`;
+            const escapedCat = `"${String(categoryLabel).replace(/"/g, '""')}"`;
+            const escapedInCam = `"${String(inCam).replace(/"/g, '""')}"`;
+            const escapedRemarks = `"${String(remarks).replace(/"/g, '""')}"`;
+            const escapedLoggedBy = `"${String(loggedBy).replace(/"/g, '""')}"`;
+            
+            csvContent += `${escapedDate},${escapedTime},${escapedCat},${escapedInCam},${escapedRemarks},${escapedLoggedBy}\r\n`;
+        });
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `CameraChecks_Report_${storeFilter}_${logStartDate}_to_${logEndDate}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -669,7 +714,10 @@ const WalkinCount = () => {
                                 onChange={e => setCameraForm(prev => ({ ...prev, statusKey: e.target.value }))}
                                 style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer' }}
                             >
-                                {CATEGORIES.map(cat => <option key={cat.key} value={cat.key}>{cat.label}</option>)}
+                                <option value="">Select Category</option>
+                                {CATEGORIES.filter(cat => cat.key !== 'total_walkin' && cat.key !== 'walkin').map(cat => (
+                                    <option key={cat.key} value={cat.key}>{cat.label}</option>
+                                ))}
                             </select>
                         </div>
 
@@ -750,12 +798,21 @@ const WalkinCount = () => {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', borderBottom: '1px solid #f3f4f6', paddingBottom: '16px', marginBottom: '16px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>
-                                Logged Camera Checks {storeFilter ? `for ${storeFilter} (${selectedDate})` : ''}
+                                Logged Camera Checks {storeFilter ? `for ${storeFilter} (${logStartDate} to ${logEndDate})` : ''}
                             </h2>
                             {storeFilter && (
-                                <span style={{ background: '#f3f4f6', color: '#374151', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
-                                    {cameraChecks.length} entries
-                                </span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ background: '#f3f4f6', color: '#374151', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
+                                        {cameraChecks.length} entries
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={handleDownloadCameraChecksReport}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#111827', color: '#fff', border: 'none', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s', outline: 'none' }}
+                                    >
+                                        <FaDownload /> Export Logs
+                                    </button>
+                                </div>
                             )}
                         </div>
                         
@@ -772,13 +829,22 @@ const WalkinCount = () => {
                                 </select>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <span style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563' }}>Selected Date</span>
-                                <input
-                                    type="date"
-                                    value={selectedDate}
-                                    onChange={e => setSelectedDate(e.target.value)}
-                                    style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '6px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer' }}
-                                />
+                                <span style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563' }}>Date Range</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '5px 12px', background: '#fff' }}>
+                                    <input
+                                        type="date"
+                                        value={logStartDate}
+                                        onChange={e => setLogStartDate(e.target.value)}
+                                        style={{ border: 'none', fontSize: '13px', color: '#374151', outline: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
+                                    />
+                                    <span style={{ fontSize: '13px', color: '#9ca3af', fontWeight: 500 }}>to</span>
+                                    <input
+                                        type="date"
+                                        value={logEndDate}
+                                        onChange={e => setLogEndDate(e.target.value)}
+                                        style={{ border: 'none', fontSize: '13px', color: '#374151', outline: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -796,6 +862,7 @@ const WalkinCount = () => {
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
                                 <thead>
                                     <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                                        <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>DATE</th>
                                         <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>TIME SLOT</th>
                                         <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>STATUS CATEGORY</th>
                                         <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563', width: '100px' }}>IN CAM</th>
@@ -809,6 +876,7 @@ const WalkinCount = () => {
                                         const categoryLabel = CATEGORIES.find(cat => cat.key === log.statusKey)?.label || log.statusKey;
                                         return (
                                             <tr key={log._id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                                                <td style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>{log.date}</td>
                                                 <td style={{ padding: '10px 14px', fontWeight: 600, color: '#111827' }}>{log.timeDuration}</td>
                                                 <td style={{ padding: '10px 14px', color: '#4b5563' }}>
                                                     <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600 }}>
@@ -840,13 +908,15 @@ const WalkinCount = () => {
                                                     >
                                                         <FaEdit />
                                                     </button>
-                                                    <button
-                                                        onClick={() => handleDeleteCameraCheck(log._id)}
-                                                        style={{ border: 'none', background: 'transparent', color: '#111827', cursor: 'pointer', padding: '4px', fontSize: '14px' }}
-                                                        title="Delete Entry"
-                                                    >
-                                                        <FaTrashAlt />
-                                                    </button>
+                                                    {['super_admin', 'admin', 'hr_admin'].includes(user?.role) && (
+                                                        <button
+                                                            onClick={() => handleDeleteCameraCheck(log._id)}
+                                                            style={{ border: 'none', background: 'transparent', color: '#111827', cursor: 'pointer', padding: '4px', fontSize: '14px' }}
+                                                            title="Delete Entry"
+                                                        >
+                                                            <FaTrashAlt />
+                                                        </button>
+                                                    )}
                                                 </td>
                                             </tr>
                                         );
@@ -882,23 +952,17 @@ const WalkinCount = () => {
                                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
                                     <thead>
                                         <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                                            <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '220px' }}>STATUS CATEGORY</th>
-                                            <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '150px' }}>IN CAM</th>
-                                            <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '180px' }}>TIME SLOT</th>
-                                            <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '180px' }}>SALES REPORT</th>
-                                            <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '150px' }}>IN APP</th>
-                                            <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151' }}>REMARKS</th>
+                                            <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>STATUS CATEGORY</th>
+                                            <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>IN CAM</th>
+                                            <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>SALES REPORT</th>
+                                            <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>IN APP</th>
+                                            <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>REMARKS</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {CATEGORIES.map((cat, idx) => {
                                             const inAppVal = inAppCounts[cat.key] ?? 0;
                                             const isEven = idx % 2 === 0;
-                                            const slots = cameraChecks
-                                                .filter(cc => cc.statusKey === cat.key)
-                                                .map(cc => cc.timeDuration)
-                                                .filter(Boolean);
-                                            const slotText = slots.length > 0 ? slots.join(', ') : '-';
                                             
                                             return (
                                                 <tr key={cat.key} style={{ borderBottom: '1px solid #f3f4f6', background: isEven ? '#fff' : '#fcfcfc', transition: 'background 0.15s' }}>
@@ -907,9 +971,6 @@ const WalkinCount = () => {
                                                     </td>
                                                     <td style={{ padding: '12px 20px', fontWeight: 700, color: '#111827' }}>
                                                         {rowValues[cat.key].inCam || '-'}
-                                                    </td>
-                                                    <td style={{ padding: '12px 20px', color: '#4b5563', fontWeight: 500 }}>
-                                                        {slotText}
                                                     </td>
                                                     <td style={{ padding: '12px 20px', color: '#374151' }}>
                                                         {rowValues[cat.key].salesReport || '-'}

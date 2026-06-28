@@ -6,7 +6,7 @@ import CronLog from '../model/CronLog.js';
 import WalkinCount from '../model/WalkinCount.js';
 import WalkinCameraCheck from '../model/WalkinCameraCheck.js';
 import mongoose from 'mongoose';
-import { validateStoreAccess, validateEmployeeAccess, buildWalkinFilter } from '../lib/permissions.js';
+import { validateStoreAccess, validateEmployeeAccess, buildWalkinFilter, buildStoreWideWalkinFilter } from '../lib/permissions.js';
 
 /* ---------- Location Name Normalization helpers ---------- */
 const BRAND_TOKENS = new Set(["zorucci", "grooms", "suitor", "guy", "sg"]);
@@ -178,10 +178,10 @@ export const checkCustomerExists = async (req, res) => {
 
         let query = { contact: contact.trim() };
 
-        // Apply role-based filtering if admin token is present
+        // Apply store-wide filtering if admin token is present
         if (req.admin) {
             const adminId = req.admin.userId;
-            query = await buildWalkinFilter(adminId, query);
+            query = await buildStoreWideWalkinFilter(adminId, query);
             if (query._id === null) {
                 return res.status(403).json({ success: false, message: 'Admin not found or access denied' });
             }
@@ -409,7 +409,7 @@ export const saveWalkin = async (req, res) => {
             let updateQuery = { _id };
             if (req.admin) {
                 const adminId = req.admin.userId;
-                updateQuery = await buildWalkinFilter(adminId, updateQuery);
+                updateQuery = await buildStoreWideWalkinFilter(adminId, updateQuery);
                 if (updateQuery._id === null) {
                     return res.status(403).json({ success: false, message: 'Access denied to this walk-in record' });
                 }
@@ -464,9 +464,20 @@ export const saveWalkin = async (req, res) => {
             if (contact !== undefined && contact !== null) walkinRecord.contact = trimmedContact;
             if (functionDate) walkinRecord.functionDate = functionDate.trim();
             if (store !== undefined && store !== null) walkinRecord.store = store.trim();
-            if (staff !== undefined && staff !== null) walkinRecord.staff = staff.trim();
+            
+            // Keep the original employeeId, createdBy, and staff unless they are not set on the walkinRecord
+            if (!walkinRecord.employeeId && finalEmployeeId !== undefined && finalEmployeeId !== null) {
+                walkinRecord.employeeId = finalEmployeeId;
+            }
+            if (!walkinRecord.staff || walkinRecord.staff === 'None' || walkinRecord.staff === '-') {
+                if (staff !== undefined && staff !== null) {
+                    walkinRecord.staff = staff.trim();
+                } else if (finalStaff && finalStaff !== 'None') {
+                    walkinRecord.staff = finalStaff;
+                }
+            }
             if (finalStoreId !== undefined && finalStoreId !== null) walkinRecord.storeId = finalStoreId;
-            if (finalEmployeeId !== undefined && finalEmployeeId !== null) walkinRecord.employeeId = finalEmployeeId;
+
             if (category) walkinRecord.category = category.trim();
             if (subCategory) walkinRecord.subCategory = subCategory.trim();
             if (status === 'Loss') {
@@ -512,7 +523,9 @@ export const saveWalkin = async (req, res) => {
                     updateStatusAndDates(walkinRecord, trimmedStatus);
                 }
             }
-            if (createdBy) walkinRecord.createdBy = createdBy;
+            if (!walkinRecord.createdBy && createdBy) {
+                walkinRecord.createdBy = createdBy;
+            }
             walkinRecord.date = todayStr; // Update visit date to the requested value
 
             if (statusChanged) {
@@ -532,7 +545,7 @@ export const saveWalkin = async (req, res) => {
             let query = { contact: trimmedContact };
             if (req.admin) {
                 const adminId = req.admin.userId;
-                query = await buildWalkinFilter(adminId, query);
+                query = await buildStoreWideWalkinFilter(adminId, query);
             }
             walkinRecord = await Walkin.findOne(query).sort({ createdAt: -1 });
         }
@@ -570,9 +583,20 @@ export const saveWalkin = async (req, res) => {
             if (customerName !== undefined && customerName !== null) walkinRecord.customerName = customerName.trim();
             if (functionDate) walkinRecord.functionDate = functionDate.trim();
             if (store !== undefined && store !== null) walkinRecord.store = store.trim();
-            if (staff !== undefined && staff !== null) walkinRecord.staff = staff.trim();
-            if (storeId !== undefined && storeId !== null) walkinRecord.storeId = storeId;
-            if (employeeId !== undefined && employeeId !== null) walkinRecord.employeeId = employeeId;
+            
+            // Keep the original employeeId, createdBy, and staff unless they are not set on the walkinRecord
+            if (!walkinRecord.employeeId && finalEmployeeId !== undefined && finalEmployeeId !== null) {
+                walkinRecord.employeeId = finalEmployeeId;
+            }
+            if (!walkinRecord.staff || walkinRecord.staff === 'None' || walkinRecord.staff === '-') {
+                if (staff !== undefined && staff !== null) {
+                    walkinRecord.staff = staff.trim();
+                } else if (finalStaff && finalStaff !== 'None') {
+                    walkinRecord.staff = finalStaff;
+                }
+            }
+            if (finalStoreId !== undefined && finalStoreId !== null) walkinRecord.storeId = finalStoreId;
+
             if (category) walkinRecord.category = category.trim();
             if (subCategory) walkinRecord.subCategory = subCategory.trim();
             if (status === 'Loss') {
@@ -595,7 +619,9 @@ export const saveWalkin = async (req, res) => {
                     updateStatusAndDates(walkinRecord, trimmedStatus);
                 }
             }
-            if (createdBy) walkinRecord.createdBy = createdBy;
+            if (!walkinRecord.createdBy && createdBy) {
+                walkinRecord.createdBy = createdBy;
+            }
             walkinRecord.date = todayStr; // Update to latest visit date
 
             if (statusChanged) {
@@ -968,7 +994,7 @@ const BACKEND_CATEGORIES = [
 ];
 export const getWalkinCountPageData = async (req, res) => {
     try {
-        const { date, store } = req.query; // date is YYYY-MM-DD, store is store name
+        const { date, store, startDate, endDate } = req.query; // date is YYYY-MM-DD, store is store name
         if (!date || !store) {
             return res.status(400).json({ success: false, message: 'Date and Store are required' });
         }
@@ -1180,8 +1206,13 @@ export const getWalkinCountPageData = async (req, res) => {
             }
         });
 
-        // 4. Fetch camera checker entries for this date & store
-        let cameraChecksQuery = { date };
+        // 4. Fetch camera checker entries for this date/range & store
+        let cameraChecksQuery = {};
+        if (startDate && endDate) {
+            cameraChecksQuery.date = { $gte: startDate, $lte: endDate };
+        } else {
+            cameraChecksQuery.date = date;
+        }
         if (store.toLowerCase() !== 'all') {
             cameraChecksQuery.storeId = resolvedStoreId;
         }
@@ -1503,6 +1534,11 @@ export const deleteCameraCheckEntry = async (req, res) => {
         const check = await WalkinCameraCheck.findById(id);
         if (!check) {
             return res.status(404).json({ success: false, message: 'Camera check entry not found' });
+        }
+
+        // Restrict deletion to non-telecaller roles
+        if (req.admin && req.admin.role === 'telecaller') {
+            return res.status(403).json({ success: false, message: 'Access denied: Telecallers are not authorized to delete camera check logs' });
         }
 
         const { date, storeId, store } = check;
