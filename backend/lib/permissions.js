@@ -216,6 +216,38 @@ export const buildWalkinFilter = async (adminId, baseQuery = {}) => {
 };
 
 /**
+ * Builds a store-wide MongoDB query filter for walk-ins (irrespective of employee)
+ */
+export const buildStoreWideWalkinFilter = async (adminId, baseQuery = {}) => {
+    const admin = await Admin.findById(adminId);
+    
+    // Get accessible store IDs for this admin/user
+    const accessibleStoreIds = await getAccessibleStoreIds(adminId);
+    if (accessibleStoreIds.length === 0) {
+        return { _id: null };
+    }
+
+    if (admin && isFullAccessAdmin(admin.role)) {
+        return baseQuery;
+    }
+
+    const branches = await Branch.find({ _id: { $in: accessibleStoreIds } });
+    const locCodes = branches.map(b => b.locCode);
+    const workingBranches = branches.map(b => b.workingBranch).concat(locCodes);
+
+    const storeRestriction = [
+        { storeId: { $in: accessibleStoreIds } },
+        { store: { $in: workingBranches } }
+    ];
+
+    if (baseQuery.$or) {
+        const { $or: existingOr, ...rest } = baseQuery;
+        return { ...rest, $and: [{ $or: existingOr }, { $or: storeRestriction }] };
+    }
+    return { ...baseQuery, $or: storeRestriction };
+};
+
+/**
  * Builds a MongoDB query filter for tasks based on admin role.
  *
  * Visibility rules:
