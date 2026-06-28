@@ -627,7 +627,7 @@ const WalkinCount = () => {
                 {/* Camera Checker Entry Portal Card */}
                 <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '20px', marginBottom: '20px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                        <FaVideo style={{ color: '#ef4444', fontSize: '18px' }} />
+                        <FaVideo style={{ color: '#111827', fontSize: '18px' }} />
                         <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', margin: 0 }}>Camera Checker Entry Portal</h2>
                     </div>
 
@@ -672,7 +672,7 @@ const WalkinCount = () => {
                                 onClick={() => setShowClockPicker(!showClockPicker)}
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', color: '#374151', background: '#fff', cursor: 'pointer', outline: 'none', textAlign: 'left', minWidth: '180px', fontWeight: 500 }}
                             >
-                                <FaClock style={{ color: '#ef4444' }} /> {cameraForm.timeDuration}
+                                <FaClock style={{ color: '#111827' }} /> {cameraForm.timeDuration}
                             </button>
                             
                             {showClockPicker && (
@@ -694,7 +694,7 @@ const WalkinCount = () => {
                                     <button
                                         type="button"
                                         onClick={() => setShowClockPicker(false)}
-                                        style={{ alignSelf: 'flex-end', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', outline: 'none', marginTop: '12px' }}
+                                        style={{ alignSelf: 'flex-end', background: '#111827', color: '#fff', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', outline: 'none', marginTop: '12px' }}
                                     >
                                         Done
                                     </button>
@@ -729,7 +729,7 @@ const WalkinCount = () => {
                             <button
                                 type="submit"
                                 disabled={savingCameraCheck}
-                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', width: '100%', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 16px', fontSize: '13px', cursor: 'pointer', fontWeight: 600, transition: 'background-color 0.2s' }}
+                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', width: '100%', background: '#111827', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 16px', fontSize: '13px', cursor: 'pointer', fontWeight: 600, transition: 'background-color 0.2s' }}
                             >
                                 <FaPlusCircle /> {savingCameraCheck ? 'Saving...' : 'Add Camera Log'}
                             </button>
@@ -807,7 +807,7 @@ const WalkinCount = () => {
                                                         {categoryLabel}
                                                     </span>
                                                 </td>
-                                                <td style={{ padding: '10px 14px', fontWeight: 700, color: '#dc2626' }}>{log.inCamCount}</td>
+                                                <td style={{ padding: '10px 14px', fontWeight: 700, color: '#111827' }}>{log.inCamCount}</td>
                                                 <td style={{ padding: '10px 14px', color: '#6b7280', fontStyle: log.remarks ? 'normal' : 'italic' }}>
                                                     {log.remarks || 'No remarks'}
                                                 </td>
@@ -834,7 +834,7 @@ const WalkinCount = () => {
                                                     </button>
                                                     <button
                                                         onClick={() => handleDeleteCameraCheck(log._id)}
-                                                        style={{ border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer', padding: '4px', fontSize: '14px' }}
+                                                        style={{ border: 'none', background: 'transparent', color: '#111827', cursor: 'pointer', padding: '4px', fontSize: '14px' }}
                                                         title="Delete Entry"
                                                     >
                                                         <FaTrashAlt />
@@ -890,7 +890,7 @@ const WalkinCount = () => {
                                                     <td style={{ padding: '12px 20px', fontWeight: 600, color: '#111827' }}>
                                                         {cat.label}
                                                     </td>
-                                                    <td style={{ padding: '12px 20px', fontWeight: 700, color: '#dc2626' }}>
+                                                    <td style={{ padding: '12px 20px', fontWeight: 700, color: '#111827' }}>
                                                         {rowValues[cat.key].inCam || '-'}
                                                     </td>
                                                     <td style={{ padding: '12px 20px', color: '#374151' }}>

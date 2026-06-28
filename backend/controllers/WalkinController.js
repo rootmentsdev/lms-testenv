@@ -1060,7 +1060,7 @@ export const getWalkinCountPageData = async (req, res) => {
             const updatedAtStr = toDateStrIST(w.updatedAt);
             const historyOnSelectedDate = (w.statusHistory || []).filter(h => toDateStrIST(h.date) === date);
             
-            const createdOnDay = createdAtStr === date;
+            const createdOnDay = createdAtStr && createdAtStr.startsWith(date);
             
             // Build the set of status updates on that day
             const statusesOnDay = new Set(historyOnSelectedDate.map(h => h.status));
@@ -1242,6 +1242,17 @@ export const getWalkinCountPageData = async (req, res) => {
         } else {
             savedCount = await WalkinCount.findOne({ date, storeId: resolvedStoreId }).lean();
         }
+
+        const defaultCounts = BACKEND_CATEGORIES.map(cat => {
+            const ccSum = cameraCheckSums[cat.key];
+            return {
+                statusKey: cat.key,
+                inCam: ccSum !== undefined ? String(ccSum) : '-',
+                salesReport: '-',
+                timeSeen: '',
+                remarks: ''
+            };
+        });
 
         if (savedCount) {
             // Overwrite inCam fields with updated camera check sums
