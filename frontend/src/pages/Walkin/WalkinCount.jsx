@@ -572,7 +572,11 @@ const WalkinCount = () => {
         // Add title and info header
         csvContent += `Walk In Count Comparison Report\r\n`;
         csvContent += `Store Branch: ${storeFilter}\r\n`;
-        csvContent += `Selected Date: ${selectedDate}\r\n\r\n`;
+        if (logStartDate && logEndDate && logStartDate !== logEndDate) {
+            csvContent += `Date Range: ${logStartDate} to ${logEndDate}\r\n\r\n`;
+        } else {
+            csvContent += `Selected Date: ${selectedDate}\r\n\r\n`;
+        }
         
         // Add table headers
         csvContent += `STATUS CATEGORY,IN CAM,SALES REPORT,IN APP,REMARKS\r\n`;
@@ -597,7 +601,12 @@ const WalkinCount = () => {
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", url);
-        link.setAttribute("download", `WalkinCount_Report_${storeFilter}_${selectedDate}.csv`);
+        
+        let downloadName = `WalkinCount_Report_${storeFilter}_${selectedDate}.csv`;
+        if (logStartDate && logEndDate && logStartDate !== logEndDate) {
+            downloadName = `WalkinCount_Report_${storeFilter}_${logStartDate}_to_${logEndDate}.csv`;
+        }
+        link.setAttribute("download", downloadName);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);

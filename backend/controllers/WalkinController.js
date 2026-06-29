@@ -1027,23 +1027,51 @@ export const getWalkinCountPageData = async (req, res) => {
             }
         }
 
-        // 2. Fetch all walkins for this store that have activity on the selected date
-        const parts = date.split('-');
-        const year = parseInt(parts[0], 10);
-        const month = parseInt(parts[1], 10) - 1;
-        const day = parseInt(parts[2], 10);
+        // 2. Fetch all walkins for this store that have activity on the selected date or range
+        let dateQuery = {};
+        let activeDateRange = null;
 
-        const startOfDay = new Date(year, month, day, 0, 0, 0, 0);
-        const endOfDay = new Date(year, month, day, 23, 59, 59, 999);
+        if (startDate && endDate) {
+            const startParts = startDate.split('-');
+            const startYear = parseInt(startParts[0], 10);
+            const startMonth = parseInt(startParts[1], 10) - 1;
+            const startDay = parseInt(startParts[2], 10);
+            const startOfDay = new Date(startYear, startMonth, startDay, 0, 0, 0, 0);
 
-        const dateQuery = {
-            $or: [
-                { date: date },
-                { createdAt: { $gte: startOfDay, $lte: endOfDay } },
-                { updatedAt: { $gte: startOfDay, $lte: endOfDay } },
-                { 'statusHistory.date': { $gte: startOfDay, $lte: endOfDay } }
-            ]
-        };
+            const endParts = endDate.split('-');
+            const endYear = parseInt(endParts[0], 10);
+            const endMonth = parseInt(endParts[1], 10) - 1;
+            const endDay = parseInt(endParts[2], 10);
+            const endOfDay = new Date(endYear, endMonth, endDay, 23, 59, 59, 999);
+
+            dateQuery = {
+                $or: [
+                    { date: { $gte: startDate, $lte: endDate } },
+                    { createdAt: { $gte: startOfDay, $lte: endOfDay } },
+                    { updatedAt: { $gte: startOfDay, $lte: endOfDay } },
+                    { 'statusHistory.date': { $gte: startOfDay, $lte: endOfDay } }
+                ]
+            };
+            activeDateRange = { start: startDate, end: endDate, startOfDay, endOfDay };
+        } else {
+            const parts = date.split('-');
+            const year = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10) - 1;
+            const day = parseInt(parts[2], 10);
+
+            const startOfDay = new Date(year, month, day, 0, 0, 0, 0);
+            const endOfDay = new Date(year, month, day, 23, 59, 59, 999);
+
+            dateQuery = {
+                $or: [
+                    { date: date },
+                    { createdAt: { $gte: startOfDay, $lte: endOfDay } },
+                    { updatedAt: { $gte: startOfDay, $lte: endOfDay } },
+                    { 'statusHistory.date': { $gte: startOfDay, $lte: endOfDay } }
+                ]
+            };
+            activeDateRange = { start: date, end: date, startOfDay, endOfDay };
+        }
 
         if (queryConditions.length > 0) {
             queryConditions.push(dateQuery);
@@ -1084,98 +1112,104 @@ export const getWalkinCountPageData = async (req, res) => {
         walkins.forEach(w => {
             const createdAtStr = w.date && w.date !== '-' ? w.date : toDateStrIST(w.createdAt);
             const updatedAtStr = toDateStrIST(w.updatedAt);
-            const historyOnSelectedDate = (w.statusHistory || []).filter(h => toDateStrIST(h.date) === date);
             
-            const createdOnDay = createdAtStr && createdAtStr.startsWith(date);
+            // Check if created in range
+            const createdInRange = createdAtStr && createdAtStr >= activeDateRange.start && createdAtStr <= activeDateRange.end;
             
-            // Build the set of status updates on that day
-            const statusesOnDay = new Set(historyOnSelectedDate.map(h => h.status));
+            // Filter history in range
+            const historyInRange = (w.statusHistory || []).filter(h => {
+                const dStr = toDateStrIST(h.date);
+                return dStr && dStr >= activeDateRange.start && dStr <= activeDateRange.end;
+            });
             
-            // Fallbacks: if updatedAt is today or if status matches without history
-            const updatedOnDay = updatedAtStr === date || historyOnSelectedDate.length > 0;
-            if (updatedOnDay && statusesOnDay.size === 0 && w.status) {
-                statusesOnDay.add(w.status);
+            // Build the set of status updates in range
+            const statusesOnRange = new Set(historyInRange.map(h => h.status));
+            
+            // Fallbacks: if updatedAt is in range or if status matches without history
+            const updatedInRange = (updatedAtStr && updatedAtStr >= activeDateRange.start && updatedAtStr <= activeDateRange.end) || historyInRange.length > 0;
+            if (updatedInRange && statusesOnRange.size === 0 && w.status) {
+                statusesOnRange.add(w.status);
             }
 
             // 1. Total walkin
-            if (updatedOnDay && !createdOnDay) {
+            if (updatedInRange && !createdInRange) {
                 counts.total_walkin++;
             }
 
             // 2. walkin
-            if (createdOnDay) {
+            if (createdInRange) {
                 counts.walkin++;
             }
 
             // 3. New Loss
-            const hasLossStatus = statusesOnDay.has('Loss') || (updatedOnDay && w.status === 'Loss');
-            if (createdOnDay && hasLossStatus) {
+            const hasLossStatus = statusesOnRange.has('Loss') || (updatedInRange && w.status === 'Loss');
+            if (createdInRange && hasLossStatus) {
                 counts.new_loss++;
             }
 
             // 4. Repeat loss
-            if (!createdOnDay && (statusesOnDay.has('Loss') || (updatedOnDay && w.status === 'Loss'))) {
+            if (!createdInRange && (statusesOnRange.has('Loss') || (updatedInRange && w.status === 'Loss'))) {
                 counts.repeat_loss++;
             }
 
             // 5. Repeat rentout
-            const hasRentoutStatus = Array.from(statusesOnDay).some(st => {
+            const hasRentoutStatus = Array.from(statusesOnRange).some(st => {
                 const s = String(st || '');
                 return s.includes('Rentout') || s.includes('Rent Out') || s.includes('Booking & Rentout') || s.includes('Billed');
-            }) || (updatedOnDay && (
+            }) || (updatedInRange && (
                 String(w.status || '').includes('Rentout') || 
                 String(w.status || '').includes('Rent Out') || 
                 String(w.status || '').includes('Booking & Rentout') || 
                 String(w.status || '').includes('Billed')
             ));
-            if (!createdOnDay && hasRentoutStatus) {
+            if (!createdInRange && hasRentoutStatus) {
                 counts.repeat_rentout++;
             }
 
             // 6. Repeat return
-            const hasReturnStatus = Array.from(statusesOnDay).some(st => {
+            const hasReturnStatus = Array.from(statusesOnRange).some(st => {
                 const s = String(st || '');
                 return s.includes('Return') || s.includes('Bill Returned');
-            }) || (updatedOnDay && (
+            }) || (updatedInRange && (
                 String(w.status || '').includes('Return') || 
                 String(w.status || '').includes('Bill Returned')
             ));
-            if (!createdOnDay && hasReturnStatus) {
+            if (!createdInRange && hasReturnStatus) {
                 counts.repeat_return++;
             }
 
             // 7. Revisit repeat trial
-            const hasTrialStatus = statusesOnDay.has('Trial') || (updatedOnDay && w.status === 'Trial');
-            if (!createdOnDay && hasTrialStatus) {
+            const hasTrialStatus = statusesOnRange.has('Trial') || (updatedInRange && w.status === 'Trial');
+            if (!createdInRange && hasTrialStatus) {
                 counts.revisit_repeat_trial++;
             }
 
             // 8. Repeat booking
-            const hasBookingStatus = Array.from(statusesOnDay).some(st => {
+            const hasBookingStatus = Array.from(statusesOnRange).some(st => {
                 const s = String(st || '');
                 return s.includes('Booked') || s.includes('Booking');
-            }) || (updatedOnDay && (
+            }) || (updatedInRange && (
                 String(w.status || '').includes('Booked') || 
                 String(w.status || '').includes('Booking')
             ));
-            if (!createdOnDay && hasBookingStatus) {
+            if (!createdInRange && hasBookingStatus) {
                 counts.repeat_booking++;
             }
 
             // 9. New walkin booking
-            const hasBookingStatusForNew = Array.from(statusesOnDay).some(st => {
+            const hasBookingStatusForNew = Array.from(statusesOnRange).some(st => {
                 const s = String(st || '');
                 return s.includes('Booked') || s.includes('Booking');
             }) || (
                 String(w.status || '').includes('Booked') || 
                 String(w.status || '').includes('Booking')
             );
-            if (createdOnDay && hasBookingStatusForNew) {
+            if (createdInRange && hasBookingStatusForNew) {
                 counts.new_walkin_booking++;
             }
 
             // 10. New walkin rentout
-            const hasRentoutStatusForNew = Array.from(statusesOnDay).some(st => {
+            const hasRentoutStatusForNew = Array.from(statusesOnRange).some(st => {
                 const s = String(st || '');
                 return s.includes('Rentout') || s.includes('Rent Out') || s.includes('Booking & Rentout') || s.includes('Billed');
             }) || (
@@ -1184,23 +1218,23 @@ export const getWalkinCountPageData = async (req, res) => {
                 String(w.status || '').includes('Booking & Rentout') || 
                 String(w.status || '').includes('Billed')
             );
-            if (createdOnDay && hasRentoutStatusForNew) {
+            if (createdInRange && hasRentoutStatusForNew) {
                 counts.new_walkin_rentout++;
             }
 
             // 11. Revisit reissue
-            const hasReissueStatus = statusesOnDay.has('Reissue') || (updatedOnDay && w.status === 'Reissue');
-            if (!createdOnDay && updatedOnDay && hasReissueStatus) {
+            const hasReissueStatus = statusesOnRange.has('Reissue') || (updatedInRange && w.status === 'Reissue');
+            if (!createdInRange && updatedInRange && hasReissueStatus) {
                 counts.revisit_reissue++;
             }
 
             // 12. Revisit loss
-            if (!createdOnDay && (statusesOnDay.has('Revisit Loss') || (updatedOnDay && w.status === 'Revisit Loss'))) {
+            if (!createdInRange && (statusesOnRange.has('Revisit Loss') || (updatedInRange && w.status === 'Revisit Loss'))) {
                 counts.revisit_loss++;
             }
 
             // 13. Others
-            const hasOtherStatus = statusesOnDay.has('Other') || statusesOnDay.has('Others') || (updatedOnDay && (w.status === 'Other' || w.status === 'Others'));
+            const hasOtherStatus = statusesOnRange.has('Other') || statusesOnRange.has('Others') || (updatedInRange && (w.status === 'Other' || w.status === 'Others'));
             if (hasOtherStatus) {
                 counts.others++;
             }
@@ -1226,87 +1260,62 @@ export const getWalkinCountPageData = async (req, res) => {
             cameraCheckSums[cc.statusKey] = (cameraCheckSums[cc.statusKey] || 0) + cc.inCamCount;
         });
 
-        // 5. Fetch saved comparison details (if any)
-        let savedCount = null;
-        if (store.toLowerCase() === 'all') {
-            const savedCounts = await WalkinCount.find({ date }).lean();
-            if (savedCounts.length > 0) {
-                const aggregatedCounts = BACKEND_CATEGORIES.map(cat => {
-                    let totalInCam = 0;
-                    let totalSalesReport = 0;
-                    let hasInCam = false;
-                    let hasSalesReport = false;
-
-                    savedCounts.forEach(sc => {
-                        const existing = sc.counts.find(c => c.statusKey === cat.key);
-                        if (existing) {
-                            if (existing.inCam !== '-') {
-                                totalInCam += Number(existing.inCam) || 0;
-                                hasInCam = true;
-                            }
-                            if (existing.salesReport !== '-') {
-                                totalSalesReport += Number(existing.salesReport) || 0;
-                                hasSalesReport = true;
-                            }
-                        }
-                    });
-
-                    const ccSum = cameraCheckSums[cat.key];
-                    const inCamVal = ccSum !== undefined ? String(ccSum) : (hasInCam ? String(totalInCam) : '-');
-
-                    return {
-                        statusKey: cat.key,
-                        inCam: inCamVal,
-                        salesReport: hasSalesReport ? String(totalSalesReport) : '-',
-                        timeSeen: '',
-                        remarks: ''
-                    };
-                });
-
-                savedCount = {
-                    date,
-                    store: 'All',
-                    storeId: null,
-                    counts: aggregatedCounts
-                };
-            }
+        // 5. Fetch saved comparison details (if any) for this date/range & store
+        let savedCountsQuery = {};
+        if (startDate && endDate) {
+            savedCountsQuery.date = { $gte: startDate, $lte: endDate };
         } else {
-            savedCount = await WalkinCount.findOne({ date, storeId: resolvedStoreId }).lean();
+            savedCountsQuery.date = date;
+        }
+        if (store.toLowerCase() !== 'all') {
+            savedCountsQuery.storeId = resolvedStoreId;
         }
 
-        const defaultCounts = BACKEND_CATEGORIES.map(cat => {
+        const savedCounts = await WalkinCount.find(savedCountsQuery).lean();
+
+        const aggregatedCounts = BACKEND_CATEGORIES.map(cat => {
+            let totalInCam = 0;
+            let totalSalesReport = 0;
+            let hasInCam = false;
+            let hasSalesReport = false;
+            const remarksSet = new Set();
+
+            savedCounts.forEach(sc => {
+                const existing = sc.counts.find(c => c.statusKey === cat.key);
+                if (existing) {
+                    if (existing.inCam !== '-') {
+                        totalInCam += Number(existing.inCam) || 0;
+                        hasInCam = true;
+                    }
+                    if (existing.salesReport !== '-') {
+                        totalSalesReport += Number(existing.salesReport) || 0;
+                        hasSalesReport = true;
+                    }
+                    if (existing.remarks && existing.remarks.trim()) {
+                        remarksSet.add(existing.remarks.trim());
+                    }
+                }
+            });
+
             const ccSum = cameraCheckSums[cat.key];
+            const inCamVal = ccSum !== undefined ? String(ccSum) : (hasInCam ? String(totalInCam) : '-');
+            const joinedRemarks = Array.from(remarksSet).join('; ');
+
             return {
                 statusKey: cat.key,
-                inCam: ccSum !== undefined ? String(ccSum) : '-',
-                salesReport: '-',
+                inCam: inCamVal,
+                salesReport: hasSalesReport ? String(totalSalesReport) : '-',
                 timeSeen: '',
-                remarks: ''
+                remarks: joinedRemarks
             };
         });
 
-        if (savedCount) {
-            // Overwrite inCam fields with updated camera check sums
-            savedCount.counts = BACKEND_CATEGORIES.map(cat => {
-                const existing = savedCount.counts.find(c => c.statusKey === cat.key);
-                const ccSum = cameraCheckSums[cat.key];
-                const inCamVal = ccSum !== undefined ? String(ccSum) : (existing ? existing.inCam : '-');
-                return {
-                    statusKey: cat.key,
-                    inCam: inCamVal,
-                    salesReport: existing ? existing.salesReport : '-',
-                    timeSeen: existing ? existing.timeSeen : '',
-                    remarks: existing ? existing.remarks : ''
-                };
-            });
-        } else {
-            savedCount = {
-                date,
-                store: resolvedStoreName,
-                storeId: resolvedStoreId,
-                counts: defaultCounts
-            };
-        }
+        const savedCount = {
+            date: startDate && endDate ? `${startDate} to ${endDate}` : date,
+            store: store.toLowerCase() === 'all' ? 'All' : resolvedStoreName,
+            storeId: store.toLowerCase() === 'all' ? null : resolvedStoreId,
+            counts: aggregatedCounts
+        };
 
         return res.status(200).json({
             success: true,

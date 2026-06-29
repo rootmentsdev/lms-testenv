@@ -78,8 +78,8 @@
 
 .brynex-splash-logo-container {
   position: relative;
-  width: 180px;
-  height: 180px;
+  width: 240px;
+  height: 240px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -88,23 +88,19 @@
 }
 
 .brynex-splash-logo {
-  width: 125px;
-  height: 125px;
+  width: 165px;
+  height: 165px;
   object-fit: contain;
   z-index: 2;
   border-radius: 50%;
-  opacity: 0;
-}
-
-.brynex-splash-logo.brynex-logo-animate {
   animation: brynex-logo-3d-entrance 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards,
              brynex-logo-breath 3.5s ease-in-out 1.2s infinite;
 }
 
 .brynex-neon-ring {
   position: absolute;
-  width: 160px;
-  height: 160px;
+  width: 210px;
+  height: 210px;
   border-radius: 50%;
   border: 3px solid transparent;
   border-top-color: #ffffff;
@@ -118,7 +114,7 @@
 }
 
 .brynex-splash-title {
-  font-size: 28px;
+  font-size: 36px;
   font-weight: 800;
   letter-spacing: 0.2em;
   margin: 0;
@@ -128,7 +124,7 @@
 }
 
 .brynex-splash-subtitle {
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.3em;
   color: #9ca3af;
@@ -139,7 +135,7 @@
 }
 
 .brynex-splash-progress-track {
-  width: 155px;
+  width: 200px;
   height: 3px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 2px;
