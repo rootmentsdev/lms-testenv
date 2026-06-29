@@ -11,12 +11,12 @@ const COLORS = {
 };
 
 const LegendRow = ({ color, label, count }) => (
-  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #f3f4f6" }}>
+  <div className="border-b border-[#f3f4f6] dark:border-slate-800" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0" }}>
     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
       <span style={{ width: "10px", height: "10px", borderRadius: "50%", backgroundColor: color, flexShrink: 0, display: "inline-block" }} />
-      <span style={{ fontSize: "13px", color: "#374151" }}>{label}</span>
+      <span className="text-[#374151] dark:text-[#cbd5e1]" style={{ fontSize: "13px" }}>{label}</span>
     </div>
-    <span style={{ fontSize: "13px", fontWeight: 600, color: "#111827" }}>{count}</span>
+    <span className="text-[#111827] dark:text-[#f8fafc]" style={{ fontSize: "13px", fontWeight: 600 }}>{count}</span>
   </div>
 );
 
@@ -91,14 +91,10 @@ const TaskOverview = () => {
   }, [tasksResponse, isLoading]);
 
   return (
-    <div className="w-full lg:w-[340px] flex-shrink-0" style={{
+    <div className="w-full lg:w-[340px] flex-shrink-0 bg-white dark:bg-[#111c2a] border border-[#e5e7eb] dark:border-slate-800" style={{
       height: "380px",
       padding: "20px",
       borderRadius: "18px",
-      borderWidth: "0.6px",
-      borderStyle: "solid",
-      borderColor: "#e5e7eb",
-      background: "#fff",
       display: "flex",
       flexDirection: "column",
       justifyContent: "space-between",
@@ -106,15 +102,14 @@ const TaskOverview = () => {
     }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
         <div>
-          <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#111827", margin: 0 }}>Task Overview</h3>
-          <p style={{ fontSize: "12px", color: "#9ca3af", margin: "2px 0 0" }}>{completed} / {total}</p>
+          <h3 className="text-[#111827] dark:text-[#f8fafc]" style={{ fontSize: "16px", fontWeight: 700, margin: 0 }}>Task Overview</h3>
+          <p className="text-[#9ca3af] dark:text-[#94a3b8]" style={{ fontSize: "12px", margin: "2px 0 0" }}>{completed} / {total}</p>
         </div>
         <Link to="/task">
-          <button style={{
-            background: "#111827", color: "#fff",
-            border: "none", borderRadius: "10px",
+          <button className="bg-[#111827] dark:bg-[#1e293b] text-white dark:text-slate-100 border-none hover:bg-gray-700 dark:hover:bg-slate-700 cursor-pointer" style={{
+            borderRadius: "10px",
             padding: "8px 18px", fontSize: "13px",
-            fontWeight: 600, cursor: "pointer",
+            fontWeight: 600,
           }}>
             View All
           </button>
@@ -152,7 +147,7 @@ const TaskOverview = () => {
         </ResponsiveContainer>
       </div>
 
-      <div style={{ borderTop: "1px solid #f3f4f6" }}>
+      <div className="border-t border-[#f3f4f6] dark:border-slate-800">
         <LegendRow color={COLORS["Completed"]}   label="Completed"   count={completed}  />
         <LegendRow color={COLORS["In Progress"]} label="In Progress" count={inProgress} />
         <LegendRow color={COLORS["Overdue"]}     label="Overdue"     count={overdue}    />

@@ -353,11 +353,9 @@ const HomeBar = () => {
   const monthLabel = today.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
   return (
-    <div style={{
+    <div className="bg-white dark:bg-[#111c2a] border border-[#e5e7eb] dark:border-slate-800" style={{
       width: "100%",
-      background: "#fff",
       borderRadius: "18px",
-      border: "0.6px solid #e5e7eb",
       padding: "20px 24px",
       boxSizing: "border-box",
       display: "flex",
@@ -369,10 +367,10 @@ const HomeBar = () => {
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
           <div>
-            <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#111827", margin: 0 }}>
+            <h3 className="text-[#111827] dark:text-[#f8fafc]" style={{ fontSize: "16px", fontWeight: 700, margin: 0 }}>
               {activeGraph === "training" ? "Training Progress" : "Store Target Vs Achieved Target"}
             </h3>
-            <p style={{ fontSize: "12px", color: "#9ca3af", margin: "2px 0 0" }}>
+            <p className="text-[#9ca3af] dark:text-[#94a3b8]" style={{ fontSize: "12px", margin: "2px 0 0" }}>
               {activeGraph === "training"
                 ? `${today.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${today.getFullYear()} | ${storeCount} Stores`
                 : `June 01-27, 2026 | Comparison across ${revenueChartData.length} stores`
@@ -381,15 +379,17 @@ const HomeBar = () => {
           </div>
 
           {/* Switcher Toggle Buttons */}
-          <div style={{ display: "flex", background: "#f3f4f6", borderRadius: "10px", padding: "2.5px" }}>
+          <div className="bg-[#f3f4f6] dark:bg-[#162235]" style={{ display: "flex", borderRadius: "10px", padding: "2.5px" }}>
             <button
               onClick={() => setActiveGraph("training")}
+              className={`${
+                activeGraph === "training"
+                  ? "bg-white dark:bg-[#111c2a] text-[#111827] dark:text-[#f8fafc] shadow-sm"
+                  : "bg-transparent text-[#6b7280] dark:text-[#94a3b8]"
+              }`}
               style={{
                 padding: "4px 12px", borderRadius: "8px", fontSize: "11px", fontWeight: 700,
                 border: "none", cursor: "pointer",
-                background: activeGraph === "training" ? "#fff" : "transparent",
-                color: activeGraph === "training" ? "#111827" : "#6b7280",
-                boxShadow: activeGraph === "training" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
                 transition: "all 0.15s"
               }}
             >
@@ -397,12 +397,14 @@ const HomeBar = () => {
             </button>
             <button
               onClick={() => setActiveGraph("revenue")}
+              className={`${
+                activeGraph === "revenue"
+                  ? "bg-white dark:bg-[#111c2a] text-[#111827] dark:text-[#f8fafc] shadow-sm"
+                  : "bg-transparent text-[#6b7280] dark:text-[#94a3b8]"
+              }`}
               style={{
                 padding: "4px 12px", borderRadius: "8px", fontSize: "11px", fontWeight: 700,
                 border: "none", cursor: "pointer",
-                background: activeGraph === "revenue" ? "#fff" : "transparent",
-                color: activeGraph === "revenue" ? "#111827" : "#6b7280",
-                boxShadow: activeGraph === "revenue" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
                 transition: "all 0.15s"
               }}
             >
@@ -411,11 +413,10 @@ const HomeBar = () => {
           </div>
         </div>
 
-        <button style={{
+        <button className="border border-[#e5e7eb] dark:border-slate-800 bg-white dark:bg-[#162235] text-[#374151] dark:text-[#f8fafc] cursor-pointer" style={{
           display: "flex", alignItems: "center", gap: "6px",
-          border: "1px solid #e5e7eb", borderRadius: "8px",
+          borderRadius: "8px",
           padding: "6px 12px", fontSize: "12px", fontWeight: 500,
-          color: "#374151", background: "#fff", cursor: "pointer",
         }}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>

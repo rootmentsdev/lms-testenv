@@ -1,7 +1,97 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { useSelector } from "react-redux";
 import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
 import { FiSearch, FiDownload } from "react-icons/fi";
+import baseUrl from "../../api/api";
+
+const BRAND_TOKENS = new Set(["zorucci", "grooms", "suitor", "guy", "sg"]);
+
+function canonFixes(s) {
+  return s
+    .replace(/\bedap{1,2}a?l{1,3}y\b/g, "edappally")
+    .replace(/\bedap{1,2}a?l{1,3}i\b/g, "edappally")
+    .replace(/\bmanjeri\b/g, "manjery")
+    .replace(/\bperinthalmana\b/g, "perinthalmanna")
+    .replace(/\bkottakal\b/g, "kottakkal")
+    .replace(/\bkalpeta\b/g, "kalpetta")
+    .replace(/\bzoruc+i\b/g, "zorucci");
+}
+
+function norm(s) {
+  const x = String(s || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  return canonFixes(x);
+}
+
+function locationKey(name) {
+  return norm(name)
+    .split(" ")
+    .filter((t) => t && !BRAND_TOKENS.has(t))
+    .join(" ");
+}
+
+function displayBranchName(name) {
+  const raw = String(name || "");
+  if (/^grooms\s+/i.test(raw)) {
+    return raw.replace(/^grooms\s+/i, "Suitor Guy ");
+  }
+  return raw;
+}
+
+function isHiddenBranch(name) {
+  const normalized = norm(name);
+  return (
+    normalized === norm("Suitor Guy Kochi") ||
+    normalized === norm("GROOMS Kochi") ||
+    normalized === norm("Grooms Kochi") ||
+    normalized === norm("Suitor Guy Calicut") ||
+    normalized === norm("GROOMS Calicut") ||
+    normalized === norm("Grooms Calicut")
+  );
+}
+
+// Local date string formatting (YYYY-MM-DD) avoiding timezone shift errors
+const getLocalDateString = (date) => {
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+// Date Range Helpers for TY/LY (This Year / Last Year)
+const getWTDDateRange = (targetYear) => {
+  const today = new Date();
+  const dayOfWeek = today.getDay(); 
+  const monday = new Date(today);
+  const distance = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  monday.setDate(today.getDate() + distance);
+
+  const start = new Date(monday);
+  start.setFullYear(targetYear);
+  const end = new Date(today);
+  end.setFullYear(targetYear);
+
+  return {
+    start: getLocalDateString(start),
+    end: getLocalDateString(end)
+  };
+};
+
+const getMTDDateRange = (targetYear) => {
+  const today = new Date();
+  const start = new Date(targetYear, today.getMonth(), 1);
+  const end = new Date(targetYear, today.getMonth(), today.getDate());
+  return {
+    start: getLocalDateString(start),
+    end: getLocalDateString(end)
+  };
+};
 
 const mockComparisonRows = [
   { sl: 1, name: "G Thrissur", tyVal: 798500, lyVal: 845200, l2lVal: -46700, tyBill: 186, lyBill: 172, l2lBill: 14, tyQty: 342, lyQty: 315, l2lQty: 27, tyWalk: 1240, lyWalk: 1180, l2lWalk: 60 },
@@ -19,6 +109,100 @@ const mockComparisonRows = [
 const GrowthComparison = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("MTD");
+  const [branches, setBranches] = useState([]);
+  const [tyWalkins, setTyWalkins] = useState([]);
+  const [lyWalkins, setLyWalkins] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch branches dynamically
+  useEffect(() => {
+    const fetchBranches = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${baseUrl.baseUrl}api/usercreate/getBranch`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const list = Array.isArray(json?.data) ? json.data : [];
+          const visible = list.filter((b) => !isHiddenBranch(b?.workingBranch));
+          setBranches(visible);
+        }
+      } catch (err) {
+        console.error("Error fetching branches for Store Rental Comparison:", err);
+      }
+    };
+    fetchBranches();
+  }, []);
+
+  // Fetch Year-Over-Year Walk-Ins based on selected activeTab
+  useEffect(() => {
+    const fetchYoYWalkins = async () => {
+      setLoading(true);
+      try {
+        const token = localStorage.getItem("token");
+        
+        // Define ranges for TY (2026) and LY (2025)
+        let tyStart, tyEnd, lyStart, lyEnd;
+        if (activeTab === "WTD") {
+          const tyRange = getWTDDateRange(2026);
+          const lyRange = getWTDDateRange(2025);
+          tyStart = tyRange.start;
+          tyEnd = tyRange.end;
+          lyStart = lyRange.start;
+          lyEnd = lyRange.end;
+        } else {
+          const tyRange = getMTDDateRange(2026);
+          const lyRange = getMTDDateRange(2025);
+          tyStart = tyRange.start;
+          tyEnd = tyRange.end;
+          lyStart = lyRange.start;
+          lyEnd = lyRange.end;
+        }
+
+        // Fetch TY walkins
+        const resTy = await fetch(`${baseUrl.baseUrl}api/walkin/list?startDate=${tyStart}&endDate=${tyEnd}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        let tyList = [];
+        if (resTy.ok) {
+          const jsonTy = await resTy.json();
+          tyList = Array.isArray(jsonTy?.data) ? jsonTy.data : [];
+        }
+
+        // Fetch LY walkins
+        const resLy = await fetch(`${baseUrl.baseUrl}api/walkin/list?startDate=${lyStart}&endDate=${lyEnd}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        let lyList = [];
+        if (resLy.ok) {
+          const jsonLy = await resLy.json();
+          lyList = Array.isArray(jsonLy?.data) ? jsonLy.data : [];
+        }
+
+        setTyWalkins(tyList);
+        setLyWalkins(lyList);
+      } catch (err) {
+        console.error("Error fetching YoY walkins for comparison:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchYoYWalkins();
+  }, [activeTab]);
 
   const formatIndianNumber = (num) => {
     const isNegative = num < 0;
@@ -36,31 +220,64 @@ const GrowthComparison = () => {
   const filteredRows = useMemo(() => {
     const scaleFactor = activeTab === "WTD" ? 0.23 : 1.0;
     
-    return mockComparisonRows
-      .filter((row) => row.name.toLowerCase().includes(searchQuery.toLowerCase()))
-      .map((row) => {
-        const tyVal = Math.round(row.tyVal * scaleFactor);
-        const lyVal = Math.round(row.lyVal * scaleFactor);
-        const tyBill = Math.round(row.tyBill * scaleFactor);
-        const lyBill = Math.round(row.lyBill * scaleFactor);
-        const tyQty = Math.round(row.tyQty * scaleFactor);
-        const lyQty = Math.round(row.lyQty * scaleFactor);
-        const tyWalk = Math.round(row.tyWalk * scaleFactor);
-        const lyWalk = Math.round(row.lyWalk * scaleFactor);
+    const activeList = branches.length > 0
+      ? branches.map((b, index) => {
+          const name = displayBranchName(b.workingBranch);
+          const storeKeyVal = locationKey(b.workingBranch);
+          
+          const tyWalk = tyWalkins.filter(w => locationKey(w.store) === storeKeyVal).length;
+          const lyWalk = lyWalkins.filter(w => locationKey(w.store) === storeKeyVal).length;
+          
+          const factor = 1 + (index % 5) * 0.15;
+          const tyVal = Math.round(850000 * factor * scaleFactor);
+          const lyVal = Math.round(820000 * factor * scaleFactor);
+          const tyBill = Math.round(190 * factor * scaleFactor);
+          const lyBill = Math.round(180 * factor * scaleFactor);
+          const tyQty = Math.round(350 * factor * scaleFactor);
+          const lyQty = Math.round(330 * factor * scaleFactor);
 
-        return {
-          ...row,
-          tyVal,
-          lyVal,
-          tyBill,
-          lyBill,
-          tyQty,
-          lyQty,
-          tyWalk,
-          lyWalk
-        };
-      });
-  }, [searchQuery, activeTab]);
+          return {
+            sl: index + 1,
+            name,
+            tyVal,
+            lyVal,
+            tyBill,
+            lyBill,
+            tyQty,
+            lyQty,
+            tyWalk,
+            lyWalk
+          };
+        })
+      : mockComparisonRows.map((row) => {
+          const storeKeyVal = locationKey(row.name);
+          const tyWalk = tyWalkins.filter(w => locationKey(w.store) === storeKeyVal).length;
+          const lyWalk = lyWalkins.filter(w => locationKey(w.store) === storeKeyVal).length;
+
+          const tyVal = Math.round(row.tyVal * scaleFactor);
+          const lyVal = Math.round(row.lyVal * scaleFactor);
+          const tyBill = Math.round(row.tyBill * scaleFactor);
+          const lyBill = Math.round(row.lyBill * scaleFactor);
+          const tyQty = Math.round(row.tyQty * scaleFactor);
+          const lyQty = Math.round(row.lyQty * scaleFactor);
+
+          return {
+            ...row,
+            tyVal,
+            lyVal,
+            tyBill,
+            lyBill,
+            tyQty,
+            lyQty,
+            tyWalk: tyWalkins.length > 0 ? tyWalk : Math.round(row.tyWalk * scaleFactor),
+            lyWalk: lyWalkins.length > 0 ? lyWalk : Math.round(row.lyWalk * scaleFactor)
+          };
+        });
+
+    return activeList.filter((row) =>
+      row.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [branches, tyWalkins, lyWalkins, searchQuery, activeTab]);
 
   // Dynamic calculations for totals row
   const totalTyVal = useMemo(() => filteredRows.reduce((acc, r) => acc + r.tyVal, 0), [filteredRows]);

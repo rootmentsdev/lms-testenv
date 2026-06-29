@@ -289,6 +289,23 @@ function norm(s) {
   return canonFixes(x);
 }
 
+function locationKey(name) {
+  return norm(name)
+    .split(" ")
+    .filter((t) => t && !BRAND_TOKENS.has(t))
+    .join(" ");
+}
+
+function getLocalDateString(date) {
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+
+
 function displayBranchName(name) {
   const raw = String(name || "");
   if (/^grooms\s+/i.test(raw)) {
@@ -544,6 +561,8 @@ const DSRReport = () => {
   // Dynamic branches state
   const [branches, setBranches] = useState([]);
   const [loadingBranches, setLoadingBranches] = useState(true);
+  const [walkins, setWalkins] = useState([]);
+  const [loadingWalkins, setLoadingWalkins] = useState(false);
 
   // Fetch branches dynamically
   useEffect(() => {
@@ -571,6 +590,59 @@ const DSRReport = () => {
     };
     fetchBranches();
   }, []);
+
+  // Fetch walkins dynamically based on timeframe range
+  useEffect(() => {
+    const fetchWalkins = async () => {
+      setLoadingWalkins(true);
+      try {
+        const token = localStorage.getItem("token");
+        const todayStr = getLocalDateString(new Date());
+        
+        let periodStart = todayStr;
+        let periodEnd = todayStr;
+        if (activeTab === "WTD") {
+          const today = new Date();
+          const dayOfWeek = today.getDay(); 
+          const monday = new Date(today);
+          const distance = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+          monday.setDate(today.getDate() + distance);
+          periodStart = getLocalDateString(monday);
+          periodEnd = todayStr;
+        } else if (activeTab === "MTD") {
+          const today = new Date();
+          periodStart = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
+          periodEnd = todayStr;
+        } else if (activeTab === "Custom") {
+          periodStart = customStartDate || todayStr;
+          periodEnd = customEndDate || todayStr;
+        }
+
+        const fetchStart = periodStart < todayStr ? periodStart : todayStr;
+        const fetchEnd = periodEnd > todayStr ? periodEnd : todayStr;
+
+        const res = await fetch(`${baseUrl.baseUrl}api/walkin/list?startDate=${fetchStart}&endDate=${fetchEnd}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const list = Array.isArray(json?.data) ? json.data : [];
+          setWalkins(list);
+        }
+      } catch (err) {
+        console.error("Error fetching walkins for DSR:", err);
+      } finally {
+        setLoadingWalkins(false);
+      }
+    };
+
+    fetchWalkins();
+  }, [activeTab, customStartDate, customEndDate]);
+
 
   useEffect(() => {
     localStorage.setItem("week1Dates", week1Dates);
@@ -683,21 +755,86 @@ const DSRReport = () => {
 
   // Generate dynamic Sales Funnel data based on fetched branches (with mock fallback)
   const funnelRows = useMemo(() => {
+    const todayStr = getLocalDateString(new Date());
+    
+    // Calculate active period start and end date
+    let periodStart = todayStr;
+    let periodEnd = todayStr;
+    if (activeTab === "WTD") {
+      const today = new Date();
+      const dayOfWeek = today.getDay(); 
+      const monday = new Date(today);
+      const distance = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      monday.setDate(today.getDate() + distance);
+      periodStart = getLocalDateString(monday);
+      periodEnd = todayStr;
+    } else if (activeTab === "MTD") {
+      const today = new Date();
+      periodStart = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
+      periodEnd = todayStr;
+    } else if (activeTab === "Custom") {
+      periodStart = customStartDate || todayStr;
+      periodEnd = customEndDate || todayStr;
+    }
+
+    const getWalkinDateString = (w) => {
+      if (!w.date || w.date === '-') return '';
+      return w.date.split(' ')[0];
+    };
+
+    const isLoss = (w) => {
+      const s = String(w.status || '').toLowerCase();
+      const rentalS = String(w.rentalStatus || '').toLowerCase();
+      const shoeS = String(w.shoeStatus || '').toLowerCase();
+      return s === 'loss' || s === 'revisit loss' || s === 'lost' ||
+             rentalS === 'loss' || rentalS === 'revisit loss' || rentalS === 'lost' ||
+             shoeS === 'loss' || shoeS === 'revisit loss' || shoeS === 'lost';
+    };
+
+    let customFactor = 1.0;
+    if (activeTab === "Custom") {
+      const start = new Date(customStartDate);
+      const end = new Date(customEndDate);
+      const diffTime = Math.abs(end - start);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      customFactor = isNaN(diffDays) ? 1.0 : diffDays / 30.0;
+    }
+
+    let periodFactor = 1.0;
+    if (activeTab === "MTD") {
+      periodFactor = 4.33;
+    } else if (activeTab === "Custom") {
+      periodFactor = customFactor * 5;
+    }
+
     if (isAdminOrSuperAdmin) {
       if (branches.length > 0) {
         return branches.map((b, index) => {
           const name = displayBranchName(b.workingBranch);
-          const factor = 1 + (index % 5) * 0.15; // Realistic variations
+          const storeKeyVal = locationKey(b.workingBranch);
+          
+          // Get real walkin statistics for this store
+          const storeWalkins = walkins.filter(w => locationKey(w.store) === storeKeyVal);
+          
+          const ftdWalkins = storeWalkins.filter(w => getWalkinDateString(w) === todayStr);
+          const periodWalkins = storeWalkins.filter(w => {
+            const d = getWalkinDateString(w);
+            return d && d >= periodStart && d <= periodEnd;
+          });
+
+          const walkFtd = ftdWalkins.length;
+          const walkWtd = periodWalkins.length;
+
+          const lossFtd = ftdWalkins.filter(isLoss).length;
+          const lossWtd = periodWalkins.filter(isLoss).length;
+
+          const factor = 1 + (index % 5) * 0.15; // Realistic variations for other metrics
           const billFtd = Math.round(80000 * factor);
-          const billWtd = Math.round(480000 * factor);
+          const billWtd = Math.round(480000 * factor * periodFactor);
           const valFtd = Math.round(30 * factor) || 1;
-          const valWtd = Math.round(180 * factor) || 1;
+          const valWtd = Math.round(180 * factor * periodFactor) || 1;
           const qtyFtd = Math.round(50 * factor) || 1;
-          const qtyWtd = Math.round(300 * factor) || 1;
-          const walkFtd = Math.round(70 * factor) || 1;
-          const walkWtd = Math.round(420 * factor) || 1;
-          const lossFtd = Math.round(20 * factor);
-          const lossWtd = Math.round(120 * factor);
+          const qtyWtd = Math.round(300 * factor * periodFactor) || 1;
 
           return {
             name,
@@ -716,15 +853,50 @@ const DSRReport = () => {
             abvWtd: Math.round(billWtd / valWtd),
             absFtd: parseFloat((qtyFtd / valFtd).toFixed(1)),
             absWtd: parseFloat((qtyWtd / valWtd).toFixed(1)),
-            convFtd: Math.round((valFtd / walkFtd) * 100),
-            convWtd: Math.round((valWtd / walkWtd) * 100),
+            convFtd: walkFtd > 0 ? Math.round((valFtd / walkFtd) * 100) : 0,
+            convWtd: walkWtd > 0 ? Math.round((valWtd / walkWtd) * 100) : 0,
             arpFtd: Math.round(billFtd / qtyFtd),
             arpWtd: Math.round(billWtd / qtyWtd)
           };
         });
       }
-      return mockStoreFunnelRows;
+      // Fallback if branches not loaded yet or empty
+      return mockStoreFunnelRows.map(row => {
+        const storeKeyVal = locationKey(row.name);
+        const storeWalkins = walkins.filter(w => locationKey(w.store) === storeKeyVal);
+        const ftdWalkins = storeWalkins.filter(w => getWalkinDateString(w) === todayStr);
+        const periodWalkins = storeWalkins.filter(w => {
+          const d = getWalkinDateString(w);
+          return d && d >= periodStart && d <= periodEnd;
+        });
+
+        const walkFtd = ftdWalkins.length;
+        const walkWtd = periodWalkins.length;
+        const lossFtd = ftdWalkins.filter(isLoss).length;
+        const lossWtd = periodWalkins.filter(isLoss).length;
+
+        const billWtd = Math.round(row.billWtd * periodFactor);
+        const valWtd = Math.round(row.valWtd * periodFactor) || 1;
+        const qtyWtd = Math.round(row.qtyWtd * periodFactor) || 1;
+
+        return {
+          ...row,
+          billWtd,
+          valWtd,
+          qtyWtd,
+          walkFtd,
+          walkWtd,
+          lossFtd,
+          lossWtd,
+          abvWtd: Math.round(billWtd / valWtd),
+          absWtd: parseFloat((qtyWtd / valWtd).toFixed(1)),
+          convFtd: walkFtd > 0 ? Math.round((row.valFtd / walkFtd) * 100) : 0,
+          convWtd: walkWtd > 0 ? Math.round((valWtd / walkWtd) * 100) : 0,
+          arpWtd: Math.round(billWtd / qtyWtd)
+        };
+      });
     } else {
+      // Non-admin view: Staff rows
       const staffPool = [
         "Amal P", "Anagha Hari", "Rohit H", "Abhiram S Kumar",
         "Sanu Sujanan", "Parvathy", "Jophy", "Abijith",
@@ -736,21 +908,35 @@ const DSRReport = () => {
         const allRows = [];
         branches.forEach((b, bIdx) => {
           const storeName = displayBranchName(b.workingBranch);
+          const storeKeyVal = locationKey(b.workingBranch);
           // Generate 5 staff members for each store
           for (let sIdx = 0; sIdx < 5; sIdx++) {
             const staffName = staffPool[(bIdx * 3 + sIdx) % staffPool.length];
             const factor = 0.8 + ((bIdx * 7 + sIdx * 11) % 40) / 100;
             
+            // Get real walkin statistics for this staff member at this store
+            const staffWalkins = walkins.filter(w => 
+              locationKey(w.store) === storeKeyVal &&
+              w.staff && w.staff.trim().toLowerCase() === staffName.trim().toLowerCase()
+            );
+
+            const ftdWalkins = staffWalkins.filter(w => getWalkinDateString(w) === todayStr);
+            const periodWalkins = staffWalkins.filter(w => {
+              const d = getWalkinDateString(w);
+              return d && d >= periodStart && d <= periodEnd;
+            });
+
+            const walkFtd = ftdWalkins.length;
+            const walkWtd = periodWalkins.length;
+            const lossFtd = ftdWalkins.filter(isLoss).length;
+            const lossWtd = periodWalkins.filter(isLoss).length;
+
             const billFtd = Math.round(8000 * factor);
-            const billWtd = Math.round(48000 * factor);
+            const billWtd = Math.round(48000 * factor * periodFactor);
             const valFtd = Math.round(3 * factor) || 1;
-            const valWtd = Math.round(18 * factor) || 1;
+            const valWtd = Math.round(18 * factor * periodFactor) || 1;
             const qtyFtd = Math.round(5 * factor) || 1;
-            const qtyWtd = Math.round(30 * factor) || 1;
-            const walkFtd = Math.round(7 * factor) || 1;
-            const walkWtd = Math.round(42 * factor) || 1;
-            const lossFtd = Math.round(2 * factor);
-            const lossWtd = Math.round(12 * factor);
+            const qtyWtd = Math.round(30 * factor * periodFactor) || 1;
 
             allRows.push({
               name: staffName,
@@ -769,8 +955,8 @@ const DSRReport = () => {
               abvWtd: Math.round(billWtd / valWtd),
               absFtd: parseFloat((qtyFtd / valFtd).toFixed(1)),
               absWtd: parseFloat((qtyWtd / valWtd).toFixed(1)),
-              convFtd: Math.round((valFtd / walkFtd) * 100),
-              convWtd: Math.round((valWtd / walkWtd) * 100),
+              convFtd: walkFtd > 0 ? Math.round((valFtd / walkFtd) * 100) : 0,
+              convWtd: walkWtd > 0 ? Math.round((valWtd / walkWtd) * 100) : 0,
               arpFtd: Math.round(billFtd / qtyFtd),
               arpWtd: Math.round(billWtd / qtyWtd)
             });
@@ -778,9 +964,46 @@ const DSRReport = () => {
         });
         return allRows;
       }
-      return mockFunnelRows;
+      return mockFunnelRows.map(row => {
+        const storeKeyVal = locationKey(row.storeName);
+        const staffWalkins = walkins.filter(w => 
+          locationKey(w.store) === storeKeyVal &&
+          w.staff && w.staff.trim().toLowerCase() === row.name.trim().toLowerCase()
+        );
+
+        const ftdWalkins = staffWalkins.filter(w => getWalkinDateString(w) === todayStr);
+        const periodWalkins = staffWalkins.filter(w => {
+          const d = getWalkinDateString(w);
+          return d && d >= periodStart && d <= periodEnd;
+        });
+
+        const walkFtd = ftdWalkins.length;
+        const walkWtd = periodWalkins.length;
+        const lossFtd = ftdWalkins.filter(isLoss).length;
+        const lossWtd = periodWalkins.filter(isLoss).length;
+
+        const billWtd = Math.round(row.billWtd * periodFactor);
+        const valWtd = Math.round(row.valWtd * periodFactor) || 1;
+        const qtyWtd = Math.round(row.qtyWtd * periodFactor) || 1;
+
+        return {
+          ...row,
+          billWtd,
+          valWtd,
+          qtyWtd,
+          walkFtd,
+          walkWtd,
+          lossFtd,
+          lossWtd,
+          abvWtd: Math.round(billWtd / valWtd),
+          absWtd: parseFloat((qtyWtd / valWtd).toFixed(1)),
+          convFtd: walkFtd > 0 ? Math.round((row.valFtd / walkFtd) * 100) : 0,
+          convWtd: walkWtd > 0 ? Math.round((valWtd / walkWtd) * 100) : 0,
+          arpWtd: Math.round(billWtd / qtyWtd)
+        };
+      });
     }
-  }, [branches, isAdminOrSuperAdmin]);
+  }, [branches, isAdminOrSuperAdmin, walkins, activeTab, customStartDate, customEndDate]);
 
   // Populate dynamic store options for dropdown
   const storeOptions = useMemo(() => {
@@ -976,15 +1199,15 @@ const DSRReport = () => {
       fileName = `Sales_Funnel_${activeTab}_2026.csv`;
       const headers = [
         isAdminOrSuperAdmin ? "Store Name" : "Staff Name",
-        "Bill (FTD)", "Bill (WTD)",
-        "Value (FTD)", "Value (WTD)",
-        "Qty (FTD)", "Qty (WTD)",
-        "Walk-In (FTD)", "Walk-In (WTD)",
-        "Loss (FTD)", "Loss (WTD)",
-        "ABV (FTD)", "ABV (WTD)",
-        "ABS (FTD)", "ABS (WTD)",
-        "Conv % (FTD)", "Conv % (WTD)",
-        "ARP (FTD)", "ARP (WTD)"
+        "Bill (FTD)", `Bill (${activeTab})`,
+        "Value (FTD)", `Value (${activeTab})`,
+        "Qty (FTD)", `Qty (${activeTab})`,
+        "Walk-In (FTD)", `Walk-In (${activeTab})`,
+        "Loss (FTD)", `Loss (${activeTab})`,
+        "ABV (FTD)", `ABV (${activeTab})`,
+        "ABS (FTD)", `ABS (${activeTab})`,
+        "Conv % (FTD)", `Conv % (${activeTab})`,
+        "ARP (FTD)", `ARP (${activeTab})`
       ];
       const rows = filteredFunnelRows.map((row) => [
         row.name,
@@ -1383,34 +1606,34 @@ const DSRReport = () => {
                   {/* Secondary header row */}
                   <tr className="bg-[#2e2e2e] text-white text-[10px] font-bold tracking-wider uppercase">
                     <th className="px-4 py-2 border-r border-gray-600">FTD</th>
-                    <th className="px-4 py-2 border-r border-gray-600">WTD</th>
+                    <th className="px-4 py-2 border-r border-gray-600">{activeTab}</th>
                     
                     <th className="px-4 py-2 border-r border-gray-600">FTD</th>
-                    <th className="px-4 py-2 border-r border-gray-600">WTD</th>
+                    <th className="px-4 py-2 border-r border-gray-600">{activeTab}</th>
                     
                     <th className="px-4 py-2 border-r border-gray-600">FTD</th>
-                    <th className="px-4 py-2 border-r border-gray-600">WTD</th>
+                    <th className="px-4 py-2 border-r border-gray-600">{activeTab}</th>
 
                     <th className="px-4 py-2 border-r border-gray-600">FTD</th>
-                    <th className="px-4 py-2 border-r border-gray-600">WTD</th>
+                    <th className="px-4 py-2 border-r border-gray-600">{activeTab}</th>
 
                     <th className="px-4 py-2 border-r border-gray-600">FTD</th>
-                    <th className="px-4 py-2 border-r border-gray-600">WTD</th>
+                    <th className="px-4 py-2 border-r border-gray-600">{activeTab}</th>
 
                     <th className="px-4 py-2 border-r border-gray-600">FTD</th>
-                    <th className="px-4 py-2 border-r border-gray-600">WTD</th>
+                    <th className="px-4 py-2 border-r border-gray-600">{activeTab}</th>
 
                     <th className="px-4 py-2 border-r border-gray-600">FTD</th>
-                    <th className="px-4 py-2 border-r border-gray-600">WTD</th>
+                    <th className="px-4 py-2 border-r border-gray-600">{activeTab}</th>
 
                     <th className="px-4 py-2 border-r border-gray-600">FTD</th>
-                    <th className="px-4 py-2 border-r border-gray-600">WTD</th>
+                    <th className="px-4 py-2 border-r border-gray-600">{activeTab}</th>
 
                     <th className="px-4 py-2 border-r border-gray-600">FTD</th>
-                    <th className="px-4 py-2 border-r border-gray-600">WTD</th>
+                    <th className="px-4 py-2 border-r border-gray-600">{activeTab}</th>
 
                     <th className="px-4 py-2 border-r border-gray-600">FTD</th>
-                    <th className="px-4 py-2">WTD</th>
+                    <th className="px-4 py-2">{activeTab}</th>
                   </tr>
                 </thead>
                 <tbody className="text-xs text-gray-700 divide-y divide-gray-100">

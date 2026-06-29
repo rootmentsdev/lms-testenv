@@ -151,15 +151,11 @@ const DailyWalkings = ({ range = "7", customRange, onRangeChange, onCustomRangeC
 
   return (
     <div
-      className="w-full lg:flex-1 min-w-0"
+      className="w-full lg:flex-1 min-w-0 bg-white dark:bg-[#111c2a] border border-[#e5e7eb] dark:border-slate-800"
       style={{
         height: "380px",
         padding: "20px",
         borderRadius: "18px",
-        borderWidth: "0.6px",
-        borderStyle: "solid",
-        borderColor: "#e5e7eb",
-        background: "#fff",
         display: "flex",
         flexDirection: "column",
         boxSizing: "border-box",
@@ -167,24 +163,20 @@ const DailyWalkings = ({ range = "7", customRange, onRangeChange, onCustomRangeC
     >
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px" }}>
         <div>
-          <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#111827", margin: 0 }}>Daily Walkings</h3>
-          <p style={{ fontSize: "12px", color: "#9ca3af", margin: "2px 0 0" }}>{rangeLabel}</p>
+          <h3 className="text-[#111827] dark:text-[#f8fafc]" style={{ fontSize: "16px", fontWeight: 700, margin: 0 }}>Daily Walkings</h3>
+          <p className="text-[#9ca3af] dark:text-[#94a3b8]" style={{ fontSize: "12px", margin: "2px 0 0" }}>{rangeLabel}</p>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "8px" }}>
           <select
             value={range}
             onChange={(e) => onRangeChange?.(e.target.value)}
+            className="border border-[#e5e7eb] dark:border-slate-800 bg-white dark:bg-[#162235] text-[#374151] dark:text-[#f8fafc] cursor-pointer outline-none"
             style={{
-              border: "1px solid #e5e7eb",
               borderRadius: "8px",
               padding: "6px 12px",
               fontSize: "13px",
               fontWeight: 500,
-              color: "#374151",
-              background: "#fff",
-              cursor: "pointer",
-              outline: "none",
             }}
           >
             <option value="7">This week to date</option>
@@ -201,14 +193,16 @@ const DailyWalkings = ({ range = "7", customRange, onRangeChange, onCustomRangeC
                 type="date"
                 value={customRange?.startDate || ""}
                 onChange={(e) => onCustomRangeChange?.({ ...(customRange || {}), startDate: e.target.value })}
-                style={{ border: "1px solid #e5e7eb", borderRadius: "8px", padding: "6px 10px", fontSize: "13px" }}
+                className="border border-[#e5e7eb] dark:border-slate-800 bg-white dark:bg-[#162235] text-[#374151] dark:text-[#f8fafc] outline-none"
+                style={{ borderRadius: "8px", padding: "6px 10px", fontSize: "13px" }}
               />
-              <span style={{ color: "#9ca3af", fontSize: "13px" }}>to</span>
+              <span className="text-[#9ca3af] dark:text-[#94a3b8]" style={{ fontSize: "13px" }}>to</span>
               <input
                 type="date"
                 value={customRange?.endDate || ""}
                 onChange={(e) => onCustomRangeChange?.({ ...(customRange || {}), endDate: e.target.value })}
-                style={{ border: "1px solid #e5e7eb", borderRadius: "8px", padding: "6px 10px", fontSize: "13px" }}
+                className="border border-[#e5e7eb] dark:border-slate-800 bg-white dark:bg-[#162235] text-[#374151] dark:text-[#f8fafc] outline-none"
+                style={{ borderRadius: "8px", padding: "6px 10px", fontSize: "13px" }}
               />
               <button
                 type="button"
@@ -216,7 +210,8 @@ const DailyWalkings = ({ range = "7", customRange, onRangeChange, onCustomRangeC
                   onCustomRangeChange?.({ startDate: "", endDate: "" });
                   onRangeChange?.("7");
                 }}
-                style={{ border: "1px solid #e5e7eb", borderRadius: "8px", padding: "6px 10px", fontSize: "13px", background: "#fff" }}
+                className="border border-[#e5e7eb] dark:border-slate-800 bg-white dark:bg-[#162235] text-[#374151] dark:text-[#f8fafc] cursor-pointer"
+                style={{ borderRadius: "8px", padding: "6px 10px", fontSize: "13px" }}
               >
                 Reset
               </button>
