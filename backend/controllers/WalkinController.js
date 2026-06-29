@@ -172,6 +172,10 @@ function isStoreAllowed(walkinStore, allowedBranches) {
 export const checkCustomerExists = async (req, res) => {
     try {
         const { contact } = req.params;
+        console.log(`\n--- [checkCustomerExists] ---`);
+        console.log(`Incoming phone: "${contact}"`);
+        console.log(`req.admin:`, req.admin);
+
         if (!contact) {
             return res.status(400).json({ success: false, message: 'Contact phone number is required' });
         }
@@ -182,14 +186,20 @@ export const checkCustomerExists = async (req, res) => {
         if (req.admin) {
             const adminId = req.admin.userId;
             query = await buildStoreWideWalkinFilter(adminId, query);
+            console.log(`Resolved query with permissions:`, JSON.stringify(query, null, 2));
             if (query._id === null) {
+                console.log(`Access denied: query._id is null`);
                 return res.status(403).json({ success: false, message: 'Admin not found or access denied' });
             }
+        } else {
+            console.log(`No req.admin found, querying globally:`, query);
         }
 
         // Find the latest walkin record for this customer
         const latestWalkin = await Walkin.findOne(query)
             .sort({ createdAt: -1 });
+
+        console.log(`Query Result found?`, latestWalkin ? `Yes (ID: ${latestWalkin._id}, Store: ${latestWalkin.store}, StoreId: ${latestWalkin.storeId})` : 'No');
 
         if (latestWalkin) {
             return res.status(200).json({
