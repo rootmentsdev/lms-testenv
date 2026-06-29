@@ -12,55 +12,79 @@ export const isFullAccessAdmin = (adminRole) => {
 };
 
 /**
+ * Resolves a Branch document for a User/Employee by matching locCode and workingBranch robustly.
+ * Handles type differences (number/string) and case differences.
+ */
+async function findBranchForUser(user) {
+    if (!user) return null;
+    
+    const locCodeVal = user.locCode || user.LocCode;
+    const branchQuery = { $or: [] };
+    
+    if (user.workingBranch) {
+        branchQuery.$or.push({ workingBranch: { $regex: `^${user.workingBranch.trim()}$`, $options: 'i' } });
+    }
+    
+    if (locCodeVal !== undefined && locCodeVal !== null) {
+        const locCodeStr = String(locCodeVal).trim();
+        if (locCodeStr) {
+            branchQuery.$or.push({ locCode: locCodeStr });
+            branchQuery.$or.push({ locCode: locCodeVal });
+        }
+    }
+    
+    if (branchQuery.$or.length === 0) {
+        return null;
+    }
+    
+    return await Branch.findOne(branchQuery);
+}
+
+/**
  * Gets an array of accessible store ObjectIds based on admin role
  */
 export const getAccessibleStoreIds = async (adminId) => {
     const admin = await Admin.findById(adminId).populate('branches assignedClusters');
-    if (!admin || admin.role === 'employee') {
-        // Fallback: Check if this is a regular User (employee)
-        const user = admin ? admin : await User.findById(adminId);
-        if (!user) return [];
-        
-        // Find the Branch matching the user's locCode/workingBranch
-        const branch = await Branch.findOne({ 
-            $or: [
-                { locCode: user.locCode || user.LocCode },
-                { workingBranch: user.workingBranch }
-            ]
-        });
-        return branch ? [branch._id.toString()] : [];
+    
+    if (admin) {
+        if (isFullAccessAdmin(admin.role)) {
+            // Full access: return all branch IDs
+            const allBranches = await Branch.find({ isActive: true }).select('_id');
+            return allBranches.map(b => b._id.toString());
+        }
+
+        if (admin.role === 'cluster_admin') {
+            // Can access all stores in their assigned clusters, plus any individually assigned stores
+            const clusterIds = admin.assignedClusters.map(c => c._id);
+            const clusterBranches = await Branch.find({ clusterId: { $in: clusterIds }, isActive: true }).select('_id');
+
+            const branchIds = new Set([
+                ...clusterBranches.map(b => b._id.toString()),
+                ...admin.branches.map(b => (b._id || b).toString())
+            ]);
+            return Array.from(branchIds);
+        }
+
+        if (admin.role === 'telecaller') {
+            // Telecallers have access to all stores (even if assigned to office)
+            const allBranches = await Branch.find({ isActive: true }).select('_id');
+            return allBranches.map(b => b._id.toString());
+        }
+
+        if (admin.role === 'store_admin' || admin.role === 'employee') {
+            if (admin.branches && admin.branches.length > 0) {
+                return admin.branches.map(b => (b._id || b).toString());
+            }
+        }
     }
 
-    if (isFullAccessAdmin(admin.role)) {
-        // Full access: return all branch IDs
-        const allBranches = await Branch.find({ isActive: true }).select('_id');
-        return allBranches.map(b => b._id.toString());
-    }
-
-    if (admin.role === 'cluster_admin') {
-        // Can access all stores in their assigned clusters, plus any individually assigned stores
-        const clusterIds = admin.assignedClusters.map(c => c._id);
-        const clusterBranches = await Branch.find({ clusterId: { $in: clusterIds }, isActive: true }).select('_id');
-
-        const branchIds = new Set([
-            ...clusterBranches.map(b => b._id.toString()),
-            ...admin.branches.map(b => (b._id || b).toString())
-        ]);
-        return Array.from(branchIds);
-    }
-
-    if (admin.role === 'telecaller') {
-        // Telecallers have access to all stores (even if assigned to office)
-        const allBranches = await Branch.find({ isActive: true }).select('_id');
-        return allBranches.map(b => b._id.toString());
-    }
-
-    if (admin.role === 'store_admin') {
-        // Can access only specifically assigned stores
-        return admin.branches.map(b => (b._id || b).toString());
-    }
-
-    return [];
+    // Fallback: Check if this is a regular User (employee in the User collection)
+    const user = admin ? admin : await User.findById(adminId);
+    if (!user) return [];
+    
+    // Find the Branch matching the user's locCode/workingBranch robustly
+    const branch = await findBranchForUser(user);
+    return branch ? [branch._id.toString()] : [];
 };
 
 /**
@@ -86,13 +110,12 @@ export const getAccessibleEmployeeIds = async (adminId, storeId = null) => {
         const user = admin ? admin : await User.findById(adminId);
         if (!user) return [];
         
-        const branch = await Branch.findOne({ 
-            $or: [
-                { locCode: user.locCode || user.LocCode },
-                { workingBranch: user.workingBranch }
-            ]
-        });
-        accessibleStoreIds = branch ? [branch._id.toString()] : [];
+        if (admin && admin.branches && admin.branches.length > 0) {
+            accessibleStoreIds = admin.branches.map(b => (b._id || b).toString());
+        } else {
+            const branch = await findBranchForUser(user);
+            accessibleStoreIds = branch ? [branch._id.toString()] : [];
+        }
     } else {
         if (isFullAccessAdmin(admin.role)) {
             // Full access: all stores are accessible
