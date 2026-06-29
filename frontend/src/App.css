@@ -93,6 +93,10 @@
   object-fit: contain;
   z-index: 2;
   border-radius: 50%;
+  opacity: 0;
+}
+
+.brynex-splash-logo.brynex-logo-animate {
   animation: brynex-logo-3d-entrance 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards,
              brynex-logo-breath 3.5s ease-in-out 1.2s infinite;
 }

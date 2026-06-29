@@ -1,4 +1,4 @@
-import { Component, useEffect, useState } from 'react';
+import { Component, useEffect, useState, useRef } from 'react';
 import { Route, Routes, useNavigate, Navigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import './App.css';
@@ -194,6 +194,8 @@ function App() {
 
   const [showSplash, setShowSplash] = useState(true);
   const [splashFade, setSplashFade] = useState(false);
+  const [logoLoaded, setLogoLoaded] = useState(false);
+  const logoRef = useRef(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -201,6 +203,12 @@ function App() {
       setTimeout(() => setShowSplash(false), 600);
     }, 2200);
     return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (logoRef.current && logoRef.current.complete) {
+      setLogoLoaded(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -256,7 +264,13 @@ function App() {
         <div className={`brynex-splash-overlay ${splashFade ? 'fade-out' : ''}`}>
           <div className="brynex-splash-logo-container">
             <div className="brynex-neon-ring" />
-            <img src="/logo.png" className="brynex-splash-logo select-none" alt="Logo" />
+            <img
+              ref={logoRef}
+              src="/logo.png"
+              className={`brynex-splash-logo select-none ${logoLoaded ? 'brynex-logo-animate' : ''}`}
+              alt="Logo"
+              onLoad={() => setLogoLoaded(true)}
+            />
           </div>
           <h1 className="brynex-splash-title">BRYNEX ONE</h1>
           <span className="brynex-splash-subtitle">Brynex Apparel Pvt.Ltd</span>
