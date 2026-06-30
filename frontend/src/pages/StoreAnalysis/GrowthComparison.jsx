@@ -65,17 +65,84 @@ const getLocalDateString = (date) => {
 };
 
 // Date Range Helpers for TY/LY (This Year / Last Year)
-const getWTDDateRange = (targetYear) => {
+const getStoreWTDDateRange = (storeName = "All", targetYear) => {
   const today = new Date();
-  const dayOfWeek = today.getDay(); 
-  const monday = new Date(today);
-  const distance = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  monday.setDate(today.getDate() + distance);
+  const todayDateNum = today.getDate();
 
-  const start = new Date(monday);
-  start.setFullYear(targetYear);
-  const end = new Date(today);
-  end.setFullYear(targetYear);
+  const week1Dates = localStorage.getItem("week1Dates") || "01 - 10 Jun";
+  const week2Dates = localStorage.getItem("week2Dates") || "11 - 17 Jun";
+  const week3Dates = localStorage.getItem("week3Dates") || "Select Days";
+  const week4Dates = localStorage.getItem("week4Dates") || "Select Days";
+
+  let w1 = week1Dates, w2 = week2Dates, w3 = week3Dates, w4 = week4Dates;
+  try {
+    const storeWeekRanges = JSON.parse(localStorage.getItem("storeWeekRanges") || "{}");
+    if (storeName !== "All" && storeWeekRanges[storeName]) {
+      const sr = storeWeekRanges[storeName];
+      if (sr[1]) w1 = sr[1];
+      if (sr[2]) w2 = sr[2];
+      if (sr[3]) w3 = sr[3];
+      if (sr[4]) w4 = sr[4];
+    }
+  } catch (err) {
+    console.error("Error parsing storeWeekRanges in GrowthComparison:", err);
+  }
+
+  const weeks = [
+    { id: 1, val: w1 },
+    { id: 2, val: w2 },
+    { id: 3, val: w3 },
+    { id: 4, val: w4 },
+  ];
+
+  let activeWeekId = 4;
+  let found = false;
+  for (const w of weeks) {
+    if (w.val && w.val !== "Select Days") {
+      const parts = w.val.split("-");
+      if (parts.length === 2) {
+        const startDay = parseInt(parts[0].trim(), 10);
+        const endPart = parts[1].trim().split(" ");
+        const endDay = parseInt(endPart[0], 10);
+
+        if (!isNaN(startDay) && !isNaN(endDay)) {
+          if (todayDateNum >= startDay && todayDateNum <= endDay) {
+            activeWeekId = w.id;
+            found = true;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  if (!found) {
+    if (todayDateNum <= 10) activeWeekId = 1;
+    else if (todayDateNum <= 17) activeWeekId = 2;
+    else if (todayDateNum <= 24) activeWeekId = 3;
+    else activeWeekId = 4;
+  }
+
+  let startDayNum = 1;
+  const weekVal = activeWeekId === 1 ? w1 
+                : activeWeekId === 2 ? w2 
+                : activeWeekId === 3 ? w3 
+                : w4;
+                
+  if (weekVal && weekVal !== "Select Days") {
+    const parts = weekVal.split("-");
+    if (parts.length === 2) {
+      startDayNum = parseInt(parts[0].trim(), 10);
+    }
+  } else {
+    if (activeWeekId === 1) startDayNum = 1;
+    else if (activeWeekId === 2) startDayNum = 11;
+    else if (activeWeekId === 3) startDayNum = 18;
+    else startDayNum = 25;
+  }
+
+  const start = new Date(targetYear, today.getMonth(), startDayNum);
+  const end = new Date(targetYear, today.getMonth(), today.getDate());
 
   return {
     start: getLocalDateString(start),
@@ -106,13 +173,60 @@ const mockComparisonRows = [
   { sl: 10, name: "SG Edappally", tyVal: 924600, lyVal: 884500, l2lVal: 40100, tyBill: 198, lyBill: 187, l2lBill: 11, tyQty: 368, lyQty: 344, l2lQty: 24, tyWalk: 1320, lyWalk: 1270, l2lWalk: 50 }
 ];
 
+const BRANCH_LOCATION_MAPPING = {
+  "z-edapally1": "1",
+  "g-edappally": "3",
+  "z- edappal": "6",
+  "z.perinthalmanna": "7",
+  "z.kottakkal": "8",
+  "g.kottayam": "9",
+  "g.perumbavoor": "10",
+  "g.thrissur": "11",
+  "g.chavakkad": "12",
+  "g.calicut": "13",
+  "g.vadakara": "14",
+  "g.edappal": "15",
+  "g.perinthalmanna": "16",
+  "g.kottakkal": "17",
+  "g.manjeri": "18",
+  "g.palakkad": "19",
+  "g.kalpetta": "20",
+  "g.kannur": "21",
+  "g-trivandrum": "5"
+};
+
+function getBranchLocationId(workingBranch) {
+  if (!workingBranch) return null;
+  const normalized = String(workingBranch).trim().toLowerCase();
+  return BRANCH_LOCATION_MAPPING[normalized] || null;
+}
+
+const getStoreNameFromLocId = (locId) => {
+  const branchKey = Object.keys(BRANCH_LOCATION_MAPPING).find(key => BRANCH_LOCATION_MAPPING[key] === locId);
+  if (!branchKey) return "All";
+  return displayBranchName(branchKey);
+};
+
 const GrowthComparison = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("MTD");
   const [branches, setBranches] = useState([]);
   const [tyWalkins, setTyWalkins] = useState([]);
   const [lyWalkins, setLyWalkins] = useState([]);
+  const [tyPerformance, setTyPerformance] = useState({});
+  const [lyPerformance, setLyPerformance] = useState({});
   const [loading, setLoading] = useState(false);
+
+  const renderCellVal = (val, isPercent = false) => {
+    const rawVal = String(val);
+    const isZero = rawVal === "0" || rawVal === "0.0" || rawVal === "0%" || rawVal === "+0.0%" || rawVal === "-0.0%" || rawVal === "";
+    const colorClass = isZero ? "text-[#e05a47] font-bold" : "";
+    return (
+      <span className={colorClass}>
+        {val}{isPercent && "%"}
+      </span>
+    );
+  };
 
   // Fetch branches dynamically
   useEffect(() => {
@@ -139,22 +253,20 @@ const GrowthComparison = () => {
     fetchBranches();
   }, []);
 
-  // Fetch Year-Over-Year Walk-Ins based on selected activeTab
+  // Fetch Year-Over-Year Walk-Ins and Performance Report Data
   useEffect(() => {
-    const fetchYoYWalkins = async () => {
+    const fetchData = async () => {
       setLoading(true);
       try {
         const token = localStorage.getItem("token");
         
-        // Define ranges for TY (2026) and LY (2025)
         let tyStart, tyEnd, lyStart, lyEnd;
         if (activeTab === "WTD") {
-          const tyRange = getWTDDateRange(2026);
-          const lyRange = getWTDDateRange(2025);
-          tyStart = tyRange.start;
-          tyEnd = tyRange.end;
-          lyStart = lyRange.start;
-          lyEnd = lyRange.end;
+          const today = new Date();
+          tyStart = getLocalDateString(new Date(2026, today.getMonth(), 1));
+          tyEnd = getLocalDateString(new Date(2026, today.getMonth(), today.getDate()));
+          lyStart = getLocalDateString(new Date(2025, today.getMonth(), 1));
+          lyEnd = getLocalDateString(new Date(2025, today.getMonth(), today.getDate()));
         } else {
           const tyRange = getMTDDateRange(2026);
           const lyRange = getMTDDateRange(2025);
@@ -194,14 +306,93 @@ const GrowthComparison = () => {
 
         setTyWalkins(tyList);
         setLyWalkins(lyList);
+
+        // Fetch Performance Report Data (TY and LY)
+        const locationIds = ["1", "3", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "25"];
+        
+        const tyPromises = locationIds.map(async (locId) => {
+          let storeStart = tyStart;
+          let storeEnd = tyEnd;
+          if (activeTab === "WTD") {
+            const storeName = getStoreNameFromLocId(locId);
+            const range = getStoreWTDDateRange(storeName, 2026);
+            storeStart = range.start;
+            storeEnd = range.end;
+          }
+
+          try {
+            const res = await fetch("https://rentalapi.rootments.live/api/Reports/GetPerformanceStaffReportWithCancel", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                DateFrom: storeStart,
+                DateTo: storeEnd,
+                BookingNo: "",
+                LocationID: locId,
+                UserID: "7777"
+              })
+            });
+            if (res.ok) {
+              const json = await res.json();
+              return { locId, data: json.dataSet?.data || [] };
+            }
+          } catch (err) {
+            console.error(`Error fetching TY performance for location ${locId}:`, err);
+          }
+          return { locId, data: [] };
+        });
+
+        const lyPromises = locationIds.map(async (locId) => {
+          let storeStart = lyStart;
+          let storeEnd = lyEnd;
+          if (activeTab === "WTD") {
+            const storeName = getStoreNameFromLocId(locId);
+            const range = getStoreWTDDateRange(storeName, 2025);
+            storeStart = range.start;
+            storeEnd = range.end;
+          }
+
+          try {
+            const res = await fetch("https://rentalapi.rootments.live/api/Reports/GetPerformanceStaffReportWithCancel", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                DateFrom: storeStart,
+                DateTo: storeEnd,
+                BookingNo: "",
+                LocationID: locId,
+                UserID: "7777"
+              })
+            });
+            if (res.ok) {
+              const json = await res.json();
+              return { locId, data: json.dataSet?.data || [] };
+            }
+          } catch (err) {
+            console.error(`Error fetching LY performance for location ${locId}:`, err);
+          }
+          return { locId, data: [] };
+        });
+
+        const tyResults = await Promise.all(tyPromises);
+        const lyResults = await Promise.all(lyPromises);
+
+        const tyMap = {};
+        const lyMap = {};
+        tyResults.forEach(r => { tyMap[r.locId] = r.data; });
+        lyResults.forEach(r => { lyMap[r.locId] = r.data; });
+
+        setTyPerformance(tyMap);
+        setLyPerformance(lyMap);
+
       } catch (err) {
-        console.error("Error fetching YoY walkins for comparison:", err);
+        console.error("Error fetching YoY walkins and performance for comparison:", err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchYoYWalkins();
+    fetchData();
   }, [activeTab]);
 
   const formatIndianNumber = (num) => {
@@ -218,66 +409,74 @@ const GrowthComparison = () => {
   };
 
   const filteredRows = useMemo(() => {
-    const scaleFactor = activeTab === "WTD" ? 0.23 : 1.0;
-    
-    const activeList = branches.length > 0
-      ? branches.map((b, index) => {
-          const name = displayBranchName(b.workingBranch);
-          const storeKeyVal = locationKey(b.workingBranch);
-          
-          const tyWalk = tyWalkins.filter(w => locationKey(w.store) === storeKeyVal).length;
-          const lyWalk = lyWalkins.filter(w => locationKey(w.store) === storeKeyVal).length;
-          
-          const factor = 1 + (index % 5) * 0.15;
-          const tyVal = Math.round(850000 * factor * scaleFactor);
-          const lyVal = Math.round(820000 * factor * scaleFactor);
-          const tyBill = Math.round(190 * factor * scaleFactor);
-          const lyBill = Math.round(180 * factor * scaleFactor);
-          const tyQty = Math.round(350 * factor * scaleFactor);
-          const lyQty = Math.round(330 * factor * scaleFactor);
+    const activeList = branches.map((b, index) => {
+      const name = displayBranchName(b.workingBranch);
+      const storeKeyVal = locationKey(b.workingBranch);
+      const locId = getBranchLocationId(b.workingBranch);
 
-          return {
-            sl: index + 1,
-            name,
-            tyVal,
-            lyVal,
-            tyBill,
-            lyBill,
-            tyQty,
-            lyQty,
-            tyWalk,
-            lyWalk
-          };
-        })
-      : mockComparisonRows.map((row) => {
-          const storeKeyVal = locationKey(row.name);
-          const tyWalk = tyWalkins.filter(w => locationKey(w.store) === storeKeyVal).length;
-          const lyWalk = lyWalkins.filter(w => locationKey(w.store) === storeKeyVal).length;
+      const today = new Date();
+      const todayStr = getLocalDateString(today);
+      
+      let tyStoreStart, tyStoreEnd, lyStoreStart, lyStoreEnd;
+      if (activeTab === "WTD") {
+        const rangeTy = getStoreWTDDateRange(name, 2026);
+        const rangeLy = getStoreWTDDateRange(name, 2025);
+        tyStoreStart = rangeTy.start;
+        tyStoreEnd = rangeTy.end;
+        lyStoreStart = rangeLy.start;
+        lyStoreEnd = rangeLy.end;
+      } else {
+        const rangeTy = getMTDDateRange(2026);
+        const rangeLy = getMTDDateRange(2025);
+        tyStoreStart = rangeTy.start;
+        tyStoreEnd = rangeTy.end;
+        lyStoreStart = rangeLy.start;
+        lyStoreEnd = rangeLy.end;
+      }
 
-          const tyVal = Math.round(row.tyVal * scaleFactor);
-          const lyVal = Math.round(row.lyVal * scaleFactor);
-          const tyBill = Math.round(row.tyBill * scaleFactor);
-          const lyBill = Math.round(row.lyBill * scaleFactor);
-          const tyQty = Math.round(row.tyQty * scaleFactor);
-          const lyQty = Math.round(row.lyQty * scaleFactor);
+      const getWalkinDateString = (w) => {
+        if (!w.date || w.date === '-') return '';
+        return w.date.split(' ')[0];
+      };
 
-          return {
-            ...row,
-            tyVal,
-            lyVal,
-            tyBill,
-            lyBill,
-            tyQty,
-            lyQty,
-            tyWalk: tyWalkins.length > 0 ? tyWalk : Math.round(row.tyWalk * scaleFactor),
-            lyWalk: lyWalkins.length > 0 ? lyWalk : Math.round(row.lyWalk * scaleFactor)
-          };
-        });
+      const tyWalk = tyWalkins.filter(w => {
+        const d = getWalkinDateString(w);
+        return locationKey(w.store) === storeKeyVal && d && d >= tyStoreStart && d <= tyStoreEnd;
+      }).length;
+
+      const lyWalk = lyWalkins.filter(w => {
+        const d = getWalkinDateString(w);
+        return locationKey(w.store) === storeKeyVal && d && d >= lyStoreStart && d <= lyStoreEnd;
+      }).length;
+
+      const tyLocList = tyPerformance[locId] || [];
+      const lyLocList = lyPerformance[locId] || [];
+
+      const tyVal = tyLocList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+      const lyVal = lyLocList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+      const tyBill = tyLocList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
+      const lyBill = lyLocList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
+      const tyQty = tyLocList.reduce((sum, item) => sum + (item.totalQuantity || 0), 0);
+      const lyQty = lyLocList.reduce((sum, item) => sum + (item.totalQuantity || 0), 0);
+
+      return {
+        sl: index + 1,
+        name,
+        tyVal,
+        lyVal,
+        tyBill,
+        lyBill,
+        tyQty,
+        lyQty,
+        tyWalk,
+        lyWalk
+      };
+    });
 
     return activeList.filter((row) =>
       row.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [branches, tyWalkins, lyWalkins, searchQuery, activeTab]);
+  }, [branches, tyWalkins, lyWalkins, tyPerformance, lyPerformance, searchQuery]);
 
   // Dynamic calculations for totals row
   const totalTyVal = useMemo(() => filteredRows.reduce((acc, r) => acc + r.tyVal, 0), [filteredRows]);
@@ -479,6 +678,18 @@ const GrowthComparison = () => {
                   const calculatedL2lQty = row.tyQty - row.lyQty;
                   const calculatedL2lWalk = row.tyWalk - row.lyWalk;
 
+                  const valL2lPctVal = row.lyVal > 0 ? ((calculatedL2lVal / row.lyVal) * 100).toFixed(1) : "0.0";
+                  const valL2lPctText = calculatedL2lVal >= 0 ? `+${valL2lPctVal}%` : `${valL2lPctVal}%`;
+
+                  const billL2lPctVal = row.lyBill > 0 ? ((calculatedL2lBill / row.lyBill) * 100).toFixed(1) : "0.0";
+                  const billL2lPctText = calculatedL2lBill >= 0 ? `+${billL2lPctVal}%` : `${billL2lPctVal}%`;
+
+                  const qtyL2lPctVal = row.lyQty > 0 ? ((calculatedL2lQty / row.lyQty) * 100).toFixed(1) : "0.0";
+                  const qtyL2lPctText = calculatedL2lQty >= 0 ? `+${qtyL2lPctVal}%` : `${qtyL2lPctVal}%`;
+
+                  const walkL2lPctVal = row.lyWalk > 0 ? ((calculatedL2lWalk / row.lyWalk) * 100).toFixed(1) : "0.0";
+                  const walkL2lPctText = calculatedL2lWalk >= 0 ? `+${walkL2lPctVal}%` : `${walkL2lPctVal}%`;
+
                   const valL2lColor = calculatedL2lVal >= 0 ? "text-[#00A36C] font-semibold" : "text-[#e05a47] font-semibold";
                   const billL2lColor = calculatedL2lBill >= 0 ? "text-[#00A36C] font-semibold" : "text-[#e05a47] font-semibold";
                   const qtyL2lColor = calculatedL2lQty >= 0 ? "text-[#00A36C] font-semibold" : "text-[#e05a47] font-semibold";
@@ -488,21 +699,21 @@ const GrowthComparison = () => {
                     <tr key={idx} className="odd:bg-white even:bg-[#f9fafb] hover:bg-gray-50/50 transition-colors">
                       <td className={`sticky left-0 z-10 px-6 py-3.5 text-left font-bold text-gray-800 border-r border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)] ${idx % 2 === 0 ? "bg-white" : "bg-[#f9fafb]"}`}>{row.name}</td>
                       
-                      <td className="px-4 py-3.5 font-medium border-r border-gray-100">{formatIndianNumber(row.tyVal)}</td>
-                      <td className="px-4 py-3.5 font-medium border-r border-gray-100 text-gray-500">{formatIndianNumber(row.lyVal)}</td>
-                      <td className={`px-4 py-3.5 border-r border-gray-100 ${valL2lColor}`}>{formatIndianNumber(calculatedL2lVal)}</td>
+                      <td className="px-4 py-3.5 font-medium border-r border-gray-100">{renderCellVal(formatIndianNumber(row.tyVal))}</td>
+                      <td className="px-4 py-3.5 font-medium border-r border-gray-100 text-gray-500">{renderCellVal(formatIndianNumber(row.lyVal))}</td>
+                      <td className={`px-4 py-3.5 border-r border-gray-100 ${valL2lColor}`}>{renderCellVal(formatIndianNumber(calculatedL2lVal))} ({renderCellVal(valL2lPctText)})</td>
                       
-                      <td className="px-4 py-3.5 font-medium border-r border-gray-100">{row.tyBill}</td>
-                      <td className="px-4 py-3.5 font-medium border-r border-gray-100 text-gray-500">{row.lyBill}</td>
-                      <td className={`px-4 py-3.5 border-r border-gray-100 ${billL2lColor}`}>{calculatedL2lBill > 0 ? `+${calculatedL2lBill}` : calculatedL2lBill}</td>
+                      <td className="px-4 py-3.5 font-medium border-r border-gray-100">{renderCellVal(row.tyBill)}</td>
+                      <td className="px-4 py-3.5 font-medium border-r border-gray-100 text-gray-500">{renderCellVal(row.lyBill)}</td>
+                      <td className={`px-4 py-3.5 border-r border-gray-100 ${billL2lColor}`}>{renderCellVal(calculatedL2lBill > 0 ? `+${calculatedL2lBill}` : calculatedL2lBill)} ({renderCellVal(billL2lPctText)})</td>
                       
-                      <td className="px-4 py-3.5 font-medium border-r border-gray-100">{row.tyQty}</td>
-                      <td className="px-4 py-3.5 font-medium border-r border-gray-100 text-gray-500">{row.lyQty}</td>
-                      <td className={`px-4 py-3.5 border-r border-gray-100 ${qtyL2lColor}`}>{calculatedL2lQty > 0 ? `+${calculatedL2lQty}` : calculatedL2lQty}</td>
+                      <td className="px-4 py-3.5 font-medium border-r border-gray-100">{renderCellVal(row.tyQty)}</td>
+                      <td className="px-4 py-3.5 font-medium border-r border-gray-100 text-gray-500">{renderCellVal(row.lyQty)}</td>
+                      <td className={`px-4 py-3.5 border-r border-gray-100 ${qtyL2lColor}`}>{renderCellVal(calculatedL2lQty > 0 ? `+${calculatedL2lQty}` : calculatedL2lQty)} ({renderCellVal(qtyL2lPctText)})</td>
 
-                      <td className="px-4 py-3.5 font-medium border-r border-gray-100">{formatIndianNumber(row.tyWalk)}</td>
-                      <td className="px-4 py-3.5 font-medium border-r border-gray-100 text-gray-500">{formatIndianNumber(row.lyWalk)}</td>
-                      <td className={`px-4 py-3.5 ${walkL2lColor}`}>{calculatedL2lWalk > 0 ? `+${calculatedL2lWalk}` : calculatedL2lWalk}</td>
+                      <td className="px-4 py-3.5 font-medium border-r border-gray-100">{renderCellVal(formatIndianNumber(row.tyWalk))}</td>
+                      <td className="px-4 py-3.5 font-medium border-r border-gray-100 text-gray-500">{renderCellVal(formatIndianNumber(row.lyWalk))}</td>
+                      <td className={`px-4 py-3.5 ${walkL2lColor}`}>{renderCellVal(calculatedL2lWalk > 0 ? `+${calculatedL2lWalk}` : calculatedL2lWalk)} ({renderCellVal(walkL2lPctText)})</td>
                     </tr>
                   );
                 })}
@@ -511,21 +722,29 @@ const GrowthComparison = () => {
                 <tr className="bg-[#dce9f5] font-bold text-gray-900">
                   <td className="sticky left-0 z-10 bg-[#dce9f5] px-6 py-3.5 text-left border-r border-blue-200/50 uppercase tracking-wider shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)]">Store Total</td>
                   
-                  <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalTyVal)}</td>
-                  <td className="px-4 py-3.5 border-r border-blue-200/50 text-gray-600">{formatIndianNumber(totalLyVal)}</td>
-                  <td className={`px-4 py-3.5 border-r border-blue-200/50 ${totalL2lVal >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>{formatIndianNumber(totalL2lVal)}</td>
+                  <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalTyVal))}</td>
+                  <td className="px-4 py-3.5 border-r border-blue-200/50 text-gray-600">{renderCellVal(formatIndianNumber(totalLyVal))}</td>
+                  <td className={`px-4 py-3.5 border-r border-blue-200/50 ${totalL2lVal >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
+                    {renderCellVal(formatIndianNumber(totalL2lVal))} ({renderCellVal(totalLyVal > 0 ? (totalL2lVal >= 0 ? "+" : "") + ((totalL2lVal / totalLyVal) * 100).toFixed(1) + "%" : "0.0%")})
+                  </td>
                   
-                  <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalTyBill)}</td>
-                  <td className="px-4 py-3.5 border-r border-blue-200/50 text-gray-600">{formatIndianNumber(totalLyBill)}</td>
-                  <td className={`px-4 py-3.5 border-r border-blue-200/50 ${totalL2lBill >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>{totalL2lBill > 0 ? `+${totalL2lBill}` : totalL2lBill}</td>
+                  <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalTyBill))}</td>
+                  <td className="px-4 py-3.5 border-r border-blue-200/50 text-gray-600">{renderCellVal(formatIndianNumber(totalLyBill))}</td>
+                  <td className={`px-4 py-3.5 border-r border-blue-200/50 ${totalL2lBill >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
+                    {renderCellVal(totalL2lBill > 0 ? `+${totalL2lBill}` : totalL2lBill)} ({renderCellVal(totalLyBill > 0 ? (totalL2lBill >= 0 ? "+" : "") + ((totalL2lBill / totalLyBill) * 100).toFixed(1) + "%" : "0.0%")})
+                  </td>
                   
-                  <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalTyQty)}</td>
-                  <td className="px-4 py-3.5 border-r border-blue-200/50 text-gray-600">{formatIndianNumber(totalLyQty)}</td>
-                  <td className={`px-4 py-3.5 border-r border-blue-200/50 ${totalL2lQty >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>{totalL2lQty > 0 ? `+${totalL2lQty}` : totalL2lQty}</td>
+                  <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalTyQty))}</td>
+                  <td className="px-4 py-3.5 border-r border-blue-200/50 text-gray-600">{renderCellVal(formatIndianNumber(totalLyQty))}</td>
+                  <td className={`px-4 py-3.5 border-r border-blue-200/50 ${totalL2lQty >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
+                    {renderCellVal(totalL2lQty > 0 ? `+${totalL2lQty}` : totalL2lQty)} ({renderCellVal(totalLyQty > 0 ? (totalL2lQty >= 0 ? "+" : "") + ((totalL2lQty / totalLyQty) * 100).toFixed(1) + "%" : "0.0%")})
+                  </td>
 
-                  <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalTyWalk)}</td>
-                  <td className="px-4 py-3.5 border-r border-blue-200/50 text-gray-600">{formatIndianNumber(totalLyWalk)}</td>
-                  <td className={`px-4 py-3.5 ${totalL2lWalk >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>{totalL2lWalk > 0 ? `+${totalL2lWalk}` : totalL2lWalk}</td>
+                  <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalTyWalk))}</td>
+                  <td className="px-4 py-3.5 border-r border-blue-200/50 text-gray-600">{renderCellVal(formatIndianNumber(totalLyWalk))}</td>
+                  <td className={`px-4 py-3.5 ${totalL2lWalk >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
+                    {renderCellVal(totalL2lWalk > 0 ? `+${totalL2lWalk}` : totalL2lWalk)} ({renderCellVal(totalLyWalk > 0 ? (totalL2lWalk >= 0 ? "+" : "") + ((totalL2lWalk / totalLyWalk) * 100).toFixed(1) + "%" : "0.0%")})
+                  </td>
                 </tr>
               </tbody>
             </table>

@@ -1,270 +1,10 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useSelector } from "react-redux";
-
-const mockStoreFunnelRows = [
-  {
-    name: "Z Edappally",
-    storeName: "Z Edappally",
-    billFtd: 95000, billWtd: 570000,
-    valFtd: 35, valWtd: 210,
-    qtyFtd: 65, qtyWtd: 390,
-    walkFtd: 85, walkWtd: 510,
-    lossFtd: 15, lossWtd: 90,
-    abvFtd: 2714, abvWtd: 2714,
-    absFtd: 1.9, absWtd: 1.9,
-    convFtd: 41, convWtd: 41,
-    contrFtd: 15, contrWtd: 15,
-    arpFtd: 1462, arpWtd: 1462
-  },
-  {
-    name: "G Edappally",
-    storeName: "G Edappally",
-    billFtd: 82000, billWtd: 492000,
-    valFtd: 28, valWtd: 168,
-    qtyFtd: 52, qtyWtd: 312,
-    walkFtd: 70, walkWtd: 420,
-    lossFtd: 12, lossWtd: 72,
-    abvFtd: 2929, abvWtd: 2929,
-    absFtd: 1.9, absWtd: 1.9,
-    convFtd: 40, convWtd: 40,
-    contrFtd: 13, contrWtd: 13,
-    arpFtd: 1577, arpWtd: 1577
-  },
-  {
-    name: "Z Edappal",
-    storeName: "Z Edappal",
-    billFtd: 60000, billWtd: 360000,
-    valFtd: 20, valWtd: 120,
-    qtyFtd: 38, qtyWtd: 228,
-    walkFtd: 55, walkWtd: 330,
-    lossFtd: 10, lossWtd: 60,
-    abvFtd: 3000, abvWtd: 3000,
-    absFtd: 1.9, absWtd: 1.9,
-    convFtd: 36, convWtd: 36,
-    contrFtd: 10, contrWtd: 10,
-    arpFtd: 1579, arpWtd: 1579
-  },
-  {
-    name: "Z Perinthalmanna",
-    storeName: "Z Perinthalmanna",
-    billFtd: 75000, billWtd: 450000,
-    valFtd: 26, valWtd: 156,
-    qtyFtd: 48, qtyWtd: 288,
-    walkFtd: 68, walkWtd: 408,
-    lossFtd: 14, lossWtd: 84,
-    abvFtd: 2885, abvWtd: 2885,
-    absFtd: 1.8, absWtd: 1.8,
-    convFtd: 38, convWtd: 38,
-    contrFtd: 12, contrWtd: 12,
-    arpFtd: 1563, arpWtd: 1563
-  },
-  {
-    name: "Z Kottakkal",
-    storeName: "Z Kottakkal",
-    billFtd: 64000, billWtd: 384000,
-    valFtd: 22, valWtd: 132,
-    qtyFtd: 40, qtyWtd: 240,
-    walkFtd: 58, walkWtd: 348,
-    lossFtd: 8, lossWtd: 48,
-    abvFtd: 2909, abvWtd: 2909,
-    absFtd: 1.8, absWtd: 1.8,
-    convFtd: 38, convWtd: 38,
-    contrFtd: 10, contrWtd: 10,
-    arpFtd: 1600, arpWtd: 1600
-  },
-  {
-    name: "G Kottayam",
-    storeName: "G Kottayam",
-    billFtd: 88000, billWtd: 528000,
-    valFtd: 30, valWtd: 180,
-    qtyFtd: 55, qtyWtd: 330,
-    walkFtd: 80, walkWtd: 480,
-    lossFtd: 16, lossWtd: 96,
-    abvFtd: 2933, abvWtd: 2933,
-    absFtd: 1.8, absWtd: 1.8,
-    convFtd: 38, convWtd: 38,
-    contrFtd: 14, contrWtd: 14,
-    arpFtd: 1600, arpWtd: 1600
-  },
-  {
-    name: "G Perumbavoor",
-    storeName: "G Perumbavoor",
-    billFtd: 68000, billWtd: 408000,
-    valFtd: 24, valWtd: 144,
-    qtyFtd: 44, qtyWtd: 264,
-    walkFtd: 62, walkWtd: 372,
-    lossFtd: 10, lossWtd: 60,
-    abvFtd: 2833, abvWtd: 2833,
-    absFtd: 1.8, absWtd: 1.8,
-    convFtd: 39, convWtd: 39,
-    contrFtd: 11, contrWtd: 11,
-    arpFtd: 1545, arpWtd: 1545
-  },
-  {
-    name: "G Thrissur",
-    storeName: "G Thrissur",
-    billFtd: 98000, billWtd: 588000,
-    valFtd: 34, valWtd: 204,
-    qtyFtd: 68, qtyWtd: 408,
-    walkFtd: 90, walkWtd: 540,
-    lossFtd: 18, lossWtd: 108,
-    abvFtd: 2882, abvWtd: 2882,
-    absFtd: 2.0, absWtd: 2.0,
-    convFtd: 38, convWtd: 38,
-    contrFtd: 15, contrWtd: 15,
-    arpFtd: 1441, arpWtd: 1441
-  }
-];
 import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { FiSearch, FiDownload, FiArrowLeft, FiCalendar, FiEdit3 } from "react-icons/fi";
 import baseUrl from "../../api/api";
-
-const mockDSRData = [
-  { sl: "01", name: "Z Edappally", target: 150000, achieved: 142500, balance: 7500, pct: 98 },
-  { sl: "02", name: "G Edappally", target: 120000, achieved: 128400, balance: -8400, pct: 107 },
-  { sl: "03", name: "Z Edappal", target: 90000, achieved: 82800, balance: 7200, pct: 92 },
-  { sl: "04", name: "Z Perinthalmanna", target: 110000, achieved: 115500, balance: -5500, pct: 105 },
-  { sl: "05", name: "Z Kottakkal", target: 95000, achieved: 88350, balance: 6650, pct: 93 },
-  { sl: "06", name: "G Kottayam", target: 130000, achieved: 117000, balance: 13000, pct: 90 },
-  { sl: "07", name: "G Perumbavoor", target: 100000, achieved: 108000, balance: -8000, pct: 108 },
-  { sl: "08", name: "G Thrissur", target: 140000, achieved: 133000, balance: 7000, pct: 95 },
-  { sl: "09", name: "Z Calicut", target: 125000, achieved: 118750, balance: 6250, pct: 95 },
-  { sl: "10", name: "SG Calicut", target: 85000, achieved: 76500, balance: 8500, pct: 90 },
-  { sl: "11", name: "Z Kannur", target: 160000, achieved: 168000, balance: -8000, pct: 105 },
-  { sl: "12", name: "SG Palakkad", target: 80000, achieved: 72000, balance: 8000, pct: 90 },
-  { sl: "13", name: "SG Manjeri", target: 145000, achieved: 152250, balance: -7250, pct: 105 },
-  { sl: "14", name: "SG Trivandrum", target: 105000, achieved: 94500, balance: 10500, pct: 90 },
-  { sl: "15", name: "SG Chavakkad", target: 90000, achieved: 96300, balance: -6300, pct: 107 },
-  { sl: "16", name: "SG", target: 115000, achieved: 109250, balance: 5750, pct: 95 },
-  { sl: "17", name: "Z Calicut", target: 75000, achieved: 78750, balance: -3750, pct: 105 },
-  { sl: "18", name: "G Thrissur", target: 100000, achieved: 92000, balance: 8000, pct: 92 },
-  { sl: "19", name: "Z Calicut", target: 85000, achieved: 89250, balance: -4250, pct: 105 },
-  { sl: "20", name: "G Thrissur", target: 120000, achieved: 114000, balance: 6000, pct: 95 }
-];
-
-const mockCategoryData = [
-  { name: "Menswear", value: 42, target: 950000, achieved: 932400, color: "#18181b" },
-  { name: "Womenswear", value: 35, target: 780000, achieved: 761900, color: "#00A36C" },
-  { name: "Kidswear", value: 15, target: 330000, achieved: 326500, color: "#3b82f6" },
-  { name: "Accessories", value: 8, target: 160000, achieved: 156050, color: "#f59e0b" }
-];
-
-const mockFunnelRows = [
-  {
-    name: "Amal P",
-    storeName: "G Thrissur",
-    billFtd: 8000, billWtd: 48000,
-    valFtd: 3, valWtd: 18,
-    qtyFtd: 5, qtyWtd: 30,
-    walkFtd: 7, walkWtd: 42,
-    lossFtd: 2, lossWtd: 12,
-    abvFtd: 2875, abvWtd: 2875,
-    absFtd: 2.7, absWtd: 2.7,
-    convFtd: 80, convWtd: 86,
-    contrFtd: 85, contrWtd: 93,
-    arpFtd: 1600, arpWtd: 1600
-  },
-  {
-    name: "Anagha Hari",
-    storeName: "G Thrissur",
-    billFtd: 8000, billWtd: 48000,
-    valFtd: 3, valWtd: 18,
-    qtyFtd: 5, qtyWtd: 30,
-    walkFtd: 7, walkWtd: 42,
-    lossFtd: 2, lossWtd: 12,
-    abvFtd: 2875, abvWtd: 2875,
-    absFtd: 2.7, absWtd: 2.7,
-    convFtd: 80, convWtd: 86,
-    contrFtd: 85, contrWtd: 93,
-    arpFtd: 1600, arpWtd: 1600
-  },
-  {
-    name: "Rohit H",
-    storeName: "G Thrissur",
-    billFtd: 8000, billWtd: 48000,
-    valFtd: 3, valWtd: 18,
-    qtyFtd: 5, qtyWtd: 30,
-    walkFtd: 7, walkWtd: 42,
-    lossFtd: 2, lossWtd: 12,
-    abvFtd: 2875, abvWtd: 2875,
-    absFtd: 2.7, absWtd: 2.7,
-    convFtd: 80, convWtd: 86,
-    contrFtd: 85, contrWtd: 93,
-    arpFtd: 1600, arpWtd: 1600
-  },
-  {
-    name: "Abhiram S Kumar",
-    storeName: "G Thrissur",
-    billFtd: 8000, billWtd: 48000,
-    valFtd: 3, valWtd: 18,
-    qtyFtd: 5, qtyWtd: 30,
-    walkFtd: 7, walkWtd: 42,
-    lossFtd: 2, lossWtd: 12,
-    abvFtd: 2875, abvWtd: 2875,
-    absFtd: 2.7, absWtd: 2.7,
-    convFtd: 80, convWtd: 86,
-    contrFtd: 85, contrWtd: 93,
-    arpFtd: 1600, arpWtd: 1600
-  },
-  {
-    name: "Sanu Sujanan",
-    storeName: "G Thrissur",
-    billFtd: 8000, billWtd: 48000,
-    valFtd: 3, valWtd: 18,
-    qtyFtd: 5, qtyWtd: 30,
-    walkFtd: 7, walkWtd: 42,
-    lossFtd: 2, lossWtd: 12,
-    abvFtd: 2875, abvWtd: 2875,
-    absFtd: 2.7, absWtd: 2.7,
-    convFtd: 80, convWtd: 86,
-    contrFtd: 85, contrWtd: 93,
-    arpFtd: 1600, arpWtd: 1600
-  },
-  {
-    name: "Parvathy",
-    storeName: "G Thrissur",
-    billFtd: 8000, billWtd: 48000,
-    valFtd: 3, valWtd: 18,
-    qtyFtd: 5, qtyWtd: 30,
-    walkFtd: 7, walkWtd: 42,
-    lossFtd: 2, lossWtd: 12,
-    abvFtd: 2875, abvWtd: 2875,
-    absFtd: 2.7, absWtd: 2.7,
-    convFtd: 80, convWtd: 86,
-    contrFtd: 85, contrWtd: 93,
-    arpFtd: 1600, arpWtd: 1600
-  },
-  {
-    name: "Jophy",
-    storeName: "G Thrissur",
-    billFtd: 8000, billWtd: 48000,
-    valFtd: 3, valWtd: 18,
-    qtyFtd: 5, qtyWtd: 30,
-    walkFtd: 7, walkWtd: 42,
-    lossFtd: 2, lossWtd: 12,
-    abvFtd: 2875, abvWtd: 2875,
-    absFtd: 2.7, absWtd: 2.7,
-    convFtd: 80, convWtd: 86,
-    contrFtd: 85, contrWtd: 93,
-    arpFtd: 1600, arpWtd: 1600
-  },
-  {
-    name: "Abijith",
-    storeName: "G Thrissur",
-    billFtd: 8000, billWtd: 48000,
-    valFtd: 3, valWtd: 18,
-    qtyFtd: 5, qtyWtd: 30,
-    walkFtd: 7, walkWtd: 42,
-    lossFtd: 2, lossWtd: 12,
-    abvFtd: 2875, abvWtd: 2875,
-    absFtd: 2.7, absWtd: 2.7,
-    convFtd: 80, convWtd: 86,
-    contrFtd: 85, contrWtd: 93,
-    arpFtd: 1600, arpWtd: 1600
-  }
-];
 
 const BRAND_TOKENS = new Set(["zorucci", "grooms", "suitor", "guy", "sg"]);
 
@@ -304,6 +44,35 @@ function getLocalDateString(date) {
   return `${year}-${month}-${day}`;
 }
 
+const BRANCH_LOCATION_MAPPING = {
+  "z-edapally1": "1",
+  "g-edappally": "3",
+  "z- edappal": "6",
+  "z.perinthalmanna": "7",
+  "z.kottakkal": "8",
+  "g.kottayam": "9",
+  "g.perumbavoor": "10",
+  "g.thrissur": "11",
+  "g.chavakkad": "12",
+  "g.calicut": "13",
+  "g.vadakara": "14",
+  "g.edappal": "15",
+  "g.perinthalmanna": "16",
+  "g.kottakkal": "17",
+  "g.manjeri": "18",
+  "g.palakkad": "19",
+  "g.kalpetta": "20",
+  "g.kannur": "21",
+  "g-trivandrum": "5"
+};
+
+function getBranchLocationId(workingBranch) {
+  if (!workingBranch) return null;
+  const normalized = String(workingBranch).trim().toLowerCase();
+  return BRANCH_LOCATION_MAPPING[normalized] || null;
+}
+
+
 
 
 function displayBranchName(name) {
@@ -326,10 +95,20 @@ function isHiddenBranch(name) {
   );
 }
 
+function normalizeForMatch(str) {
+  if (!str) return "";
+  return String(str)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+    .replace(/^sg/, "g")
+    .replace(/^dapper/, "dappr");
+}
+
 const DSRReport = () => {
   const user = useSelector((state) => state.auth.user);
   const isAdminOrSuperAdmin = user?.role === "super_admin" || user?.role === "admin";
   const [searchQuery, setSearchQuery] = useState("");
+  const targetInputRef = useRef(null);
   const [selectedStore, setSelectedStore] = useState("All");
   const [selectedReport, setSelectedReport] = useState("Revenue Vs Target");
   const [activeTab, setActiveTab] = useState("MTD");
@@ -367,11 +146,27 @@ const DSRReport = () => {
   const [modalStore, setModalStore] = useState("");
   const [modalMonth, setModalMonth] = useState("June");
   const [modalTarget, setModalTarget] = useState("");
-  const [activeWeek, setActiveWeek] = useState(1);
+  const [activeWeeks, setActiveWeeks] = useState([1]);
   const [week1Dates, setWeek1Dates] = useState(() => localStorage.getItem("week1Dates") || "01 - 10 Jun");
   const [week2Dates, setWeek2Dates] = useState(() => localStorage.getItem("week2Dates") || "11 - 17 Jun");
   const [week3Dates, setWeek3Dates] = useState(() => localStorage.getItem("week3Dates") || "Select Days");
   const [week4Dates, setWeek4Dates] = useState(() => localStorage.getItem("week4Dates") || "Select Days");
+
+  // Local modal week date states
+  const [modalWeek1, setModalWeek1] = useState("01 - 10 Jun");
+  const [modalWeek2, setModalWeek2] = useState("11 - 17 Jun");
+  const [modalWeek3, setModalWeek3] = useState("Select Days");
+  const [modalWeek4, setModalWeek4] = useState("Select Days");
+
+  const [storeWeekRanges, setStoreWeekRanges] = useState(() => {
+    try {
+      const stored = localStorage.getItem("storeWeekRanges");
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  });
+
   const [weeklyTargets, setWeeklyTargets] = useState(() => {
     try {
       const stored = localStorage.getItem("weeklyTargets");
@@ -381,15 +176,24 @@ const DSRReport = () => {
     }
   });
 
-  const getCurrentWeekId = () => {
+  const getCurrentWeekId = (storeName = "All") => {
     const today = new Date();
     const todayDateNum = today.getDate();
 
+    let w1 = week1Dates, w2 = week2Dates, w3 = week3Dates, w4 = week4Dates;
+    if (storeName !== "All" && storeWeekRanges[storeName]) {
+      const sr = storeWeekRanges[storeName];
+      if (sr[1]) w1 = sr[1];
+      if (sr[2]) w2 = sr[2];
+      if (sr[3]) w3 = sr[3];
+      if (sr[4]) w4 = sr[4];
+    }
+
     const weeks = [
-      { id: 1, val: week1Dates },
-      { id: 2, val: week2Dates },
-      { id: 3, val: week3Dates },
-      { id: 4, val: week4Dates },
+      { id: 1, val: w1 },
+      { id: 2, val: w2 },
+      { id: 3, val: w3 },
+      { id: 4, val: w4 },
     ];
 
     for (const w of weeks) {
@@ -415,6 +219,99 @@ const DSRReport = () => {
     return 4;
   };
 
+  const getCustomRangeTarget = (storeName, startDateStr, endDateStr) => {
+    if (!startDateStr || !endDateStr) return 0;
+    
+    const start = new Date(startDateStr);
+    const end = new Date(endDateStr);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
+    
+    // Parse the week date ranges for the store
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    
+    const week1DatesVal = localStorage.getItem("week1Dates") || "01 - 10 Jun";
+    const week2DatesVal = localStorage.getItem("week2Dates") || "11 - 17 Jun";
+    const week3DatesVal = localStorage.getItem("week3Dates") || "Select Days";
+    const week4DatesVal = localStorage.getItem("week4Dates") || "Select Days";
+
+    let w1 = week1DatesVal, w2 = week2DatesVal, w3 = week3DatesVal, w4 = week4DatesVal;
+    if (storeName !== "All" && storeWeekRanges[storeName]) {
+      const sr = storeWeekRanges[storeName];
+      if (sr[1]) w1 = sr[1];
+      if (sr[2]) w2 = sr[2];
+      if (sr[3]) w3 = sr[3];
+      if (sr[4]) w4 = sr[4];
+    }
+    
+    const parseRange = (val, weekId) => {
+      let startDay = null;
+      let endDay = null;
+      if (val && val !== "Select Days") {
+        const parts = val.split("-");
+        if (parts.length === 2) {
+          const s = parseInt(parts[0].trim(), 10);
+          const ePart = parts[1].trim().split(" ")[0];
+          const e = parseInt(ePart, 10);
+          if (!isNaN(s) && !isNaN(e)) {
+            startDay = s;
+            endDay = e;
+          }
+        }
+      }
+      if (startDay === null || endDay === null) {
+        // Fallbacks
+        if (weekId === 1) { startDay = 1; endDay = 10; }
+        else if (weekId === 2) { startDay = 11; endDay = 17; }
+        else if (weekId === 3) { startDay = 18; endDay = 24; }
+        else { startDay = 25; endDay = getDaysCountInMonth(modalMonth || "June"); }
+      }
+      return { startDay, endDay, count: (endDay - startDay + 1) };
+    };
+    
+    const wRanges = {
+      1: parseRange(w1, 1),
+      2: parseRange(w2, 2),
+      3: parseRange(w3, 3),
+      4: parseRange(w4, 4),
+    };
+    
+    const storeTargetObj = weeklyTargets[storeName] || {};
+    
+    // Sum daily target contributions
+    let totalTarget = 0;
+    
+    // Loop through each day from start to end
+    let temp = new Date(start);
+    while (temp <= end) {
+      const dayNum = temp.getDate();
+      const tempMonth = temp.getMonth();
+      // Ensure we only sum for the current target month (June)
+      if (tempMonth === currentMonth) {
+        // Find which week contains this day
+        let foundWeekId = null;
+        for (let wId = 1; wId <= 4; wId++) {
+          const r = wRanges[wId];
+          if (dayNum >= r.startDay && dayNum <= r.endDay) {
+            foundWeekId = wId;
+            break;
+          }
+        }
+        
+        if (foundWeekId) {
+          const targetW = storeTargetObj[foundWeekId] || 0;
+          const daysInW = wRanges[foundWeekId].count || 7;
+          totalTarget += targetW / daysInW;
+        }
+      }
+      
+      // Move to next day
+      temp.setDate(temp.getDate() + 1);
+    }
+    
+    return Math.round(totalTarget);
+  };
+
   const getStoreTarget = (storeName, defaultTarget, activeTabVal, customFactorVal) => {
     const storeTargetObj = weeklyTargets[storeName] || {};
     
@@ -438,7 +335,7 @@ const DSRReport = () => {
     
     if (activeTabVal === "WTD") {
       // Weekly (WTD) shows the active week target
-      const currentWeekId = getCurrentWeekId(); 
+      const currentWeekId = getCurrentWeekId(storeName); 
       if (storeTargetObj[currentWeekId] !== undefined) {
         return storeTargetObj[currentWeekId];
       }
@@ -446,61 +343,234 @@ const DSRReport = () => {
     }
 
     if (activeTabVal === "Custom") {
-      // For Custom date range, compute proportional target based on MTD target and customFactor
-      // First, get the full month target
-      const hasCustomWeeks = [1, 2, 3, 4].some(wId => storeTargetObj[wId] !== undefined);
-      let mtdTarget = defaultTarget;
-      if (hasCustomWeeks) {
-        let sum = 0;
-        for (let wId = 1; wId <= 4; wId++) {
-          if (storeTargetObj[wId] !== undefined) {
-            sum += storeTargetObj[wId];
-          } else {
-            sum += Math.round(defaultTarget * 0.23);
-          }
-        }
-        mtdTarget = sum;
-      }
-      return Math.round(mtdTarget * customFactorVal);
+      // Proportional custom target calculated accurately based on custom date overlaps
+      return getCustomRangeTarget(storeName, customStartDate, customEndDate);
     }
     
     return defaultTarget;
   };
 
-  const handleSubmitTarget = (store, val, month) => {
+  const handleSubmitTarget = async (store, val, month) => {
     const cleanVal = String(val || "").replace(/[^0-9.-]/g, "");
     const parsed = Number(cleanVal);
-    if (!isNaN(parsed)) {
-      setWeeklyTargets((prev) => {
-        const storeObj = prev[store] || {};
-        const updated = {
-          ...prev,
-          [store]: {
-            ...storeObj,
-            [activeWeek]: parsed
-          }
-        };
-        localStorage.setItem("weeklyTargets", JSON.stringify(updated));
-        return updated;
-      });
+    
+    // Save targets
+    if (val !== undefined && val !== null && val.trim() !== "" && !isNaN(parsed)) {
+      const updatedTargets = { ...weeklyTargets };
+      
+      if (store === "All") {
+        const allObj = { ...(updatedTargets["All"] || {}) };
+        activeWeeks.forEach((wk) => {
+          allObj[wk] = parsed;
+        });
+        updatedTargets["All"] = allObj;
+
+        storeOptions.filter(o => o !== "All").forEach((storeName) => {
+          const storeObj = { ...(updatedTargets[storeName] || {}) };
+          activeWeeks.forEach((wk) => {
+            storeObj[wk] = parsed;
+          });
+          updatedTargets[storeName] = storeObj;
+        });
+      } else {
+        const storeObj = { ...(updatedTargets[store] || {}) };
+        activeWeeks.forEach((wk) => {
+          storeObj[wk] = parsed;
+        });
+        updatedTargets[store] = storeObj;
+      }
+      
+      setWeeklyTargets(updatedTargets);
+      localStorage.setItem("weeklyTargets", JSON.stringify(updatedTargets));
+
+      // Pushing to DB asynchronously
+      if (store === "All") {
+        // Save to All first
+        await saveStoreTargetToDb("All", updatedTargets, storeWeekRanges);
+        // Save for each store in list
+        const promises = storeOptions.filter(o => o !== "All").map((storeName) => {
+          return saveStoreTargetToDb(storeName, updatedTargets, storeWeekRanges);
+        });
+        await Promise.all(promises);
+      } else {
+        await saveStoreTargetToDb(store, updatedTargets, storeWeekRanges);
+      }
     }
+
     setAssignTargetModalOpen(false);
   };
 
+  // Configure Week Dates Modal States
+  const [configWeeksModalOpen, setConfigWeeksModalOpen] = useState(false);
+  const [configStore, setConfigStore] = useState("All");
+  const [configMonth, setConfigMonth] = useState("June");
+  const [configWeek1, setConfigWeek1] = useState("01 - 10 Jun");
+  const [configWeek2, setConfigWeek2] = useState("11 - 17 Jun");
+  const [configWeek3, setConfigWeek3] = useState("Select Days");
+  const [configWeek4, setConfigWeek4] = useState("Select Days");
+  const [configCalendarOpen, setConfigCalendarOpen] = useState(null);
+  const [configStartDays, setConfigStartDays] = useState({ 1: 1, 2: 11, 3: null, 4: null });
+  const [configEndDays, setConfigEndDays] = useState({ 1: 10, 2: 17, 3: null, 4: null });
+
+  // Sync config week dates when configStore changes
   useEffect(() => {
-    if (modalStore && activeWeek) {
-      const customVal = weeklyTargets[modalStore]?.[activeWeek];
+    if (configWeeksModalOpen) {
+      if (configStore && configStore !== "All" && storeWeekRanges[configStore]) {
+        const sr = storeWeekRanges[configStore];
+        setConfigWeek1(sr[1] || week1Dates);
+        setConfigWeek2(sr[2] || week2Dates);
+        setConfigWeek3(sr[3] || week3Dates);
+        setConfigWeek4(sr[4] || week4Dates);
+      } else {
+        setConfigWeek1(week1Dates);
+        setConfigWeek2(week2Dates);
+        setConfigWeek3(week3Dates);
+        setConfigWeek4(week4Dates);
+      }
+    }
+  }, [configStore, configWeeksModalOpen, storeWeekRanges, week1Dates, week2Dates, week3Dates, week4Dates]);
+
+  // Parse picker days for the config weeks modal
+  useEffect(() => {
+    const parseDays = (dateStr) => {
+      if (!dateStr || dateStr === "Select Days") return { start: null, end: null };
+      const parts = dateStr.split("-");
+      if (parts.length === 2) {
+        const startDay = parseInt(parts[0].trim(), 10);
+        const cleanEndPart = parts[1].trim().split(" ")[0];
+        const endDay = parseInt(cleanEndPart, 10);
+        if (!isNaN(startDay) && !isNaN(endDay)) {
+          return { start: startDay, end: endDay };
+        }
+      }
+      return { start: null, end: null };
+    };
+
+    const p1 = parseDays(configWeek1);
+    const p2 = parseDays(configWeek2);
+    const p3 = parseDays(configWeek3);
+    const p4 = parseDays(configWeek4);
+    setConfigStartDays({ 1: p1.start, 2: p2.start, 3: p3.start, 4: p4.start });
+    setConfigEndDays({ 1: p1.end, 2: p2.end, 3: p3.end, 4: p4.end });
+  }, [configWeek1, configWeek2, configWeek3, configWeek4, configWeeksModalOpen]);
+
+  const handleSaveConfigWeeks = async () => {
+    if (!configStore) {
+      alert("Please select a store (or All Stores).");
+      return;
+    }
+    
+    if (configStore === "All") {
+      setWeek1Dates(configWeek1);
+      setWeek2Dates(configWeek2);
+      setWeek3Dates(configWeek3);
+      setWeek4Dates(configWeek4);
+      localStorage.setItem("week1Dates", configWeek1);
+      localStorage.setItem("week2Dates", configWeek2);
+      localStorage.setItem("week3Dates", configWeek3);
+      localStorage.setItem("week4Dates", configWeek4);
+      
+      setStoreWeekRanges((prev) => {
+        const updated = {
+          ...prev,
+          "All": {
+            1: configWeek1,
+            2: configWeek2,
+            3: configWeek3,
+            4: configWeek4
+          }
+        };
+        localStorage.setItem("storeWeekRanges", JSON.stringify(updated));
+        return updated;
+      });
+      
+      // Save global All default range to DB
+      await saveStoreTargetToDb("All", weeklyTargets, {
+        ...storeWeekRanges,
+        "All": { 1: configWeek1, 2: configWeek2, 3: configWeek3, 4: configWeek4 }
+      });
+    } else {
+      setStoreWeekRanges((prev) => {
+        const updated = {
+          ...prev,
+          [configStore]: {
+            1: configWeek1,
+            2: configWeek2,
+            3: configWeek3,
+            4: configWeek4
+          }
+        };
+        localStorage.setItem("storeWeekRanges", JSON.stringify(updated));
+        return updated;
+      });
+      
+      // Save specific store range to DB
+      await saveStoreTargetToDb(configStore, weeklyTargets, {
+        ...storeWeekRanges,
+        [configStore]: { 1: configWeek1, 2: configWeek2, 3: configWeek3, 4: configWeek4 }
+      });
+    }
+    
+    setConfigWeeksModalOpen(false);
+  };
+
+  useEffect(() => {
+    if (modalStore && activeWeeks && activeWeeks.length > 0) {
+      const primaryWeek = activeWeeks[0];
+      const customVal = weeklyTargets[modalStore]?.[primaryWeek];
       if (customVal !== undefined) {
         setModalTarget(customVal.toString());
       } else {
         setModalTarget("");
       }
     }
-  }, [modalStore, activeWeek, weeklyTargets]);
+  }, [modalStore, activeWeeks, weeklyTargets]);
+
+  // Synchronize modal state dates when store or modal visibility changes
+  useEffect(() => {
+    if (assignTargetModalOpen) {
+      setActiveWeeks([1]);
+      if (modalStore && modalStore !== "All" && storeWeekRanges[modalStore]) {
+        const sr = storeWeekRanges[modalStore];
+        setModalWeek1(sr[1] || week1Dates);
+        setModalWeek2(sr[2] || week2Dates);
+        setModalWeek3(sr[3] || week3Dates);
+        setModalWeek4(sr[4] || week4Dates);
+      } else {
+        setModalWeek1(week1Dates);
+        setModalWeek2(week2Dates);
+        setModalWeek3(week3Dates);
+        setModalWeek4(week4Dates);
+      }
+    }
+  }, [modalStore, assignTargetModalOpen, storeWeekRanges, week1Dates, week2Dates, week3Dates, week4Dates]);
 
   const [calendarOpenForWeek, setCalendarOpenForWeek] = useState(null);
   const [weekStartDays, setWeekStartDays] = useState({ 1: 1, 2: 11, 3: null, 4: null });
   const [weekEndDays, setWeekEndDays] = useState({ 1: 10, 2: 17, 3: null, 4: null });
+
+  useEffect(() => {
+    const parseDays = (dateStr) => {
+      if (!dateStr || dateStr === "Select Days") return { start: null, end: null };
+      const parts = dateStr.split("-");
+      if (parts.length === 2) {
+        const startDay = parseInt(parts[0].trim(), 10);
+        const cleanEndPart = parts[1].trim().split(" ")[0];
+        const endDay = parseInt(cleanEndPart, 10);
+        if (!isNaN(startDay) && !isNaN(endDay)) {
+          return { start: startDay, end: endDay };
+        }
+      }
+      return { start: null, end: null };
+    };
+
+    const p1 = parseDays(modalWeek1);
+    const p2 = parseDays(modalWeek2);
+    const p3 = parseDays(modalWeek3);
+    const p4 = parseDays(modalWeek4);
+    setWeekStartDays({ 1: p1.start, 2: p2.start, 3: p3.start, 4: p4.start });
+    setWeekEndDays({ 1: p1.end, 2: p2.end, 3: p3.end, 4: p4.end });
+  }, [modalWeek1, modalWeek2, modalWeek3, modalWeek4, assignTargetModalOpen]);
 
   const getDaysCountInMonth = (monthName, year = 2026) => {
     const months = {
@@ -558,11 +628,107 @@ const DSRReport = () => {
     }
   };
 
+  const fetchStoreTargets = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${baseUrl.baseUrl}api/store-targets?month=June&year=2026`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const data = json.data || [];
+        
+        const targetsMap = {};
+        const rangesMap = {};
+        let w1 = "01 - 10 Jun";
+        let w2 = "11 - 17 Jun";
+        let w3 = "Select Days";
+        let w4 = "Select Days";
+        
+        data.forEach((doc) => {
+          const store = doc.storeName;
+          if (store === "All") {
+            w1 = doc.weekRanges?.[1] || "01 - 10 Jun";
+            w2 = doc.weekRanges?.[2] || "11 - 17 Jun";
+            w3 = doc.weekRanges?.[3] || "Select Days";
+            w4 = doc.weekRanges?.[4] || "Select Days";
+          }
+          
+          targetsMap[store] = {
+            1: doc.weeklyTargets?.[1] || 0,
+            2: doc.weeklyTargets?.[2] || 0,
+            3: doc.weeklyTargets?.[3] || 0,
+            4: doc.weeklyTargets?.[4] || 0,
+          };
+          
+          rangesMap[store] = {
+            1: doc.weekRanges?.[1] || "Select Days",
+            2: doc.weekRanges?.[2] || "Select Days",
+            3: doc.weekRanges?.[3] || "Select Days",
+            4: doc.weekRanges?.[4] || "Select Days",
+          };
+        });
+        
+        setWeeklyTargets(targetsMap);
+        setStoreWeekRanges(rangesMap);
+        setWeek1Dates(w1);
+        setWeek2Dates(w2);
+        setWeek3Dates(w3);
+        setWeek4Dates(w4);
+      }
+    } catch (err) {
+      console.error("Error fetching store targets from MongoDB:", err);
+    }
+  };
+
+  const saveStoreTargetToDb = async (storeName, updatedTargets, updatedRanges) => {
+    try {
+      const token = localStorage.getItem("token");
+      const targetObj = updatedTargets[storeName] || {};
+      const rangeObj = updatedRanges[storeName] || {};
+      
+      const payload = {
+        storeName,
+        month: "June",
+        year: 2026,
+        weekRanges: {
+          1: rangeObj[1] || "Select Days",
+          2: rangeObj[2] || "Select Days",
+          3: rangeObj[3] || "Select Days",
+          4: rangeObj[4] || "Select Days"
+        },
+        weeklyTargets: {
+          1: targetObj[1] || 0,
+          2: targetObj[2] || 0,
+          3: targetObj[3] || 0,
+          4: targetObj[4] || 0
+        }
+      };
+      
+      await fetch(`${baseUrl.baseUrl}api/store-targets`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+    } catch (err) {
+      console.error(`Error saving targets for store ${storeName} to MongoDB:`, err);
+    }
+  };
+
   // Dynamic branches state
   const [branches, setBranches] = useState([]);
   const [loadingBranches, setLoadingBranches] = useState(true);
   const [walkins, setWalkins] = useState([]);
   const [loadingWalkins, setLoadingWalkins] = useState(false);
+  const [performanceData, setPerformanceData] = useState({ ftd: {}, period: {} });
+  const [loadingPerformance, setLoadingPerformance] = useState(false);
 
   // Fetch branches dynamically
   useEffect(() => {
@@ -589,6 +755,7 @@ const DSRReport = () => {
       }
     };
     fetchBranches();
+    fetchStoreTargets();
   }, []);
 
   // Fetch walkins dynamically based on timeframe range
@@ -603,11 +770,7 @@ const DSRReport = () => {
         let periodEnd = todayStr;
         if (activeTab === "WTD") {
           const today = new Date();
-          const dayOfWeek = today.getDay(); 
-          const monday = new Date(today);
-          const distance = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-          monday.setDate(today.getDate() + distance);
-          periodStart = getLocalDateString(monday);
+          periodStart = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
           periodEnd = todayStr;
         } else if (activeTab === "MTD") {
           const today = new Date();
@@ -643,6 +806,122 @@ const DSRReport = () => {
     fetchWalkins();
   }, [activeTab, customStartDate, customEndDate]);
 
+  // Fetch staff performance dynamically based on timeframe range
+  useEffect(() => {
+    const fetchPerformance = async () => {
+      setLoadingPerformance(true);
+      try {
+        const todayStr = getLocalDateString(new Date());
+        
+        let periodStart = todayStr;
+        let periodEnd = todayStr;
+        if (activeTab === "WTD") {
+          // Fallback global range used only for default values
+          const wtdRange = getStoreWTDDateRange("All");
+          periodStart = wtdRange.start;
+          periodEnd = wtdRange.end;
+        } else if (activeTab === "MTD") {
+          const today = new Date();
+          periodStart = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
+          periodEnd = todayStr;
+        } else if (activeTab === "Custom") {
+          periodStart = customStartDate || todayStr;
+          periodEnd = customEndDate || todayStr;
+        }
+
+        const locationIds = ["1", "3", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "25"];
+
+        const getStoreNameFromLocId = (locId) => {
+          const branchKey = Object.keys(BRANCH_LOCATION_MAPPING).find(key => BRANCH_LOCATION_MAPPING[key] === locId);
+          if (!branchKey) return "All";
+          return displayBranchName(branchKey);
+        };
+
+        // Parallel fetch for FTD (For The Day - today)
+        const ftdPromises = locationIds.map(async (locId) => {
+          try {
+            const res = await fetch("https://rentalapi.rootments.live/api/Reports/GetPerformanceStaffReportWithCancel", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                DateFrom: todayStr,
+                DateTo: todayStr,
+                BookingNo: "",
+                LocationID: locId,
+                UserID: "7777"
+              })
+            });
+            if (res.ok) {
+              const json = await res.json();
+              return { locId, data: json.dataSet?.data || [] };
+            }
+          } catch (err) {
+            console.error(`Error fetching FTD performance for location ${locId}:`, err);
+          }
+          return { locId, data: [] };
+        });
+
+        // Parallel fetch for Period (WTD, MTD, Custom)
+        const periodPromises = locationIds.map(async (locId) => {
+          let storePeriodStart = periodStart;
+          let storePeriodEnd = periodEnd;
+          if (activeTab === "WTD") {
+            const storeName = getStoreNameFromLocId(locId);
+            const wtdRange = getStoreWTDDateRange(storeName);
+            storePeriodStart = wtdRange.start;
+            storePeriodEnd = wtdRange.end;
+          }
+
+          try {
+            const res = await fetch("https://rentalapi.rootments.live/api/Reports/GetPerformanceStaffReportWithCancel", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                DateFrom: storePeriodStart,
+                DateTo: storePeriodEnd,
+                BookingNo: "",
+                LocationID: locId,
+                UserID: "7777"
+              })
+            });
+            if (res.ok) {
+              const json = await res.json();
+              return { locId, data: json.dataSet?.data || [] };
+            }
+          } catch (err) {
+            console.error(`Error fetching Period performance for location ${locId}:`, err);
+          }
+          return { locId, data: [] };
+        });
+
+        const ftdResults = await Promise.all(ftdPromises);
+        const periodResults = await Promise.all(periodPromises);
+
+        const ftdMap = {};
+        const periodMap = {};
+
+        ftdResults.forEach(r => {
+          ftdMap[r.locId] = r.data;
+        });
+        periodResults.forEach(r => {
+          periodMap[r.locId] = r.data;
+        });
+
+        setPerformanceData({ ftd: ftdMap, period: periodMap });
+      } catch (err) {
+        console.error("Error fetching performance reports:", err);
+      } finally {
+        setLoadingPerformance(false);
+      }
+    };
+
+    fetchPerformance();
+  }, [activeTab, customStartDate, customEndDate]);
+
 
   useEffect(() => {
     localStorage.setItem("week1Dates", week1Dates);
@@ -668,15 +947,55 @@ const DSRReport = () => {
     return `${monthName} 01-${day}, ${year}`;
   };
 
+  const getStoreWTDDateRange = (storeName = "All") => {
+    const today = new Date();
+    const todayStr = getLocalDateString(today);
+    const todayDateNum = today.getDate();
+    
+    const activeWeekId = getCurrentWeekId(storeName);
+    
+    let w1 = week1Dates, w2 = week2Dates, w3 = week3Dates, w4 = week4Dates;
+    if (storeName !== "All" && storeWeekRanges[storeName]) {
+      const sr = storeWeekRanges[storeName];
+      if (sr[1]) w1 = sr[1];
+      if (sr[2]) w2 = sr[2];
+      if (sr[3]) w3 = sr[3];
+      if (sr[4]) w4 = sr[4];
+    }
+
+    let startDayNum = 1;
+    const weekVal = activeWeekId === 1 ? w1 
+                  : activeWeekId === 2 ? w2 
+                  : activeWeekId === 3 ? w3 
+                  : w4;
+                  
+    if (weekVal && weekVal !== "Select Days") {
+      const parts = weekVal.split("-");
+      if (parts.length === 2) {
+        startDayNum = parseInt(parts[0].trim(), 10);
+      }
+    } else {
+      if (activeWeekId === 1) startDayNum = 1;
+      else if (activeWeekId === 2) startDayNum = 11;
+      else if (activeWeekId === 3) startDayNum = 18;
+      else startDayNum = 25;
+    }
+    
+    const startDate = new Date(today.getFullYear(), today.getMonth(), startDayNum);
+    
+    return {
+      start: getLocalDateString(startDate),
+      end: todayStr
+    };
+  };
+
   const getWTDDateRangeString = () => {
     const today = new Date();
-    const dayOfWeek = today.getDay(); 
-    const monday = new Date(today);
-    const distance = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-    monday.setDate(today.getDate() + distance);
+    const wtdRange = getStoreWTDDateRange(selectedStore);
+    const startDate = new Date(wtdRange.start);
     
-    const startMonth = monday.toLocaleString("en-US", { month: "long" });
-    const startDay = String(monday.getDate()).padStart(2, "0");
+    const startMonth = startDate.toLocaleString("en-US", { month: "long" });
+    const startDay = String(startDate.getDate()).padStart(2, "0");
     
     const endMonth = today.toLocaleString("en-US", { month: "long" });
     const endDay = String(today.getDate()).padStart(2, "0");
@@ -703,7 +1022,18 @@ const DSRReport = () => {
     return (isNegative ? "-" : "") + res;
   };
 
-  // Generate dynamic DSR data based on fetched branches (with mock fallback)
+  const renderCellVal = (val, isPercent = false) => {
+    const rawVal = String(val);
+    const isZero = rawVal === "0" || rawVal === "0.0" || rawVal === "0%" || rawVal === "";
+    const colorClass = isZero ? "text-[#e05a47] font-bold" : "";
+    return (
+      <span className={colorClass}>
+        {val}{isPercent && "%"}
+      </span>
+    );
+  };
+
+  // Generate dynamic DSR data based on fetched branches (No mock fallbacks!)
   const dsrData = useMemo(() => {
     let customFactor = 1.0;
     if (activeTab === "Custom") {
@@ -714,44 +1044,23 @@ const DSRReport = () => {
       customFactor = isNaN(diffDays) ? 1.0 : diffDays / 30.0;
     }
 
-    const list = branches.length > 0
-      ? branches.map((b, index) => {
-          const sl = String(index + 1).padStart(2, "0");
-          const name = displayBranchName(b.workingBranch);
-          const mockItem = mockDSRData[index % mockDSRData.length];
-          const rawAchieved = mockItem ? mockItem.achieved : 95000;
-          
-          const defaultTarget = mockItem ? mockItem.target : 100000;
-          const target = getStoreTarget(name, defaultTarget, activeTab, customFactor);
-          
-          let achieved = rawAchieved;
-          if (activeTab === "WTD") {
-            achieved = Math.round(rawAchieved * 0.23);
-          } else if (activeTab === "Custom") {
-            achieved = Math.round(rawAchieved * customFactor);
-          }
+    const list = branches.map((b, index) => {
+      const sl = String(index + 1).padStart(2, "0");
+      const name = displayBranchName(b.workingBranch);
+      const locId = getBranchLocationId(b.workingBranch);
+      
+      const defaultTarget = 0;
+      const target = getStoreTarget(name, defaultTarget, activeTab, customFactor);
+      
+      const locPeriodList = performanceData.period[locId] || [];
+      const achieved = locPeriodList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
 
-          const balance = target - achieved;
-          const pct = target > 0 ? Math.round((achieved / target) * 100) : 0;
-          return { sl, name, target, achieved, balance, pct };
-        })
-      : mockDSRData.map((item) => {
-          const defaultTarget = item.target;
-          const target = getStoreTarget(item.name, defaultTarget, activeTab, customFactor);
-          
-          let achieved = item.achieved;
-          if (activeTab === "WTD") {
-            achieved = Math.round(item.achieved * 0.23);
-          } else if (activeTab === "Custom") {
-            achieved = Math.round(item.achieved * customFactor);
-          }
-
-          const balance = target - achieved;
-          const pct = target > 0 ? Math.round((achieved / target) * 100) : 0;
-          return { ...item, target, achieved, balance, pct };
-        });
+      const balance = target - achieved;
+      const pct = target > 0 ? Math.round((achieved / target) * 100) : 0;
+      return { sl, name, target, achieved, balance, pct };
+    });
     return list;
-  }, [branches, weeklyTargets, activeTab, customStartDate, customEndDate]);
+  }, [branches, weeklyTargets, activeTab, customStartDate, customEndDate, performanceData]);
 
   // Generate dynamic Sales Funnel data based on fetched branches (with mock fallback)
   const funnelRows = useMemo(() => {
@@ -761,13 +1070,9 @@ const DSRReport = () => {
     let periodStart = todayStr;
     let periodEnd = todayStr;
     if (activeTab === "WTD") {
-      const today = new Date();
-      const dayOfWeek = today.getDay(); 
-      const monday = new Date(today);
-      const distance = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-      monday.setDate(today.getDate() + distance);
-      periodStart = getLocalDateString(monday);
-      periodEnd = todayStr;
+      const wtdRange = getStoreWTDDateRange("All");
+      periodStart = wtdRange.start;
+      periodEnd = wtdRange.end;
     } else if (activeTab === "MTD") {
       const today = new Date();
       periodStart = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -791,54 +1096,86 @@ const DSRReport = () => {
              shoeS === 'loss' || shoeS === 'revisit loss' || shoeS === 'lost';
     };
 
-    let customFactor = 1.0;
-    if (activeTab === "Custom") {
-      const start = new Date(customStartDate);
-      const end = new Date(customEndDate);
-      const diffTime = Math.abs(end - start);
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-      customFactor = isNaN(diffDays) ? 1.0 : diffDays / 30.0;
-    }
+    const isFtdEmpty = Object.keys(performanceData.ftd).length === 0;
+    const isPeriodEmpty = Object.keys(performanceData.period).length === 0;
+    const useMock = isFtdEmpty && isPeriodEmpty;
 
-    let periodFactor = 1.0;
-    if (activeTab === "MTD") {
-      periodFactor = 4.33;
-    } else if (activeTab === "Custom") {
-      periodFactor = customFactor * 5;
-    }
+    // Helper to calculate derived metrics for a row
+    const withDerivedMetrics = (row) => {
+      const abvFtd = row.valFtd > 0 ? Math.round(row.billFtd / row.valFtd) : 0;
+      const abvWtd = row.valWtd > 0 ? Math.round(row.billWtd / row.valWtd) : 0;
+      const absFtd = row.valFtd > 0 ? parseFloat((row.qtyFtd / row.valFtd).toFixed(1)) : 0;
+      const absWtd = row.valWtd > 0 ? parseFloat((row.qtyWtd / row.valWtd).toFixed(1)) : 0;
+      const convFtd = row.walkFtd > 0 ? Math.min(100, Math.round((row.valFtd / row.walkFtd) * 100)) : 0;
+      const convWtd = row.walkWtd > 0 ? Math.min(100, Math.round((row.valWtd / row.walkWtd) * 100)) : 0;
+      const arpFtd = row.qtyFtd > 0 ? Math.round(row.billFtd / row.qtyFtd) : 0;
+      const arpWtd = row.qtyWtd > 0 ? Math.round(row.billWtd / row.qtyWtd) : 0;
+      
+      return {
+        ...row,
+        abvFtd,
+        abvWtd,
+        absFtd,
+        absWtd,
+        convFtd,
+        convWtd,
+        arpFtd,
+        arpWtd
+      };
+    };
 
+    // Real API Data calculations (no mock fallback!)
     if (isAdminOrSuperAdmin) {
-      if (branches.length > 0) {
-        return branches.map((b, index) => {
-          const name = displayBranchName(b.workingBranch);
+      if (selectedStore === "All") {
+        // Show store-level summary
+        return branches.map((b) => {
+          const storeName = displayBranchName(b.workingBranch);
           const storeKeyVal = locationKey(b.workingBranch);
-          
-          // Get real walkin statistics for this store
+          const locId = getBranchLocationId(b.workingBranch);
+
+          const locFtdList = performanceData.ftd[locId] || [];
+          const locPeriodList = performanceData.period[locId] || [];
+
+          // Walkin/Loss calculations
+          let storePeriodStart = todayStr;
+          let storePeriodEnd = todayStr;
+          if (activeTab === "WTD") {
+            const wtdRange = getStoreWTDDateRange(storeName);
+            storePeriodStart = wtdRange.start;
+            storePeriodEnd = wtdRange.end;
+          } else if (activeTab === "MTD") {
+            const today = new Date();
+            storePeriodStart = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
+            storePeriodEnd = todayStr;
+          } else if (activeTab === "Custom") {
+            storePeriodStart = customStartDate || todayStr;
+            storePeriodEnd = customEndDate || todayStr;
+          }
+
           const storeWalkins = walkins.filter(w => locationKey(w.store) === storeKeyVal);
-          
           const ftdWalkins = storeWalkins.filter(w => getWalkinDateString(w) === todayStr);
           const periodWalkins = storeWalkins.filter(w => {
             const d = getWalkinDateString(w);
-            return d && d >= periodStart && d <= periodEnd;
+            return d && d >= storePeriodStart && d <= storePeriodEnd;
           });
+
+          // Performance API aggregations
+          // Note: totalValue mapped to bill, total_Number_Of_Bill mapped to val, totalQuantity mapped to qty
+          const billFtd = locFtdList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+          const billWtd = locPeriodList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+          const valFtd = locFtdList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
+          const valWtd = locPeriodList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
+          const qtyFtd = locFtdList.reduce((sum, item) => sum + (item.totalQuantity || 0), 0);
+          const qtyWtd = locPeriodList.reduce((sum, item) => sum + (item.totalQuantity || 0), 0);
 
           const walkFtd = ftdWalkins.length;
           const walkWtd = periodWalkins.length;
+          const lossFtd = Math.max(0, walkFtd - valFtd);
+          const lossWtd = Math.max(0, walkWtd - valWtd);
 
-          const lossFtd = ftdWalkins.filter(isLoss).length;
-          const lossWtd = periodWalkins.filter(isLoss).length;
-
-          const factor = 1 + (index % 5) * 0.15; // Realistic variations for other metrics
-          const billFtd = Math.round(80000 * factor);
-          const billWtd = Math.round(480000 * factor * periodFactor);
-          const valFtd = Math.round(30 * factor) || 1;
-          const valWtd = Math.round(180 * factor * periodFactor) || 1;
-          const qtyFtd = Math.round(50 * factor) || 1;
-          const qtyWtd = Math.round(300 * factor * periodFactor) || 1;
-
-          return {
-            name,
-            storeName: name,
+          return withDerivedMetrics({
+            name: storeName,
+            storeName,
             billFtd,
             billWtd,
             valFtd,
@@ -848,162 +1185,162 @@ const DSRReport = () => {
             walkFtd,
             walkWtd,
             lossFtd,
-            lossWtd,
-            abvFtd: Math.round(billFtd / valFtd),
-            abvWtd: Math.round(billWtd / valWtd),
-            absFtd: parseFloat((qtyFtd / valFtd).toFixed(1)),
-            absWtd: parseFloat((qtyWtd / valWtd).toFixed(1)),
-            convFtd: walkFtd > 0 ? Math.round((valFtd / walkFtd) * 100) : 0,
-            convWtd: walkWtd > 0 ? Math.round((valWtd / walkWtd) * 100) : 0,
-            arpFtd: Math.round(billFtd / qtyFtd),
-            arpWtd: Math.round(billWtd / qtyWtd)
-          };
+            lossWtd
+          });
         });
-      }
-      // Fallback if branches not loaded yet or empty
-      return mockStoreFunnelRows.map(row => {
-        const storeKeyVal = locationKey(row.name);
-        const storeWalkins = walkins.filter(w => locationKey(w.store) === storeKeyVal);
-        const ftdWalkins = storeWalkins.filter(w => getWalkinDateString(w) === todayStr);
-        const periodWalkins = storeWalkins.filter(w => {
-          const d = getWalkinDateString(w);
-          return d && d >= periodStart && d <= periodEnd;
-        });
+      } else {
+        // Drill-down view: Show individual staff members of the selected store
+        const selectedBranch = branches.find(b => displayBranchName(b.workingBranch) === selectedStore);
+        if (!selectedBranch) return [];
 
-        const walkFtd = ftdWalkins.length;
-        const walkWtd = periodWalkins.length;
-        const lossFtd = ftdWalkins.filter(isLoss).length;
-        const lossWtd = periodWalkins.filter(isLoss).length;
+        const storeName = displayBranchName(selectedBranch.workingBranch);
+        const storeKeyVal = locationKey(selectedBranch.workingBranch);
+        const locId = getBranchLocationId(selectedBranch.workingBranch);
 
-        const billWtd = Math.round(row.billWtd * periodFactor);
-        const valWtd = Math.round(row.valWtd * periodFactor) || 1;
-        const qtyWtd = Math.round(row.qtyWtd * periodFactor) || 1;
+        const locFtdList = performanceData.ftd[locId] || [];
+        const locPeriodList = performanceData.period[locId] || [];
 
-        return {
-          ...row,
-          billWtd,
-          valWtd,
-          qtyWtd,
-          walkFtd,
-          walkWtd,
-          lossFtd,
-          lossWtd,
-          abvWtd: Math.round(billWtd / valWtd),
-          absWtd: parseFloat((qtyWtd / valWtd).toFixed(1)),
-          convFtd: walkFtd > 0 ? Math.round((row.valFtd / walkFtd) * 100) : 0,
-          convWtd: walkWtd > 0 ? Math.round((valWtd / walkWtd) * 100) : 0,
-          arpWtd: Math.round(billWtd / qtyWtd)
-        };
-      });
-    } else {
-      // Non-admin view: Staff rows
-      const staffPool = [
-        "Amal P", "Anagha Hari", "Rohit H", "Abhiram S Kumar",
-        "Sanu Sujanan", "Parvathy", "Jophy", "Abijith",
-        "Suresh Kumar", "Deepa Nair", "Arun G", "Rahul Raj",
-        "Nithin Mohan", "Anjali S", "Kiran Dev", "Sinu Bose"
-      ];
+        // Unique staff names
+        const staffNames = Array.from(new Set([
+          ...locFtdList.map(x => x.bookingBy),
+          ...locPeriodList.map(x => x.bookingBy)
+        ])).filter(Boolean);
 
-      if (branches.length > 0) {
-        const allRows = [];
-        branches.forEach((b, bIdx) => {
-          const storeName = displayBranchName(b.workingBranch);
-          const storeKeyVal = locationKey(b.workingBranch);
-          // Generate 5 staff members for each store
-          for (let sIdx = 0; sIdx < 5; sIdx++) {
-            const staffName = staffPool[(bIdx * 3 + sIdx) % staffPool.length];
-            const factor = 0.8 + ((bIdx * 7 + sIdx * 11) % 40) / 100;
-            
-            // Get real walkin statistics for this staff member at this store
-            const staffWalkins = walkins.filter(w => 
-              locationKey(w.store) === storeKeyVal &&
-              w.staff && w.staff.trim().toLowerCase() === staffName.trim().toLowerCase()
-            );
+        return staffNames.map(staffName => {
+          const staffFtd = locFtdList.find(x => x.bookingBy === staffName) || {};
+          const staffPeriod = locPeriodList.find(x => x.bookingBy === staffName) || {};
 
-            const ftdWalkins = staffWalkins.filter(w => getWalkinDateString(w) === todayStr);
-            const periodWalkins = staffWalkins.filter(w => {
-              const d = getWalkinDateString(w);
-              return d && d >= periodStart && d <= periodEnd;
-            });
-
-            const walkFtd = ftdWalkins.length;
-            const walkWtd = periodWalkins.length;
-            const lossFtd = ftdWalkins.filter(isLoss).length;
-            const lossWtd = periodWalkins.filter(isLoss).length;
-
-            const billFtd = Math.round(8000 * factor);
-            const billWtd = Math.round(48000 * factor * periodFactor);
-            const valFtd = Math.round(3 * factor) || 1;
-            const valWtd = Math.round(18 * factor * periodFactor) || 1;
-            const qtyFtd = Math.round(5 * factor) || 1;
-            const qtyWtd = Math.round(30 * factor * periodFactor) || 1;
-
-            allRows.push({
-              name: staffName,
-              storeName,
-              billFtd,
-              billWtd,
-              valFtd,
-              valWtd,
-              qtyFtd,
-              qtyWtd,
-              walkFtd,
-              walkWtd,
-              lossFtd,
-              lossWtd,
-              abvFtd: Math.round(billFtd / valFtd),
-              abvWtd: Math.round(billWtd / valWtd),
-              absFtd: parseFloat((qtyFtd / valFtd).toFixed(1)),
-              absWtd: parseFloat((qtyWtd / valWtd).toFixed(1)),
-              convFtd: walkFtd > 0 ? Math.round((valFtd / walkFtd) * 100) : 0,
-              convWtd: walkWtd > 0 ? Math.round((valWtd / walkWtd) * 100) : 0,
-              arpFtd: Math.round(billFtd / qtyFtd),
-              arpWtd: Math.round(billWtd / qtyWtd)
-            });
+          // Walk-ins filtered by staff name
+          let storePeriodStart = todayStr;
+          let storePeriodEnd = todayStr;
+          if (activeTab === "WTD") {
+            const wtdRange = getStoreWTDDateRange(storeName);
+            storePeriodStart = wtdRange.start;
+            storePeriodEnd = wtdRange.end;
+          } else if (activeTab === "MTD") {
+            const today = new Date();
+            storePeriodStart = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
+            storePeriodEnd = todayStr;
+          } else if (activeTab === "Custom") {
+            storePeriodStart = customStartDate || todayStr;
+            storePeriodEnd = customEndDate || todayStr;
           }
+
+          const staffWalkins = walkins.filter(w => 
+            locationKey(w.store) === storeKeyVal && 
+            w.staff && w.staff.trim().toLowerCase() === staffName.trim().toLowerCase()
+          );
+          const ftdWalkins = staffWalkins.filter(w => getWalkinDateString(w) === todayStr);
+          const periodWalkins = staffWalkins.filter(w => {
+            const d = getWalkinDateString(w);
+            return d && d >= storePeriodStart && d <= storePeriodEnd;
+          });
+
+          const billFtd = staffFtd.totalValue || 0;
+          const billWtd = staffPeriod.totalValue || 0;
+          const valFtd = staffFtd.total_Number_Of_Bill || 0;
+          const valWtd = staffPeriod.total_Number_Of_Bill || 0;
+          const qtyFtd = staffFtd.totalQuantity || 0;
+          const qtyWtd = staffPeriod.totalQuantity || 0;
+
+          const walkFtd = ftdWalkins.length;
+          const walkWtd = periodWalkins.length;
+          const lossFtd = Math.max(0, walkFtd - valFtd);
+          const lossWtd = Math.max(0, walkWtd - valWtd);
+
+          return withDerivedMetrics({
+            name: staffName,
+            storeName,
+            billFtd,
+            billWtd,
+            valFtd,
+            valWtd,
+            qtyFtd,
+            qtyWtd,
+            walkFtd,
+            walkWtd,
+            lossFtd,
+            lossWtd
+          });
         });
-        return allRows;
       }
-      return mockFunnelRows.map(row => {
-        const storeKeyVal = locationKey(row.storeName);
-        const staffWalkins = walkins.filter(w => 
-          locationKey(w.store) === storeKeyVal &&
-          w.staff && w.staff.trim().toLowerCase() === row.name.trim().toLowerCase()
-        );
+    } else {
+      // Non-admin view: Show individual staff members for all accessible branches
+      const allRows = [];
+      branches.forEach((b) => {
+        const storeName = displayBranchName(b.workingBranch);
+        const storeKeyVal = locationKey(b.workingBranch);
+        const locId = getBranchLocationId(b.workingBranch);
 
-        const ftdWalkins = staffWalkins.filter(w => getWalkinDateString(w) === todayStr);
-        const periodWalkins = staffWalkins.filter(w => {
-          const d = getWalkinDateString(w);
-          return d && d >= periodStart && d <= periodEnd;
+        const locFtdList = performanceData.ftd[locId] || [];
+        const locPeriodList = performanceData.period[locId] || [];
+
+        const staffNames = Array.from(new Set([
+          ...locFtdList.map(x => x.bookingBy),
+          ...locPeriodList.map(x => x.bookingBy)
+        ])).filter(Boolean);
+
+        staffNames.forEach(staffName => {
+          const staffFtd = locFtdList.find(x => x.bookingBy === staffName) || {};
+          const staffPeriod = locPeriodList.find(x => x.bookingBy === staffName) || {};
+
+          // Walk-ins filtered by staff name
+          let storePeriodStart = todayStr;
+          let storePeriodEnd = todayStr;
+          if (activeTab === "WTD") {
+            const wtdRange = getStoreWTDDateRange(storeName);
+            storePeriodStart = wtdRange.start;
+            storePeriodEnd = wtdRange.end;
+          } else if (activeTab === "MTD") {
+            const today = new Date();
+            storePeriodStart = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
+            storePeriodEnd = todayStr;
+          } else if (activeTab === "Custom") {
+            storePeriodStart = customStartDate || todayStr;
+            storePeriodEnd = customEndDate || todayStr;
+          }
+
+          const staffWalkins = walkins.filter(w => 
+            locationKey(w.store) === storeKeyVal && 
+            w.staff && w.staff.trim().toLowerCase() === staffName.trim().toLowerCase()
+          );
+          const ftdWalkins = staffWalkins.filter(w => getWalkinDateString(w) === todayStr);
+          const periodWalkins = staffWalkins.filter(w => {
+            const d = getWalkinDateString(w);
+            return d && d >= storePeriodStart && d <= storePeriodEnd;
+          });
+
+          const billFtd = staffFtd.totalValue || 0;
+          const billWtd = staffPeriod.totalValue || 0;
+          const valFtd = staffFtd.total_Number_Of_Bill || 0;
+          const valWtd = staffPeriod.total_Number_Of_Bill || 0;
+          const qtyFtd = staffFtd.totalQuantity || 0;
+          const qtyWtd = staffPeriod.totalQuantity || 0;
+
+          const walkFtd = ftdWalkins.length;
+          const walkWtd = periodWalkins.length;
+          const lossFtd = Math.max(0, walkFtd - valFtd);
+          const lossWtd = Math.max(0, walkWtd - valWtd);
+
+          allRows.push(withDerivedMetrics({
+            name: staffName,
+            storeName,
+            billFtd,
+            billWtd,
+            valFtd,
+            valWtd,
+            qtyFtd,
+            qtyWtd,
+            walkFtd,
+            walkWtd,
+            lossFtd,
+            lossWtd
+          }));
         });
-
-        const walkFtd = ftdWalkins.length;
-        const walkWtd = periodWalkins.length;
-        const lossFtd = ftdWalkins.filter(isLoss).length;
-        const lossWtd = periodWalkins.filter(isLoss).length;
-
-        const billWtd = Math.round(row.billWtd * periodFactor);
-        const valWtd = Math.round(row.valWtd * periodFactor) || 1;
-        const qtyWtd = Math.round(row.qtyWtd * periodFactor) || 1;
-
-        return {
-          ...row,
-          billWtd,
-          valWtd,
-          qtyWtd,
-          walkFtd,
-          walkWtd,
-          lossFtd,
-          lossWtd,
-          abvWtd: Math.round(billWtd / valWtd),
-          absWtd: parseFloat((qtyWtd / valWtd).toFixed(1)),
-          convFtd: walkFtd > 0 ? Math.round((row.valFtd / walkFtd) * 100) : 0,
-          convWtd: walkWtd > 0 ? Math.round((valWtd / walkWtd) * 100) : 0,
-          arpWtd: Math.round(billWtd / qtyWtd)
-        };
       });
+      return allRows;
     }
-  }, [branches, isAdminOrSuperAdmin, walkins, activeTab, customStartDate, customEndDate]);
+  }, [branches, isAdminOrSuperAdmin, walkins, performanceData, selectedStore, activeTab, customStartDate, customEndDate]);
 
   // Populate dynamic store options for dropdown
   const storeOptions = useMemo(() => {
@@ -1063,8 +1400,8 @@ const DSRReport = () => {
   const totalAbsFtd = useMemo(() => (totalValFtd > 0 ? (totalQtyFtd / totalValFtd).toFixed(1) : "0.0"), [totalQtyFtd, totalValFtd]);
   const totalAbsWtd = useMemo(() => (totalValWtd > 0 ? (totalQtyWtd / totalValWtd).toFixed(1) : "0.0"), [totalQtyWtd, totalValWtd]);
 
-  const totalConvFtd = useMemo(() => (totalWalkFtd > 0 ? Math.round((totalValFtd / totalWalkFtd) * 100) : 0), [totalValFtd, totalWalkFtd]);
-  const totalConvWtd = useMemo(() => (totalWalkWtd > 0 ? Math.round((totalValWtd / totalWalkWtd) * 100) : 0), [totalValWtd, totalWalkWtd]);
+  const totalConvFtd = useMemo(() => (totalWalkFtd > 0 ? Math.min(100, Math.round((totalValFtd / totalWalkFtd) * 100)) : 0), [totalValFtd, totalWalkFtd]);
+  const totalConvWtd = useMemo(() => (totalWalkWtd > 0 ? Math.min(100, Math.round((totalValWtd / totalWalkWtd) * 100)) : 0), [totalValWtd, totalWalkWtd]);
 
   const totalArpFtd = useMemo(() => (totalQtyFtd > 0 ? Math.round(totalBillFtd / totalQtyFtd) : 0), [totalBillFtd, totalQtyFtd]);
   const totalArpWtd = useMemo(() => (totalQtyWtd > 0 ? Math.round(totalBillWtd / totalQtyWtd) : 0), [totalBillWtd, totalQtyWtd]);
@@ -1072,72 +1409,70 @@ const DSRReport = () => {
   // Generate dynamic Category Contribution data based on fetched branches (with mock fallback)
   const categoryRows = useMemo(() => {
     const defaultStores = [
-      { name: "G Thrissur" },
-      { name: "SG Edappally" },
-      { name: "Z Edappally" },
-      { name: "G Edappally" },
-      { name: "Z Edappal" },
-      { name: "Z Perinthalmanna" },
-      { name: "Z Kottakkal" },
-      { name: "G Kottayam" },
-      { name: "G Perumbavoor" }
+      { name: "G Thrissur", workingBranch: "G.Thrissur" },
+      { name: "SG Edappally", workingBranch: "G-Edappally" },
+      { name: "Z Edappally", workingBranch: "Z-Edapally1" },
+      { name: "G Edappally", workingBranch: "G-Edappally" },
+      { name: "Z Edappal", workingBranch: "Z- Edappal" },
+      { name: "Z Perinthalmanna", workingBranch: "Z.Perinthalmanna" },
+      { name: "Z Kottakkal", workingBranch: "Z.Kottakkal" },
+      { name: "G Kottayam", workingBranch: "G.Kottayam" },
+      { name: "G Perumbavoor", workingBranch: "G.Perumbavoor" }
     ];
 
     const activeList = branches.length > 0
-      ? branches.map((b) => ({ name: displayBranchName(b.workingBranch) }))
+      ? branches.map((b) => ({ name: displayBranchName(b.workingBranch), workingBranch: b.workingBranch }))
       : defaultStores;
 
     return activeList.map((item, index) => {
       const name = item.name;
-      const factor = 1 + (index % 5) * 0.15; // Realistic variations
+      const workingBranch = item.workingBranch;
 
-      // Rental Products values
-      const rentalValFtd = Math.round(8000 * factor);
-      const rentalValWtd = Math.round(48000 * factor);
-      const rentalBillFtd = Math.round(3 * factor) || 1;
-      const rentalBillWtd = Math.round(18 * factor) || 1;
-      const rentalQtyFtd = Math.round(3 * factor) || 1;
-      const rentalQtyWtd = Math.round(18 * factor) || 1;
+      // Real API data (NO MOCK DATA!)
+      const locId = getBranchLocationId(workingBranch);
+      const storeKeyVal = normalizeForMatch(workingBranch);
 
-      // Dappr Squad values
-      const squadValFtd = Math.round(8000 * factor * 0.9);
-      const squadValWtd = Math.round(48000 * factor * 0.9);
-      const squadBillFtd = Math.round(3 * factor) || 1;
-      const squadBillWtd = Math.round(18 * factor) || 1;
-      const squadQtyFtd = Math.round(3 * factor * 0.9) || 1;
-      const squadQtyWtd = Math.round(18 * factor * 0.9) || 1;
+      // Rental Products (Live API for locId)
+      const locFtdList = performanceData.ftd[locId] || [];
+      const locPeriodList = performanceData.period[locId] || [];
 
-      // Sales Products values
-      const salesValFtd = Math.round(9000 * factor);
-      const salesValWtd = Math.round(54000 * factor);
-      const salesBillFtd = Math.round(4 * factor) || 1;
-      const salesBillWtd = Math.round(24 * factor) || 1;
-      const salesQtyFtd = Math.round(5 * factor) || 1;
-      const salesQtyWtd = Math.round(30 * factor) || 1;
+      const rentalValFtd = locFtdList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
+      const rentalValWtd = locPeriodList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
+      const rentalBillFtd = locFtdList.reduce((sum, x) => sum + (x.total_Number_Of_Bill || 0), 0);
+      const rentalBillWtd = locPeriodList.reduce((sum, x) => sum + (x.total_Number_Of_Bill || 0), 0);
+      const rentalQtyFtd = locFtdList.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
+      const rentalQtyWtd = locPeriodList.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
+
+      // Dappr Squad (Live API for 25 matching store name)
+      const squadFtdList = performanceData.ftd["25"] || [];
+      const squadPeriodList = performanceData.period["25"] || [];
+
+      const storeFtdItem = squadFtdList.find(x => normalizeForMatch(x.bookingBy) === storeKeyVal) || {};
+      const storePeriodItem = squadPeriodList.find(x => normalizeForMatch(x.bookingBy) === storeKeyVal) || {};
+
+      const squadValFtd = storeFtdItem.totalValue || 0;
+      const squadValWtd = storePeriodItem.totalValue || 0;
+      const squadBillFtd = storeFtdItem.total_Number_Of_Bill || 0;
+      const squadBillWtd = storePeriodItem.total_Number_Of_Bill || 0;
+      const squadQtyFtd = storeFtdItem.totalQuantity || 0;
+      const squadQtyWtd = storePeriodItem.totalQuantity || 0;
+
+      // Sales Products (Always 0 because we don't have API for it, showing 0 value as requested)
+      const salesValFtd = 0;
+      const salesValWtd = 0;
+      const salesBillFtd = 0;
+      const salesBillWtd = 0;
+      const salesQtyFtd = 0;
+      const salesQtyWtd = 0;
 
       return {
         name,
-        rentalValFtd,
-        rentalValWtd,
-        rentalBillFtd,
-        rentalBillWtd,
-        rentalQtyFtd,
-        rentalQtyWtd,
-        squadValFtd,
-        squadValWtd,
-        squadBillFtd,
-        squadBillWtd,
-        squadQtyFtd,
-        squadQtyWtd,
-        salesValFtd,
-        salesValWtd,
-        salesBillFtd,
-        salesBillWtd,
-        salesQtyFtd,
-        salesQtyWtd
+        rentalValFtd, rentalValWtd, rentalBillFtd, rentalBillWtd, rentalQtyFtd, rentalQtyWtd,
+        squadValFtd, squadValWtd, squadBillFtd, squadBillWtd, squadQtyFtd, squadQtyWtd,
+        salesValFtd, salesValWtd, salesBillFtd, salesBillWtd, salesQtyFtd, salesQtyWtd
       };
     });
-  }, [branches]);
+  }, [branches, performanceData]);
 
   const filteredCategoryRows = useMemo(() => {
     return categoryRows.filter((item) => {
@@ -1211,8 +1546,8 @@ const DSRReport = () => {
       ];
       const rows = filteredFunnelRows.map((row) => [
         row.name,
-        row.billFtd, row.billWtd,
         row.valFtd, row.valWtd,
+        row.billFtd, row.billWtd,
         row.qtyFtd, row.qtyWtd,
         row.walkFtd, row.walkWtd,
         row.lossFtd, row.lossWtd,
@@ -1223,8 +1558,8 @@ const DSRReport = () => {
       ]);
       rows.push([
         "Total",
-        totalBillFtd, totalBillWtd,
         totalValFtd, totalValWtd,
+        totalBillFtd, totalBillWtd,
         totalQtyFtd, totalQtyWtd,
         totalWalkFtd, totalWalkWtd,
         totalLossFtd, totalLossWtd,
@@ -1348,6 +1683,14 @@ const DSRReport = () => {
                 </div>
               </div>
             )}
+
+            {/* Configure Weeks Button */}
+            <button 
+              onClick={() => setConfigWeeksModalOpen(true)}
+              className="flex items-center gap-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+            >
+              Configure Weeks
+            </button>
 
             {/* Assign Target Button */}
             <button 
@@ -1542,8 +1885,18 @@ const DSRReport = () => {
                       pctColorClass = "text-[#e05a47] font-semibold";
                     }
 
+                    let targetColorClass = "text-gray-900";
+                    if (row.target === 0) {
+                      targetColorClass = "text-[#e05a47] font-semibold";
+                    }
+
+                    let achievedColorClass = "text-gray-900";
+                    if (row.achieved === 0) {
+                      achievedColorClass = "text-[#e05a47]";
+                    }
+
                     let balColorClass = row.balance < 0 ? "text-[#00A36C]" : "text-gray-900";
-                    if (row.pct <= 93) {
+                    if (row.pct <= 93 || row.balance === 0) {
                       balColorClass = "text-[#e05a47]";
                     }
 
@@ -1551,10 +1904,10 @@ const DSRReport = () => {
                       <tr key={row.sl} className="odd:bg-white even:bg-[#f9fafb] hover:bg-gray-50/50 transition-colors">
                         <td className="px-6 py-3.5 text-center text-gray-400 font-medium">{row.sl}</td>
                         <td className="px-6 py-3.5 font-bold text-gray-800">{row.name}</td>
-                        <td className="px-6 py-3.5 text-right font-medium">
+                        <td className={`px-6 py-3.5 text-right font-medium ${targetColorClass}`}>
                           {formatIndianNumber(row.target)}
                         </td>
-                        <td className="px-6 py-3.5 text-right font-bold text-gray-900">
+                        <td className={`px-6 py-3.5 text-right font-bold ${achievedColorClass}`}>
                           {formatIndianNumber(row.achieved)}
                         </td>
                         <td className={`px-6 py-3.5 text-right font-bold ${balColorClass}`}>
@@ -1575,7 +1928,15 @@ const DSRReport = () => {
         {selectedReport === "Sales Funnel" && (
           <div className="bg-white rounded-[20px] shadow-sm border border-gray-100 overflow-hidden">
             <div className="px-6 py-5 flex justify-between items-center">
-              <h2 className="text-[17px] font-bold text-gray-900">Sales Funnel</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-[17px] font-bold text-gray-900">Sales Funnel</h2>
+                {(loadingPerformance || loadingWalkins) && (
+                  <span className="flex h-2.5 w-2.5 relative" title="Syncing real-time store performance data...">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                  </span>
+                )}
+              </div>
               <p className="text-gray-400 text-xs font-semibold">
                 {activeTab === "MTD" 
                   ? getMTDDateRangeString() 
@@ -1644,36 +2005,35 @@ const DSRReport = () => {
                     return (
                       <tr key={idx} className="odd:bg-white even:bg-[#f9fafb] hover:bg-gray-50/50 transition-colors">
                         <td className={`sticky left-0 z-10 px-6 py-3.5 text-left font-semibold text-gray-800 border-r border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)] ${idx % 2 === 0 ? "bg-white" : "bg-[#f9fafb]"}`}>{row.name}</td>
+                                     <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(row.valFtd)}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(row.valWtd)}</td>
                         
-                        <td className="px-4 py-3.5 border-r border-gray-100">{formatIndianNumber(row.billFtd)}</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{formatIndianNumber(row.billWtd)}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(formatIndianNumber(row.billFtd))}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(formatIndianNumber(row.billWtd))}</td>
                         
-                        <td className="px-4 py-3.5 border-r border-gray-100">{row.valFtd}</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{row.valWtd}</td>
-                        
-                        <td className="px-4 py-3.5 border-r border-gray-100">{row.qtyFtd}</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{row.qtyWtd}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(row.qtyFtd)}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(row.qtyWtd)}</td>
 
-                        <td className="px-4 py-3.5 border-r border-gray-100">{row.walkFtd}</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{row.walkWtd}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(row.walkFtd)}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(row.walkWtd)}</td>
 
-                        <td className="px-4 py-3.5 border-r border-gray-100">{row.lossFtd}</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{row.lossWtd}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(row.lossFtd)}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(row.lossWtd)}</td>
 
-                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{formatIndianNumber(row.abvFtd !== undefined ? row.abvFtd : Math.round(row.billFtd / (row.valFtd || 1)))}</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{formatIndianNumber(row.abvWtd !== undefined ? row.abvWtd : Math.round(row.billWtd / (row.valWtd || 1)))}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{renderCellVal(formatIndianNumber(row.abvFtd !== undefined ? row.abvFtd : Math.round(row.billFtd / (row.valFtd || 1))))}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{renderCellVal(formatIndianNumber(row.abvWtd !== undefined ? row.abvWtd : Math.round(row.billWtd / (row.valWtd || 1))))}</td>
 
-                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{row.absFtd !== undefined ? row.absFtd : (row.qtyFtd / (row.valFtd || 1)).toFixed(1)}</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{row.absWtd !== undefined ? row.absWtd : (row.qtyWtd / (row.valWtd || 1)).toFixed(1)}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{renderCellVal(row.absFtd !== undefined ? row.absFtd : (row.qtyFtd / (row.valFtd || 1)).toFixed(1))}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{renderCellVal(row.absWtd !== undefined ? row.absWtd : (row.qtyWtd / (row.valWtd || 1)).toFixed(1))}</td>
 
-                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{row.convFtd !== undefined ? row.convFtd : Math.round(((row.valFtd || 0) / (row.walkFtd || 1)) * 100)}%</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{row.convWtd !== undefined ? row.convWtd : Math.round(((row.valWtd || 0) / (row.walkWtd || 1)) * 100)}%</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{renderCellVal(row.convFtd !== undefined ? Math.min(100, row.convFtd) : Math.min(100, Math.round(((row.valFtd || 0) / (row.walkFtd || 1)) * 100)), true)}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{renderCellVal(row.convWtd !== undefined ? Math.min(100, row.convWtd) : Math.min(100, Math.round(((row.valWtd || 0) / (row.walkWtd || 1)) * 100)), true)}</td>
 
-                        <td className="px-4 py-3.5 border-r border-gray-100 font-semibold text-[#00A36C]">{row.contrFtd !== undefined ? row.contrFtd : contributionFtd}%</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-semibold text-[#00A36C]">{row.contrWtd !== undefined ? row.contrWtd : contributionWtd}%</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 font-semibold text-[#00A36C]">{renderCellVal(contributionFtd, true)}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-semibold text-[#00A36C]">{renderCellVal(contributionWtd, true)}</td>
 
-                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{formatIndianNumber(row.arpFtd !== undefined ? row.arpFtd : Math.round(row.billFtd / (row.qtyFtd || 1)))}</td>
-                        <td className="px-4 py-3.5 text-gray-700 font-medium">{formatIndianNumber(row.arpWtd !== undefined ? row.arpWtd : Math.round(row.billWtd / (row.qtyWtd || 1)))}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{renderCellVal(formatIndianNumber(row.arpFtd !== undefined ? row.arpFtd : Math.round(row.billFtd / (row.qtyFtd || 1))))}</td>
+                        <td className="px-4 py-3.5 text-gray-700 font-medium">{renderCellVal(formatIndianNumber(row.arpWtd !== undefined ? row.arpWtd : Math.round(row.billWtd / (row.qtyWtd || 1))))}</td>
                       </tr>
                     );
                   })}
@@ -1682,40 +2042,40 @@ const DSRReport = () => {
                   <tr className="bg-[#dce9f5] font-bold text-gray-900">
                     <td className="sticky left-0 z-10 bg-[#dce9f5] px-6 py-3.5 text-left border-r border-blue-200/50 uppercase tracking-wider shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)]">Store Total</td>
                     
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalBillFtd)}</td>
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalBillWtd)}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalValFtd))}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalValWtd))}</td>
                     
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalValFtd)}</td>
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalValWtd)}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalBillFtd))}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalBillWtd))}</td>
                     
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalQtyFtd)}</td>
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalQtyWtd)}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalQtyFtd))}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalQtyWtd))}</td>
 
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalWalkFtd)}</td>
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalWalkWtd)}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalWalkFtd))}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalWalkWtd))}</td>
 
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalLossFtd)}</td>
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalLossWtd)}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalLossFtd))}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalLossWtd))}</td>
 
                     {/* ABV */}
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalAbvFtd)}</td>
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalAbvWtd)}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalAbvFtd))}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalAbvWtd))}</td>
 
                     {/* ABS */}
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{totalAbsFtd}</td>
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{totalAbsWtd}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(totalAbsFtd)}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(totalAbsWtd)}</td>
 
                     {/* Conversion */}
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{totalConvFtd}%</td>
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{totalConvWtd}%</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(totalConvFtd, true)}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(totalConvWtd, true)}</td>
 
                     {/* Contribution */}
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">85%</td>
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">93%</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(totalBillFtd > 0 ? "100%" : "0%")}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(totalBillWtd > 0 ? "100%" : "0%")}</td>
 
                     {/* ARP */}
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalArpFtd)}</td>
-                    <td className="px-4 py-3.5">{formatIndianNumber(totalArpWtd)}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalArpFtd))}</td>
+                    <td className="px-4 py-3.5">{renderCellVal(formatIndianNumber(totalArpWtd))}</td>
                   </tr>
                 </tbody>
               </table>
@@ -1726,7 +2086,15 @@ const DSRReport = () => {
         {selectedReport === "Category Contribution" && (
           <div className="bg-white rounded-[20px] shadow-sm border border-gray-100 overflow-hidden">
             <div className="px-6 py-5 flex justify-between items-center">
-              <h2 className="text-[17px] font-bold text-gray-900">Category Contribution</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-[17px] font-bold text-gray-900">Category Contribution</h2>
+                {(loadingPerformance || loadingWalkins) && (
+                  <span className="flex h-2.5 w-2.5 relative" title="Syncing real-time category performance data...">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                  </span>
+                )}
+              </div>
               <p className="text-gray-400 text-xs font-semibold">
                 {activeTab === "MTD" 
                   ? getMTDDateRangeString() 
@@ -1815,40 +2183,40 @@ const DSRReport = () => {
                       <td className="w-2 bg-white border-none"></td>
                       
                       {/* Rental Products Cells */}
-                      <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{formatIndianNumber(row.rentalValFtd)}</td>
-                      <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{formatIndianNumber(row.rentalValWtd)}</td>
+                      <td className={`px-4 py-3.5 border-r border-gray-100 font-medium ${!row.rentalValFtd && "text-red-500"}`}>{renderCellVal(formatIndianNumber(row.rentalValFtd))}</td>
+                      <td className={`px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium ${!row.rentalValWtd && "text-red-500"}`}>{renderCellVal(formatIndianNumber(row.rentalValWtd))}</td>
                       
-                      <td className="px-4 py-3.5 border-r border-gray-100">{row.rentalBillFtd}</td>
-                      <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{row.rentalBillWtd}</td>
+                      <td className={`px-4 py-3.5 border-r border-gray-100 ${!row.rentalBillFtd && "text-red-500"}`}>{renderCellVal(row.rentalBillFtd)}</td>
+                      <td className={`px-4 py-3.5 border-r border-gray-100 text-gray-700 ${!row.rentalBillWtd && "text-red-500"}`}>{renderCellVal(row.rentalBillWtd)}</td>
                       
-                      <td className="px-4 py-3.5 border-r border-gray-100">{row.rentalQtyFtd}</td>
-                      <td className="px-4 py-3.5 text-gray-700">{row.rentalQtyWtd}</td>
+                      <td className={`px-4 py-3.5 border-r border-gray-100 ${!row.rentalQtyFtd && "text-red-500"}`}>{renderCellVal(row.rentalQtyFtd)}</td>
+                      <td className={`px-4 py-3.5 text-gray-700 ${!row.rentalQtyWtd && "text-red-500"}`}>{renderCellVal(row.rentalQtyWtd)}</td>
                       
                       {/* Spacer cell */}
                       <td className="w-2 bg-white border-none"></td>
                       
                       {/* Dappr Squad Cells */}
-                      <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{formatIndianNumber(row.squadValFtd)}</td>
-                      <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{formatIndianNumber(row.squadValWtd)}</td>
+                      <td className={`px-4 py-3.5 border-r border-gray-100 font-medium ${!row.squadValFtd && "text-red-500"}`}>{renderCellVal(formatIndianNumber(row.squadValFtd))}</td>
+                      <td className={`px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium ${!row.squadValWtd && "text-red-500"}`}>{renderCellVal(formatIndianNumber(row.squadValWtd))}</td>
                       
-                      <td className="px-4 py-3.5 border-r border-gray-100">{row.squadBillFtd}</td>
-                      <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{row.squadBillWtd}</td>
+                      <td className={`px-4 py-3.5 border-r border-gray-100 ${!row.squadBillFtd && "text-red-500"}`}>{renderCellVal(row.squadBillFtd)}</td>
+                      <td className={`px-4 py-3.5 border-r border-gray-100 text-gray-700 ${!row.squadBillWtd && "text-red-500"}`}>{renderCellVal(row.squadBillWtd)}</td>
 
-                      <td className="px-4 py-3.5 border-r border-gray-100">{row.squadQtyFtd}</td>
-                      <td className="px-4 py-3.5 text-gray-700">{row.squadQtyWtd}</td>
+                      <td className={`px-4 py-3.5 border-r border-gray-100 ${!row.squadQtyFtd && "text-red-500"}`}>{renderCellVal(row.squadQtyFtd)}</td>
+                      <td className={`px-4 py-3.5 text-gray-700 ${!row.squadQtyWtd && "text-red-500"}`}>{renderCellVal(row.squadQtyWtd)}</td>
 
                       {/* Spacer cell */}
                       <td className="w-2 bg-white border-none"></td>
 
                       {/* Sales Products Cells */}
-                      <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{formatIndianNumber(row.salesValFtd)}</td>
-                      <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{formatIndianNumber(row.salesValWtd)}</td>
+                      <td className={`px-4 py-3.5 border-r border-gray-100 font-medium ${!row.salesValFtd && "text-red-500"}`}>{renderCellVal(formatIndianNumber(row.salesValFtd))}</td>
+                      <td className={`px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium ${!row.salesValWtd && "text-red-500"}`}>{renderCellVal(formatIndianNumber(row.salesValWtd))}</td>
                       
-                      <td className="px-4 py-3.5 border-r border-gray-100">{row.salesBillFtd}</td>
-                      <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{row.salesBillWtd}</td>
+                      <td className={`px-4 py-3.5 border-r border-gray-100 ${!row.salesBillFtd && "text-red-500"}`}>{renderCellVal(row.salesBillFtd)}</td>
+                      <td className={`px-4 py-3.5 border-r border-gray-100 text-gray-700 ${!row.salesBillWtd && "text-red-500"}`}>{renderCellVal(row.salesBillWtd)}</td>
                       
-                      <td className="px-4 py-3.5 border-r border-gray-100">{row.salesQtyFtd}</td>
-                      <td className="px-4 py-3.5 text-gray-700">{row.salesQtyWtd}</td>
+                      <td className={`px-4 py-3.5 border-r border-gray-100 ${!row.salesQtyFtd && "text-red-500"}`}>{renderCellVal(row.salesQtyFtd)}</td>
+                      <td className={`px-4 py-3.5 text-gray-700 ${!row.salesQtyWtd && "text-red-500"}`}>{renderCellVal(row.salesQtyWtd)}</td>
                     </tr>
                   ))}
 
@@ -1859,40 +2227,40 @@ const DSRReport = () => {
                     <td className="w-2 bg-white border-none"></td>
                     
                     {/* Rental Products Totals */}
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalRentalValFtd)}</td>
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalRentalValWtd)}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalRentalValFtd))}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalRentalValWtd))}</td>
                     
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalRentalBillFtd)}</td>
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalRentalBillWtd)}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalRentalBillFtd))}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalRentalBillWtd))}</td>
                     
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalRentalQtyFtd)}</td>
-                    <td className="px-4 py-3.5">{formatIndianNumber(totalRentalQtyWtd)}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalRentalQtyFtd))}</td>
+                    <td className="px-4 py-3.5">{renderCellVal(formatIndianNumber(totalRentalQtyWtd))}</td>
                     
                     {/* Spacer cell */}
                     <td className="w-2 bg-white border-none"></td>
                     
                     {/* Dappr Squad Totals */}
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalSquadValFtd)}</td>
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalSquadValWtd)}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalSquadValFtd))}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalSquadValWtd))}</td>
                     
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalSquadBillFtd)}</td>
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalSquadBillWtd)}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalSquadBillFtd))}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalSquadBillWtd))}</td>
 
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalSquadQtyFtd)}</td>
-                    <td className="px-4 py-3.5">{formatIndianNumber(totalSquadQtyWtd)}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalSquadQtyFtd))}</td>
+                    <td className="px-4 py-3.5">{renderCellVal(formatIndianNumber(totalSquadQtyWtd))}</td>
 
                     {/* Spacer cell */}
                     <td className="w-2 bg-white border-none"></td>
 
                     {/* Sales Products Totals */}
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalSalesValFtd)}</td>
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalSalesValWtd)}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalSalesValFtd))}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalSalesValWtd))}</td>
                     
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalSalesBillFtd)}</td>
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalSalesBillWtd)}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalSalesBillFtd))}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalSalesBillWtd))}</td>
                     
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{formatIndianNumber(totalSalesQtyFtd)}</td>
-                    <td className="px-4 py-3.5">{formatIndianNumber(totalSalesQtyWtd)}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalSalesQtyFtd))}</td>
+                    <td className="px-4 py-3.5">{renderCellVal(formatIndianNumber(totalSalesQtyWtd))}</td>
                   </tr>
                 </tbody>
               </table>
@@ -1932,6 +2300,7 @@ const DSRReport = () => {
                     className="w-full bg-[#fcfcfc] border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-1 focus:ring-black hover:border-gray-300 transition-colors"
                   >
                     <option value="">Select Store</option>
+                    <option value="All">All Stores</option>
                     {storeOptions.filter(o => o !== "All").map((store) => (
                       <option key={store} value={store}>{store}</option>
                     ))}
@@ -1956,17 +2325,177 @@ const DSRReport = () => {
               {/* Week Date Picker Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
                 {[
-                  { id: 1, label: "Week 1*", val: week1Dates, setVal: setWeek1Dates },
-                  { id: 2, label: "Week 2*", val: week2Dates, setVal: setWeek2Dates },
-                  { id: 3, label: "Week 3*", val: week3Dates, setVal: setWeek3Dates },
-                  { id: 4, label: "Week 4*", val: week4Dates, setVal: setWeek4Dates }
+                  { id: 1, label: "Week 1", val: modalWeek1 },
+                  { id: 2, label: "Week 2", val: modalWeek2 },
+                  { id: 3, label: "Week 3", val: modalWeek3 },
+                  { id: 4, label: "Week 4", val: modalWeek4 }
                 ].map((w) => {
-                  const isActive = activeWeek === w.id;
+                  const isActive = activeWeeks.includes(w.id);
                   return (
                     <div key={w.id} className="relative flex flex-col">
                       <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">{w.label}</label>
                       <div 
-                        onClick={() => handleWeekCardClick(w.id, w.val)}
+                        onClick={() => {
+                          setActiveWeeks(prev => {
+                            if (prev.includes(w.id)) {
+                              if (prev.length === 1) return prev;
+                              return prev.filter(id => id !== w.id);
+                            } else {
+                              return [...prev, w.id];
+                            }
+                          });
+                        }}
+                        className={`relative flex items-center justify-between w-full bg-[#fcfcfc] border rounded-xl px-3 py-2.5 text-xs font-semibold text-gray-700 cursor-pointer transition-all duration-200 ${
+                          isActive 
+                            ? "border-black ring-1 ring-black shadow-[0_0_0_1px_black]" 
+                            : "border-gray-200 hover:border-gray-400"
+                        }`}
+                      >
+                        <span className="text-xs font-semibold text-gray-700">{w.val}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Target Field */}
+              <div className="mb-6">
+                <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Target*</label>
+                <input 
+                  ref={targetInputRef}
+                  type="text" 
+                  placeholder="Enter target here..."
+                  value={modalTarget}
+                  onChange={(e) => setModalTarget(e.target.value)}
+                  className="w-full bg-[#fcfcfc] border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-1 focus:ring-black hover:border-gray-300 transition-colors"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-2 border-t border-gray-100">
+                <button 
+                  onClick={() => {
+                    if (!modalStore) {
+                      alert("Please select a store to edit.");
+                      return;
+                    }
+                    const primaryWeek = activeWeeks[0];
+                    const customVal = weeklyTargets[modalStore]?.[primaryWeek];
+                    if (customVal !== undefined) {
+                      setModalTarget(customVal.toString());
+                    } else {
+                      setModalTarget("");
+                    }
+                    setTimeout(() => {
+                      targetInputRef.current?.focus();
+                    }, 50);
+                  }}
+                  className="flex items-center gap-1.5 border border-gray-200 hover:bg-gray-50 rounded-xl px-5 py-2.5 text-xs font-bold text-gray-700 transition-colors cursor-pointer"
+                >
+                  <FiEdit3 size={14} /> Edit
+                </button>
+                <button 
+                  onClick={() => {
+                    if (!modalStore) {
+                      alert("Please select a store.");
+                      return;
+                    }
+                    if (!modalTarget || modalTarget.trim() === "") {
+                      alert("Please enter a target value.");
+                      return;
+                    }
+                    handleSubmitTarget(modalStore, modalTarget, modalMonth);
+                  }}
+                  className="bg-black hover:bg-black/90 text-white rounded-xl px-6 py-2.5 text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Submit
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Configure Week Dates Modal */}
+        {configWeeksModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <div 
+              className="fixed inset-0 bg-black/50 backdrop-blur-[4px] transition-opacity duration-300"
+              onClick={() => setConfigWeeksModalOpen(false)}
+            />
+
+            {/* Modal Container */}
+            <div className="bg-white rounded-[24px] w-full max-w-[620px] shadow-2xl relative z-10 p-6 border border-gray-100/50 scale-100 transition-all">
+              {/* Header */}
+              <div className="flex items-center gap-3.5 mb-6">
+                <button 
+                  onClick={() => setConfigWeeksModalOpen(false)}
+                  className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+                >
+                  <FiArrowLeft size={20} className="text-gray-800" />
+                </button>
+                <h2 className="text-lg font-bold text-gray-900 leading-none">Configure Week Dates</h2>
+              </div>
+
+              {/* Store Name & Month Fields */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Store Name*</label>
+                  <select 
+                    value={configStore}
+                    onChange={(e) => setConfigStore(e.target.value)}
+                    className="w-full bg-[#fcfcfc] border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-1 focus:ring-black hover:border-gray-300 transition-colors"
+                  >
+                    <option value="All">All Stores (Global)</option>
+                    {storeOptions.filter(o => o !== "All").map((store) => (
+                      <option key={store} value={store}>{store}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Month*</label>
+                  <select 
+                    value={configMonth}
+                    onChange={(e) => setConfigMonth(e.target.value)}
+                    className="w-full bg-[#fcfcfc] border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-1 focus:ring-black hover:border-gray-300 transition-colors"
+                  >
+                    <option value="">Select Month</option>
+                    {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"].map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Week Date Picker Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                {[
+                  { id: 1, label: "Week 1*", val: configWeek1, setVal: setConfigWeek1 },
+                  { id: 2, label: "Week 2*", val: configWeek2, setVal: setConfigWeek2 },
+                  { id: 3, label: "Week 3*", val: configWeek3, setVal: setConfigWeek3 },
+                  { id: 4, label: "Week 4*", val: configWeek4, setVal: setConfigWeek4 }
+                ].map((w) => {
+                  const isActive = configCalendarOpen === w.id;
+                  const isDayTakenInOtherWeeks = (day) => {
+                    const weeks = [1, 2, 3, 4];
+                    for (const wid of weeks) {
+                      if (wid === w.id) continue;
+                      const start = configStartDays[wid];
+                      const end = configEndDays[wid];
+                      if (start !== null && end !== null && start !== undefined && end !== undefined) {
+                        if (day >= start && day <= end) {
+                          return true;
+                        }
+                      }
+                    }
+                    return false;
+                  };
+                  return (
+                    <div key={w.id} className="relative flex flex-col">
+                      <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">{w.label}</label>
+                      <div 
+                        onClick={() => setConfigCalendarOpen(configCalendarOpen === w.id ? null : w.id)}
                         className={`relative flex items-center justify-between w-full bg-[#fcfcfc] border rounded-xl px-3 py-2.5 text-xs font-semibold text-gray-700 cursor-pointer transition-all duration-200 ${
                           isActive 
                             ? "border-black ring-1 ring-black shadow-[0_0_0_1px_black]" 
@@ -1984,14 +2513,14 @@ const DSRReport = () => {
                       </div>
 
                       {/* Custom Scroll Wheel Range Selector Popup */}
-                      {calendarOpenForWeek === w.id && (
+                      {configCalendarOpen === w.id && (
                         <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200/80 rounded-2xl shadow-xl z-30 p-4 w-[260px] select-none text-left">
                           <div className="text-center font-bold text-xs text-gray-800 mb-3 flex justify-between items-center px-1 border-b border-gray-100 pb-2">
-                            <span>{modalMonth || "June"} 2026 Picker</span>
+                            <span>{configMonth || "June"} 2026 Picker</span>
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setCalendarOpenForWeek(null);
+                                setConfigCalendarOpen(null);
                               }}
                               className="text-gray-400 hover:text-gray-900 text-[10px] font-bold uppercase tracking-wider"
                             >
@@ -2004,19 +2533,33 @@ const DSRReport = () => {
                             <div className="flex flex-col">
                               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 text-center">Start Day</span>
                               <div className="h-[150px] overflow-y-auto flex flex-col gap-1 pr-1 scrollbar-thin scrollbar-thumb-gray-200">
-                                {Array.from({ length: getDaysCountInMonth(modalMonth || "June") }, (_, i) => i + 1).map((d) => {
-                                  const isSelected = weekStartDays[w.id] === d;
+                                {Array.from({ length: getDaysCountInMonth(configMonth || "June") }, (_, i) => i + 1).map((d) => {
+                                  const isSelected = configStartDays[w.id] === d;
+                                  const isDisabled = isDayTakenInOtherWeeks(d);
                                   return (
                                     <button
                                       key={`start-${d}`}
+                                      disabled={isDisabled}
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        handleScrollPickerChange(w.id, d, weekEndDays[w.id], w.setVal);
+                                        const newStart = d;
+                                        let newEnd = configEndDays[w.id];
+                                        if (newStart !== null && newEnd !== null && newEnd < newStart) {
+                                          newEnd = newStart;
+                                        }
+                                        setConfigStartDays(prev => ({ ...prev, [w.id]: newStart }));
+                                        setConfigEndDays(prev => ({ ...prev, [w.id]: newEnd }));
+                                        const monthAbbr = (configMonth || "June").substring(0, 3);
+                                        if (newStart !== null && newEnd !== null) {
+                                          w.setVal(`${String(newStart).padStart(2, "0")} - ${String(newEnd).padStart(2, "0")} ${monthAbbr}`);
+                                        }
                                       }}
                                       className={`py-1.5 text-xs font-semibold rounded-lg transition-colors text-center ${
-                                        isSelected 
-                                          ? "bg-black text-white font-bold" 
-                                          : "text-gray-700 hover:bg-gray-100"
+                                        isDisabled
+                                          ? "text-gray-300 cursor-not-allowed opacity-40"
+                                          : isSelected 
+                                            ? "bg-black text-white font-bold" 
+                                            : "text-gray-700 hover:bg-gray-100"
                                       }`}
                                     >
                                       {String(d).padStart(2, "0")}
@@ -2030,16 +2573,28 @@ const DSRReport = () => {
                             <div className="flex flex-col">
                               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 text-center">End Day</span>
                               <div className="h-[150px] overflow-y-auto flex flex-col gap-1 pr-1 scrollbar-thin scrollbar-thumb-gray-200">
-                                {Array.from({ length: getDaysCountInMonth(modalMonth || "June") }, (_, i) => i + 1).map((d) => {
-                                  const isSelected = weekEndDays[w.id] === d;
-                                  const isDisabled = weekStartDays[w.id] !== null && d < weekStartDays[w.id];
+                                {Array.from({ length: getDaysCountInMonth(configMonth || "June") }, (_, i) => i + 1).map((d) => {
+                                  const isSelected = configEndDays[w.id] === d;
+                                  const isDisabled = (() => {
+                                    if (configStartDays[w.id] === null) return true;
+                                    if (d < configStartDays[w.id]) return true;
+                                    for (let day = configStartDays[w.id]; day <= d; day++) {
+                                      if (isDayTakenInOtherWeeks(day)) return true;
+                                    }
+                                    return false;
+                                  })();
                                   return (
                                     <button
                                       key={`end-${d}`}
                                       disabled={isDisabled}
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        handleScrollPickerChange(w.id, weekStartDays[w.id], d, w.setVal);
+                                        const newEnd = d;
+                                        setConfigEndDays(prev => ({ ...prev, [w.id]: newEnd }));
+                                        const monthAbbr = (configMonth || "June").substring(0, 3);
+                                        if (configStartDays[w.id] !== null && newEnd !== null) {
+                                          w.setVal(`${String(configStartDays[w.id]).padStart(2, "0")} - ${String(newEnd).padStart(2, "0")} ${monthAbbr}`);
+                                        }
                                       }}
                                       className={`py-1.5 text-xs font-semibold rounded-lg transition-colors text-center ${
                                         isDisabled 
@@ -2063,50 +2618,19 @@ const DSRReport = () => {
                 })}
               </div>
 
-              {/* Target Field */}
-              <div className="mb-6">
-                <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Target*</label>
-                <input 
-                  type="text" 
-                  placeholder="Enter target here..."
-                  value={modalTarget}
-                  onChange={(e) => setModalTarget(e.target.value)}
-                  className="w-full bg-[#fcfcfc] border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-1 focus:ring-black hover:border-gray-300 transition-colors"
-                />
-              </div>
-
               {/* Action Buttons */}
               <div className="flex items-center justify-end gap-3 pt-2 border-t border-gray-100">
                 <button 
-                  onClick={() => {
-                    if (!modalStore) {
-                      alert("Please select a store to edit.");
-                      return;
-                    }
-                    const currentVal = dsrData.find(d => d.name === modalStore);
-                    if (currentVal) {
-                      setModalTarget(currentVal.target.toString());
-                    }
-                  }}
+                  onClick={() => setConfigWeeksModalOpen(false)}
                   className="flex items-center gap-1.5 border border-gray-200 hover:bg-gray-50 rounded-xl px-5 py-2.5 text-xs font-bold text-gray-700 transition-colors cursor-pointer"
                 >
-                  <FiEdit3 size={14} /> Edit
+                  Cancel
                 </button>
                 <button 
-                  onClick={() => {
-                    if (!modalStore) {
-                      alert("Please select a store.");
-                      return;
-                    }
-                    if (!modalTarget) {
-                      alert("Please enter a target value.");
-                      return;
-                    }
-                    handleSubmitTarget(modalStore, modalTarget, modalMonth);
-                  }}
+                  onClick={handleSaveConfigWeeks}
                   className="bg-black hover:bg-black/90 text-white rounded-xl px-6 py-2.5 text-xs font-bold transition-colors cursor-pointer"
                 >
-                  Submit
+                  Save Dates
                 </button>
               </div>
             </div>
