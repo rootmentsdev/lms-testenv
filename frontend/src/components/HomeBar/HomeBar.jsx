@@ -6,6 +6,122 @@ import {
 import { normalizeBranchProgress } from "../../features/dashboard/dashboardUtils";
 import { Link } from "react-router-dom";
 import { fetchHomeProgressChart as fetchHomeProgress } from "../../features/dashboard/dashboardFetch";
+import baseUrl from "../../api/api";
+
+const BRANCH_LOCATION_MAPPING = {
+  "z-edapally1": "1",
+  "g-edappally": "3",
+  "z- edappal": "6",
+  "z.perinthalmanna": "7",
+  "z.kottakkal": "8",
+  "g.kottayam": "9",
+  "g.perumbavoor": "10",
+  "g.thrissur": "11",
+  "g.chavakkad": "12",
+  "g.calicut": "13",
+  "g.vadakara": "14",
+  "g.edappal": "15",
+  "g.perinthalmanna": "16",
+  "g.kottakkal": "17",
+  "g.manjeri": "18",
+  "g.palakkad": "19",
+  "g.kalpetta": "20",
+  "g.kannur": "21",
+  "g-trivandrum": "5"
+};
+
+function getBranchLocationId(workingBranch) {
+  if (!workingBranch) return null;
+  const normalized = String(workingBranch).trim().toLowerCase();
+  return BRANCH_LOCATION_MAPPING[normalized] || null;
+}
+
+const getStoreNameFromLocId = (locId) => {
+  const branchKey = Object.keys(BRANCH_LOCATION_MAPPING).find(key => BRANCH_LOCATION_MAPPING[key] === locId);
+  if (!branchKey) return "All";
+  return displayBranchName(branchKey);
+};
+
+function getLocalDateString(date) {
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+const runWithConcurrencyLimit = async (tasks, limit) => {
+  const results = [];
+  const executing = new Set();
+  for (const task of tasks) {
+    const p = Promise.resolve().then(() => task());
+    results.push(p);
+    executing.add(p);
+    const clean = () => executing.delete(p);
+    p.then(clean, clean);
+    if (executing.size >= limit) {
+      await Promise.race(executing);
+    }
+  }
+  return Promise.all(results);
+};
+
+const getPerformanceCached = async (locId, startDate, endDate) => {
+  const cacheKey = `perf_${locId}_${startDate}_${endDate}`;
+  if (!window.__performanceCache) {
+    window.__performanceCache = {};
+  }
+  
+  if (window.__performanceCache[cacheKey]?.promise) {
+    return window.__performanceCache[cacheKey].promise;
+  }
+
+  const promise = (async () => {
+    try {
+      const res = await fetch("https://rentalapi.rootments.live/api/Reports/GetPerformanceStaffReportWithCancel", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          DateFrom: startDate,
+          DateTo: endDate,
+          BookingNo: "",
+          LocationID: locId,
+          UserID: "7777"
+        })
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const data = json.dataSet?.data || [];
+        return data;
+      }
+    } catch (err) {
+      console.error(`Error in getPerformanceCached for loc ${locId}:`, err);
+    } finally {
+      delete window.__performanceCache[cacheKey];
+    }
+    return [];
+  })();
+
+  window.__performanceCache[cacheKey] = {
+    promise,
+    timestamp: Date.now()
+  };
+
+  return promise;
+};
+
+const CURRENT_MONTH_LONG = new Date().toLocaleString("en-US", { month: "long" });
+const CURRENT_YEAR = new Date().getFullYear();
+
+const getMTDSubtitleRangeString = () => {
+  const today = new Date();
+  const monthName = today.toLocaleString("en-US", { month: "long" });
+  const day = String(today.getDate()).padStart(2, "0");
+  const year = today.getFullYear();
+  return `${monthName} 01-${day}, ${year}`;
+};
 
 /* ── Canon normalizations (matching DSRReport.jsx) ────────────────────────── */
 function canonFixes(s) {
@@ -182,6 +298,7 @@ const HomeBar = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   const [weeklyTargets, setWeeklyTargets] = useState({});
+  const [performanceData, setPerformanceData] = useState({});
   const [branches, setBranches] = useState([]);
 
   useEffect(() => {
@@ -205,38 +322,72 @@ const HomeBar = () => {
     const refresh = () => load();
     window.addEventListener("dashboard:refresh", refresh);
 
-    // Fetch branches and weekly targets
-    try {
-      const stored = localStorage.getItem("weeklyTargets");
-      if (stored) {
-        setWeeklyTargets(JSON.parse(stored));
-      }
-    } catch (e) {
-      console.error(e);
-    }
-
-    const fetchBranches = async () => {
+    const fetchBranchesAndTargetsAndPerformance = async () => {
       try {
         const token = localStorage.getItem("token");
-        const res = await fetch(`http://localhost:5000/api/usercreate/getBranch`, {
+        
+        // Fetch branches
+        const bRes = await fetch(`${baseUrl.baseUrl}api/usercreate/getBranch`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
         });
-        if (res.ok) {
-          const json = await res.json();
+        let visibleBranches = [];
+        if (bRes.ok) {
+          const json = await bRes.json();
           const list = Array.isArray(json?.data) ? json.data : [];
+          visibleBranches = list.filter((b) => !isHiddenBranch(b?.workingBranch));
           if (mounted) {
-            setBranches(list.filter((b) => !isHiddenBranch(b?.workingBranch)));
+            setBranches(visibleBranches);
           }
         }
+
+        // Fetch targets
+        const tRes = await fetch(`${baseUrl.baseUrl}api/store-targets?month=${CURRENT_MONTH_LONG}&year=${CURRENT_YEAR}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          }
+        });
+        if (tRes.ok) {
+          const json = await tRes.json();
+          const list = Array.isArray(json?.data) ? json.data : [];
+          const targetsMap = {};
+          list.forEach(t => {
+            targetsMap[t.storeName] = t.weeklyTargets || {};
+          });
+          if (mounted) {
+            setWeeklyTargets(targetsMap);
+          }
+        }
+
+        // Fetch performance for MTD (current month)
+        const today = new Date();
+        const firstOfIdx = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
+        const todayStr = getLocalDateString(today);
+        
+        const locationIds = ["1", "3", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "25"];
+        const pTasks = locationIds.map((locId) => async () => {
+          const data = await getPerformanceCached(locId, firstOfIdx, todayStr);
+          return { locId, data };
+        });
+        const pResults = await runWithConcurrencyLimit(pTasks, 4);
+        const perfMap = {};
+        pResults.forEach(r => {
+          perfMap[r.locId] = r.data;
+        });
+        if (mounted) {
+          setPerformanceData(perfMap);
+        }
       } catch (err) {
-        console.error(err);
+        console.error("Error loading branches/targets/performance in HomeBar:", err);
       }
     };
-    fetchBranches();
+
+    fetchBranchesAndTargetsAndPerformance();
 
     return () => {
       mounted = false;
@@ -276,71 +427,34 @@ const HomeBar = () => {
 
   /* ── Generate dynamic target vs achieved data for line chart ── */
   const revenueChartData = useMemo(() => {
-    const isWtd = filter === "on-track"; // Use Tab state as a switcher or default MTD scale
-    const scaleFactor = 1.0;
-    
-    const list = branches.length > 0
-      ? branches.map((b, index) => {
-          const name = displayBranchName(b.workingBranch);
-          const shortName = name.replace(/^(Suitor Guy|SG|Z|G)\s+/i, "").substring(0, 5).toUpperCase();
-          const mockItem = mockDSRDataForGraph[index % mockDSRDataForGraph.length];
-          const rawAchieved = mockItem ? mockItem.achieved : 65000;
-          
-          const storeTargetObj = weeklyTargets[name] || {};
-          let rawTarget = mockItem ? mockItem.target : 70000;
-          
-          const hasCustomWeeks = [1, 2, 3, 4].some(wId => storeTargetObj[wId] !== undefined);
-          if (hasCustomWeeks) {
-            let sum = 0;
-            for (let wId = 1; wId <= 4; wId++) {
-              if (storeTargetObj[wId] !== undefined) {
-                sum += storeTargetObj[wId];
-              } else {
-                sum += Math.round(rawTarget * 0.23);
-              }
-            }
-            rawTarget = sum;
+    const list = branches.map((b) => {
+      const name = displayBranchName(b.workingBranch);
+      const shortName = name.replace(/^(Suitor Guy|SG|Z|G)\s+/i, "").substring(0, 5).toUpperCase();
+      const locId = getBranchLocationId(b.workingBranch);
+      
+      const storeTargetObj = weeklyTargets[name] || {};
+      let target = 0;
+      const hasCustomWeeks = [1, 2, 3, 4].some(wId => storeTargetObj[wId] !== undefined);
+      if (hasCustomWeeks) {
+        for (let wId = 1; wId <= 4; wId++) {
+          if (storeTargetObj[wId] !== undefined) {
+            target += storeTargetObj[wId];
           }
-
-          const target = Math.round(rawTarget * scaleFactor);
-          const achieved = Math.round(rawAchieved * scaleFactor);
-          return {
-            name: shortName,
-            fullName: name,
-            target,
-            achieved
-          };
-        })
-      : mockDSRDataForGraph.map((item) => {
-          const name = item.name;
-          const shortName = name.replace(/^(Suitor Guy|SG|Z|G)\s+/i, "").substring(0, 5).toUpperCase();
-          const storeTargetObj = weeklyTargets[name] || {};
-          let rawTarget = item.target;
-          
-          const hasCustomWeeks = [1, 2, 3, 4].some(wId => storeTargetObj[wId] !== undefined);
-          if (hasCustomWeeks) {
-            let sum = 0;
-            for (let wId = 1; wId <= 4; wId++) {
-              if (storeTargetObj[wId] !== undefined) {
-                sum += storeTargetObj[wId];
-              } else {
-                sum += Math.round(rawTarget * 0.23);
-              }
-            }
-            rawTarget = sum;
-          }
-
-          const target = Math.round(rawTarget * scaleFactor);
-          const achieved = Math.round(item.achieved * scaleFactor);
-          return {
-            name: shortName,
-            fullName: name,
-            target,
-            achieved
-          };
-        });
+        }
+      }
+      
+      const locPeriodList = performanceData[locId] || [];
+      const achieved = locPeriodList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+      
+      return {
+        name: shortName,
+        fullName: name,
+        target,
+        achieved
+      };
+    });
     return list;
-  }, [branches, weeklyTargets, filter]);
+  }, [branches, weeklyTargets, performanceData]);
 
   const filteredRevenue = useMemo(() => {
     if (filter === "on-track") return revenueChartData.filter(d => d.achieved >= d.target);
@@ -373,7 +487,7 @@ const HomeBar = () => {
             <p className="text-[#9ca3af] dark:text-[#94a3b8]" style={{ fontSize: "12px", margin: "2px 0 0" }}>
               {activeGraph === "training"
                 ? `${today.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${today.getFullYear()} | ${storeCount} Stores`
-                : `June 01-27, 2026 | Comparison across ${revenueChartData.length} stores`
+                : `${getMTDSubtitleRangeString()} | Comparison across ${revenueChartData.length} stores`
               }
             </p>
           </div>

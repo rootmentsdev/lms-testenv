@@ -46,8 +46,11 @@ function getLocalDateString(date) {
 
 const BRANCH_LOCATION_MAPPING = {
   "z-edapally1": "1",
+  "z-edappally1": "1",
   "g-edappally": "3",
+  "g-trivandrum": "5",
   "z- edappal": "6",
+  "z.edappal": "6",
   "z.perinthalmanna": "7",
   "z.kottakkal": "8",
   "g.kottayam": "9",
@@ -63,14 +66,101 @@ const BRANCH_LOCATION_MAPPING = {
   "g.palakkad": "19",
   "g.kalpetta": "20",
   "g.kannur": "21",
-  "g-trivandrum": "5"
 };
+
+// Maps Dappr Squad (loc 25) bookingBy names → the target store locId they belong to
+const DAPPR_SQUAD_STORE_MAPPING = {
+  "sg.edappally": "3",
+  "sg.perumbavoor": "10",
+  "sg.thrissur": "11",
+  "sg.chavakkad": "12",
+  "sg.calicut": "13",
+  "sg.vadakara": "14",
+  "sg.perinthalmanna": "16",
+  "sg.kottakkal": "17",
+  "sg.manjeri": "18",
+  "sg.palakkad": "19",
+  "sg.kalpetta": "20",
+  "sg.kannur": "21",
+  "sg.trivandrum": "5",
+  "sg.kottayam": "9",
+};
+
+// Get all Dappr Squad entries from loc 25 that belong to a given store locId
+function getDapprSquadDataForStore(locId, dapprList) {
+  return dapprList.filter(item => {
+    const name = String(item.bookingBy || "").trim().toLowerCase();
+    return DAPPR_SQUAD_STORE_MAPPING[name] === locId;
+  });
+}
 
 function getBranchLocationId(workingBranch) {
   if (!workingBranch) return null;
   const normalized = String(workingBranch).trim().toLowerCase();
   return BRANCH_LOCATION_MAPPING[normalized] || null;
 }
+
+const runWithConcurrencyLimit = async (tasks, limit) => {
+  const results = [];
+  const executing = new Set();
+  for (const task of tasks) {
+    const p = Promise.resolve().then(() => task());
+    results.push(p);
+    executing.add(p);
+    const clean = () => executing.delete(p);
+    p.then(clean, clean);
+    if (executing.size >= limit) {
+      await Promise.race(executing);
+    }
+  }
+  return Promise.all(results);
+};
+
+const getPerformanceCached = async (locId, startDate, endDate) => {
+  const cacheKey = `perf_${locId}_${startDate}_${endDate}`;
+  if (!window.__performanceCache) {
+    window.__performanceCache = {};
+  }
+  
+  if (window.__performanceCache[cacheKey]?.promise) {
+    return window.__performanceCache[cacheKey].promise;
+  }
+
+  const promise = (async () => {
+    try {
+      const res = await fetch("https://rentalapi.rootments.live/api/Reports/GetPerformanceStaffReportWithCancel", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          DateFrom: startDate,
+          DateTo: endDate,
+          BookingNo: "",
+          LocationID: locId,
+          UserID: "7777"
+        })
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const data = json.dataSet?.data || [];
+        return data;
+      }
+    } catch (err) {
+      console.error(`Error in getPerformanceCached for loc ${locId}:`, err);
+    } finally {
+      delete window.__performanceCache[cacheKey];
+    }
+    return [];
+  })();
+
+  window.__performanceCache[cacheKey] = {
+    promise,
+    timestamp: Date.now()
+  };
+
+  return promise;
+};
 
 
 
@@ -104,6 +194,24 @@ function normalizeForMatch(str) {
     .replace(/^dapper/, "dappr");
 }
 
+const CURRENT_MONTH_LONG = new Date().toLocaleString("en-US", { month: "long" });
+const CURRENT_MONTH_SHORT = new Date().toLocaleString("en-US", { month: "short" });
+const CURRENT_YEAR = new Date().getFullYear();
+
+const getMonthNameFromDateStr = (dateStr) => {
+  if (!dateStr) return CURRENT_MONTH_LONG;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return CURRENT_MONTH_LONG;
+  return d.toLocaleString("en-US", { month: "long" });
+};
+
+const getYearFromDateStr = (dateStr) => {
+  if (!dateStr) return CURRENT_YEAR;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return CURRENT_YEAR;
+  return d.getFullYear();
+};
+
 const DSRReport = () => {
   const user = useSelector((state) => state.auth.user);
   const isAdminOrSuperAdmin = user?.role === "super_admin" || user?.role === "admin";
@@ -112,8 +220,12 @@ const DSRReport = () => {
   const [selectedStore, setSelectedStore] = useState("All");
   const [selectedReport, setSelectedReport] = useState("Revenue Vs Target");
   const [activeTab, setActiveTab] = useState("MTD");
-  const [customStartDate, setCustomStartDate] = useState("2026-06-22");
-  const [customEndDate, setCustomEndDate] = useState("2026-06-28");
+  const [customStartDate, setCustomStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return getLocalDateString(d);
+  });
+  const [customEndDate, setCustomEndDate] = useState(() => getLocalDateString(new Date()));
 
   const getCustomDateRangeString = () => {
     if (!customStartDate || !customEndDate) return "Custom Range";
@@ -144,17 +256,17 @@ const DSRReport = () => {
   // Assign target modal states
   const [assignTargetModalOpen, setAssignTargetModalOpen] = useState(false);
   const [modalStore, setModalStore] = useState("");
-  const [modalMonth, setModalMonth] = useState("June");
+  const [modalMonth, setModalMonth] = useState(CURRENT_MONTH_LONG);
   const [modalTarget, setModalTarget] = useState("");
   const [activeWeeks, setActiveWeeks] = useState([1]);
-  const [week1Dates, setWeek1Dates] = useState(() => localStorage.getItem("week1Dates") || "01 - 10 Jun");
-  const [week2Dates, setWeek2Dates] = useState(() => localStorage.getItem("week2Dates") || "11 - 17 Jun");
+  const [week1Dates, setWeek1Dates] = useState(() => localStorage.getItem("week1Dates") || `01 - 10 ${CURRENT_MONTH_SHORT}`);
+  const [week2Dates, setWeek2Dates] = useState(() => localStorage.getItem("week2Dates") || `11 - 17 ${CURRENT_MONTH_SHORT}`);
   const [week3Dates, setWeek3Dates] = useState(() => localStorage.getItem("week3Dates") || "Select Days");
   const [week4Dates, setWeek4Dates] = useState(() => localStorage.getItem("week4Dates") || "Select Days");
 
   // Local modal week date states
-  const [modalWeek1, setModalWeek1] = useState("01 - 10 Jun");
-  const [modalWeek2, setModalWeek2] = useState("11 - 17 Jun");
+  const [modalWeek1, setModalWeek1] = useState(`01 - 10 ${CURRENT_MONTH_SHORT}`);
+  const [modalWeek2, setModalWeek2] = useState(`11 - 17 ${CURRENT_MONTH_SHORT}`);
   const [modalWeek3, setModalWeek3] = useState("Select Days");
   const [modalWeek4, setModalWeek4] = useState("Select Days");
 
@@ -227,11 +339,10 @@ const DSRReport = () => {
     if (isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
     
     // Parse the week date ranges for the store
-    const today = new Date();
-    const currentMonth = today.getMonth();
+    const targetMonth = start.getMonth(); // target month is the month of custom range start date
     
-    const week1DatesVal = localStorage.getItem("week1Dates") || "01 - 10 Jun";
-    const week2DatesVal = localStorage.getItem("week2Dates") || "11 - 17 Jun";
+    const week1DatesVal = localStorage.getItem("week1Dates") || `01 - 10 ${CURRENT_MONTH_SHORT}`;
+    const week2DatesVal = localStorage.getItem("week2Dates") || `11 - 17 ${CURRENT_MONTH_SHORT}`;
     const week3DatesVal = localStorage.getItem("week3Dates") || "Select Days";
     const week4DatesVal = localStorage.getItem("week4Dates") || "Select Days";
 
@@ -264,7 +375,11 @@ const DSRReport = () => {
         if (weekId === 1) { startDay = 1; endDay = 10; }
         else if (weekId === 2) { startDay = 11; endDay = 17; }
         else if (weekId === 3) { startDay = 18; endDay = 24; }
-        else { startDay = 25; endDay = getDaysCountInMonth(modalMonth || "June"); }
+        else { 
+          const startMonthName = start.toLocaleString("en-US", { month: "long" });
+          startDay = 25; 
+          endDay = getDaysCountInMonth(startMonthName); 
+        }
       }
       return { startDay, endDay, count: (endDay - startDay + 1) };
     };
@@ -286,8 +401,8 @@ const DSRReport = () => {
     while (temp <= end) {
       const dayNum = temp.getDate();
       const tempMonth = temp.getMonth();
-      // Ensure we only sum for the current target month (June)
-      if (tempMonth === currentMonth) {
+      // Ensure we only sum for the target month
+      if (tempMonth === targetMonth) {
         // Find which week contains this day
         let foundWeekId = null;
         for (let wId = 1; wId <= 4; wId++) {
@@ -386,14 +501,14 @@ const DSRReport = () => {
       // Pushing to DB asynchronously
       if (store === "All") {
         // Save to All first
-        await saveStoreTargetToDb("All", updatedTargets, storeWeekRanges);
+        await saveStoreTargetToDb("All", updatedTargets, storeWeekRanges, month, CURRENT_YEAR);
         // Save for each store in list
         const promises = storeOptions.filter(o => o !== "All").map((storeName) => {
-          return saveStoreTargetToDb(storeName, updatedTargets, storeWeekRanges);
+          return saveStoreTargetToDb(storeName, updatedTargets, storeWeekRanges, month, CURRENT_YEAR);
         });
         await Promise.all(promises);
       } else {
-        await saveStoreTargetToDb(store, updatedTargets, storeWeekRanges);
+        await saveStoreTargetToDb(store, updatedTargets, storeWeekRanges, month, CURRENT_YEAR);
       }
     }
 
@@ -403,9 +518,9 @@ const DSRReport = () => {
   // Configure Week Dates Modal States
   const [configWeeksModalOpen, setConfigWeeksModalOpen] = useState(false);
   const [configStore, setConfigStore] = useState("All");
-  const [configMonth, setConfigMonth] = useState("June");
-  const [configWeek1, setConfigWeek1] = useState("01 - 10 Jun");
-  const [configWeek2, setConfigWeek2] = useState("11 - 17 Jun");
+  const [configMonth, setConfigMonth] = useState(CURRENT_MONTH_LONG);
+  const [configWeek1, setConfigWeek1] = useState(`01 - 10 ${CURRENT_MONTH_SHORT}`);
+  const [configWeek2, setConfigWeek2] = useState(`11 - 17 ${CURRENT_MONTH_SHORT}`);
   const [configWeek3, setConfigWeek3] = useState("Select Days");
   const [configWeek4, setConfigWeek4] = useState("Select Days");
   const [configCalendarOpen, setConfigCalendarOpen] = useState(null);
@@ -488,7 +603,7 @@ const DSRReport = () => {
       await saveStoreTargetToDb("All", weeklyTargets, {
         ...storeWeekRanges,
         "All": { 1: configWeek1, 2: configWeek2, 3: configWeek3, 4: configWeek4 }
-      });
+      }, configMonth, CURRENT_YEAR);
     } else {
       setStoreWeekRanges((prev) => {
         const updated = {
@@ -508,7 +623,7 @@ const DSRReport = () => {
       await saveStoreTargetToDb(configStore, weeklyTargets, {
         ...storeWeekRanges,
         [configStore]: { 1: configWeek1, 2: configWeek2, 3: configWeek3, 4: configWeek4 }
-      });
+      }, configMonth, CURRENT_YEAR);
     }
     
     setConfigWeeksModalOpen(false);
@@ -572,7 +687,7 @@ const DSRReport = () => {
     setWeekEndDays({ 1: p1.end, 2: p2.end, 3: p3.end, 4: p4.end });
   }, [modalWeek1, modalWeek2, modalWeek3, modalWeek4, assignTargetModalOpen]);
 
-  const getDaysCountInMonth = (monthName, year = 2026) => {
+  const getDaysCountInMonth = (monthName, year = CURRENT_YEAR) => {
     const months = {
       January: 31, February: 28, March: 31, April: 30, May: 31, June: 30,
       July: 31, August: 31, September: 30, October: 31, November: 30, December: 31
@@ -628,10 +743,10 @@ const DSRReport = () => {
     }
   };
 
-  const fetchStoreTargets = async () => {
+  const fetchStoreTargets = async (targetMonth = CURRENT_MONTH_LONG, targetYear = CURRENT_YEAR) => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${baseUrl.baseUrl}api/store-targets?month=June&year=2026`, {
+      const res = await fetch(`${baseUrl.baseUrl}api/store-targets?month=${targetMonth}&year=${targetYear}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -644,16 +759,17 @@ const DSRReport = () => {
         
         const targetsMap = {};
         const rangesMap = {};
-        let w1 = "01 - 10 Jun";
-        let w2 = "11 - 17 Jun";
+        const monthShort = targetMonth.substring(0, 3);
+        let w1 = `01 - 10 ${monthShort}`;
+        let w2 = `11 - 17 ${monthShort}`;
         let w3 = "Select Days";
         let w4 = "Select Days";
         
         data.forEach((doc) => {
           const store = doc.storeName;
           if (store === "All") {
-            w1 = doc.weekRanges?.[1] || "01 - 10 Jun";
-            w2 = doc.weekRanges?.[2] || "11 - 17 Jun";
+            w1 = doc.weekRanges?.[1] || `01 - 10 ${monthShort}`;
+            w2 = doc.weekRanges?.[2] || `11 - 17 ${monthShort}`;
             w3 = doc.weekRanges?.[3] || "Select Days";
             w4 = doc.weekRanges?.[4] || "Select Days";
           }
@@ -685,7 +801,7 @@ const DSRReport = () => {
     }
   };
 
-  const saveStoreTargetToDb = async (storeName, updatedTargets, updatedRanges) => {
+  const saveStoreTargetToDb = async (storeName, updatedTargets, updatedRanges, month = CURRENT_MONTH_LONG, year = CURRENT_YEAR) => {
     try {
       const token = localStorage.getItem("token");
       const targetObj = updatedTargets[storeName] || {};
@@ -693,8 +809,8 @@ const DSRReport = () => {
       
       const payload = {
         storeName,
-        month: "June",
-        year: 2026,
+        month,
+        year: Number(year),
         weekRanges: {
           1: rangeObj[1] || "Select Days",
           2: rangeObj[2] || "Select Days",
@@ -755,8 +871,30 @@ const DSRReport = () => {
       }
     };
     fetchBranches();
-    fetchStoreTargets();
   }, []);
+
+  // Fetch targets dynamically when not editing targets in modals
+  useEffect(() => {
+    if (!assignTargetModalOpen && !configWeeksModalOpen) {
+      const targetMonth = activeTab === "Custom" ? getMonthNameFromDateStr(customStartDate) : CURRENT_MONTH_LONG;
+      const targetYear = activeTab === "Custom" ? getYearFromDateStr(customStartDate) : CURRENT_YEAR;
+      fetchStoreTargets(targetMonth, targetYear);
+    }
+  }, [assignTargetModalOpen, configWeeksModalOpen, activeTab, customStartDate]);
+
+  // Fetch targets when assignTargetModalOpen is active and modalMonth changes
+  useEffect(() => {
+    if (assignTargetModalOpen && modalMonth) {
+      fetchStoreTargets(modalMonth, CURRENT_YEAR);
+    }
+  }, [modalMonth, assignTargetModalOpen]);
+
+  // Fetch targets when configWeeksModalOpen is active and configMonth changes
+  useEffect(() => {
+    if (configWeeksModalOpen && configMonth) {
+      fetchStoreTargets(configMonth, CURRENT_YEAR);
+    }
+  }, [configMonth, configWeeksModalOpen]);
 
   // Fetch walkins dynamically based on timeframe range
   useEffect(() => {
@@ -837,34 +975,14 @@ const DSRReport = () => {
           return displayBranchName(branchKey);
         };
 
-        // Parallel fetch for FTD (For The Day - today)
-        const ftdPromises = locationIds.map(async (locId) => {
-          try {
-            const res = await fetch("https://rentalapi.rootments.live/api/Reports/GetPerformanceStaffReportWithCancel", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json"
-              },
-              body: JSON.stringify({
-                DateFrom: todayStr,
-                DateTo: todayStr,
-                BookingNo: "",
-                LocationID: locId,
-                UserID: "7777"
-              })
-            });
-            if (res.ok) {
-              const json = await res.json();
-              return { locId, data: json.dataSet?.data || [] };
-            }
-          } catch (err) {
-            console.error(`Error fetching FTD performance for location ${locId}:`, err);
-          }
-          return { locId, data: [] };
+        // Parallel fetch for FTD (For The Day - today) with concurrency limit
+        const ftdTasks = locationIds.map((locId) => async () => {
+          const data = await getPerformanceCached(locId, todayStr, todayStr);
+          return { locId, data };
         });
 
-        // Parallel fetch for Period (WTD, MTD, Custom)
-        const periodPromises = locationIds.map(async (locId) => {
+        // Parallel fetch for Period (WTD, MTD, Custom) with concurrency limit
+        const periodTasks = locationIds.map((locId) => async () => {
           let storePeriodStart = periodStart;
           let storePeriodEnd = periodEnd;
           if (activeTab === "WTD") {
@@ -874,32 +992,12 @@ const DSRReport = () => {
             storePeriodEnd = wtdRange.end;
           }
 
-          try {
-            const res = await fetch("https://rentalapi.rootments.live/api/Reports/GetPerformanceStaffReportWithCancel", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json"
-              },
-              body: JSON.stringify({
-                DateFrom: storePeriodStart,
-                DateTo: storePeriodEnd,
-                BookingNo: "",
-                LocationID: locId,
-                UserID: "7777"
-              })
-            });
-            if (res.ok) {
-              const json = await res.json();
-              return { locId, data: json.dataSet?.data || [] };
-            }
-          } catch (err) {
-            console.error(`Error fetching Period performance for location ${locId}:`, err);
-          }
-          return { locId, data: [] };
+          const data = await getPerformanceCached(locId, storePeriodStart, storePeriodEnd);
+          return { locId, data };
         });
 
-        const ftdResults = await Promise.all(ftdPromises);
-        const periodResults = await Promise.all(periodPromises);
+        const ftdResults = await runWithConcurrencyLimit(ftdTasks, 4);
+        const periodResults = await runWithConcurrencyLimit(periodTasks, 4);
 
         const ftdMap = {};
         const periodMap = {};
@@ -1053,10 +1151,13 @@ const DSRReport = () => {
       const target = getStoreTarget(name, defaultTarget, activeTab, customFactor);
       
       const locPeriodList = performanceData.period[locId] || [];
-      const achieved = locPeriodList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+      const dapprPeriodList = performanceData.period["25"] || [];
+      const dapprPeriodForStore = getDapprSquadDataForStore(locId, dapprPeriodList);
+      const mergedPeriodList = [...locPeriodList, ...dapprPeriodForStore];
+      const achieved = mergedPeriodList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
 
       const balance = target - achieved;
-      const pct = target > 0 ? Math.round((achieved / target) * 100) : 0;
+      const pct = target > 0 ? Math.min(Math.round((achieved / target) * 100), 100) : 0;
       return { sl, name, target, achieved, balance, pct };
     });
     return list;
@@ -1136,6 +1237,17 @@ const DSRReport = () => {
           const locFtdList = performanceData.ftd[locId] || [];
           const locPeriodList = performanceData.period[locId] || [];
 
+          // Dappr Squad (loc 25) data gets merged INTO corresponding stores.
+          // When processing the Dappr Squad branch itself, use empty lists (data redistributed).
+          // For all other stores, merge in any matching Dappr Squad entries.
+          const isDapprSquadBranch = locId === "25";
+          const dapprFtdList = isDapprSquadBranch ? [] : (performanceData.ftd["25"] || []);
+          const dapprPeriodList = isDapprSquadBranch ? [] : (performanceData.period["25"] || []);
+          const dapprFtdForStore = getDapprSquadDataForStore(locId, dapprFtdList);
+          const dapprPeriodForStore = getDapprSquadDataForStore(locId, dapprPeriodList);
+          const mergedFtdList = isDapprSquadBranch ? [] : [...locFtdList, ...dapprFtdForStore];
+          const mergedPeriodList = isDapprSquadBranch ? [] : [...locPeriodList, ...dapprPeriodForStore];
+
           // Walkin/Loss calculations
           let storePeriodStart = todayStr;
           let storePeriodEnd = todayStr;
@@ -1159,14 +1271,19 @@ const DSRReport = () => {
             return d && d >= storePeriodStart && d <= storePeriodEnd;
           });
 
-          // Performance API aggregations
+          // Performance API aggregations (includes Dappr Squad data merged in)
           // Note: totalValue mapped to bill, total_Number_Of_Bill mapped to val, totalQuantity mapped to qty
-          const billFtd = locFtdList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
-          const billWtd = locPeriodList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
-          const valFtd = locFtdList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
-          const valWtd = locPeriodList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
-          const qtyFtd = locFtdList.reduce((sum, item) => sum + (item.totalQuantity || 0), 0);
-          const qtyWtd = locPeriodList.reduce((sum, item) => sum + (item.totalQuantity || 0), 0);
+          const billFtd = mergedFtdList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+          const billWtd = mergedPeriodList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+          const valFtd = mergedFtdList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
+          const valWtd = mergedPeriodList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
+          const qtyFtd = mergedFtdList.reduce((sum, item) => sum + (item.totalQuantity || 0), 0);
+          const qtyWtd = mergedPeriodList.reduce((sum, item) => sum + (item.totalQuantity || 0), 0);
+
+          const createdValFtd = mergedFtdList.reduce((sum, item) => sum + (item.created_Number_Of_Bill || 0), 0);
+          const createdValWtd = mergedPeriodList.reduce((sum, item) => sum + (item.created_Number_Of_Bill || 0), 0);
+          const createdQtyFtd = mergedFtdList.reduce((sum, item) => sum + (item.createdQuantity || 0), 0);
+          const createdQtyWtd = mergedPeriodList.reduce((sum, item) => sum + (item.createdQuantity || 0), 0);
 
           const walkFtd = ftdWalkins.length;
           const walkWtd = periodWalkins.length;
@@ -1182,6 +1299,10 @@ const DSRReport = () => {
             valWtd,
             qtyFtd,
             qtyWtd,
+            createdValFtd,
+            createdValWtd,
+            createdQtyFtd,
+            createdQtyWtd,
             walkFtd,
             walkWtd,
             lossFtd,
@@ -1243,6 +1364,11 @@ const DSRReport = () => {
           const qtyFtd = staffFtd.totalQuantity || 0;
           const qtyWtd = staffPeriod.totalQuantity || 0;
 
+          const createdValFtd = staffFtd.created_Number_Of_Bill || 0;
+          const createdValWtd = staffPeriod.created_Number_Of_Bill || 0;
+          const createdQtyFtd = staffFtd.createdQuantity || 0;
+          const createdQtyWtd = staffPeriod.createdQuantity || 0;
+
           const walkFtd = ftdWalkins.length;
           const walkWtd = periodWalkins.length;
           const lossFtd = Math.max(0, walkFtd - valFtd);
@@ -1257,6 +1383,10 @@ const DSRReport = () => {
             valWtd,
             qtyFtd,
             qtyWtd,
+            createdValFtd,
+            createdValWtd,
+            createdQtyFtd,
+            createdQtyWtd,
             walkFtd,
             walkWtd,
             lossFtd,
@@ -1317,6 +1447,11 @@ const DSRReport = () => {
           const qtyFtd = staffFtd.totalQuantity || 0;
           const qtyWtd = staffPeriod.totalQuantity || 0;
 
+          const createdValFtd = staffFtd.created_Number_Of_Bill || 0;
+          const createdValWtd = staffPeriod.created_Number_Of_Bill || 0;
+          const createdQtyFtd = staffFtd.createdQuantity || 0;
+          const createdQtyWtd = staffPeriod.createdQuantity || 0;
+
           const walkFtd = ftdWalkins.length;
           const walkWtd = periodWalkins.length;
           const lossFtd = Math.max(0, walkFtd - valFtd);
@@ -1331,6 +1466,10 @@ const DSRReport = () => {
             valWtd,
             qtyFtd,
             qtyWtd,
+            createdValFtd,
+            createdValWtd,
+            createdQtyFtd,
+            createdQtyWtd,
             walkFtd,
             walkWtd,
             lossFtd,
@@ -1379,16 +1518,35 @@ const DSRReport = () => {
   }, [overallTarget, overallAchieved]);
 
   const overallPct = useMemo(() => {
-    return overallTarget > 0 ? ((overallAchieved / overallTarget) * 100).toFixed(1) : "0.0";
+    if (overallTarget <= 0) return "0.0";
+    const rawPct = (overallAchieved / overallTarget) * 100;
+    return Math.min(rawPct, 100).toFixed(1);
   }, [overallTarget, overallAchieved]);
 
   // Dynamic calculations for Sales Funnel totals row
   const totalBillFtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + row.billFtd, 0), [filteredFunnelRows]);
   const totalBillWtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + row.billWtd, 0), [filteredFunnelRows]);
-  const totalValFtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + row.valFtd, 0), [filteredFunnelRows]);
-  const totalValWtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + row.valWtd, 0), [filteredFunnelRows]);
-  const totalQtyFtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + row.qtyFtd, 0), [filteredFunnelRows]);
-  const totalQtyWtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + row.qtyWtd, 0), [filteredFunnelRows]);
+  const totalValFtd = useMemo(() => {
+    const createdSum = filteredFunnelRows.reduce((acc, row) => acc + (row.createdValFtd || 0), 0);
+    const negativeSum = filteredFunnelRows.reduce((acc, row) => acc + Math.min(0, row.valFtd || 0), 0);
+    return createdSum + negativeSum;
+  }, [filteredFunnelRows]);
+
+  const totalValWtd = useMemo(() => {
+    const createdSum = filteredFunnelRows.reduce((acc, row) => acc + (row.createdValWtd || 0), 0);
+    const negativeSum = filteredFunnelRows.reduce((acc, row) => acc + Math.min(0, row.valWtd || 0), 0);
+    return createdSum + negativeSum;
+  }, [filteredFunnelRows]);
+  const totalQtyFtd = useMemo(() => {
+    const createdSum = filteredFunnelRows.reduce((acc, row) => acc + (row.createdQtyFtd || 0), 0);
+    const negativeSum = filteredFunnelRows.reduce((acc, row) => acc + Math.min(0, row.qtyFtd || 0), 0);
+    return createdSum + negativeSum;
+  }, [filteredFunnelRows]);
+  const totalQtyWtd = useMemo(() => {
+    const createdSum = filteredFunnelRows.reduce((acc, row) => acc + (row.createdQtyWtd || 0), 0);
+    const negativeSum = filteredFunnelRows.reduce((acc, row) => acc + Math.min(0, row.qtyWtd || 0), 0);
+    return createdSum + negativeSum;
+  }, [filteredFunnelRows]);
   const totalWalkFtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + row.walkFtd, 0), [filteredFunnelRows]);
   const totalWalkWtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + row.walkWtd, 0), [filteredFunnelRows]);
   const totalLossFtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + row.lossFtd, 0), [filteredFunnelRows]);
@@ -1509,7 +1667,7 @@ const DSRReport = () => {
     let fileName = "";
 
     if (selectedReport === "Revenue Vs Target") {
-      fileName = `Revenue_Vs_Target_${activeTab}_2026.csv`;
+      fileName = `Revenue_Vs_Target_${activeTab}_${CURRENT_YEAR}.csv`;
       const headers = ["Sl No", "Store Name", "Target (INR)", "Achieved (INR)", "Balance (INR)", "Achieved (%)"];
       const rows = filteredData.map((row) => [
         row.sl,
@@ -1531,7 +1689,7 @@ const DSRReport = () => {
       csvContent = [headers, ...rows].map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(",")).join("\n");
 
     } else if (selectedReport === "Sales Funnel") {
-      fileName = `Sales_Funnel_${activeTab}_2026.csv`;
+      fileName = `Sales_Funnel_${activeTab}_${CURRENT_YEAR}.csv`;
       const headers = [
         isAdminOrSuperAdmin ? "Store Name" : "Staff Name",
         "Bill (FTD)", `Bill (${activeTab})`,
@@ -1572,7 +1730,7 @@ const DSRReport = () => {
       csvContent = [headers, ...rows].map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(",")).join("\n");
 
     } else if (selectedReport === "Category Contribution") {
-      fileName = `Category_Contribution_2026.csv`;
+      fileName = `Category_Contribution_${CURRENT_YEAR}.csv`;
       const headers = [
         "Store Name",
         "Rental Products - Value FTD", "Rental Products - Value WTD", "Rental Products - Bill FTD", "Rental Products - Bill WTD", "Rental Products - Qty FTD", "Rental Products - Qty WTD",
@@ -2005,14 +2163,14 @@ const DSRReport = () => {
                     return (
                       <tr key={idx} className="odd:bg-white even:bg-[#f9fafb] hover:bg-gray-50/50 transition-colors">
                         <td className={`sticky left-0 z-10 px-6 py-3.5 text-left font-semibold text-gray-800 border-r border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)] ${idx % 2 === 0 ? "bg-white" : "bg-[#f9fafb]"}`}>{row.name}</td>
-                                     <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(row.valFtd)}</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(row.valWtd)}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(row.createdValFtd ?? row.valFtd)}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(row.createdValWtd ?? row.valWtd)}</td>
                         
                         <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(formatIndianNumber(row.billFtd))}</td>
                         <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(formatIndianNumber(row.billWtd))}</td>
                         
-                        <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(row.qtyFtd)}</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(row.qtyWtd)}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(row.createdQtyFtd ?? row.qtyFtd)}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(row.createdQtyWtd ?? row.qtyWtd)}</td>
 
                         <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(row.walkFtd)}</td>
                         <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(row.walkWtd)}</td>
@@ -2020,14 +2178,14 @@ const DSRReport = () => {
                         <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(row.lossFtd)}</td>
                         <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(row.lossWtd)}</td>
 
-                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{renderCellVal(formatIndianNumber(row.abvFtd !== undefined ? row.abvFtd : Math.round(row.billFtd / (row.valFtd || 1))))}</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{renderCellVal(formatIndianNumber(row.abvWtd !== undefined ? row.abvWtd : Math.round(row.billWtd / (row.valWtd || 1))))}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{renderCellVal(formatIndianNumber(row.abvFtd !== undefined ? row.abvFtd : Math.round(row.billFtd / ((row.createdValFtd ?? row.valFtd) || 1))))}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{renderCellVal(formatIndianNumber(row.abvWtd !== undefined ? row.abvWtd : Math.round(row.billWtd / ((row.createdValWtd ?? row.valWtd) || 1))))}</td>
 
-                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{renderCellVal(row.absFtd !== undefined ? row.absFtd : (row.qtyFtd / (row.valFtd || 1)).toFixed(1))}</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{renderCellVal(row.absWtd !== undefined ? row.absWtd : (row.qtyWtd / (row.valWtd || 1)).toFixed(1))}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{renderCellVal(row.absFtd !== undefined ? row.absFtd : ((row.createdQtyFtd ?? row.qtyFtd) / ((row.createdValFtd ?? row.valFtd) || 1)).toFixed(1))}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{renderCellVal(row.absWtd !== undefined ? row.absWtd : ((row.createdQtyWtd ?? row.qtyWtd) / ((row.createdValWtd ?? row.valWtd) || 1)).toFixed(1))}</td>
 
-                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{renderCellVal(row.convFtd !== undefined ? Math.min(100, row.convFtd) : Math.min(100, Math.round(((row.valFtd || 0) / (row.walkFtd || 1)) * 100)), true)}</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{renderCellVal(row.convWtd !== undefined ? Math.min(100, row.convWtd) : Math.min(100, Math.round(((row.valWtd || 0) / (row.walkWtd || 1)) * 100)), true)}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{renderCellVal(row.convFtd !== undefined ? Math.min(100, row.convFtd) : Math.min(100, Math.round(((row.createdValFtd != null ? row.createdValFtd : (row.valFtd || 0)) / (row.walkFtd || 1)) * 100)), true)}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{renderCellVal(row.convWtd !== undefined ? Math.min(100, row.convWtd) : Math.min(100, Math.round(((row.createdValWtd != null ? row.createdValWtd : (row.valWtd || 0)) / (row.walkWtd || 1)) * 100)), true)}</td>
 
                         <td className="px-4 py-3.5 border-r border-gray-100 font-semibold text-[#00A36C]">{renderCellVal(contributionFtd, true)}</td>
                         <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-semibold text-[#00A36C]">{renderCellVal(contributionWtd, true)}</td>
@@ -2516,7 +2674,7 @@ const DSRReport = () => {
                       {configCalendarOpen === w.id && (
                         <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200/80 rounded-2xl shadow-xl z-30 p-4 w-[260px] select-none text-left">
                           <div className="text-center font-bold text-xs text-gray-800 mb-3 flex justify-between items-center px-1 border-b border-gray-100 pb-2">
-                            <span>{configMonth || "June"} 2026 Picker</span>
+                            <span>{configMonth || CURRENT_MONTH_LONG} {CURRENT_YEAR} Picker</span>
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -2533,7 +2691,7 @@ const DSRReport = () => {
                             <div className="flex flex-col">
                               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 text-center">Start Day</span>
                               <div className="h-[150px] overflow-y-auto flex flex-col gap-1 pr-1 scrollbar-thin scrollbar-thumb-gray-200">
-                                {Array.from({ length: getDaysCountInMonth(configMonth || "June") }, (_, i) => i + 1).map((d) => {
+                                {Array.from({ length: getDaysCountInMonth(configMonth || CURRENT_MONTH_LONG) }, (_, i) => i + 1).map((d) => {
                                   const isSelected = configStartDays[w.id] === d;
                                   const isDisabled = isDayTakenInOtherWeeks(d);
                                   return (
@@ -2549,7 +2707,7 @@ const DSRReport = () => {
                                         }
                                         setConfigStartDays(prev => ({ ...prev, [w.id]: newStart }));
                                         setConfigEndDays(prev => ({ ...prev, [w.id]: newEnd }));
-                                        const monthAbbr = (configMonth || "June").substring(0, 3);
+                                        const monthAbbr = (configMonth || CURRENT_MONTH_LONG).substring(0, 3);
                                         if (newStart !== null && newEnd !== null) {
                                           w.setVal(`${String(newStart).padStart(2, "0")} - ${String(newEnd).padStart(2, "0")} ${monthAbbr}`);
                                         }
@@ -2573,7 +2731,7 @@ const DSRReport = () => {
                             <div className="flex flex-col">
                               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 text-center">End Day</span>
                               <div className="h-[150px] overflow-y-auto flex flex-col gap-1 pr-1 scrollbar-thin scrollbar-thumb-gray-200">
-                                {Array.from({ length: getDaysCountInMonth(configMonth || "June") }, (_, i) => i + 1).map((d) => {
+                                {Array.from({ length: getDaysCountInMonth(configMonth || CURRENT_MONTH_LONG) }, (_, i) => i + 1).map((d) => {
                                   const isSelected = configEndDays[w.id] === d;
                                   const isDisabled = (() => {
                                     if (configStartDays[w.id] === null) return true;
@@ -2591,7 +2749,7 @@ const DSRReport = () => {
                                         e.stopPropagation();
                                         const newEnd = d;
                                         setConfigEndDays(prev => ({ ...prev, [w.id]: newEnd }));
-                                        const monthAbbr = (configMonth || "June").substring(0, 3);
+                                        const monthAbbr = (configMonth || CURRENT_MONTH_LONG).substring(0, 3);
                                         if (configStartDays[w.id] !== null && newEnd !== null) {
                                           w.setVal(`${String(configStartDays[w.id]).padStart(2, "0")} - ${String(newEnd).padStart(2, "0")} ${monthAbbr}`);
                                         }
