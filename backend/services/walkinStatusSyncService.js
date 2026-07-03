@@ -437,7 +437,13 @@ export const syncWalkinStatuses = async () => {
                     if (walkin) {
                         const tracker = getTracker(walkin);
                         const targetRentalStatus = rentalInfo.status;
-                        const currentRentalStatus = tracker.walkin.rentalStatus || tracker.walkin.status || 'New Walkin';
+                        const previousRentalStatus = tracker.walkin.rentalStatus || tracker.walkin.status || 'New Walkin';
+
+                        // Capture previous state BEFORE modifying the walk-in object
+                        const hadBookingDate = !!tracker.walkin.bookingDate;
+                        const hadRentoutDate = !!tracker.walkin.rentoutDate;
+                        const hadReturnDate = !!tracker.walkin.returnDate;
+                        const hadCancellationDate = !!(tracker.walkin.cancelDate || tracker.walkin.cancellationDate);
 
                         // Sourced dates strictly from specific API endpoints for this invoiceNo
                         const bookingItem = bookingMap.get(invoiceNo);
@@ -483,19 +489,19 @@ export const syncWalkinStatuses = async () => {
                             return val;
                         };
 
-                        if (normalizeStatusForCompare(currentRentalStatus) !== normalizeStatusForCompare(targetRentalStatus)) {
-                            // Check if this status transition has already occurred in the past (by checking date presence)
+                        if (normalizeStatusForCompare(previousRentalStatus) !== normalizeStatusForCompare(targetRentalStatus)) {
+                            // Check if this status transition has already occurred in the past (by checking captured date presence)
                             let isAlreadyDone = false;
-                            if (targetRentalStatus === 'Booked' && tracker.walkin.bookingDate) isAlreadyDone = true;
-                            if (targetRentalStatus === 'Rentout' && tracker.walkin.rentoutDate) isAlreadyDone = true;
-                            if (targetRentalStatus === 'Return' && tracker.walkin.returnDate) isAlreadyDone = true;
-                            if (['Cancelled', 'Cancel'].includes(targetRentalStatus) && tracker.walkin.cancelDate) isAlreadyDone = true;
+                            if (targetRentalStatus === 'Booked' && hadBookingDate) isAlreadyDone = true;
+                            if (targetRentalStatus === 'Rentout' && hadRentoutDate) isAlreadyDone = true;
+                            if (targetRentalStatus === 'Return' && hadReturnDate) isAlreadyDone = true;
+                            if (['Cancelled', 'Cancel'].includes(targetRentalStatus) && hadCancellationDate) isAlreadyDone = true;
 
-                            const currentRank = getStatusRank(currentRentalStatus);
+                            const currentRank = getStatusRank(previousRentalStatus);
                             const targetRank = getStatusRank(targetRentalStatus);
 
                             if (targetRank >= currentRank && !isAlreadyDone) {
-                                const oldRental = currentRentalStatus;
+                                const oldRental = previousRentalStatus;
                                 tracker.walkin.rentalStatus = targetRentalStatus;
                                 tracker.rentalStatusChanged = true;
                                 tracker.docUpdated = true;
@@ -523,7 +529,7 @@ export const syncWalkinStatuses = async () => {
                             } else {
                                 branchWalkinsSkippedHierarchy++;
                                 totalWalkinsSkippedHierarchy++;
-                                console.log(`ℹ️ [Walkin Status Sync] Skipped rental update for invoice ${invoiceNo} (...${rentalInfo.phone.slice(-4)}): current '${currentRentalStatus}' >= target '${targetRentalStatus}'`);
+                                console.log(`ℹ️ [Walkin Status Sync] Skipped rental update for invoice ${invoiceNo} (...${rentalInfo.phone.slice(-4)}): current '${previousRentalStatus}' >= target '${targetRentalStatus}' (or isAlreadyDone: ${isAlreadyDone})`);
                             }
                         }
                     } else {
@@ -597,6 +603,10 @@ export const syncWalkinStatuses = async () => {
                         const targetShoeStatus = shoeInfo.status;
                         const currentShoeStatus = tracker.walkin.shoeStatus || '-';
 
+                        // Capture previous state BEFORE modifying the walk-in object
+                        const hadBilledDate = !!tracker.walkin.billedDate;
+                        const hadBillReturnedDate = !!tracker.walkin.billReturnedDate;
+
                         const billedItem = shoeBilledMap.get(shoeInvoiceNo);
                         if (billedItem) {
                             const bldDate = extractDateValue(billedItem, ['billedDate', 'billingDate', 'billeddate', 'billdate', 'billingdate']);
@@ -617,8 +627,8 @@ export const syncWalkinStatuses = async () => {
 
                         if (currentShoeStatus !== targetShoeStatus) {
                             let isShoeAlreadyDone = false;
-                            if (targetShoeStatus === 'Billed' && tracker.walkin.billedDate) isShoeAlreadyDone = true;
-                            if (targetShoeStatus === 'Bill Returned' && tracker.walkin.billReturnedDate) isShoeAlreadyDone = true;
+                            if (targetShoeStatus === 'Billed' && hadBilledDate) isShoeAlreadyDone = true;
+                            if (targetShoeStatus === 'Bill Returned' && hadBillReturnedDate) isShoeAlreadyDone = true;
 
                             const getShoeStatusRank = (s) => {
                                 const ranks = { 'Billed': 1, 'Bill Returned': 2 };
@@ -650,7 +660,7 @@ export const syncWalkinStatuses = async () => {
                                 });
                                 console.log(`✅ [Walkin Status Sync] Shoe Flow update for shoeInvoice ${shoeInvoiceNo} (...${shoeInfo.phone.slice(-4)}): ${oldShoe} ➔ ${targetShoeStatus}`);
                             } else {
-                                console.log(`ℹ️ [Walkin Status Sync] Skipped shoe update for shoeInvoice ${shoeInvoiceNo} (...${shoeInfo.phone.slice(-4)}): current '${currentShoeStatus}' >= target '${targetShoeStatus}'`);
+                                console.log(`ℹ️ [Walkin Status Sync] Skipped shoe update for shoeInvoice ${shoeInvoiceNo} (...${shoeInfo.phone.slice(-4)}): current '${currentShoeStatus}' >= target '${targetShoeStatus}' (or isShoeAlreadyDone: ${isShoeAlreadyDone})`);
                             }
                         }
                     } else {
@@ -876,7 +886,7 @@ export const expireWalkinsToLoss = async () => {
         // 2. createdAt < startOfToday
         // 3. updatedAt === createdAt (no updates occurred)
         // Set status to 'Loss' and update updatedAt to the current time.
-        const result = await Walkin.updateMany(
+        const result = await Walkin.collection.updateMany(
             {
                 status: 'New Walkin',
                 $or: [
@@ -890,9 +900,6 @@ export const expireWalkinsToLoss = async () => {
                 $set: {
                     status: 'Loss'
                 }
-            },
-            {
-                timestamps: false
             }
         );
 
