@@ -730,8 +730,19 @@ export const getWalkins = async (req, res) => {
 
         // Date Range Filter
         if (startDate && endDate) {
-            const endOfDaySuffix = endDate.includes(' ') ? '' : ' 23:59:59';
-            baseQuery.date = { $gte: startDate, $lte: `${endDate}${endOfDaySuffix}` };
+            const startParts = startDate.split('-');
+            const startYear = parseInt(startParts[0], 10);
+            const startMonth = parseInt(startParts[1], 10) - 1;
+            const startDay = parseInt(startParts[2], 10);
+            const startOfDay = new Date(startYear, startMonth, startDay, 0, 0, 0, 0);
+
+            const endParts = endDate.split('-');
+            const endYear = parseInt(endParts[0], 10);
+            const endMonth = parseInt(endParts[1], 10) - 1;
+            const endDay = parseInt(endParts[2], 10);
+            const endOfDay = new Date(endYear, endMonth, endDay, 23, 59, 59, 999);
+
+            baseQuery.createdAt = { $gte: startOfDay, $lte: endOfDay };
         }
 
         // Updated At Range Filter
@@ -836,7 +847,7 @@ export const getWalkins = async (req, res) => {
                 { $match: secureQuery },
                 {
                     $group: {
-                        _id: { $substrBytes: ['$date', 0, 10] },
+                        _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: "+05:30" } },
                         walkings: { $sum: 1 },
                         loss: {
                             $sum: {
@@ -920,8 +931,19 @@ export const getAllWalkinsPublic = async (req, res) => {
 
         // Date Range Filter
         if (startDate && endDate) {
-            const endOfDaySuffix = endDate.includes(' ') ? '' : ' 23:59:59';
-            query.date = { $gte: startDate, $lte: `${endDate}${endOfDaySuffix}` };
+            const startParts = startDate.split('-');
+            const startYear = parseInt(startParts[0], 10);
+            const startMonth = parseInt(startParts[1], 10) - 1;
+            const startDay = parseInt(startParts[2], 10);
+            const startOfDay = new Date(startYear, startMonth, startDay, 0, 0, 0, 0);
+
+            const endParts = endDate.split('-');
+            const endYear = parseInt(endParts[0], 10);
+            const endMonth = parseInt(endParts[1], 10) - 1;
+            const endDay = parseInt(endParts[2], 10);
+            const endOfDay = new Date(endYear, endMonth, endDay, 23, 59, 59, 999);
+
+            query.createdAt = { $gte: startOfDay, $lte: endOfDay };
         }
 
         // Updated At Range Filter
@@ -1089,6 +1111,7 @@ export const getWalkinCountPageData = async (req, res) => {
                 $or: [
                     { date: { $gte: startDate, $lte: endDate + ' 23:59:59' } },
                     { createdAt: { $gte: startOfDay, $lte: endOfDay } },
+                    { updatedAt: { $gte: startOfDay, $lte: endOfDay } },
                     { bookingDate: { $gte: startOfDay, $lte: endOfDay } },
                     { rentoutDate: { $gte: startOfDay, $lte: endOfDay } },
                     { returnDate: { $gte: startOfDay, $lte: endOfDay } },
@@ -1113,6 +1136,7 @@ export const getWalkinCountPageData = async (req, res) => {
                 $or: [
                     { date: { $gte: date, $lte: date + ' 23:59:59' } },
                     { createdAt: { $gte: startOfDay, $lte: endOfDay } },
+                    { updatedAt: { $gte: startOfDay, $lte: endOfDay } },
                     { bookingDate: { $gte: startOfDay, $lte: endOfDay } },
                     { rentoutDate: { $gte: startOfDay, $lte: endOfDay } },
                     { returnDate: { $gte: startOfDay, $lte: endOfDay } },
@@ -1163,16 +1187,14 @@ export const getWalkinCountPageData = async (req, res) => {
         };
 
         walkins.forEach(w => {
-            const createdAtStr = w.date && w.date !== '-' ? w.date.substring(0, 10) : toDateStrIST(w.createdAt);
-            
-            // Check if created in range
-            const createdInRange = createdAtStr && createdAtStr >= activeDateRange.start && createdAtStr <= activeDateRange.end;
-            
             const isDateInRange = (dateVal) => {
                 if (!dateVal) return false;
                 const dStr = toDateStrIST(dateVal);
                 return dStr && dStr >= activeDateRange.start && dStr <= activeDateRange.end;
             };
+
+            const createdInRange = isDateInRange(w.createdAt);
+            const updatedInRange = isDateInRange(w.updatedAt);
 
             const hasBookingInRange = isDateInRange(w.bookingDate);
             const hasRentoutInRange = isDateInRange(w.rentoutDate);
@@ -1186,11 +1208,6 @@ export const getWalkinCountPageData = async (req, res) => {
             const historyInRange = (w.statusHistory || []).filter(h => isDateInRange(h.date));
             const hasHistoryInRange = historyInRange.length > 0;
             
-            // Did any update happen in range?
-            const updatedInRange = hasBookingInRange || hasRentoutInRange || hasReturnInRange || 
-                                   hasCancelInRange || hasBilledInRange || hasBillReturnedInRange || 
-                                   hasLastStatusChangeInRange || hasHistoryInRange;
-
             // Build the set of status updates in range
             const statusesInRange = new Set(historyInRange.map(h => h.status));
             
@@ -1216,86 +1233,79 @@ export const getWalkinCountPageData = async (req, res) => {
             }
 
             // 3. New Loss
-            if (createdInRange) {
-                const turnedLossToday = statusesInRange.has('Loss') || statusesInRange.has('Revisit Loss') || w.status === 'Loss';
-                if (turnedLossToday) {
-                    counts.new_loss++;
-                }
+            if (createdInRange && w.status === 'Loss') {
+                counts.new_loss++;
             }
 
-            // 4. Repeat loss
-            if (!createdInRange && (statusesInRange.has('Loss') || w.status === 'Loss') && updatedInRange) {
+            // 4. Repeat loss / Revisit Loss
+            const hasRevisitLoss = !createdInRange && (w.statusHistory || []).some(h => {
+                if (!isDateInRange(h.date)) return false;
+                const statusLower = String(h.status || '').toLowerCase();
+                const categoryLower = String(h.category || '').toLowerCase();
+                const isRevisit = statusLower.includes('revisit') || categoryLower.includes('revisit');
+                const isLoss = statusLower === 'loss' || categoryLower === 'loss' || statusLower.includes('loss');
+                return isRevisit && isLoss;
+            });
+            if (hasRevisitLoss) {
                 counts.repeat_loss++;
+                counts.revisit_loss++;
             }
 
             // 5. Repeat rentout
-            const hasRentoutUpdated = Array.from(statusesInRange).some(st => {
-                const s = String(st || '').toLowerCase();
-                return s.includes('rentout') || s.includes('rent out') || s.includes('billed');
-            });
-            if (!createdInRange && hasRentoutUpdated) {
+            if (!createdInRange && hasRentoutInRange) {
                 counts.repeat_rentout++;
             }
 
             // 6. Repeat return
-            const hasReturnUpdated = Array.from(statusesInRange).some(st => {
-                const s = String(st || '').toLowerCase();
-                return s.includes('return') || s.includes('bill returned');
-            });
-            if (!createdInRange && hasReturnUpdated) {
+            if (!createdInRange && hasReturnInRange) {
                 counts.repeat_return++;
             }
 
             // 7. Revisit repeat trial
-            const hasTrialUpdated = statusesInRange.has('Trial') || 
-                                    (updatedInRange && w.category === 'Trial') || 
-                                    historyInRange.some(h => h.category === 'Trial' || h.status === 'Trial');
-            if (!createdInRange && hasTrialUpdated) {
+            const hasRevisitTrial = !createdInRange && (w.statusHistory || []).some(h => {
+                if (!isDateInRange(h.date)) return false;
+                const statusLower = String(h.status || '').toLowerCase();
+                const categoryLower = String(h.category || '').toLowerCase();
+                const isRevisit = statusLower.includes('revisit') || categoryLower.includes('revisit');
+                const isTrial = categoryLower === 'trial' || String(w.category || '').toLowerCase() === 'trial' || String(w.subCategory || '').toLowerCase() === 'trial';
+                return isRevisit && isTrial;
+            });
+            if (hasRevisitTrial) {
                 counts.revisit_repeat_trial++;
             }
 
             // 8. Repeat booking
-            const hasBookingUpdated = Array.from(statusesInRange).some(st => {
-                const s = String(st || '').toLowerCase();
-                return s.includes('booked') || s.includes('booking');
+            const hasRevisitBooking = !createdInRange && hasBookingInRange && (w.statusHistory || []).some(h => {
+                if (!isDateInRange(h.date)) return false;
+                const statusLower = String(h.status || '').toLowerCase();
+                const categoryLower = String(h.category || '').toLowerCase();
+                return statusLower.includes('revisit') || categoryLower.includes('revisit');
             });
-            if (!createdInRange && hasBookingUpdated) {
+            if (hasRevisitBooking) {
                 counts.repeat_booking++;
             }
 
             // 9. New walkin booking
-            if (createdInRange) {
-                const hasBookingToday = Array.from(statusesInRange).some(st => {
-                    const s = String(st || '').toLowerCase();
-                    return s.includes('booked') || s.includes('booking');
-                }) || String(w.status || '').toLowerCase().includes('booked') || String(w.status || '').toLowerCase().includes('booking');
-                if (hasBookingToday) {
-                    counts.new_walkin_booking++;
-                }
+            if (createdInRange && hasBookingInRange) {
+                counts.new_walkin_booking++;
             }
 
             // 10. New walkin rentout
-            if (createdInRange) {
-                const hasRentoutToday = Array.from(statusesInRange).some(st => {
-                    const s = String(st || '').toLowerCase();
-                    return s.includes('rentout') || s.includes('rent out') || s.includes('billed');
-                }) || String(w.status || '').toLowerCase().includes('rentout') || String(w.status || '').toLowerCase().includes('rent out') || String(w.status || '').toLowerCase().includes('billed');
-                if (hasRentoutToday) {
-                    counts.new_walkin_rentout++;
-                }
+            if (createdInRange && hasBookingInRange && hasRentoutInRange) {
+                counts.new_walkin_rentout++;
             }
 
             // 11. Revisit reissue
-            const hasReissueUpdated = statusesInRange.has('Reissue') || 
-                                      (updatedInRange && w.category === 'Reissue') || 
-                                      historyInRange.some(h => h.category === 'Reissue' || h.status === 'Reissue');
-            if (!createdInRange && hasReissueUpdated) {
+            const hasRevisitReissue = !createdInRange && (w.statusHistory || []).some(h => {
+                if (!isDateInRange(h.date)) return false;
+                const statusLower = String(h.status || '').toLowerCase();
+                const categoryLower = String(h.category || '').toLowerCase();
+                const isRevisit = statusLower.includes('revisit') || categoryLower.includes('revisit');
+                const isReissue = categoryLower === 'reissue' || String(w.category || '').toLowerCase() === 'reissue' || String(w.subCategory || '').toLowerCase() === 'reissue';
+                return isRevisit && isReissue;
+            });
+            if (hasRevisitReissue) {
                 counts.revisit_reissue++;
-            }
-
-            // 12. Revisit loss
-            if (!createdInRange && (statusesInRange.has('Revisit Loss') || w.status === 'Revisit Loss') && updatedInRange) {
-                counts.revisit_loss++;
             }
 
             // 13. Others
