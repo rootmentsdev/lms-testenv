@@ -61,6 +61,9 @@ const router = express.Router();
  *                     remarks:
  *                       type: string
  *                       example: "Prefers slim fit"
+ *                     functionType:
+ *                       type: string
+ *                       example: "Hindu Function"
  *                     status:
  *                       type: string
  *                       enum: [New Walkin, Revisit, Loss]
@@ -133,13 +136,14 @@ router.get('/check/:contact', OptionalMiddilWare, checkCustomerExists);
  *                 example: "6a1fe984b7cd1be0b146e658"
  *               functionType:
  *                 type: string
+ *                 description: "The function type of the event. Required when status is 'New Walkin' (such as during lead creation in the mobile app/frontend). No longer used under 'Loss' status."
  *                 enum:
  *                   - "Hindu Function"
  *                   - "Christian Function"
  *                   - "Muslim Function"
  *                   - "Grooms Men"
  *                   - "Office or College"
- *                   - "Others functions"
+ *                   - "Other Functions"
  *                 example: "Hindu Function"
  *               category:
  *                 type: string

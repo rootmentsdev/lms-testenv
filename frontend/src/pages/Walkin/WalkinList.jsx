@@ -348,20 +348,21 @@ const WalkinList = () => {
         <>
             {formData.status === 'Loss' ? (
                 <>
-                    {/* 1. Function Type Dropdown (always visible first under Loss) */}
+                    {/* Category Dropdown (always visible first under Loss) */}
                     <div className="col-span-12 md:col-span-3">
                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                            Function Type<span className="text-red-500">*</span>
+                            Category<span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
                             <select
-                                name="functionType"
+                                name="category"
                                 required
-                                value={formData.functionType}
+                                value={formData.category}
                                 onChange={handleInputChange}
                                 className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
                             >
-                                {getFunctionTypeOptions().map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
+                                <option value="">Select Category</option>
+                                {getCategoryOptions().map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
                             </select>
                             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
                                 <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
@@ -370,32 +371,6 @@ const WalkinList = () => {
                             </div>
                         </div>
                     </div>
-
-                    {/* 2. Category Dropdown (appears once Function Type is selected) */}
-                    {formData.functionType && !['Select Function Type', 'Select function type', '-', ''].includes(formData.functionType) && (
-                        <div className="col-span-12 md:col-span-3">
-                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                Category<span className="text-red-500">*</span>
-                            </label>
-                            <div className="relative">
-                                <select
-                                    name="category"
-                                    required
-                                    value={formData.category}
-                                    onChange={handleInputChange}
-                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
-                                >
-                                    <option value="">Select Category</option>
-                                    {getCategoryOptions().map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
-                                </select>
-                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                                        <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                                    </svg>
-                                </div>
-                            </div>
-                        </div>
-                    )}
 
                     {/* 3. Fields based on Category Selection */}
                     {formData.category === 'Product' && (
@@ -1541,6 +1516,31 @@ const WalkinList = () => {
             ) : (
                 /* STANDARD FLOW (NOT 'Loss') */
                 <>
+                    {/* Function Type Dropdown (Visible only for New Walkin) */}
+                    {formData.status === 'New Walkin' && (
+                        <div className="col-span-12 md:col-span-3">
+                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                Function Type<span className="text-red-500">*</span>
+                            </label>
+                            <div className="relative">
+                                <select
+                                    name="functionType"
+                                    required
+                                    value={formData.functionType}
+                                    onChange={handleInputChange}
+                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                >
+                                    {getFunctionTypeOptions().map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
+                                </select>
+                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                        <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Category Select (Visible only for Revisit) */}
                     {formData.status === 'Revisit' && (
                         <div className="col-span-12 md:col-span-3">
@@ -1800,9 +1800,9 @@ const WalkinList = () => {
         };
     };
 
-    const getUpdatedDateRange = () => {
-        let updatedStartDate = '';
-        let updatedEndDate = '';
+    const getCreatedDateRange = () => {
+        let createdAtStartDate = '';
+        let createdAtEndDate = '';
 
         if (filterStartDate) {
             const parts = filterStartDate.split('-');
@@ -1811,7 +1811,7 @@ const WalkinList = () => {
             const day = parseInt(parts[2], 10);
 
             const start = new Date(year, month, day, 0, 0, 0, 0);
-            updatedStartDate = start.toISOString();
+            createdAtStartDate = start.toISOString();
         }
         if (filterEndDate) {
             const parts = filterEndDate.split('-');
@@ -1820,25 +1820,26 @@ const WalkinList = () => {
             const day = parseInt(parts[2], 10);
 
             const end = new Date(year, month, day, 23, 59, 59, 999);
-            updatedEndDate = end.toISOString();
+            createdAtEndDate = end.toISOString();
         }
-        return { updatedStartDate, updatedEndDate };
+        return { createdAtStartDate, createdAtEndDate };
     };
 
     // Fetch walkins dynamically from live API
     const loadWalkinsList = async (pageToLoad = 1) => {
         try {
             setWalkinsLoading(true);
-            const { updatedStartDate, updatedEndDate } = getUpdatedDateRange();
+            const { createdAtStartDate, createdAtEndDate } = getCreatedDateRange();
             const params = new URLSearchParams({
                 search: searchQuery.trim(),
                 status: statusFilter,
                 store: storeFilter,
                 page: pageToLoad,
-                limit: itemsPerPage === 'All' ? 0 : itemsPerPage
+                limit: itemsPerPage === 'All' ? 0 : itemsPerPage,
+                sortBy: 'createdAt'
             });
-            if (updatedStartDate) params.append('updatedStartDate', updatedStartDate);
-            if (updatedEndDate) params.append('updatedEndDate', updatedEndDate);
+            if (createdAtStartDate) params.append('createdAtStartDate', createdAtStartDate);
+            if (createdAtEndDate) params.append('createdAtEndDate', createdAtEndDate);
             const walkinRes = await fetch(`${baseUrl.baseUrl}api/walkin/list?${params.toString()}`, {
                 headers: {
                     'Content-Type': 'application/json',
@@ -2391,11 +2392,13 @@ const WalkinList = () => {
             alert('Please select a Walk-in Status.');
             return;
         }
-        if (formData.status === 'Loss') {
+        if (formData.status === 'New Walkin') {
             if (!formData.functionType || ['Select Function Type', 'Select function type', '-', ''].includes(formData.functionType)) {
                 alert('Please select a Function Type.');
                 return;
             }
+        }
+        if (formData.status === 'Loss') {
             if (!formData.category || formData.category === '-' || formData.category === '') {
                 alert('Please select a Category.');
                 return;
@@ -2624,11 +2627,11 @@ const WalkinList = () => {
 
     const currentStoreEmployees = employees; // Already filtered by loadEmployees API
 
-    const showCategory = formData.status === 'Revisit' || (formData.status === 'Loss' && formData.functionType && !['Select Function Type', 'Select function type', '-', ''].includes(formData.functionType));
+    const showCategory = formData.status === 'Revisit' || formData.status === 'Loss';
     const showSubCategory = formData.status === 'Loss' && (
         formData.category === 'Product' || formData.category === 'Enquiry' || formData.category === 'Dapper Squad'
     ) && formData.lossProductType && formData.lossProductType !== '';
-    const showFunctionType = formData.status === 'Loss';
+    const showFunctionType = formData.status === 'New Walkin';
     const showAttachmentInput = formData.status === 'Loss' && formData.category === 'Product' && ((formData.subCategory || '').toLowerCase().trim() === 'design and colour not available' || (formData.subCategory || '').toLowerCase().trim() === 'model, design and colour not available' || (formData.subCategory || '').toLowerCase().trim() === 'design and color unavailable');
 
     const getProductTypeOptions = () => {
@@ -3213,7 +3216,7 @@ const WalkinList = () => {
                                                             <td style={{ padding: '11px 12px', textAlign: 'center', color: '#9ca3af', boxSizing: 'border-box' }}>{indexFirst + index + 1}</td>
                                                             <td style={{ textAlign: 'center', padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
                                                                 <div className="walkin-marquee-container">
-                                                                    <span className="walkin-marquee-text walkin-anim-scroll">{safeDateOnly(w.date)}</span>
+                                                                    <span className="walkin-marquee-text walkin-anim-scroll">{safeDateOnly(w.createdAt || w.date)}</span>
                                                                 </div>
                                                             </td>
                                                             <td style={{ textAlign: 'center', padding: '11px 12px', color: '#111827', fontWeight: 500, boxSizing: 'border-box' }}>

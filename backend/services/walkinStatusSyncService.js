@@ -92,7 +92,13 @@ const extractDateValue = (itm, priorityKeys) => {
         const val = itemKeyMap[key.toLowerCase()];
         if (val) {
             let dateStr = String(val).trim();
-            if (!dateStr.endsWith('Z') && !dateStr.includes('+') && !dateStr.includes('-') && dateStr.includes('T')) {
+            // If the date string lacks a timezone offset, treat it as India Standard Time (IST, +05:30)
+            const hasTimezoneOffset = /Z$|[\+\-]\d{2}:?\d{2}$/.test(dateStr);
+            if (!hasTimezoneOffset) {
+                // If it contains a space between date and time, replace it with 'T' for standard compliance
+                if (dateStr.includes(' ')) {
+                    dateStr = dateStr.replace(' ', 'T');
+                }
                 dateStr = dateStr + '+05:30';
             }
             const d = new Date(dateStr);
@@ -478,10 +484,17 @@ export const syncWalkinStatuses = async () => {
                         };
 
                         if (normalizeStatusForCompare(currentRentalStatus) !== normalizeStatusForCompare(targetRentalStatus)) {
+                            // Check if this status transition has already occurred in the past (by checking date presence)
+                            let isAlreadyDone = false;
+                            if (targetRentalStatus === 'Booked' && tracker.walkin.bookingDate) isAlreadyDone = true;
+                            if (targetRentalStatus === 'Rentout' && tracker.walkin.rentoutDate) isAlreadyDone = true;
+                            if (targetRentalStatus === 'Return' && tracker.walkin.returnDate) isAlreadyDone = true;
+                            if (['Cancelled', 'Cancel'].includes(targetRentalStatus) && tracker.walkin.cancelDate) isAlreadyDone = true;
+
                             const currentRank = getStatusRank(currentRentalStatus);
                             const targetRank = getStatusRank(targetRentalStatus);
 
-                            if (targetRank >= currentRank) {
+                            if (targetRank >= currentRank && !isAlreadyDone) {
                                 const oldRental = currentRentalStatus;
                                 tracker.walkin.rentalStatus = targetRentalStatus;
                                 tracker.rentalStatusChanged = true;
@@ -603,6 +616,10 @@ export const syncWalkinStatuses = async () => {
                         }
 
                         if (currentShoeStatus !== targetShoeStatus) {
+                            let isShoeAlreadyDone = false;
+                            if (targetShoeStatus === 'Billed' && tracker.walkin.billedDate) isShoeAlreadyDone = true;
+                            if (targetShoeStatus === 'Bill Returned' && tracker.walkin.billReturnedDate) isShoeAlreadyDone = true;
+
                             const getShoeStatusRank = (s) => {
                                 const ranks = { 'Billed': 1, 'Bill Returned': 2 };
                                 return ranks[s] || 0;
@@ -610,7 +627,7 @@ export const syncWalkinStatuses = async () => {
                             const currentShoeRank = getShoeStatusRank(currentShoeStatus);
                             const targetShoeRank = getShoeStatusRank(targetShoeStatus);
 
-                            if (targetShoeRank >= currentShoeRank) {
+                            if (targetShoeRank >= currentShoeRank && !isShoeAlreadyDone) {
                                 const oldShoe = currentShoeStatus;
                                 tracker.walkin.shoeStatus = targetShoeStatus;
                                 tracker.shoeStatusChanged = true;

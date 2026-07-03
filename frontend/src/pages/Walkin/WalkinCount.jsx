@@ -872,6 +872,7 @@ const WalkinCount = () => {
                                 <thead>
                                     <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
                                         <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>DATE</th>
+                                        <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>STORE</th>
                                         <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>TIME SLOT</th>
                                         <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>STATUS CATEGORY</th>
                                         <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563', width: '100px' }}>IN CAM</th>
@@ -886,6 +887,7 @@ const WalkinCount = () => {
                                         return (
                                             <tr key={log._id} style={{ borderBottom: '1px solid #f3f4f6' }}>
                                                 <td style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>{log.date}</td>
+                                                <td style={{ padding: '10px 14px', fontWeight: 600, color: '#111827' }}>{log.store || '-'}</td>
                                                 <td style={{ padding: '10px 14px', fontWeight: 600, color: '#111827' }}>{log.timeDuration}</td>
                                                 <td style={{ padding: '10px 14px', color: '#4b5563' }}>
                                                     <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600 }}>

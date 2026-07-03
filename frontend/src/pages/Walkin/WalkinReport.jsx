@@ -132,6 +132,19 @@ const handleDownloadAndView = (base64Data, filename = 'attachment') => {
   }
 };
 
+// Helper: format a date string as plain text for Excel (avoids ########)
+const fmtDate = (val) => {
+  if (!val) return '-';
+  try {
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return String(val).split('T')[0];
+    const yyyy = d.getFullYear();
+    const mm   = String(d.getMonth() + 1).padStart(2, '0');
+    const dd   = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  } catch { return '-'; }
+};
+
 /* ── Export to CSV ───────────────────────────────────────────────────────── */
 const exportCSV = (data) => {
   const headers = [
@@ -162,18 +175,6 @@ const exportCSV = (data) => {
     'NEXT VISIT DATE'
   ];
 
-  // Helper: format a date string as plain text for Excel (avoids ########)
-  const fmtDate = (val) => {
-    if (!val) return '-';
-    try {
-      const d = new Date(val);
-      if (isNaN(d.getTime())) return String(val).split('T')[0];
-      const yyyy = d.getFullYear();
-      const mm   = String(d.getMonth() + 1).padStart(2, '0');
-      const dd   = String(d.getDate()).padStart(2, '0');
-      return `${yyyy}-${mm}-${dd}`;
-    } catch { return '-'; }
-  };
 
   const rows = data.map((w, i) => {
     const productType = w.lossProductType || '-';
@@ -206,8 +207,8 @@ const exportCSV = (data) => {
       displaySubCategory = w.subCategory || '-';
     }
 
-    // Use a raw date string for the walkin date (already YYYY-MM-DD or similar)
-    const walkinDate = w.date ? (w.date.includes('T') ? fmtDate(w.date) : w.date.split(' ')[0]) : '-';
+    // Use the updatedAt date formatted for the walkin date column in CSV
+    const walkinDate = w.updatedAt ? fmtDate(w.updatedAt) : (w.date ? (w.date.includes('T') ? fmtDate(w.date) : w.date.split(' ')[0]) : '-');
     const functionDate = w.functionDate ? fmtDate(w.functionDate) : '-';
 
     return [
@@ -585,7 +586,32 @@ const WalkinReport = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const res  = await fetch(`${baseUrl.baseUrl}api/walkin/list?startDate=${formData.startDate}&endDate=${formData.endDate}`, { headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` } });
+      let updatedStartDate = '';
+      let updatedEndDate = '';
+      if (formData.startDate) {
+        const parts = formData.startDate.split('-');
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+        const start = new Date(year, month, day, 0, 0, 0, 0);
+        updatedStartDate = start.toISOString();
+      }
+      if (formData.endDate) {
+        const parts = formData.endDate.split('-');
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+        const end = new Date(year, month, day, 23, 59, 59, 999);
+        updatedEndDate = end.toISOString();
+      }
+
+      const params = new URLSearchParams({
+        sortBy: 'updatedAt'
+      });
+      if (updatedStartDate) params.append('updatedStartDate', updatedStartDate);
+      if (updatedEndDate) params.append('updatedEndDate', updatedEndDate);
+
+      const res  = await fetch(`${baseUrl.baseUrl}api/walkin/list?${params.toString()}`, { headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` } });
       const json = await res.json();
       if (json.success) {
         let data = json.data || [];
@@ -870,7 +896,7 @@ const WalkinReport = () => {
                           <td style={{ padding: '11px 12px', textAlign: 'center', color: '#9ca3af', boxSizing: 'border-box' }}>{indexFirst+i+1}</td>
                           <td style={{textAlign: 'center',  padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
                                 <div className="walkin-marquee-container">
-                                    <span className="walkin-marquee-text walkin-anim-scroll">{w.date ? w.date.split(' ')[0] : '–'}</span>
+                                    <span className="walkin-marquee-text walkin-anim-scroll">{w.updatedAt ? fmtDate(w.updatedAt) : (w.date ? w.date.split(' ')[0] : '–')}</span>
                                 </div>
                               </td>
                           <td style={{textAlign: 'center',  padding: '11px 12px', color: '#111827', fontWeight: 500, boxSizing: 'border-box' }}>
