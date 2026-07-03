@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+
 import { useSelector } from 'react-redux';
 import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
@@ -284,6 +285,11 @@ const WalkinCount = () => {
     // Time Slider Local Toggle State
     const [showClockPicker, setShowClockPicker] = useState(false);
 
+    // Request tracking refs for race-condition prevention
+    const activeRequestRef = useRef(0);
+    const abortControllerRef = useRef(null);
+
+
     // Autofill form if a camera check log already exists for the selected date, store, category, and time slot
     useEffect(() => {
         if (!cameraForm.date || !cameraForm.store || !cameraForm.statusKey || !cameraForm.timeDuration) {
@@ -356,14 +362,43 @@ const WalkinCount = () => {
     // Fetch Count Data
     const loadCountData = async () => {
         if (!selectedDate || storeFilter === '') return;
+
+        // Abort previous in-flight request if any
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+
+        const requestId = ++activeRequestRef.current;
+        console.log(`[Frontend Count Fetch #${requestId}] Started. logStartDate: "${logStartDate}", logEndDate: "${logEndDate}", storeFilter: "${storeFilter}"`);
+
+        // Reset counts immediately before starting fetch
+        setInAppCounts({});
+        setCameraChecks([]);
+
         try {
             setLoading(true);
             setMessage({ text: '', type: '' });
+            
             const url = `${baseUrl.baseUrl}api/walkin/walkin-count?date=${selectedDate}&store=${encodeURIComponent(storeFilter)}&startDate=${logStartDate}&endDate=${logEndDate}`;
+            console.log(`[Frontend Count Fetch #${requestId}] URL: "${url}"`);
+
             const res = await fetch(url, {
+                signal: controller.signal,
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
             });
             const json = await res.json();
+
+            // Validate that this response belongs to the latest request
+            if (requestId !== activeRequestRef.current) {
+                console.warn(`[Frontend Count Fetch #${requestId}] Ignored. Stale response received. Latest request is #${activeRequestRef.current}.`);
+                return;
+            }
+
+            console.log(`[Frontend Count Fetch #${requestId}] Applied. Response received counts:`, json.inApp);
+
             if (json.success) {
                 setInAppCounts(json.inApp || {});
                 setCameraChecks(json.cameraChecks || []);
@@ -396,7 +431,11 @@ const WalkinCount = () => {
                 setRowValues(resetRowValues);
             }
         } catch (err) {
-            console.error("Error loading count data:", err);
+            if (err.name === 'AbortError') {
+                console.log(`[Frontend Count Fetch #${requestId}] Request was aborted.`);
+                return;
+            }
+            console.error(`[Frontend Count Fetch #${requestId}] Error loading count data:`, err);
             setMessage({ text: 'Failed to load count data.', type: 'error' });
             setInAppCounts({});
             setCameraChecks([]);
@@ -406,9 +445,13 @@ const WalkinCount = () => {
             });
             setRowValues(resetRowValues);
         } finally {
-            setLoading(false);
+            // Only set loading to false if this is still the active request
+            if (requestId === activeRequestRef.current) {
+                setLoading(false);
+            }
         }
     };
+
 
     // Load data when filters change
     useEffect(() => {

@@ -1804,23 +1804,13 @@ const WalkinList = () => {
         let createdAtStartDate = '';
         let createdAtEndDate = '';
 
+        // Build ISO strings with explicit IST offset (+05:30) so the backend receives
+        // the correct UTC values regardless of the browser's local timezone.
         if (filterStartDate) {
-            const parts = filterStartDate.split('-');
-            const year = parseInt(parts[0], 10);
-            const month = parseInt(parts[1], 10) - 1;
-            const day = parseInt(parts[2], 10);
-
-            const start = new Date(year, month, day, 0, 0, 0, 0);
-            createdAtStartDate = start.toISOString();
+            createdAtStartDate = `${filterStartDate}T00:00:00+05:30`;
         }
         if (filterEndDate) {
-            const parts = filterEndDate.split('-');
-            const year = parseInt(parts[0], 10);
-            const month = parseInt(parts[1], 10) - 1;
-            const day = parseInt(parts[2], 10);
-
-            const end = new Date(year, month, day, 23, 59, 59, 999);
-            createdAtEndDate = end.toISOString();
+            createdAtEndDate = `${filterEndDate}T23:59:59.999+05:30`;
         }
         return { createdAtStartDate, createdAtEndDate };
     };

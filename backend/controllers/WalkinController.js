@@ -7,6 +7,8 @@ import WalkinCount from '../model/WalkinCount.js';
 import WalkinCameraCheck from '../model/WalkinCameraCheck.js';
 import mongoose from 'mongoose';
 import { validateStoreAccess, validateEmployeeAccess, buildWalkinFilter, buildStoreWideWalkinFilter } from '../lib/permissions.js';
+import { getISTDayRange, getISTRangeBetween, isInISTRange } from '../utils/dateRange.js';
+
 
 /* ---------- Location Name Normalization helpers ---------- */
 const BRAND_TOKENS = new Set(["zorucci", "grooms", "suitor", "guy", "sg"]);
@@ -728,21 +730,10 @@ export const getWalkins = async (req, res) => {
             baseQuery.employeeId = employeeId;
         }
 
-        // Date Range Filter
+        // Date Range Filter (IST-aware: treats startDate/endDate as IST calendar dates)
         if (startDate && endDate) {
-            const startParts = startDate.split('-');
-            const startYear = parseInt(startParts[0], 10);
-            const startMonth = parseInt(startParts[1], 10) - 1;
-            const startDay = parseInt(startParts[2], 10);
-            const startOfDay = new Date(startYear, startMonth, startDay, 0, 0, 0, 0);
-
-            const endParts = endDate.split('-');
-            const endYear = parseInt(endParts[0], 10);
-            const endMonth = parseInt(endParts[1], 10) - 1;
-            const endDay = parseInt(endParts[2], 10);
-            const endOfDay = new Date(endYear, endMonth, endDay, 23, 59, 59, 999);
-
-            baseQuery.createdAt = { $gte: startOfDay, $lte: endOfDay };
+            const { startUTC, nextDayStartUTC } = getISTRangeBetween(startDate, endDate);
+            baseQuery.createdAt = { $gte: startUTC, $lt: nextDayStartUTC };
         }
 
         // Updated At Range Filter
@@ -929,21 +920,10 @@ export const getAllWalkinsPublic = async (req, res) => {
 
         let query = {};
 
-        // Date Range Filter
+        // Date Range Filter (IST-aware: treats startDate/endDate as IST calendar dates)
         if (startDate && endDate) {
-            const startParts = startDate.split('-');
-            const startYear = parseInt(startParts[0], 10);
-            const startMonth = parseInt(startParts[1], 10) - 1;
-            const startDay = parseInt(startParts[2], 10);
-            const startOfDay = new Date(startYear, startMonth, startDay, 0, 0, 0, 0);
-
-            const endParts = endDate.split('-');
-            const endYear = parseInt(endParts[0], 10);
-            const endMonth = parseInt(endParts[1], 10) - 1;
-            const endDay = parseInt(endParts[2], 10);
-            const endOfDay = new Date(endYear, endMonth, endDay, 23, 59, 59, 999);
-
-            query.createdAt = { $gte: startOfDay, $lte: endOfDay };
+            const { startUTC, nextDayStartUTC } = getISTRangeBetween(startDate, endDate);
+            query.createdAt = { $gte: startUTC, $lt: nextDayStartUTC };
         }
 
         // Updated At Range Filter
@@ -1055,12 +1035,38 @@ const BACKEND_CATEGORIES = [
     { key: 'revisit_loss', label: 'REVISIT LOSS' },
     { key: 'others', label: 'OTHERS' }
 ];
+
+const isValidYMD = (str) => {
+    return typeof str === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(str);
+};
+
 export const getWalkinCountPageData = async (req, res) => {
     try {
         const { date, store, startDate, endDate } = req.query; // date is YYYY-MM-DD, store is store name
+
+        // Log received request parameters
+        console.log(`[Backend API] getWalkinCountPageData parameters - date: "${date}", store: "${store}", startDate: "${startDate}", endDate: "${endDate}"`);
+
         if (!date || !store) {
+            console.warn(`[Backend API] Validation Error: date and store are required.`);
             return res.status(400).json({ success: false, message: 'Date and Store are required' });
         }
+
+        if (!isValidYMD(date)) {
+            console.warn(`[Backend API] Validation Error: date "${date}" is not a valid YYYY-MM-DD.`);
+            return res.status(400).json({ success: false, message: 'Invalid Date format. Must be YYYY-MM-DD.' });
+        }
+
+        // Determine if range parameters are present
+        const hasRange = (startDate !== undefined && startDate !== '') || (endDate !== undefined && endDate !== '');
+        
+        if (hasRange) {
+            if (!isValidYMD(startDate) || !isValidYMD(endDate)) {
+                console.warn(`[Backend API] Validation Error: invalid range. startDate: "${startDate}", endDate: "${endDate}"`);
+                return res.status(400).json({ success: false, message: 'Invalid Date Range format. Both must be YYYY-MM-DD.' });
+            }
+        }
+
 
         // 1. Resolve store branch and storeId
         let resolvedStoreName = store;
@@ -1093,62 +1099,56 @@ export const getWalkinCountPageData = async (req, res) => {
         // 2. Fetch all walkins for this store that have activity on the selected date or range
         let dateQuery = {};
         let activeDateRange = null;
+        let startUTC = null;
+        let nextDayStartUTC = null;
 
-        if (startDate && endDate) {
-            const startParts = startDate.split('-');
-            const startYear = parseInt(startParts[0], 10);
-            const startMonth = parseInt(startParts[1], 10) - 1;
-            const startDay = parseInt(startParts[2], 10);
-            const startOfDay = new Date(startYear, startMonth, startDay, 0, 0, 0, 0);
-
-            const endParts = endDate.split('-');
-            const endYear = parseInt(endParts[0], 10);
-            const endMonth = parseInt(endParts[1], 10) - 1;
-            const endDay = parseInt(endParts[2], 10);
-            const endOfDay = new Date(endYear, endMonth, endDay, 23, 59, 59, 999);
+        if (hasRange) {
+            // Date range case: treat startDate/endDate as inclusive IST calendar dates
+            const range = getISTRangeBetween(startDate, endDate);
+            startUTC = range.startUTC;
+            nextDayStartUTC = range.nextDayStartUTC;
 
             dateQuery = {
                 $or: [
                     { date: { $gte: startDate, $lte: endDate + ' 23:59:59' } },
-                    { createdAt: { $gte: startOfDay, $lte: endOfDay } },
-                    { updatedAt: { $gte: startOfDay, $lte: endOfDay } },
-                    { bookingDate: { $gte: startOfDay, $lte: endOfDay } },
-                    { rentoutDate: { $gte: startOfDay, $lte: endOfDay } },
-                    { returnDate: { $gte: startOfDay, $lte: endOfDay } },
-                    { cancelDate: { $gte: startOfDay, $lte: endOfDay } },
-                    { billedDate: { $gte: startOfDay, $lte: endOfDay } },
-                    { billReturnedDate: { $gte: startOfDay, $lte: endOfDay } },
-                    { lastStatusChangeDate: { $gte: startOfDay, $lte: endOfDay } },
-                    { 'statusHistory.date': { $gte: startOfDay, $lte: endOfDay } }
+                    { createdAt:            { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { updatedAt:            { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { bookingDate:          { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { rentoutDate:          { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { returnDate:           { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { cancelDate:           { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { billedDate:           { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { billReturnedDate:     { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { lastStatusChangeDate: { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { 'statusHistory.date': { $gte: startUTC, $lt: nextDayStartUTC } }
                 ]
             };
-            activeDateRange = { start: startDate, end: endDate, startOfDay, endOfDay };
+            activeDateRange = { start: startDate, end: endDate };
         } else {
-            const parts = date.split('-');
-            const year = parseInt(parts[0], 10);
-            const month = parseInt(parts[1], 10) - 1;
-            const day = parseInt(parts[2], 10);
-
-            const startOfDay = new Date(year, month, day, 0, 0, 0, 0);
-            const endOfDay = new Date(year, month, day, 23, 59, 59, 999);
+            // Single date case: treat date as an IST calendar date
+            const range = getISTDayRange(date);
+            startUTC = range.startUTC;
+            nextDayStartUTC = range.nextDayStartUTC;
 
             dateQuery = {
                 $or: [
                     { date: { $gte: date, $lte: date + ' 23:59:59' } },
-                    { createdAt: { $gte: startOfDay, $lte: endOfDay } },
-                    { updatedAt: { $gte: startOfDay, $lte: endOfDay } },
-                    { bookingDate: { $gte: startOfDay, $lte: endOfDay } },
-                    { rentoutDate: { $gte: startOfDay, $lte: endOfDay } },
-                    { returnDate: { $gte: startOfDay, $lte: endOfDay } },
-                    { cancelDate: { $gte: startOfDay, $lte: endOfDay } },
-                    { billedDate: { $gte: startOfDay, $lte: endOfDay } },
-                    { billReturnedDate: { $gte: startOfDay, $lte: endOfDay } },
-                    { lastStatusChangeDate: { $gte: startOfDay, $lte: endOfDay } },
-                    { 'statusHistory.date': { $gte: startOfDay, $lte: endOfDay } }
+                    { createdAt:            { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { updatedAt:            { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { bookingDate:          { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { rentoutDate:          { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { returnDate:           { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { cancelDate:           { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { billedDate:           { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { billReturnedDate:     { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { lastStatusChangeDate: { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { 'statusHistory.date': { $gte: startUTC, $lt: nextDayStartUTC } }
                 ]
             };
-            activeDateRange = { start: date, end: date, startOfDay, endOfDay };
+            activeDateRange = { start: date, end: date };
         }
+
+        console.log(`[Backend API] calculated IST UTC range - startUTC: "${startUTC ? startUTC.toISOString() : null}", nextDayStartUTC: "${nextDayStartUTC ? nextDayStartUTC.toISOString() : null}"`);
 
         if (queryConditions.length > 0) {
             queryConditions.push(dateQuery);
@@ -1157,6 +1157,8 @@ export const getWalkinCountPageData = async (req, res) => {
         }
 
         const walkins = await Walkin.find({ $and: queryConditions }).lean();
+        console.log(`[Backend API] total records considered (fetched from DB): ${walkins.length}`);
+
 
         // 3. Compute inApp counts based on the specified rules
         const counts = {
@@ -1188,9 +1190,7 @@ export const getWalkinCountPageData = async (req, res) => {
 
         walkins.forEach(w => {
             const isDateInRange = (dateVal) => {
-                if (!dateVal) return false;
-                const dStr = toDateStrIST(dateVal);
-                return dStr && dStr >= activeDateRange.start && dStr <= activeDateRange.end;
+                return isInISTRange(dateVal, startUTC, nextDayStartUTC);
             };
 
             const createdInRange = isDateInRange(w.createdAt);
@@ -1222,6 +1222,24 @@ export const getWalkinCountPageData = async (req, res) => {
             if (hasBilledInRange) statusesInRange.add('Billed');
             if (hasBillReturnedInRange) statusesInRange.add('Bill Returned');
 
+            // Spelling/normalization helpers
+            const isTrial = (str) => {
+                const s = String(str || '').toLowerCase().trim();
+                return s === 'trial' || s === 'trail';
+            };
+
+            const isReissue = (str) => {
+                const s = String(str || '').toLowerCase().trim().replace(/[^a-z]/g, '');
+                return s === 'reissue';
+            };
+
+            const isLoss = (str) => {
+                const s = String(str || '').toLowerCase().trim();
+                return s === 'loss';
+            };
+
+            const normStatus = String(w.status || '').toLowerCase().trim();
+
             // 1. Total walkin
             if (updatedInRange && !createdInRange) {
                 counts.total_walkin++;
@@ -1233,18 +1251,16 @@ export const getWalkinCountPageData = async (req, res) => {
             }
 
             // 3. New Loss
-            if (createdInRange && w.status === 'Loss') {
+            if (createdInRange && normStatus === 'loss') {
                 counts.new_loss++;
             }
 
             // 4. Repeat loss / Revisit Loss
-            const hasRevisitLoss = !createdInRange && (w.statusHistory || []).some(h => {
+            const hasRevisitLoss = (w.statusHistory || []).some(h => {
                 if (!isDateInRange(h.date)) return false;
-                const statusLower = String(h.status || '').toLowerCase();
-                const categoryLower = String(h.category || '').toLowerCase();
-                const isRevisit = statusLower.includes('revisit') || categoryLower.includes('revisit');
-                const isLoss = statusLower === 'loss' || categoryLower === 'loss' || statusLower.includes('loss');
-                return isRevisit && isLoss;
+                const hStatus = String(h.status || '').toLowerCase().trim();
+                const hCategory = String(h.category || '').toLowerCase().trim();
+                return hStatus.includes('revisit') && isLoss(hCategory);
             });
             if (hasRevisitLoss) {
                 counts.repeat_loss++;
@@ -1262,13 +1278,11 @@ export const getWalkinCountPageData = async (req, res) => {
             }
 
             // 7. Revisit repeat trial
-            const hasRevisitTrial = !createdInRange && (w.statusHistory || []).some(h => {
+            const hasRevisitTrial = (w.statusHistory || []).some(h => {
                 if (!isDateInRange(h.date)) return false;
-                const statusLower = String(h.status || '').toLowerCase();
-                const categoryLower = String(h.category || '').toLowerCase();
-                const isRevisit = statusLower.includes('revisit') || categoryLower.includes('revisit');
-                const isTrial = categoryLower === 'trial' || String(w.category || '').toLowerCase() === 'trial' || String(w.subCategory || '').toLowerCase() === 'trial';
-                return isRevisit && isTrial;
+                const hStatus = String(h.status || '').toLowerCase().trim();
+                const hCategory = String(h.category || '').toLowerCase().trim();
+                return hStatus.includes('revisit') && isTrial(hCategory);
             });
             if (hasRevisitTrial) {
                 counts.revisit_repeat_trial++;
@@ -1277,9 +1291,8 @@ export const getWalkinCountPageData = async (req, res) => {
             // 8. Repeat booking
             const hasRevisitBooking = !createdInRange && hasBookingInRange && (w.statusHistory || []).some(h => {
                 if (!isDateInRange(h.date)) return false;
-                const statusLower = String(h.status || '').toLowerCase();
-                const categoryLower = String(h.category || '').toLowerCase();
-                return statusLower.includes('revisit') || categoryLower.includes('revisit');
+                const hStatus = String(h.status || '').toLowerCase().trim();
+                return hStatus.includes('revisit');
             });
             if (hasRevisitBooking) {
                 counts.repeat_booking++;
@@ -1296,13 +1309,11 @@ export const getWalkinCountPageData = async (req, res) => {
             }
 
             // 11. Revisit reissue
-            const hasRevisitReissue = !createdInRange && (w.statusHistory || []).some(h => {
+            const hasRevisitReissue = (w.statusHistory || []).some(h => {
                 if (!isDateInRange(h.date)) return false;
-                const statusLower = String(h.status || '').toLowerCase();
-                const categoryLower = String(h.category || '').toLowerCase();
-                const isRevisit = statusLower.includes('revisit') || categoryLower.includes('revisit');
-                const isReissue = categoryLower === 'reissue' || String(w.category || '').toLowerCase() === 'reissue' || String(w.subCategory || '').toLowerCase() === 'reissue';
-                return isRevisit && isReissue;
+                const hStatus = String(h.status || '').toLowerCase().trim();
+                const hCategory = String(h.category || '').toLowerCase().trim().replace(/[^a-z]/g, '');
+                return hStatus.includes('revisit') && isReissue(hCategory);
             });
             if (hasRevisitReissue) {
                 counts.revisit_reissue++;
@@ -1315,9 +1326,10 @@ export const getWalkinCountPageData = async (req, res) => {
             }
         });
 
+
         // 4. Fetch camera checker entries for this date/range & store
         let cameraChecksQuery = {};
-        if (startDate && endDate) {
+        if (hasRange) {
             cameraChecksQuery.date = { $gte: startDate, $lte: endDate };
         } else {
             cameraChecksQuery.date = date;
@@ -1337,7 +1349,7 @@ export const getWalkinCountPageData = async (req, res) => {
 
         // 5. Fetch saved comparison details (if any) for this date/range & store
         let savedCountsQuery = {};
-        if (startDate && endDate) {
+        if (hasRange) {
             savedCountsQuery.date = { $gte: startDate, $lte: endDate };
         } else {
             savedCountsQuery.date = date;
@@ -1386,11 +1398,13 @@ export const getWalkinCountPageData = async (req, res) => {
         });
 
         const savedCount = {
-            date: startDate && endDate ? `${startDate} to ${endDate}` : date,
+            date: hasRange ? `${startDate} to ${endDate}` : date,
             store: store.toLowerCase() === 'all' ? 'All' : resolvedStoreName,
             storeId: store.toLowerCase() === 'all' ? null : resolvedStoreId,
             counts: aggregatedCounts
         };
+
+        console.log(`[Backend API] final counts computed:`, counts);
 
         return res.status(200).json({
             success: true,
@@ -1398,6 +1412,7 @@ export const getWalkinCountPageData = async (req, res) => {
             saved: savedCount,
             cameraChecks
         });
+
 
     } catch (error) {
         console.error('Error in getWalkinCountPageData:', error);

@@ -23,12 +23,13 @@ import { sendNotification }      from '../utils/notificationHelper.js';
 // Helpers
 // ─────────────────────────────────────────────────────────────────
 
-/** Returns today's date as YYYY-MM-DD in local server time */
+/** Returns today's date as YYYY-MM-DD in IST (Asia/Kolkata, UTC+5:30) */
 const todayStr = () => {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm   = String(d.getMonth() + 1).padStart(2, '0');
-  const dd   = String(d.getDate()).padStart(2, '0');
+  const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+  const now = new Date(Date.now() + IST_OFFSET_MS);
+  const yyyy = now.getUTCFullYear();
+  const mm   = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const dd   = String(now.getUTCDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
 };
 
@@ -61,11 +62,9 @@ const shouldGenerateToday = (template, targetDate) => {
   // Must be on or after start date
   if (target < start) return false;
 
-  // Must be before or on end date (if set)
-  if (end) {
-    // Compare date-only (ignore time)
-    const endMidnight = new Date(end.getFullYear(), end.getMonth(), end.getDate(), 23, 59, 59);
-    if (target > endMidnight) return false;
+  // Must be before or on end date (if set) — compare YYYY-MM-DD strings directly
+  if (template.endDate && typeof template.endDate === 'string') {
+    if (targetDate > template.endDate) return false;
   }
 
   const type = template.repeatType;

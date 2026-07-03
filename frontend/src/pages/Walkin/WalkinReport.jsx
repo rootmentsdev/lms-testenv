@@ -588,21 +588,13 @@ const WalkinReport = () => {
     try {
       let updatedStartDate = '';
       let updatedEndDate = '';
+      // Build ISO strings with explicit IST offset (+05:30) so the backend receives
+      // the correct UTC values regardless of the browser's local timezone.
       if (formData.startDate) {
-        const parts = formData.startDate.split('-');
-        const year = parseInt(parts[0], 10);
-        const month = parseInt(parts[1], 10) - 1;
-        const day = parseInt(parts[2], 10);
-        const start = new Date(year, month, day, 0, 0, 0, 0);
-        updatedStartDate = start.toISOString();
+        updatedStartDate = `${formData.startDate}T00:00:00+05:30`;
       }
       if (formData.endDate) {
-        const parts = formData.endDate.split('-');
-        const year = parseInt(parts[0], 10);
-        const month = parseInt(parts[1], 10) - 1;
-        const day = parseInt(parts[2], 10);
-        const end = new Date(year, month, day, 23, 59, 59, 999);
-        updatedEndDate = end.toISOString();
+        updatedEndDate = `${formData.endDate}T23:59:59.999+05:30`;
       }
 
       const params = new URLSearchParams({
