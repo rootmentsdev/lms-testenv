@@ -619,24 +619,60 @@ const WalkinReport = () => {
           data = data.filter(w => selectedEmployees.includes(w.staff));
         }
         
-        // Filter by status(es)
-        const matchStatus = (w, targetStatus) => {
+        // Helper to format date to IST YYYY-MM-DD
+        const toDateStrIST = (dateVal) => {
+          if (!dateVal) return null;
+          const d = new Date(dateVal);
+          if (isNaN(d.getTime())) return null;
+          const istDate = new Date(d.getTime() + (5.5 * 60 * 60 * 1000));
+          const y = istDate.getUTCFullYear();
+          const m = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+          const dayStr = String(istDate.getUTCDate()).padStart(2, '0');
+          return `${y}-${m}-${dayStr}`;
+        };
+
+        const isDateInFilterRange = (dateVal) => {
+          const dStr = toDateStrIST(dateVal);
+          if (!dStr) return false;
+          return dStr >= formData.startDate && dStr <= formData.endDate;
+        };
+
+        // Filter by status(es) and match transaction dates if applicable
+        const matchStatusAndDate = (w, targetStatus) => {
           if (!w.status) return false;
           const wStatus = String(w.status).trim().toLowerCase();
           const target = targetStatus.trim().toLowerCase();
+          
+          let isStatusMatch = false;
           if (target === 'cancelled' || target === 'cancel') {
-            return wStatus.includes('cancel') || wStatus.includes('cancelled') || 
-                   String(w.rentalStatus).toLowerCase().includes('cancel') || 
-                   String(w.shoeStatus).toLowerCase().includes('cancel');
+            isStatusMatch = wStatus.includes('cancel') || wStatus.includes('cancelled') || 
+                            String(w.rentalStatus).toLowerCase().includes('cancel') || 
+                            String(w.shoeStatus).toLowerCase().includes('cancel');
+          } else {
+            const parts = wStatus.split(',').map(p => p.trim());
+            isStatusMatch = parts.includes(target) || 
+                            String(w.rentalStatus).trim().toLowerCase() === target || 
+                            String(w.shoeStatus).trim().toLowerCase() === target;
           }
-          const parts = wStatus.split(',').map(p => p.trim());
-          return parts.includes(target) || 
-                 String(w.rentalStatus).trim().toLowerCase() === target || 
-                 String(w.shoeStatus).trim().toLowerCase() === target;
+
+          if (!isStatusMatch) return false;
+
+          // Apply status-specific transaction date filter
+          if (target === 'booked') {
+            return isDateInFilterRange(w.bookingDate);
+          } else if (target === 'rentout' || target === 'rent out') {
+            return isDateInFilterRange(w.rentoutDate);
+          } else if (target === 'return') {
+            return isDateInFilterRange(w.returnDate);
+          } else if (target === 'cancelled' || target === 'cancel') {
+            return isDateInFilterRange(w.cancelDate || w.cancellationDate);
+          }
+
+          return true;
         };
 
         if (Array.isArray(selectedStatuses) && selectedStatuses.length > 0) {
-          data = data.filter(w => selectedStatuses.some(status => matchStatus(w, status)));
+          data = data.filter(w => selectedStatuses.some(status => matchStatusAndDate(w, status)));
         }
 
         setReportData(data);
@@ -649,24 +685,61 @@ const WalkinReport = () => {
     finally { setLoading(false); }
   };
 
+  // Helper to format date to IST YYYY-MM-DD for table filtering
+  const toDateStrIST = (dateVal) => {
+    if (!dateVal) return null;
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return null;
+    const istDate = new Date(d.getTime() + (5.5 * 60 * 60 * 1000));
+    const y = istDate.getUTCFullYear();
+    const m = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+    const dayStr = String(istDate.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${dayStr}`;
+  };
+
+  const isDateInFilterRange = (dateVal) => {
+    const dStr = toDateStrIST(dateVal);
+    if (!dStr) return false;
+    return dStr >= formData.startDate && dStr <= formData.endDate;
+  };
+
+  const matchStatusAndDate = (w, targetStatus) => {
+    if (!w.status) return false;
+    const wStatus = String(w.status).trim().toLowerCase();
+    const target = targetStatus.trim().toLowerCase();
+    
+    let isStatusMatch = false;
+    if (target === 'cancelled' || target === 'cancel') {
+      isStatusMatch = wStatus.includes('cancel') || wStatus.includes('cancelled') || 
+                      String(w.rentalStatus).toLowerCase().includes('cancel') || 
+                      String(w.shoeStatus).toLowerCase().includes('cancel');
+    } else {
+      const parts = wStatus.split(',').map(p => p.trim());
+      isStatusMatch = parts.includes(target) || 
+                      String(w.rentalStatus).trim().toLowerCase() === target || 
+                      String(w.shoeStatus).trim().toLowerCase() === target;
+    }
+
+    if (!isStatusMatch) return false;
+
+    if (target === 'booked') {
+      return isDateInFilterRange(w.bookingDate);
+    } else if (target === 'rentout' || target === 'rent out') {
+      return isDateInFilterRange(w.rentoutDate);
+    } else if (target === 'return') {
+      return isDateInFilterRange(w.returnDate);
+    } else if (target === 'cancelled' || target === 'cancel') {
+      return isDateInFilterRange(w.cancelDate || w.cancellationDate);
+    }
+
+    return true;
+  };
+
   /* table-level filter */
   const displayed = reportData.filter(w => {
     const q = tableSearch.toLowerCase();
     const matchSearch = !q || w.customerName?.toLowerCase().includes(q) || w.contact?.includes(q) || w.staff?.toLowerCase().includes(q);
-    const matchStatus = tableStatus === 'All' || (() => {
-      if (!w.status) return false;
-      const wStatus = String(w.status).trim().toLowerCase();
-      const target = tableStatus.trim().toLowerCase();
-      if (target === 'cancelled' || target === 'cancel') {
-        return wStatus.includes('cancel') || wStatus.includes('cancelled') || 
-               String(w.rentalStatus).toLowerCase().includes('cancel') || 
-               String(w.shoeStatus).toLowerCase().includes('cancel');
-      }
-      const parts = wStatus.split(',').map(p => p.trim());
-      return parts.includes(target) || 
-             String(w.rentalStatus).trim().toLowerCase() === target || 
-             String(w.shoeStatus).trim().toLowerCase() === target;
-    })();
+    const matchStatus = tableStatus === 'All' || matchStatusAndDate(w, tableStatus);
     return matchSearch && matchStatus;
   });
 
