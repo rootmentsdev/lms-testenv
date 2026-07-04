@@ -470,9 +470,9 @@ const WalkinList = () => {
                                                     </div>
                                                     <div className="col-span-12">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -518,9 +518,9 @@ const WalkinList = () => {
                                                     </div>
                                                     <div className="col-span-12 md:col-span-9">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -535,9 +535,9 @@ const WalkinList = () => {
                                             {formData.lossReason === 'Price' && (
                                                 <div className="col-span-12">
                                                     <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                        Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                        Note <span className="text-red-500">*</span>
                                                     </label>
-                                                    <textarea
+                                                    <textarea required
                                                         name="lossNote"
                                                         rows={1}
                                                         placeholder="Product Category / Item Name"
@@ -576,9 +576,9 @@ const WalkinList = () => {
                                                     </div>
                                                     <div className="col-span-12 md:col-span-9">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -671,9 +671,9 @@ const WalkinList = () => {
                                                     </div>
                                                     <div className="col-span-12">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -740,9 +740,9 @@ const WalkinList = () => {
                                                     </div>
                                                     <div className="col-span-12">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -818,9 +818,9 @@ const WalkinList = () => {
                                             {((formData.lossReason || '').toLowerCase().trim() === 'enquiry without groom and bride' || (formData.lossReason || '').toLowerCase().trim() === 'enquiry without groom/bride') && (
                                                 <div className="col-span-12 md:col-span-6">
                                                     <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                        Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                        Note <span className="text-red-500">*</span>
                                                     </label>
-                                                    <textarea
+                                                    <textarea required
                                                         name="lossNote"
                                                         rows={1}
                                                         placeholder="Product Category / Item Name"
@@ -861,9 +861,9 @@ const WalkinList = () => {
                                                     {/* Note box */}
                                                     <div className="col-span-12 md:col-span-3">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -895,9 +895,9 @@ const WalkinList = () => {
                                                     {/* Note box */}
                                                     <div className="col-span-12 md:col-span-3">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -938,9 +938,9 @@ const WalkinList = () => {
                                             {((formData.subCategory || '').toLowerCase().trim() === 'shoe' || (formData.subCategory || '').toLowerCase().trim() === 'shirt') && (
                                                 <div className="col-span-12 md:col-span-9">
                                                     <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                        Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                        Note <span className="text-red-500">*</span>
                                                     </label>
-                                                    <textarea
+                                                    <textarea required
                                                         name="lossNote"
                                                         rows={1}
                                                         placeholder="Product Category / Item Name"
@@ -1054,9 +1054,9 @@ const WalkinList = () => {
                                                     </div>
                                                     <div className="col-span-12">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -1096,9 +1096,9 @@ const WalkinList = () => {
                                                     </div>
                                                     <div className="col-span-12 md:col-span-9">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -1137,9 +1137,9 @@ const WalkinList = () => {
                                                     </div>
                                                     <div className="col-span-12 md:col-span-9">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -1171,9 +1171,9 @@ const WalkinList = () => {
                                                     {/* Note box */}
                                                     <div className="col-span-12 md:col-span-3">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -1213,9 +1213,9 @@ const WalkinList = () => {
                                                     </div>
                                                     <div className="col-span-12 md:col-span-9">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -1308,9 +1308,9 @@ const WalkinList = () => {
                                                     </div>
                                                     <div className="col-span-12">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -1377,9 +1377,9 @@ const WalkinList = () => {
                                                     </div>
                                                     <div className="col-span-12">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -1497,9 +1497,9 @@ const WalkinList = () => {
                                     {/* Note field */}
                                     <div className="col-span-12">
                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                            Note <span className="text-red-500">*</span>
                                         </label>
-                                        <textarea
+                                        <textarea required
                                             name="lossNote"
                                             rows={1}
                                             placeholder="Product Category / Item Name"
@@ -1571,9 +1571,9 @@ const WalkinList = () => {
                     {formData.status !== 'New Walkin' && (
                         <div className={formData.status === 'Revisit' ? "col-span-12 md:col-span-6" : "col-span-12 md:col-span-9"}>
                             <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                Remarks <span className="text-gray-400 font-normal">(Optional)</span>
+                                Remarks <span className="text-red-500">*</span>
                             </label>
-                            <textarea
+                            <textarea required
                                 name="remarks"
                                 rows={1}
                                 placeholder="Enter your remarks..."
