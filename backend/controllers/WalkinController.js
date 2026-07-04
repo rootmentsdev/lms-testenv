@@ -1272,7 +1272,7 @@ export const getWalkinCountPageData = async (req, res) => {
             }
 
             // 5. Repeat rentout
-            if (!createdInRange && hasRentoutInRange && !hasReturnInRange && !hasCancelInRange) {
+            if (!createdInRange && hasRentoutInRange && w.rentalStatus === 'Rentout') {
                 counts.repeat_rentout++;
             }
 
@@ -1293,17 +1293,17 @@ export const getWalkinCountPageData = async (req, res) => {
             }
 
             // 8. Repeat booking
-            if (!createdInRange && hasBookingInRange && !hasRentoutInRange && !hasCancelInRange) {
+            if (!createdInRange && hasBookingInRange && w.rentalStatus === 'Booked') {
                 counts.repeat_booking++;
             }
 
             // 9. New walkin booking
-            if (createdInRange && hasBookingInRange && !hasRentoutInRange && !hasCancelInRange) {
+            if (createdInRange && hasBookingInRange && w.rentalStatus === 'Booked') {
                 counts.new_walkin_booking++;
             }
 
             // 10. New walkin rentout
-            if (createdInRange && hasBookingInRange && hasRentoutInRange && !hasReturnInRange && !hasCancelInRange) {
+            if (createdInRange && hasBookingInRange && hasRentoutInRange && w.rentalStatus === 'Rentout') {
                 counts.new_walkin_rentout++;
             }
 
