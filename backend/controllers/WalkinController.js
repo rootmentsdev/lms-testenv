@@ -1402,6 +1402,43 @@ export const getWalkinCountPageData = async (req, res) => {
             };
         });
 
+        // Automatically calculate 'walkin' and 'total_walkin' inCam counts from subcategories
+        const newKeys = ['new_loss', 'new_walkin_booking', 'new_walkin_rentout'];
+        const repeatKeys = [
+            'repeat_loss', 'repeat_rentout', 'repeat_return', 'revisit_repeat_trial',
+            'repeat_booking', 'revisit_reissue', 'revisit_loss', 'cancelled', 'others'
+        ];
+
+        let sumNewInCam = 0;
+        let hasAnyNewInCam = false;
+        newKeys.forEach(k => {
+            const item = aggregatedCounts.find(c => c.statusKey === k);
+            if (item && item.inCam !== '-') {
+                sumNewInCam += Number(item.inCam) || 0;
+                hasAnyNewInCam = true;
+            }
+        });
+
+        let sumTotalInCam = sumNewInCam;
+        let hasAnyTotalInCam = hasAnyNewInCam;
+        repeatKeys.forEach(k => {
+            const item = aggregatedCounts.find(c => c.statusKey === k);
+            if (item && item.inCam !== '-') {
+                sumTotalInCam += Number(item.inCam) || 0;
+                hasAnyTotalInCam = true;
+            }
+        });
+
+        const walkinObj = aggregatedCounts.find(c => c.statusKey === 'walkin');
+        if (walkinObj && (walkinObj.inCam === '-' || walkinObj.inCam === '0')) {
+            walkinObj.inCam = hasAnyNewInCam ? String(sumNewInCam) : '-';
+        }
+
+        const totalWalkinObj = aggregatedCounts.find(c => c.statusKey === 'total_walkin');
+        if (totalWalkinObj && (totalWalkinObj.inCam === '-' || totalWalkinObj.inCam === '0')) {
+            totalWalkinObj.inCam = hasAnyTotalInCam ? String(sumTotalInCam) : '-';
+        }
+
         const savedCount = {
             date: hasRange ? `${startDate} to ${endDate}` : date,
             store: store.toLowerCase() === 'all' ? 'All' : resolvedStoreName,
