@@ -19,6 +19,7 @@ const CATEGORIES = [
     { key: 'repeat_booking', label: 'REPEAT BOOKING' },
     { key: 'revisit_reissue', label: 'REVISIT REISSUE' },
     { key: 'revisit_loss', label: 'REVISIT LOSS' },
+    { key: 'cancelled', label: 'CANCELLED' },
     { key: 'others', label: 'OTHERS' }
 ];
 

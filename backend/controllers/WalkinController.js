@@ -1033,6 +1033,7 @@ const BACKEND_CATEGORIES = [
     { key: 'repeat_booking', label: 'REPEAT BOOKING' },
     { key: 'revisit_reissue', label: 'REVISIT REISSUE' },
     { key: 'revisit_loss', label: 'REVISIT LOSS' },
+    { key: 'cancelled', label: 'CANCELLED' },
     { key: 'others', label: 'OTHERS' }
 ];
 
@@ -1174,6 +1175,7 @@ export const getWalkinCountPageData = async (req, res) => {
             new_walkin_rentout: 0,
             revisit_reissue: 0,
             revisit_loss: 0,
+            cancelled: 0,
             others: 0
         };
 
@@ -1241,7 +1243,7 @@ export const getWalkinCountPageData = async (req, res) => {
             const normStatus = String(w.status || '').toLowerCase().trim();
 
             // 1. Total walkin
-            if (updatedInRange && !createdInRange) {
+            if (updatedInRange) {
                 counts.total_walkin++;
             }
 
@@ -1250,18 +1252,20 @@ export const getWalkinCountPageData = async (req, res) => {
                 counts.walkin++;
             }
 
-            // 3. New Loss
-            if (createdInRange && normStatus === 'loss') {
-                counts.new_loss++;
-            }
-
-            // 4. Repeat loss / Revisit Loss
+            // Calculate hasRevisitLoss first to correctly separate auto/new loss from repeat/revisit loss
             const hasRevisitLoss = (w.statusHistory || []).some(h => {
                 if (!isDateInRange(h.date)) return false;
                 const hStatus = String(h.status || '').toLowerCase().trim();
                 const hCategory = String(h.category || '').toLowerCase().trim();
                 return hStatus.includes('revisit') && isLoss(hCategory);
             });
+
+            // 3. New Loss
+            if (updatedInRange && normStatus === 'loss' && !hasRevisitLoss) {
+                counts.new_loss++;
+            }
+
+            // 4. Repeat loss / Revisit Loss
             if (hasRevisitLoss) {
                 counts.repeat_loss++;
                 counts.revisit_loss++;
@@ -1317,6 +1321,12 @@ export const getWalkinCountPageData = async (req, res) => {
             });
             if (hasRevisitReissue) {
                 counts.revisit_reissue++;
+            }
+
+            // 12. Cancelled
+            const hasCancelledToday = statusesInRange.has('Cancelled') || statusesInRange.has('Cancel');
+            if (hasCancelledToday) {
+                counts.cancelled++;
             }
 
             // 13. Others
