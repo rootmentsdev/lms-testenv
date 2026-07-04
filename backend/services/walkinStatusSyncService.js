@@ -25,6 +25,38 @@ const getLocalDateStringIST = (date) => {
     return `${year}-${month}-${day}`;
 };
 
+const pushToStatusHistory = (walkin, entry) => {
+    if (!walkin.statusHistory) {
+        walkin.statusHistory = [];
+    }
+    const status = String(entry.status || '').trim();
+    const date = entry.date ? new Date(entry.date) : new Date();
+    const source = String(entry.source || 'auto_sync').trim();
+    const category = entry.category && entry.category !== '-' ? entry.category : 'Product';
+    const subCategory = entry.subCategory || '-';
+
+    // Duplicate check: same status + same IST date + same source
+    const targetIST = getLocalDateStringIST(date);
+    const isDuplicate = walkin.statusHistory.some(h => {
+        const hStatus = String(h.status || '').trim();
+        const hSource = String(h.source || '-').trim();
+        const hIST = getLocalDateStringIST(h.date);
+        return hStatus === status && hSource === source && hIST === targetIST;
+    });
+
+    if (!isDuplicate) {
+        walkin.statusHistory.push({
+            status,
+            category,
+            subCategory,
+            date,
+            source
+        });
+        return true;
+    }
+    return false;
+};
+
 /**
  * Helper to dynamically extract mobile/phone numbers case-insensitively from an item object
  */
@@ -517,13 +549,12 @@ export const syncWalkinStatuses = async () => {
                                     matchedDate = tracker.walkin.cancelDate;
                                 }
 
-                                if (!tracker.walkin.statusHistory) {
-                                    tracker.walkin.statusHistory = [];
-                                }
-                                tracker.walkin.statusHistory.push({
+                                pushToStatusHistory(tracker.walkin, {
                                     status: targetRentalStatus,
                                     category: tracker.walkin.category && tracker.walkin.category !== '-' ? tracker.walkin.category : 'Product',
-                                    date: matchedDate || new Date()
+                                    subCategory: tracker.walkin.subCategory || '-',
+                                    date: matchedDate || new Date(),
+                                    source: 'auto_sync'
                                 });
                                 console.log(`✅ [Walkin Status Sync] Rental Flow update for invoice ${invoiceNo} (...${rentalInfo.phone.slice(-4)}): ${oldRental} ➔ ${targetRentalStatus}`);
                             } else {
@@ -650,13 +681,12 @@ export const syncWalkinStatuses = async () => {
                                     matchedShoeDate = tracker.walkin.billReturnedDate;
                                 }
 
-                                if (!tracker.walkin.statusHistory) {
-                                    tracker.walkin.statusHistory = [];
-                                }
-                                tracker.walkin.statusHistory.push({
+                                pushToStatusHistory(tracker.walkin, {
                                     status: targetShoeStatus,
                                     category: 'Sales',
-                                    date: matchedShoeDate || new Date()
+                                    subCategory: '-',
+                                    date: matchedShoeDate || new Date(),
+                                    source: 'auto_sync'
                                 });
                                 console.log(`✅ [Walkin Status Sync] Shoe Flow update for shoeInvoice ${shoeInvoiceNo} (...${shoeInfo.phone.slice(-4)}): ${oldShoe} ➔ ${targetShoeStatus}`);
                             } else {
@@ -886,27 +916,65 @@ export const expireWalkinsToLoss = async () => {
         // 2. createdAt < startOfToday
         // 3. updatedAt === createdAt (no updates occurred)
         // Set status to 'Loss' and update updatedAt to the current time.
-        const result = await Walkin.collection.updateMany(
-            {
-                status: 'New Walkin',
-                $or: [
-                    { repeatCount: 1 },
-                    { repeatCount: { $exists: false } }
-                ],
-                createdAt: { $lt: startOfToday },
-                $expr: { $eq: ['$createdAt', '$updatedAt'] }
-            },
-            {
-                $set: {
-                    status: 'Loss'
-                }
+        // Set the updatedAt to be 1 second before startOfToday (end of the previous IST day)
+        // so that the auto-loss is accounted for on the correct business day.
+        const lossUpdatedAt = new Date(startOfToday.getTime() - 1000);
+        const query = {
+            status: 'New Walkin',
+            $or: [
+                { repeatCount: 1 },
+                { repeatCount: { $exists: false } }
+            ],
+            createdAt: { $lt: startOfToday },
+            $expr: { $eq: ['$createdAt', '$updatedAt'] }
+        };
+
+        const matchingWalkins = await Walkin.find(query).lean();
+        let modifiedCount = 0;
+
+        for (const w of matchingWalkins) {
+            const history = w.statusHistory || [];
+            // Duplicate prevention: check same status (Loss) + same IST date (lossUpdatedAt) + same source (auto_loss_cron)
+            const targetIST = getLocalDateStringIST(lossUpdatedAt);
+            const isDuplicate = history.some(h => {
+                const hStatus = String(h.status || '').trim();
+                const hSource = String(h.source || '-').trim();
+                const hIST = getLocalDateStringIST(h.date);
+                return hStatus === 'Loss' && hSource === 'auto_loss_cron' && hIST === targetIST;
+            });
+
+            const newHistoryItem = {
+                status: 'Loss',
+                category: w.category && w.category !== '-' ? w.category : 'Product',
+                subCategory: w.subCategory || '-',
+                date: lossUpdatedAt,
+                source: 'auto_loss_cron'
+            };
+
+            const updatedHistory = [...history];
+            if (!isDuplicate) {
+                updatedHistory.push(newHistoryItem);
             }
-        );
+
+            const updateRes = await Walkin.collection.updateOne(
+                { _id: w._id },
+                {
+                    $set: {
+                        status: 'Loss',
+                        updatedAt: lossUpdatedAt,
+                        statusHistory: updatedHistory
+                    }
+                }
+            );
+            if (updateRes.modifiedCount > 0) {
+                modifiedCount++;
+            }
+        }
 
         const jobCompletedAt = new Date();
         const durationMs = jobCompletedAt - jobStartedAt;
 
-        console.log(`🏁 [Walkin Loss Expiry] Job completed. Updated ${result.modifiedCount} walk-ins to status 'Loss'. Duration: ${durationMs}ms`);
+        console.log(`🏁 [Walkin Loss Expiry] Job completed. Updated ${modifiedCount} walk-ins to status 'Loss'. Duration: ${durationMs}ms`);
 
         // ── Persist run log to DB ──
         try {
@@ -916,14 +984,14 @@ export const expireWalkinsToLoss = async () => {
                 startedAt: jobStartedAt,
                 completedAt: jobCompletedAt,
                 durationMs,
-                expiredCount: result.modifiedCount,
+                expiredCount: modifiedCount,
             });
             console.log('💾 [Walkin Loss Expiry] Run log saved to DB.');
         } catch (logErr) {
             console.error('⚠️ [Walkin Loss Expiry] Failed to save run log to DB:', logErr.message);
         }
 
-        return { success: true, expiredCount: result.modifiedCount };
+        return { success: true, expiredCount: modifiedCount };
     } catch (error) {
         const jobCompletedAt = new Date();
         console.error('❌ [Walkin Loss Expiry] Error during daily expiry job:', error);

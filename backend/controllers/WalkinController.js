@@ -56,14 +56,45 @@ const getFormattedDateTime = (date = new Date()) => {
 const getLocalDateStringIST = (date) => {
     if (!date) return null;
     const d = new Date(date);
-    const istDate = new Date(d.getTime() + (5.5 * 60 * 60 * 1000));
-    const year = istDate.getUTCFullYear();
-    const month = String(istDate.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(istDate.getUTCDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    // Convert to IST offset string
+    const options = { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' };
+    const formatter = new Intl.DateTimeFormat('en-CA', options);
+    return formatter.format(d); // YYYY-MM-DD
 };
 
-const updateStatusAndDates = (walkinRecord, statusInput) => {
+const pushToStatusHistory = (walkinRecord, entry) => {
+    if (!walkinRecord.statusHistory) {
+        walkinRecord.statusHistory = [];
+    }
+    const status = String(entry.status || '').trim();
+    const date = entry.date ? new Date(entry.date) : new Date();
+    const source = String(entry.source || 'manual').trim();
+    const category = entry.category && entry.category !== '-' ? entry.category : 'Product';
+    const subCategory = entry.subCategory || '-';
+
+    // Duplicate check: same status + same IST date + same source
+    const targetIST = getLocalDateStringIST(date);
+    const isDuplicate = walkinRecord.statusHistory.some(h => {
+        const hStatus = String(h.status || '').trim();
+        const hSource = String(h.source || '-').trim();
+        const hIST = getLocalDateStringIST(h.date);
+        return hStatus === status && hSource === source && hIST === targetIST;
+    });
+
+    if (!isDuplicate) {
+        walkinRecord.statusHistory.push({
+            status,
+            category,
+            subCategory,
+            date,
+            source
+        });
+        return true;
+    }
+    return false;
+};
+
+const updateStatusAndDates = (walkinRecord, statusInput, source = 'manual') => {
     if (!statusInput) return false;
     const cleanInput = statusInput.trim();
     
@@ -113,13 +144,12 @@ const updateStatusAndDates = (walkinRecord, statusInput) => {
             walkinRecord.cancellationDate = new Date();
         }
         
-        if (!walkinRecord.statusHistory) {
-            walkinRecord.statusHistory = [];
-        }
-        walkinRecord.statusHistory.push({
+        pushToStatusHistory(walkinRecord, {
             status: rStatus,
             category: walkinRecord.category && walkinRecord.category !== '-' ? walkinRecord.category : 'Product',
-            date: new Date()
+            subCategory: walkinRecord.subCategory || '-',
+            date: new Date(),
+            source
         });
     }
     
@@ -131,13 +161,12 @@ const updateStatusAndDates = (walkinRecord, statusInput) => {
             walkinRecord.billReturnedDate = new Date();
         }
         
-        if (!walkinRecord.statusHistory) {
-            walkinRecord.statusHistory = [];
-        }
-        walkinRecord.statusHistory.push({
+        pushToStatusHistory(walkinRecord, {
             status: sStatus,
             category: 'Sales',
-            date: new Date()
+            subCategory: '-',
+            date: new Date(),
+            source
         });
     }
     
@@ -232,6 +261,7 @@ export const checkCustomerExists = async (req, res) => {
  */
 export const saveWalkin = async (req, res) => {
     try {
+        const source = req.body.source || (req.headers['x-source-app'] ? 'app' : (req.headers['x-source-web'] ? 'web' : 'manual'));
         if (req.admin && req.admin.role === 'telecaller') {
             return res.status(403).json({
                 success: false,
@@ -462,7 +492,14 @@ export const saveWalkin = async (req, res) => {
                     repeatCount: 1,
                     date: todayStr
                 });
-                updateStatusAndDates(newWalkin, 'New Walkin');
+                updateStatusAndDates(newWalkin, 'New Walkin', source);
+                pushToStatusHistory(newWalkin, {
+                    status: 'New Walkin',
+                    category: newWalkin.category || '-',
+                    subCategory: newWalkin.subCategory || '-',
+                    date: newWalkin.createdAt || new Date(),
+                    source
+                });
                 await newWalkin.save();
 
                 return res.status(201).json({
@@ -530,7 +567,7 @@ export const saveWalkin = async (req, res) => {
                     walkinRecord.lastStatusChangeDate = new Date();
                     walkinRecord.statusChangedToday = true;
 
-                    updateStatusAndDates(walkinRecord, trimmedStatus);
+                    updateStatusAndDates(walkinRecord, trimmedStatus, source);
                 }
             }
             if (!walkinRecord.createdBy && createdBy) {
@@ -624,7 +661,7 @@ export const saveWalkin = async (req, res) => {
                     walkinRecord.lastStatusChangeDate = new Date();
                     walkinRecord.statusChangedToday = true;
 
-                    updateStatusAndDates(walkinRecord, trimmedStatus);
+                    updateStatusAndDates(walkinRecord, trimmedStatus, source);
                 }
             }
             if (!walkinRecord.createdBy && createdBy) {
@@ -688,7 +725,14 @@ export const saveWalkin = async (req, res) => {
                 repeatCount: nextRepeatCount,
                 date: todayStr
             });
-            updateStatusAndDates(newWalkin, initialStatus);
+            updateStatusAndDates(newWalkin, initialStatus, source);
+            pushToStatusHistory(newWalkin, {
+                status: 'New Walkin',
+                category: newWalkin.category || '-',
+                subCategory: newWalkin.subCategory || '-',
+                date: newWalkin.createdAt || new Date(),
+                source
+            });
             await newWalkin.save();
             return res.status(201).json({
                 success: true,
@@ -1026,6 +1070,8 @@ const BACKEND_CATEGORIES = [
     { key: 'new_loss', label: 'NEW LOSS' },
     { key: 'new_walkin_booking', label: 'NEW WALKIN BOOKING' },
     { key: 'new_walkin_rentout', label: 'NEW WALKIN RENTOUT' },
+    { key: 'new_cancelled', label: 'NEW CANCELLED' },
+    { key: 'new_others', label: 'NEW OTHERS' },
     { key: 'repeat_loss', label: 'REPEAT LOSS' },
     { key: 'repeat_rentout', label: 'REPEAT RENTOUT' },
     { key: 'repeat_return', label: 'REPEAT RETURN' },
@@ -1033,6 +1079,8 @@ const BACKEND_CATEGORIES = [
     { key: 'repeat_booking', label: 'REPEAT BOOKING' },
     { key: 'revisit_reissue', label: 'REVISIT REISSUE' },
     { key: 'revisit_loss', label: 'REVISIT LOSS' },
+    { key: 'repeat_cancelled', label: 'REPEAT CANCELLED' },
+    { key: 'repeat_others', label: 'REPEAT OTHERS' },
     { key: 'cancelled', label: 'CANCELLED' },
     { key: 'others', label: 'OTHERS' }
 ];
@@ -1173,8 +1221,12 @@ export const getWalkinCountPageData = async (req, res) => {
             repeat_booking: 0,
             new_walkin_booking: 0,
             new_walkin_rentout: 0,
+            new_cancelled: 0,
+            new_others: 0,
             revisit_reissue: 0,
             revisit_loss: 0,
+            repeat_cancelled: 0,
+            repeat_others: 0,
             cancelled: 0,
             others: 0
         };
@@ -1242,16 +1294,6 @@ export const getWalkinCountPageData = async (req, res) => {
 
             const normStatus = String(w.status || '').toLowerCase().trim();
 
-            // 1. Total walkin
-            if (updatedInRange) {
-                counts.total_walkin++;
-            }
-
-            // 2. walkin
-            if (createdInRange) {
-                counts.walkin++;
-            }
-
             // Calculate hasRevisitLoss first to correctly separate auto/new loss from repeat/revisit loss
             const hasRevisitLoss = (w.statusHistory || []).some(h => {
                 if (!isDateInRange(h.date)) return false;
@@ -1260,76 +1302,94 @@ export const getWalkinCountPageData = async (req, res) => {
                 return hStatus.includes('revisit') && isLoss(hCategory);
             });
 
-            // 3. New Loss
-            if (updatedInRange && normStatus === 'loss' && !hasRevisitLoss) {
-                counts.new_loss++;
-            }
-
-            // 4. Repeat loss / Revisit Loss
-            if (hasRevisitLoss) {
-                counts.repeat_loss++;
-                counts.revisit_loss++;
-            }
-
-            // 5. Repeat rentout
-            if (!createdInRange && hasRentoutInRange && w.rentalStatus === 'Rentout') {
-                counts.repeat_rentout++;
-            }
-
-            // 6. Repeat return
-            if (!createdInRange && hasReturnInRange) {
-                counts.repeat_return++;
-            }
-
-            // 7. Revisit repeat trial
             const hasRevisitTrial = (w.statusHistory || []).some(h => {
                 if (!isDateInRange(h.date)) return false;
                 const hStatus = String(h.status || '').toLowerCase().trim();
                 const hCategory = String(h.category || '').toLowerCase().trim();
                 return hStatus.includes('revisit') && isTrial(hCategory);
             });
-            if (hasRevisitTrial) {
-                counts.revisit_repeat_trial++;
-            }
 
-            // 8. Repeat booking
-            if (!createdInRange && hasBookingInRange && w.rentalStatus === 'Booked') {
-                counts.repeat_booking++;
-            }
-
-            // 9. New walkin booking
-            if (createdInRange && hasBookingInRange && w.rentalStatus === 'Booked') {
-                counts.new_walkin_booking++;
-            }
-
-            // 10. New walkin rentout
-            if (createdInRange && hasBookingInRange && hasRentoutInRange && w.rentalStatus === 'Rentout') {
-                counts.new_walkin_rentout++;
-            }
-
-            // 11. Revisit reissue
             const hasRevisitReissue = (w.statusHistory || []).some(h => {
                 if (!isDateInRange(h.date)) return false;
                 const hStatus = String(h.status || '').toLowerCase().trim();
                 const hCategory = String(h.category || '').toLowerCase().trim().replace(/[^a-z]/g, '');
                 return hStatus.includes('revisit') && isReissue(hCategory);
             });
-            if (hasRevisitReissue) {
-                counts.revisit_reissue++;
+
+            const isLossState = normStatus === 'loss' || (w.statusHistory || []).some(h => isDateInRange(h.date) && String(h.status || '').toLowerCase().trim().includes('loss'));
+
+            if (createdInRange) {
+                counts.walkin++;
+
+                // Priority for New Walkin:
+                // 1. New Cancelled
+                if (hasCancelInRange) {
+                    counts.new_cancelled++;
+                }
+                // 2. New Walkin Rentout
+                else if (hasRentoutInRange) {
+                    counts.new_walkin_rentout++;
+                }
+                // 3. New Walkin Booking
+                else if (hasBookingInRange || hasBilledInRange) {
+                    counts.new_walkin_booking++;
+                }
+                // 4. New Loss
+                else if (isLossState) {
+                    counts.new_loss++;
+                }
+                // 5. New Others
+                else {
+                    counts.new_others++;
+                }
             }
 
-            // 12. Cancelled
-            const hasCancelledToday = statusesInRange.has('Cancelled') || statusesInRange.has('Cancel');
-            if (hasCancelledToday) {
-                counts.cancelled++;
-            }
-
-            // 13. Others
-            const hasOtherStatus = statusesInRange.has('Other') || statusesInRange.has('Others') || (updatedInRange && (w.status === 'Other' || w.status === 'Others'));
-            if (hasOtherStatus) {
-                counts.others++;
+            if (updatedInRange && !createdInRange) {
+                // Priority for Repeat Walkin:
+                // 1. Repeat Cancelled
+                if (hasCancelInRange) {
+                    counts.repeat_cancelled++;
+                }
+                // 2. Repeat Return
+                else if (hasReturnInRange || hasBillReturnedInRange) {
+                    counts.repeat_return++;
+                }
+                // 3. Repeat Rentout
+                else if (hasRentoutInRange) {
+                    counts.repeat_rentout++;
+                }
+                // 4. Repeat Booking
+                else if (hasBookingInRange || hasBilledInRange) {
+                    counts.repeat_booking++;
+                }
+                // 5. Repeat Loss / Revisit Loss
+                else if (hasRevisitLoss || isLossState) {
+                    counts.repeat_loss++;
+                    counts.revisit_loss++;
+                }
+                // 6. Revisit Repeat Trial
+                else if (hasRevisitTrial) {
+                    counts.revisit_repeat_trial++;
+                }
+                // 7. Revisit Reissue
+                else if (hasRevisitReissue) {
+                    counts.revisit_reissue++;
+                }
+                // 8. Repeat Others
+                else {
+                    counts.repeat_others++;
+                }
             }
         });
+
+        // 4. Calculate legacy keys for backward compatibility
+        counts.cancelled = counts.new_cancelled + counts.repeat_cancelled;
+        counts.others = counts.new_others + counts.repeat_others;
+
+        // 5. Calculate total_walkin as sum of all components to guarantee 100% reconciliation
+        counts.total_walkin = counts.new_loss + counts.new_walkin_booking + counts.new_walkin_rentout + counts.new_cancelled + counts.new_others +
+                              counts.repeat_loss + counts.repeat_booking + counts.repeat_rentout + counts.repeat_return +
+                              counts.revisit_repeat_trial + counts.revisit_reissue + counts.repeat_cancelled + counts.repeat_others;
 
 
         // 4. Fetch camera checker entries for this date/range & store

@@ -7,20 +7,22 @@ import baseUrl from "../../api/api";
 import { FaSave, FaCheckCircle, FaUndo, FaTrashAlt, FaPlusCircle, FaVideo, FaEdit, FaClock, FaDownload } from 'react-icons/fa';
 
 const CATEGORIES = [
-    { key: 'total_walkin', label: 'TOTAL WALKIN' },
-    { key: 'walkin', label: 'WALKIN' },
-    { key: 'new_loss', label: 'NEW LOSS' },
-    { key: 'new_walkin_booking', label: 'NEW WALKIN BOOKING' },
-    { key: 'new_walkin_rentout', label: 'NEW WALKIN RENTOUT' },
-    { key: 'repeat_loss', label: 'REPEAT LOSS' },
-    { key: 'repeat_rentout', label: 'REPEAT RENTOUT' },
-    { key: 'repeat_return', label: 'REPEAT RETURN' },
-    { key: 'revisit_repeat_trial', label: 'REVISIT REPEAT TRIAL' },
-    { key: 'repeat_booking', label: 'REPEAT BOOKING' },
-    { key: 'revisit_reissue', label: 'REVISIT REISSUE' },
-    { key: 'revisit_loss', label: 'REVISIT LOSS' },
-    { key: 'cancelled', label: 'CANCELLED' },
-    { key: 'others', label: 'OTHERS' }
+    { key: 'total_walkin', label: 'TOTAL WALKIN', tooltip: "New walk-ins + repeat walk-ins for the selected date." },
+    { key: 'walkin', label: 'WALKIN', tooltip: "Customers newly created on the selected date." },
+    { key: 'new_loss', label: 'NEW LOSS', tooltip: "New walk-ins that became Loss on the selected date." },
+    { key: 'new_walkin_booking', label: 'NEW WALKIN BOOKING', tooltip: "New walk-ins booked or shoe billed on the selected date." },
+    { key: 'new_walkin_rentout', label: 'NEW WALKIN RENTOUT', tooltip: "New walk-ins rented out on the selected date." },
+    { key: 'new_cancelled', label: 'NEW CANCELLED', tooltip: "New walk-ins cancelled on the selected date." },
+    { key: 'new_others', label: 'NEW OTHERS', tooltip: "New walk-ins not fitting the above categories." },
+    { key: 'repeat_loss', label: 'REPEAT LOSS', tooltip: "Old walk-ins that became Loss again on the selected date." },
+    { key: 'repeat_rentout', label: 'REPEAT RENTOUT', tooltip: "Old walk-ins rented out on the selected date." },
+    { key: 'repeat_return', label: 'REPEAT RETURN', tooltip: "Old walk-ins returned or bill returned on the selected date." },
+    { key: 'revisit_repeat_trial', label: 'REVISIT REPEAT TRIAL', tooltip: "Old walk-ins revisited for Trial on the selected date." },
+    { key: 'repeat_booking', label: 'REPEAT BOOKING', tooltip: "Old walk-ins booked or shoe billed on the selected date." },
+    { key: 'revisit_reissue', label: 'REVISIT REISSUE', tooltip: "Old walk-ins revisited for Reissue on the selected date." },
+    { key: 'revisit_loss', label: 'REVISIT LOSS', tooltip: "Old revisited walk-ins marked Loss on the selected date." },
+    { key: 'repeat_cancelled', label: 'REPEAT CANCELLED', tooltip: "Old walk-ins cancelled on the selected date." },
+    { key: 'repeat_others', label: 'REPEAT OTHERS', tooltip: "Old walk-ins updated but not fitting the above categories." }
 ];
 
 const HARDCODED_STORES = [
@@ -1022,7 +1024,10 @@ const WalkinCount = () => {
                                             return (
                                                 <tr key={cat.key} style={{ borderBottom: '1px solid #f3f4f6', background: isEven ? '#fff' : '#fcfcfc', transition: 'background 0.15s' }}>
                                                     <td style={{ padding: '12px 20px', fontWeight: 600, color: '#111827' }}>
-                                                        {cat.label}
+                                                        <span className="tooltip-container" tabIndex="0">
+                                                            {cat.label}
+                                                            <span className="tooltip-text">{cat.tooltip}</span>
+                                                        </span>
                                                     </td>
                                                     <td style={{ padding: '12px 20px', fontWeight: 700, color: '#111827' }}>
                                                         {rowValues[cat.key].inCam || '-'}
@@ -1051,11 +1056,52 @@ const WalkinCount = () => {
                 )}
             </div>
 
-            {/* Spinner keyframe styles */}
+            {/* Spinner and Tooltip styles */}
             <style>{`
                 @keyframes walkincount-spin {
                     0% { transform: rotate(0deg); }
                     100% { transform: rotate(360deg); }
+                }
+                .tooltip-container {
+                    position: relative;
+                    display: inline-flex;
+                    align-items: center;
+                    cursor: help;
+                }
+                .tooltip-text {
+                    visibility: hidden;
+                    width: 240px;
+                    background-color: #1f2937;
+                    color: #fff;
+                    text-align: center;
+                    border-radius: 8px;
+                    padding: 8px 12px;
+                    position: absolute;
+                    z-index: 100;
+                    bottom: 125%;
+                    left: 0;
+                    opacity: 0;
+                    transition: opacity 0.2s, visibility 0.2s;
+                    font-size: 11px;
+                    font-weight: 500;
+                    line-height: 1.4;
+                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+                    pointer-events: none;
+                    white-space: normal;
+                }
+                .tooltip-text::after {
+                    content: "";
+                    position: absolute;
+                    top: 100%;
+                    left: 20px;
+                    border-width: 5px;
+                    border-style: solid;
+                    border-color: #1f2937 transparent transparent transparent;
+                }
+                .tooltip-container:hover .tooltip-text,
+                .tooltip-container:focus-within .tooltip-text {
+                    visibility: visible;
+                    opacity: 1;
                 }
             `}</style>
         </div>

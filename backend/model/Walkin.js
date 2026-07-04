@@ -127,9 +127,17 @@ const walkinSchema = new mongoose.Schema({
             type: String,
             default: '-'
         },
+        subCategory: {
+            type: String,
+            default: '-'
+        },
         date: {
             type: Date,
             default: Date.now
+        },
+        source: {
+            type: String,
+            default: '-'
         }
     }],
     bookingDate: {
