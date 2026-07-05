@@ -192,6 +192,8 @@ const BRANCH_LOCATION_MAPPING = {
   "g.palakkad": "19",
   "g.kalpetta": "20",
   "g.kannur": "21",
+  "g.mg road": "23",
+  "g.mgroad": "23",
   "g-trivandrum": "5"
 };
 
@@ -308,7 +310,7 @@ const GrowthComparison = () => {
         setLyWalkins(lyList);
 
         // Fetch Performance Report Data (TY and LY)
-        const locationIds = ["1", "3", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "25"];
+        const locationIds = ["1", "3", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "23", "25"];
         
         const tyPromises = locationIds.map(async (locId) => {
           let storeStart = tyStart;

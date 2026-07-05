@@ -47,6 +47,9 @@ function getLocalDateString(date) {
 const BRANCH_LOCATION_MAPPING = {
   "z-edapally1": "1",
   "z-edappally1": "1",
+  "g.mg road": "23",
+  "g.mgroad": "23",
+  "gmg road": "23",
   "g-edappally": "3",
   "g-trivandrum": "5",
   "z- edappal": "6",
@@ -100,6 +103,42 @@ function getBranchLocationId(workingBranch) {
   return BRANCH_LOCATION_MAPPING[normalized] || null;
 }
 
+const STORE_TO_LOC_CODE = {
+  "zedapally1": "144",
+  "zedappally1": "144",
+  "gedappally": "702",
+  "sgedappally": "702",
+  "gtrivandrum": "700",
+  "zedappal": "100",
+  "zperinthalmanna": "133",
+  "zkottakkal": "122",
+  "gkottayam": "701",
+  "gperumbavoor": "703",
+  "gthrissur": "704",
+  "gchavakkad": "706",
+  "gcalicut": "712",
+  "gvadakara": "708",
+  "gedappal": "707",
+  "gperinthalmanna": "709",
+  "gkottakkal": "711",
+  "gmanjeri": "710",
+  "gpalakkad": "705",
+  "gkalpetta": "717",
+  "gkannur": "716",
+  "gmgroad": "718"
+};
+
+function getBranchLocCode(workingBranch, branchesList) {
+  if (!workingBranch) return null;
+  const found = (branchesList || []).find(
+    (b) => String(b.workingBranch).trim().toLowerCase() === String(workingBranch).trim().toLowerCase()
+  );
+  if (found && found.locCode) return found.locCode;
+
+  const normalized = String(workingBranch).trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+  return STORE_TO_LOC_CODE[normalized] || null;
+}
+
 const runWithConcurrencyLimit = async (tasks, limit) => {
   const results = [];
   const executing = new Set();
@@ -117,7 +156,7 @@ const runWithConcurrencyLimit = async (tasks, limit) => {
 };
 
 const getPerformanceCached = async (locId, startDate, endDate) => {
-  const cacheKey = `perf_${locId}_${startDate}_${endDate}`;
+  const cacheKey = `perfnc_${locId}_${startDate}_${endDate}`;
   if (!window.__performanceCache) {
     window.__performanceCache = {};
   }
@@ -845,6 +884,8 @@ const DSRReport = () => {
   const [loadingWalkins, setLoadingWalkins] = useState(false);
   const [performanceData, setPerformanceData] = useState({ ftd: {}, period: {} });
   const [loadingPerformance, setLoadingPerformance] = useState(false);
+  const [salesData, setSalesData] = useState({ ftd: {}, period: {} });
+  const [loadingSales, setLoadingSales] = useState(false);
 
   // Fetch branches dynamically
   useEffect(() => {
@@ -967,7 +1008,7 @@ const DSRReport = () => {
           periodEnd = customEndDate || todayStr;
         }
 
-        const locationIds = ["1", "3", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "25"];
+        const locationIds = ["1", "3", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "23", "25"];
 
         const getStoreNameFromLocId = (locId) => {
           const branchKey = Object.keys(BRANCH_LOCATION_MAPPING).find(key => BRANCH_LOCATION_MAPPING[key] === locId);
@@ -1019,6 +1060,125 @@ const DSRReport = () => {
 
     fetchPerformance();
   }, [activeTab, customStartDate, customEndDate]);
+
+  // Fetch Shoe Sales Bookings & Returns dynamically based on timeframe range
+  useEffect(() => {
+    const fetchSales = async () => {
+      setLoadingSales(true);
+      try {
+        const todayStr = getLocalDateString(new Date());
+        
+        let periodStart = todayStr;
+        let periodEnd = todayStr;
+        if (activeTab === "WTD") {
+          const wtdRange = getStoreWTDDateRange("All");
+          periodStart = wtdRange.start;
+          periodEnd = wtdRange.end;
+        } else if (activeTab === "MTD") {
+          const today = new Date();
+          periodStart = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
+          periodEnd = todayStr;
+        } else if (activeTab === "Custom") {
+          periodStart = customStartDate || todayStr;
+          periodEnd = customEndDate || todayStr;
+        }
+
+        const activeList = branches.length > 0
+          ? branches.map((b) => ({ name: displayBranchName(b.workingBranch), workingBranch: b.workingBranch, locCode: b.locCode }))
+          : [
+              { name: "G Thrissur", workingBranch: "G.Thrissur", locCode: "704" },
+              { name: "SG Edappally", workingBranch: "G-Edappally", locCode: "702" },
+              { name: "Z Edappally", workingBranch: "Z-Edapally1", locCode: "144" },
+              { name: "G Edappally", workingBranch: "G-Edappally", locCode: "702" },
+              { name: "Z Edappal", workingBranch: "Z- Edappal", locCode: "100" },
+              { name: "Z Perinthalmanna", workingBranch: "Z.Perinthalmanna", locCode: "133" },
+              { name: "Z Kottakkal", workingBranch: "Z.Kottakkal", locCode: "122" },
+              { name: "G Kottayam", workingBranch: "G.Kottayam", locCode: "701" },
+              { name: "G Perumbavoor", workingBranch: "G.Perumbavoor", locCode: "703" }
+            ];
+
+        const fetchSalesForBranchRange = async (locCode, fromDate, toDate) => {
+          if (!locCode) return { value: 0, qty: 0, bills: 0 };
+          try {
+            const bookingsUrl = `https://backend.brynex.com/api/external/shoe-sales/bookings?fromDate=${fromDate}&toDate=${toDate}&locCode=${locCode}`;
+            const returnsUrl = `https://backend.brynex.com/api/external/shoe-sales/returns?fromDate=${fromDate}&toDate=${toDate}&locCode=${locCode}`;
+            
+            const [bRes, rRes] = await Promise.all([
+              fetch(bookingsUrl).then(r => r.ok ? r.json() : []),
+              fetch(returnsUrl).then(r => r.ok ? r.json() : [])
+            ]);
+
+            const bookings = Array.isArray(bRes) ? bRes : [];
+            const returns = Array.isArray(rRes) ? rRes : [];
+
+            const value = bookings.reduce((sum, b) => sum + (b.value || 0), 0) + returns.reduce((sum, r) => sum + (r.value || 0), 0);
+            const qty = bookings.reduce((sum, b) => sum + (b.quantity || 0), 0) - returns.reduce((sum, r) => sum + Math.abs(r.quantity || 0), 0);
+            const bills = bookings.length - returns.length;
+
+            return { value, qty, bills };
+          } catch (err) {
+            console.error(`Error fetching shoe sales for branch ${locCode}:`, err);
+            return { value: 0, qty: 0, bills: 0 };
+          }
+        };
+
+        const ftdTasks = activeList.map((item) => async () => {
+          const locCode = item.locCode || getBranchLocCode(item.workingBranch, branches);
+          const data = await fetchSalesForBranchRange(locCode, todayStr, todayStr);
+          return { workingBranch: item.workingBranch, locCode, data };
+        });
+
+        const periodTasks = activeList.map((item) => async () => {
+          const locCode = item.locCode || getBranchLocCode(item.workingBranch, branches);
+          
+          let storePeriodStart = periodStart;
+          let storePeriodEnd = periodEnd;
+          if (activeTab === "WTD") {
+            const wtdRange = getStoreWTDDateRange(item.name);
+            storePeriodStart = wtdRange.start;
+            storePeriodEnd = wtdRange.end;
+          }
+
+          const data = await fetchSalesForBranchRange(locCode, storePeriodStart, storePeriodEnd);
+          return { workingBranch: item.workingBranch, locCode, data };
+        });
+
+        const ftdResults = await runWithConcurrencyLimit(ftdTasks, 5);
+        const periodResults = await runWithConcurrencyLimit(periodTasks, 5);
+
+        const ftdMap = {};
+        const periodMap = {};
+
+        ftdResults.forEach((r) => {
+          if (r.locCode) {
+            ftdMap[r.locCode] = r.data;
+          }
+          const keyName = normalizeForMatch(r.workingBranch);
+          if (keyName) {
+            ftdMap[keyName] = r.data;
+          }
+        });
+
+        periodResults.forEach((r) => {
+          if (r.locCode) {
+            periodMap[r.locCode] = r.data;
+          }
+          const keyName = normalizeForMatch(r.workingBranch);
+          if (keyName) {
+            periodMap[keyName] = r.data;
+          }
+        });
+
+        setSalesData({ ftd: ftdMap, period: periodMap });
+      } catch (err) {
+        console.error("Error in fetchSales:", err);
+      } finally {
+        setLoadingSales(false);
+      }
+    };
+
+    fetchSales();
+  }, [activeTab, customStartDate, customEndDate, branches]);
 
 
   useEffect(() => {
@@ -1122,8 +1282,10 @@ const DSRReport = () => {
 
   const renderCellVal = (val, isPercent = false) => {
     const rawVal = String(val);
+    const numVal = parseFloat(rawVal.replace(/,/g, ""));
     const isZero = rawVal === "0" || rawVal === "0.0" || rawVal === "0%" || rawVal === "";
-    const colorClass = isZero ? "text-[#e05a47] font-bold" : "";
+    const isNegative = !isNaN(numVal) && numVal < 0;
+    const colorClass = isNegative ? "text-[#e05a47] font-bold" : isZero ? "text-[#e05a47] font-bold" : "";
     return (
       <span className={colorClass}>
         {val}{isPercent && "%"}
@@ -1202,13 +1364,20 @@ const DSRReport = () => {
     const useMock = isFtdEmpty && isPeriodEmpty;
 
     // Helper to calculate derived metrics for a row
+    // valFtd/valWtd = total_Number_Of_Bill (bill count)
+    // billFtd/billWtd = totalValue (sale value / money)
+    // qtyFtd/qtyWtd = totalQuantity
     const withDerivedMetrics = (row) => {
+      // ABV = Total Value / Total Bills
       const abvFtd = row.valFtd > 0 ? Math.round(row.billFtd / row.valFtd) : 0;
       const abvWtd = row.valWtd > 0 ? Math.round(row.billWtd / row.valWtd) : 0;
+      // ABS = Total Quantity / Total Bills
       const absFtd = row.valFtd > 0 ? parseFloat((row.qtyFtd / row.valFtd).toFixed(1)) : 0;
       const absWtd = row.valWtd > 0 ? parseFloat((row.qtyWtd / row.valWtd).toFixed(1)) : 0;
+      // Conversion = Total Bills / Walk-ins
       const convFtd = row.walkFtd > 0 ? Math.min(100, Math.round((row.valFtd / row.walkFtd) * 100)) : 0;
       const convWtd = row.walkWtd > 0 ? Math.min(100, Math.round((row.valWtd / row.walkWtd) * 100)) : 0;
+      // ARP = Total Value / Total Quantity
       const arpFtd = row.qtyFtd > 0 ? Math.round(row.billFtd / row.qtyFtd) : 0;
       const arpWtd = row.qtyWtd > 0 ? Math.round(row.billWtd / row.qtyWtd) : 0;
       
@@ -1526,27 +1695,10 @@ const DSRReport = () => {
   // Dynamic calculations for Sales Funnel totals row
   const totalBillFtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + row.billFtd, 0), [filteredFunnelRows]);
   const totalBillWtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + row.billWtd, 0), [filteredFunnelRows]);
-  const totalValFtd = useMemo(() => {
-    const createdSum = filteredFunnelRows.reduce((acc, row) => acc + (row.createdValFtd || 0), 0);
-    const negativeSum = filteredFunnelRows.reduce((acc, row) => acc + Math.min(0, row.valFtd || 0), 0);
-    return createdSum + negativeSum;
-  }, [filteredFunnelRows]);
-
-  const totalValWtd = useMemo(() => {
-    const createdSum = filteredFunnelRows.reduce((acc, row) => acc + (row.createdValWtd || 0), 0);
-    const negativeSum = filteredFunnelRows.reduce((acc, row) => acc + Math.min(0, row.valWtd || 0), 0);
-    return createdSum + negativeSum;
-  }, [filteredFunnelRows]);
-  const totalQtyFtd = useMemo(() => {
-    const createdSum = filteredFunnelRows.reduce((acc, row) => acc + (row.createdQtyFtd || 0), 0);
-    const negativeSum = filteredFunnelRows.reduce((acc, row) => acc + Math.min(0, row.qtyFtd || 0), 0);
-    return createdSum + negativeSum;
-  }, [filteredFunnelRows]);
-  const totalQtyWtd = useMemo(() => {
-    const createdSum = filteredFunnelRows.reduce((acc, row) => acc + (row.createdQtyWtd || 0), 0);
-    const negativeSum = filteredFunnelRows.reduce((acc, row) => acc + Math.min(0, row.qtyWtd || 0), 0);
-    return createdSum + negativeSum;
-  }, [filteredFunnelRows]);
+  const totalValFtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + (row.valFtd || 0), 0), [filteredFunnelRows]);
+  const totalValWtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + (row.valWtd || 0), 0), [filteredFunnelRows]);
+  const totalQtyFtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + (row.qtyFtd || 0), 0), [filteredFunnelRows]);
+  const totalQtyWtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + (row.qtyWtd || 0), 0), [filteredFunnelRows]);
   const totalWalkFtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + row.walkFtd, 0), [filteredFunnelRows]);
   const totalWalkWtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + row.walkWtd, 0), [filteredFunnelRows]);
   const totalLossFtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + row.lossFtd, 0), [filteredFunnelRows]);
@@ -1579,8 +1731,8 @@ const DSRReport = () => {
     ];
 
     const activeList = branches.length > 0
-      ? branches.map((b) => ({ name: displayBranchName(b.workingBranch), workingBranch: b.workingBranch }))
-      : defaultStores;
+      ? branches.map((b) => ({ name: displayBranchName(b.workingBranch), workingBranch: b.workingBranch, locCode: b.locCode }))
+      : defaultStores.map(ds => ({ ...ds, locCode: getBranchLocCode(ds.workingBranch, branches) }));
 
     return activeList.map((item, index) => {
       const name = item.name;
@@ -1589,6 +1741,7 @@ const DSRReport = () => {
       // Real API data (NO MOCK DATA!)
       const locId = getBranchLocationId(workingBranch);
       const storeKeyVal = normalizeForMatch(workingBranch);
+      const locCode = item.locCode || getBranchLocCode(workingBranch, branches);
 
       // Rental Products (Live API for locId)
       const locFtdList = performanceData.ftd[locId] || [];
@@ -1615,13 +1768,16 @@ const DSRReport = () => {
       const squadQtyFtd = storeFtdItem.totalQuantity || 0;
       const squadQtyWtd = storePeriodItem.totalQuantity || 0;
 
-      // Sales Products (Always 0 because we don't have API for it, showing 0 value as requested)
-      const salesValFtd = 0;
-      const salesValWtd = 0;
-      const salesBillFtd = 0;
-      const salesBillWtd = 0;
-      const salesQtyFtd = 0;
-      const salesQtyWtd = 0;
+      // Sales Products (Live API)
+      const salesFtdItem = salesData.ftd[locCode] || salesData.ftd[storeKeyVal] || { value: 0, qty: 0, bills: 0 };
+      const salesPeriodItem = salesData.period[locCode] || salesData.period[storeKeyVal] || { value: 0, qty: 0, bills: 0 };
+
+      const salesValFtd = salesFtdItem.value || 0;
+      const salesValWtd = salesPeriodItem.value || 0;
+      const salesBillFtd = salesFtdItem.bills || 0;
+      const salesBillWtd = salesPeriodItem.bills || 0;
+      const salesQtyFtd = salesFtdItem.qty || 0;
+      const salesQtyWtd = salesPeriodItem.qty || 0;
 
       return {
         name,
@@ -1630,7 +1786,7 @@ const DSRReport = () => {
         salesValFtd, salesValWtd, salesBillFtd, salesBillWtd, salesQtyFtd, salesQtyWtd
       };
     });
-  }, [branches, performanceData]);
+  }, [branches, performanceData, salesData]);
 
   const filteredCategoryRows = useMemo(() => {
     return categoryRows.filter((item) => {
@@ -2163,14 +2319,14 @@ const DSRReport = () => {
                     return (
                       <tr key={idx} className="odd:bg-white even:bg-[#f9fafb] hover:bg-gray-50/50 transition-colors">
                         <td className={`sticky left-0 z-10 px-6 py-3.5 text-left font-semibold text-gray-800 border-r border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)] ${idx % 2 === 0 ? "bg-white" : "bg-[#f9fafb]"}`}>{row.name}</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(row.createdValFtd ?? row.valFtd)}</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(row.createdValWtd ?? row.valWtd)}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(row.valFtd)}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(row.valWtd)}</td>
                         
                         <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(formatIndianNumber(row.billFtd))}</td>
                         <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(formatIndianNumber(row.billWtd))}</td>
                         
-                        <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(row.createdQtyFtd ?? row.qtyFtd)}</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(row.createdQtyWtd ?? row.qtyWtd)}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(row.qtyFtd)}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(row.qtyWtd)}</td>
 
                         <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(row.walkFtd)}</td>
                         <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(row.walkWtd)}</td>
@@ -2178,14 +2334,14 @@ const DSRReport = () => {
                         <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(row.lossFtd)}</td>
                         <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(row.lossWtd)}</td>
 
-                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{renderCellVal(formatIndianNumber(row.abvFtd !== undefined ? row.abvFtd : Math.round(row.billFtd / ((row.createdValFtd ?? row.valFtd) || 1))))}</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{renderCellVal(formatIndianNumber(row.abvWtd !== undefined ? row.abvWtd : Math.round(row.billWtd / ((row.createdValWtd ?? row.valWtd) || 1))))}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{renderCellVal(formatIndianNumber(row.abvFtd !== undefined ? row.abvFtd : Math.round(row.billFtd / (row.valFtd || 1))))}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{renderCellVal(formatIndianNumber(row.abvWtd !== undefined ? row.abvWtd : Math.round(row.billWtd / (row.valWtd || 1))))}</td>
 
-                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{renderCellVal(row.absFtd !== undefined ? row.absFtd : ((row.createdQtyFtd ?? row.qtyFtd) / ((row.createdValFtd ?? row.valFtd) || 1)).toFixed(1))}</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{renderCellVal(row.absWtd !== undefined ? row.absWtd : ((row.createdQtyWtd ?? row.qtyWtd) / ((row.createdValWtd ?? row.valWtd) || 1)).toFixed(1))}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{renderCellVal(row.absFtd !== undefined ? row.absFtd : (row.qtyFtd / (row.valFtd || 1)).toFixed(1))}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{renderCellVal(row.absWtd !== undefined ? row.absWtd : (row.qtyWtd / (row.valWtd || 1)).toFixed(1))}</td>
 
-                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{renderCellVal(row.convFtd !== undefined ? Math.min(100, row.convFtd) : Math.min(100, Math.round(((row.createdValFtd != null ? row.createdValFtd : (row.valFtd || 0)) / (row.walkFtd || 1)) * 100)), true)}</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{renderCellVal(row.convWtd !== undefined ? Math.min(100, row.convWtd) : Math.min(100, Math.round(((row.createdValWtd != null ? row.createdValWtd : (row.valWtd || 0)) / (row.walkWtd || 1)) * 100)), true)}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{renderCellVal(row.convFtd !== undefined ? Math.min(100, row.convFtd) : Math.min(100, Math.round((row.valFtd / (row.walkFtd || 1)) * 100)), true)}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{renderCellVal(row.convWtd !== undefined ? Math.min(100, row.convWtd) : Math.min(100, Math.round((row.valWtd / (row.walkWtd || 1)) * 100)), true)}</td>
 
                         <td className="px-4 py-3.5 border-r border-gray-100 font-semibold text-[#00A36C]">{renderCellVal(contributionFtd, true)}</td>
                         <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-semibold text-[#00A36C]">{renderCellVal(contributionWtd, true)}</td>
@@ -2246,7 +2402,7 @@ const DSRReport = () => {
             <div className="px-6 py-5 flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <h2 className="text-[17px] font-bold text-gray-900">Category Contribution</h2>
-                {(loadingPerformance || loadingWalkins) && (
+                {(loadingPerformance || loadingWalkins || loadingSales) && (
                   <span className="flex h-2.5 w-2.5 relative" title="Syncing real-time category performance data...">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
@@ -2309,25 +2465,25 @@ const DSRReport = () => {
                   {/* Tertiary header row */}
                   <tr className="bg-[#e5ecf6] text-gray-600 text-[9px] font-bold tracking-wider uppercase border-b border-gray-200">
                     <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">FTD</th>
-                    <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">WTD</th>
+                    <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">{activeTab}</th>
                     <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">FTD</th>
-                    <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">WTD</th>
+                    <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">{activeTab}</th>
                     <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">FTD</th>
-                    <th className="px-4 py-1.5 text-center">WTD</th>
+                    <th className="px-4 py-1.5 text-center">{activeTab}</th>
                     
                     <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">FTD</th>
-                    <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">WTD</th>
+                    <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">{activeTab}</th>
                     <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">FTD</th>
-                    <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">WTD</th>
+                    <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">{activeTab}</th>
                     <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">FTD</th>
-                    <th className="px-4 py-1.5 text-center">WTD</th>
+                    <th className="px-4 py-1.5 text-center">{activeTab}</th>
 
                     <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">FTD</th>
-                    <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">WTD</th>
+                    <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">{activeTab}</th>
                     <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">FTD</th>
-                    <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">WTD</th>
+                    <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">{activeTab}</th>
                     <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">FTD</th>
-                    <th className="px-4 py-1.5 text-center">WTD</th>
+                    <th className="px-4 py-1.5 text-center">{activeTab}</th>
                   </tr>
                 </thead>
                 <tbody className="text-xs text-gray-700 divide-y divide-gray-100">

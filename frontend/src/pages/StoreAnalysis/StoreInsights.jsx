@@ -42,6 +42,8 @@ const BRANCH_LOCATION_MAPPING = {
   "g.palakkad": "19",
   "g.kalpetta": "20",
   "g.kannur": "21",
+  "g.mg road": "23",
+  "g.mgroad": "23",
   "dappr squad": "25",
   "sg.edappally": "25",
   "sg.perumbavoor": "25",
@@ -447,6 +449,8 @@ const StoreInsights = () => {
   const [walkins, setWalkins] = useState([]);
   const [lyWalkins, setLyWalkins] = useState([]);
   const [loadingWalkins, setLoadingWalkins] = useState(false);
+  const [salesData, setSalesData] = useState({ shoeQty: 0, shirtQty: 0, shoeValue: 0, shirtValue: 0 });
+  const [loadingSales, setLoadingSales] = useState(false);
 
   // Dynamic branches state
   const [branches, setBranches] = useState([]);
@@ -843,7 +847,7 @@ const StoreInsights = () => {
           periodEnd = customEndDate || todayStr;
         }
 
-        const locationIds = ["1", "3", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "25"];
+        const locationIds = ["1", "3", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "23", "25"];
 
         const tasks = locationIds.map((locId) => async () => {
           let storePeriodStart = periodStart;
@@ -983,6 +987,87 @@ const StoreInsights = () => {
     };
     fetchWalkins();
   }, [timeframe, customStartDate, customEndDate]);
+
+  // Fetch Shoe & Shirt sales from brynex API
+  useEffect(() => {
+    if (branches.length === 0) return;
+    const fetchSales = async () => {
+      setLoadingSales(true);
+      try {
+        const today = new Date();
+        const todayStr = getLocalDateString(today);
+        let periodStart = todayStr;
+        let periodEnd = todayStr;
+        if (timeframe === "WTD") {
+          const wtdRange = getStoreWTDDateRange("All");
+          periodStart = wtdRange.start;
+          periodEnd = wtdRange.end;
+        } else if (timeframe === "MTD") {
+          periodStart = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
+          periodEnd = todayStr;
+        } else if (timeframe === "YTD") {
+          periodStart = getLocalDateString(new Date(today.getFullYear(), 0, 1));
+          periodEnd = todayStr;
+        } else if (timeframe === "CUSTOM") {
+          periodStart = customStartDate || todayStr;
+          periodEnd = customEndDate || todayStr;
+        }
+
+        let totalShoeQty = 0, totalShirtQty = 0;
+        let totalShoeValue = 0, totalShirtValue = 0;
+
+        await Promise.all(branches.map(async (b) => {
+          const locCode = b.locCode;
+          if (!locCode) return;
+          try {
+            const [bRes, rRes] = await Promise.all([
+              fetch(`https://backend.brynex.com/api/external/shoe-sales/bookings?fromDate=${periodStart}&toDate=${periodEnd}&locCode=${locCode}`).then(r => r.ok ? r.json() : []),
+              fetch(`https://backend.brynex.com/api/external/shoe-sales/returns?fromDate=${periodStart}&toDate=${periodEnd}&locCode=${locCode}`).then(r => r.ok ? r.json() : [])
+            ]);
+            const bookings = Array.isArray(bRes) ? bRes : [];
+            const returns = Array.isArray(rRes) ? rRes : [];
+
+            // Count at item level where category tells shoe vs shirt
+            const countItems = (list, sign) => {
+              list.forEach(invoice => {
+                const items = Array.isArray(invoice.items) ? invoice.items : [];
+                if (items.length > 0) {
+                  items.forEach(item => {
+                    const cat = String(item.category || "").toLowerCase();
+                    const qty = (item.quantity || 0) * sign;
+                    const val = (item.amount || item.rate * item.quantity || 0) * sign;
+                    if (cat.includes("shirt")) { totalShirtQty += qty; totalShirtValue += val; }
+                    else { totalShoeQty += qty; totalShoeValue += val; }
+                  });
+                } else {
+                  // fallback: no items array, use invoice-level category
+                  const cat = String(invoice.category || "").toLowerCase();
+                  const qty = (invoice.quantity || 0) * sign;
+                  const val = (invoice.value || 0) * sign;
+                  if (cat.includes("shirt")) { totalShirtQty += qty; totalShirtValue += val; }
+                  else { totalShoeQty += qty; totalShoeValue += val; }
+                }
+              });
+            };
+            countItems(bookings, 1);
+            countItems(returns, -1);
+          } catch {/* skip failed branch */}
+        }));
+
+        setSalesData({
+          shoeQty: Math.round(totalShoeQty),
+          shirtQty: Math.round(totalShirtQty),
+          shoeValue: Math.round(totalShoeValue),
+          shirtValue: Math.round(totalShirtValue),
+        });
+      } catch (err) {
+        console.error("Error fetching sales data in StoreInsights:", err);
+      } finally {
+        setLoadingSales(false);
+      }
+    };
+    fetchSales();
+  }, [branches, timeframe, customStartDate, customEndDate]);
 
   // Format values to match Indian standard layout (e.g. 5,28,080.42)
   const formatIndianNumber = (num, decimals = 0) => {
@@ -1183,15 +1268,14 @@ const StoreInsights = () => {
       const isAllClusters = clusterFilter === "All" || !clusterFilter;
 
       if (isAllClusters) {
-        // Sum across ALL fetched locations using created bills (not net) for accurate count
+        // Sum across ALL fetched locations using total bills (net of cancellations) to match Sales Funnel
         allFetchedLocIds.forEach(locId => {
           const locPeriodList = performanceData[locId] || [];
-          // Use created_Number_Of_Bill so cancellation stores (like G.Perinthalmanna) don't reduce the total
-          const storeBills = locPeriodList.reduce((sum, item) => sum + (item.created_Number_Of_Bill || 0), 0);
-          const storeQty = locPeriodList.reduce((sum, item) => sum + (item.createdQuantity ?? item.totalQuantity ?? 0), 0);
+          const storeBills = locPeriodList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
+          const storeQty = locPeriodList.reduce((sum, item) => sum + (item.totalQuantity ?? 0), 0);
           const storeVal = locPeriodList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
-          billsGenerated += Math.max(0, storeBills);
-          quantitySold += Math.max(0, storeQty);
+          billsGenerated += storeBills;
+          quantitySold += storeQty;
           trueTotalAchieved += storeVal;
         });
       } else {
@@ -1201,8 +1285,8 @@ const StoreInsights = () => {
           const locId = getBranchLocationId(name);
           if (!locId) return;
           const locPeriodList = performanceData[locId] || [];
-          billsGenerated += Math.max(0, locPeriodList.reduce((sum, item) => sum + (item.created_Number_Of_Bill || 0), 0));
-          quantitySold += Math.max(0, locPeriodList.reduce((sum, item) => sum + (item.createdQuantity ?? item.totalQuantity ?? 0), 0));
+          billsGenerated += locPeriodList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
+          quantitySold += locPeriodList.reduce((sum, item) => sum + (item.totalQuantity ?? 0), 0);
           trueTotalAchieved += locPeriodList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
         });
       }
@@ -1232,11 +1316,9 @@ const StoreInsights = () => {
       let customerWalkins = 0;
       filteredStoresForKPIs.forEach(c => {
         const storeKeyVal = normalizeForMatch(c.name);
-        const storeWalkins = walkins.filter(w => {
-          const matchBranch = normalizeForMatch(w.branch) === storeKeyVal;
-          const wDate = w.date ? w.date.split(" ")[0] : "";
-          return matchBranch && wDate >= periodStart && wDate <= periodEnd;
-        });
+        // walkins array is already fetched for the correct period range from the API
+        // just match by store name
+        const storeWalkins = walkins.filter(w => normalizeForMatch(w.store) === storeKeyVal);
         customerWalkins += storeWalkins.length;
       });
 
@@ -1287,11 +1369,8 @@ const StoreInsights = () => {
       let lyCustomerWalkins = 0;
       filteredStoresForKPIs.forEach(c => {
         const storeKeyVal = normalizeForMatch(c.name);
-        const storeWalkins = lyWalkins.filter(w => {
-          const matchBranch = normalizeForMatch(w.branch) === storeKeyVal;
-          const wDate = w.date ? w.date.split(" ")[0] : "";
-          return matchBranch && wDate >= lyPeriodStart && wDate <= lyPeriodEnd;
-        });
+        // lyWalkins is already fetched for the correct last-year period range
+        const storeWalkins = lyWalkins.filter(w => normalizeForMatch(w.store) === storeKeyVal);
         lyCustomerWalkins += storeWalkins.length;
       });
 
@@ -1330,8 +1409,8 @@ const StoreInsights = () => {
         customerWalkins: customerWalkins * roleMultiplier,
         conversionRate,
         convertedWalkins: convertedWalkins * roleMultiplier,
-        shoeSale: 0,
-        shirtSales: 0,
+        shoeSale: salesData.shoeQty,
+        shirtSales: salesData.shirtQty,
         dapprSquadBills,
         dapprSquadValue,
         googleReviews,
@@ -1346,7 +1425,7 @@ const StoreInsights = () => {
         walkChangeDisplay: walkChange.display, walkChangeColor: walkChange.color, walkTrend: walkChange.trend, walkTrendColor: walkChange.trendColor
       };
     }
-  }, [chartData, filteredStoresForKPIs, multipliers, isConsolidated, roleFilter, performanceData, lyPerformanceData, walkins, lyWalkins, timeframe, customStartDate, customEndDate]);
+  }, [chartData, filteredStoresForKPIs, multipliers, isConsolidated, roleFilter, performanceData, lyPerformanceData, walkins, lyWalkins, timeframe, customStartDate, customEndDate, salesData]);
 
   // Store ranking data calculations
   const rankingData = useMemo(() => {
@@ -1360,41 +1439,70 @@ const StoreInsights = () => {
     ];
 
     if (isConsolidated) {
+      // Consolidated view — use mock/seed data (no single rental API covers all products)
       if (branches.length > 0) {
         return branches.map((b, idx) => {
           const name = displayBranchName(b?.workingBranch);
           const pctSeed = 80 + ((idx * 7) % 18);
-          const abvSeed = 2000 + ((idx * 150) % 1500); 
+          const abvSeed = 2000 + ((idx * 150) % 1500);
           const conversionSeed = 75 + ((idx * 4) % 21);
           const absSeed = (2.0 + ((idx * 0.3) % 1.5)).toFixed(1);
-
-          return {
-            name,
-            targetAchieved: pctSeed,
-            contribution: 96,
-            abs: absSeed,
-            abv: abvSeed,
-            conversion: conversionSeed
-          };
+          return { name, targetAchieved: pctSeed, contribution: 96, abs: absSeed, abv: abvSeed, conversion: conversionSeed };
         });
       }
       return defaultStores;
     } else {
-      return chartData.map((item, idx) => {
-        const conversionSeed = 75 + ((idx * 4) % 21);
-        const absSeed = (2.0 + ((item.pct * 0.03) % 1.5)).toFixed(1);
-        const abvSeed = item.achieved > 0 ? Math.round(item.achieved / (10 + (idx % 5))) : 1800;
-        return {
-          name: item.name,
-          targetAchieved: Math.round(item.pct),
-          contribution: 96,
-          abs: absSeed,
-          abv: abvSeed,
-          conversion: conversionSeed
-        };
+      // Rental Products — use real performanceData + walkins
+      const totalValue = Object.values(performanceData).reduce((sum, list) =>
+        sum + list.reduce((s, item) => s + (item.totalValue || 0), 0), 0);
+
+      return branches.map((b) => {
+        const name = displayBranchName(b?.workingBranch);
+        const locId = getBranchLocationId(b?.workingBranch);
+        const locPeriodList = performanceData[locId] || [];
+
+        // Merge Dappr Squad data for this store
+        const isDappr = locId === "25";
+        const dapprList = isDappr ? [] : (performanceData["25"] || []);
+        const dapprForStore = dapprList.filter(item => {
+          const n = String(item.bookingBy || "").trim().toLowerCase();
+          const mapping = {
+            "sg.edappally": "3", "sg.perumbavoor": "10", "sg.thrissur": "11",
+            "sg.chavakkad": "12", "sg.calicut": "13", "sg.vadakara": "14",
+            "sg.perinthalmanna": "16", "sg.kottakkal": "17", "sg.manjeri": "18",
+            "sg.palakkad": "19", "sg.kalpetta": "20", "sg.kannur": "21",
+            "sg.trivandrum": "5", "sg.kottayam": "9",
+          };
+          return mapping[n] === locId;
+        });
+        const mergedList = isDappr ? [] : [...locPeriodList, ...dapprForStore];
+
+        const bills = mergedList.reduce((s, i) => s + (i.total_Number_Of_Bill || 0), 0);
+        const qty   = mergedList.reduce((s, i) => s + (i.totalQuantity || 0), 0);
+        const value = mergedList.reduce((s, i) => s + (i.totalValue || 0), 0);
+
+        // Target achieved from chartData
+        const chartItem = chartData.find(c => normalizeForMatch(c.name) === normalizeForMatch(name));
+        const targetAchieved = chartItem ? Math.round(chartItem.pct) : 0;
+
+        // Contribution % of total rental value
+        const contribution = totalValue > 0 ? Math.round((value / totalValue) * 100) : 0;
+
+        // ABS = qty / bills
+        const abs = bills > 0 ? parseFloat((qty / bills).toFixed(1)) : 0;
+
+        // ABV = value / bills
+        const abv = bills > 0 ? Math.round(value / bills) : 0;
+
+        // Conversion = bills / walkins
+        const storeKeyVal = normalizeForMatch(name);
+        const storeWalkins = walkins.filter(w => normalizeForMatch(w.store) === storeKeyVal).length;
+        const conversion = storeWalkins > 0 ? Math.min(100, Math.round((bills / storeWalkins) * 100)) : 0;
+
+        return { name, targetAchieved, contribution, abs, abv, conversion };
       });
     }
-  }, [branches, chartData, isConsolidated]);
+  }, [branches, chartData, isConsolidated, performanceData, walkins]);
 
   const processedRanking = useMemo(() => {
     let result = [...rankingData];
@@ -1834,7 +1942,7 @@ const StoreInsights = () => {
               <div className="flex flex-col justify-center min-w-0">
                 <h3 className="text-[20px] xs:text-[22px] sm:text-[24px] lg:text-[18px] xl:text-[22px] 2xl:text-[28px] font-extrabold text-slate-900 leading-none truncate" title={`${stats.conversionRate}%`}>{stats.conversionRate}%</h3>
                 <span className="text-[12px] text-gray-400 font-semibold font-sans block mt-3">
-                  <span className="font-extrabold text-[#1d4ed8]">{formatIndianNumber(stats.convertedWalkins)}</span> of walk ins converted
+                  <span className="font-extrabold text-[#1d4ed8]">{formatIndianNumber(stats.customerWalkins)}</span> walkins converted
                 </span>
               </div>
               <div className="mr-2">
@@ -1852,7 +1960,7 @@ const StoreInsights = () => {
             <div className="flex-1 flex items-center justify-between min-h-0 mt-1">
               <div className="flex flex-col justify-center min-w-0">
                 <h3 className="text-[20px] xs:text-[22px] sm:text-[24px] lg:text-[18px] xl:text-[22px] 2xl:text-[28px] font-extrabold text-gray-950 leading-none truncate" title={stats.shoeSale}>{stats.shoeSale}</h3>
-                <span className="text-[12px] text-emerald-600 font-bold block mt-3">+10% <span className="text-gray-400 font-semibold font-sans">of conversion</span></span>
+                <span className="text-[12px] text-gray-400 font-semibold font-sans block mt-3">₹{formatIndianNumber(salesData.shoeValue)} value</span>
               </div>
               <Sparkline type="up" color="#00A36C" />
             </div>
@@ -1867,7 +1975,7 @@ const StoreInsights = () => {
             <div className="flex-1 flex items-center justify-between min-h-0 mt-1">
               <div className="flex flex-col justify-center min-w-0">
                 <h3 className="text-[20px] xs:text-[22px] sm:text-[24px] lg:text-[18px] xl:text-[22px] 2xl:text-[28px] font-extrabold text-gray-950 leading-none truncate" title={stats.shirtSales}>{stats.shirtSales}</h3>
-                <span className="text-[12px] text-rose-500 font-bold block mt-3">-6% <span className="text-gray-400 font-semibold font-sans">of conversion</span></span>
+                <span className="text-[12px] text-gray-400 font-semibold font-sans block mt-3">₹{formatIndianNumber(salesData.shirtValue)} value</span>
               </div>
               <Sparkline type="down" color="#e11d48" />
             </div>

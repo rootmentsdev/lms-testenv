@@ -369,7 +369,7 @@ const HomeBar = () => {
         const firstOfIdx = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
         const todayStr = getLocalDateString(today);
         
-        const locationIds = ["1", "3", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "25"];
+        const locationIds = ["1", "3", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "23", "25"];
         const pTasks = locationIds.map((locId) => async () => {
           const data = await getPerformanceCached(locId, firstOfIdx, todayStr);
           return { locId, data };
