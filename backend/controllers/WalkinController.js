@@ -1213,6 +1213,7 @@ export const getWalkinCountPageData = async (req, res) => {
         const counts = {
             total_walkin: 0,
             walkin: 0,
+            repeat_walkin: 0,
             new_loss: 0,
             repeat_loss: 0,
             repeat_rentout: 0,
@@ -1230,6 +1231,9 @@ export const getWalkinCountPageData = async (req, res) => {
             cancelled: 0,
             others: 0
         };
+
+        const walkinSet = new Set();
+        const repeatWalkinSet = new Set();
 
         const toDateStrIST = (dateVal) => {
             if (!dateVal) return null;
@@ -1319,7 +1323,7 @@ export const getWalkinCountPageData = async (req, res) => {
             const isLossState = normStatus === 'loss' || (w.statusHistory || []).some(h => isDateInRange(h.date) && String(h.status || '').toLowerCase().trim().includes('loss'));
 
             if (createdInRange) {
-                counts.walkin++;
+                walkinSet.add(w._id.toString());
 
                 // Priority for New Walkin:
                 // 1. New Cancelled
@@ -1342,54 +1346,62 @@ export const getWalkinCountPageData = async (req, res) => {
                 else {
                     counts.new_others++;
                 }
-            }
-
-            if (updatedInRange && !createdInRange) {
-                // Priority for Repeat Walkin:
+            } else {
+                // Repeat Walkin: createdAt is NOT in range
                 // 1. Repeat Cancelled
                 if (hasCancelInRange) {
                     counts.repeat_cancelled++;
+                    repeatWalkinSet.add(w._id.toString());
                 }
                 // 2. Repeat Return
                 else if (hasReturnInRange || hasBillReturnedInRange) {
                     counts.repeat_return++;
+                    repeatWalkinSet.add(w._id.toString());
                 }
                 // 3. Repeat Rentout
                 else if (hasRentoutInRange) {
                     counts.repeat_rentout++;
+                    repeatWalkinSet.add(w._id.toString());
                 }
                 // 4. Repeat Booking
                 else if (hasBookingInRange || hasBilledInRange) {
                     counts.repeat_booking++;
+                    repeatWalkinSet.add(w._id.toString());
                 }
                 // 5. Repeat Loss / Revisit Loss
                 else if (hasRevisitLoss || isLossState) {
                     counts.repeat_loss++;
                     counts.revisit_loss++;
+                    repeatWalkinSet.add(w._id.toString());
                 }
                 // 6. Revisit Repeat Trial
                 else if (hasRevisitTrial) {
                     counts.revisit_repeat_trial++;
+                    repeatWalkinSet.add(w._id.toString());
                 }
                 // 7. Revisit Reissue
                 else if (hasRevisitReissue) {
                     counts.revisit_reissue++;
+                    repeatWalkinSet.add(w._id.toString());
                 }
-                // 8. Repeat Others
-                else {
+                // 8. Repeat Others (fallback for updatedAt in range but not counted in 1-7)
+                else if (updatedInRange) {
                     counts.repeat_others++;
+                    repeatWalkinSet.add(w._id.toString());
                 }
             }
         });
 
-        // 4. Calculate legacy keys for backward compatibility
+        // 4. Calculate total unique count sizes
+        counts.walkin = walkinSet.size;
+        counts.repeat_walkin = repeatWalkinSet.size;
+
+        // 5. Calculate legacy keys for backward compatibility
         counts.cancelled = counts.new_cancelled + counts.repeat_cancelled;
         counts.others = counts.new_others + counts.repeat_others;
 
-        // 5. Calculate total_walkin as sum of all components to guarantee 100% reconciliation
-        counts.total_walkin = counts.new_loss + counts.new_walkin_booking + counts.new_walkin_rentout + counts.new_cancelled + counts.new_others +
-                              counts.repeat_loss + counts.repeat_booking + counts.repeat_rentout + counts.repeat_return +
-                              counts.revisit_repeat_trial + counts.revisit_reissue + counts.repeat_cancelled + counts.repeat_others;
+        // 6. Calculate total_walkin as sum of walkin + repeat_walkin to guarantee 100% reconciliation
+        counts.total_walkin = counts.walkin + counts.repeat_walkin;
 
 
         // 4. Fetch camera checker entries for this date/range & store
