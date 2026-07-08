@@ -45,6 +45,14 @@ function displayBranchName(name) {
 
 function isHiddenBranch(name) {
   const normalized = norm(name);
+  // Non-sales branches: hide from all report views
+  const nonSalesBranches = ["office", "production", "warehouse"];
+  if (nonSalesBranches.includes(normalized)) return true;
+  // Any test store
+  if (normalized.startsWith("test ") || normalized.startsWith("test")) {
+    const afterTest = normalized.replace(/^test\s*/, "").trim();
+    if (afterTest.length > 0) return true;
+  }
   return (
     normalized === norm("Suitor Guy Kochi") ||
     normalized === norm("GROOMS Kochi") ||

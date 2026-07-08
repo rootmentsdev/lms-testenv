@@ -226,6 +226,7 @@ function App() {
               userId: request.user.userId,
               role: request.user.role,
               username: request.user.username,
+              branches: request.user.branches || [],
             }));
           } else {
             console.error('No user data in token verification response');
@@ -262,7 +263,8 @@ function App() {
         return;
       }
 
-      const key = e.key.toLowerCase();
+      const key = (e.key || "").toLowerCase();
+      if (!key) return;
       pressedKeys.add(key);
 
       const isCAndS = pressedKeys.has("c") && pressedKeys.has("s");
@@ -289,7 +291,9 @@ function App() {
     };
 
     const handleKeyUp = (e) => {
-      pressedKeys.delete(e.key.toLowerCase());
+      if (e.key) {
+        pressedKeys.delete(e.key.toLowerCase());
+      }
     };
 
     const handleBlur = () => {

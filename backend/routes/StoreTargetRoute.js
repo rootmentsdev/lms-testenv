@@ -23,7 +23,7 @@ router.get('/', MiddilWare, async (req, res) => {
 // POST save/update a store target config
 router.post('/', MiddilWare, async (req, res) => {
   try {
-    const { storeName, month, year, weekRanges, weeklyTargets } = req.body;
+    const { storeName, month, year, weekRanges, weeklyTargets, employeeTargets } = req.body;
     if (!storeName || !month) {
       return res.status(400).json({ success: false, message: "storeName and month are required" });
     }
@@ -33,6 +33,9 @@ router.post('/', MiddilWare, async (req, res) => {
       weekRanges,
       weeklyTargets
     };
+    if (employeeTargets !== undefined) {
+      update.employeeTargets = employeeTargets;
+    }
 
     const doc = await StoreTarget.findOneAndUpdate(filter, update, {
       new: true,

@@ -15,7 +15,16 @@ const StoreTargetSchema = new mongoose.Schema({
     2: { type: Number, default: 0 },
     3: { type: Number, default: 0 },
     4: { type: Number, default: 0 }
-  }
+  },
+  employeeTargets: [{
+    staffName: { type: String, required: true },
+    weeklyTargets: {
+      1: { type: Number, default: 0 },
+      2: { type: Number, default: 0 },
+      3: { type: Number, default: 0 },
+      4: { type: Number, default: 0 }
+    }
+  }]
 }, { timestamps: true });
 
 // Prevent duplicate entries for the same store name in the same month/year

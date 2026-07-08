@@ -325,11 +325,11 @@ export const AdminLogin = async (req, res) => {
         // Find user by EmpId (Employee ID) first
         let user = await Admin.findOne({
             EmpId: { $regex: `^${loginIdentifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' }
-        });
+        }).populate('branches');
 
         // Fallback to finding by email if not found
         if (!user) {
-            user = await Admin.findOne({ email: loginIdentifier.toLowerCase() });
+            user = await Admin.findOne({ email: loginIdentifier.toLowerCase() }).populate('branches');
         }
         
         if (!user) {
@@ -371,8 +371,8 @@ export const AdminLogin = async (req, res) => {
         const token = jwt.sign(payload, process.env.JWT_SECRET);
         console.log('✅ [LOGIN] Token generated for:', email);
 
-        // Send the token in the response
-        res.json({ token, user: payload });
+        // Send the token and user details in the response
+        res.json({ token, user: { ...payload, branches: user.branches || [] } });
     } catch (err) {
         console.error('❌ [LOGIN] Server error:', err.message);
         res.status(500).json({ message: 'Server error', error: err.message });

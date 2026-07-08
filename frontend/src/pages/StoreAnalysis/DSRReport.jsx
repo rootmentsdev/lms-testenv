@@ -69,31 +69,102 @@ const BRANCH_LOCATION_MAPPING = {
   "g.palakkad": "19",
   "g.kalpetta": "20",
   "g.kannur": "21",
+  "dappr squad": "25",
+  "sg.edappally": "25",
+  "sg.kannur": "25",
+  "sg.thrissur": "25",
 };
 
 // Maps Dappr Squad (loc 25) bookingBy names → the target store locId they belong to
 const DAPPR_SQUAD_STORE_MAPPING = {
+  // G-Edappally (loc 3)
   "sg.edappally": "3",
+  "sg.edapally": "3",
+  "sg.edappaly": "3",
+  // G-Perumbavoor (loc 10)
   "sg.perumbavoor": "10",
+  "sg.perumbavur": "10",
+  // G-Thrissur (loc 11)
   "sg.thrissur": "11",
+  "sg.tsr": "11",
+  // G-Chavakkad (loc 12)
   "sg.chavakkad": "12",
+  "sg.chavakad": "12",
+  // G-Calicut (loc 13)
   "sg.calicut": "13",
+  "sg.kozhikode": "13",
+  // G-Vadakara (loc 14)
   "sg.vadakara": "14",
+  "sg.vadakara": "14",
+  // G-Edappal (loc 15)
+  "sg.edappal": "15",
+  // G-Perinthalmanna (loc 16)
   "sg.perinthalmanna": "16",
+  "sg.perinthalmana": "16",
+  "sg.pma": "16",
+  // G-Kottakkal (loc 17)
   "sg.kottakkal": "17",
+  "sg.kottakal": "17",
+  "sg.ktk": "17",
+  // G-Manjeri (loc 18)
   "sg.manjeri": "18",
+  "sg.manjery": "18",
+  // G-Palakkad (loc 19)
   "sg.palakkad": "19",
+  "sg.palakad": "19",
+  "sg.pkd": "19",
+  // G-Kalpetta (loc 20)
   "sg.kalpetta": "20",
+  "sg.kalpeta": "20",
+  // G-Kannur (loc 21)
   "sg.kannur": "21",
+  "sg.knr": "21",
+  // G-Trivandrum (loc 5)
   "sg.trivandrum": "5",
+  "sg.tvm": "5",
+  "sg.trivandum": "5",
+  "sg.trivandurm": "5",
+  "sg.thiruvananthapuram": "5",
+  "sg.tvpm": "5",
+  // G-Kottayam (loc 9)
   "sg.kottayam": "9",
+  "sg.ktm": "9",
+  // G-MG Road (loc 23)
+  "sg.mg road": "23",
+  "sg.mgroad": "23",
+  "sg.mg.road": "23",
+  "sg.mgrd": "23",
+  // Z-Edapally1 (loc 1)
+  "sg.edapally1": "1",
 };
 
 // Get all Dappr Squad entries from loc 25 that belong to a given store locId
 function getDapprSquadDataForStore(locId, dapprList) {
   return dapprList.filter(item => {
-    const name = String(item.bookingBy || "").trim().toLowerCase();
-    return DAPPR_SQUAD_STORE_MAPPING[name] === locId;
+    const raw = String(item.bookingBy || "").trim().toLowerCase();
+
+    // 1. Direct exact match
+    if (DAPPR_SQUAD_STORE_MAPPING[raw] === locId) return true;
+
+    // 2. Normalize: strip all non-alphanumeric, re-insert dot after "sg"
+    const alphaOnly = raw.replace(/[^a-z0-9]/g, "");
+    if (alphaOnly.startsWith("sg")) {
+      const dotted = "sg." + alphaOnly.slice(2);
+      if (DAPPR_SQUAD_STORE_MAPPING[dotted] === locId) return true;
+    }
+
+    // 3. Abbreviation expansion: map short codes to locIds directly
+    const abbrevMap = {
+      "tvm": "5", "tvpm": "5", "trivandum": "5", "trivandurm": "5",
+      "tsr": "11", "pkd": "19", "ktk": "17", "ktm": "9",
+      "knr": "21", "pma": "16", "mgroad": "23", "mgrd": "23",
+    };
+    if (alphaOnly.startsWith("sg")) {
+      const code = alphaOnly.slice(2);
+      if (abbrevMap[code] === locId) return true;
+    }
+
+    return false;
   });
 }
 
@@ -214,6 +285,14 @@ function displayBranchName(name) {
 
 function isHiddenBranch(name) {
   const normalized = norm(name);
+  // Non-sales branches: hide from all report views
+  const nonSalesBranches = ["office", "production", "warehouse"];
+  if (nonSalesBranches.includes(normalized)) return true;
+  // Any test store
+  if (normalized.startsWith("test ") || normalized.startsWith("test")) {
+    const afterTest = normalized.replace(/^test\s*/, "").trim();
+    if (afterTest.length > 0) return true;
+  }
   return (
     normalized === norm("Suitor Guy Kochi") ||
     normalized === norm("GROOMS Kochi") ||
@@ -254,6 +333,9 @@ const getYearFromDateStr = (dateStr) => {
 const DSRReport = () => {
   const user = useSelector((state) => state.auth.user);
   const isAdminOrSuperAdmin = user?.role === "super_admin" || user?.role === "admin";
+  const isStoreAdmin = user?.role === "store_admin";
+  const isClusterAdmin = user?.role === "cluster_admin";
+  const [branches, setBranches] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const targetInputRef = useRef(null);
   const [selectedStore, setSelectedStore] = useState("All");
@@ -291,12 +373,16 @@ const DSRReport = () => {
   // Custom dropdown states
   const [storeDropdownOpen, setStoreDropdownOpen] = useState(false);
   const [reportDropdownOpen, setReportDropdownOpen] = useState(false);
+  const [funnelView, setFunnelView] = useState("Rental"); // "Rental" vs "Consolidated"
+  const [funnelDropdownOpen, setFunnelDropdownOpen] = useState(false);
 
   // Assign target modal states
   const [assignTargetModalOpen, setAssignTargetModalOpen] = useState(false);
   const [modalStore, setModalStore] = useState("");
   const [modalMonth, setModalMonth] = useState(CURRENT_MONTH_LONG);
   const [modalTarget, setModalTarget] = useState("");
+  const [targetAssignMode, setTargetAssignMode] = useState("Store"); // "Store" | "Staff"
+  const [modalStaff, setModalStaff] = useState("");
   const [activeWeeks, setActiveWeeks] = useState([1]);
   const [week1Dates, setWeek1Dates] = useState(() => localStorage.getItem("week1Dates") || `01 - 10 ${CURRENT_MONTH_SHORT}`);
   const [week2Dates, setWeek2Dates] = useState(() => localStorage.getItem("week2Dates") || `11 - 17 ${CURRENT_MONTH_SHORT}`);
@@ -321,6 +407,15 @@ const DSRReport = () => {
   const [weeklyTargets, setWeeklyTargets] = useState(() => {
     try {
       const stored = localStorage.getItem("weeklyTargets");
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const [employeeTargets, setEmployeeTargets] = useState(() => {
+    try {
+      const stored = localStorage.getItem("employeeTargets");
       return stored ? JSON.parse(stored) : {};
     } catch {
       return {};
@@ -363,14 +458,13 @@ const DSRReport = () => {
         }
       }
     }
-
-    if (todayDateNum <= 10) return 1;
+      if (todayDateNum <= 10) return 1;
     if (todayDateNum <= 17) return 2;
     if (todayDateNum <= 24) return 3;
     return 4;
   };
 
-  const getCustomRangeTarget = (storeName, startDateStr, endDateStr) => {
+  const getCustomRangeTarget = (storeName, startDateStr, endDateStr, overrideTargetObj = null) => {
     if (!startDateStr || !endDateStr) return 0;
     
     const start = new Date(startDateStr);
@@ -400,22 +494,17 @@ const DSRReport = () => {
       if (val && val !== "Select Days") {
         const parts = val.split("-");
         if (parts.length === 2) {
-          const s = parseInt(parts[0].trim(), 10);
-          const ePart = parts[1].trim().split(" ")[0];
-          const e = parseInt(ePart, 10);
-          if (!isNaN(s) && !isNaN(e)) {
-            startDay = s;
-            endDay = e;
-          }
+          startDay = parseInt(parts[0].trim(), 10);
+          endDay = parseInt(parts[1].trim().split(" ")[0], 10);
         }
       }
-      if (startDay === null || endDay === null) {
-        // Fallbacks
+      
+      if (!startDay || !endDay || isNaN(startDay) || isNaN(endDay)) {
         if (weekId === 1) { startDay = 1; endDay = 10; }
         else if (weekId === 2) { startDay = 11; endDay = 17; }
         else if (weekId === 3) { startDay = 18; endDay = 24; }
-        else { 
-          const startMonthName = start.toLocaleString("en-US", { month: "long" });
+        else if (weekId === 4) { 
+          const startMonthName = CURRENT_MONTH_LONG; 
           startDay = 25; 
           endDay = getDaysCountInMonth(startMonthName); 
         }
@@ -430,7 +519,7 @@ const DSRReport = () => {
       4: parseRange(w4, 4),
     };
     
-    const storeTargetObj = weeklyTargets[storeName] || {};
+    const storeTargetObj = overrideTargetObj || weeklyTargets[storeName] || {};
     
     // Sum daily target contributions
     let totalTarget = 0;
@@ -504,6 +593,32 @@ const DSRReport = () => {
     return defaultTarget;
   };
 
+  const getStaffTarget = (storeName, staffName, activeTabVal) => {
+    const storeEmpTargets = employeeTargets[storeName] || [];
+    const empT = storeEmpTargets.find(e => e.staffName === staffName);
+    if (!empT || !empT.weeklyTargets) return null; // No explicit target
+
+    const empTargetObj = empT.weeklyTargets;
+
+    if (activeTabVal === "MTD") {
+      let sum = 0;
+      for (let wId = 1; wId <= 4; wId++) {
+        sum += (empTargetObj[wId] || 0);
+      }
+      return sum;
+    }
+
+    if (activeTabVal === "WTD") {
+      const currentWeekId = getCurrentWeekId(storeName); 
+      return empTargetObj[currentWeekId] || 0;
+    }
+
+    if (activeTabVal === "Custom") {
+      return getCustomRangeTarget(storeName, customStartDate, customEndDate, empTargetObj);
+    }
+    return 0;
+  };
+
   const handleSubmitTarget = async (store, val, month) => {
     const cleanVal = String(val || "").replace(/[^0-9.-]/g, "");
     const parsed = Number(cleanVal);
@@ -511,43 +626,79 @@ const DSRReport = () => {
     // Save targets
     if (val !== undefined && val !== null && val.trim() !== "" && !isNaN(parsed)) {
       const updatedTargets = { ...weeklyTargets };
+      const updatedEmpTargets = { ...employeeTargets };
       
-      if (store === "All") {
-        const allObj = { ...(updatedTargets["All"] || {}) };
-        activeWeeks.forEach((wk) => {
-          allObj[wk] = parsed;
-        });
-        updatedTargets["All"] = allObj;
+      if (targetAssignMode === "Staff") {
+        if (!modalStaff) {
+          alert("Please select a staff member.");
+          return;
+        }
+        const storeEmpTargets = [...(updatedEmpTargets[store] || [])];
+        const staffIndex = storeEmpTargets.findIndex(t => t.staffName === modalStaff);
+        
+        if (staffIndex >= 0) {
+          const empT = { ...storeEmpTargets[staffIndex] };
+          empT.weeklyTargets = { ...empT.weeklyTargets };
+          activeWeeks.forEach((wk) => {
+            empT.weeklyTargets[wk] = parsed;
+          });
+          storeEmpTargets[staffIndex] = empT;
+        } else {
+          const empT = {
+            staffName: modalStaff,
+            weeklyTargets: { 1: 0, 2: 0, 3: 0, 4: 0 }
+          };
+          activeWeeks.forEach((wk) => {
+            empT.weeklyTargets[wk] = parsed;
+          });
+          storeEmpTargets.push(empT);
+        }
+        
+        updatedEmpTargets[store] = storeEmpTargets;
+        setEmployeeTargets(updatedEmpTargets);
+        localStorage.setItem("employeeTargets", JSON.stringify(updatedEmpTargets));
+        
+        await saveStoreTargetToDb(store, updatedTargets, storeWeekRanges, month, CURRENT_YEAR, updatedEmpTargets);
 
-        storeOptions.filter(o => o !== "All").forEach((storeName) => {
-          const storeObj = { ...(updatedTargets[storeName] || {}) };
+      } else {
+        // Store mode
+        if (store === "All") {
+          const allObj = { ...(updatedTargets["All"] || {}) };
+          activeWeeks.forEach((wk) => {
+            allObj[wk] = parsed;
+          });
+          updatedTargets["All"] = allObj;
+
+          storeOptions.filter(o => o !== "All").forEach((storeName) => {
+            const storeObj = { ...(updatedTargets[storeName] || {}) };
+            activeWeeks.forEach((wk) => {
+              storeObj[wk] = parsed;
+            });
+            updatedTargets[storeName] = storeObj;
+          });
+        } else {
+          const storeObj = { ...(updatedTargets[store] || {}) };
           activeWeeks.forEach((wk) => {
             storeObj[wk] = parsed;
           });
-          updatedTargets[storeName] = storeObj;
-        });
-      } else {
-        const storeObj = { ...(updatedTargets[store] || {}) };
-        activeWeeks.forEach((wk) => {
-          storeObj[wk] = parsed;
-        });
-        updatedTargets[store] = storeObj;
-      }
-      
-      setWeeklyTargets(updatedTargets);
-      localStorage.setItem("weeklyTargets", JSON.stringify(updatedTargets));
+          updatedTargets[store] = storeObj;
+        }
+        
+        setWeeklyTargets(updatedTargets);
+        localStorage.setItem("weeklyTargets", JSON.stringify(updatedTargets));
 
-      // Pushing to DB asynchronously
-      if (store === "All") {
-        // Save to All first
-        await saveStoreTargetToDb("All", updatedTargets, storeWeekRanges, month, CURRENT_YEAR);
-        // Save for each store in list
-        const promises = storeOptions.filter(o => o !== "All").map((storeName) => {
-          return saveStoreTargetToDb(storeName, updatedTargets, storeWeekRanges, month, CURRENT_YEAR);
-        });
-        await Promise.all(promises);
-      } else {
-        await saveStoreTargetToDb(store, updatedTargets, storeWeekRanges, month, CURRENT_YEAR);
+        // Pushing to DB asynchronously
+        if (store === "All") {
+          // Save to All first
+          await saveStoreTargetToDb("All", updatedTargets, storeWeekRanges, month, CURRENT_YEAR, updatedEmpTargets);
+          // Save for each store in list
+          const promises = storeOptions.filter(o => o !== "All").map((storeName) => {
+            return saveStoreTargetToDb(storeName, updatedTargets, storeWeekRanges, month, CURRENT_YEAR, updatedEmpTargets);
+          });
+          await Promise.all(promises);
+        } else {
+          await saveStoreTargetToDb(store, updatedTargets, storeWeekRanges, month, CURRENT_YEAR, updatedEmpTargets);
+        }
       }
     }
 
@@ -609,12 +760,22 @@ const DSRReport = () => {
   }, [configWeek1, configWeek2, configWeek3, configWeek4, configWeeksModalOpen]);
 
   const handleSaveConfigWeeks = async () => {
-    if (!configStore) {
+    let targetStore = configStore;
+    if (isStoreAdmin && (targetStore === "All" || !targetStore)) {
+      if (branches.length > 0) {
+        targetStore = displayBranchName(branches[0].workingBranch);
+      } else {
+        alert("Please select a store (or All Stores).");
+        return;
+      }
+    }
+
+    if (!targetStore) {
       alert("Please select a store (or All Stores).");
       return;
     }
     
-    if (configStore === "All") {
+    if (targetStore === "All") {
       setWeek1Dates(configWeek1);
       setWeek2Dates(configWeek2);
       setWeek3Dates(configWeek3);
@@ -647,7 +808,7 @@ const DSRReport = () => {
       setStoreWeekRanges((prev) => {
         const updated = {
           ...prev,
-          [configStore]: {
+          [targetStore]: {
             1: configWeek1,
             2: configWeek2,
             3: configWeek3,
@@ -659,9 +820,9 @@ const DSRReport = () => {
       });
       
       // Save specific store range to DB
-      await saveStoreTargetToDb(configStore, weeklyTargets, {
+      await saveStoreTargetToDb(targetStore, weeklyTargets, {
         ...storeWeekRanges,
-        [configStore]: { 1: configWeek1, 2: configWeek2, 3: configWeek3, 4: configWeek4 }
+        [targetStore]: { 1: configWeek1, 2: configWeek2, 3: configWeek3, 4: configWeek4 }
       }, configMonth, CURRENT_YEAR);
     }
     
@@ -671,21 +832,40 @@ const DSRReport = () => {
   useEffect(() => {
     if (modalStore && activeWeeks && activeWeeks.length > 0) {
       const primaryWeek = activeWeeks[0];
-      const customVal = weeklyTargets[modalStore]?.[primaryWeek];
+      let customVal;
+      if (targetAssignMode === "Staff" && modalStaff) {
+        const empObj = (employeeTargets[modalStore] || []).find(e => e.staffName === modalStaff);
+        customVal = empObj?.weeklyTargets?.[primaryWeek];
+      } else {
+        customVal = weeklyTargets[modalStore]?.[primaryWeek];
+      }
       if (customVal !== undefined) {
         setModalTarget(customVal.toString());
       } else {
         setModalTarget("");
       }
     }
-  }, [modalStore, activeWeeks, weeklyTargets]);
+  }, [modalStore, activeWeeks, weeklyTargets, targetAssignMode, modalStaff, employeeTargets]);
 
   // Synchronize modal state dates when store or modal visibility changes
+  // Also auto-select store for store_admin on modal open
   useEffect(() => {
     if (assignTargetModalOpen) {
       setActiveWeeks([1]);
-      if (modalStore && modalStore !== "All" && storeWeekRanges[modalStore]) {
-        const sr = storeWeekRanges[modalStore];
+
+      // Auto-select store for store_admin — they only have one store
+      if (isStoreAdmin && branches.length === 1 && !modalStore) {
+        const storeName = displayBranchName(branches[0].workingBranch);
+        setModalStore(storeName);
+        setTargetAssignMode("Staff"); // store_admin always assigns to staff
+      }
+
+      const effectiveStore = (isStoreAdmin && branches.length === 1)
+        ? displayBranchName(branches[0].workingBranch)
+        : modalStore;
+
+      if (effectiveStore && effectiveStore !== "All" && storeWeekRanges[effectiveStore]) {
+        const sr = storeWeekRanges[effectiveStore];
         setModalWeek1(sr[1] || week1Dates);
         setModalWeek2(sr[2] || week2Dates);
         setModalWeek3(sr[3] || week3Dates);
@@ -697,7 +877,7 @@ const DSRReport = () => {
         setModalWeek4(week4Dates);
       }
     }
-  }, [modalStore, assignTargetModalOpen, storeWeekRanges, week1Dates, week2Dates, week3Dates, week4Dates]);
+  }, [modalStore, assignTargetModalOpen, storeWeekRanges, week1Dates, week2Dates, week3Dates, week4Dates, isStoreAdmin, branches]);
 
   const [calendarOpenForWeek, setCalendarOpenForWeek] = useState(null);
   const [weekStartDays, setWeekStartDays] = useState({ 1: 1, 2: 11, 3: null, 4: null });
@@ -786,18 +966,16 @@ const DSRReport = () => {
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${baseUrl.baseUrl}api/store-targets?month=${targetMonth}&year=${targetYear}`, {
-        method: "GET",
         headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+          "Authorization": `Bearer ${token}`
         }
       });
-      if (res.ok) {
-        const json = await res.json();
-        const data = json.data || [];
-        
+      const json = await res.json();
+      if (json.success && json.data) {
+        const data = json.data;
         const targetsMap = {};
         const rangesMap = {};
+        const empTargetsMap = {};
         const monthShort = targetMonth.substring(0, 3);
         let w1 = `01 - 10 ${monthShort}`;
         let w2 = `11 - 17 ${monthShort}`;
@@ -826,10 +1004,13 @@ const DSRReport = () => {
             3: doc.weekRanges?.[3] || "Select Days",
             4: doc.weekRanges?.[4] || "Select Days",
           };
+
+          empTargetsMap[store] = doc.employeeTargets || [];
         });
         
         setWeeklyTargets(targetsMap);
         setStoreWeekRanges(rangesMap);
+        setEmployeeTargets(empTargetsMap);
         setWeek1Dates(w1);
         setWeek2Dates(w2);
         setWeek3Dates(w3);
@@ -840,11 +1021,12 @@ const DSRReport = () => {
     }
   };
 
-  const saveStoreTargetToDb = async (storeName, updatedTargets, updatedRanges, month = CURRENT_MONTH_LONG, year = CURRENT_YEAR) => {
+  const saveStoreTargetToDb = async (storeName, updatedTargets, updatedRanges, month = CURRENT_MONTH_LONG, year = CURRENT_YEAR, updatedEmpTargets = null) => {
     try {
       const token = localStorage.getItem("token");
       const targetObj = updatedTargets[storeName] || {};
       const rangeObj = updatedRanges[storeName] || {};
+      const empTargetObj = updatedEmpTargets ? updatedEmpTargets[storeName] || [] : employeeTargets[storeName] || [];
       
       const payload = {
         storeName,
@@ -861,24 +1043,33 @@ const DSRReport = () => {
           2: targetObj[2] || 0,
           3: targetObj[3] || 0,
           4: targetObj[4] || 0
-        }
+        },
+        employeeTargets: empTargetObj
       };
       
       await fetch(`${baseUrl.baseUrl}api/store-targets`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify(payload)
       });
     } catch (err) {
-      console.error(`Error saving targets for store ${storeName} to MongoDB:`, err);
+      console.error("Error saving store target to MongoDB:", err);
     }
   };
 
-  // Dynamic branches state
-  const [branches, setBranches] = useState([]);
+  // Dynamic branches state — declared at top of component
+
+  // Auto-select the store for store_admin so they see staff view immediately
+  useEffect(() => {
+    if (isStoreAdmin && branches.length > 0) {
+      const storeName = displayBranchName(branches[0].workingBranch);
+      setSelectedStore(storeName);
+      setConfigStore(storeName);
+    }
+  }, [isStoreAdmin, branches]);
   const [loadingBranches, setLoadingBranches] = useState(true);
   const [walkins, setWalkins] = useState([]);
   const [loadingWalkins, setLoadingWalkins] = useState(false);
@@ -902,7 +1093,19 @@ const DSRReport = () => {
         if (res.ok) {
           const json = await res.json();
           const list = Array.isArray(json?.data) ? json.data : [];
-          const visible = list.filter((b) => !isHiddenBranch(b?.workingBranch));
+          let visible = list.filter((b) => !isHiddenBranch(b?.workingBranch));
+
+          // For store_admin: only show their assigned branch(es)
+          if (isStoreAdmin && user?.branches?.length > 0) {
+            const assignedIds = user.branches.map(b => String(b._id || b));
+            visible = visible.filter(b => assignedIds.includes(String(b._id)));
+          }
+          // For cluster_admin: only show branches in their cluster
+          else if (isClusterAdmin && user?.branches?.length > 0) {
+            const assignedIds = user.branches.map(b => String(b._id || b));
+            visible = visible.filter(b => assignedIds.includes(String(b._id)));
+          }
+
           setBranches(visible);
         }
       } catch (err) {
@@ -912,7 +1115,7 @@ const DSRReport = () => {
       }
     };
     fetchBranches();
-  }, []);
+  }, [isStoreAdmin, isClusterAdmin]);
 
   // Fetch targets dynamically when not editing targets in modals
   useEffect(() => {
@@ -1098,7 +1301,7 @@ const DSRReport = () => {
             ];
 
         const fetchSalesForBranchRange = async (locCode, fromDate, toDate) => {
-          if (!locCode) return { value: 0, qty: 0, bills: 0 };
+          if (!locCode) return { value: 0, qty: 0, bills: 0, shoeValue: 0, shoeQty: 0, shoeBills: 0, shirtValue: 0, shirtQty: 0, shirtBills: 0, byStaff: {} };
           try {
             const bookingsUrl = `https://backend.brynex.com/api/external/shoe-sales/bookings?fromDate=${fromDate}&toDate=${toDate}&locCode=${locCode}`;
             const returnsUrl = `https://backend.brynex.com/api/external/shoe-sales/returns?fromDate=${fromDate}&toDate=${toDate}&locCode=${locCode}`;
@@ -1115,10 +1318,120 @@ const DSRReport = () => {
             const qty = bookings.reduce((sum, b) => sum + (b.quantity || 0), 0) - returns.reduce((sum, r) => sum + Math.abs(r.quantity || 0), 0);
             const bills = bookings.length - returns.length;
 
-            return { value, qty, bills };
+            let shoeValue = 0, shoeQty = 0, shoeBills = 0;
+            let shirtValue = 0, shirtQty = 0, shirtBills = 0;
+
+            const processList = (list, sign) => {
+              list.forEach(invoice => {
+                const items = Array.isArray(invoice.items) ? invoice.items : [];
+                let isShirtInvoice = false;
+                let isShoeInvoice = false;
+
+                if (items.length > 0) {
+                  items.forEach(item => {
+                    const cat = String(item.category || "").toLowerCase();
+                    const q = (item.quantity || 0) * sign;
+                    const v = (item.amount || item.rate * item.quantity || 0) * sign;
+                    if (cat.includes("shirt")) {
+                      shirtQty += q;
+                      shirtValue += v;
+                      isShirtInvoice = true;
+                    } else {
+                      shoeQty += q;
+                      shoeValue += v;
+                      isShoeInvoice = true;
+                    }
+                  });
+                } else {
+                  const cat = String(invoice.category || "").toLowerCase();
+                  const q = (invoice.quantity || 0) * sign;
+                  const v = (invoice.value || 0) * sign;
+                  if (cat.includes("shirt")) {
+                    shirtQty += q;
+                    shirtValue += v;
+                    isShirtInvoice = true;
+                  } else {
+                    shoeQty += q;
+                    shoeValue += v;
+                    isShoeInvoice = true;
+                  }
+                }
+
+                if (isShirtInvoice) shirtBills += sign;
+                if (isShoeInvoice) shoeBills += sign;
+              });
+            };
+
+            processList(bookings, 1);
+            processList(returns, -1);
+
+            // Build per-staff breakdown using salesPerson field
+            const byStaff = {};
+            const processStaffList = (list, sign) => {
+              list.forEach(invoice => {
+                const staff = String(invoice.salesPerson || "").trim();
+                if (!staff) return;
+                if (!byStaff[staff]) byStaff[staff] = { 
+                  shoeValue: 0, shoeQty: 0, shoeBills: 0,
+                  shirtValue: 0, shirtQty: 0, shirtBills: 0,
+                  value: 0, qty: 0, bills: 0
+                };
+
+                const items = Array.isArray(invoice.items) ? invoice.items : [];
+                let isShirt = false;
+                let isShoe = false;
+
+                if (items.length > 0) {
+                  items.forEach(item => {
+                    const cat = String(item.category || "").toLowerCase();
+                    const q = (item.quantity || 0) * sign;
+                    const v = (item.amount || item.rate * item.quantity || 0) * sign;
+                    if (cat.includes("shirt")) {
+                      byStaff[staff].shirtQty += q;
+                      byStaff[staff].shirtValue += v;
+                      isShirt = true;
+                    } else {
+                      byStaff[staff].shoeQty += q;
+                      byStaff[staff].shoeValue += v;
+                      isShoe = true;
+                    }
+                  });
+                } else {
+                  const cat = String(invoice.category || "").toLowerCase();
+                  const q = (invoice.quantity || 0) * sign;
+                  const v = (invoice.value || 0) * sign;
+                  if (cat.includes("shirt")) {
+                    byStaff[staff].shirtQty += q;
+                    byStaff[staff].shirtValue += v;
+                    isShirt = true;
+                  } else {
+                    byStaff[staff].shoeQty += q;
+                    byStaff[staff].shoeValue += v;
+                    isShoe = true;
+                  }
+                }
+
+                if (isShirt) byStaff[staff].shirtBills += sign;
+                if (isShoe) byStaff[staff].shoeBills += sign;
+
+                byStaff[staff].value += (invoice.value || 0) * sign;
+                byStaff[staff].qty += (invoice.quantity || 0) * sign;
+                byStaff[staff].bills += sign;
+              });
+            };
+
+            processStaffList(bookings, 1);
+            processStaffList(returns, -1);
+
+            return { 
+              value, qty, bills, 
+              shoeValue, shoeQty, shoeBills,
+              shirtValue, shirtQty, shirtBills,
+              byStaff 
+            };
           } catch (err) {
             console.error(`Error fetching shoe sales for branch ${locCode}:`, err);
-            return { value: 0, qty: 0, bills: 0 };
+            return { value: 0, qty: 0, bills: 0, byStaff: {} };
           }
         };
 
@@ -1303,27 +1616,115 @@ const DSRReport = () => {
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
       customFactor = isNaN(diffDays) ? 1.0 : diffDays / 30.0;
     }
+    if (isStoreAdmin && branches.length === 1) {
+      const item = branches[0];
+      const name = displayBranchName(item.workingBranch);
+      const locId = getBranchLocationId(item.workingBranch);
+      const locCode = item.locCode || getBranchLocCode(item.workingBranch, branches);
+      const storeKeyVal = normalizeForMatch(item.workingBranch);
+
+      const defaultTarget = 0;
+      const storeTarget = getStoreTarget(name, defaultTarget, activeTab, customFactor);
+
+      const locPeriodList = performanceData.period[locId] || [];
+      const squadPeriodList = performanceData.period["25"] || [];
+      const dapprPeriodForStore = getDapprSquadDataForStore(locId, squadPeriodList);
+
+      const isGMGRoad = locId === "23";
+      const unmappedDapprPeriodList = isGMGRoad
+        ? squadPeriodList.filter(item => {
+            const raw = String(item.bookingBy || "").trim().toLowerCase();
+            const alphaOnly = raw.replace(/[^a-z0-9]/g, "");
+            const dotted = alphaOnly.startsWith("sg") ? "sg." + alphaOnly.slice(2) : raw;
+            return !DAPPR_SQUAD_STORE_MAPPING[raw] && !DAPPR_SQUAD_STORE_MAPPING[dotted];
+          })
+        : [];
+
+      const mergedPeriodList = [...locPeriodList, ...dapprPeriodForStore, ...unmappedDapprPeriodList];
+      const storeTotalRental = mergedPeriodList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
+
+      let storeTotalSales = 0;
+      if (funnelView === "Consolidated") {
+        const salesPeriodItem = salesData.period[locCode] || salesData.period[storeKeyVal] || { value: 0 };
+        storeTotalSales = salesPeriodItem.value || 0;
+      }
+
+      const storeTotalAchieved = storeTotalRental + storeTotalSales;
+      const salesPeriodItem = salesData.period[locCode] || salesData.period[storeKeyVal] || { byStaff: {} };
+
+      const staffNames = Array.from(new Set([
+        ...mergedPeriodList.map(x => x.bookingBy),
+        ...(funnelView === "Consolidated" ? Object.keys(salesPeriodItem.byStaff || {}) : [])
+      ])).filter(Boolean);
+
+      return staffNames.map((staffName, index) => {
+        const sl = String(index + 1).padStart(2, "0");
+        const fullName = String(staffName).trim();
+
+        const rentalVal = mergedPeriodList.filter(x => x.bookingBy === staffName).reduce((sum, x) => sum + (x.totalValue || 0), 0);
+        let salesVal = 0;
+        if (funnelView === "Consolidated") {
+          salesVal = salesPeriodItem.byStaff[staffName]?.value || 0;
+        }
+
+        const achieved = rentalVal + salesVal;
+        
+        let target = getStaffTarget(name, fullName, activeTab);
+        if (target === null) {
+          target = 0; // If no explicit target assigned, default to 0
+        }
+        
+        const balance = target - achieved;
+        const pct = target > 0 ? Math.min(Math.round((achieved / target) * 100), 100) : 0;
+
+        return { sl, name: fullName, target, achieved, balance, pct, isStaff: true };
+      }).sort((a, b) => b.achieved - a.achieved);
+    }
 
     const list = branches.map((b, index) => {
       const sl = String(index + 1).padStart(2, "0");
       const name = displayBranchName(b.workingBranch);
       const locId = getBranchLocationId(b.workingBranch);
-      
+      const storeKeyVal = locationKey(b.workingBranch);
+
+      // Skip Dappr Squad branch row (data is merged into store rows)
+      if (locId === "25") return null;
+
       const defaultTarget = 0;
       const target = getStoreTarget(name, defaultTarget, activeTab, customFactor);
-      
+
+      // Rental value (from rental API)
       const locPeriodList = performanceData.period[locId] || [];
       const dapprPeriodList = performanceData.period["25"] || [];
       const dapprPeriodForStore = getDapprSquadDataForStore(locId, dapprPeriodList);
-      const mergedPeriodList = [...locPeriodList, ...dapprPeriodForStore];
-      const achieved = mergedPeriodList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+
+      // Also absorb unmapped Dappr Squad staff into G.MG Road (locId "23")
+      const isGMGRoad = locId === "23";
+      const unmappedDapprPeriodList = isGMGRoad
+        ? dapprPeriodList.filter(item => {
+            const raw = String(item.bookingBy || "").trim().toLowerCase();
+            const alphaOnly = raw.replace(/[^a-z0-9]/g, "");
+            const dotted = alphaOnly.startsWith("sg") ? "sg." + alphaOnly.slice(2) : raw;
+            return !DAPPR_SQUAD_STORE_MAPPING[raw] && !DAPPR_SQUAD_STORE_MAPPING[dotted];
+          })
+        : [];
+
+      const mergedPeriodList = [...locPeriodList, ...dapprPeriodForStore, ...unmappedDapprPeriodList];
+      let achieved = mergedPeriodList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+
+      // Add shoe/shirt sales when in Consolidated view
+      if (funnelView === "Consolidated") {
+        const locCode = b.locCode || getBranchLocCode(b.workingBranch, branches);
+        const salesPeriodItem = salesData.period[locCode] || salesData.period[storeKeyVal] || { value: 0 };
+        achieved += salesPeriodItem.value || 0;
+      }
 
       const balance = target - achieved;
       const pct = target > 0 ? Math.min(Math.round((achieved / target) * 100), 100) : 0;
       return { sl, name, target, achieved, balance, pct };
-    });
+    }).filter(Boolean);
     return list;
-  }, [branches, weeklyTargets, activeTab, customStartDate, customEndDate, performanceData]);
+  }, [branches, weeklyTargets, activeTab, customStartDate, customEndDate, performanceData, funnelView, salesData]);
 
   // Generate dynamic Sales Funnel data based on fetched branches (with mock fallback)
   const funnelRows = useMemo(() => {
@@ -1397,7 +1798,7 @@ const DSRReport = () => {
     // Real API Data calculations (no mock fallback!)
     if (isAdminOrSuperAdmin) {
       if (selectedStore === "All") {
-        // Show store-level summary
+        // Show store-level summary (Dappr Squad branch is skipped — its data is merged into store rows)
         return branches.map((b) => {
           const storeName = displayBranchName(b.workingBranch);
           const storeKeyVal = locationKey(b.workingBranch);
@@ -1407,15 +1808,37 @@ const DSRReport = () => {
           const locPeriodList = performanceData.period[locId] || [];
 
           // Dappr Squad (loc 25) data gets merged INTO corresponding stores.
-          // When processing the Dappr Squad branch itself, use empty lists (data redistributed).
+          // The Dappr Squad branch row itself is skipped (returns null below).
           // For all other stores, merge in any matching Dappr Squad entries.
           const isDapprSquadBranch = locId === "25";
-          const dapprFtdList = isDapprSquadBranch ? [] : (performanceData.ftd["25"] || []);
-          const dapprPeriodList = isDapprSquadBranch ? [] : (performanceData.period["25"] || []);
+          if (isDapprSquadBranch) return null; // Dappr Squad row is hidden; data is merged into store rows
+
+          const dapprFtdList = performanceData.ftd["25"] || [];
+          const dapprPeriodList = performanceData.period["25"] || [];
           const dapprFtdForStore = getDapprSquadDataForStore(locId, dapprFtdList);
           const dapprPeriodForStore = getDapprSquadDataForStore(locId, dapprPeriodList);
-          const mergedFtdList = isDapprSquadBranch ? [] : [...locFtdList, ...dapprFtdForStore];
-          const mergedPeriodList = isDapprSquadBranch ? [] : [...locPeriodList, ...dapprPeriodForStore];
+
+          // For G.MG Road (locId "23"): also absorb any Dappr Squad staff not matched to any store
+          const isGMGRoad = locId === "23";
+          const unmappedDapprFtdList = isGMGRoad
+            ? dapprFtdList.filter(item => {
+                const raw = String(item.bookingBy || "").trim().toLowerCase();
+                const normalized = raw.replace(/[^a-z0-9]/g, "");
+                const dotted = normalized.startsWith("sg") ? "sg." + normalized.slice(2) : raw;
+                return !DAPPR_SQUAD_STORE_MAPPING[raw] && !DAPPR_SQUAD_STORE_MAPPING[dotted];
+              })
+            : [];
+          const unmappedDapprPeriodList = isGMGRoad
+            ? dapprPeriodList.filter(item => {
+                const raw = String(item.bookingBy || "").trim().toLowerCase();
+                const normalized = raw.replace(/[^a-z0-9]/g, "");
+                const dotted = normalized.startsWith("sg") ? "sg." + normalized.slice(2) : raw;
+                return !DAPPR_SQUAD_STORE_MAPPING[raw] && !DAPPR_SQUAD_STORE_MAPPING[dotted];
+              })
+            : [];
+
+          const mergedFtdList = [...locFtdList, ...dapprFtdForStore, ...unmappedDapprFtdList];
+          const mergedPeriodList = [...locPeriodList, ...dapprPeriodForStore, ...unmappedDapprPeriodList];
 
           // Walkin/Loss calculations
           let storePeriodStart = todayStr;
@@ -1442,12 +1865,25 @@ const DSRReport = () => {
 
           // Performance API aggregations (includes Dappr Squad data merged in)
           // Note: totalValue mapped to bill, total_Number_Of_Bill mapped to val, totalQuantity mapped to qty
-          const billFtd = mergedFtdList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
-          const billWtd = mergedPeriodList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
-          const valFtd = mergedFtdList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
-          const valWtd = mergedPeriodList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
-          const qtyFtd = mergedFtdList.reduce((sum, item) => sum + (item.totalQuantity || 0), 0);
-          const qtyWtd = mergedPeriodList.reduce((sum, item) => sum + (item.totalQuantity || 0), 0);
+          let billFtd = mergedFtdList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+          let billWtd = mergedPeriodList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+          let valFtd = mergedFtdList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
+          let valWtd = mergedPeriodList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
+          let qtyFtd = mergedFtdList.reduce((sum, item) => sum + (item.totalQuantity || 0), 0);
+          let qtyWtd = mergedPeriodList.reduce((sum, item) => sum + (item.totalQuantity || 0), 0);
+
+          if (funnelView === "Consolidated") {
+            const locCode = b.locCode || getBranchLocCode(b.workingBranch, branches);
+            const salesFtdItem = salesData.ftd[locCode] || salesData.ftd[storeKeyVal] || { value: 0, qty: 0, bills: 0 };
+            const salesPeriodItem = salesData.period[locCode] || salesData.period[storeKeyVal] || { value: 0, qty: 0, bills: 0 };
+
+            billFtd += salesFtdItem.value || 0;
+            billWtd += salesPeriodItem.value || 0;
+            valFtd += salesFtdItem.bills || 0;
+            valWtd += salesPeriodItem.bills || 0;
+            qtyFtd += salesFtdItem.qty || 0;
+            qtyWtd += salesPeriodItem.qty || 0;
+          }
 
           const createdValFtd = mergedFtdList.reduce((sum, item) => sum + (item.created_Number_Of_Bill || 0), 0);
           const createdValWtd = mergedPeriodList.reduce((sum, item) => sum + (item.created_Number_Of_Bill || 0), 0);
@@ -1477,7 +1913,7 @@ const DSRReport = () => {
             lossFtd,
             lossWtd
           });
-        });
+        }).filter(Boolean); // filter out null entries (Dappr Squad branch is skipped)
       } else {
         // Drill-down view: Show individual staff members of the selected store
         const selectedBranch = branches.find(b => displayBranchName(b.workingBranch) === selectedStore);
@@ -1491,9 +1927,19 @@ const DSRReport = () => {
         const locPeriodList = performanceData.period[locId] || [];
 
         // Unique staff names
+        const locCode = selectedBranch.locCode || getBranchLocCode(selectedBranch.workingBranch, branches);
+        const salesFtdItem = salesData.ftd[locCode] || salesData.ftd[storeKeyVal] || { byStaff: {} };
+        const salesPeriodItem = salesData.period[locCode] || salesData.period[storeKeyVal] || { byStaff: {} };
+
+        const salesStaffNames = Array.from(new Set([
+          ...Object.keys(salesFtdItem.byStaff || {}),
+          ...Object.keys(salesPeriodItem.byStaff || {})
+        ])).filter(Boolean);
+
         const staffNames = Array.from(new Set([
           ...locFtdList.map(x => x.bookingBy),
-          ...locPeriodList.map(x => x.bookingBy)
+          ...locPeriodList.map(x => x.bookingBy),
+          ...(funnelView === "Consolidated" ? salesStaffNames : [])
         ])).filter(Boolean);
 
         return staffNames.map(staffName => {
@@ -1526,12 +1972,24 @@ const DSRReport = () => {
             return d && d >= storePeriodStart && d <= storePeriodEnd;
           });
 
-          const billFtd = staffFtd.totalValue || 0;
-          const billWtd = staffPeriod.totalValue || 0;
-          const valFtd = staffFtd.total_Number_Of_Bill || 0;
-          const valWtd = staffPeriod.total_Number_Of_Bill || 0;
-          const qtyFtd = staffFtd.totalQuantity || 0;
-          const qtyWtd = staffPeriod.totalQuantity || 0;
+          let billFtd = staffFtd.totalValue || 0;
+          let billWtd = staffPeriod.totalValue || 0;
+          let valFtd = staffFtd.total_Number_Of_Bill || 0;
+          let valWtd = staffPeriod.total_Number_Of_Bill || 0;
+          let qtyFtd = staffFtd.totalQuantity || 0;
+          let qtyWtd = staffPeriod.totalQuantity || 0;
+
+          if (funnelView === "Consolidated") {
+            const staffSalesFtd = salesFtdItem.byStaff?.[staffName] || { value: 0, qty: 0, bills: 0 };
+            const staffSalesPeriod = salesPeriodItem.byStaff?.[staffName] || { value: 0, qty: 0, bills: 0 };
+
+            billFtd += staffSalesFtd.value || 0;
+            billWtd += staffSalesPeriod.value || 0;
+            valFtd += staffSalesFtd.bills || 0;
+            valWtd += staffSalesPeriod.bills || 0;
+            qtyFtd += staffSalesFtd.qty || 0;
+            qtyWtd += staffSalesPeriod.qty || 0;
+          }
 
           const createdValFtd = staffFtd.created_Number_Of_Bill || 0;
           const createdValWtd = staffPeriod.created_Number_Of_Bill || 0;
@@ -1574,14 +2032,30 @@ const DSRReport = () => {
         const locFtdList = performanceData.ftd[locId] || [];
         const locPeriodList = performanceData.period[locId] || [];
 
+        // Also include Dappr Squad (loc 25) staff belonging to this store
+        const dapprFtdForStore = getDapprSquadDataForStore(locId, performanceData.ftd["25"] || []);
+        const dapprPeriodForStore = getDapprSquadDataForStore(locId, performanceData.period["25"] || []);
+        const combinedFtdList = [...locFtdList, ...dapprFtdForStore];
+        const combinedPeriodList = [...locPeriodList, ...dapprPeriodForStore];
+
+        const locCode = b.locCode || getBranchLocCode(b.workingBranch, branches);
+        const salesFtdItem = salesData.ftd[locCode] || salesData.ftd[storeKeyVal] || { byStaff: {} };
+        const salesPeriodItem = salesData.period[locCode] || salesData.period[storeKeyVal] || { byStaff: {} };
+
+        const salesStaffNames = Array.from(new Set([
+          ...Object.keys(salesFtdItem.byStaff || {}),
+          ...Object.keys(salesPeriodItem.byStaff || {})
+        ])).filter(Boolean);
+
         const staffNames = Array.from(new Set([
-          ...locFtdList.map(x => x.bookingBy),
-          ...locPeriodList.map(x => x.bookingBy)
+          ...combinedFtdList.map(x => x.bookingBy),
+          ...combinedPeriodList.map(x => x.bookingBy),
+          ...(funnelView === "Consolidated" ? salesStaffNames : [])
         ])).filter(Boolean);
 
         staffNames.forEach(staffName => {
-          const staffFtd = locFtdList.find(x => x.bookingBy === staffName) || {};
-          const staffPeriod = locPeriodList.find(x => x.bookingBy === staffName) || {};
+          const staffFtd = combinedFtdList.find(x => x.bookingBy === staffName) || {};
+          const staffPeriod = combinedPeriodList.find(x => x.bookingBy === staffName) || {};
 
           // Walk-ins filtered by staff name
           let storePeriodStart = todayStr;
@@ -1609,12 +2083,24 @@ const DSRReport = () => {
             return d && d >= storePeriodStart && d <= storePeriodEnd;
           });
 
-          const billFtd = staffFtd.totalValue || 0;
-          const billWtd = staffPeriod.totalValue || 0;
-          const valFtd = staffFtd.total_Number_Of_Bill || 0;
-          const valWtd = staffPeriod.total_Number_Of_Bill || 0;
-          const qtyFtd = staffFtd.totalQuantity || 0;
-          const qtyWtd = staffPeriod.totalQuantity || 0;
+          let billFtd = staffFtd.totalValue || 0;
+          let billWtd = staffPeriod.totalValue || 0;
+          let valFtd = staffFtd.total_Number_Of_Bill || 0;
+          let valWtd = staffPeriod.total_Number_Of_Bill || 0;
+          let qtyFtd = staffFtd.totalQuantity || 0;
+          let qtyWtd = staffPeriod.totalQuantity || 0;
+
+          if (funnelView === "Consolidated") {
+            const staffSalesFtd = salesFtdItem.byStaff?.[staffName] || { value: 0, qty: 0, bills: 0 };
+            const staffSalesPeriod = salesPeriodItem.byStaff?.[staffName] || { value: 0, qty: 0, bills: 0 };
+
+            billFtd += staffSalesFtd.value || 0;
+            billWtd += staffSalesPeriod.value || 0;
+            valFtd += staffSalesFtd.bills || 0;
+            valWtd += staffSalesPeriod.bills || 0;
+            qtyFtd += staffSalesFtd.qty || 0;
+            qtyWtd += staffSalesPeriod.qty || 0;
+          }
 
           const createdValFtd = staffFtd.created_Number_Of_Bill || 0;
           const createdValWtd = staffPeriod.created_Number_Of_Bill || 0;
@@ -1648,19 +2134,20 @@ const DSRReport = () => {
       });
       return allRows;
     }
-  }, [branches, isAdminOrSuperAdmin, walkins, performanceData, selectedStore, activeTab, customStartDate, customEndDate]);
+  }, [branches, isAdminOrSuperAdmin, isStoreAdmin, walkins, performanceData, selectedStore, activeTab, customStartDate, customEndDate, funnelView, salesData]);
 
   // Populate dynamic store options for dropdown
   const storeOptions = useMemo(() => {
-    const names = dsrData.map((d) => d.name);
+    const names = branches.map((b) => displayBranchName(b.workingBranch));
     return ["All", ...Array.from(new Set(names))];
-  }, [dsrData]);
+  }, [branches]);
 
   // Filter functions
   const filteredData = useMemo(() => {
     return dsrData.filter((item) => {
       const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStore = selectedStore === "All" || item.name === selectedStore;
+      // If the row represents staff, don't filter it out based on selectedStore
+      const matchesStore = item.isStaff || selectedStore === "All" || item.name === selectedStore;
       return matchesSearch && matchesStore;
     });
   }, [dsrData, searchQuery, selectedStore]);
@@ -1734,7 +2221,81 @@ const DSRReport = () => {
       ? branches.map((b) => ({ name: displayBranchName(b.workingBranch), workingBranch: b.workingBranch, locCode: b.locCode }))
       : defaultStores.map(ds => ({ ...ds, locCode: getBranchLocCode(ds.workingBranch, branches) }));
 
-    return activeList.map((item, index) => {
+    // For store_admin: show staff-level rows for their single store
+    if (isStoreAdmin && activeList.length === 1) {
+      const item = activeList[0];
+      const locId = getBranchLocationId(item.workingBranch);
+      const locCode = item.locCode || getBranchLocCode(item.workingBranch, branches);
+      const storeKeyVal = normalizeForMatch(item.workingBranch);
+
+      const locFtdList = performanceData.ftd[locId] || [];
+      const locPeriodList = performanceData.period[locId] || [];
+
+      // Dappr Squad lists (loc 25) — each item has bookingBy = staff name
+      const squadFtdList = performanceData.ftd["25"] || [];
+      const squadPeriodList = performanceData.period["25"] || [];
+
+      // Sales data for the whole store (locCode level — no per-staff breakdown from brynex API)
+      const salesFtdItem = salesData.ftd[locCode] || salesData.ftd[storeKeyVal] || { value: 0, qty: 0, bills: 0 };
+      const salesPeriodItem = salesData.period[locCode] || salesData.period[storeKeyVal] || { value: 0, qty: 0, bills: 0 };
+
+      // Collect all unique staff names from rental + dappr squad
+      const rentalStaffNames = Array.from(new Set([
+        ...locFtdList.map(x => x.bookingBy),
+        ...locPeriodList.map(x => x.bookingBy)
+      ])).filter(Boolean);
+
+      const squadStaffNames = Array.from(new Set([
+        ...squadFtdList.map(x => x.bookingBy),
+        ...squadPeriodList.map(x => x.bookingBy)
+      ])).filter(Boolean);
+
+      // Sales Products API now has salesPerson — build per-staff lookup
+      const salesFtdByStaff = salesFtdItem.byStaff || {};
+      const salesPeriodByStaff = salesPeriodItem.byStaff || {};
+
+      // Collect all unique staff names from rental + dappr squad + sales
+      const salesStaffNames = Array.from(new Set([
+        ...Object.keys(salesFtdByStaff),
+        ...Object.keys(salesPeriodByStaff)
+      ])).filter(Boolean);
+
+      const allStaffNames = Array.from(new Set([...rentalStaffNames, ...squadStaffNames, ...salesStaffNames]));
+
+      // All staff rows with per-person sales data
+      return allStaffNames.map((staffName) => {
+        const staffFtd = locFtdList.find(x => x.bookingBy === staffName) || {};
+        const staffPeriod = locPeriodList.find(x => x.bookingBy === staffName) || {};
+        const squadFtd = squadFtdList.find(x => x.bookingBy === staffName) || {};
+        const squadPeriod = squadPeriodList.find(x => x.bookingBy === staffName) || {};
+        const salesFtdStaff = salesFtdByStaff[staffName] || { value: 0, qty: 0, bills: 0 };
+        const salesPeriodStaff = salesPeriodByStaff[staffName] || { value: 0, qty: 0, bills: 0 };
+        return {
+          name: staffName,
+          rentalValFtd: staffFtd.totalValue || 0,
+          rentalValWtd: staffPeriod.totalValue || 0,
+          rentalBillFtd: staffFtd.total_Number_Of_Bill || 0,
+          rentalBillWtd: staffPeriod.total_Number_Of_Bill || 0,
+          rentalQtyFtd: staffFtd.totalQuantity || 0,
+          rentalQtyWtd: staffPeriod.totalQuantity || 0,
+          squadValFtd: squadFtd.totalValue || 0,
+          squadValWtd: squadPeriod.totalValue || 0,
+          squadBillFtd: squadFtd.total_Number_Of_Bill || 0,
+          squadBillWtd: squadPeriod.total_Number_Of_Bill || 0,
+          squadQtyFtd: squadFtd.totalQuantity || 0,
+          squadQtyWtd: squadPeriod.totalQuantity || 0,
+          salesValFtd: salesFtdStaff.value || 0,
+          salesValWtd: salesPeriodStaff.value || 0,
+          salesBillFtd: salesFtdStaff.bills || 0,
+          salesBillWtd: salesPeriodStaff.bills || 0,
+          salesQtyFtd: salesFtdStaff.qty || 0,
+          salesQtyWtd: salesPeriodStaff.qty || 0,
+        };
+      });
+    }
+
+    // Admin view: one row per store
+    return activeList.map((item) => {
       const name = item.name;
       const workingBranch = item.workingBranch;
 
@@ -1758,15 +2319,21 @@ const DSRReport = () => {
       const squadFtdList = performanceData.ftd["25"] || [];
       const squadPeriodList = performanceData.period["25"] || [];
 
-      const storeFtdItem = squadFtdList.find(x => normalizeForMatch(x.bookingBy) === storeKeyVal) || {};
-      const storePeriodItem = squadPeriodList.find(x => normalizeForMatch(x.bookingBy) === storeKeyVal) || {};
+      const storeFtdItems = squadFtdList.filter(x => {
+        const raw = String(x.bookingBy || "").trim().toLowerCase();
+        return DAPPR_SQUAD_STORE_MAPPING[raw] === locId || normalizeForMatch(x.bookingBy) === storeKeyVal;
+      });
+      const storePeriodItems = squadPeriodList.filter(x => {
+        const raw = String(x.bookingBy || "").trim().toLowerCase();
+        return DAPPR_SQUAD_STORE_MAPPING[raw] === locId || normalizeForMatch(x.bookingBy) === storeKeyVal;
+      });
 
-      const squadValFtd = storeFtdItem.totalValue || 0;
-      const squadValWtd = storePeriodItem.totalValue || 0;
-      const squadBillFtd = storeFtdItem.total_Number_Of_Bill || 0;
-      const squadBillWtd = storePeriodItem.total_Number_Of_Bill || 0;
-      const squadQtyFtd = storeFtdItem.totalQuantity || 0;
-      const squadQtyWtd = storePeriodItem.totalQuantity || 0;
+      const squadValFtd = storeFtdItems.reduce((sum, x) => sum + (x.totalValue || 0), 0);
+      const squadValWtd = storePeriodItems.reduce((sum, x) => sum + (x.totalValue || 0), 0);
+      const squadBillFtd = storeFtdItems.reduce((sum, x) => sum + (x.total_Number_Of_Bill || 0), 0);
+      const squadBillWtd = storePeriodItems.reduce((sum, x) => sum + (x.total_Number_Of_Bill || 0), 0);
+      const squadQtyFtd = storeFtdItems.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
+      const squadQtyWtd = storePeriodItems.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
 
       // Sales Products (Live API)
       const salesFtdItem = salesData.ftd[locCode] || salesData.ftd[storeKeyVal] || { value: 0, qty: 0, bills: 0 };
@@ -1786,15 +2353,16 @@ const DSRReport = () => {
         salesValFtd, salesValWtd, salesBillFtd, salesBillWtd, salesQtyFtd, salesQtyWtd
       };
     });
-  }, [branches, performanceData, salesData]);
+  }, [branches, isStoreAdmin, performanceData, salesData]);
 
   const filteredCategoryRows = useMemo(() => {
     return categoryRows.filter((item) => {
       const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStore = selectedStore === "All" || item.name === selectedStore;
+      // store_admin rows are all staff for their store — no store filter needed
+      const matchesStore = isStoreAdmin || selectedStore === "All" || item.name === selectedStore;
       return matchesSearch && matchesStore;
     });
-  }, [categoryRows, searchQuery, selectedStore]);
+  }, [categoryRows, searchQuery, selectedStore, isStoreAdmin]);
 
   // Dynamic calculations for category totals row
   const totalRentalValFtd = useMemo(() => filteredCategoryRows.reduce((acc, row) => acc + row.rentalValFtd, 0), [filteredCategoryRows]);
@@ -1824,7 +2392,8 @@ const DSRReport = () => {
 
     if (selectedReport === "Revenue Vs Target") {
       fileName = `Revenue_Vs_Target_${activeTab}_${CURRENT_YEAR}.csv`;
-      const headers = ["Sl No", "Store Name", "Target (INR)", "Achieved (INR)", "Balance (INR)", "Achieved (%)"];
+      const storeColumnName = isStoreAdmin ? "Staff Name" : "Store Name";
+      const headers = ["Sl No", storeColumnName, "Target (INR)", "Achieved (INR)", "Balance (INR)", "Achieved (%)"];
       const rows = filteredData.map((row) => [
         row.sl,
         row.name,
@@ -1847,7 +2416,7 @@ const DSRReport = () => {
     } else if (selectedReport === "Sales Funnel") {
       fileName = `Sales_Funnel_${activeTab}_${CURRENT_YEAR}.csv`;
       const headers = [
-        isAdminOrSuperAdmin ? "Store Name" : "Staff Name",
+        isAdminOrSuperAdmin && !isStoreAdmin ? "Store Name" : "Staff Name",
         "Bill (FTD)", `Bill (${activeTab})`,
         "Value (FTD)", `Value (${activeTab})`,
         "Qty (FTD)", `Qty (${activeTab})`,
@@ -2025,7 +2594,7 @@ const DSRReport = () => {
             </span>
             <input 
               type="text" 
-              placeholder={selectedReport === "Sales Funnel" ? (isAdminOrSuperAdmin ? "Search by Store name" : "Search by Staff name") : "Search by Store name"}
+              placeholder={selectedReport === "Sales Funnel" ? ((isAdminOrSuperAdmin && !isStoreAdmin) ? "Search by Store name" : "Search by Staff name") : "Search by Store name"}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-[#eef1f6] border-none rounded-xl pl-10 pr-4 py-2.5 text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-black"
@@ -2033,7 +2602,8 @@ const DSRReport = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {/* Custom Store Dropdown */}
+            {/* Custom Store Dropdown — hidden for store_admin (locked to their store) */}
+            {!isStoreAdmin && (
             <div className="relative">
               <button 
                 onClick={() => setStoreDropdownOpen(!storeDropdownOpen)}
@@ -2081,6 +2651,7 @@ const DSRReport = () => {
                 ))}
               </div>
             </div>
+            )}
 
             {/* Custom Report Dropdown */}
             <div className="relative">
@@ -2130,6 +2701,57 @@ const DSRReport = () => {
                 ))}
               </div>
             </div>
+
+            {/* Custom Funnel View Dropdown — only shown when report is Sales Funnel */}
+            {selectedReport === "Sales Funnel" && (
+              <div className="relative">
+                <button 
+                  onClick={() => setFunnelDropdownOpen(!funnelDropdownOpen)}
+                  className="flex items-center gap-1.5 bg-white border border-gray-200/80 rounded-xl px-4 py-2.5 text-xs font-semibold text-gray-500 shadow-sm hover:bg-gray-50 transition-colors focus:outline-none"
+                >
+                  <span>Type :</span>
+                  <span className="text-gray-950 font-extrabold">{funnelView}</span>
+                  <svg className={`w-4 h-4 ml-1 text-gray-400 transition-transform duration-200 ${funnelDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {/* Backdrop closer when open */}
+                {funnelDropdownOpen && (
+                  <div className="fixed inset-0 z-40" onClick={() => setFunnelDropdownOpen(false)} />
+                )}
+
+                <div 
+                  className={`absolute right-0 mt-2 w-48 rounded-xl bg-white border border-gray-100 shadow-lg z-50 py-1.5 origin-top-right transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                    funnelDropdownOpen 
+                      ? "opacity-100 scale-100 translate-y-0 pointer-events-auto" 
+                      : "opacity-0 scale-95 -translate-y-2 pointer-events-none"
+                  }`}
+                >
+                  {["Rental", "Consolidated"].map((opt) => (
+                    <button
+                      key={opt}
+                      onClick={() => {
+                        setFunnelView(opt);
+                        setFunnelDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-2.5 text-xs font-bold transition-colors flex items-center justify-between ${
+                        funnelView === opt 
+                          ? "bg-gray-50 text-gray-950" 
+                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-950"
+                      }`}
+                    >
+                      {opt}
+                      {funnelView === opt && (
+                        <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Export Button */}
             <button 
@@ -2183,7 +2805,9 @@ const DSRReport = () => {
                 <thead>
                   <tr className="bg-[#2e2e2e] text-white text-[11px] font-bold tracking-wider uppercase">
                     <th className="px-6 py-3.5 text-center w-20">Sl No</th>
-                    <th className="px-6 py-3.5">Store Name</th>
+                    <th className="px-6 py-3.5">
+                      {isStoreAdmin ? "Staff Name" : "Store Name"}
+                    </th>
                     <th className="px-6 py-3.5 text-right">Target (₹)</th>
                     <th className="px-6 py-3.5 text-right">Achieved (₹)</th>
                     <th className="px-6 py-3.5 text-right">Balance (₹)</th>
@@ -2243,7 +2867,10 @@ const DSRReport = () => {
           <div className="bg-white rounded-[20px] shadow-sm border border-gray-100 overflow-hidden">
             <div className="px-6 py-5 flex justify-between items-center">
               <div className="flex items-center gap-2">
-                <h2 className="text-[17px] font-bold text-gray-900">Sales Funnel</h2>
+                <h2 className="text-[17px] font-bold text-gray-900">Sales Funnel ({funnelView})</h2>
+                {isStoreAdmin && selectedStore !== "All" && (
+                  <span className="text-xs font-semibold text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">{selectedStore}</span>
+                )}
                 {(loadingPerformance || loadingWalkins) && (
                   <span className="flex h-2.5 w-2.5 relative" title="Syncing real-time store performance data...">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -2266,7 +2893,7 @@ const DSRReport = () => {
                 <thead>
                   {/* Primary header row */}
                   <tr className="bg-[#2e2e2e] text-white text-[11px] font-bold tracking-wider uppercase border-b border-gray-600">
-                    <th rowSpan={2} className="sticky left-0 z-20 bg-[#2e2e2e] px-6 py-4 text-left border-r border-gray-600 w-60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]">{isAdminOrSuperAdmin ? "Store Name" : "Staff Name"}</th>
+                    <th rowSpan={2} className="sticky left-0 z-20 bg-[#2e2e2e] px-6 py-4 text-left border-r border-gray-600 w-60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]">{(isAdminOrSuperAdmin && !isStoreAdmin) ? "Store Name" : "Staff Name"}</th>
                     <th colSpan={2} className="px-6 py-2 border-r border-gray-600 text-center">Bill</th>
                     <th colSpan={2} className="px-6 py-2 border-r border-gray-600 text-center">Value</th>
                     <th colSpan={2} className="px-6 py-2 border-r border-gray-600 text-center">Quantity</th>
@@ -2402,6 +3029,9 @@ const DSRReport = () => {
             <div className="px-6 py-5 flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <h2 className="text-[17px] font-bold text-gray-900">Category Contribution</h2>
+                {isStoreAdmin && selectedStore !== "All" && (
+                  <span className="text-xs font-semibold text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">{selectedStore}</span>
+                )}
                 {(loadingPerformance || loadingWalkins || loadingSales) && (
                   <span className="flex h-2.5 w-2.5 relative" title="Syncing real-time category performance data...">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -2425,7 +3055,7 @@ const DSRReport = () => {
                   {/* Primary header row */}
                   <tr className="text-white text-[11px] font-bold tracking-wider uppercase">
                     <th rowSpan={3} className="sticky left-0 z-20 bg-[#2e2e2e] text-white px-6 py-4 text-left rounded-[16px] w-60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] border-none">
-                      Store Name
+                      {isStoreAdmin ? "Staff Name" : "Store Name"}
                     </th>
                     {/* Spacer column margin between pills */}
                     <th className="w-2 bg-white" rowSpan={3}></th>
@@ -2586,145 +3216,277 @@ const DSRReport = () => {
         {assignTargetModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             {/* Backdrop */}
-            <div 
-              className="fixed inset-0 bg-black/50 backdrop-blur-[4px] transition-opacity duration-300"
+            <div
+              className="fixed inset-0 bg-black/40 backdrop-blur-[6px] transition-opacity duration-300"
               onClick={() => setAssignTargetModalOpen(false)}
             />
 
             {/* Modal Container */}
-            <div className="bg-white rounded-[24px] w-full max-w-[620px] shadow-2xl relative z-10 p-6 transition-all transform scale-100 border border-gray-100/50">
-              {/* Header */}
-              <div className="flex items-center gap-3.5 mb-6">
-                <button 
-                  onClick={() => setAssignTargetModalOpen(false)}
-                  className="p-1 rounded-full hover:bg-gray-100 transition-colors"
-                >
-                  <FiArrowLeft size={20} className="text-gray-800" />
-                </button>
-                <h2 className="text-lg font-bold text-gray-900 leading-none">Assign Store Target</h2>
-              </div>
+            <div className="bg-white rounded-[28px] w-full max-w-[560px] shadow-2xl relative z-10 overflow-hidden border border-gray-100">
 
-              {/* Store Name & Month Fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
-                <div>
-                  <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Store Name*</label>
-                  <select 
-                    value={modalStore}
-                    onChange={(e) => setModalStore(e.target.value)}
-                    className="w-full bg-[#fcfcfc] border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-1 focus:ring-black hover:border-gray-300 transition-colors"
+              {/* Header bar */}
+              <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setAssignTargetModalOpen(false)}
+                    className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
                   >
-                    <option value="">Select Store</option>
-                    <option value="All">All Stores</option>
-                    {storeOptions.filter(o => o !== "All").map((store) => (
-                      <option key={store} value={store}>{store}</option>
-                    ))}
-                  </select>
+                    <FiArrowLeft size={17} className="text-gray-700" />
+                  </button>
+                  <div>
+                    <h2 className="text-[15px] font-extrabold text-gray-900 leading-tight">Assign Target</h2>
+                    <p className="text-[11px] text-gray-400 font-medium mt-0.5">
+                      {isStoreAdmin
+                        ? `Assign staff targets for ${modalStore || (branches[0] ? displayBranchName(branches[0].workingBranch) : "your store")}`
+                        : targetAssignMode === "Staff" ? "Set target for a staff member" : "Set target for a store"}
+                    </p>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Month*</label>
-                  <select 
-                    value={modalMonth}
-                    onChange={(e) => setModalMonth(e.target.value)}
-                    className="w-full bg-[#fcfcfc] border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-1 focus:ring-black hover:border-gray-300 transition-colors"
-                  >
-                    <option value="">Select Month</option>
-                    {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"].map((m) => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
-                </div>
+                {/* Mode toggle — pill style — hidden for store_admin */}
+                {!isStoreAdmin && (
+                  <div className="flex items-center gap-1 p-1 bg-gray-100 rounded-xl">
+                    <button
+                      onClick={() => setTargetAssignMode("Store")}
+                      className={`px-3.5 py-1.5 text-[11px] font-bold rounded-lg transition-all duration-150 ${
+                        targetAssignMode === "Store"
+                          ? "bg-white text-gray-900 shadow-sm"
+                          : "text-gray-400 hover:text-gray-600"
+                      }`}
+                    >
+                      Store
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (modalStore === "All") {
+                          alert("Staff targets can only be assigned to a specific store. Please select a store first.");
+                          return;
+                        }
+                        setTargetAssignMode("Staff");
+                      }}
+                      className={`px-3.5 py-1.5 text-[11px] font-bold rounded-lg transition-all duration-150 ${
+                        targetAssignMode === "Staff"
+                          ? "bg-white text-gray-900 shadow-sm"
+                          : "text-gray-400 hover:text-gray-600"
+                      }`}
+                    >
+                      Staff
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {/* Week Date Picker Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-                {[
-                  { id: 1, label: "Week 1", val: modalWeek1 },
-                  { id: 2, label: "Week 2", val: modalWeek2 },
-                  { id: 3, label: "Week 3", val: modalWeek3 },
-                  { id: 4, label: "Week 4", val: modalWeek4 }
-                ].map((w) => {
-                  const isActive = activeWeeks.includes(w.id);
-                  return (
-                    <div key={w.id} className="relative flex flex-col">
-                      <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">{w.label}</label>
-                      <div 
-                        onClick={() => {
-                          setActiveWeeks(prev => {
-                            if (prev.includes(w.id)) {
-                              if (prev.length === 1) return prev;
-                              return prev.filter(id => id !== w.id);
-                            } else {
-                              return [...prev, w.id];
-                            }
-                          });
-                        }}
-                        className={`relative flex items-center justify-between w-full bg-[#fcfcfc] border rounded-xl px-3 py-2.5 text-xs font-semibold text-gray-700 cursor-pointer transition-all duration-200 ${
-                          isActive 
-                            ? "border-black ring-1 ring-black shadow-[0_0_0_1px_black]" 
-                            : "border-gray-200 hover:border-gray-400"
-                        }`}
-                      >
-                        <span className="text-xs font-semibold text-gray-700">{w.val}</span>
+              {/* Body */}
+              <div className="px-6 py-5 space-y-5">
+
+                {/* Store + Month row */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Store</label>
+                    {isStoreAdmin ? (
+                      <div className="w-full bg-gray-100 border border-gray-200 rounded-xl px-3.5 py-2.5 text-[12px] font-semibold text-gray-500 select-none">
+                        {modalStore || (branches[0] ? displayBranchName(branches[0].workingBranch) : "—")}
                       </div>
-                    </div>
-                  );
-                })}
+                    ) : (
+                      <select
+                        value={modalStore}
+                        onChange={(e) => {
+                          setModalStore(e.target.value);
+                          if (e.target.value === "All") setTargetAssignMode("Store");
+                        }}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-[12px] font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black hover:border-gray-300 transition-colors appearance-none"
+                      >
+                        <option value="">Select store</option>
+                        {targetAssignMode === "Store" && <option value="All">All Stores</option>}
+                        {storeOptions.filter(o => o !== "All").map((store) => (
+                          <option key={store} value={store}>{store}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Month</label>
+                    <select
+                      value={modalMonth}
+                      onChange={(e) => setModalMonth(e.target.value)}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-[12px] font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black hover:border-gray-300 transition-colors appearance-none"
+                    >
+                      <option value="">Select month</option>
+                      {["January","February","March","April","May","June","July","August","September","October","November","December"].map((m) => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Staff dropdown — only in Staff mode */}
+                {targetAssignMode === "Staff" && (
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Staff Member</label>
+                    <select
+                      value={modalStaff}
+                      onChange={(e) => setModalStaff(e.target.value)}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-[12px] font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black hover:border-gray-300 transition-colors appearance-none"
+                    >
+                      <option value="">Select staff member</option>
+                      {(() => {
+                        if (!modalStore || modalStore === "All") return null;
+                        const branch = branches.find(b => displayBranchName(b.workingBranch) === modalStore);
+                        if (!branch) return null;
+                        const locId = getBranchLocationId(branch.workingBranch);
+                        const locCode = branch.locCode || getBranchLocCode(branch.workingBranch, branches);
+                        const storeKeyVal = normalizeForMatch(branch.workingBranch);
+                        const rentalNames = (performanceData.period[locId] || []).map(x => x.bookingBy);
+                        const squadNames = (performanceData.period["25"] || [])
+                          .filter(x => {
+                            const raw = String(x.bookingBy || "").trim().toLowerCase();
+                            return DAPPR_SQUAD_STORE_MAPPING[raw] === locId || normalizeForMatch(x.bookingBy) === storeKeyVal;
+                          })
+                          .map(x => x.bookingBy);
+                        const salesByStaff = (salesData.period[locCode] || salesData.period[storeKeyVal] || { byStaff: {} }).byStaff || {};
+                        const salesNames = Object.keys(salesByStaff);
+                        const uniqueNames = Array.from(new Set([...rentalNames, ...squadNames, ...salesNames])).filter(Boolean);
+                        return uniqueNames.map(name => (
+                          <option key={name} value={name}>{name}</option>
+                        ));
+                      })()}
+                    </select>
+                  </div>
+                )}
+
+                {/* Week selector */}
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Select Week(s)</label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { id: 1, label: "W1", val: modalWeek1 },
+                      { id: 2, label: "W2", val: modalWeek2 },
+                      { id: 3, label: "W3", val: modalWeek3 },
+                      { id: 4, label: "W4", val: modalWeek4 },
+                    ].map((w) => {
+                      const isActive = activeWeeks.includes(w.id);
+                      return (
+                        <button
+                          key={w.id}
+                          type="button"
+                          onClick={() => {
+                            setActiveWeeks(prev => {
+                              if (prev.includes(w.id)) {
+                                if (prev.length === 1) return prev;
+                                return prev.filter(id => id !== w.id);
+                              }
+                              return [...prev, w.id];
+                            });
+                          }}
+                          className={`relative flex flex-col items-center justify-center py-2.5 px-2 rounded-xl border transition-all duration-150 cursor-pointer ${
+                            isActive
+                              ? "bg-gray-900 border-gray-900 text-white shadow-sm"
+                              : "bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700"
+                          }`}
+                        >
+                          <span className={`text-[10px] font-black uppercase tracking-widest mb-0.5 ${isActive ? "text-white/60" : "text-gray-400"}`}>{w.label}</span>
+                          <span className={`text-[10px] font-semibold leading-tight text-center ${isActive ? "text-white" : "text-gray-600"}`}>{w.val}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Target balance summary — Staff mode only */}
+                {targetAssignMode === "Staff" && modalStore && modalStore !== "All" && activeWeeks.length > 0 && (
+                  <div className="rounded-2xl overflow-hidden border border-gray-100">
+                    {(() => {
+                      const primaryWeek = activeWeeks[0];
+                      const stTgt = weeklyTargets[modalStore]?.[primaryWeek] || 0;
+                      const allEmpTgt = (employeeTargets[modalStore] || []).reduce(
+                        (sum, emp) => sum + (emp.weeklyTargets?.[primaryWeek] || 0), 0
+                      );
+                      const balance = stTgt - allEmpTgt;
+                      const balanceIsOver = balance < 0;
+                      return (
+                        <div className="grid grid-cols-3 divide-x divide-gray-100">
+                          <div className="flex flex-col items-center py-3.5 px-4 bg-gray-50">
+                            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Store Target</span>
+                            <span className="text-[13px] font-extrabold text-gray-800">₹{formatIndianNumber(stTgt)}</span>
+                            <span className="text-[9px] text-gray-400 font-medium mt-0.5">Week {activeWeeks[0]}</span>
+                          </div>
+                          <div className="flex flex-col items-center py-3.5 px-4 bg-gray-50">
+                            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Assigned</span>
+                            <span className="text-[13px] font-extrabold text-gray-800">₹{formatIndianNumber(allEmpTgt)}</span>
+                            <span className="text-[9px] text-gray-400 font-medium mt-0.5">to staff</span>
+                          </div>
+                          <div className={`flex flex-col items-center py-3.5 px-4 ${balanceIsOver ? "bg-red-50" : "bg-emerald-50"}`}>
+                            <span className={`text-[9px] font-black uppercase tracking-widest mb-1 ${balanceIsOver ? "text-red-400" : "text-emerald-500"}`}>Balance</span>
+                            <span className={`text-[13px] font-extrabold ${balanceIsOver ? "text-red-600" : "text-emerald-600"}`}>
+                              ₹{formatIndianNumber(balance)}
+                            </span>
+                            <span className={`text-[9px] font-medium mt-0.5 ${balanceIsOver ? "text-red-400" : "text-emerald-500"}`}>
+                              {balanceIsOver ? "over-assigned" : "remaining"}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* Target input */}
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Target Amount (₹)</label>
+                  <input
+                    ref={targetInputRef}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="e.g. 500000"
+                    value={modalTarget}
+                    onChange={(e) => setModalTarget(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[13px] font-bold text-gray-900 placeholder:text-gray-300 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black hover:border-gray-300 transition-colors"
+                  />
+                </div>
               </div>
 
-              {/* Target Field */}
-              <div className="mb-6">
-                <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Target*</label>
-                <input 
-                  ref={targetInputRef}
-                  type="text" 
-                  placeholder="Enter target here..."
-                  value={modalTarget}
-                  onChange={(e) => setModalTarget(e.target.value)}
-                  className="w-full bg-[#fcfcfc] border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-1 focus:ring-black hover:border-gray-300 transition-colors"
-                />
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-2 border-t border-gray-100">
-                <button 
+              {/* Footer */}
+              <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50/60">
+                <button
                   onClick={() => {
-                    if (!modalStore) {
-                      alert("Please select a store to edit.");
-                      return;
-                    }
+                    if (!modalStore) { alert("Please select a store to edit."); return; }
+                    if (targetAssignMode === "Staff" && !modalStaff) { alert("Please select a staff member to edit."); return; }
                     const primaryWeek = activeWeeks[0];
-                    const customVal = weeklyTargets[modalStore]?.[primaryWeek];
-                    if (customVal !== undefined) {
-                      setModalTarget(customVal.toString());
+                    let customVal;
+                    if (targetAssignMode === "Staff" && modalStaff) {
+                      const empObj = (employeeTargets[modalStore] || []).find(e => e.staffName === modalStaff);
+                      customVal = empObj?.weeklyTargets?.[primaryWeek];
                     } else {
-                      setModalTarget("");
+                      customVal = weeklyTargets[modalStore]?.[primaryWeek];
                     }
-                    setTimeout(() => {
-                      targetInputRef.current?.focus();
-                    }, 50);
+                    setModalTarget(customVal !== undefined ? customVal.toString() : "");
+                    setTimeout(() => targetInputRef.current?.focus(), 50);
                   }}
-                  className="flex items-center gap-1.5 border border-gray-200 hover:bg-gray-50 rounded-xl px-5 py-2.5 text-xs font-bold text-gray-700 transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 text-[11px] font-bold text-gray-500 hover:text-gray-800 transition-colors px-1"
                 >
-                  <FiEdit3 size={14} /> Edit
+                  <FiEdit3 size={13} />
+                  Load existing value
                 </button>
-                <button 
-                  onClick={() => {
-                    if (!modalStore) {
-                      alert("Please select a store.");
-                      return;
-                    }
-                    if (!modalTarget || modalTarget.trim() === "") {
-                      alert("Please enter a target value.");
-                      return;
-                    }
-                    handleSubmitTarget(modalStore, modalTarget, modalMonth);
-                  }}
-                  className="bg-black hover:bg-black/90 text-white rounded-xl px-6 py-2.5 text-xs font-bold transition-colors cursor-pointer"
-                >
-                  Submit
-                </button>
+                <div className="flex items-center gap-2.5">
+                  <button
+                    onClick={() => setAssignTargetModalOpen(false)}
+                    className="px-5 py-2.5 text-[12px] font-bold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!modalStore) { alert("Please select a store."); return; }
+                      if (!modalTarget || modalTarget.trim() === "") { alert("Please enter a target value."); return; }
+                      handleSubmitTarget(modalStore, modalTarget, modalMonth);
+                    }}
+                    className="px-6 py-2.5 text-[12px] font-bold text-white bg-gray-900 rounded-xl hover:bg-black transition-colors shadow-sm"
+                  >
+                    Save Target
+                  </button>
+                </div>
               </div>
+
             </div>
           </div>
         )}
@@ -2755,16 +3517,22 @@ const DSRReport = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
                 <div>
                   <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Store Name*</label>
-                  <select 
-                    value={configStore}
-                    onChange={(e) => setConfigStore(e.target.value)}
-                    className="w-full bg-[#fcfcfc] border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-1 focus:ring-black hover:border-gray-300 transition-colors"
-                  >
-                    <option value="All">All Stores (Global)</option>
-                    {storeOptions.filter(o => o !== "All").map((store) => (
-                      <option key={store} value={store}>{store}</option>
-                    ))}
-                  </select>
+                  {isStoreAdmin ? (
+                    <div className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-semibold text-gray-500 select-none">
+                      {configStore && configStore !== "All" ? configStore : (branches[0] ? displayBranchName(branches[0].workingBranch) : "—")}
+                    </div>
+                  ) : (
+                    <select 
+                      value={configStore}
+                      onChange={(e) => setConfigStore(e.target.value)}
+                      className="w-full bg-[#fcfcfc] border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-1 focus:ring-black hover:border-gray-300 transition-colors"
+                    >
+                      <option value="All">All Stores (Global)</option>
+                      {storeOptions.filter(o => o !== "All").map((store) => (
+                        <option key={store} value={store}>{store}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div>
