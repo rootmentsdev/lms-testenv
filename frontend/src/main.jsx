@@ -11,6 +11,15 @@ import { registerChunkLoadRecovery } from './chunkLoadRecovery.js';
 
 registerChunkLoadRecovery();
 
+// Initialize theme dynamically to avoid flash of light theme
+if (localStorage.getItem('theme') === 'dark') {
+  document.documentElement.classList.add('dark');
+  document.documentElement.setAttribute('data-theme', 'dark');
+} else {
+  document.documentElement.classList.remove('dark');
+  document.documentElement.setAttribute('data-theme', 'light');
+}
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>

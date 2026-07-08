@@ -25,6 +25,8 @@ const taskSchema = new mongoose.Schema({
   },
   requestedExtensionDate: { type: String, default: '' },
   previousStatus: { type: String, default: '' },
+  reassignedCategory: { type: String, default: '' },
+  reassignedSubCategory: { type: String, default: '' },
   storeName: { type: String, default: '' },
   storeCode: { type: String, default: '', index: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', required: true },

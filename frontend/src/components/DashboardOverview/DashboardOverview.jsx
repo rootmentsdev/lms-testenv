@@ -6,15 +6,13 @@ import { fetchDashboardTasks, fetchHomeProgress, fetchHomeProgressChart, fetchWe
 
 const StatCard = ({ title, value, subtitle, icon, iconBg }) => (
   <div
+    className="bg-white dark:bg-[#111c2a] border border-[#f0f0f0] dark:border-slate-800 shadow-sm"
     style={{
       flex: "1 1 0",
       minWidth: "0",
       height: "100px",
       borderRadius: "12px",
       padding: "14px 18px",
-      background: "#ffffff",
-      border: "1px solid #f0f0f0",
-      boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
       display: "flex",
       flexDirection: "column",
       justifyContent: "space-between",
@@ -23,10 +21,10 @@ const StatCard = ({ title, value, subtitle, icon, iconBg }) => (
   >
     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "8px" }}>
       <span
+        className="text-gray-500 dark:text-slate-400"
         style={{
           fontSize: "12px",
           fontWeight: 500,
-          color: "#6b7280",
           lineHeight: 1.3,
           whiteSpace: "nowrap",
           overflow: "hidden",

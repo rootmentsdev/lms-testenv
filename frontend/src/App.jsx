@@ -49,6 +49,10 @@ const AutoTask = lazy(() => import('./pages/Task/AutoTask.jsx'))
 const ExistingUsers = lazy(() => import('./pages/Setting/UserManagement/ExistingUsers.jsx'))
 const CreateNewUser = lazy(() => import('./pages/Setting/UserManagement/CreateNewUser.jsx'))
 const CreateNotificationPage = lazy(() => import('./pages/Setting/CreateNotificationPage.jsx'))
+const DSRReport = lazy(() => import('./pages/StoreAnalysis/DSRReport.jsx'))
+const GrowthComparison = lazy(() => import('./pages/StoreAnalysis/GrowthComparison.jsx'))
+const GoogleReviewTask = lazy(() => import('./pages/StoreAnalysis/GoogleReviewTask.jsx'))
+const StoreInsights = lazy(() => import('./pages/StoreAnalysis/StoreInsights.jsx'))
 
 import { setUser, logout } from './features/auth/authSlice.js';
 
@@ -169,6 +173,10 @@ const preloadProtectedRoutes = () => {
     () => import('./pages/Setting/UserManagement/ExistingUsers.jsx'),
     () => import('./pages/Setting/UserManagement/CreateNewUser.jsx'),
     () => import('./pages/Setting/CreateNotificationPage.jsx'),
+    () => import('./pages/StoreAnalysis/DSRReport.jsx'),
+    () => import('./pages/StoreAnalysis/GrowthComparison.jsx'),
+    () => import('./pages/StoreAnalysis/GoogleReviewTask.jsx'),
+    () => import('./pages/StoreAnalysis/StoreInsights.jsx'),
   ];
 
   const run = () => {
@@ -230,6 +238,7 @@ function App() {
               userId: request.user.userId,
               role: request.user.role,
               username: request.user.username,
+              branches: request.user.branches || [],
             }));
           } else {
             console.error('No user data in token verification response');
@@ -249,6 +258,71 @@ function App() {
 
     preloadProtectedRoutes();
   }, [dispatch, navigate]);
+
+  // C + S and C + W keyboard shortcut listener to open Store Insights / Add Walkin
+  useEffect(() => {
+    const pressedKeys = new Set();
+    let lastKey = "";
+    let lastKeyTime = 0;
+
+    const handleKeyDown = (e) => {
+      const activeEl = document.activeElement;
+      if (activeEl && (
+        activeEl.tagName === "INPUT" ||
+        activeEl.tagName === "TEXTAREA" ||
+        activeEl.isContentEditable
+      )) {
+        return;
+      }
+
+      const key = (e.key || "").toLowerCase();
+      if (!key) return;
+      pressedKeys.add(key);
+
+      const isCAndS = pressedKeys.has("c") && pressedKeys.has("s");
+      const isCAndW = pressedKeys.has("c") && pressedKeys.has("w");
+
+      const now = Date.now();
+      const isSeqCAndS = (lastKey === "c" && key === "s" && (now - lastKeyTime < 500));
+      const isSeqCAndW = (lastKey === "c" && key === "w" && (now - lastKeyTime < 500));
+
+      if (isCAndS || isSeqCAndS) {
+        navigate("/store-insights");
+        pressedKeys.clear();
+        lastKey = "";
+      } else if (isCAndW || isSeqCAndW) {
+        // Prevent default browser behavior if needed
+        e.preventDefault();
+        navigate("/walkin/list", { state: { openAdd: true } });
+        pressedKeys.clear();
+        lastKey = "";
+      } else {
+        lastKey = key;
+        lastKeyTime = now;
+      }
+    };
+
+    const handleKeyUp = (e) => {
+      if (e.key) {
+        pressedKeys.delete(e.key.toLowerCase());
+      }
+    };
+
+    const handleBlur = () => {
+      pressedKeys.clear();
+      lastKey = "";
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", handleBlur);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, [navigate]);
 
   return (
     <>
@@ -327,6 +401,10 @@ function App() {
             <Route path="/task" element={<ProtectedLayout><TaskManagement /></ProtectedLayout>} />
             <Route path="/task/create" element={<ProtectedLayout hideForRoles={['telecaller']}><CreateTask /></ProtectedLayout>} />
             <Route path="/task/auto-schedule" element={<ProtectedLayout hideForRoles={['telecaller']}><AutoTask /></ProtectedLayout>} />
+            <Route path="/store-analysis/dsr-report" element={<ProtectedLayout hideForRoles={['telecaller']}><DSRReport /></ProtectedLayout>} />
+            <Route path="/store-analysis/growth-comparison" element={<ProtectedLayout hideForRoles={['telecaller']}><GrowthComparison /></ProtectedLayout>} />
+            <Route path="/store-analysis/google-review-task" element={<ProtectedLayout hideForRoles={['telecaller']}><GoogleReviewTask /></ProtectedLayout>} />
+            <Route path="/store-insights" element={<ProtectedLayout hideForRoles={['telecaller']}><StoreInsights /></ProtectedLayout>} />
 
           </Routes>
         </Suspense>

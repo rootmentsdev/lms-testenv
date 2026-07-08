@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
+import { useLocation, useNavigate } from 'react-router-dom';
 import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
 import baseUrl from "../../api/api";
@@ -299,6 +300,17 @@ const WalkinList = () => {
     // Toggle state between Walkin List View and dynamic Add Walkin Form Page View matching screenshot
     const [showAddView, setShowAddView] = useState(false);
     const [showStatusModal, setShowStatusModal] = useState(false);
+
+    const location = useLocation();
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        if (location.state?.openAdd) {
+            setShowAddView(true);
+            // Clear location state to avoid opening on page reload
+            navigate(location.pathname, { replace: true, state: {} });
+        }
+    }, [location, navigate]);
     const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [selectedHistoryWalkin, setSelectedHistoryWalkin] = useState(null);
 

@@ -13,6 +13,7 @@ const authSlice = createSlice({
                 userId: action.payload.userId,
                 role: action.payload.role,
                 username: action.payload.username,
+                branches: action.payload.branches || [],
             };
             state.isAuthenticated = true;
         },

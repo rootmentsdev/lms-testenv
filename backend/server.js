@@ -685,6 +685,9 @@ app.use('/api/task', TaskRouter)
 app.use('/api/auto-task', AutoTaskRouter)
 app.use('/api/task-category', CategoryRouter)
 
+import StoreTargetRouter from './routes/StoreTargetRoute.js';
+app.use('/api/store-targets', StoreTargetRouter)
+
 // User Login Tracking Routes
 import UserLoginRouter from './routes/UserLoginRoute.js';
 app.use('/api/user-login', UserLoginRouter)
