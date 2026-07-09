@@ -145,6 +145,90 @@ const fmtDate = (val) => {
   } catch { return '-'; }
 };
 
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+const parseYMD = (dateStr) => {
+    const parts = String(dateStr).split('-');
+    return {
+        year:  parseInt(parts[0], 10),
+        month: parseInt(parts[1], 10),
+        day:   parseInt(parts[2], 10)
+    };
+};
+const getISTDayRange = (dateStr) => {
+    const { year, month, day } = parseYMD(dateStr);
+    const startUTC       = new Date(Date.UTC(year, month - 1, day,     0, 0, 0, 0) - IST_OFFSET_MS);
+    const nextDayStartUTC = new Date(Date.UTC(year, month - 1, day + 1, 0, 0, 0, 0) - IST_OFFSET_MS);
+    return { startUTC, nextDayStartUTC };
+};
+
+const getCombinedStatus = (rental, shoe) => {
+  const r = (rental || 'New Walkin').trim();
+  const s = (shoe || '').trim();
+  if (!s || s === '-' || s === 'None') return r;
+  if (r === 'New Walkin' || r === '-') return s;
+  return `${r}, ${s}`;
+};
+
+const getCombinedStateAt = (w, endDateStr) => {
+  if (!endDateStr) {
+    return {
+      status: w.status,
+      rentalStatus: w.rentalStatus || 'New Walkin',
+      shoeStatus: w.shoeStatus || '-',
+      date: w.updatedAt || w.date
+    };
+  }
+
+  const { nextDayStartUTC } = getISTDayRange(endDateStr);
+  const cutoff = nextDayStartUTC.getTime();
+
+  // Filter history up to cutoff
+  const history = (w.statusHistory || []).filter(h => new Date(h.date).getTime() < cutoff);
+
+  // If no history exists before cutoff, but walkin was created after cutoff:
+  const createdTime = new Date(w.createdAt).getTime();
+  if (createdTime >= cutoff) {
+    return null; // did not exist yet
+  }
+
+  let rentalStatus = 'New Walkin';
+  let shoeStatus = '-';
+  let latestDate = w.createdAt;
+
+  // Sort history ascending by date
+  const sorted = [...history].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  const rentalStatuses = ['New Walkin', 'Booked', 'Rentout', 'Return', 'Cancelled', 'Cancel'];
+  const shoeStatuses = ['Billed', 'Bill Returned'];
+
+  sorted.forEach(h => {
+    const s = String(h.status || '').trim();
+    const isRental = rentalStatuses.includes(s) || (h.category && h.category !== 'Sales');
+    if (isRental) {
+      rentalStatus = s;
+    } else {
+      shoeStatus = s;
+    }
+    latestDate = h.date;
+  });
+
+  if (history.length === 0) {
+    return {
+      status: w.status,
+      rentalStatus: w.rentalStatus || 'New Walkin',
+      shoeStatus: w.shoeStatus || '-',
+      date: w.createdAt
+    };
+  }
+
+  return {
+    status: getCombinedStatus(rentalStatus, shoeStatus),
+    rentalStatus,
+    shoeStatus,
+    date: latestDate
+  };
+};
+
 /* ── Export to CSV ───────────────────────────────────────────────────────── */
 const exportCSV = (data) => {
   const headers = [
@@ -177,13 +261,14 @@ const exportCSV = (data) => {
 
 
   const rows = data.map((w, i) => {
+    const itemState = getCombinedStateAt(w, formData.endDate) || w;
     const productType = w.lossProductType || '-';
     const notesText = w.notes || '-';
 
     let displayLossReason = '-';
     let displaySubCategory = '-';
 
-    if (w.status === 'Loss' || w.status === 'Revisit Loss') {
+    if (itemState.status === 'Loss' || itemState.status === 'Revisit Loss') {
       const isSales = (w.lossProductType || '').toLowerCase().trim() === 'sales';
 
       if (w.lossReason && w.lossReason !== '-' && w.lossReason !== '') {
@@ -207,8 +292,7 @@ const exportCSV = (data) => {
       displaySubCategory = w.subCategory || '-';
     }
 
-    // Use the updatedAt date formatted for the walkin date column in CSV
-    const walkinDate = w.updatedAt ? fmtDate(w.updatedAt) : (w.date ? (w.date.includes('T') ? fmtDate(w.date) : w.date.split(' ')[0]) : '-');
+    const walkinDate = itemState.date ? fmtDate(itemState.date) : '-';
     const functionDate = w.functionDate ? fmtDate(w.functionDate) : '-';
 
     return [
@@ -217,7 +301,7 @@ const exportCSV = (data) => {
       w.customerName || '-',
       w.contact ? `+91 ${w.contact}` : '-',
       w.repeatCount || 1,
-      w.status || '-',
+      itemState.status || '-',
       functionDate,
       w.functionType || '-',
       w.category || '-',
@@ -586,22 +670,11 @@ const WalkinReport = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      let updatedStartDate = '';
-      let updatedEndDate = '';
-      // Build ISO strings with explicit IST offset (+05:30) so the backend receives
-      // the correct UTC values regardless of the browser's local timezone.
-      if (formData.startDate) {
-        updatedStartDate = `${formData.startDate}T00:00:00+05:30`;
-      }
-      if (formData.endDate) {
-        updatedEndDate = `${formData.endDate}T23:59:59.999+05:30`;
-      }
-
       const params = new URLSearchParams({
         sortBy: 'updatedAt'
       });
-      if (updatedStartDate) params.append('updatedStartDate', updatedStartDate);
-      if (updatedEndDate) params.append('updatedEndDate', updatedEndDate);
+      if (formData.startDate) params.append('activityStartDate', formData.startDate);
+      if (formData.endDate) params.append('activityEndDate', formData.endDate);
 
       const res  = await fetch(`${baseUrl.baseUrl}api/walkin/list?${params.toString()}`, { headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` } });
       const json = await res.json();
@@ -619,58 +692,6 @@ const WalkinReport = () => {
           data = data.filter(w => selectedEmployees.includes(w.staff));
         }
         
-        // Helper to format date to IST YYYY-MM-DD
-        const toDateStrIST = (dateVal) => {
-          if (!dateVal) return null;
-          const d = new Date(dateVal);
-          if (isNaN(d.getTime())) return null;
-          const istDate = new Date(d.getTime() + (5.5 * 60 * 60 * 1000));
-          const y = istDate.getUTCFullYear();
-          const m = String(istDate.getUTCMonth() + 1).padStart(2, '0');
-          const dayStr = String(istDate.getUTCDate()).padStart(2, '0');
-          return `${y}-${m}-${dayStr}`;
-        };
-
-        const isDateInFilterRange = (dateVal) => {
-          const dStr = toDateStrIST(dateVal);
-          if (!dStr) return false;
-          return dStr >= formData.startDate && dStr <= formData.endDate;
-        };
-
-        // Filter by status(es) and match transaction dates if applicable
-        const matchStatusAndDate = (w, targetStatus) => {
-          if (!w.status) return false;
-          const wStatus = String(w.status).trim().toLowerCase();
-          const target = targetStatus.trim().toLowerCase();
-          
-          let isStatusMatch = false;
-          if (target === 'cancelled' || target === 'cancel') {
-            isStatusMatch = wStatus.includes('cancel') || wStatus.includes('cancelled') || 
-                            String(w.rentalStatus).toLowerCase().includes('cancel') || 
-                            String(w.shoeStatus).toLowerCase().includes('cancel');
-          } else {
-            const parts = wStatus.split(',').map(p => p.trim());
-            isStatusMatch = parts.includes(target) || 
-                            String(w.rentalStatus).trim().toLowerCase() === target || 
-                            String(w.shoeStatus).trim().toLowerCase() === target;
-          }
-
-          if (!isStatusMatch) return false;
-
-          // Apply status-specific transaction date filter
-          if (target === 'booked') {
-            return isDateInFilterRange(w.bookingDate);
-          } else if (target === 'rentout' || target === 'rent out') {
-            return isDateInFilterRange(w.rentoutDate);
-          } else if (target === 'return') {
-            return isDateInFilterRange(w.returnDate);
-          } else if (target === 'cancelled' || target === 'cancel') {
-            return isDateInFilterRange(w.cancelDate || w.cancellationDate);
-          }
-
-          return true;
-        };
-
         if (Array.isArray(selectedStatuses) && selectedStatuses.length > 0) {
           data = data.filter(w => selectedStatuses.some(status => matchStatusAndDate(w, status)));
         }
@@ -704,35 +725,27 @@ const WalkinReport = () => {
   };
 
   const matchStatusAndDate = (w, targetStatus) => {
-    if (!w.status) return false;
-    const wStatus = String(w.status).trim().toLowerCase();
     const target = targetStatus.trim().toLowerCase();
+    
+    // Reconstruct state at the end of the queried date range (formData.endDate)
+    const state = getCombinedStateAt(w, formData.endDate);
+    if (!state) return false;
+
+    const wStatus = String(state.status).trim().toLowerCase();
     
     let isStatusMatch = false;
     if (target === 'cancelled' || target === 'cancel') {
       isStatusMatch = wStatus.includes('cancel') || wStatus.includes('cancelled') || 
-                      String(w.rentalStatus).toLowerCase().includes('cancel') || 
-                      String(w.shoeStatus).toLowerCase().includes('cancel');
+                      String(state.rentalStatus).toLowerCase().includes('cancel') || 
+                      String(state.shoeStatus).toLowerCase().includes('cancel');
     } else {
       const parts = wStatus.split(',').map(p => p.trim());
       isStatusMatch = parts.includes(target) || 
-                      String(w.rentalStatus).trim().toLowerCase() === target || 
-                      String(w.shoeStatus).trim().toLowerCase() === target;
+                      String(state.rentalStatus).trim().toLowerCase() === target || 
+                      String(state.shoeStatus).trim().toLowerCase() === target;
     }
 
-    if (!isStatusMatch) return false;
-
-    if (target === 'booked') {
-      return isDateInFilterRange(w.bookingDate);
-    } else if (target === 'rentout' || target === 'rent out') {
-      return isDateInFilterRange(w.rentoutDate);
-    } else if (target === 'return') {
-      return isDateInFilterRange(w.returnDate);
-    } else if (target === 'cancelled' || target === 'cancel') {
-      return isDateInFilterRange(w.cancelDate || w.cancellationDate);
-    }
-
-    return true;
+    return isStatusMatch;
   };
 
   /* table-level filter */
@@ -921,7 +934,8 @@ const WalkinReport = () => {
                   </thead>
                   <tbody>
                     {currentItems.map((w,i)=>{
-                      const sc = getStatusColors(w.status);
+                      const itemState = getCombinedStateAt(w, formData.endDate) || w;
+                      const sc = getStatusColors(itemState.status);
                       
                       const productType = w.lossProductType || '–';
                       const notesText = w.notes || '–';
@@ -929,7 +943,7 @@ const WalkinReport = () => {
                       let displayLossReason = '–';
                       let displaySubCategory = '–';
 
-                      if (w.status === 'Loss' || w.status === 'Revisit Loss') {
+                      if (itemState.status === 'Loss' || itemState.status === 'Revisit Loss') {
                           const isSales = (w.lossProductType || '').toLowerCase().trim() === 'sales';
                           
                           if (w.lossReason && w.lossReason !== '-' && w.lossReason !== '') {
@@ -961,7 +975,7 @@ const WalkinReport = () => {
                           <td style={{ padding: '11px 12px', textAlign: 'center', color: '#9ca3af', boxSizing: 'border-box' }}>{indexFirst+i+1}</td>
                           <td style={{textAlign: 'center',  padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
                                 <div className="walkin-marquee-container">
-                                    <span className="walkin-marquee-text walkin-anim-scroll">{w.updatedAt ? fmtDate(w.updatedAt) : (w.date ? w.date.split(' ')[0] : '–')}</span>
+                                    <span className="walkin-marquee-text walkin-anim-scroll">{itemState.date ? fmtDate(itemState.date) : '–'}</span>
                                 </div>
                               </td>
                           <td style={{textAlign: 'center',  padding: '11px 12px', color: '#111827', fontWeight: 500, boxSizing: 'border-box' }}>
@@ -996,7 +1010,7 @@ const WalkinReport = () => {
                                   textAlign: 'center'
                                 }}
                               >
-                                {w.status?.toUpperCase()}
+                                {itemState.status?.toUpperCase()}
                               </span>
                             </div>
                           </td>

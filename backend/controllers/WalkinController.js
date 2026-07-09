@@ -755,7 +755,7 @@ export const saveWalkin = async (req, res) => {
  */
 export const getWalkins = async (req, res) => {
     try {
-        const { startDate, endDate, updatedStartDate, updatedEndDate, createdAtStartDate, createdAtEndDate, storeId, employeeId, page, limit, search = '', status = '', store = '', dashboard = '', countOnly = '', chartOnly = '', sortBy } = req.query;
+        const { startDate, endDate, updatedStartDate, updatedEndDate, createdAtStartDate, createdAtEndDate, activityStartDate, activityEndDate, storeId, employeeId, page, limit, search = '', status = '', store = '', dashboard = '', countOnly = '', chartOnly = '', sortBy } = req.query;
         const adminId = req.admin.userId;
 
         const pageNum = parseInt(page, 10) || 1;
@@ -800,6 +800,29 @@ export const getWalkins = async (req, res) => {
             if (createdAtEndDate) {
                 baseQuery.createdAt.$lte = new Date(createdAtEndDate);
             }
+        }
+
+        // Activity Date Range Filter (any activity date in IST calendar range)
+        if (activityStartDate && activityEndDate) {
+            const { startUTC, nextDayStartUTC } = getISTRangeBetween(activityStartDate, activityEndDate);
+            const activityQuery = {
+                $or: [
+                    { createdAt:            { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { updatedAt:            { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { bookingDate:          { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { rentoutDate:          { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { returnDate:           { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { cancelDate:           { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { billedDate:           { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { billReturnedDate:     { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { lastStatusChangeDate: { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { 'statusHistory.date': { $gte: startUTC, $lt: nextDayStartUTC } }
+                ]
+            };
+            if (!baseQuery.$and) {
+                baseQuery.$and = [];
+            }
+            baseQuery.$and.push(activityQuery);
         }
 
         if (status && status !== 'All') {
