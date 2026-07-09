@@ -651,33 +651,33 @@ const GrowthComparison = () => {
             <table className="w-full text-center border-collapse">
               <thead>
                 {/* Primary header row */}
-                <tr className="bg-[#2e2e2e] text-white text-[11px] font-bold tracking-wider uppercase border-b border-gray-600">
-                  <th rowSpan={2} className="sticky left-0 z-20 bg-[#2e2e2e] px-6 py-4 text-left border-r border-gray-600 w-60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]">Store Name</th>
-                  <th colSpan={3} className="px-6 py-2 border-r border-gray-600 text-center">Value</th>
-                  <th colSpan={3} className="px-6 py-2 border-r border-gray-600 text-center">Bill</th>
-                  <th colSpan={3} className="px-6 py-2 border-r border-gray-600 text-center">Quantity</th>
+                <tr className="bg-[#18181b] text-white text-[11px] font-bold tracking-wider uppercase border-b border-zinc-700">
+                  <th rowSpan={2} className="sticky left-0 z-20 bg-[#18181b] px-6 py-4 text-left border-r border-zinc-700 w-60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]">Store Name</th>
+                  <th colSpan={3} className="px-6 py-2 border-r border-zinc-700 text-center">Value</th>
+                  <th colSpan={3} className="px-6 py-2 border-r border-zinc-700 text-center">Bill</th>
+                  <th colSpan={3} className="px-6 py-2 border-r border-zinc-700 text-center">Quantity</th>
                   <th colSpan={3} className="px-6 py-2 text-center">Walk In</th>
                 </tr>
                 {/* Secondary header row */}
-                <tr className="bg-[#2e2e2e] text-white text-[10px] font-bold tracking-wider uppercase">
+                <tr className="bg-[#18181b] text-zinc-300 text-[10px] font-bold tracking-wider uppercase">
                   {/* Value */}
-                  <th className="px-4 py-2 border-r border-gray-600">{activeTab === "MTD" ? "TY MTD" : "TY WTD"}</th>
-                  <th className="px-4 py-2 border-r border-gray-600">{activeTab === "MTD" ? "LY MTD" : "LY WTD"}</th>
-                  <th className="px-4 py-2 border-r border-gray-600">L2L</th>
+                  <th className="px-4 py-2 border-r border-zinc-700">{activeTab === "MTD" ? "TY MTD" : "TY WTD"}</th>
+                  <th className="px-4 py-2 border-r border-zinc-700">{activeTab === "MTD" ? "LY MTD" : "LY WTD"}</th>
+                  <th className="px-4 py-2 border-r border-zinc-700">L2L</th>
                   
                   {/* Bill */}
-                  <th className="px-4 py-2 border-r border-gray-600">{activeTab === "MTD" ? "TY MTD" : "TY WTD"}</th>
-                  <th className="px-4 py-2 border-r border-gray-600">{activeTab === "MTD" ? "LY MTD" : "LY WTD"}</th>
-                  <th className="px-4 py-2 border-r border-gray-600">L2L</th>
+                  <th className="px-4 py-2 border-r border-zinc-700">{activeTab === "MTD" ? "TY MTD" : "TY WTD"}</th>
+                  <th className="px-4 py-2 border-r border-zinc-700">{activeTab === "MTD" ? "LY MTD" : "LY WTD"}</th>
+                  <th className="px-4 py-2 border-r border-zinc-700">L2L</th>
                   
                   {/* Quantity */}
-                  <th className="px-4 py-2 border-r border-gray-600">{activeTab === "MTD" ? "TY MTD" : "TY WTD"}</th>
-                  <th className="px-4 py-2 border-r border-gray-600">{activeTab === "MTD" ? "LY MTD" : "LY WTD"}</th>
-                  <th className="px-4 py-2 border-r border-gray-600">L2L</th>
+                  <th className="px-4 py-2 border-r border-zinc-700">{activeTab === "MTD" ? "TY MTD" : "TY WTD"}</th>
+                  <th className="px-4 py-2 border-r border-zinc-700">{activeTab === "MTD" ? "LY MTD" : "LY WTD"}</th>
+                  <th className="px-4 py-2 border-r border-zinc-700">L2L</th>
 
                   {/* Walk In */}
-                  <th className="px-4 py-2 border-r border-gray-600">{activeTab === "MTD" ? "TY MTD" : "TY WTD"}</th>
-                  <th className="px-4 py-2 border-r border-gray-600">{activeTab === "MTD" ? "LY MTD" : "LY WTD"}</th>
+                  <th className="px-4 py-2 border-r border-zinc-700">{activeTab === "MTD" ? "TY MTD" : "TY WTD"}</th>
+                  <th className="px-4 py-2 border-r border-zinc-700">{activeTab === "MTD" ? "LY MTD" : "LY WTD"}</th>
                   <th className="px-4 py-2">L2L</th>
                 </tr>
               </thead>
@@ -688,72 +688,120 @@ const GrowthComparison = () => {
                   const calculatedL2lQty = row.tyQty - row.lyQty;
                   const calculatedL2lWalk = row.tyWalk - row.lyWalk;
 
-                  const valL2lPctVal = row.lyVal > 0 ? ((calculatedL2lVal / row.lyVal) * 100).toFixed(1) : "0.0";
-                  const valL2lPctText = calculatedL2lVal >= 0 ? `+${valL2lPctVal}%` : `${valL2lPctVal}%`;
+                  const valL2lPctVal = row.lyVal > 0 ? ((row.tyVal / row.lyVal) * 100).toFixed(0) : "0";
+                  const valL2lPctText = `${valL2lPctVal}%`;
 
-                  const billL2lPctVal = row.lyBill > 0 ? ((calculatedL2lBill / row.lyBill) * 100).toFixed(1) : "0.0";
-                  const billL2lPctText = calculatedL2lBill >= 0 ? `+${billL2lPctVal}%` : `${billL2lPctVal}%`;
+                  const billL2lPctVal = row.lyBill > 0 ? ((row.tyBill / row.lyBill) * 100).toFixed(0) : "0";
+                  const billL2lPctText = `${billL2lPctVal}%`;
 
-                  const qtyL2lPctVal = row.lyQty > 0 ? ((calculatedL2lQty / row.lyQty) * 100).toFixed(1) : "0.0";
-                  const qtyL2lPctText = calculatedL2lQty >= 0 ? `+${qtyL2lPctVal}%` : `${qtyL2lPctVal}%`;
+                  const qtyL2lPctVal = row.lyQty > 0 ? ((row.tyQty / row.lyQty) * 100).toFixed(0) : "0";
+                  const qtyL2lPctText = `${qtyL2lPctVal}%`;
 
-                  const walkL2lPctVal = row.lyWalk > 0 ? ((calculatedL2lWalk / row.lyWalk) * 100).toFixed(1) : "0.0";
-                  const walkL2lPctText = calculatedL2lWalk >= 0 ? `+${walkL2lPctVal}%` : `${walkL2lPctVal}%`;
+                  const walkL2lPctVal = row.lyWalk > 0 ? ((row.tyWalk / row.lyWalk) * 100).toFixed(0) : "0";
+                  const walkL2lPctText = `${walkL2lPctVal}%`;
 
-                  const valL2lColor = calculatedL2lVal >= 0 ? "text-[#00A36C] font-semibold" : "text-[#e05a47] font-semibold";
-                  const billL2lColor = calculatedL2lBill >= 0 ? "text-[#00A36C] font-semibold" : "text-[#e05a47] font-semibold";
-                  const qtyL2lColor = calculatedL2lQty >= 0 ? "text-[#00A36C] font-semibold" : "text-[#e05a47] font-semibold";
-                  const walkL2lColor = calculatedL2lWalk >= 0 ? "text-[#00A36C] font-semibold" : "text-[#e05a47] font-semibold";
+                  const valL2lColor = calculatedL2lVal >= 0 ? "text-[#00A36C]" : "text-[#e05a47]";
+                  const billL2lColor = calculatedL2lBill >= 0 ? "text-[#00A36C]" : "text-[#e05a47]";
+                  const qtyL2lColor = calculatedL2lQty >= 0 ? "text-[#00A36C]" : "text-[#e05a47]";
+                  const walkL2lColor = calculatedL2lWalk >= 0 ? "text-[#00A36C]" : "text-[#e05a47]";
 
                   return (
                     <tr key={idx} className="odd:bg-white even:bg-[#f9fafb] hover:bg-gray-50/50 transition-colors">
-                      <td className={`sticky left-0 z-10 px-6 py-3.5 text-left font-bold text-gray-800 border-r border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)] ${idx % 2 === 0 ? "bg-white" : "bg-[#f9fafb]"}`}>{row.name}</td>
+                      <td className={`sticky left-0 z-10 px-6 py-4 text-left font-bold text-gray-800 border-r border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)] ${idx % 2 === 0 ? "bg-white" : "bg-[#f9fafb]"}`}>{row.name}</td>
                       
-                      <td className="px-4 py-3.5 font-medium border-r border-gray-100">{renderCellVal(formatIndianNumber(row.tyVal))}</td>
-                      <td className="px-4 py-3.5 font-medium border-r border-gray-100 text-gray-500">{renderCellVal(formatIndianNumber(row.lyVal))}</td>
-                      <td className={`px-4 py-3.5 border-r border-gray-100 ${valL2lColor}`}>{renderCellVal(formatIndianNumber(calculatedL2lVal))} ({renderCellVal(valL2lPctText)})</td>
+                      <td className="px-4 py-4 font-medium border-r border-gray-100">{renderCellVal(formatIndianNumber(row.tyVal))}</td>
+                      <td className="px-4 py-4 font-medium border-r border-gray-100 text-gray-500">{renderCellVal(formatIndianNumber(row.lyVal))}</td>
+                      <td className="px-4 py-4 border-r border-gray-100">
+                        <div className="flex flex-col items-center justify-center gap-0.5">
+                          <span className="font-semibold text-gray-900">{valL2lPctText}</span>
+                          <span className={`text-[11px] font-semibold ${valL2lColor}`}>
+                            {calculatedL2lVal >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(calculatedL2lVal))}
+                          </span>
+                        </div>
+                      </td>
                       
-                      <td className="px-4 py-3.5 font-medium border-r border-gray-100">{renderCellVal(row.tyBill)}</td>
-                      <td className="px-4 py-3.5 font-medium border-r border-gray-100 text-gray-500">{renderCellVal(row.lyBill)}</td>
-                      <td className={`px-4 py-3.5 border-r border-gray-100 ${billL2lColor}`}>{renderCellVal(calculatedL2lBill > 0 ? `+${calculatedL2lBill}` : calculatedL2lBill)} ({renderCellVal(billL2lPctText)})</td>
+                      <td className="px-4 py-4 font-medium border-r border-gray-100">{renderCellVal(row.tyBill)}</td>
+                      <td className="px-4 py-4 font-medium border-r border-gray-100 text-gray-500">{renderCellVal(row.lyBill)}</td>
+                      <td className="px-4 py-4 border-r border-gray-100">
+                        <div className="flex flex-col items-center justify-center gap-0.5">
+                          <span className="font-semibold text-gray-900">{billL2lPctText}</span>
+                          <span className={`text-[11px] font-semibold ${billL2lColor}`}>
+                            {calculatedL2lBill >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(calculatedL2lBill))}
+                          </span>
+                        </div>
+                      </td>
                       
-                      <td className="px-4 py-3.5 font-medium border-r border-gray-100">{renderCellVal(row.tyQty)}</td>
-                      <td className="px-4 py-3.5 font-medium border-r border-gray-100 text-gray-500">{renderCellVal(row.lyQty)}</td>
-                      <td className={`px-4 py-3.5 border-r border-gray-100 ${qtyL2lColor}`}>{renderCellVal(calculatedL2lQty > 0 ? `+${calculatedL2lQty}` : calculatedL2lQty)} ({renderCellVal(qtyL2lPctText)})</td>
+                      <td className="px-4 py-4 font-medium border-r border-gray-100">{renderCellVal(row.tyQty)}</td>
+                      <td className="px-4 py-4 font-medium border-r border-gray-100 text-gray-500">{renderCellVal(row.lyQty)}</td>
+                      <td className="px-4 py-4 border-r border-gray-100">
+                        <div className="flex flex-col items-center justify-center gap-0.5">
+                          <span className="font-semibold text-gray-900">{qtyL2lPctText}</span>
+                          <span className={`text-[11px] font-semibold ${qtyL2lColor}`}>
+                            {calculatedL2lQty >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(calculatedL2lQty))}
+                          </span>
+                        </div>
+                      </td>
 
-                      <td className="px-4 py-3.5 font-medium border-r border-gray-100">{renderCellVal(formatIndianNumber(row.tyWalk))}</td>
-                      <td className="px-4 py-3.5 font-medium border-r border-gray-100 text-gray-500">{renderCellVal(formatIndianNumber(row.lyWalk))}</td>
-                      <td className={`px-4 py-3.5 ${walkL2lColor}`}>{renderCellVal(calculatedL2lWalk > 0 ? `+${calculatedL2lWalk}` : calculatedL2lWalk)} ({renderCellVal(walkL2lPctText)})</td>
+                      <td className="px-4 py-4 font-medium border-r border-gray-100">{renderCellVal(formatIndianNumber(row.tyWalk))}</td>
+                      <td className="px-4 py-4 font-medium border-r border-gray-100 text-gray-500">{renderCellVal(formatIndianNumber(row.lyWalk))}</td>
+                      <td className="px-4 py-4">
+                        <div className="flex flex-col items-center justify-center gap-0.5">
+                          <span className="font-semibold text-gray-900">{walkL2lPctText}</span>
+                          <span className={`text-[11px] font-semibold ${walkL2lColor}`}>
+                            {calculatedL2lWalk >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(calculatedL2lWalk))}
+                          </span>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
 
                 {/* STORE TOTAL row */}
-                <tr className="bg-[#dce9f5] font-bold text-gray-900">
-                  <td className="sticky left-0 z-10 bg-[#dce9f5] px-6 py-3.5 text-left border-r border-blue-200/50 uppercase tracking-wider shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)]">Store Total</td>
+                <tr className="bg-[#f1f5f9] border-t-2 border-zinc-300 font-bold text-gray-900">
+                  <td className="sticky left-0 z-10 bg-[#f1f5f9] px-6 py-4 text-left border-r border-zinc-300 uppercase tracking-wider shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)]">Store Total</td>
                   
-                  <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalTyVal))}</td>
-                  <td className="px-4 py-3.5 border-r border-blue-200/50 text-gray-600">{renderCellVal(formatIndianNumber(totalLyVal))}</td>
-                  <td className={`px-4 py-3.5 border-r border-blue-200/50 ${totalL2lVal >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
-                    {renderCellVal(formatIndianNumber(totalL2lVal))} ({renderCellVal(totalLyVal > 0 ? (totalL2lVal >= 0 ? "+" : "") + ((totalL2lVal / totalLyVal) * 100).toFixed(1) + "%" : "0.0%")})
+                  <td className="px-4 py-4 border-r border-zinc-200">{renderCellVal(formatIndianNumber(totalTyVal))}</td>
+                  <td className="px-4 py-4 border-r border-zinc-200 text-gray-600">{renderCellVal(formatIndianNumber(totalLyVal))}</td>
+                  <td className="px-4 py-4 border-r border-zinc-200">
+                    <div className="flex flex-col items-center justify-center gap-0.5">
+                      <span className="font-bold text-gray-900">{totalLyVal > 0 ? ((totalTyVal / totalLyVal) * 100).toFixed(0) : "0"}%</span>
+                      <span className={`text-[11px] font-bold ${totalL2lVal >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
+                        {totalL2lVal >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(totalL2lVal))}
+                      </span>
+                    </div>
                   </td>
                   
-                  <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalTyBill))}</td>
-                  <td className="px-4 py-3.5 border-r border-blue-200/50 text-gray-600">{renderCellVal(formatIndianNumber(totalLyBill))}</td>
-                  <td className={`px-4 py-3.5 border-r border-blue-200/50 ${totalL2lBill >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
-                    {renderCellVal(totalL2lBill > 0 ? `+${totalL2lBill}` : totalL2lBill)} ({renderCellVal(totalLyBill > 0 ? (totalL2lBill >= 0 ? "+" : "") + ((totalL2lBill / totalLyBill) * 100).toFixed(1) + "%" : "0.0%")})
+                  <td className="px-4 py-4 border-r border-zinc-200">{renderCellVal(formatIndianNumber(totalTyBill))}</td>
+                  <td className="px-4 py-4 border-r border-zinc-200 text-gray-600">{renderCellVal(formatIndianNumber(totalLyBill))}</td>
+                  <td className="px-4 py-4 border-r border-zinc-200">
+                    <div className="flex flex-col items-center justify-center gap-0.5">
+                      <span className="font-bold text-gray-900">{totalLyBill > 0 ? ((totalTyBill / totalLyBill) * 100).toFixed(0) : "0"}%</span>
+                      <span className={`text-[11px] font-bold ${totalL2lBill >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
+                        {totalL2lBill >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(totalL2lBill))}
+                      </span>
+                    </div>
                   </td>
                   
-                  <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalTyQty))}</td>
-                  <td className="px-4 py-3.5 border-r border-blue-200/50 text-gray-600">{renderCellVal(formatIndianNumber(totalLyQty))}</td>
-                  <td className={`px-4 py-3.5 border-r border-blue-200/50 ${totalL2lQty >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
-                    {renderCellVal(totalL2lQty > 0 ? `+${totalL2lQty}` : totalL2lQty)} ({renderCellVal(totalLyQty > 0 ? (totalL2lQty >= 0 ? "+" : "") + ((totalL2lQty / totalLyQty) * 100).toFixed(1) + "%" : "0.0%")})
+                  <td className="px-4 py-4 border-r border-zinc-200">{renderCellVal(formatIndianNumber(totalTyQty))}</td>
+                  <td className="px-4 py-4 border-r border-zinc-200 text-gray-600">{renderCellVal(formatIndianNumber(totalLyQty))}</td>
+                  <td className="px-4 py-4 border-r border-zinc-200">
+                    <div className="flex flex-col items-center justify-center gap-0.5">
+                      <span className="font-bold text-gray-900">{totalLyQty > 0 ? ((totalTyQty / totalLyQty) * 100).toFixed(0) : "0"}%</span>
+                      <span className={`text-[11px] font-bold ${totalL2lQty >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
+                        {totalL2lQty >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(totalL2lQty))}
+                      </span>
+                    </div>
                   </td>
 
-                  <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalTyWalk))}</td>
-                  <td className="px-4 py-3.5 border-r border-blue-200/50 text-gray-600">{renderCellVal(formatIndianNumber(totalLyWalk))}</td>
-                  <td className={`px-4 py-3.5 ${totalL2lWalk >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
-                    {renderCellVal(totalL2lWalk > 0 ? `+${totalL2lWalk}` : totalL2lWalk)} ({renderCellVal(totalLyWalk > 0 ? (totalL2lWalk >= 0 ? "+" : "") + ((totalL2lWalk / totalLyWalk) * 100).toFixed(1) + "%" : "0.0%")})
+                  <td className="px-4 py-4 border-r border-zinc-200">{renderCellVal(formatIndianNumber(totalTyWalk))}</td>
+                  <td className="px-4 py-4 border-r border-zinc-200 text-gray-600">{renderCellVal(formatIndianNumber(totalLyWalk))}</td>
+                  <td className="px-4 py-4">
+                    <div className="flex flex-col items-center justify-center gap-0.5">
+                      <span className="font-bold text-gray-900">{totalLyWalk > 0 ? ((totalTyWalk / totalLyWalk) * 100).toFixed(0) : "0"}%</span>
+                      <span className={`text-[11px] font-bold ${totalL2lWalk >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
+                        {totalL2lWalk >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(totalL2lWalk))}
+                      </span>
+                    </div>
                   </td>
                 </tr>
               </tbody>
