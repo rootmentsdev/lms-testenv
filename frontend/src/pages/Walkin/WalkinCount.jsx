@@ -353,7 +353,9 @@ const WalkinCount = () => {
                 }
 
                 setBranches(branchList);
-                // Keep storeFilter empty as default ("Select Store")
+                if (['cluster_admin', 'store_admin'].includes(user?.role) && branchList.length > 0) {
+                    setStoreFilter(branchList[0].workingBranch);
+                }
             } catch (err) {
                 console.error("Error fetching branches:", err);
             }
@@ -365,6 +367,7 @@ const WalkinCount = () => {
     // Fetch Count Data
     const loadCountData = async () => {
         if (!selectedDate || storeFilter === '') return;
+        if (['cluster_admin', 'store_admin'].includes(user?.role) && storeFilter === 'All') return;
 
         // Abort previous in-flight request if any
         if (abortControllerRef.current) {
@@ -624,8 +627,14 @@ const WalkinCount = () => {
             csvContent += `Selected Date: ${selectedDate}\r\n\r\n`;
         }
         
+        const isRestricted = user?.role === 'cluster_admin' || user?.role === 'store_admin';
+
         // Add table headers
-        csvContent += `STATUS CATEGORY,IN CAM,SALES REPORT,IN APP,REMARKS\r\n`;
+        if (isRestricted) {
+            csvContent += `STATUS CATEGORY,SALES REPORT,IN APP,REMARKS\r\n`;
+        } else {
+            csvContent += `STATUS CATEGORY,IN CAM,SALES REPORT,IN APP,REMARKS\r\n`;
+        }
         
         // Add rows
         CATEGORIES.forEach(cat => {
@@ -640,7 +649,11 @@ const WalkinCount = () => {
             const escapedInApp = `"${String(inAppVal).replace(/"/g, '""')}"`;
             const escapedRemarks = `"${String(remarks).replace(/"/g, '""')}"`;
             
-            csvContent += `${escapedLabel},${escapedInCam},${escapedSalesReport},${escapedInApp},${escapedRemarks}\r\n`;
+            if (isRestricted) {
+                csvContent += `${escapedLabel},${escapedSalesReport},${escapedInApp},${escapedRemarks}\r\n`;
+            } else {
+                csvContent += `${escapedLabel},${escapedInCam},${escapedSalesReport},${escapedInApp},${escapedRemarks}\r\n`;
+            }
         });
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -733,256 +746,310 @@ const WalkinCount = () => {
                 )}
 
                 {/* Camera Checker Entry Portal Card */}
-                <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '20px', marginBottom: '20px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                        <FaVideo style={{ color: '#111827', fontSize: '18px' }} />
-                        <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', margin: 0 }}>Camera Checker Entry Portal</h2>
-                    </div>
-
-                    <form onSubmit={handleSaveCameraCheck} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', alignItems: 'flex-end' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>Store Branch</span>
-                            <select
-                                value={cameraForm.store}
-                                onChange={e => setCameraForm(prev => ({ ...prev, store: e.target.value }))}
-                                style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer' }}
-                            >
-                                <option value="" disabled>Select Store</option>
-                                {branches.map((b, i) => <option key={i} value={b.workingBranch}>{b.workingBranch}</option>)}
-                            </select>
+                {user?.role === 'telecaller' && (
+                    <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '20px', marginBottom: '20px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                            <FaVideo style={{ color: '#111827', fontSize: '18px' }} />
+                            <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', margin: 0 }}>Camera Checker Entry Portal</h2>
                         </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>Select Date</span>
-                            <input
-                                type="date"
-                                value={cameraForm.date}
-                                onChange={e => setCameraForm(prev => ({ ...prev, date: e.target.value }))}
-                                style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer' }}
-                            />
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>Status Category</span>
-                            <select
-                                value={cameraForm.statusKey}
-                                onChange={e => setCameraForm(prev => ({ ...prev, statusKey: e.target.value }))}
-                                style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer' }}
-                            >
-                                <option value="">Select Category</option>
-                                {CATEGORIES.filter(cat => cat.key !== 'total_walkin' && cat.key !== 'walkin').map(cat => (
-                                    <option key={cat.key} value={cat.key}>{cat.label}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', position: 'relative' }}>
-                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>Time Duration</span>
-                            <button
-                                type="button"
-                                onClick={() => setShowClockPicker(!showClockPicker)}
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', color: '#374151', background: '#fff', cursor: 'pointer', outline: 'none', textAlign: 'left', minWidth: '180px', fontWeight: 500 }}
-                            >
-                                <FaClock style={{ color: '#111827' }} /> {cameraForm.timeDuration}
-                            </button>
-                            
-                            {showClockPicker && (
-                                <div style={{
-                                    position: 'absolute',
-                                    top: 'calc(100% + 8px)',
-                                    left: 0,
-                                    background: '#fff',
-                                    borderRadius: '16px',
-                                    border: '1px solid #e5e7eb',
-                                    boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
-                                    padding: '16px',
-                                    zIndex: 100,
-                                }}>
-                                    <TimeRangeSlider
-                                        value={cameraForm.timeDuration}
-                                        onChange={(newVal) => setCameraForm(prev => ({ ...prev, timeDuration: newVal }))}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowClockPicker(false)}
-                                        style={{ alignSelf: 'flex-end', background: '#111827', color: '#fff', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', outline: 'none', marginTop: '12px' }}
-                                    >
-                                        Done
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>In Cam Count</span>
-                            <input
-                                type="number"
-                                placeholder="Enter count..."
-                                min="0"
-                                value={cameraForm.inCamCount}
-                                onChange={e => setCameraForm(prev => ({ ...prev, inCamCount: e.target.value }))}
-                                style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', color: '#374151', outline: 'none' }}
-                            />
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>Remarks</span>
-                            <input
-                                type="text"
-                                placeholder="Enter remarks..."
-                                value={cameraForm.remarks}
-                                onChange={e => setCameraForm(prev => ({ ...prev, remarks: e.target.value }))}
-                                style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', color: '#374151', outline: 'none' }}
-                            />
-                        </div>
-
-                        <div>
-                            <button
-                                type="submit"
-                                disabled={savingCameraCheck}
-                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', width: '100%', background: '#111827', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 16px', fontSize: '13px', cursor: 'pointer', fontWeight: 600, transition: 'background-color 0.2s' }}
-                            >
-                                <FaPlusCircle /> {savingCameraCheck ? 'Saving...' : 'Add Camera Log'}
-                            </button>
-                        </div>
-                    </form>
-                </div>
-
-                {/* Camera Checker Log List Card */}
-                <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '20px', marginBottom: '20px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', borderBottom: '1px solid #f3f4f6', paddingBottom: '16px', marginBottom: '16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>
-                                Logged Camera Checks {storeFilter ? `for ${storeFilter} (${logStartDate} to ${logEndDate})` : ''}
-                            </h2>
-                            {storeFilter && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ background: '#f3f4f6', color: '#374151', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
-                                        {cameraChecks.length} entries
-                                    </span>
-                                    <button
-                                        type="button"
-                                        onClick={handleDownloadCameraChecksReport}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#111827', color: '#fff', border: 'none', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s', outline: 'none' }}
-                                    >
-                                        <FaDownload /> Export Logs
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                        
-                        <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <span style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563' }}>Store Branch</span>
+                        <form onSubmit={handleSaveCameraCheck} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', alignItems: 'flex-end' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>Store Branch</span>
                                 <select
-                                    value={storeFilter}
-                                    onChange={e => setStoreFilter(e.target.value)}
-                                    style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '6px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer', minWidth: '180px' }}
+                                    value={cameraForm.store}
+                                    onChange={e => setCameraForm(prev => ({ ...prev, store: e.target.value }))}
+                                    style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer' }}
                                 >
-                                    <option value="All">All</option>
+                                    <option value="" disabled>Select Store</option>
                                     {branches.map((b, i) => <option key={i} value={b.workingBranch}>{b.workingBranch}</option>)}
                                 </select>
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <span style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563' }}>Date Range</span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '5px 12px', background: '#fff' }}>
-                                    <input
-                                        type="date"
-                                        value={logStartDate}
-                                        onChange={e => setLogStartDate(e.target.value)}
-                                        style={{ border: 'none', fontSize: '13px', color: '#374151', outline: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
-                                    />
-                                    <span style={{ fontSize: '13px', color: '#9ca3af', fontWeight: 500 }}>to</span>
-                                    <input
-                                        type="date"
-                                        value={logEndDate}
-                                        onChange={e => setLogEndDate(e.target.value)}
-                                        style={{ border: 'none', fontSize: '13px', color: '#374151', outline: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
-                                    />
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>Select Date</span>
+                                <input
+                                    type="date"
+                                    value={cameraForm.date}
+                                    onChange={e => setCameraForm(prev => ({ ...prev, date: e.target.value }))}
+                                    style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer' }}
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>Status Category</span>
+                                <select
+                                    value={cameraForm.statusKey}
+                                    onChange={e => setCameraForm(prev => ({ ...prev, statusKey: e.target.value }))}
+                                    style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer' }}
+                                >
+                                    <option value="">Select Category</option>
+                                    {CATEGORIES.filter(cat => cat.key !== 'total_walkin' && cat.key !== 'walkin').map(cat => (
+                                        <option key={cat.key} value={cat.key}>{cat.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', position: 'relative' }}>
+                                <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>Time Duration</span>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowClockPicker(!showClockPicker)}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', color: '#374151', background: '#fff', cursor: 'pointer', outline: 'none', textAlign: 'left', minWidth: '180px', fontWeight: 500 }}
+                                >
+                                    <FaClock style={{ color: '#111827' }} /> {cameraForm.timeDuration}
+                                </button>
+                                
+                                {showClockPicker && (
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: 'calc(100% + 8px)',
+                                        left: 0,
+                                        background: '#fff',
+                                        borderRadius: '16px',
+                                        border: '1px solid #e5e7eb',
+                                        boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
+                                        padding: '16px',
+                                        zIndex: 100,
+                                    }}>
+                                        <TimeRangeSlider
+                                            value={cameraForm.timeDuration}
+                                            onChange={(newVal) => setCameraForm(prev => ({ ...prev, timeDuration: newVal }))}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowClockPicker(false)}
+                                            style={{ alignSelf: 'flex-end', background: '#111827', color: '#fff', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', outline: 'none', marginTop: '12px' }}
+                                        >
+                                            Done
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>In Cam Count</span>
+                                <input
+                                    type="number"
+                                    placeholder="Enter count..."
+                                    min="0"
+                                    value={cameraForm.inCamCount}
+                                    onChange={e => setCameraForm(prev => ({ ...prev, inCamCount: e.target.value }))}
+                                    style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', color: '#374151', outline: 'none' }}
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>Remarks</span>
+                                <input
+                                    type="text"
+                                    placeholder="Enter remarks..."
+                                    value={cameraForm.remarks}
+                                    onChange={e => setCameraForm(prev => ({ ...prev, remarks: e.target.value }))}
+                                    style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', color: '#374151', outline: 'none' }}
+                                />
+                            </div>
+
+                            <div>
+                                <button
+                                    type="submit"
+                                    disabled={savingCameraCheck}
+                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', width: '100%', background: '#111827', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 16px', fontSize: '13px', cursor: 'pointer', fontWeight: 600, transition: 'background-color 0.2s' }}
+                                >
+                                    <FaPlusCircle /> {savingCameraCheck ? 'Saving...' : 'Add Camera Log'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                )}
+
+                {/* Camera Checker Log List Card */}
+                {user?.role !== 'cluster_admin' && user?.role !== 'store_admin' && (
+                    <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '20px', marginBottom: '20px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', borderBottom: '1px solid #f3f4f6', paddingBottom: '16px', marginBottom: '16px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>
+                                    Logged Camera Checks {storeFilter ? `for ${storeFilter} (${logStartDate} to ${logEndDate})` : ''}
+                                </h2>
+                                {storeFilter && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span style={{ background: '#f3f4f6', color: '#374151', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
+                                            {cameraChecks.length} entries
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={handleDownloadCameraChecksReport}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#111827', color: '#fff', border: 'none', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s', outline: 'none' }}
+                                        >
+                                            <FaDownload /> Export Logs
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                            
+                            <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563' }}>Store Branch</span>
+                                    <select
+                                        value={storeFilter}
+                                        onChange={e => setStoreFilter(e.target.value)}
+                                        style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '6px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer', minWidth: '180px' }}
+                                    >
+                                        {['super_admin', 'admin', 'hr_admin', 'telecaller'].includes(user?.role) && <option value="All">All</option>}
+                                        {branches.map((b, i) => <option key={i} value={b.workingBranch}>{b.workingBranch}</option>)}
+                                    </select>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563' }}>Date Range</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '5px 12px', background: '#fff' }}>
+                                        <input
+                                            type="date"
+                                            value={logStartDate}
+                                            onChange={e => setLogStartDate(e.target.value)}
+                                            style={{ border: 'none', fontSize: '13px', color: '#374151', outline: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
+                                        />
+                                        <span style={{ fontSize: '13px', color: '#9ca3af', fontWeight: 500 }}>to</span>
+                                        <input
+                                            type="date"
+                                            value={logEndDate}
+                                            onChange={e => setLogEndDate(e.target.value)}
+                                            style={{ border: 'none', fontSize: '13px', color: '#374151', outline: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {!storeFilter ? (
+                            <div style={{ textAlign: 'center', padding: '30px 0', color: '#6b7280', fontSize: '13px' }}>
+                                Please select a store branch in the filters above to load camera checks.
+                            </div>
+                        ) : cameraChecks.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: '24px 0', color: '#6b7280', fontSize: '13px' }}>
+                                No camera check logs recorded for this store and date yet. Use the form above to add one.
+                            </div>
+                        ) : (
+                            <div style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                                    <thead>
+                                        <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                                            <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>DATE</th>
+                                            <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>STORE</th>
+                                            <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>TIME SLOT</th>
+                                            <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>STATUS CATEGORY</th>
+                                            <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563', width: '100px' }}>IN CAM</th>
+                                            <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>REMARKS</th>
+                                            <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>LOGGED BY</th>
+                                            <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563', textAlign: 'center', width: '60px' }}>ACTION</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {cameraChecks.map((log) => {
+                                            const categoryLabel = CATEGORIES.find(cat => cat.key === log.statusKey)?.label || log.statusKey;
+                                            return (
+                                                <tr key={log._id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                                                    <td style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>{log.date}</td>
+                                                    <td style={{ padding: '10px 14px', fontWeight: 600, color: '#111827' }}>{log.store || '-'}</td>
+                                                    <td style={{ padding: '10px 14px', fontWeight: 600, color: '#111827' }}>{log.timeDuration}</td>
+                                                    <td style={{ padding: '10px 14px', color: '#4b5563' }}>
+                                                        <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600 }}>
+                                                            {categoryLabel}
+                                                        </span>
+                                                    </td>
+                                                    <td style={{ padding: '10px 14px', fontWeight: 700, color: '#111827' }}>{log.inCamCount}</td>
+                                                    <td style={{ padding: '10px 14px', color: '#6b7280', fontStyle: log.remarks ? 'normal' : 'italic' }}>
+                                                        {log.remarks || 'No remarks'}
+                                                    </td>
+                                                    <td style={{ padding: '10px 14px', color: '#4b5563' }}>
+                                                        {log.createdBy?.name || 'Unknown'} <span style={{ color: '#9ca3af', fontSize: '10px' }}>({log.createdBy?.role || 'user'})</span>
+                                                    </td>
+                                                    <td style={{ padding: '10px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                                        {user?.role === 'telecaller' && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setCameraForm({
+                                                                        store: log.store,
+                                                                        date: log.date,
+                                                                        statusKey: log.statusKey,
+                                                                        timeDuration: log.timeDuration,
+                                                                        inCamCount: String(log.inCamCount),
+                                                                        remarks: log.remarks || '',
+                                                                        editingId: log._id
+                                                                    });
+                                                                }}
+                                                                style={{ border: 'none', background: 'transparent', color: '#2563eb', cursor: 'pointer', padding: '4px', fontSize: '14px', marginRight: '8px' }}
+                                                                title="Edit Entry"
+                                                            >
+                                                                <FaEdit />
+                                                            </button>
+                                                        )}
+                                                        {['super_admin', 'admin', 'hr_admin'].includes(user?.role) && (
+                                                            <button
+                                                                onClick={() => handleDeleteCameraCheck(log._id)}
+                                                                style={{ border: 'none', background: 'transparent', color: '#111827', cursor: 'pointer', padding: '4px', fontSize: '14px' }}
+                                                                title="Delete Entry"
+                                                            >
+                                                                <FaTrashAlt />
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Store Selection & Date Range filter for Cluster & Store Admins */}
+                {['cluster_admin', 'store_admin'].includes(user?.role) && (
+                    <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '20px', marginBottom: '20px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                            <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>
+                                Select Filters
+                            </h2>
+                            <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                {user?.role === 'store_admin' ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        <span style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563' }}>Store Branch</span>
+                                        <span style={{ fontSize: '14px', fontWeight: 700, color: '#111827', padding: '6px 0' }}>{storeFilter}</span>
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        <span style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563' }}>Store Branch</span>
+                                        <select
+                                            value={storeFilter}
+                                            onChange={e => setStoreFilter(e.target.value)}
+                                            style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '6px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer', minWidth: '180px' }}
+                                        >
+                                            {branches.map((b, i) => <option key={i} value={b.workingBranch}>{b.workingBranch}</option>)}
+                                        </select>
+                                    </div>
+                                )}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563' }}>Date Range</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '5px 12px', background: '#fff' }}>
+                                        <input
+                                            type="date"
+                                            value={logStartDate}
+                                            onChange={e => setLogStartDate(e.target.value)}
+                                            style={{ border: 'none', fontSize: '13px', color: '#374151', outline: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
+                                        />
+                                        <span style={{ fontSize: '13px', color: '#9ca3af', fontWeight: 500 }}>to</span>
+                                        <input
+                                            type="date"
+                                            value={logEndDate}
+                                            onChange={e => setLogEndDate(e.target.value)}
+                                            style={{ border: 'none', fontSize: '13px', color: '#374151', outline: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-
-                    {!storeFilter ? (
-                        <div style={{ textAlign: 'center', padding: '30px 0', color: '#6b7280', fontSize: '13px' }}>
-                            Please select a store branch in the filters above to load camera checks.
-                        </div>
-                    ) : cameraChecks.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '24px 0', color: '#6b7280', fontSize: '13px' }}>
-                            No camera check logs recorded for this store and date yet. Use the form above to add one.
-                        </div>
-                    ) : (
-                        <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
-                                <thead>
-                                    <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                                        <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>DATE</th>
-                                        <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>STORE</th>
-                                        <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>TIME SLOT</th>
-                                        <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>STATUS CATEGORY</th>
-                                        <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563', width: '100px' }}>IN CAM</th>
-                                        <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>REMARKS</th>
-                                        <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>LOGGED BY</th>
-                                        <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563', textAlign: 'center', width: '60px' }}>ACTION</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {cameraChecks.map((log) => {
-                                        const categoryLabel = CATEGORIES.find(cat => cat.key === log.statusKey)?.label || log.statusKey;
-                                        return (
-                                            <tr key={log._id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                                                <td style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>{log.date}</td>
-                                                <td style={{ padding: '10px 14px', fontWeight: 600, color: '#111827' }}>{log.store || '-'}</td>
-                                                <td style={{ padding: '10px 14px', fontWeight: 600, color: '#111827' }}>{log.timeDuration}</td>
-                                                <td style={{ padding: '10px 14px', color: '#4b5563' }}>
-                                                    <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600 }}>
-                                                        {categoryLabel}
-                                                    </span>
-                                                </td>
-                                                <td style={{ padding: '10px 14px', fontWeight: 700, color: '#111827' }}>{log.inCamCount}</td>
-                                                <td style={{ padding: '10px 14px', color: '#6b7280', fontStyle: log.remarks ? 'normal' : 'italic' }}>
-                                                    {log.remarks || 'No remarks'}
-                                                </td>
-                                                <td style={{ padding: '10px 14px', color: '#4b5563' }}>
-                                                    {log.createdBy?.name || 'Unknown'} <span style={{ color: '#9ca3af', fontSize: '10px' }}>({log.createdBy?.role || 'user'})</span>
-                                                </td>
-                                                <td style={{ padding: '10px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                                                    <button
-                                                        onClick={() => {
-                                                            setCameraForm({
-                                                                store: log.store,
-                                                                date: log.date,
-                                                                statusKey: log.statusKey,
-                                                                timeDuration: log.timeDuration,
-                                                                inCamCount: String(log.inCamCount),
-                                                                remarks: log.remarks || '',
-                                                                editingId: log._id
-                                                            });
-                                                        }}
-                                                        style={{ border: 'none', background: 'transparent', color: '#2563eb', cursor: 'pointer', padding: '4px', fontSize: '14px', marginRight: '8px' }}
-                                                        title="Edit Entry"
-                                                    >
-                                                        <FaEdit />
-                                                    </button>
-                                                    {['super_admin', 'admin', 'hr_admin'].includes(user?.role) && (
-                                                        <button
-                                                            onClick={() => handleDeleteCameraCheck(log._id)}
-                                                            style={{ border: 'none', background: 'transparent', color: '#111827', cursor: 'pointer', padding: '4px', fontSize: '14px' }}
-                                                            title="Delete Entry"
-                                                        >
-                                                            <FaTrashAlt />
-                                                        </button>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </div>
+                )}
 
                 {/* Main Table Card */}
                 {storeFilter ? (
@@ -1010,7 +1077,9 @@ const WalkinCount = () => {
                                     <thead>
                                         <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
                                             <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>STATUS CATEGORY</th>
-                                            <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>IN CAM</th>
+                                            {user?.role !== 'cluster_admin' && user?.role !== 'store_admin' && (
+                                                <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>IN CAM</th>
+                                            )}
                                             <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>SALES REPORT</th>
                                             <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>IN APP</th>
                                             <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>REMARKS</th>
@@ -1029,9 +1098,11 @@ const WalkinCount = () => {
                                                             <span className="tooltip-text">{cat.tooltip}</span>
                                                         </span>
                                                     </td>
-                                                    <td style={{ padding: '12px 20px', fontWeight: 700, color: '#111827' }}>
-                                                        {rowValues[cat.key].inCam || '-'}
-                                                    </td>
+                                                    {user?.role !== 'cluster_admin' && user?.role !== 'store_admin' && (
+                                                        <td style={{ padding: '12px 20px', fontWeight: 700, color: '#111827' }}>
+                                                            {rowValues[cat.key].inCam || '-'}
+                                                        </td>
+                                                    )}
                                                     <td style={{ padding: '12px 20px', color: '#374151' }}>
                                                         {rowValues[cat.key].salesReport || '-'}
                                                     </td>

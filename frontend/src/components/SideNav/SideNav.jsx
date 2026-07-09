@@ -215,7 +215,7 @@ const SideNav = () => {
             items={[
               { to: '/walkin/list',   label: 'Walkin List',   active: is('/walkin/list') },
               { to: '/walkin/report', label: 'Walkin Report', active: is('/walkin/report') },
-              ...(user?.role === 'telecaller' || user?.role === 'super_admin' || user?.role === 'admin'
+              ...(['telecaller', 'super_admin', 'admin', 'hr_admin', 'cluster_admin', 'store_admin'].includes(user?.role)
                 ? [{ to: '/walkin/count', label: 'Walkin Count', active: is('/walkin/count') }]
                 : [])
             ]}
