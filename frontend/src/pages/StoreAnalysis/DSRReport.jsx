@@ -2702,8 +2702,8 @@ const DSRReport = () => {
               </div>
             </div>
 
-            {/* Custom Funnel View Dropdown — only shown when report is Sales Funnel */}
-            {selectedReport === "Sales Funnel" && (
+            {/* Custom Funnel View Dropdown — shown when report is Sales Funnel or Revenue Vs Target */}
+            {(selectedReport === "Sales Funnel" || selectedReport === "Revenue Vs Target") && (
               <div className="relative">
                 <button 
                   onClick={() => setFunnelDropdownOpen(!funnelDropdownOpen)}
