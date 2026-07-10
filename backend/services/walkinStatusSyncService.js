@@ -832,9 +832,14 @@ export const syncWalkinStatuses = async () => {
                             // Update status change tracking fields
                             walkin.lastStatusChangeDate = new Date();
                             walkin.statusChangedToday = true;
+
+                            // Only overwrite the display status when an actual rental/shoe
+                            // status change occurred. This preserves manually-set statuses
+                            // (e.g. 'REVISIT (Reissue)') on date-only updates where
+                            // rentalStatus/shoeStatus haven't moved but a date field changed.
+                            walkin.status = getCombinedStatus(walkin.rentalStatus, walkin.shoeStatus);
                         }
 
-                        walkin.status = getCombinedStatus(walkin.rentalStatus, walkin.shoeStatus);
                         if (rentalStatusChanged || shoeStatusChanged) {
                             await walkin.save();
                         } else {
