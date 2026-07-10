@@ -466,6 +466,60 @@ export const syncWalkinStatuses = async () => {
                         }
                     }
 
+                    // AUTO-CREATE: If still no walkin (unassigned list was empty or had no valid match),
+                    // and this invoice exists in bookingMap, auto-create a Walkin record from the booking data.
+                    // This handles the case where a returning customer books again but the employee forgot
+                    // to add a new walk-in entry in the LMS.
+                    if (!walkin) {
+                        const bookingItemForCreate = bookingMap.get(invoiceNo);
+                        if (bookingItemForCreate) {
+                            try {
+                                // Extract available fields from the booking API response
+                                const autoCustomerName = String(bookingItemForCreate.customerName || '').trim() || 'Auto-Sync Customer';
+                                const autoStaff       = String(bookingItemForCreate.bookingBy    || '').trim() || 'None';
+                                const autoStore       = String(bookingItemForCreate.locName       || workingBranch || '').trim() || '-';
+
+                                // Use booking date as the walkin date string (YYYY-MM-DD in IST)
+                                const autoBookingDate = extractDateValue(bookingItemForCreate, ['bookingDate', 'bookingdate', 'booking_date', 'bookeddate']);
+                                const autoDateStr     = autoBookingDate
+                                    ? getLocalDateStringIST(autoBookingDate)
+                                    : getLocalDateStringIST(new Date());
+
+                                const newWalkin = new Walkin({
+                                    customerName:  autoCustomerName,
+                                    contact:       rentalInfo.phone,
+                                    invoiceNo:     invoiceNo,
+                                    storeId:       storeId,
+                                    store:         autoStore,
+                                    staff:         autoStaff,
+                                    date:          autoDateStr,
+                                    status:        'New Walkin',
+                                    rentalStatus:  'New Walkin',
+                                    repeatCount:   1,
+                                    statusHistory: [{
+                                        status:      'New Walkin',
+                                        category:    'Product',
+                                        subCategory: '-',
+                                        date:        autoBookingDate || new Date(),
+                                        source:      'auto_sync'
+                                    }],
+                                    legacyMeta: {
+                                        autoCreated:       true,
+                                        autoCreatedAt:     new Date(),
+                                        autoCreatedReason: 'missing_walkin_on_booking'
+                                    }
+                                });
+
+                                await newWalkin.save();
+                                walkin = newWalkin;
+                                invoiceToWalkinMap.set(invoiceNo, walkin);
+                                console.log(`🆕 [Walkin Status Sync] Auto-created walkin for invoiceNo '${invoiceNo}' | phone: ...${rentalInfo.phone.slice(-4)} | customer: '${autoCustomerName}' | staff: '${autoStaff}' | date: ${autoDateStr}`);
+                            } catch (autoCreateErr) {
+                                console.error(`❌ [Walkin Status Sync] Failed to auto-create walkin for invoiceNo '${invoiceNo}' (phone: ...${rentalInfo.phone.slice(-4)}):`, autoCreateErr.message);
+                            }
+                        }
+                    }
+
                     if (walkin) {
                         const tracker = getTracker(walkin);
                         const targetRentalStatus = rentalInfo.status;
