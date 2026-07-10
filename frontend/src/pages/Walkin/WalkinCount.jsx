@@ -266,6 +266,10 @@ const WalkinCount = () => {
     const [cameraRows, setCameraRows] = useState(() => Array.from({ length: 10 }, () => ({ inTime: '', outTime: '', identification: '', statusKey: '' })));
     const [cameraChecks, setCameraChecks] = useState([]);
     const [savingCameraChecks, setSavingCameraChecks] = useState(false);
+    
+    // Request synchronization refs
+    const abortControllerRef = useRef(null);
+    const activeRequestRef = useRef(0);
 
     // Date range selection for log viewer (synced with selectedDate)
     const [logStartDate, setLogStartDate] = useState(selectedDate);
@@ -350,8 +354,14 @@ const WalkinCount = () => {
 
     // Fetch Count Data
     const loadCountData = async () => {
-        if (!selectedDate || storeFilter === '') return;
-        if (['cluster_admin', 'store_admin'].includes(user?.role) && storeFilter === 'All') return;
+        if (!selectedDate || storeFilter === '') {
+            setLoading(false);
+            return;
+        }
+        if (['cluster_admin', 'store_admin'].includes(user?.role) && storeFilter === 'All') {
+            setLoading(false);
+            return;
+        }
 
         // Abort previous in-flight request if any
         if (abortControllerRef.current) {
@@ -626,14 +636,8 @@ const WalkinCount = () => {
             csvContent += `Selected Date: ${selectedDate}\r\n\r\n`;
         }
         
-        const isRestricted = user?.role === 'cluster_admin' || user?.role === 'store_admin';
-
         // Add table headers
-        if (isRestricted) {
-            csvContent += `STATUS CATEGORY,SALES REPORT,IN APP,REMARKS\r\n`;
-        } else {
-            csvContent += `STATUS CATEGORY,IN CAM,SALES REPORT,IN APP,REMARKS\r\n`;
-        }
+        csvContent += `STATUS CATEGORY,IN CAM,SALES REPORT,IN APP,REMARKS\r\n`;
         
         // Add rows
         CATEGORIES.forEach(cat => {
@@ -648,11 +652,7 @@ const WalkinCount = () => {
             const escapedInApp = `"${String(inAppVal).replace(/"/g, '""')}"`;
             const escapedRemarks = `"${String(remarks).replace(/"/g, '""')}"`;
             
-            if (isRestricted) {
-                csvContent += `${escapedLabel},${escapedSalesReport},${escapedInApp},${escapedRemarks}\r\n`;
-            } else {
-                csvContent += `${escapedLabel},${escapedInCam},${escapedSalesReport},${escapedInApp},${escapedRemarks}\r\n`;
-            }
+            csvContent += `${escapedLabel},${escapedInCam},${escapedSalesReport},${escapedInApp},${escapedRemarks}\r\n`;
         });
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -885,207 +885,116 @@ const WalkinCount = () => {
 
 
 
-                {/* Logged Camera Checks Report Table for Admins */}
-                {user?.role !== 'telecaller' && (
-                    <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '20px', marginBottom: '20px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', borderBottom: '1px solid #f3f4f6', paddingBottom: '16px', marginBottom: '16px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>
-                                    Logged Camera Checks Report
-                                </h2>
-                                {storeFilter && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span style={{ background: '#f3f4f6', color: '#374151', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
-                                            {cameraChecks.length} entries
-                                        </span>
-                                        <button
-                                            type="button"
-                                            onClick={handleDownloadCameraChecksReport}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#111827', color: '#fff', border: 'none', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s', outline: 'none' }}
-                                        >
-                                            <FaDownload /> Export Logs
-                                        </button>
-                                    </div>
+                {/* Main Table Card */}
+                <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid #e5e7eb', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+                    {/* Table Header area with Title, Filters, and Export Button */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', padding: '16px 20px', borderBottom: '1px solid #e5e7eb', background: '#fff' }}>
+                        <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>
+                            Comparison Statistics
+                        </h2>
+                        
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>Store Branch:</span>
+                                {user?.role === 'store_admin' ? (
+                                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>{storeFilter}</span>
+                                ) : (
+                                    <select
+                                        value={storeFilter}
+                                        onChange={e => setStoreFilter(e.target.value)}
+                                        style={{ border: '1px solid #e5e7eb', borderRadius: '6px', padding: '4px 10px', fontSize: '12px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer', minWidth: '150px' }}
+                                    >
+                                        {['super_admin', 'admin', 'hr_admin', 'telecaller'].includes(user?.role) && <option value="All">All</option>}
+                                        <option value="">Select Store</option>
+                                        {branches.map((b, i) => <option key={i} value={b.workingBranch}>{b.workingBranch}</option>)}
+                                    </select>
                                 )}
                             </div>
                             
-                            <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563' }}>Store Branch</span>
-                                    {user?.role === 'store_admin' ? (
-                                        <span style={{ fontSize: '13px', fontWeight: 700, color: '#111827', padding: '6px 0' }}>{storeFilter}</span>
-                                    ) : (
-                                        <select
-                                            value={storeFilter}
-                                            onChange={e => setStoreFilter(e.target.value)}
-                                            style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '6px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer', minWidth: '180px' }}
-                                        >
-                                            <option value="All">All</option>
-                                            {branches.map((b, i) => <option key={i} value={b.workingBranch}>{b.workingBranch}</option>)}
-                                        </select>
-                                    )}
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563' }}>Date Range</span>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '5px 12px', background: '#fff' }}>
-                                        <input
-                                            type="date"
-                                            value={logStartDate}
-                                            onChange={e => setLogStartDate(e.target.value)}
-                                            style={{ border: 'none', fontSize: '13px', color: '#374151', outline: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
-                                        />
-                                        <span style={{ fontSize: '13px', color: '#9ca3af', fontWeight: 500 }}>to</span>
-                                        <input
-                                            type="date"
-                                            value={logEndDate}
-                                            onChange={e => setLogEndDate(e.target.value)}
-                                            style={{ border: 'none', fontSize: '13px', color: '#374151', outline: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
-                                        />
-                                    </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>Date Range:</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '3px 8px', background: '#fff' }}>
+                                    <input
+                                        type="date"
+                                        value={logStartDate}
+                                        onChange={e => setLogStartDate(e.target.value)}
+                                        style={{ border: 'none', fontSize: '12px', color: '#374151', outline: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
+                                    />
+                                    <span style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 500 }}>to</span>
+                                    <input
+                                        type="date"
+                                        value={logEndDate}
+                                        onChange={e => setLogEndDate(e.target.value)}
+                                        style={{ border: 'none', fontSize: '12px', color: '#374151', outline: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
+                                    />
                                 </div>
                             </div>
-                        </div>
 
-                        {!storeFilter ? (
-                            <div style={{ textAlign: 'center', padding: '30px 0', color: '#6b7280', fontSize: '13px' }}>
-                                Please select a store branch to load camera checks.
-                            </div>
-                        ) : cameraChecks.length === 0 ? (
-                            <div style={{ textAlign: 'center', padding: '24px 0', color: '#6b7280', fontSize: '13px' }}>
-                                No camera check logs recorded for this store and date range.
-                            </div>
-                        ) : (
-                            <div style={{ overflowX: 'auto' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
-                                    <thead>
-                                        <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                                            <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>DATE</th>
-                                            <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>STORE</th>
-                                            <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>TIME SLOT</th>
-                                            <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>STATUS CATEGORY</th>
-                                            <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563', width: '100px' }}>IN CAM</th>
-                                            <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>IDENTIFICATION / REMARKS</th>
-                                            <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>LOGGED BY</th>
-                                            {['super_admin', 'admin', 'hr_admin'].includes(user?.role) && (
-                                                <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563', textAlign: 'center', width: '60px' }}>ACTION</th>
-                                            )}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {cameraChecks.map((log) => {
-                                            const categoryLabel = CATEGORIES.find(cat => cat.key === log.statusKey)?.label || log.statusKey;
-                                            return (
-                                                <tr key={log._id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                                                    <td style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>{log.date}</td>
-                                                    <td style={{ padding: '10px 14px', fontWeight: 600, color: '#111827' }}>{log.store || '-'}</td>
-                                                    <td style={{ padding: '10px 14px', fontWeight: 600, color: '#111827' }}>{log.timeDuration}</td>
-                                                    <td style={{ padding: '10px 14px', color: '#4b5563' }}>
-                                                        <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600 }}>
-                                                            {categoryLabel}
-                                                        </span>
-                                                    </td>
-                                                    <td style={{ padding: '10px 14px', fontWeight: 700, color: '#111827' }}>{log.inCamCount}</td>
-                                                    <td style={{ padding: '10px 14px', color: '#6b7280' }}>
-                                                        {log.identification || log.remarks || 'No identification'}
-                                                    </td>
-                                                    <td style={{ padding: '10px 14px', color: '#4b5563' }}>
-                                                        {log.createdBy?.name || 'Unknown'} <span style={{ color: '#9ca3af', fontSize: '10px' }}>({log.createdBy?.role || 'user'})</span>
-                                                    </td>
-                                                    {['super_admin', 'admin', 'hr_admin'].includes(user?.role) && (
-                                                        <td style={{ padding: '10px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                                                            <button
-                                                                onClick={() => handleDeleteCameraCheck(log._id)}
-                                                                style={{ border: 'none', background: 'transparent', color: '#111827', cursor: 'pointer', padding: '4px', fontSize: '14px' }}
-                                                                title="Delete Entry"
-                                                            >
-                                                                <FaTrashAlt />
-                                                            </button>
-                                                        </td>
-                                                    )}
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* Main Table Card */}
-                {storeFilter ? (
-                    <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid #e5e7eb', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-                        {/* Table Header area with Title and Export Button */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid #e5e7eb', background: '#fff' }}>
-                            <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>
-                                Comparison Statistics
-                            </h2>
-                            <button
-                                type="button"
-                                onClick={handleDownloadReport}
-                                style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#111827', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 14px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s', outline: 'none' }}
-                            >
-                                <FaDownload /> Export Report
-                            </button>
+                            {storeFilter && (
+                                <button
+                                    type="button"
+                                    onClick={handleDownloadReport}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#111827', color: '#fff', border: 'none', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s', outline: 'none' }}
+                                >
+                                    <FaDownload /> Export Report
+                                </button>
+                            )}
                         </div>
-                        {loading ? (
-                            <div style={{ display: 'flex', justifyContent: 'center', padding: '80px' }}>
-                                <div style={{ width: '32px', height: '32px', border: '3px solid #e5e7eb', borderTopColor: '#111827', borderRadius: '50%', animation: 'walkincount-spin 0.8s linear infinite' }} />
-                            </div>
-                        ) : (
-                            <div style={{ overflowX: 'auto' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
-                                    <thead>
-                                        <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                                            <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>STATUS CATEGORY</th>
-                                            {user?.role !== 'cluster_admin' && user?.role !== 'store_admin' && (
-                                                <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>IN CAM</th>
-                                            )}
-                                            <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>SALES REPORT</th>
-                                            <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>IN APP</th>
-                                            <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>REMARKS</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {CATEGORIES.map((cat, idx) => {
-                                            const inAppVal = inAppCounts[cat.key] ?? 0;
-                                            const isEven = idx % 2 === 0;
-                                            
-                                            return (
-                                                <tr key={cat.key} style={{ borderBottom: '1px solid #f3f4f6', background: isEven ? '#fff' : '#fcfcfc', transition: 'background 0.15s' }}>
-                                                    <td style={{ padding: '12px 20px', fontWeight: 600, color: '#111827' }}>
-                                                        <span className="tooltip-container" tabIndex="0">
-                                                            {cat.label}
-                                                            <span className="tooltip-text">{cat.tooltip}</span>
-                                                        </span>
-                                                    </td>
-                                                    {user?.role !== 'cluster_admin' && user?.role !== 'store_admin' && (
-                                                        <td style={{ padding: '12px 20px', fontWeight: 700, color: '#111827' }}>
-                                                            {rowValues[cat.key].inCam || '-'}
-                                                        </td>
-                                                    )}
-                                                    <td style={{ padding: '12px 20px', color: '#374151' }}>
-                                                        {rowValues[cat.key].salesReport || '-'}
-                                                    </td>
-                                                    <td style={{ padding: '12px 20px', fontWeight: 700, color: inAppVal > 0 ? '#2563eb' : '#6b7280', fontSize: '14px' }}>
-                                                        {inAppVal}
-                                                    </td>
-                                                    <td style={{ padding: '12px 20px', color: '#6b7280', fontStyle: rowValues[cat.key].remarks ? 'normal' : 'italic' }}>
-                                                        {rowValues[cat.key].remarks || '-'}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
                     </div>
-                ) : (
-                    <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid #e5e7eb', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', padding: '40px', textAlign: 'center', color: '#6b7280', fontSize: '13px' }}>
-                        Please select a store branch in the card above to view comparison statistics.
-                    </div>
-                )}
+
+                    {!storeFilter ? (
+                        <div style={{ textAlign: 'center', padding: '40px 0', color: '#6b7280', fontSize: '13px' }}>
+                            Please select a Store Branch from the dropdown above to view comparison statistics.
+                        </div>
+                    ) : loading ? (
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '80px' }}>
+                            <div style={{ width: '32px', height: '32px', border: '3px solid #e5e7eb', borderTopColor: '#111827', borderRadius: '50%', animation: 'walkincount-spin 0.8s linear infinite' }} />
+                        </div>
+                    ) : (
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+                                <thead>
+                                    <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                                        <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>STATUS CATEGORY</th>
+                                        <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>IN CAM</th>
+                                        <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>SALES REPORT</th>
+                                        <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>IN APP</th>
+                                        <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>REMARKS</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {CATEGORIES.map((cat, idx) => {
+                                        const inAppVal = inAppCounts[cat.key] ?? 0;
+                                        const isEven = idx % 2 === 0;
+                                        
+                                        return (
+                                            <tr key={cat.key} style={{ borderBottom: '1px solid #f3f4f6', background: isEven ? '#fff' : '#fcfcfc', transition: 'background 0.15s' }}>
+                                                <td style={{ padding: '12px 20px', fontWeight: 600, color: '#111827' }}>
+                                                    <span className="tooltip-container" tabIndex="0">
+                                                        {cat.label}
+                                                        <span className="tooltip-text">{cat.tooltip}</span>
+                                                    </span>
+                                                </td>
+                                                <td style={{ padding: '12px 20px', fontWeight: 700, color: '#111827' }}>
+                                                    {rowValues[cat.key].inCam || '-'}
+                                                </td>
+                                                <td style={{ padding: '12px 20px', color: '#374151' }}>
+                                                    {rowValues[cat.key].salesReport || '-'}
+                                                </td>
+                                                <td style={{ padding: '12px 20px', fontWeight: 700, color: inAppVal > 0 ? '#2563eb' : '#6b7280', fontSize: '14px' }}>
+                                                    {inAppVal}
+                                                </td>
+                                                <td style={{ padding: '12px 20px', color: '#6b7280', fontStyle: rowValues[cat.key].remarks ? 'normal' : 'italic' }}>
+                                                    {rowValues[cat.key].remarks || '-'}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Spinner and Tooltip styles */}
