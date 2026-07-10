@@ -511,6 +511,21 @@ export const syncWalkinStatuses = async () => {
                                 });
 
                                 await newWalkin.save();
+
+                                // Backdate createdAt and updatedAt to the booking date so the
+                                // auto-created walkin appears under the correct date in the walkin
+                                // list and does not pollute today's manually-added new walkins.
+                                // Mongoose timestamps: true always stamps createdAt = now on save(),
+                                // so we override it immediately with a direct collection update.
+                                if (autoBookingDate) {
+                                    await Walkin.collection.updateOne(
+                                        { _id: newWalkin._id },
+                                        { $set: { createdAt: autoBookingDate, updatedAt: autoBookingDate } }
+                                    );
+                                    newWalkin.createdAt = autoBookingDate;
+                                    newWalkin.updatedAt = autoBookingDate;
+                                }
+
                                 walkin = newWalkin;
                                 invoiceToWalkinMap.set(invoiceNo, walkin);
                                 console.log(`🆕 [Walkin Status Sync] Auto-created walkin for invoiceNo '${invoiceNo}' | phone: ...${rentalInfo.phone.slice(-4)} | customer: '${autoCustomerName}' | staff: '${autoStaff}' | date: ${autoDateStr}`);
