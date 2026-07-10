@@ -746,7 +746,7 @@ const WalkinCount = () => {
 
 
                 {/* Unified Camera Checker Log Portal Card */}
-                {['telecaller', 'super_admin', 'admin', 'hr_admin'].includes(user?.role) && (
+                {user?.role === 'telecaller' && (
                     <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '20px', marginBottom: '25px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
                             <FaVideo style={{ color: '#111827', fontSize: '18px' }} />
@@ -885,31 +885,46 @@ const WalkinCount = () => {
 
 
 
-                {/* Store Selection & Date Range filter for Cluster & Store Admins */}
-                {['cluster_admin', 'store_admin'].includes(user?.role) && (
+                {/* Logged Camera Checks Report Table for Admins */}
+                {user?.role !== 'telecaller' && (
                     <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '20px', marginBottom: '20px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-                            <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>
-                                Select Filters
-                            </h2>
-                            <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-                                {user?.role === 'store_admin' ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        <span style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563' }}>Store Branch</span>
-                                        <span style={{ fontSize: '14px', fontWeight: 700, color: '#111827', padding: '6px 0' }}>{storeFilter}</span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', borderBottom: '1px solid #f3f4f6', paddingBottom: '16px', marginBottom: '16px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>
+                                    Logged Camera Checks Report
+                                </h2>
+                                {storeFilter && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span style={{ background: '#f3f4f6', color: '#374151', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
+                                            {cameraChecks.length} entries
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={handleDownloadCameraChecksReport}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#111827', color: '#fff', border: 'none', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s', outline: 'none' }}
+                                        >
+                                            <FaDownload /> Export Logs
+                                        </button>
                                     </div>
-                                ) : (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        <span style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563' }}>Store Branch</span>
+                                )}
+                            </div>
+                            
+                            <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563' }}>Store Branch</span>
+                                    {user?.role === 'store_admin' ? (
+                                        <span style={{ fontSize: '13px', fontWeight: 700, color: '#111827', padding: '6px 0' }}>{storeFilter}</span>
+                                    ) : (
                                         <select
                                             value={storeFilter}
                                             onChange={e => setStoreFilter(e.target.value)}
                                             style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '6px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer', minWidth: '180px' }}
                                         >
+                                            <option value="All">All</option>
                                             {branches.map((b, i) => <option key={i} value={b.workingBranch}>{b.workingBranch}</option>)}
                                         </select>
-                                    </div>
-                                )}
+                                    )}
+                                </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                     <span style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563' }}>Date Range</span>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '5px 12px', background: '#fff' }}>
@@ -930,6 +945,70 @@ const WalkinCount = () => {
                                 </div>
                             </div>
                         </div>
+
+                        {!storeFilter ? (
+                            <div style={{ textAlign: 'center', padding: '30px 0', color: '#6b7280', fontSize: '13px' }}>
+                                Please select a store branch to load camera checks.
+                            </div>
+                        ) : cameraChecks.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: '24px 0', color: '#6b7280', fontSize: '13px' }}>
+                                No camera check logs recorded for this store and date range.
+                            </div>
+                        ) : (
+                            <div style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                                    <thead>
+                                        <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                                            <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>DATE</th>
+                                            <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>STORE</th>
+                                            <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>TIME SLOT</th>
+                                            <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>STATUS CATEGORY</th>
+                                            <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563', width: '100px' }}>IN CAM</th>
+                                            <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>IDENTIFICATION / REMARKS</th>
+                                            <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>LOGGED BY</th>
+                                            {['super_admin', 'admin', 'hr_admin'].includes(user?.role) && (
+                                                <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563', textAlign: 'center', width: '60px' }}>ACTION</th>
+                                            )}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {cameraChecks.map((log) => {
+                                            const categoryLabel = CATEGORIES.find(cat => cat.key === log.statusKey)?.label || log.statusKey;
+                                            return (
+                                                <tr key={log._id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                                                    <td style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>{log.date}</td>
+                                                    <td style={{ padding: '10px 14px', fontWeight: 600, color: '#111827' }}>{log.store || '-'}</td>
+                                                    <td style={{ padding: '10px 14px', fontWeight: 600, color: '#111827' }}>{log.timeDuration}</td>
+                                                    <td style={{ padding: '10px 14px', color: '#4b5563' }}>
+                                                        <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600 }}>
+                                                            {categoryLabel}
+                                                        </span>
+                                                    </td>
+                                                    <td style={{ padding: '10px 14px', fontWeight: 700, color: '#111827' }}>{log.inCamCount}</td>
+                                                    <td style={{ padding: '10px 14px', color: '#6b7280' }}>
+                                                        {log.identification || log.remarks || 'No identification'}
+                                                    </td>
+                                                    <td style={{ padding: '10px 14px', color: '#4b5563' }}>
+                                                        {log.createdBy?.name || 'Unknown'} <span style={{ color: '#9ca3af', fontSize: '10px' }}>({log.createdBy?.role || 'user'})</span>
+                                                    </td>
+                                                    {['super_admin', 'admin', 'hr_admin'].includes(user?.role) && (
+                                                        <td style={{ padding: '10px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                                            <button
+                                                                onClick={() => handleDeleteCameraCheck(log._id)}
+                                                                style={{ border: 'none', background: 'transparent', color: '#111827', cursor: 'pointer', padding: '4px', fontSize: '14px' }}
+                                                                title="Delete Entry"
+                                                            >
+                                                                <FaTrashAlt />
+                                                            </button>
+                                                        </td>
+                                                    )}
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
                 )}
 
