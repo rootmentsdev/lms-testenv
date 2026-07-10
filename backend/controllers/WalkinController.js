@@ -1655,11 +1655,11 @@ const syncWalkinCountInCam = async (date, storeId, storeName) => {
  */
 export const saveCameraCheckEntry = async (req, res) => {
     try {
-        const { id, date, store, statusKey, timeDuration, inCamCount, remarks } = req.body;
+        const { date, store, entries } = req.body;
         const adminId = req.admin.userId;
 
-        if (!date || !store || !statusKey || !timeDuration || inCamCount === undefined) {
-            return res.status(400).json({ success: false, message: 'date, store, statusKey, timeDuration, and inCamCount are required' });
+        if (!date || !store || !Array.isArray(entries)) {
+            return res.status(400).json({ success: false, message: 'date, store, and entries (array) are required' });
         }
 
         let resolvedStoreId = null;
@@ -1670,54 +1670,47 @@ export const saveCameraCheckEntry = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Store not found' });
         }
 
-        if (id) {
-            const duplicate = await WalkinCameraCheck.findOne({
-                _id: { $ne: id },
-                date,
-                storeId: resolvedStoreId,
-                statusKey,
-                timeDuration
-            });
-            if (duplicate) {
-                return res.status(400).json({ success: false, message: 'A log for this date, store, status, and time duration already exists' });
-            }
+        // Filter out empty rows: rows without a statusKey are considered empty or incomplete
+        const validEntries = entries.filter(entry => entry.statusKey && entry.statusKey.trim() !== '');
 
-            await WalkinCameraCheck.findByIdAndUpdate(id, {
-                date,
-                store: branch.workingBranch,
-                storeId: resolvedStoreId,
-                statusKey,
-                timeDuration,
-                inCamCount: Number(inCamCount),
-                remarks: remarks || '',
-                createdBy: adminId
-            });
-        } else {
-            await WalkinCameraCheck.findOneAndUpdate(
-                { date, storeId: resolvedStoreId, statusKey, timeDuration },
-                {
+        // 1. Delete all existing camera check entries for this store and date
+        await WalkinCameraCheck.deleteMany({ date, storeId: resolvedStoreId });
+
+        // 2. Insert the new valid entries
+        if (validEntries.length > 0) {
+            const documentsToInsert = validEntries.map(entry => {
+                const inTimeClean = String(entry.inTime || '').trim();
+                const outTimeClean = String(entry.outTime || '').trim();
+                const identClean = String(entry.identification || '').substring(0, 20).trim();
+                
+                return {
                     date,
                     store: branch.workingBranch,
                     storeId: resolvedStoreId,
-                    statusKey,
-                    timeDuration,
-                    inCamCount: Number(inCamCount),
-                    remarks: remarks || '',
+                    statusKey: entry.statusKey,
+                    timeDuration: (inTimeClean && outTimeClean) ? `${inTimeClean} to ${outTimeClean}` : '–',
+                    inTime: inTimeClean,
+                    outTime: outTimeClean,
+                    identification: identClean,
+                    inCamCount: 1, // each row increments count by 1
+                    remarks: identClean,
                     createdBy: adminId
-                },
-                { upsert: true, new: true, runValidators: true }
-            );
+                };
+            });
+            await WalkinCameraCheck.insertMany(documentsToInsert);
         }
 
+        // 3. Sync the aggregated counts in WalkinCount
         await syncWalkinCountInCam(date, resolvedStoreId, branch.workingBranch);
 
+        // 4. Retrieve the updated checks list to return to client
         const updatedChecks = await WalkinCameraCheck.find({ date, storeId: resolvedStoreId })
             .populate('createdBy', 'name role')
             .lean();
 
         return res.status(200).json({
             success: true,
-            message: 'Camera check log saved successfully',
+            message: 'Camera check logs saved successfully',
             cameraChecks: updatedChecks
         });
     } catch (error) {
