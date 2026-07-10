@@ -485,6 +485,15 @@ export const syncWalkinStatuses = async () => {
                                     ? getLocalDateStringIST(autoBookingDate)
                                     : getLocalDateStringIST(new Date());
 
+                                // The 'New Walkin' statusHistory entry is dated 5 minutes AFTER
+                                // the booking date so that when history is sorted by date,
+                                // 'Booked' (exact bookingDate) always appears before 'New Walkin'.
+                                // This reflects the real sequence: the booking existed first,
+                                // and the walkin was auto-created afterwards.
+                                const autoNewWalkinHistoryDate = autoBookingDate
+                                    ? new Date(autoBookingDate.getTime() + 5 * 60 * 1000)
+                                    : new Date();
+
                                 const newWalkin = new Walkin({
                                     customerName:  autoCustomerName,
                                     contact:       rentalInfo.phone,
@@ -500,7 +509,7 @@ export const syncWalkinStatuses = async () => {
                                         status:      'New Walkin',
                                         category:    'Product',
                                         subCategory: '-',
-                                        date:        autoBookingDate || new Date(),
+                                        date:        autoNewWalkinHistoryDate,
                                         source:      'auto_sync'
                                     }],
                                     legacyMeta: {
