@@ -1095,17 +1095,14 @@ const BACKEND_CATEGORIES = [
     { key: 'new_walkin_rentout', label: 'NEW WALKIN RENTOUT' },
     { key: 'new_cancelled', label: 'NEW CANCELLED' },
     { key: 'new_others', label: 'NEW OTHERS' },
-    { key: 'repeat_loss', label: 'REPEAT LOSS' },
-    { key: 'repeat_rentout', label: 'REPEAT RENTOUT' },
-    { key: 'repeat_return', label: 'REPEAT RETURN' },
-    { key: 'revisit_repeat_trial', label: 'REVISIT REPEAT TRIAL' },
-    { key: 'repeat_booking', label: 'REPEAT BOOKING' },
-    { key: 'revisit_reissue', label: 'REVISIT REISSUE' },
     { key: 'revisit_loss', label: 'REVISIT LOSS' },
-    { key: 'repeat_cancelled', label: 'REPEAT CANCELLED' },
-    { key: 'repeat_others', label: 'REPEAT OTHERS' },
-    { key: 'cancelled', label: 'CANCELLED' },
-    { key: 'others', label: 'OTHERS' }
+    { key: 'revisit_rentout', label: 'REVISIT RENTOUT' },
+    { key: 'revisit_return', label: 'REVISIT RETURN' },
+    { key: 'revisit_trial', label: 'REVISIT TRIAL' },
+    { key: 'revisit_booking', label: 'REVISIT BOOKING' },
+    { key: 'revisit_reissue', label: 'REVISIT REISSUE' },
+    { key: 'revisit_cancelled', label: 'REVISIT CANCELLED' },
+    { key: 'revisit_others', label: 'REVISIT OTHERS' }
 ];
 
 const isValidYMD = (str) => {
@@ -1236,21 +1233,20 @@ export const getWalkinCountPageData = async (req, res) => {
         const counts = {
             total_walkin: 0,
             walkin: 0,
-            repeat_walkin: 0,
+            revisit_walkin: 0,
             new_loss: 0,
-            repeat_loss: 0,
-            repeat_rentout: 0,
-            repeat_return: 0,
-            revisit_repeat_trial: 0,
-            repeat_booking: 0,
+            revisit_loss: 0,
+            revisit_rentout: 0,
+            revisit_return: 0,
+            revisit_trial: 0,
+            revisit_booking: 0,
             new_walkin_booking: 0,
             new_walkin_rentout: 0,
             new_cancelled: 0,
             new_others: 0,
             revisit_reissue: 0,
-            revisit_loss: 0,
-            repeat_cancelled: 0,
-            repeat_others: 0,
+            revisit_cancelled: 0,
+            revisit_others: 0,
             cancelled: 0,
             others: 0
         };
@@ -1371,35 +1367,34 @@ export const getWalkinCountPageData = async (req, res) => {
                 }
             } else {
                 // Repeat Walkin: createdAt is NOT in range
-                // 1. Repeat Cancelled
+                // 1. Revisit Cancelled
                 if (hasCancelInRange) {
-                    counts.repeat_cancelled++;
+                    counts.revisit_cancelled++;
                     repeatWalkinSet.add(w._id.toString());
                 }
-                // 2. Repeat Return
+                // 2. Revisit Return
                 else if (hasReturnInRange || hasBillReturnedInRange) {
-                    counts.repeat_return++;
+                    counts.revisit_return++;
                     repeatWalkinSet.add(w._id.toString());
                 }
-                // 3. Repeat Rentout
+                // 3. Revisit Rentout
                 else if (hasRentoutInRange) {
-                    counts.repeat_rentout++;
+                    counts.revisit_rentout++;
                     repeatWalkinSet.add(w._id.toString());
                 }
-                // 4. Repeat Booking
+                // 4. Revisit Booking
                 else if (hasBookingInRange || hasBilledInRange) {
-                    counts.repeat_booking++;
+                    counts.revisit_booking++;
                     repeatWalkinSet.add(w._id.toString());
                 }
-                // 5. Repeat Loss / Revisit Loss
+                // 5. Revisit Loss
                 else if (hasRevisitLoss || isLossState) {
-                    counts.repeat_loss++;
                     counts.revisit_loss++;
                     repeatWalkinSet.add(w._id.toString());
                 }
-                // 6. Revisit Repeat Trial
+                // 6. Revisit Trial
                 else if (hasRevisitTrial) {
-                    counts.revisit_repeat_trial++;
+                    counts.revisit_trial++;
                     repeatWalkinSet.add(w._id.toString());
                 }
                 // 7. Revisit Reissue
@@ -1407,9 +1402,9 @@ export const getWalkinCountPageData = async (req, res) => {
                     counts.revisit_reissue++;
                     repeatWalkinSet.add(w._id.toString());
                 }
-                // 8. Repeat Others (fallback for updatedAt in range but not counted in 1-7)
+                // 8. Revisit Others (fallback for updatedAt in range but not counted in 1-7)
                 else if (updatedInRange) {
-                    counts.repeat_others++;
+                    counts.revisit_others++;
                     repeatWalkinSet.add(w._id.toString());
                 }
             }
@@ -1417,14 +1412,14 @@ export const getWalkinCountPageData = async (req, res) => {
 
         // 4. Calculate total unique count sizes
         counts.walkin = walkinSet.size;
-        counts.repeat_walkin = repeatWalkinSet.size;
+        counts.revisit_walkin = repeatWalkinSet.size;
 
         // 5. Calculate legacy keys for backward compatibility
-        counts.cancelled = counts.new_cancelled + counts.repeat_cancelled;
-        counts.others = counts.new_others + counts.repeat_others;
+        counts.cancelled = counts.new_cancelled + counts.revisit_cancelled;
+        counts.others = counts.new_others + counts.revisit_others;
 
-        // 6. Calculate total_walkin as sum of walkin + repeat_walkin to guarantee 100% reconciliation
-        counts.total_walkin = counts.walkin + counts.repeat_walkin;
+        // 6. Calculate total_walkin as sum of walkin + revisit_walkin to guarantee 100% reconciliation
+        counts.total_walkin = counts.walkin + counts.revisit_walkin;
 
 
         // 4. Fetch camera checker entries for this date/range & store
@@ -1500,8 +1495,8 @@ export const getWalkinCountPageData = async (req, res) => {
         // Automatically calculate 'walkin' and 'total_walkin' inCam counts from subcategories
         const newKeys = ['new_loss', 'new_walkin_booking', 'new_walkin_rentout'];
         const repeatKeys = [
-            'repeat_loss', 'repeat_rentout', 'repeat_return', 'revisit_repeat_trial',
-            'repeat_booking', 'revisit_reissue', 'revisit_loss', 'cancelled', 'others'
+            'revisit_loss', 'revisit_rentout', 'revisit_return', 'revisit_trial',
+            'revisit_booking', 'revisit_reissue', 'revisit_cancelled', 'revisit_others'
         ];
 
         let sumNewInCam = 0;

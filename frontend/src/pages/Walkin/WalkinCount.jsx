@@ -7,22 +7,21 @@ import baseUrl from "../../api/api";
 import { FaSave, FaCheckCircle, FaUndo, FaTrashAlt, FaPlusCircle, FaVideo, FaEdit, FaClock, FaDownload } from 'react-icons/fa';
 
 const CATEGORIES = [
-    { key: 'total_walkin', label: 'TOTAL WALKIN', tooltip: "New walk-ins + repeat walk-ins for the selected date." },
+    { key: 'total_walkin', label: 'TOTAL WALKIN', tooltip: "New walk-ins + revisit walk-ins for the selected date." },
     { key: 'walkin', label: 'WALKIN', tooltip: "Customers newly created on the selected date." },
     { key: 'new_loss', label: 'NEW LOSS', tooltip: "New walk-ins that became Loss on the selected date." },
     { key: 'new_walkin_booking', label: 'NEW WALKIN BOOKING', tooltip: "New walk-ins booked or shoe billed on the selected date." },
     { key: 'new_walkin_rentout', label: 'NEW WALKIN RENTOUT', tooltip: "New walk-ins rented out on the selected date." },
     { key: 'new_cancelled', label: 'NEW CANCELLED', tooltip: "New walk-ins cancelled on the selected date." },
     { key: 'new_others', label: 'NEW OTHERS', tooltip: "New walk-ins not fitting the above categories." },
-    { key: 'repeat_loss', label: 'REPEAT LOSS', tooltip: "Old walk-ins that became Loss again on the selected date." },
-    { key: 'repeat_rentout', label: 'REPEAT RENTOUT', tooltip: "Old walk-ins rented out on the selected date." },
-    { key: 'repeat_return', label: 'REPEAT RETURN', tooltip: "Old walk-ins returned or bill returned on the selected date." },
-    { key: 'revisit_repeat_trial', label: 'REVISIT REPEAT TRIAL', tooltip: "Old walk-ins revisited for Trial on the selected date." },
-    { key: 'repeat_booking', label: 'REPEAT BOOKING', tooltip: "Old walk-ins booked or shoe billed on the selected date." },
-    { key: 'revisit_reissue', label: 'REVISIT REISSUE', tooltip: "Old walk-ins revisited for Reissue on the selected date." },
-    { key: 'revisit_loss', label: 'REVISIT LOSS', tooltip: "Old revisited walk-ins marked Loss on the selected date." },
-    { key: 'repeat_cancelled', label: 'REPEAT CANCELLED', tooltip: "Old walk-ins cancelled on the selected date." },
-    { key: 'repeat_others', label: 'REPEAT OTHERS', tooltip: "Old walk-ins updated but not fitting the above categories." }
+    { key: 'revisit_loss', label: 'REVISIT LOSS', tooltip: "Revisit walk-ins that became Loss on the selected date." },
+    { key: 'revisit_rentout', label: 'REVISIT RENTOUT', tooltip: "Revisit walk-ins rented out on the selected date." },
+    { key: 'revisit_return', label: 'REVISIT RETURN', tooltip: "Revisit walk-ins returned or bill returned on the selected date." },
+    { key: 'revisit_trial', label: 'REVISIT TRIAL', tooltip: "Revisit walk-ins revisited for Trial on the selected date." },
+    { key: 'revisit_booking', label: 'REVISIT BOOKING', tooltip: "Revisit walk-ins booked or shoe billed on the selected date." },
+    { key: 'revisit_reissue', label: 'REVISIT REISSUE', tooltip: "Revisit walk-ins revisited for Reissue on the selected date." },
+    { key: 'revisit_cancelled', label: 'REVISIT CANCELLED', tooltip: "Revisit walk-ins cancelled on the selected date." },
+    { key: 'revisit_others', label: 'REVISIT OTHERS', tooltip: "Revisit walk-ins updated but not fitting the above categories." }
 ];
 
 const HARDCODED_STORES = [
@@ -266,6 +265,7 @@ const WalkinCount = () => {
     const [cameraRows, setCameraRows] = useState(() => Array.from({ length: 10 }, () => ({ inTime: '', outTime: '', identification: '', statusKey: '' })));
     const [cameraChecks, setCameraChecks] = useState([]);
     const [savingCameraChecks, setSavingCameraChecks] = useState(false);
+    const [telecallerTab, setTelecallerTab] = useState('entry'); // 'entry' or 'report'
     
     // Request synchronization refs
     const abortControllerRef = useRef(null);
@@ -287,6 +287,43 @@ const WalkinCount = () => {
             setCameraRows(Array.from({ length: 10 }, () => ({ inTime: '', outTime: '', identification: '', statusKey: '' })));
             return;
         }
+
+        const draftKey = `walkin_draft_${storeFilter}_${selectedDate}`;
+        const savedDraft = localStorage.getItem(draftKey);
+        
+        if (savedDraft) {
+            try {
+                const parsed = JSON.parse(savedDraft);
+                if (Array.isArray(parsed)) {
+                    setCameraRows(parsed);
+                    setCameraChecks([]);
+                    
+                    // Fetch database checks in background to sync setCameraChecks
+                    const fetchDB = async () => {
+                        try {
+                            const url = `${baseUrl.baseUrl}api/walkin/camera-check?date=${selectedDate}&store=${encodeURIComponent(storeFilter)}`;
+                            const res = await fetch(url, {
+                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+                            });
+                            const json = await res.json();
+                            if (json.success && Array.isArray(json.cameraChecks)) {
+                                setCameraChecks(json.cameraChecks);
+                            }
+                        } catch (e) {
+                            console.error(e);
+                        }
+                    };
+                    fetchDB();
+                    return;
+                }
+            } catch (e) {
+                console.error("Error parsing saved draft:", e);
+            }
+        }
+
+        // If no draft exists, reset to empty rows and fetch from database
+        setCameraRows(Array.from({ length: 10 }, () => ({ inTime: '', outTime: '', identification: '', statusKey: '' })));
+        setCameraChecks([]);
 
         const fetchLoggedEntries = async () => {
             try {
@@ -524,25 +561,42 @@ const WalkinCount = () => {
         setCameraRows(prev => {
             const updated = [...prev];
             updated[index] = { ...updated[index], [field]: value };
+            
+            // Save draft directly
+            if (selectedDate && storeFilter && storeFilter !== 'All') {
+                const draftKey = `walkin_draft_${storeFilter}_${selectedDate}`;
+                const hasData = updated.some(row => 
+                    (row.inTime && row.inTime.trim() !== '') ||
+                    (row.outTime && row.outTime.trim() !== '') ||
+                    (row.identification && row.identification.trim() !== '') ||
+                    (row.statusKey && row.statusKey.trim() !== '')
+                );
+                if (hasData) {
+                    localStorage.setItem(draftKey, JSON.stringify(updated));
+                } else {
+                    localStorage.removeItem(draftKey);
+                }
+            }
             return updated;
         });
     };
 
-    // Clear individual row handler
-    const handleClearRow = (index) => {
-        setCameraRows(prev => {
-            const updated = [...prev];
-            updated[index] = { inTime: '', outTime: '', identification: '', statusKey: '' };
-            return updated;
-        });
-    };
 
     // Add 10 more empty rows handler
     const handleAddMoreRows = () => {
-        setCameraRows(prev => [
-            ...prev,
-            ...Array.from({ length: 10 }, () => ({ inTime: '', outTime: '', identification: '', statusKey: '' }))
-        ]);
+        setCameraRows(prev => {
+            const updated = [
+                ...prev,
+                ...Array.from({ length: 10 }, () => ({ inTime: '', outTime: '', identification: '', statusKey: '' }))
+            ];
+            
+            // Save draft directly
+            if (selectedDate && storeFilter && storeFilter !== 'All') {
+                const draftKey = `walkin_draft_${storeFilter}_${selectedDate}`;
+                localStorage.setItem(draftKey, JSON.stringify(updated));
+            }
+            return updated;
+        });
     };
 
     // Save Camera Check Log Entries (Batch)
@@ -580,6 +634,10 @@ const WalkinCount = () => {
             const json = await res.json();
             if (json.success) {
                 setMessage({ text: 'Camera check logs saved successfully!', type: 'success' });
+                
+                // Clear draft
+                const draftKey = `walkin_draft_${storeFilter}_${selectedDate}`;
+                localStorage.removeItem(draftKey);
                 
                 // Reset table grid to 10 empty rows on successful submission
                 setCameraRows(Array.from({ length: 10 }, () => ({ inTime: '', outTime: '', identification: '', statusKey: '' })));
@@ -725,6 +783,50 @@ const WalkinCount = () => {
                     </div>
                 </div>
 
+                {/* Toggle on top for telecaller roles */}
+                {user?.role === 'telecaller' && (
+                    <div style={{ display: 'inline-flex', background: '#f3f4f6', padding: '4px', borderRadius: '8px', marginBottom: '20px' }}>
+                        <button
+                            type="button"
+                            onClick={() => setTelecallerTab('entry')}
+                            style={{
+                                padding: '6px 16px',
+                                borderRadius: '6px',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                border: 'none',
+                                background: telecallerTab === 'entry' ? '#fff' : 'transparent',
+                                color: telecallerTab === 'entry' ? '#111827' : '#4b5563',
+                                boxShadow: telecallerTab === 'entry' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s',
+                                outline: 'none'
+                            }}
+                        >
+                            Count Entry
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setTelecallerTab('report')}
+                            style={{
+                                padding: '6px 16px',
+                                borderRadius: '6px',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                border: 'none',
+                                background: telecallerTab === 'report' ? '#fff' : 'transparent',
+                                color: telecallerTab === 'report' ? '#111827' : '#4b5563',
+                                boxShadow: telecallerTab === 'report' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s',
+                                outline: 'none'
+                            }}
+                        >
+                            Count Report
+                        </button>
+                    </div>
+                )}
+
                 {/* Notifications */}
                 {message.text && (
                     <div style={{
@@ -746,7 +848,7 @@ const WalkinCount = () => {
 
 
                 {/* Unified Camera Checker Log Portal Card */}
-                {user?.role === 'telecaller' && (
+                {user?.role === 'telecaller' && telecallerTab === 'entry' && (
                     <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '20px', marginBottom: '25px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
                             <FaVideo style={{ color: '#111827', fontSize: '18px' }} />
@@ -755,7 +857,7 @@ const WalkinCount = () => {
 
                         {/* Selection Inputs */}
                         <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '20px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: '1', minWidth: '200px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '240px' }}>
                                 <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>Store Branch</span>
                                 <select
                                     value={storeFilter === 'All' ? '' : storeFilter}
@@ -768,7 +870,7 @@ const WalkinCount = () => {
                             </div>
 
                             {storeFilter && storeFilter !== 'All' && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: '1', minWidth: '200px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '240px' }}>
                                     <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>Select Date</span>
                                     <input
                                         type="date"
@@ -792,7 +894,6 @@ const WalkinCount = () => {
                                                 <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>OUT TIME</th>
                                                 <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>IDENTIFICATION (MAX 20 CHARS)</th>
                                                 <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>STATUS CATEGORY</th>
-                                                <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563', width: '50px', textAlign: 'center' }}>ACTION</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -839,16 +940,6 @@ const WalkinCount = () => {
                                                             ))}
                                                         </select>
                                                     </td>
-                                                    <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleClearRow(index)}
-                                                            style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                                                            title="Clear Row"
-                                                        >
-                                                            <FaUndo size={14} />
-                                                        </button>
-                                                    </td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -886,7 +977,8 @@ const WalkinCount = () => {
 
 
                 {/* Main Table Card */}
-                <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid #e5e7eb', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+                {(user?.role !== 'telecaller' || telecallerTab === 'report') && (
+                    <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid #e5e7eb', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
                     {/* Table Header area with Title, Filters, and Export Button */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', padding: '16px 20px', borderBottom: '1px solid #e5e7eb', background: '#fff' }}>
                         <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>
@@ -995,6 +1087,7 @@ const WalkinCount = () => {
                         </div>
                     )}
                 </div>
+                )}
             </div>
 
             {/* Spinner and Tooltip styles */}
