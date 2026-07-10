@@ -522,6 +522,28 @@ export const syncWalkinStatuses = async () => {
                         };
 
                         if (normalizeStatusForCompare(previousRentalStatus) !== normalizeStatusForCompare(targetRentalStatus)) {
+                            let txDate = null;
+                            if (targetRentalStatus === 'Booked') {
+                                const item = bookingMap.get(invoiceNo);
+                                txDate = item ? extractDateValue(item, ['bookingDate', 'bookingdate', 'booking_date', 'bookeddate']) : null;
+                            } else if (targetRentalStatus === 'Rentout') {
+                                const item = rentoutMap.get(invoiceNo);
+                                txDate = item ? extractDateValue(item, ['rentOutDate', 'rentoutdate', 'rent_out_date', 'rentdate']) : null;
+                            } else if (targetRentalStatus === 'Return') {
+                                const item = returnMap.get(invoiceNo);
+                                txDate = item ? extractDateValue(item, ['returnedDate', 'returneddate', 'returndate', 'return_date']) : null;
+                            } else if (['Cancelled', 'Cancel'].includes(targetRentalStatus)) {
+                                const item = cancelMap.get(invoiceNo);
+                                txDate = item ? extractDateValue(item, ['cancelDate', 'canceldate', 'cancellationdate', 'cancelleddate']) : null;
+                            }
+
+                            const lastChange = tracker.walkin.lastStatusChangeDate || tracker.walkin.updatedAt || tracker.walkin.createdAt;
+
+                            if (txDate && lastChange && new Date(txDate).getTime() < new Date(lastChange).getTime()) {
+                                console.log(`ℹ️ [Walkin Status Sync] Skipping stale rental update for invoice ${invoiceNo}: txDate (${new Date(txDate).toISOString()}) is older than lastStatusChangeDate (${new Date(lastChange).toISOString()})`);
+                                continue;
+                            }
+
                             // Check if this status transition has already occurred in the past (by checking captured date presence)
                             let isAlreadyDone = false;
                             if (targetRentalStatus === 'Booked' && hadBookingDate) isAlreadyDone = true;
@@ -657,6 +679,22 @@ export const syncWalkinStatuses = async () => {
                         }
 
                         if (currentShoeStatus !== targetShoeStatus) {
+                            let txDate = null;
+                            if (targetShoeStatus === 'Billed') {
+                                const item = shoeBilledMap.get(shoeInvoiceNo);
+                                txDate = item ? extractDateValue(item, ['billedDate', 'billingDate', 'billeddate', 'billdate', 'billingdate']) : null;
+                            } else if (targetShoeStatus === 'Bill Returned') {
+                                const item = shoeBillReturnedMap.get(shoeInvoiceNo);
+                                txDate = item ? extractDateValue(item, ['billedReturnedDate', 'billedreturneddate', 'billReturnedDate', 'returnedDate', 'billreturneddate', 'returneddate', 'returndate']) : null;
+                            }
+
+                            const lastChange = tracker.walkin.lastStatusChangeDate || tracker.walkin.updatedAt || tracker.walkin.createdAt;
+
+                            if (txDate && lastChange && new Date(txDate).getTime() < new Date(lastChange).getTime()) {
+                                console.log(`ℹ️ [Walkin Status Sync] Skipping stale shoe update for shoeInvoice ${shoeInvoiceNo}: txDate (${new Date(txDate).toISOString()}) is older than lastStatusChangeDate (${new Date(lastChange).toISOString()})`);
+                                continue;
+                            }
+
                             let isShoeAlreadyDone = false;
                             if (targetShoeStatus === 'Billed' && hadBilledDate) isShoeAlreadyDone = true;
                             if (targetShoeStatus === 'Bill Returned' && hadBillReturnedDate) isShoeAlreadyDone = true;

@@ -3727,16 +3727,14 @@ const WalkinList = () => {
                                     });
                                 }
 
-                                // Helper function to ensure actual DB date overrides sync/manual update date
+                                // Helper function to reconstruct missing status dates (e.g. for older walk-ins)
                                 const ensureOrUpdateStatusDate = (statusNames, targetDate, defaultCategory = null) => {
                                     if (!targetDate) return;
                                     const parsedTargetDate = new Date(targetDate);
                                     if (isNaN(parsedTargetDate.getTime())) return;
 
-                                    const existingIndex = history.findIndex(h => statusNames.map(s => s.toLowerCase()).includes(h.status.toLowerCase().trim()));
-                                    if (existingIndex !== -1) {
-                                        history[existingIndex].date = parsedTargetDate;
-                                    } else {
+                                    const hasStatusInHistory = history.some(h => statusNames.map(s => s.toLowerCase()).includes(h.status.toLowerCase().trim()));
+                                    if (!hasStatusInHistory) {
                                         history.push({
                                             status: statusNames[0],
                                             category: defaultCategory || selectedHistoryWalkin.category || 'Product',
