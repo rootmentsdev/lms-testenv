@@ -95,7 +95,6 @@ const DAPPR_SQUAD_STORE_MAPPING = {
   "sg.kozhikode": "13",
   // G-Vadakara (loc 14)
   "sg.vadakara": "14",
-  "sg.vadakara": "14",
   // G-Edappal (loc 15)
   "sg.edappal": "15",
   // G-Perinthalmanna (loc 16)
@@ -2184,12 +2183,22 @@ const DSRReport = () => {
   const totalBillWtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + row.billWtd, 0), [filteredFunnelRows]);
   const totalValFtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + (row.valFtd || 0), 0), [filteredFunnelRows]);
   const totalValWtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + (row.valWtd || 0), 0), [filteredFunnelRows]);
+
+  // Grand totals across ALL stores derived directly from performanceData (all locIds).
+  // This is always the true all-store denominator regardless of whether funnelRows
+  // shows store-level rows (admin) or staff-level rows (store_admin).
+  const grandTotalValFtd = useMemo(() => {
+    return Object.values(performanceData.ftd).flat().reduce((acc, item) => acc + (item?.total_Number_Of_Bill || 0), 0);
+  }, [performanceData]);
+  const grandTotalValWtd = useMemo(() => {
+    return Object.values(performanceData.period).flat().reduce((acc, item) => acc + (item?.total_Number_Of_Bill || 0), 0);
+  }, [performanceData]);
   const totalQtyFtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + (row.qtyFtd || 0), 0), [filteredFunnelRows]);
   const totalQtyWtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + (row.qtyWtd || 0), 0), [filteredFunnelRows]);
   const totalWalkFtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + row.walkFtd, 0), [filteredFunnelRows]);
   const totalWalkWtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + row.walkWtd, 0), [filteredFunnelRows]);
-  const totalLossFtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + row.lossFtd, 0), [filteredFunnelRows]);
-  const totalLossWtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + row.lossWtd, 0), [filteredFunnelRows]);
+  const totalLossFtd = useMemo(() => Math.max(0, totalWalkFtd - totalValFtd), [totalWalkFtd, totalValFtd]);
+  const totalLossWtd = useMemo(() => Math.max(0, totalWalkWtd - totalValWtd), [totalWalkWtd, totalValWtd]);
 
   const totalAbvFtd = useMemo(() => (totalValFtd > 0 ? Math.round(totalBillFtd / totalValFtd) : 0), [totalBillFtd, totalValFtd]);
   const totalAbvWtd = useMemo(() => (totalValWtd > 0 ? Math.round(totalBillWtd / totalValWtd) : 0), [totalBillWtd, totalValWtd]);
@@ -2197,8 +2206,8 @@ const DSRReport = () => {
   const totalAbsFtd = useMemo(() => (totalValFtd > 0 ? (totalQtyFtd / totalValFtd).toFixed(1) : "0.0"), [totalQtyFtd, totalValFtd]);
   const totalAbsWtd = useMemo(() => (totalValWtd > 0 ? (totalQtyWtd / totalValWtd).toFixed(1) : "0.0"), [totalQtyWtd, totalValWtd]);
 
-  const totalConvFtd = useMemo(() => (totalWalkFtd > 0 ? Math.min(100, Math.round((totalValFtd / totalWalkFtd) * 100)) : 0), [totalValFtd, totalWalkFtd]);
-  const totalConvWtd = useMemo(() => (totalWalkWtd > 0 ? Math.min(100, Math.round((totalValWtd / totalWalkWtd) * 100)) : 0), [totalValWtd, totalWalkWtd]);
+  const totalConvFtd = useMemo(() => (totalWalkFtd > 0 ? Math.round((totalValFtd / totalWalkFtd) * 100) : 0), [totalValFtd, totalWalkFtd]);
+  const totalConvWtd = useMemo(() => (totalWalkWtd > 0 ? Math.round((totalValWtd / totalWalkWtd) * 100) : 0), [totalValWtd, totalWalkWtd]);
 
   const totalArpFtd = useMemo(() => (totalQtyFtd > 0 ? Math.round(totalBillFtd / totalQtyFtd) : 0), [totalBillFtd, totalQtyFtd]);
   const totalArpWtd = useMemo(() => (totalQtyWtd > 0 ? Math.round(totalBillWtd / totalQtyWtd) : 0), [totalBillWtd, totalQtyWtd]);
@@ -2940,8 +2949,8 @@ const DSRReport = () => {
                 </thead>
                 <tbody className="text-xs text-gray-700 divide-y divide-gray-100">
                   {filteredFunnelRows.map((row, idx) => {
-                    const contributionFtd = totalBillFtd > 0 ? Math.round((row.billFtd / totalBillFtd) * 100) : 0;
-                    const contributionWtd = totalBillWtd > 0 ? Math.round((row.billWtd / totalBillWtd) * 100) : 0;
+                    const contributionFtd = grandTotalValFtd > 0 ? Math.round((row.valFtd / grandTotalValFtd) * 100) : 0;
+                    const contributionWtd = grandTotalValWtd > 0 ? Math.round((row.valWtd / grandTotalValWtd) * 100) : 0;
                     
                     return (
                       <tr key={idx} className="odd:bg-white even:bg-[#f9fafb] hover:bg-gray-50/50 transition-colors">
@@ -3010,9 +3019,9 @@ const DSRReport = () => {
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(totalConvFtd, true)}</td>
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(totalConvWtd, true)}</td>
 
-                    {/* Contribution */}
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(totalBillFtd > 0 ? "100%" : "0%")}</td>
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(totalBillWtd > 0 ? "100%" : "0%")}</td>
+                    {/* Contribution — average of staff rows for store_admin; store share for admin */}
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(grandTotalValFtd > 0 ? (Math.round((totalValFtd / grandTotalValFtd) * 100)) + "%" : "0%")}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(grandTotalValWtd > 0 ? (Math.round((totalValWtd / grandTotalValWtd) * 100)) + "%" : "0%")}</td>
 
                     {/* ARP */}
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalArpFtd))}</td>
