@@ -1303,8 +1303,8 @@ const DSRReport = () => {
           const EMPTY = { value: 0, qty: 0, bills: 0, shoeValue: 0, shoeQty: 0, shoeBills: 0, shirtValue: 0, shirtQty: 0, shirtBills: 0, byStaff: {} };
           if (!locCode) return EMPTY;
           try {
-            const bookingsUrl = `https://backend.brynex.com/api/external/shoe-sales/bookings?fromDate=${fromDate}&toDate=${toDate}&locCode=${locCode}`;
-            const returnsUrl = `https://backend.brynex.com/api/external/shoe-sales/returns?fromDate=${fromDate}&toDate=${toDate}&locCode=${locCode}`;
+            const bookingsUrl = `${baseUrl.baseUrl}api/brynex/shoe-sales/bookings?fromDate=${fromDate}&toDate=${toDate}&locCode=${locCode}`;
+            const returnsUrl = `${baseUrl.baseUrl}api/brynex/shoe-sales/returns?fromDate=${fromDate}&toDate=${toDate}&locCode=${locCode}`;
 
             // Abort after 8 s so a timing-out server doesn't stall the whole page
             const controller = new AbortController();

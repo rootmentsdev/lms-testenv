@@ -688,6 +688,35 @@ app.use('/api/task-category', CategoryRouter)
 import StoreTargetRouter from './routes/StoreTargetRoute.js';
 app.use('/api/store-targets', StoreTargetRouter)
 
+/* =================================================
+   ✅ PROXY: GET /api/brynex/shoe-sales/bookings
+              GET /api/brynex/shoe-sales/returns
+   -> Forwards to https://backend.brynex.com/api/external/shoe-sales/*
+   -> Solves CORS: browser hits our backend, our backend hits brynex
+================================================== */
+app.get('/api/brynex/shoe-sales/:type', async (req, res) => {
+  try {
+    const { type } = req.params; // "bookings" or "returns"
+    const { fromDate, toDate, locCode } = req.query;
+
+    if (!['bookings', 'returns'].includes(type)) {
+      return res.status(400).json({ message: 'Invalid type. Use bookings or returns.' });
+    }
+
+    const url = `https://backend.brynex.com/api/external/shoe-sales/${type}?fromDate=${fromDate}&toDate=${toDate}&locCode=${locCode}`;
+    const { data } = await axios.get(url, { timeout: 15000 });
+    return res.status(200).json(data);
+  } catch (err) {
+    if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT') {
+      return res.status(200).json([]); // timeout → return empty, don't crash the page
+    }
+    const status = err?.response?.status || 500;
+    const payload = err?.response?.data || { message: err.message || 'Brynex proxy failed' };
+    console.error(`❌ /api/brynex/shoe-sales/${req.params.type} error:`, status, payload);
+    return res.status(status).json(payload);
+  }
+});
+
 // User Login Tracking Routes
 import UserLoginRouter from './routes/UserLoginRoute.js';
 app.use('/api/user-login', UserLoginRouter)
