@@ -1300,15 +1300,25 @@ const DSRReport = () => {
             ];
 
         const fetchSalesForBranchRange = async (locCode, fromDate, toDate) => {
-          if (!locCode) return { value: 0, qty: 0, bills: 0, shoeValue: 0, shoeQty: 0, shoeBills: 0, shirtValue: 0, shirtQty: 0, shirtBills: 0, byStaff: {} };
+          const EMPTY = { value: 0, qty: 0, bills: 0, shoeValue: 0, shoeQty: 0, shoeBills: 0, shirtValue: 0, shirtQty: 0, shirtBills: 0, byStaff: {} };
+          if (!locCode) return EMPTY;
           try {
             const bookingsUrl = `https://backend.brynex.com/api/external/shoe-sales/bookings?fromDate=${fromDate}&toDate=${toDate}&locCode=${locCode}`;
             const returnsUrl = `https://backend.brynex.com/api/external/shoe-sales/returns?fromDate=${fromDate}&toDate=${toDate}&locCode=${locCode}`;
-            
-            const [bRes, rRes] = await Promise.all([
-              fetch(bookingsUrl).then(r => r.ok ? r.json() : []),
-              fetch(returnsUrl).then(r => r.ok ? r.json() : [])
-            ]);
+
+            // Abort after 8 s so a timing-out server doesn't stall the whole page
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+            let bRes, rRes;
+            try {
+              [bRes, rRes] = await Promise.all([
+                fetch(bookingsUrl, { signal: controller.signal }).then(r => r.ok ? r.json() : []),
+                fetch(returnsUrl,  { signal: controller.signal }).then(r => r.ok ? r.json() : [])
+              ]);
+            } finally {
+              clearTimeout(timeoutId);
+            }
 
             const bookings = Array.isArray(bRes) ? bRes : [];
             const returns = Array.isArray(rRes) ? rRes : [];
@@ -1429,8 +1439,10 @@ const DSRReport = () => {
               byStaff 
             };
           } catch (err) {
-            console.error(`Error fetching shoe sales for branch ${locCode}:`, err);
-            return { value: 0, qty: 0, bills: 0, byStaff: {} };
+            if (err.name !== "AbortError") {
+              console.error(`Error fetching shoe sales for branch ${locCode}:`, err);
+            }
+            return EMPTY;
           }
         };
 
