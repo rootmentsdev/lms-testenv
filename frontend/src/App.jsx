@@ -397,7 +397,7 @@ function App() {
             <Route path="/admin/login-analytics" element={<ProtectedLayout hideForRoles={['telecaller']}><LoginAnalytics /></ProtectedLayout>} />
             <Route path="/walkin/list" element={<ProtectedLayout><WalkinList /></ProtectedLayout>} />
             <Route path="/walkin/report" element={<ProtectedLayout><WalkinReport /></ProtectedLayout>} />
-            <Route path="/walkin/count" element={<ProtectedLayout hideForRoles={['store_admin']}><WalkinCount /></ProtectedLayout>} />
+            <Route path="/walkin/count" element={<ProtectedLayout><WalkinCount /></ProtectedLayout>} />
             <Route path="/task" element={<ProtectedLayout><TaskManagement /></ProtectedLayout>} />
             <Route path="/task/create" element={<ProtectedLayout hideForRoles={['telecaller']}><CreateTask /></ProtectedLayout>} />
             <Route path="/task/auto-schedule" element={<ProtectedLayout hideForRoles={['telecaller']}><AutoTask /></ProtectedLayout>} />

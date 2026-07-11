@@ -755,7 +755,7 @@ export const saveWalkin = async (req, res) => {
  */
 export const getWalkins = async (req, res) => {
     try {
-        const { startDate, endDate, updatedStartDate, updatedEndDate, createdAtStartDate, createdAtEndDate, storeId, employeeId, page, limit, search = '', status = '', store = '', dashboard = '', countOnly = '', chartOnly = '', sortBy } = req.query;
+        const { startDate, endDate, updatedStartDate, updatedEndDate, createdAtStartDate, createdAtEndDate, activityStartDate, activityEndDate, storeId, employeeId, page, limit, search = '', status = '', store = '', dashboard = '', countOnly = '', chartOnly = '', sortBy } = req.query;
         const adminId = req.admin.userId;
 
         const pageNum = parseInt(page, 10) || 1;
@@ -800,6 +800,29 @@ export const getWalkins = async (req, res) => {
             if (createdAtEndDate) {
                 baseQuery.createdAt.$lte = new Date(createdAtEndDate);
             }
+        }
+
+        // Activity Date Range Filter (any activity date in IST calendar range)
+        if (activityStartDate && activityEndDate) {
+            const { startUTC, nextDayStartUTC } = getISTRangeBetween(activityStartDate, activityEndDate);
+            const activityQuery = {
+                $or: [
+                    { createdAt:            { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { updatedAt:            { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { bookingDate:          { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { rentoutDate:          { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { returnDate:           { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { cancelDate:           { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { billedDate:           { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { billReturnedDate:     { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { lastStatusChangeDate: { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { 'statusHistory.date': { $gte: startUTC, $lt: nextDayStartUTC } }
+                ]
+            };
+            if (!baseQuery.$and) {
+                baseQuery.$and = [];
+            }
+            baseQuery.$and.push(activityQuery);
         }
 
         if (status && status !== 'All') {
@@ -1072,17 +1095,14 @@ const BACKEND_CATEGORIES = [
     { key: 'new_walkin_rentout', label: 'NEW WALKIN RENTOUT' },
     { key: 'new_cancelled', label: 'NEW CANCELLED' },
     { key: 'new_others', label: 'NEW OTHERS' },
-    { key: 'repeat_loss', label: 'REPEAT LOSS' },
-    { key: 'repeat_rentout', label: 'REPEAT RENTOUT' },
-    { key: 'repeat_return', label: 'REPEAT RETURN' },
-    { key: 'revisit_repeat_trial', label: 'REVISIT REPEAT TRIAL' },
-    { key: 'repeat_booking', label: 'REPEAT BOOKING' },
-    { key: 'revisit_reissue', label: 'REVISIT REISSUE' },
     { key: 'revisit_loss', label: 'REVISIT LOSS' },
-    { key: 'repeat_cancelled', label: 'REPEAT CANCELLED' },
-    { key: 'repeat_others', label: 'REPEAT OTHERS' },
-    { key: 'cancelled', label: 'CANCELLED' },
-    { key: 'others', label: 'OTHERS' }
+    { key: 'revisit_rentout', label: 'REVISIT RENTOUT' },
+    { key: 'revisit_return', label: 'REVISIT RETURN' },
+    { key: 'revisit_trial', label: 'REVISIT TRIAL' },
+    { key: 'revisit_booking', label: 'REVISIT BOOKING' },
+    { key: 'revisit_reissue', label: 'REVISIT REISSUE' },
+    { key: 'revisit_cancelled', label: 'REVISIT CANCELLED' },
+    { key: 'revisit_others', label: 'REVISIT OTHERS' }
 ];
 
 const isValidYMD = (str) => {
@@ -1213,21 +1233,20 @@ export const getWalkinCountPageData = async (req, res) => {
         const counts = {
             total_walkin: 0,
             walkin: 0,
-            repeat_walkin: 0,
+            revisit_walkin: 0,
             new_loss: 0,
-            repeat_loss: 0,
-            repeat_rentout: 0,
-            repeat_return: 0,
-            revisit_repeat_trial: 0,
-            repeat_booking: 0,
+            revisit_loss: 0,
+            revisit_rentout: 0,
+            revisit_return: 0,
+            revisit_trial: 0,
+            revisit_booking: 0,
             new_walkin_booking: 0,
             new_walkin_rentout: 0,
             new_cancelled: 0,
             new_others: 0,
             revisit_reissue: 0,
-            revisit_loss: 0,
-            repeat_cancelled: 0,
-            repeat_others: 0,
+            revisit_cancelled: 0,
+            revisit_others: 0,
             cancelled: 0,
             others: 0
         };
@@ -1348,35 +1367,34 @@ export const getWalkinCountPageData = async (req, res) => {
                 }
             } else {
                 // Repeat Walkin: createdAt is NOT in range
-                // 1. Repeat Cancelled
+                // 1. Revisit Cancelled
                 if (hasCancelInRange) {
-                    counts.repeat_cancelled++;
+                    counts.revisit_cancelled++;
                     repeatWalkinSet.add(w._id.toString());
                 }
-                // 2. Repeat Return
+                // 2. Revisit Return
                 else if (hasReturnInRange || hasBillReturnedInRange) {
-                    counts.repeat_return++;
+                    counts.revisit_return++;
                     repeatWalkinSet.add(w._id.toString());
                 }
-                // 3. Repeat Rentout
+                // 3. Revisit Rentout
                 else if (hasRentoutInRange) {
-                    counts.repeat_rentout++;
+                    counts.revisit_rentout++;
                     repeatWalkinSet.add(w._id.toString());
                 }
-                // 4. Repeat Booking
+                // 4. Revisit Booking
                 else if (hasBookingInRange || hasBilledInRange) {
-                    counts.repeat_booking++;
+                    counts.revisit_booking++;
                     repeatWalkinSet.add(w._id.toString());
                 }
-                // 5. Repeat Loss / Revisit Loss
+                // 5. Revisit Loss
                 else if (hasRevisitLoss || isLossState) {
-                    counts.repeat_loss++;
                     counts.revisit_loss++;
                     repeatWalkinSet.add(w._id.toString());
                 }
-                // 6. Revisit Repeat Trial
+                // 6. Revisit Trial
                 else if (hasRevisitTrial) {
-                    counts.revisit_repeat_trial++;
+                    counts.revisit_trial++;
                     repeatWalkinSet.add(w._id.toString());
                 }
                 // 7. Revisit Reissue
@@ -1384,9 +1402,9 @@ export const getWalkinCountPageData = async (req, res) => {
                     counts.revisit_reissue++;
                     repeatWalkinSet.add(w._id.toString());
                 }
-                // 8. Repeat Others (fallback for updatedAt in range but not counted in 1-7)
+                // 8. Revisit Others (fallback for updatedAt in range but not counted in 1-7)
                 else if (updatedInRange) {
-                    counts.repeat_others++;
+                    counts.revisit_others++;
                     repeatWalkinSet.add(w._id.toString());
                 }
             }
@@ -1394,14 +1412,14 @@ export const getWalkinCountPageData = async (req, res) => {
 
         // 4. Calculate total unique count sizes
         counts.walkin = walkinSet.size;
-        counts.repeat_walkin = repeatWalkinSet.size;
+        counts.revisit_walkin = repeatWalkinSet.size;
 
         // 5. Calculate legacy keys for backward compatibility
-        counts.cancelled = counts.new_cancelled + counts.repeat_cancelled;
-        counts.others = counts.new_others + counts.repeat_others;
+        counts.cancelled = counts.new_cancelled + counts.revisit_cancelled;
+        counts.others = counts.new_others + counts.revisit_others;
 
-        // 6. Calculate total_walkin as sum of walkin + repeat_walkin to guarantee 100% reconciliation
-        counts.total_walkin = counts.walkin + counts.repeat_walkin;
+        // 6. Calculate total_walkin as sum of walkin + revisit_walkin to guarantee 100% reconciliation
+        counts.total_walkin = counts.walkin + counts.revisit_walkin;
 
 
         // 4. Fetch camera checker entries for this date/range & store
@@ -1477,8 +1495,8 @@ export const getWalkinCountPageData = async (req, res) => {
         // Automatically calculate 'walkin' and 'total_walkin' inCam counts from subcategories
         const newKeys = ['new_loss', 'new_walkin_booking', 'new_walkin_rentout'];
         const repeatKeys = [
-            'repeat_loss', 'repeat_rentout', 'repeat_return', 'revisit_repeat_trial',
-            'repeat_booking', 'revisit_reissue', 'revisit_loss', 'cancelled', 'others'
+            'revisit_loss', 'revisit_rentout', 'revisit_return', 'revisit_trial',
+            'revisit_booking', 'revisit_reissue', 'revisit_cancelled', 'revisit_others'
         ];
 
         let sumNewInCam = 0;
@@ -1632,11 +1650,11 @@ const syncWalkinCountInCam = async (date, storeId, storeName) => {
  */
 export const saveCameraCheckEntry = async (req, res) => {
     try {
-        const { id, date, store, statusKey, timeDuration, inCamCount, remarks } = req.body;
+        const { date, store, entries } = req.body;
         const adminId = req.admin.userId;
 
-        if (!date || !store || !statusKey || !timeDuration || inCamCount === undefined) {
-            return res.status(400).json({ success: false, message: 'date, store, statusKey, timeDuration, and inCamCount are required' });
+        if (!date || !store || !Array.isArray(entries)) {
+            return res.status(400).json({ success: false, message: 'date, store, and entries (array) are required' });
         }
 
         let resolvedStoreId = null;
@@ -1647,54 +1665,47 @@ export const saveCameraCheckEntry = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Store not found' });
         }
 
-        if (id) {
-            const duplicate = await WalkinCameraCheck.findOne({
-                _id: { $ne: id },
-                date,
-                storeId: resolvedStoreId,
-                statusKey,
-                timeDuration
-            });
-            if (duplicate) {
-                return res.status(400).json({ success: false, message: 'A log for this date, store, status, and time duration already exists' });
-            }
+        // Filter out empty rows: rows without a statusKey are considered empty or incomplete
+        const validEntries = entries.filter(entry => entry.statusKey && entry.statusKey.trim() !== '');
 
-            await WalkinCameraCheck.findByIdAndUpdate(id, {
-                date,
-                store: branch.workingBranch,
-                storeId: resolvedStoreId,
-                statusKey,
-                timeDuration,
-                inCamCount: Number(inCamCount),
-                remarks: remarks || '',
-                createdBy: adminId
-            });
-        } else {
-            await WalkinCameraCheck.findOneAndUpdate(
-                { date, storeId: resolvedStoreId, statusKey, timeDuration },
-                {
+        // 1. Delete all existing camera check entries for this store and date
+        await WalkinCameraCheck.deleteMany({ date, storeId: resolvedStoreId });
+
+        // 2. Insert the new valid entries
+        if (validEntries.length > 0) {
+            const documentsToInsert = validEntries.map(entry => {
+                const inTimeClean = String(entry.inTime || '').trim();
+                const outTimeClean = String(entry.outTime || '').trim();
+                const identClean = String(entry.identification || '').substring(0, 20).trim();
+                
+                return {
                     date,
                     store: branch.workingBranch,
                     storeId: resolvedStoreId,
-                    statusKey,
-                    timeDuration,
-                    inCamCount: Number(inCamCount),
-                    remarks: remarks || '',
+                    statusKey: entry.statusKey,
+                    timeDuration: (inTimeClean && outTimeClean) ? `${inTimeClean} to ${outTimeClean}` : '–',
+                    inTime: inTimeClean,
+                    outTime: outTimeClean,
+                    identification: identClean,
+                    inCamCount: 1, // each row increments count by 1
+                    remarks: identClean,
                     createdBy: adminId
-                },
-                { upsert: true, new: true, runValidators: true }
-            );
+                };
+            });
+            await WalkinCameraCheck.insertMany(documentsToInsert);
         }
 
+        // 3. Sync the aggregated counts in WalkinCount
         await syncWalkinCountInCam(date, resolvedStoreId, branch.workingBranch);
 
+        // 4. Retrieve the updated checks list to return to client
         const updatedChecks = await WalkinCameraCheck.find({ date, storeId: resolvedStoreId })
             .populate('createdBy', 'name role')
             .lean();
 
         return res.status(200).json({
             success: true,
-            message: 'Camera check log saved successfully',
+            message: 'Camera check logs saved successfully',
             cameraChecks: updatedChecks
         });
     } catch (error) {

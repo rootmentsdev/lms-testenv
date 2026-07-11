@@ -7,22 +7,21 @@ import baseUrl from "../../api/api";
 import { FaSave, FaCheckCircle, FaUndo, FaTrashAlt, FaPlusCircle, FaVideo, FaEdit, FaClock, FaDownload } from 'react-icons/fa';
 
 const CATEGORIES = [
-    { key: 'total_walkin', label: 'TOTAL WALKIN', tooltip: "New walk-ins + repeat walk-ins for the selected date." },
+    { key: 'total_walkin', label: 'TOTAL WALKIN', tooltip: "New walk-ins + revisit walk-ins for the selected date." },
     { key: 'walkin', label: 'WALKIN', tooltip: "Customers newly created on the selected date." },
     { key: 'new_loss', label: 'NEW LOSS', tooltip: "New walk-ins that became Loss on the selected date." },
     { key: 'new_walkin_booking', label: 'NEW WALKIN BOOKING', tooltip: "New walk-ins booked or shoe billed on the selected date." },
     { key: 'new_walkin_rentout', label: 'NEW WALKIN RENTOUT', tooltip: "New walk-ins rented out on the selected date." },
     { key: 'new_cancelled', label: 'NEW CANCELLED', tooltip: "New walk-ins cancelled on the selected date." },
     { key: 'new_others', label: 'NEW OTHERS', tooltip: "New walk-ins not fitting the above categories." },
-    { key: 'repeat_loss', label: 'REPEAT LOSS', tooltip: "Old walk-ins that became Loss again on the selected date." },
-    { key: 'repeat_rentout', label: 'REPEAT RENTOUT', tooltip: "Old walk-ins rented out on the selected date." },
-    { key: 'repeat_return', label: 'REPEAT RETURN', tooltip: "Old walk-ins returned or bill returned on the selected date." },
-    { key: 'revisit_repeat_trial', label: 'REVISIT REPEAT TRIAL', tooltip: "Old walk-ins revisited for Trial on the selected date." },
-    { key: 'repeat_booking', label: 'REPEAT BOOKING', tooltip: "Old walk-ins booked or shoe billed on the selected date." },
-    { key: 'revisit_reissue', label: 'REVISIT REISSUE', tooltip: "Old walk-ins revisited for Reissue on the selected date." },
-    { key: 'revisit_loss', label: 'REVISIT LOSS', tooltip: "Old revisited walk-ins marked Loss on the selected date." },
-    { key: 'repeat_cancelled', label: 'REPEAT CANCELLED', tooltip: "Old walk-ins cancelled on the selected date." },
-    { key: 'repeat_others', label: 'REPEAT OTHERS', tooltip: "Old walk-ins updated but not fitting the above categories." }
+    { key: 'revisit_loss', label: 'REVISIT LOSS', tooltip: "Revisit walk-ins that became Loss on the selected date." },
+    { key: 'revisit_rentout', label: 'REVISIT RENTOUT', tooltip: "Revisit walk-ins rented out on the selected date." },
+    { key: 'revisit_return', label: 'REVISIT RETURN', tooltip: "Revisit walk-ins returned or bill returned on the selected date." },
+    { key: 'revisit_trial', label: 'REVISIT TRIAL', tooltip: "Revisit walk-ins revisited for Trial on the selected date." },
+    { key: 'revisit_booking', label: 'REVISIT BOOKING', tooltip: "Revisit walk-ins booked or shoe billed on the selected date." },
+    { key: 'revisit_reissue', label: 'REVISIT REISSUE', tooltip: "Revisit walk-ins revisited for Reissue on the selected date." },
+    { key: 'revisit_cancelled', label: 'REVISIT CANCELLED', tooltip: "Revisit walk-ins cancelled on the selected date." },
+    { key: 'revisit_others', label: 'REVISIT OTHERS', tooltip: "Revisit walk-ins updated but not fitting the above categories." }
 ];
 
 const HARDCODED_STORES = [
@@ -263,78 +262,104 @@ const WalkinCount = () => {
     const [message, setMessage] = useState({ text: '', type: '' });
 
     // Camera Checker States
-    const [cameraForm, setCameraForm] = useState({
-        statusKey: '',
-        store: '',
-        timeDuration: '09:00 AM to 09:30 AM',
-        inCamCount: '',
-        remarks: '',
-        date: new Date().toISOString().split('T')[0],
-        editingId: null
-    });
+    const [cameraRows, setCameraRows] = useState(() => Array.from({ length: 10 }, () => ({ inTime: '', outTime: '', identification: '', statusKey: '' })));
     const [cameraChecks, setCameraChecks] = useState([]);
-    const [savingCameraCheck, setSavingCameraCheck] = useState(false);
+    const [savingCameraChecks, setSavingCameraChecks] = useState(false);
+    const [telecallerTab, setTelecallerTab] = useState('entry'); // 'entry' or 'report'
+    
+    // Request synchronization refs
+    const abortControllerRef = useRef(null);
+    const activeRequestRef = useRef(0);
 
-    // Date range selection for log viewer
+    // Date range selection for log viewer (synced with selectedDate)
     const [logStartDate, setLogStartDate] = useState(selectedDate);
     const [logEndDate, setLogEndDate] = useState(selectedDate);
 
-    // Sync log date range with selectedDate by default
+    // Sync log date range with selectedDate
     useEffect(() => {
         setLogStartDate(selectedDate);
         setLogEndDate(selectedDate);
     }, [selectedDate]);
 
-    // Time Slider Local Toggle State
-    const [showClockPicker, setShowClockPicker] = useState(false);
-
-    // Request tracking refs for race-condition prevention
-    const activeRequestRef = useRef(0);
-    const abortControllerRef = useRef(null);
-
-
-    // Autofill form if a camera check log already exists for the selected date, store, category, and time slot
+    // Fetch existing camera checker logs for the selected store and date, and populate the grid
     useEffect(() => {
-        if (!cameraForm.date || !cameraForm.store || !cameraForm.statusKey || !cameraForm.timeDuration) {
-            setCameraForm(prev => {
-                if (prev.editingId) {
-                    return { ...prev, inCamCount: '', remarks: '', editingId: null };
-                }
-                return prev;
-            });
+        if (!selectedDate || !storeFilter || storeFilter === 'All') {
+            setCameraRows(Array.from({ length: 10 }, () => ({ inTime: '', outTime: '', identification: '', statusKey: '' })));
             return;
         }
+
+        const draftKey = `walkin_draft_${storeFilter}_${selectedDate}`;
+        const savedDraft = localStorage.getItem(draftKey);
         
-        const existingLog = cameraChecks.find(log => 
-            log.date === cameraForm.date &&
-            log.store === cameraForm.store &&
-            log.statusKey === cameraForm.statusKey &&
-            log.timeDuration === cameraForm.timeDuration
-        );
-
-        if (existingLog) {
-            setCameraForm(prev => ({
-                ...prev,
-                inCamCount: String(existingLog.inCamCount),
-                remarks: existingLog.remarks || '',
-                editingId: existingLog._id
-            }));
-        } else {
-            setCameraForm(prev => ({
-                ...prev,
-                inCamCount: '',
-                remarks: '',
-                editingId: null
-            }));
+        if (savedDraft) {
+            try {
+                const parsed = JSON.parse(savedDraft);
+                if (Array.isArray(parsed)) {
+                    setCameraRows(parsed);
+                    setCameraChecks([]);
+                    
+                    // Fetch database checks in background to sync setCameraChecks
+                    const fetchDB = async () => {
+                        try {
+                            const url = `${baseUrl.baseUrl}api/walkin/camera-check?date=${selectedDate}&store=${encodeURIComponent(storeFilter)}`;
+                            const res = await fetch(url, {
+                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+                            });
+                            const json = await res.json();
+                            if (json.success && Array.isArray(json.cameraChecks)) {
+                                setCameraChecks(json.cameraChecks);
+                            }
+                        } catch (e) {
+                            console.error(e);
+                        }
+                    };
+                    fetchDB();
+                    return;
+                }
+            } catch (e) {
+                console.error("Error parsing saved draft:", e);
+            }
         }
-    }, [cameraForm.date, cameraForm.store, cameraForm.statusKey, cameraForm.timeDuration, cameraChecks]);
 
-    // Sync entry form store with global filter selection
-    useEffect(() => {
-        if (storeFilter && storeFilter !== 'All') {
-            setCameraForm(prev => ({ ...prev, store: storeFilter }));
-        }
-    }, [storeFilter]);
+        // If no draft exists, reset to empty rows and fetch from database
+        setCameraRows(Array.from({ length: 10 }, () => ({ inTime: '', outTime: '', identification: '', statusKey: '' })));
+        setCameraChecks([]);
+
+        const fetchLoggedEntries = async () => {
+            try {
+                const url = `${baseUrl.baseUrl}api/walkin/camera-check?date=${selectedDate}&store=${encodeURIComponent(storeFilter)}`;
+                const res = await fetch(url, {
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+                });
+                const json = await res.json();
+                if (json.success && Array.isArray(json.cameraChecks)) {
+                    const loaded = json.cameraChecks.map(cc => ({
+                        _id: cc._id,
+                        inTime: cc.inTime || '',
+                        outTime: cc.outTime || '',
+                        identification: cc.identification || cc.remarks || '',
+                        statusKey: cc.statusKey || ''
+                    }));
+                    const padded = [...loaded];
+                    if (padded.length < 10) {
+                        const needed = 10 - padded.length;
+                        padded.push(...Array.from({ length: needed }, () => ({ inTime: '', outTime: '', identification: '', statusKey: '' })));
+                    }
+                    setCameraRows(padded);
+                    setCameraChecks(json.cameraChecks);
+                } else {
+                    setCameraRows(Array.from({ length: 10 }, () => ({ inTime: '', outTime: '', identification: '', statusKey: '' })));
+                    setCameraChecks([]);
+                }
+            } catch (err) {
+                console.error("Error fetching camera check logs:", err);
+                setCameraRows(Array.from({ length: 10 }, () => ({ inTime: '', outTime: '', identification: '', statusKey: '' })));
+                setCameraChecks([]);
+            }
+        };
+
+        fetchLoggedEntries();
+    }, [selectedDate, storeFilter, token]);
 
     // Fetch branches on mount
     useEffect(() => {
@@ -353,7 +378,9 @@ const WalkinCount = () => {
                 }
 
                 setBranches(branchList);
-                // Keep storeFilter empty as default ("Select Store")
+                if (['cluster_admin', 'store_admin'].includes(user?.role) && branchList.length > 0) {
+                    setStoreFilter(branchList[0].workingBranch);
+                }
             } catch (err) {
                 console.error("Error fetching branches:", err);
             }
@@ -364,7 +391,14 @@ const WalkinCount = () => {
 
     // Fetch Count Data
     const loadCountData = async () => {
-        if (!selectedDate || storeFilter === '') return;
+        if (!selectedDate || storeFilter === '') {
+            setLoading(false);
+            return;
+        }
+        if (['cluster_admin', 'store_admin'].includes(user?.role) && storeFilter === 'All') {
+            setLoading(false);
+            return;
+        }
 
         // Abort previous in-flight request if any
         if (abortControllerRef.current) {
@@ -522,24 +556,66 @@ const WalkinCount = () => {
         }
     };
 
-    // Save Camera Check Log Entry
+    // Row change handler
+    const handleRowChange = (index, field, value) => {
+        setCameraRows(prev => {
+            const updated = [...prev];
+            updated[index] = { ...updated[index], [field]: value };
+            
+            // Save draft directly
+            if (selectedDate && storeFilter && storeFilter !== 'All') {
+                const draftKey = `walkin_draft_${storeFilter}_${selectedDate}`;
+                const hasData = updated.some(row => 
+                    (row.inTime && row.inTime.trim() !== '') ||
+                    (row.outTime && row.outTime.trim() !== '') ||
+                    (row.identification && row.identification.trim() !== '') ||
+                    (row.statusKey && row.statusKey.trim() !== '')
+                );
+                if (hasData) {
+                    localStorage.setItem(draftKey, JSON.stringify(updated));
+                } else {
+                    localStorage.removeItem(draftKey);
+                }
+            }
+            return updated;
+        });
+    };
+
+
+    // Add 10 more empty rows handler
+    const handleAddMoreRows = () => {
+        setCameraRows(prev => {
+            const updated = [
+                ...prev,
+                ...Array.from({ length: 10 }, () => ({ inTime: '', outTime: '', identification: '', statusKey: '' }))
+            ];
+            
+            // Save draft directly
+            if (selectedDate && storeFilter && storeFilter !== 'All') {
+                const draftKey = `walkin_draft_${storeFilter}_${selectedDate}`;
+                localStorage.setItem(draftKey, JSON.stringify(updated));
+            }
+            return updated;
+        });
+    };
+
+    // Save Camera Check Log Entries (Batch)
     const handleSaveCameraCheck = async (e) => {
-        e.preventDefault();
-        if (!cameraForm.store || cameraForm.store === 'All') {
-            setMessage({ text: 'Please select a valid store for the camera check entry.', type: 'error' });
+        if (e) e.preventDefault();
+        if (!storeFilter || storeFilter === 'All') {
+            setMessage({ text: 'Please select a valid store branch first.', type: 'error' });
             return;
         }
-        if (!cameraForm.statusKey) {
-            setMessage({ text: 'Please select a status category.', type: 'error' });
-            return;
-        }
-        if (!cameraForm.inCamCount || isNaN(cameraForm.inCamCount) || Number(cameraForm.inCamCount) < 0) {
-            setMessage({ text: 'Please enter a valid in-cam count.', type: 'error' });
+        if (!selectedDate) {
+            setMessage({ text: 'Please select a valid date.', type: 'error' });
             return;
         }
 
+        // Filter out empty entries (where statusKey is empty)
+        const validEntries = cameraRows.filter(row => row.statusKey && row.statusKey.trim() !== '');
+
         try {
-            setSavingCameraCheck(true);
+            setSavingCameraChecks(true);
             setMessage({ text: '', type: '' });
 
             const res = await fetch(`${baseUrl.baseUrl}api/walkin/camera-check`, {
@@ -549,39 +625,33 @@ const WalkinCount = () => {
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    id: cameraForm.editingId || undefined,
-                    date: cameraForm.date,
-                    store: cameraForm.store,
-                    statusKey: cameraForm.statusKey,
-                    timeDuration: cameraForm.timeDuration,
-                    inCamCount: Number(cameraForm.inCamCount),
-                    remarks: cameraForm.remarks
+                    date: selectedDate,
+                    store: storeFilter,
+                    entries: validEntries
                 })
             });
 
             const json = await res.json();
             if (json.success) {
-                setMessage({ text: 'Camera check log saved successfully!', type: 'success' });
-                // Reset form inputs except store, slot, and date
-                setCameraForm(prev => ({
-                    ...prev,
-                    statusKey: '',
-                    inCamCount: '',
-                    remarks: '',
-                    editingId: null
-                }));
-                // Switch comparison dashboard view to the logged store and date
-                setSelectedDate(cameraForm.date);
-                setStoreFilter(cameraForm.store);
+                setMessage({ text: 'Camera check logs saved successfully!', type: 'success' });
+                
+                // Clear draft
+                const draftKey = `walkin_draft_${storeFilter}_${selectedDate}`;
+                localStorage.removeItem(draftKey);
+                
+                // Reset table grid to 10 empty rows on successful submission
+                setCameraRows(Array.from({ length: 10 }, () => ({ inTime: '', outTime: '', identification: '', statusKey: '' })));
+                setCameraChecks([]);
+                
                 loadCountData();
             } else {
-                setMessage({ text: json.message || 'Failed to save camera check log.', type: 'error' });
+                setMessage({ text: json.message || 'Failed to save camera check logs.', type: 'error' });
             }
         } catch (err) {
-            console.error("Error saving camera check log:", err);
-            setMessage({ text: 'Failed to save camera check log due to a server error.', type: 'error' });
+            console.error("Error saving camera check logs:", err);
+            setMessage({ text: 'Failed to save camera check logs due to a server error.', type: 'error' });
         } finally {
-            setSavingCameraCheck(false);
+            setSavingCameraChecks(false);
         }
     };
 
@@ -713,6 +783,50 @@ const WalkinCount = () => {
                     </div>
                 </div>
 
+                {/* Toggle on top for telecaller roles */}
+                {user?.role === 'telecaller' && (
+                    <div style={{ display: 'inline-flex', background: '#f3f4f6', padding: '4px', borderRadius: '8px', marginBottom: '20px' }}>
+                        <button
+                            type="button"
+                            onClick={() => setTelecallerTab('entry')}
+                            style={{
+                                padding: '6px 16px',
+                                borderRadius: '6px',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                border: 'none',
+                                background: telecallerTab === 'entry' ? '#fff' : 'transparent',
+                                color: telecallerTab === 'entry' ? '#111827' : '#4b5563',
+                                boxShadow: telecallerTab === 'entry' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s',
+                                outline: 'none'
+                            }}
+                        >
+                            Count Entry
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setTelecallerTab('report')}
+                            style={{
+                                padding: '6px 16px',
+                                borderRadius: '6px',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                border: 'none',
+                                background: telecallerTab === 'report' ? '#fff' : 'transparent',
+                                color: telecallerTab === 'report' ? '#111827' : '#4b5563',
+                                boxShadow: telecallerTab === 'report' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s',
+                                outline: 'none'
+                            }}
+                        >
+                            Count Report
+                        </button>
+                    </div>
+                )}
+
                 {/* Notifications */}
                 {message.text && (
                     <div style={{
@@ -732,248 +846,238 @@ const WalkinCount = () => {
                     </div>
                 )}
 
-                {/* Camera Checker Entry Portal Card */}
-                <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '20px', marginBottom: '20px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                        <FaVideo style={{ color: '#111827', fontSize: '18px' }} />
-                        <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', margin: 0 }}>Camera Checker Entry Portal</h2>
-                    </div>
 
-                    <form onSubmit={handleSaveCameraCheck} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', alignItems: 'flex-end' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>Store Branch</span>
-                            <select
-                                value={cameraForm.store}
-                                onChange={e => setCameraForm(prev => ({ ...prev, store: e.target.value }))}
-                                style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer' }}
-                            >
-                                <option value="" disabled>Select Store</option>
-                                {branches.map((b, i) => <option key={i} value={b.workingBranch}>{b.workingBranch}</option>)}
-                            </select>
+                {/* Unified Camera Checker Log Portal Card */}
+                {user?.role === 'telecaller' && telecallerTab === 'entry' && (
+                    <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '20px', marginBottom: '25px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
+                            <FaVideo style={{ color: '#111827', fontSize: '18px' }} />
+                            <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', margin: 0 }}>Camera Checker Log Portal</h2>
                         </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>Select Date</span>
-                            <input
-                                type="date"
-                                value={cameraForm.date}
-                                onChange={e => setCameraForm(prev => ({ ...prev, date: e.target.value }))}
-                                style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer' }}
-                            />
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>Status Category</span>
-                            <select
-                                value={cameraForm.statusKey}
-                                onChange={e => setCameraForm(prev => ({ ...prev, statusKey: e.target.value }))}
-                                style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer' }}
-                            >
-                                <option value="">Select Category</option>
-                                {CATEGORIES.filter(cat => cat.key !== 'total_walkin' && cat.key !== 'walkin').map(cat => (
-                                    <option key={cat.key} value={cat.key}>{cat.label}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', position: 'relative' }}>
-                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>Time Duration</span>
-                            <button
-                                type="button"
-                                onClick={() => setShowClockPicker(!showClockPicker)}
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', color: '#374151', background: '#fff', cursor: 'pointer', outline: 'none', textAlign: 'left', minWidth: '180px', fontWeight: 500 }}
-                            >
-                                <FaClock style={{ color: '#111827' }} /> {cameraForm.timeDuration}
-                            </button>
-                            
-                            {showClockPicker && (
-                                <div style={{
-                                    position: 'absolute',
-                                    top: 'calc(100% + 8px)',
-                                    left: 0,
-                                    background: '#fff',
-                                    borderRadius: '16px',
-                                    border: '1px solid #e5e7eb',
-                                    boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
-                                    padding: '16px',
-                                    zIndex: 100,
-                                }}>
-                                    <TimeRangeSlider
-                                        value={cameraForm.timeDuration}
-                                        onChange={(newVal) => setCameraForm(prev => ({ ...prev, timeDuration: newVal }))}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowClockPicker(false)}
-                                        style={{ alignSelf: 'flex-end', background: '#111827', color: '#fff', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', outline: 'none', marginTop: '12px' }}
-                                    >
-                                        Done
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>In Cam Count</span>
-                            <input
-                                type="number"
-                                placeholder="Enter count..."
-                                min="0"
-                                value={cameraForm.inCamCount}
-                                onChange={e => setCameraForm(prev => ({ ...prev, inCamCount: e.target.value }))}
-                                style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', color: '#374151', outline: 'none' }}
-                            />
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>Remarks</span>
-                            <input
-                                type="text"
-                                placeholder="Enter remarks..."
-                                value={cameraForm.remarks}
-                                onChange={e => setCameraForm(prev => ({ ...prev, remarks: e.target.value }))}
-                                style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', color: '#374151', outline: 'none' }}
-                            />
-                        </div>
-
-                        <div>
-                            <button
-                                type="submit"
-                                disabled={savingCameraCheck}
-                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', width: '100%', background: '#111827', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 16px', fontSize: '13px', cursor: 'pointer', fontWeight: 600, transition: 'background-color 0.2s' }}
-                            >
-                                <FaPlusCircle /> {savingCameraCheck ? 'Saving...' : 'Add Camera Log'}
-                            </button>
-                        </div>
-                    </form>
-                </div>
-
-                {/* Camera Checker Log List Card */}
-                <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '20px', marginBottom: '20px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', borderBottom: '1px solid #f3f4f6', paddingBottom: '16px', marginBottom: '16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>
-                                Logged Camera Checks {storeFilter ? `for ${storeFilter} (${logStartDate} to ${logEndDate})` : ''}
-                            </h2>
-                            {storeFilter && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ background: '#f3f4f6', color: '#374151', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
-                                        {cameraChecks.length} entries
-                                    </span>
-                                    <button
-                                        type="button"
-                                        onClick={handleDownloadCameraChecksReport}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#111827', color: '#fff', border: 'none', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s', outline: 'none' }}
-                                    >
-                                        <FaDownload /> Export Logs
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                        
-                        <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <span style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563' }}>Store Branch</span>
+                        {/* Selection Inputs */}
+                        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '20px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '240px' }}>
+                                <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>Store Branch</span>
                                 <select
-                                    value={storeFilter}
+                                    value={storeFilter === 'All' ? '' : storeFilter}
                                     onChange={e => setStoreFilter(e.target.value)}
-                                    style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '6px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer', minWidth: '180px' }}
+                                    style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer' }}
                                 >
-                                    <option value="All">All</option>
+                                    <option value="">Select Store</option>
                                     {branches.map((b, i) => <option key={i} value={b.workingBranch}>{b.workingBranch}</option>)}
                                 </select>
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <span style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563' }}>Date Range</span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '5px 12px', background: '#fff' }}>
+
+                            {storeFilter && storeFilter !== 'All' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '240px' }}>
+                                    <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>Select Date</span>
+                                    <input
+                                        type="date"
+                                        value={selectedDate}
+                                        onChange={e => setSelectedDate(e.target.value)}
+                                        style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer' }}
+                                    />
+                                </div>
+                            )}
+                        </div>
+
+                        {/* 10-Row Grid (Visible only when store is selected) */}
+                        {storeFilter && storeFilter !== 'All' && selectedDate ? (
+                            <div>
+                                <div style={{ overflowX: 'auto', marginBottom: '16px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+                                        <thead>
+                                            <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                                                <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563', width: '50px', textAlign: 'center' }}>#</th>
+                                                <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>IN TIME</th>
+                                                <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>OUT TIME</th>
+                                                <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>IDENTIFICATION (MAX 20 CHARS)</th>
+                                                <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>STATUS CATEGORY</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {cameraRows.map((row, index) => (
+                                                <tr key={index} style={{ borderBottom: index < cameraRows.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                                                    <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 600, color: '#9ca3af' }}>{index + 1}</td>
+                                                    <td style={{ padding: '10px 14px' }}>
+                                                        <input
+                                                            type="text"
+                                                            value={row.inTime}
+                                                            onChange={e => handleRowChange(index, 'inTime', e.target.value)}
+                                                            placeholder="e.g. 10:00 AM"
+                                                            style={{ border: '1px solid #e5e7eb', borderRadius: '6px', padding: '6px 10px', fontSize: '13px', color: '#374151', outline: 'none', width: '100%', boxSizing: 'border-box' }}
+                                                        />
+                                                    </td>
+                                                    <td style={{ padding: '10px 14px' }}>
+                                                        <input
+                                                            type="text"
+                                                            value={row.outTime}
+                                                            onChange={e => handleRowChange(index, 'outTime', e.target.value)}
+                                                            placeholder="e.g. 10:15 AM"
+                                                            style={{ border: '1px solid #e5e7eb', borderRadius: '6px', padding: '6px 10px', fontSize: '13px', color: '#374151', outline: 'none', width: '100%', boxSizing: 'border-box' }}
+                                                        />
+                                                    </td>
+                                                    <td style={{ padding: '10px 14px' }}>
+                                                        <input
+                                                            type="text"
+                                                            value={row.identification}
+                                                            maxLength={20}
+                                                            onChange={e => handleRowChange(index, 'identification', e.target.value)}
+                                                            placeholder="Identification"
+                                                            style={{ border: '1px solid #e5e7eb', borderRadius: '6px', padding: '6px 10px', fontSize: '13px', color: '#374151', outline: 'none', width: '100%', boxSizing: 'border-box' }}
+                                                        />
+                                                    </td>
+                                                    <td style={{ padding: '10px 14px' }}>
+                                                        <select
+                                                            value={row.statusKey}
+                                                            onChange={e => handleRowChange(index, 'statusKey', e.target.value)}
+                                                            style={{ border: '1px solid #e5e7eb', borderRadius: '6px', padding: '6px 10px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer', width: '100%', boxSizing: 'border-box' }}
+                                                        >
+                                                            <option value="">Select Category</option>
+                                                            {CATEGORIES.filter(cat => cat.key !== 'total_walkin' && cat.key !== 'walkin').map(cat => (
+                                                                <option key={cat.key} value={cat.key}>{cat.label}</option>
+                                                            ))}
+                                                        </select>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <button
+                                        type="button"
+                                        onClick={handleAddMoreRows}
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'transparent', border: 'none', color: '#2563eb', cursor: 'pointer', fontSize: '13px', fontWeight: 600, outline: 'none' }}
+                                    >
+                                        <FaPlusCircle /> Add 10 More Rows
+                                    </button>
+                                    
+                                    <button
+                                        type="button"
+                                        onClick={handleSaveCameraCheck}
+                                        disabled={savingCameraChecks}
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#111827', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 20px', fontSize: '13px', cursor: 'pointer', fontWeight: 600, transition: 'background-color 0.2s', outline: 'none' }}
+                                    >
+                                        <FaSave /> {savingCameraChecks ? 'Saving...' : 'Save Camera Logs'}
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div style={{ textAlign: 'center', padding: '40px 0', color: '#6b7280', border: '1px dashed #e5e7eb', borderRadius: '8px', fontSize: '13px' }}>
+                                Please select a Store Branch from the dropdown above to start entering camera checks.
+                            </div>
+                        )}
+                    </div>
+                )}
+
+
+
+
+                {/* Main Table Card */}
+                {(user?.role !== 'telecaller' || telecallerTab === 'report') && (
+                    <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid #e5e7eb', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+                    {/* Table Header area with Title, Filters, and Export Button */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', padding: '16px 20px', borderBottom: '1px solid #e5e7eb', background: '#fff' }}>
+                        <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>
+                            Comparison Statistics
+                        </h2>
+                        
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>Store Branch:</span>
+                                {user?.role === 'store_admin' ? (
+                                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>{storeFilter}</span>
+                                ) : (
+                                    <select
+                                        value={storeFilter}
+                                        onChange={e => setStoreFilter(e.target.value)}
+                                        style={{ border: '1px solid #e5e7eb', borderRadius: '6px', padding: '4px 10px', fontSize: '12px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer', minWidth: '150px' }}
+                                    >
+                                        {['super_admin', 'admin', 'hr_admin', 'telecaller'].includes(user?.role) && <option value="All">All</option>}
+                                        <option value="">Select Store</option>
+                                        {branches.map((b, i) => <option key={i} value={b.workingBranch}>{b.workingBranch}</option>)}
+                                    </select>
+                                )}
+                            </div>
+                            
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>Date Range:</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '3px 8px', background: '#fff' }}>
                                     <input
                                         type="date"
                                         value={logStartDate}
                                         onChange={e => setLogStartDate(e.target.value)}
-                                        style={{ border: 'none', fontSize: '13px', color: '#374151', outline: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
+                                        style={{ border: 'none', fontSize: '12px', color: '#374151', outline: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
                                     />
-                                    <span style={{ fontSize: '13px', color: '#9ca3af', fontWeight: 500 }}>to</span>
+                                    <span style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 500 }}>to</span>
                                     <input
                                         type="date"
                                         value={logEndDate}
                                         onChange={e => setLogEndDate(e.target.value)}
-                                        style={{ border: 'none', fontSize: '13px', color: '#374151', outline: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
+                                        style={{ border: 'none', fontSize: '12px', color: '#374151', outline: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
                                     />
                                 </div>
                             </div>
+
+                            {storeFilter && (
+                                <button
+                                    type="button"
+                                    onClick={handleDownloadReport}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#111827', color: '#fff', border: 'none', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s', outline: 'none' }}
+                                >
+                                    <FaDownload /> Export Report
+                                </button>
+                            )}
                         </div>
                     </div>
 
                     {!storeFilter ? (
-                        <div style={{ textAlign: 'center', padding: '30px 0', color: '#6b7280', fontSize: '13px' }}>
-                            Please select a store branch in the filters above to load camera checks.
+                        <div style={{ textAlign: 'center', padding: '40px 0', color: '#6b7280', fontSize: '13px' }}>
+                            Please select a Store Branch from the dropdown above to view comparison statistics.
                         </div>
-                    ) : cameraChecks.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '24px 0', color: '#6b7280', fontSize: '13px' }}>
-                            No camera check logs recorded for this store and date yet. Use the form above to add one.
+                    ) : loading ? (
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '80px' }}>
+                            <div style={{ width: '32px', height: '32px', border: '3px solid #e5e7eb', borderTopColor: '#111827', borderRadius: '50%', animation: 'walkincount-spin 0.8s linear infinite' }} />
                         </div>
                     ) : (
                         <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
                                 <thead>
                                     <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                                        <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>DATE</th>
-                                        <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>STORE</th>
-                                        <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>TIME SLOT</th>
-                                        <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>STATUS CATEGORY</th>
-                                        <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563', width: '100px' }}>IN CAM</th>
-                                        <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>REMARKS</th>
-                                        <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>LOGGED BY</th>
-                                        <th style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563', textAlign: 'center', width: '60px' }}>ACTION</th>
+                                        <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>STATUS CATEGORY</th>
+                                        <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>IN CAM</th>
+                                        <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>SALES REPORT</th>
+                                        <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>IN APP</th>
+                                        <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>REMARKS</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {cameraChecks.map((log) => {
-                                        const categoryLabel = CATEGORIES.find(cat => cat.key === log.statusKey)?.label || log.statusKey;
+                                    {CATEGORIES.map((cat, idx) => {
+                                        const inAppVal = inAppCounts[cat.key] ?? 0;
+                                        const isEven = idx % 2 === 0;
+                                        
                                         return (
-                                            <tr key={log._id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                                                <td style={{ padding: '10px 14px', fontWeight: 600, color: '#4b5563' }}>{log.date}</td>
-                                                <td style={{ padding: '10px 14px', fontWeight: 600, color: '#111827' }}>{log.store || '-'}</td>
-                                                <td style={{ padding: '10px 14px', fontWeight: 600, color: '#111827' }}>{log.timeDuration}</td>
-                                                <td style={{ padding: '10px 14px', color: '#4b5563' }}>
-                                                    <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600 }}>
-                                                        {categoryLabel}
+                                            <tr key={cat.key} style={{ borderBottom: '1px solid #f3f4f6', background: isEven ? '#fff' : '#fcfcfc', transition: 'background 0.15s' }}>
+                                                <td style={{ padding: '12px 20px', fontWeight: 600, color: '#111827' }}>
+                                                    <span className="tooltip-container" tabIndex="0">
+                                                        {cat.label}
+                                                        <span className="tooltip-text">{cat.tooltip}</span>
                                                     </span>
                                                 </td>
-                                                <td style={{ padding: '10px 14px', fontWeight: 700, color: '#111827' }}>{log.inCamCount}</td>
-                                                <td style={{ padding: '10px 14px', color: '#6b7280', fontStyle: log.remarks ? 'normal' : 'italic' }}>
-                                                    {log.remarks || 'No remarks'}
+                                                <td style={{ padding: '12px 20px', fontWeight: 700, color: '#111827' }}>
+                                                    {rowValues[cat.key].inCam || '-'}
                                                 </td>
-                                                <td style={{ padding: '10px 14px', color: '#4b5563' }}>
-                                                    {log.createdBy?.name || 'Unknown'} <span style={{ color: '#9ca3af', fontSize: '10px' }}>({log.createdBy?.role || 'user'})</span>
+                                                <td style={{ padding: '12px 20px', color: '#374151' }}>
+                                                    {rowValues[cat.key].salesReport || '-'}
                                                 </td>
-                                                <td style={{ padding: '10px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                                                    <button
-                                                        onClick={() => {
-                                                            setCameraForm({
-                                                                store: log.store,
-                                                                date: log.date,
-                                                                statusKey: log.statusKey,
-                                                                timeDuration: log.timeDuration,
-                                                                inCamCount: String(log.inCamCount),
-                                                                remarks: log.remarks || '',
-                                                                editingId: log._id
-                                                            });
-                                                        }}
-                                                        style={{ border: 'none', background: 'transparent', color: '#2563eb', cursor: 'pointer', padding: '4px', fontSize: '14px', marginRight: '8px' }}
-                                                        title="Edit Entry"
-                                                    >
-                                                        <FaEdit />
-                                                    </button>
-                                                    {['super_admin', 'admin', 'hr_admin'].includes(user?.role) && (
-                                                        <button
-                                                            onClick={() => handleDeleteCameraCheck(log._id)}
-                                                            style={{ border: 'none', background: 'transparent', color: '#111827', cursor: 'pointer', padding: '4px', fontSize: '14px' }}
-                                                            title="Delete Entry"
-                                                        >
-                                                            <FaTrashAlt />
-                                                        </button>
-                                                    )}
+                                                <td style={{ padding: '12px 20px', fontWeight: 700, color: inAppVal > 0 ? '#2563eb' : '#6b7280', fontSize: '14px' }}>
+                                                    {inAppVal}
+                                                </td>
+                                                <td style={{ padding: '12px 20px', color: '#6b7280', fontStyle: rowValues[cat.key].remarks ? 'normal' : 'italic' }}>
+                                                    {rowValues[cat.key].remarks || '-'}
                                                 </td>
                                             </tr>
                                         );
@@ -983,76 +1087,6 @@ const WalkinCount = () => {
                         </div>
                     )}
                 </div>
-
-                {/* Main Table Card */}
-                {storeFilter ? (
-                    <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid #e5e7eb', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-                        {/* Table Header area with Title and Export Button */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid #e5e7eb', background: '#fff' }}>
-                            <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>
-                                Comparison Statistics
-                            </h2>
-                            <button
-                                type="button"
-                                onClick={handleDownloadReport}
-                                style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#111827', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 14px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s', outline: 'none' }}
-                            >
-                                <FaDownload /> Export Report
-                            </button>
-                        </div>
-                        {loading ? (
-                            <div style={{ display: 'flex', justifyContent: 'center', padding: '80px' }}>
-                                <div style={{ width: '32px', height: '32px', border: '3px solid #e5e7eb', borderTopColor: '#111827', borderRadius: '50%', animation: 'walkincount-spin 0.8s linear infinite' }} />
-                            </div>
-                        ) : (
-                            <div style={{ overflowX: 'auto' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
-                                    <thead>
-                                        <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                                            <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>STATUS CATEGORY</th>
-                                            <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>IN CAM</th>
-                                            <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>SALES REPORT</th>
-                                            <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>IN APP</th>
-                                            <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>REMARKS</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {CATEGORIES.map((cat, idx) => {
-                                            const inAppVal = inAppCounts[cat.key] ?? 0;
-                                            const isEven = idx % 2 === 0;
-                                            
-                                            return (
-                                                <tr key={cat.key} style={{ borderBottom: '1px solid #f3f4f6', background: isEven ? '#fff' : '#fcfcfc', transition: 'background 0.15s' }}>
-                                                    <td style={{ padding: '12px 20px', fontWeight: 600, color: '#111827' }}>
-                                                        <span className="tooltip-container" tabIndex="0">
-                                                            {cat.label}
-                                                            <span className="tooltip-text">{cat.tooltip}</span>
-                                                        </span>
-                                                    </td>
-                                                    <td style={{ padding: '12px 20px', fontWeight: 700, color: '#111827' }}>
-                                                        {rowValues[cat.key].inCam || '-'}
-                                                    </td>
-                                                    <td style={{ padding: '12px 20px', color: '#374151' }}>
-                                                        {rowValues[cat.key].salesReport || '-'}
-                                                    </td>
-                                                    <td style={{ padding: '12px 20px', fontWeight: 700, color: inAppVal > 0 ? '#2563eb' : '#6b7280', fontSize: '14px' }}>
-                                                        {inAppVal}
-                                                    </td>
-                                                    <td style={{ padding: '12px 20px', color: '#6b7280', fontStyle: rowValues[cat.key].remarks ? 'normal' : 'italic' }}>
-                                                        {rowValues[cat.key].remarks || '-'}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </div>
-                ) : (
-                    <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid #e5e7eb', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', padding: '40px', textAlign: 'center', color: '#6b7280', fontSize: '13px' }}>
-                        Please select a store branch in the card above to view comparison statistics.
-                    </div>
                 )}
             </div>
 

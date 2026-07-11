@@ -466,6 +466,84 @@ export const syncWalkinStatuses = async () => {
                         }
                     }
 
+                    // AUTO-CREATE: If still no walkin (unassigned list was empty or had no valid match),
+                    // and this invoice exists in bookingMap, auto-create a Walkin record from the booking data.
+                    // This handles the case where a returning customer books again but the employee forgot
+                    // to add a new walk-in entry in the LMS.
+                    if (!walkin) {
+                        const bookingItemForCreate = bookingMap.get(invoiceNo);
+                        if (bookingItemForCreate) {
+                            try {
+                                // Extract available fields from the booking API response
+                                const autoCustomerName = String(bookingItemForCreate.customerName || '').trim() || 'Auto-Sync Customer';
+                                const autoStaff       = String(bookingItemForCreate.bookingBy    || '').trim() || 'None';
+                                const autoStore       = String(bookingItemForCreate.locName       || workingBranch || '').trim() || '-';
+
+                                // Use booking date as the walkin date string (YYYY-MM-DD in IST)
+                                const autoBookingDate = extractDateValue(bookingItemForCreate, ['bookingDate', 'bookingdate', 'booking_date', 'bookeddate']);
+                                const autoDateStr     = autoBookingDate
+                                    ? getLocalDateStringIST(autoBookingDate)
+                                    : getLocalDateStringIST(new Date());
+
+                                // The 'New Walkin' statusHistory entry is dated 5 minutes AFTER
+                                // the booking date so that when history is sorted by date,
+                                // 'Booked' (exact bookingDate) always appears before 'New Walkin'.
+                                // This reflects the real sequence: the booking existed first,
+                                // and the walkin was auto-created afterwards.
+                                const autoNewWalkinHistoryDate = autoBookingDate
+                                    ? new Date(autoBookingDate.getTime() + 5 * 60 * 1000)
+                                    : new Date();
+
+                                const newWalkin = new Walkin({
+                                    customerName:  autoCustomerName,
+                                    contact:       rentalInfo.phone,
+                                    invoiceNo:     invoiceNo,
+                                    storeId:       storeId,
+                                    store:         autoStore,
+                                    staff:         autoStaff,
+                                    date:          autoDateStr,
+                                    status:        'New Walkin',
+                                    rentalStatus:  'New Walkin',
+                                    repeatCount:   1,
+                                    statusHistory: [{
+                                        status:      'New Walkin',
+                                        category:    'Product',
+                                        subCategory: '-',
+                                        date:        autoNewWalkinHistoryDate,
+                                        source:      'auto_sync'
+                                    }],
+                                    legacyMeta: {
+                                        autoCreated:       true,
+                                        autoCreatedAt:     new Date(),
+                                        autoCreatedReason: 'missing_walkin_on_booking'
+                                    }
+                                });
+
+                                await newWalkin.save();
+
+                                // Backdate createdAt and updatedAt to the booking date so the
+                                // auto-created walkin appears under the correct date in the walkin
+                                // list and does not pollute today's manually-added new walkins.
+                                // Mongoose timestamps: true always stamps createdAt = now on save(),
+                                // so we override it immediately with a direct collection update.
+                                if (autoBookingDate) {
+                                    await Walkin.collection.updateOne(
+                                        { _id: newWalkin._id },
+                                        { $set: { createdAt: autoBookingDate, updatedAt: autoBookingDate } }
+                                    );
+                                    newWalkin.createdAt = autoBookingDate;
+                                    newWalkin.updatedAt = autoBookingDate;
+                                }
+
+                                walkin = newWalkin;
+                                invoiceToWalkinMap.set(invoiceNo, walkin);
+                                console.log(`🆕 [Walkin Status Sync] Auto-created walkin for invoiceNo '${invoiceNo}' | phone: ...${rentalInfo.phone.slice(-4)} | customer: '${autoCustomerName}' | staff: '${autoStaff}' | date: ${autoDateStr}`);
+                            } catch (autoCreateErr) {
+                                console.error(`❌ [Walkin Status Sync] Failed to auto-create walkin for invoiceNo '${invoiceNo}' (phone: ...${rentalInfo.phone.slice(-4)}):`, autoCreateErr.message);
+                            }
+                        }
+                    }
+
                     if (walkin) {
                         const tracker = getTracker(walkin);
                         const targetRentalStatus = rentalInfo.status;
@@ -522,6 +600,28 @@ export const syncWalkinStatuses = async () => {
                         };
 
                         if (normalizeStatusForCompare(previousRentalStatus) !== normalizeStatusForCompare(targetRentalStatus)) {
+                            let txDate = null;
+                            if (targetRentalStatus === 'Booked') {
+                                const item = bookingMap.get(invoiceNo);
+                                txDate = item ? extractDateValue(item, ['bookingDate', 'bookingdate', 'booking_date', 'bookeddate']) : null;
+                            } else if (targetRentalStatus === 'Rentout') {
+                                const item = rentoutMap.get(invoiceNo);
+                                txDate = item ? extractDateValue(item, ['rentOutDate', 'rentoutdate', 'rent_out_date', 'rentdate']) : null;
+                            } else if (targetRentalStatus === 'Return') {
+                                const item = returnMap.get(invoiceNo);
+                                txDate = item ? extractDateValue(item, ['returnedDate', 'returneddate', 'returndate', 'return_date']) : null;
+                            } else if (['Cancelled', 'Cancel'].includes(targetRentalStatus)) {
+                                const item = cancelMap.get(invoiceNo);
+                                txDate = item ? extractDateValue(item, ['cancelDate', 'canceldate', 'cancellationdate', 'cancelleddate']) : null;
+                            }
+
+                            const lastChange = tracker.walkin.lastStatusChangeDate || tracker.walkin.updatedAt || tracker.walkin.createdAt;
+
+                            if (txDate && lastChange && new Date(txDate).getTime() < new Date(lastChange).getTime()) {
+                                console.log(`ℹ️ [Walkin Status Sync] Skipping stale rental update for invoice ${invoiceNo}: txDate (${new Date(txDate).toISOString()}) is older than lastStatusChangeDate (${new Date(lastChange).toISOString()})`);
+                                continue;
+                            }
+
                             // Check if this status transition has already occurred in the past (by checking captured date presence)
                             let isAlreadyDone = false;
                             if (targetRentalStatus === 'Booked' && hadBookingDate) isAlreadyDone = true;
@@ -657,6 +757,22 @@ export const syncWalkinStatuses = async () => {
                         }
 
                         if (currentShoeStatus !== targetShoeStatus) {
+                            let txDate = null;
+                            if (targetShoeStatus === 'Billed') {
+                                const item = shoeBilledMap.get(shoeInvoiceNo);
+                                txDate = item ? extractDateValue(item, ['billedDate', 'billingDate', 'billeddate', 'billdate', 'billingdate']) : null;
+                            } else if (targetShoeStatus === 'Bill Returned') {
+                                const item = shoeBillReturnedMap.get(shoeInvoiceNo);
+                                txDate = item ? extractDateValue(item, ['billedReturnedDate', 'billedreturneddate', 'billReturnedDate', 'returnedDate', 'billreturneddate', 'returneddate', 'returndate']) : null;
+                            }
+
+                            const lastChange = tracker.walkin.lastStatusChangeDate || tracker.walkin.updatedAt || tracker.walkin.createdAt;
+
+                            if (txDate && lastChange && new Date(txDate).getTime() < new Date(lastChange).getTime()) {
+                                console.log(`ℹ️ [Walkin Status Sync] Skipping stale shoe update for shoeInvoice ${shoeInvoiceNo}: txDate (${new Date(txDate).toISOString()}) is older than lastStatusChangeDate (${new Date(lastChange).toISOString()})`);
+                                continue;
+                            }
+
                             let isShoeAlreadyDone = false;
                             if (targetShoeStatus === 'Billed' && hadBilledDate) isShoeAlreadyDone = true;
                             if (targetShoeStatus === 'Bill Returned' && hadBillReturnedDate) isShoeAlreadyDone = true;
@@ -740,9 +856,14 @@ export const syncWalkinStatuses = async () => {
                             // Update status change tracking fields
                             walkin.lastStatusChangeDate = new Date();
                             walkin.statusChangedToday = true;
+
+                            // Only overwrite the display status when an actual rental/shoe
+                            // status change occurred. This preserves manually-set statuses
+                            // (e.g. 'REVISIT (Reissue)') on date-only updates where
+                            // rentalStatus/shoeStatus haven't moved but a date field changed.
+                            walkin.status = getCombinedStatus(walkin.rentalStatus, walkin.shoeStatus);
                         }
 
-                        walkin.status = getCombinedStatus(walkin.rentalStatus, walkin.shoeStatus);
                         if (rentalStatusChanged || shoeStatusChanged) {
                             await walkin.save();
                         } else {

@@ -23,6 +23,19 @@ const walkinCameraCheckSchema = new mongoose.Schema({
         type: String, // e.g. '10:00 AM to 10:30 AM'
         required: true
     },
+    inTime: {
+        type: String,
+        default: ''
+    },
+    outTime: {
+        type: String,
+        default: ''
+    },
+    identification: {
+        type: String,
+        maxLength: 20,
+        default: ''
+    },
     inCamCount: {
         type: Number,
         required: true,
@@ -41,8 +54,8 @@ const walkinCameraCheckSchema = new mongoose.Schema({
     timestamps: true
 });
 
-// Ensure a single entry per date, store, statusKey, and timeDuration
-walkinCameraCheckSchema.index({ date: 1, storeId: 1, statusKey: 1, timeDuration: 1 }, { unique: true });
+// Ensure indexes for efficient querying by date and storeId
+walkinCameraCheckSchema.index({ date: 1, storeId: 1 });
 
 const WalkinCameraCheck = mongoose.model('WalkinCameraCheck', walkinCameraCheckSchema);
 

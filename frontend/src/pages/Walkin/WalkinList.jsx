@@ -3222,7 +3222,22 @@ const WalkinList = () => {
                                                                 </div>
                                                             </td>
                                                             <td style={{ textAlign: 'center', padding: '11px 12px', color: '#111827', fontWeight: 500, boxSizing: 'border-box' }}>
-                                                                <div className="walkin-marquee-container">
+                                                                <div className="walkin-marquee-container" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
+                                                                    {w.legacyMeta?.autoCreated && (
+                                                                        <span
+                                                                            title="Auto-created by sync (employee missed walk-in entry)"
+                                                                            style={{
+                                                                                display: 'inline-block',
+                                                                                width: '8px',
+                                                                                height: '8px',
+                                                                                borderRadius: '50%',
+                                                                                background: '#ef4444',
+                                                                                flexShrink: 0,
+                                                                                boxShadow: '0 0 0 2px rgba(239,68,68,0.25)',
+                                                                                animation: 'walkin-pulse-red 1.8s ease-in-out infinite'
+                                                                            }}
+                                                                        />
+                                                                    )}
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.customerName || '–'}</span>
                                                                 </div>
                                                             </td>
@@ -3642,6 +3657,10 @@ const WalkinList = () => {
                                 0%, 15% { transform: translateX(0); }
                                 85%, 100% { transform: translateX(calc(-100% + 100cqw)); }
                             }
+                            @keyframes walkin-pulse-red {
+                                0%, 100% { box-shadow: 0 0 0 2px rgba(239,68,68,0.25); }
+                                50%       { box-shadow: 0 0 0 5px rgba(239,68,68,0.0); }
+                            }
                         `}</style>
                     </>
                 )}
@@ -3727,16 +3746,14 @@ const WalkinList = () => {
                                     });
                                 }
 
-                                // Helper function to ensure actual DB date overrides sync/manual update date
+                                // Helper function to reconstruct missing status dates (e.g. for older walk-ins)
                                 const ensureOrUpdateStatusDate = (statusNames, targetDate, defaultCategory = null) => {
                                     if (!targetDate) return;
                                     const parsedTargetDate = new Date(targetDate);
                                     if (isNaN(parsedTargetDate.getTime())) return;
 
-                                    const existingIndex = history.findIndex(h => statusNames.map(s => s.toLowerCase()).includes(h.status.toLowerCase().trim()));
-                                    if (existingIndex !== -1) {
-                                        history[existingIndex].date = parsedTargetDate;
-                                    } else {
+                                    const hasStatusInHistory = history.some(h => statusNames.map(s => s.toLowerCase()).includes(h.status.toLowerCase().trim()));
+                                    if (!hasStatusInHistory) {
                                         history.push({
                                             status: statusNames[0],
                                             category: defaultCategory || selectedHistoryWalkin.category || 'Product',
