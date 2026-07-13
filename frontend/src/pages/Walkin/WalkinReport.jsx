@@ -696,6 +696,32 @@ const WalkinReport = () => {
           data = data.filter(w => selectedStatuses.some(status => matchStatusAndDate(w, status)));
         }
 
+        // Apply date range filter client-side to ensure no out-of-range walk-ins (e.g. matched by updatedAt only)
+        data = data.filter(hasActivityInRange);
+
+        // Sort descending by the reconstructed state date (latest activity first)
+        data.sort((a, b) => {
+          const stateA = getCombinedStateAt(a, formData.endDate);
+          const stateB = getCombinedStateAt(b, formData.endDate);
+          
+          const getSortDate = (item, state) => {
+            const rawDate = state?.date || item.createdAt;
+            const dStr = getISTDateString(rawDate);
+            return dStr || "1970-01-01";
+          };
+
+          const dateA = getSortDate(a, stateA);
+          const dateB = getSortDate(b, stateB);
+          
+          if (dateB !== dateA) {
+            return dateB.localeCompare(dateA); // Descending order (latest first)
+          }
+          
+          const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return timeB - timeA;
+        });
+
         setReportData(data);
         setReportGenerated(true);
         setCurrentPage(1);
@@ -706,22 +732,47 @@ const WalkinReport = () => {
     finally { setLoading(false); }
   };
 
-  // Helper to format date to IST YYYY-MM-DD for table filtering
-  const toDateStrIST = (dateVal) => {
+  // Helper to safely format any date format to an IST YYYY-MM-DD string
+  const getISTDateString = (dateVal) => {
     if (!dateVal) return null;
-    const d = new Date(dateVal);
-    if (isNaN(d.getTime())) return null;
-    const istDate = new Date(d.getTime() + (5.5 * 60 * 60 * 1000));
-    const y = istDate.getUTCFullYear();
-    const m = String(istDate.getUTCMonth() + 1).padStart(2, '0');
-    const dayStr = String(istDate.getUTCDate()).padStart(2, '0');
-    return `${y}-${m}-${dayStr}`;
+    try {
+      if (typeof dateVal === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateVal)) {
+        return dateVal;
+      }
+      if (typeof dateVal === 'string' && /^\d{4}-\d{2}-\d{2}\s/.test(dateVal)) {
+        return dateVal.split(' ')[0];
+      }
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return null;
+      
+      const istTime = d.getTime() + (5.5 * 60 * 60 * 1000);
+      const istDate = new Date(istTime);
+      const y = istDate.getUTCFullYear();
+      const m = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+      const dayStr = String(istDate.getUTCDate()).padStart(2, '0');
+      return `${y}-${m}-${dayStr}`;
+    } catch {
+      return null;
+    }
   };
 
   const isDateInFilterRange = (dateVal) => {
-    const dStr = toDateStrIST(dateVal);
+    const dStr = getISTDateString(dateVal);
     if (!dStr) return false;
     return dStr >= formData.startDate && dStr <= formData.endDate;
+  };
+
+  const hasActivityInRange = (w) => {
+    if (isDateInFilterRange(w.createdAt)) return true;
+    if (isDateInFilterRange(w.date)) return true;
+    if (Array.isArray(w.statusHistory) && w.statusHistory.some(h => isDateInFilterRange(h.date))) return true;
+    if (isDateInFilterRange(w.bookingDate)) return true;
+    if (isDateInFilterRange(w.rentoutDate)) return true;
+    if (isDateInFilterRange(w.returnDate)) return true;
+    if (isDateInFilterRange(w.billedDate)) return true;
+    if (isDateInFilterRange(w.billReturnedDate)) return true;
+    if (isDateInFilterRange(w.cancelDate || w.cancellationDate)) return true;
+    return false;
   };
 
   const matchStatusAndDate = (w, targetStatus) => {
