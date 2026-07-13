@@ -1686,7 +1686,7 @@ const DSRReport = () => {
         }
         
         const balance = target - achieved;
-        const pct = target > 0 ? Math.min(Math.round((achieved / target) * 100), 100) : 0;
+        const pct = target > 0 ? Math.round((achieved / target) * 100) : 0;
 
         return { sl, name: fullName, target, achieved, balance, pct, isStaff: true };
       }).sort((a, b) => b.achieved - a.achieved);
@@ -1731,7 +1731,7 @@ const DSRReport = () => {
       }
 
       const balance = target - achieved;
-      const pct = target > 0 ? Math.min(Math.round((achieved / target) * 100), 100) : 0;
+      const pct = target > 0 ? Math.round((achieved / target) * 100) : 0;
       return { sl, name, target, achieved, balance, pct };
     }).filter(Boolean);
     return list;
@@ -2187,7 +2187,7 @@ const DSRReport = () => {
   const overallPct = useMemo(() => {
     if (overallTarget <= 0) return "0.0";
     const rawPct = (overallAchieved / overallTarget) * 100;
-    return Math.min(rawPct, 100).toFixed(1);
+    return rawPct.toFixed(1);
   }, [overallTarget, overallAchieved]);
 
   // Dynamic calculations for Sales Funnel totals row
@@ -2420,7 +2420,7 @@ const DSRReport = () => {
         row.name,
         row.target,
         row.achieved,
-        row.balance,
+        Math.abs(row.balance),
         `${row.pct}%`
       ]);
       rows.push([
@@ -2428,7 +2428,7 @@ const DSRReport = () => {
         "ALL STORES",
         overallTarget,
         overallAchieved,
-        overallBalance,
+        Math.abs(overallBalance),
         `${overallPct}%`
       ]);
       
@@ -2812,7 +2812,7 @@ const DSRReport = () => {
               </div>
               <div className="p-6">
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Balance</span>
-                <h3 className="text-[22px] font-extrabold text-[#e05a47] mt-1">₹{formatIndianNumber(overallBalance)}</h3>
+                <h3 className="text-[22px] font-extrabold text-[#e05a47] mt-1">₹{formatIndianNumber(Math.abs(overallBalance))}</h3>
               </div>
               <div className="p-6">
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Achieved %</span>
@@ -2870,7 +2870,7 @@ const DSRReport = () => {
                           {formatIndianNumber(row.achieved)}
                         </td>
                         <td className={`px-6 py-3.5 text-right font-bold ${balColorClass}`}>
-                          {formatIndianNumber(row.balance)}
+                          {formatIndianNumber(Math.abs(row.balance))}
                         </td>
                         <td className={`px-6 py-3.5 text-center font-bold ${pctColorClass}`}>
                           {row.pct}%
@@ -3439,7 +3439,7 @@ const DSRReport = () => {
                           <div className={`flex flex-col items-center py-3.5 px-4 ${balanceIsOver ? "bg-red-50" : "bg-emerald-50"}`}>
                             <span className={`text-[9px] font-black uppercase tracking-widest mb-1 ${balanceIsOver ? "text-red-400" : "text-emerald-500"}`}>Balance</span>
                             <span className={`text-[13px] font-extrabold ${balanceIsOver ? "text-red-600" : "text-emerald-600"}`}>
-                              ₹{formatIndianNumber(balance)}
+                              ₹{formatIndianNumber(Math.abs(balance))}
                             </span>
                             <span className={`text-[9px] font-medium mt-0.5 ${balanceIsOver ? "text-red-400" : "text-emerald-500"}`}>
                               {balanceIsOver ? "over-assigned" : "remaining"}

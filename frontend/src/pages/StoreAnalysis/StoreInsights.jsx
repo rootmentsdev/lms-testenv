@@ -2533,7 +2533,7 @@ const StoreInsights = () => {
             <div className="flex-1 flex items-center justify-between min-h-0 mt-1">
               <div className="flex flex-col justify-center min-w-0">
                 <h3 className="text-[20px] xs:text-[22px] sm:text-[24px] lg:text-[18px] xl:text-[22px] 2xl:text-[28px] font-extrabold text-slate-900 leading-none truncate" title={`₹${formatIndianNumber(stats.achievedValue, 2)}`}>₹{formatIndianNumber(stats.achievedValue, 2)}</h3>
-                <span className={`text-[12px] font-bold block mt-3 ${stats.valChangeColor}`}>{stats.valChangeDisplay} <span className="text-gray-400 font-semibold font-sans">vs last year</span></span>
+                <span className={`text-[12px] font-bold block mt-3 ${stats.valChangeColor}`}>{stats.valChangeDisplay} <span className="text-gray-400 font-semibold font-sans">vs L2L</span></span>
               </div>
               <Sparkline type={stats.valTrend} color={stats.valTrendColor} />
             </div>
@@ -2548,7 +2548,7 @@ const StoreInsights = () => {
             <div className="flex-1 flex items-center justify-between min-h-0 mt-1">
               <div className="flex flex-col justify-center min-w-0">
                 <h3 className="text-[20px] xs:text-[22px] sm:text-[24px] lg:text-[18px] xl:text-[22px] 2xl:text-[28px] font-extrabold text-slate-900 leading-none truncate" title={formatIndianNumber(stats.billsGenerated)}>{formatIndianNumber(stats.billsGenerated)}</h3>
-                <span className={`text-[12px] font-bold block mt-3 ${stats.billsChangeColor}`}>{stats.billsChangeDisplay} <span className="text-gray-400 font-semibold font-sans">vs last year</span></span>
+                <span className={`text-[12px] font-bold block mt-3 ${stats.billsChangeColor}`}>{stats.billsChangeDisplay} <span className="text-gray-400 font-semibold font-sans">vs L2L</span></span>
               </div>
               <Sparkline type={stats.billsTrend} color={stats.billsTrendColor} />
             </div>
@@ -2563,7 +2563,7 @@ const StoreInsights = () => {
             <div className="flex-1 flex items-center justify-between min-h-0 mt-1">
               <div className="flex flex-col justify-center min-w-0">
                 <h3 className="text-[20px] xs:text-[22px] sm:text-[24px] lg:text-[18px] xl:text-[22px] 2xl:text-[28px] font-extrabold text-slate-900 leading-none truncate" title={formatIndianNumber(stats.quantitySold)}>{formatIndianNumber(stats.quantitySold)}</h3>
-                <span className={`text-[12px] font-bold block mt-3 ${stats.qtyChangeColor}`}>{stats.qtyChangeDisplay} <span className="text-gray-400 font-semibold font-sans">vs last year</span></span>
+                <span className={`text-[12px] font-bold block mt-3 ${stats.qtyChangeColor}`}>{stats.qtyChangeDisplay} <span className="text-gray-400 font-semibold font-sans">vs L2L</span></span>
               </div>
               <Sparkline type={stats.qtyTrend} color={stats.qtyTrendColor} />
             </div>
@@ -2578,7 +2578,7 @@ const StoreInsights = () => {
             <div className="flex-1 flex items-center justify-between min-h-0 mt-1">
               <div className="flex flex-col justify-center min-w-0">
                 <h3 className="text-[20px] xs:text-[22px] sm:text-[24px] lg:text-[18px] xl:text-[22px] 2xl:text-[28px] font-extrabold text-slate-900 leading-none truncate" title={stats.basketSize}>{stats.basketSize}</h3>
-                <span className={`text-[12px] font-bold block mt-3 ${stats.absChangeColor}`}>{stats.absChangeDisplay} <span className="text-gray-400 font-semibold font-sans">vs last year</span></span>
+                <span className={`text-[12px] font-bold block mt-3 ${stats.absChangeColor}`}>{stats.absChangeDisplay} <span className="text-gray-400 font-semibold font-sans">vs L2L</span></span>
               </div>
               <Sparkline type={stats.absTrend} color={stats.absTrendColor} />
             </div>
@@ -2593,7 +2593,7 @@ const StoreInsights = () => {
             <div className="flex-1 flex items-center justify-between min-h-0 mt-1">
               <div className="flex flex-col justify-center min-w-0">
                 <h3 className="text-[20px] xs:text-[22px] sm:text-[24px] lg:text-[18px] xl:text-[22px] 2xl:text-[28px] font-extrabold text-slate-900 leading-none truncate" title={`₹${formatIndianNumber(stats.basketValue, 2)}`}>₹{formatIndianNumber(stats.basketValue, 2)}</h3>
-                <span className={`text-[12px] font-bold block mt-3 ${stats.abvChangeColor}`}>{stats.abvChangeDisplay} <span className="text-gray-400 font-semibold font-sans">vs last year</span></span>
+                <span className={`text-[12px] font-bold block mt-3 ${stats.abvChangeColor}`}>{stats.abvChangeDisplay} <span className="text-gray-400 font-semibold font-sans">vs L2L</span></span>
               </div>
               <Sparkline type={stats.abvTrend} color={stats.abvTrendColor} />
             </div>
@@ -2608,7 +2608,7 @@ const StoreInsights = () => {
             <div className="flex-1 flex items-center justify-between min-h-0 mt-1">
               <div className="flex flex-col justify-center min-w-0">
                 <h3 className="text-[20px] xs:text-[22px] sm:text-[24px] lg:text-[18px] xl:text-[22px] 2xl:text-[28px] font-extrabold text-slate-900 leading-none truncate" title={formatIndianNumber(stats.customerWalkins)}>{formatIndianNumber(stats.customerWalkins)}</h3>
-                <span className={`text-[12px] font-bold block mt-3 ${stats.walkChangeColor}`}>{stats.walkChangeDisplay} <span className="text-gray-400 font-semibold font-sans">vs last year</span></span>
+                <span className={`text-[12px] font-bold block mt-3 ${stats.walkChangeColor}`}>{stats.walkChangeDisplay} <span className="text-gray-400 font-semibold font-sans">vs L2L</span></span>
               </div>
               <Sparkline type={stats.walkTrend} color={stats.walkTrendColor} />
             </div>
