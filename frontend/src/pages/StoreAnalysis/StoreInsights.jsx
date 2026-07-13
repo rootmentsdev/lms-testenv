@@ -1328,8 +1328,8 @@ const StoreInsights = () => {
           if (!locCode) return;
           try {
             const [bRes, rRes] = await Promise.all([
-              fetch(`https://backend.brynex.com/api/external/shoe-sales/bookings?fromDate=${periodStart}&toDate=${periodEnd}&locCode=${locCode}`).then(r => r.ok ? r.json() : []),
-              fetch(`https://backend.brynex.com/api/external/shoe-sales/returns?fromDate=${periodStart}&toDate=${periodEnd}&locCode=${locCode}`).then(r => r.ok ? r.json() : [])
+              fetch(`${baseUrl.baseUrl}api/brynex/shoe-sales/bookings?fromDate=${periodStart}&toDate=${periodEnd}&locCode=${locCode}`).then(r => r.ok ? r.json() : []),
+              fetch(`${baseUrl.baseUrl}api/brynex/shoe-sales/returns?fromDate=${periodStart}&toDate=${periodEnd}&locCode=${locCode}`).then(r => r.ok ? r.json() : [])
             ]);
             const bookings = Array.isArray(bRes) ? bRes : [];
             const returns = Array.isArray(rRes) ? rRes : [];
