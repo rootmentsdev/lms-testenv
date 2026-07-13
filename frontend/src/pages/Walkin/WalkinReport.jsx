@@ -703,13 +703,23 @@ const WalkinReport = () => {
         data.sort((a, b) => {
           const stateA = getCombinedStateAt(a, formData.endDate);
           const stateB = getCombinedStateAt(b, formData.endDate);
-          const dateA = stateA?.date ? new Date(stateA.date).getTime() : new Date(a.createdAt).getTime();
-          const dateB = stateB?.date ? new Date(stateB.date).getTime() : new Date(b.createdAt).getTime();
+          
+          const getSortDate = (item, state) => {
+            const rawDate = state?.date || item.createdAt;
+            const dStr = getISTDateString(rawDate);
+            return dStr || "1970-01-01";
+          };
+
+          const dateA = getSortDate(a, stateA);
+          const dateB = getSortDate(b, stateB);
           
           if (dateB !== dateA) {
-            return dateB - dateA;
+            return dateB.localeCompare(dateA); // Descending order (latest first)
           }
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          
+          const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return timeB - timeA;
         });
 
         setReportData(data);
