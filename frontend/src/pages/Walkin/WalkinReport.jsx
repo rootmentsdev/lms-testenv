@@ -699,6 +699,19 @@ const WalkinReport = () => {
         // Apply date range filter client-side to ensure no out-of-range walk-ins (e.g. matched by updatedAt only)
         data = data.filter(hasActivityInRange);
 
+        // Sort descending by the reconstructed state date (latest activity first)
+        data.sort((a, b) => {
+          const stateA = getCombinedStateAt(a, formData.endDate);
+          const stateB = getCombinedStateAt(b, formData.endDate);
+          const dateA = stateA?.date ? new Date(stateA.date).getTime() : new Date(a.createdAt).getTime();
+          const dateB = stateB?.date ? new Date(stateB.date).getTime() : new Date(b.createdAt).getTime();
+          
+          if (dateB !== dateA) {
+            return dateB - dateA;
+          }
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+
         setReportData(data);
         setReportGenerated(true);
         setCurrentPage(1);
