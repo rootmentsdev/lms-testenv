@@ -695,22 +695,18 @@ const WalkinCount = () => {
         }
         
         // Add table headers
-        csvContent += `STATUS CATEGORY,IN CAM,SALES REPORT,IN APP,REMARKS\r\n`;
+        csvContent += `STATUS CATEGORY,IN APP,IN CAM\r\n`;
         
         // Add rows
         CATEGORIES.forEach(cat => {
             const inCam = rowValues[cat.key]?.inCam || '-';
-            const salesReport = rowValues[cat.key]?.salesReport || '-';
             const inAppVal = inAppCounts[cat.key] ?? 0;
-            const remarks = rowValues[cat.key]?.remarks || '-';
             
             const escapedLabel = `"${cat.label.replace(/"/g, '""')}"`;
-            const escapedInCam = `"${String(inCam).replace(/"/g, '""')}"`;
-            const escapedSalesReport = `"${String(salesReport).replace(/"/g, '""')}"`;
             const escapedInApp = `"${String(inAppVal).replace(/"/g, '""')}"`;
-            const escapedRemarks = `"${String(remarks).replace(/"/g, '""')}"`;
+            const escapedInCam = `"${String(inCam).replace(/"/g, '""')}"`;
             
-            csvContent += `${escapedLabel},${escapedInCam},${escapedSalesReport},${escapedInApp},${escapedRemarks}\r\n`;
+            csvContent += `${escapedLabel},${escapedInApp},${escapedInCam}\r\n`;
         });
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -1047,11 +1043,9 @@ const WalkinCount = () => {
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
                                 <thead>
                                     <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                                        <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>STATUS CATEGORY</th>
-                                        <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>IN CAM</th>
-                                        <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>SALES REPORT</th>
-                                        <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>IN APP</th>
-                                        <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '20%' }}>REMARKS</th>
+                                        <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '34%' }}>STATUS CATEGORY</th>
+                                        <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '33%' }}>IN APP</th>
+                                        <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '33%' }}>IN CAM</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1067,17 +1061,11 @@ const WalkinCount = () => {
                                                         <span className="tooltip-text">{cat.tooltip}</span>
                                                     </span>
                                                 </td>
-                                                <td style={{ padding: '12px 20px', fontWeight: 700, color: '#111827' }}>
-                                                    {rowValues[cat.key].inCam || '-'}
-                                                </td>
-                                                <td style={{ padding: '12px 20px', color: '#374151' }}>
-                                                    {rowValues[cat.key].salesReport || '-'}
-                                                </td>
                                                 <td style={{ padding: '12px 20px', fontWeight: 700, color: inAppVal > 0 ? '#2563eb' : '#6b7280', fontSize: '14px' }}>
                                                     {inAppVal}
                                                 </td>
-                                                <td style={{ padding: '12px 20px', color: '#6b7280', fontStyle: rowValues[cat.key].remarks ? 'normal' : 'italic' }}>
-                                                    {rowValues[cat.key].remarks || '-'}
+                                                <td style={{ padding: '12px 20px', fontWeight: 700, color: '#111827' }}>
+                                                    {rowValues[cat.key].inCam || '-'}
                                                 </td>
                                             </tr>
                                         );
