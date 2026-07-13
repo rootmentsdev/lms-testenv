@@ -816,7 +816,7 @@ export const getWalkins = async (req, res) => {
                     { billedDate:           { $gte: startUTC, $lt: nextDayStartUTC } },
                     { billReturnedDate:     { $gte: startUTC, $lt: nextDayStartUTC } },
                     { lastStatusChangeDate: { $gte: startUTC, $lt: nextDayStartUTC } },
-                    { 'statusHistory.date': { $gte: startUTC, $lt: nextDayStartUTC } }
+                    { statusHistory:        { $elemMatch: { date: { $gte: startUTC, $lt: nextDayStartUTC } } } }
                 ]
             };
             if (!baseQuery.$and) {
@@ -1189,7 +1189,7 @@ export const getWalkinCountPageData = async (req, res) => {
                     { billedDate:           { $gte: startUTC, $lt: nextDayStartUTC } },
                     { billReturnedDate:     { $gte: startUTC, $lt: nextDayStartUTC } },
                     { lastStatusChangeDate: { $gte: startUTC, $lt: nextDayStartUTC } },
-                    { 'statusHistory.date': { $gte: startUTC, $lt: nextDayStartUTC } }
+                    { statusHistory:        { $elemMatch: { date: { $gte: startUTC, $lt: nextDayStartUTC } } } }
                 ]
             };
             activeDateRange = { start: startDate, end: endDate };
@@ -1211,7 +1211,7 @@ export const getWalkinCountPageData = async (req, res) => {
                     { billedDate:           { $gte: startUTC, $lt: nextDayStartUTC } },
                     { billReturnedDate:     { $gte: startUTC, $lt: nextDayStartUTC } },
                     { lastStatusChangeDate: { $gte: startUTC, $lt: nextDayStartUTC } },
-                    { 'statusHistory.date': { $gte: startUTC, $lt: nextDayStartUTC } }
+                    { statusHistory:        { $elemMatch: { date: { $gte: startUTC, $lt: nextDayStartUTC } } } }
                 ]
             };
             activeDateRange = { start: date, end: date };
