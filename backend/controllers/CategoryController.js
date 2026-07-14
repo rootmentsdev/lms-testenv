@@ -6,7 +6,7 @@ import User from '../model/User.js';
 export const getCategories = async (req, res) => {
   try {
     const adminId = req.admin.userId;
-    const { manage } = req.query;
+    const { manage, type = 'task' } = req.query;
 
     // Resolve user role
     let userRole = req.admin.role;
@@ -21,13 +21,15 @@ export const getCategories = async (req, res) => {
     }
 
     let categories;
+    const filter = { type };
     if (['super_admin', 'admin'].includes(userRole) && manage === 'true') {
       // Admins managing categories get all of them
-      categories = await Category.find({}).sort({ name: 1 });
+      categories = await Category.find(filter).sort({ name: 1 });
     } else {
       // Filter categories allowed for the user's role.
       // If a category has an empty allowedRoles array, we assume it's visible to everyone
       categories = await Category.find({
+        type,
         $or: [
           { allowedRoles: userRole },
           { allowedRoles: { $size: 0 } },
@@ -53,7 +55,7 @@ export const getCategories = async (req, res) => {
 // Create category
 export const createCategory = async (req, res) => {
   try {
-    const { name, subCategories = [], allowedRoles = [] } = req.body;
+    const { name, subCategories = [], allowedRoles = [], type = 'task' } = req.body;
 
     if (!name || !name.trim()) {
       return res.status(400).json({
@@ -65,7 +67,10 @@ export const createCategory = async (req, res) => {
     const trimmedName = name.trim();
 
     // Check for existing category
-    const existing = await Category.findOne({ name: { $regex: new RegExp(`^${trimmedName}$`, 'i') } });
+    const existing = await Category.findOne({
+      name: { $regex: new RegExp(`^${trimmedName}$`, 'i') },
+      type
+    });
     if (existing) {
       return res.status(400).json({
         success: false,
@@ -76,7 +81,8 @@ export const createCategory = async (req, res) => {
     const category = await Category.create({
       name: trimmedName,
       subCategories: subCategories.map(s => s.trim()).filter(Boolean),
-      allowedRoles: allowedRoles.map(r => r.trim()).filter(Boolean)
+      allowedRoles: allowedRoles.map(r => r.trim()).filter(Boolean),
+      type
     });
 
     return res.status(201).json({
@@ -115,9 +121,10 @@ export const updateCategory = async (req, res) => {
           message: 'Category name cannot be empty'
         });
       }
-      // Check if name is taken by another category
+      // Check if name is taken by another category of the same type
       const existing = await Category.findOne({
         name: { $regex: new RegExp(`^${trimmedName}$`, 'i') },
+        type: category.type,
         _id: { $ne: id }
       });
       if (existing) {
