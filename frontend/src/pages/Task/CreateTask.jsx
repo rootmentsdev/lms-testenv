@@ -362,7 +362,7 @@ const CreateTask = () => {
 
   const fetchCategories = useCallback(async () => {
     try {
-      const response = await fetch(`${baseUrl.baseUrl}api/task-category`, {
+      const response = await fetch(`${baseUrl.baseUrl}api/task-category?type=task`, {
         headers: {
           'Content-Type': 'application/json',
           ...(token && { Authorization: `Bearer ${token}` }),
@@ -380,7 +380,7 @@ const CreateTask = () => {
   const fetchManageCategories = useCallback(async () => {
     if (!['super_admin', 'admin'].includes(user?.role)) return;
     try {
-      const response = await fetch(`${baseUrl.baseUrl}api/task-category?manage=true`, {
+      const response = await fetch(`${baseUrl.baseUrl}api/task-category?manage=true&type=task`, {
         headers: {
           'Content-Type': 'application/json',
           ...(token && { Authorization: `Bearer ${token}` }),
@@ -421,7 +421,8 @@ const CreateTask = () => {
         body: JSON.stringify({
           name: newCatName.trim(),
           subCategories: newCatSubs,
-          allowedRoles: newCatRoles
+          allowedRoles: newCatRoles,
+          type: 'task'
         })
       });
       const json = await response.json();
