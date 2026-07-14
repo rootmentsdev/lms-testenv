@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import SideNav from "../../../components/SideNav/SideNav";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { FaAngleDoubleLeft, FaAngleDoubleRight, FaAngleLeft, FaAngleRight, FaChevronDown, FaEye, FaSearch } from "react-icons/fa";
 import baseUrl from "../../../api/api";
 
@@ -21,6 +21,8 @@ const PaginationButton = ({ children, active = false, disabled = false, onClick 
 );
 
 const BranchAuditData = () => {
+  const location = useLocation();
+  const basePath = location.pathname.startsWith('/store-analysis/store-rating') ? '/store-analysis/store-rating' : '/branch/audit';
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
   const [page, setPage] = useState(1);
@@ -111,7 +113,7 @@ const BranchAuditData = () => {
           <div className="mb-5 flex items-center justify-between gap-4">
             <h1 className="text-[22px] font-bold leading-tight text-black">Store Audit List</h1>
             <Link
-            to="/branch/audit/create"
+            to={`${basePath}/create`}
               className="inline-flex items-center rounded-full bg-white px-5 py-3 text-[14px] font-semibold text-black shadow-[0_1px_4px_rgba(0,0,0,0.08)] transition hover:bg-gray-50"
             >
               + Add Audit
@@ -173,7 +175,7 @@ const BranchAuditData = () => {
                         <Td>{row.createdOn}</Td>
                         <Td center>
                           <Link
-                            to={`/branch/audit/${row.id}`}
+                            to={`${basePath}/${row.id}`}
                             className="inline-flex items-center justify-center rounded-full p-1 text-black transition hover:bg-gray-100"
                             aria-label={`View audit for ${row.storeName}`}
                           >

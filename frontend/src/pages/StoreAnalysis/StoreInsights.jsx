@@ -352,6 +352,25 @@ function getLocalDateString(date) {
   return `${year}-${month}-${day}`;
 }
 
+const isWalkinCreatedInRange = (dateVal, startStr, endStr) => {
+  if (!dateVal) return false;
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return false;
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const ymd = `${year}-${month}-${day}`;
+  return ymd >= startStr && ymd <= endStr;
+};
+
+const shiftDateYear = (dateStr, years = -1) => {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "";
+  d.setFullYear(d.getFullYear() + years);
+  return getLocalDateString(d);
+};
+
 const CURRENT_MONTH_LONG = new Date().toLocaleString("en-US", { month: "long" });
 const CURRENT_MONTH_SHORT = new Date().toLocaleString("en-US", { month: "short" });
 const CURRENT_YEAR = new Date().getFullYear();
@@ -687,6 +706,12 @@ const StoreInsights = () => {
   const [salesData, setSalesData] = useState({ shoeQty: 0, shirtQty: 0, shoeValue: 0, shirtValue: 0, shoeBills: 0, shirtBills: 0, byBranch: {} });
   const [loadingSales, setLoadingSales] = useState(false);
 
+  // Google Reviews real data from backend
+  const [googleReviewData, setGoogleReviewData] = useState({});
+
+  // Last refreshed timestamp for real-time indicator
+  const [lastRefreshed, setLastRefreshed] = useState(new Date());
+
   // Dynamic branches state
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -728,6 +753,31 @@ const StoreInsights = () => {
     };
     fetchBranches();
   }, [isStoreAdmin, isClusterAdmin, user]);
+
+  // Fetch real Google Review counts from backend
+  useEffect(() => {
+    const fetchGoogleReviews = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${baseUrl.baseUrl}api/google-reviews/dashboard`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json?.success && json?.data) {
+            setGoogleReviewData(json.data);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching Google Reviews dashboard:", err);
+      }
+    };
+    fetchGoogleReviews();
+  }, []);
 
   // Fetch active clusters dynamically (by querying admins/employees with role 'cluster_admin')
   useEffect(() => {
@@ -1077,6 +1127,29 @@ const StoreInsights = () => {
     return `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${startYear}`;
   };
 
+  const today = new Date();
+  const todayStr = getLocalDateString(today);
+  
+  let periodStart = todayStr;
+  let periodEnd = todayStr;
+  if (timeframe === "WTD") {
+    const wtdRange = getStoreWTDDateRange("All");
+    periodStart = wtdRange.start;
+    periodEnd = wtdRange.end;
+  } else if (timeframe === "MTD") {
+    periodStart = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
+    periodEnd = todayStr;
+  } else if (timeframe === "YTD") {
+    periodStart = getLocalDateString(new Date(today.getFullYear(), 0, 1));
+    periodEnd = todayStr;
+  } else if (timeframe === "CUSTOM") {
+    periodStart = customStartDate || todayStr;
+    periodEnd = customEndDate || todayStr;
+  }
+
+  const lyPeriodStart = shiftDateYear(periodStart, -1);
+  const lyPeriodEnd = shiftDateYear(periodEnd, -1);
+
   // Fetch targets once on mount for the current year
   useEffect(() => {
     const fetchTargets = async () => {
@@ -1175,6 +1248,7 @@ const StoreInsights = () => {
           map[r.locId] = r.data;
         });
         setPerformanceData(map);
+        setLastRefreshed(new Date());
 
         // Fetch last year performance data shifted by exactly 1 year
         const shiftDateYear = (dateStr, years = -1) => {
@@ -1217,6 +1291,21 @@ const StoreInsights = () => {
     };
 
     fetchPerformance();
+
+    // Auto-refresh every 5 minutes for real-time data
+    // Silent refresh — no loading spinner so the UI doesn't flicker
+    const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+    const silentRefresh = async () => {
+      // Clear the performance cache so stale entries don't block fresh data
+      window.__performanceCache = {};
+      try {
+        await fetchPerformance();
+      } catch {
+        // Silently ignore — data stays as-is until next cycle
+      }
+    };
+    const intervalId = setInterval(silentRefresh, REFRESH_INTERVAL_MS);
+    return () => clearInterval(intervalId);
   }, [timeframe, customStartDate, customEndDate, branches]);
 
   // Fetch walkins dynamically based on timeframe range
@@ -1291,9 +1380,13 @@ const StoreInsights = () => {
       }
     };
     fetchWalkins();
+
+    // Auto-refresh walkins every 5 minutes
+    const intervalId = setInterval(() => { fetchWalkins(); }, 5 * 60 * 1000);
+    return () => clearInterval(intervalId);
   }, [timeframe, customStartDate, customEndDate]);
 
-  // Fetch Shoe & Shirt sales from brynex API
+  // Fetch Shoe & Shirt sales from brynex summary API
   useEffect(() => {
     if (branches.length === 0) return;
     const fetchSales = async () => {
@@ -1318,105 +1411,54 @@ const StoreInsights = () => {
           periodEnd = customEndDate || todayStr;
         }
 
+        // Single call — returns all stores in one shot
+        const res = await fetch(
+          `${baseUrl.baseUrl}api/brynex/shoe-sales/summary?fromDate=${periodStart}&toDate=${periodEnd}`
+        ).then(r => r.ok ? r.json() : { stores: [], grandTotal: {} });
+
+        const stores = Array.isArray(res.stores) ? res.stores : [];
+
         const byBranch = {};
         let totalShoeQty = 0, totalShirtQty = 0;
         let totalShoeValue = 0, totalShirtValue = 0;
         let totalShoeBills = 0, totalShirtBills = 0;
 
-        await Promise.all(branches.map(async (b) => {
-          const locCode = b.locCode;
+        stores.forEach(s => {
+          const locCode = String(s.locCode || "");
           if (!locCode) return;
-          try {
-            const [bRes, rRes] = await Promise.all([
-              fetch(`${baseUrl.baseUrl}api/brynex/shoe-sales/bookings?fromDate=${periodStart}&toDate=${periodEnd}&locCode=${locCode}`).then(r => r.ok ? r.json() : []),
-              fetch(`${baseUrl.baseUrl}api/brynex/shoe-sales/returns?fromDate=${periodStart}&toDate=${periodEnd}&locCode=${locCode}`).then(r => r.ok ? r.json() : [])
-            ]);
-            const bookings = Array.isArray(bRes) ? bRes : [];
-            const returns = Array.isArray(rRes) ? rRes : [];
 
-            // --- Totals matching DSRReport.jsx fetchSalesForBranchRange ---
-            // Use invoice.value directly (same as DSRReport)
-            const totalValue = bookings.reduce((sum, b) => sum + (b.value || 0), 0)
-                             + returns.reduce((sum, r) => sum + (r.value || 0), 0);
-            const totalQty = bookings.reduce((sum, b) => sum + (b.quantity || 0), 0)
-                           - returns.reduce((sum, r) => sum + Math.abs(r.quantity || 0), 0);
-            const totalBills = bookings.length - returns.length;
+          const shoe  = s.shoe  || {};
+          const shirt = s.shirt || {};
+          const mixed = s.mixed || {};
+          const total = s.total || {};
 
-            // --- Per-category (shoe vs shirt) breakdown ---
-            let branchShoeQty = 0, branchShirtQty = 0;
-            let branchShoeValue = 0, branchShirtValue = 0;
-            let branchShoeBills = 0, branchShirtBills = 0;
+          // mixed goes to shoe (it's shoe+shirt combo — attributed to shoe bucket)
+          const shoeQty   = (shoe.qty   || 0) + (mixed.qty   || 0);
+          const shoeValue = (shoe.value || 0) + (mixed.value || 0);
+          const shoeBills = (shoe.bills || 0) + (mixed.bills || 0);
+          const shirtQty   = shirt.qty   || 0;
+          const shirtValue = shirt.value || 0;
+          const shirtBills = shirt.bills || 0;
 
-            const countItems = (list, sign) => {
-              list.forEach(invoice => {
-                const items = Array.isArray(invoice.items) ? invoice.items : [];
-                let isShirt = false;
-                let isShoe = false;
+          byBranch[locCode] = {
+            totalValue: Math.round((total.value || 0)),
+            totalQty:   total.qty   || 0,
+            totalBills: total.bills || 0,
+            shoeQty,   shoeValue,   shoeBills,
+            shirtQty,  shirtValue,  shirtBills,
+          };
 
-                if (items.length > 0) {
-                  items.forEach(item => {
-                    const cat = String(item.category || "").toLowerCase();
-                    const qty = (item.quantity || 0) * sign;
-                    const val = (item.amount || item.rate * item.quantity || 0) * sign;
-                    if (cat.includes("shirt")) {
-                      branchShirtQty += qty;
-                      branchShirtValue += val;
-                      isShirt = true;
-                    } else {
-                      branchShoeQty += qty;
-                      branchShoeValue += val;
-                      isShoe = true;
-                    }
-                  });
-                } else {
-                  const cat = String(invoice.category || "").toLowerCase();
-                  const qty = (invoice.quantity || 0) * sign;
-                  const val = (invoice.value || 0) * sign;
-                  if (cat.includes("shirt")) {
-                    branchShirtQty += qty;
-                    branchShirtValue += val;
-                    isShirt = true;
-                  } else {
-                    branchShoeQty += qty;
-                    branchShoeValue += val;
-                    isShoe = true;
-                  }
-                }
-
-                if (isShirt) branchShirtBills += sign;
-                if (isShoe) branchShoeBills += sign;
-              });
-            };
-
-            countItems(bookings, 1);
-            countItems(returns, -1);
-
-            byBranch[locCode] = {
-              // Combined totals matching DSRReport calculation
-              totalValue: Math.round(totalValue),
-              totalQty: Math.round(totalQty),
-              totalBills,
-              // Per-category breakdown
-              shoeQty: Math.round(branchShoeQty),
-              shirtQty: Math.round(branchShirtQty),
-              shoeValue: Math.round(branchShoeValue),
-              shirtValue: Math.round(branchShirtValue),
-              shoeBills: branchShoeBills,
-              shirtBills: branchShirtBills
-            };
-
-            totalShoeQty += branchShoeQty;
-            totalShirtQty += branchShirtQty;
-            totalShoeValue += branchShoeValue;
-            totalShirtValue += branchShirtValue;
-            totalShoeBills += branchShoeBills;
-            totalShirtBills += branchShirtBills;
-          } catch {/* skip failed branch */}
-        }));
+          totalShoeQty   += shoeQty;
+          totalShirtQty  += shirtQty;
+          totalShoeValue += shoeValue;
+          totalShirtValue += shirtValue;
+          totalShoeBills += shoeBills;
+          totalShirtBills += shirtBills;
+        });
 
         setSalesData({
-          shoeQty: Math.round(totalShoeQty),
-          shirtQty: Math.round(totalShirtQty),
+          shoeQty:   Math.round(totalShoeQty),
+          shirtQty:  Math.round(totalShirtQty),
           shoeValue: Math.round(totalShoeValue),
           shirtValue: Math.round(totalShirtValue),
           shoeBills: totalShoeBills,
@@ -1616,6 +1658,9 @@ const StoreInsights = () => {
     };
 
     // --- Base Aggregations ---
+
+
+
     let rentalBills = 0;
     let rentalQty = 0;
     let rentalValue = 0;
@@ -1691,46 +1736,39 @@ const StoreInsights = () => {
 
       // 4. Walkins
       const storeKeyVal = normalizeForMatch(name);
-      const storeWalkins = walkins.filter(w => normalizeForMatch(w.store) === storeKeyVal);
+      const storeWalkins = walkins.filter(w => 
+        (w.storeId === bObj?._id || w.store === bObj?.workingBranch) && 
+        isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd)
+      );
       customerWalkins += storeWalkins.length;
       convertedWalkinsCount += storeWalkins.filter(w => w.status?.toLowerCase() === "booked").length;
 
-      const lyStoreWalkins = lyWalkins.filter(w => normalizeForMatch(w.store) === storeKeyVal);
+      const lyStoreWalkins = lyWalkins.filter(w => 
+        (w.storeId === bObj?._id || w.store === bObj?.workingBranch) && 
+        isWalkinCreatedInRange(w.createdAt, lyPeriodStart, lyPeriodEnd)
+      );
       lyCustomerWalkins += lyStoreWalkins.length;
       lyConvertedWalkinsCount += lyStoreWalkins.filter(w => w.status?.toLowerCase() === "booked").length;
     });
 
-    const today = new Date();
-    const todayStr = getLocalDateString(today);
-    
-    let periodStart = todayStr;
-    let periodEnd = todayStr;
-    if (timeframe === "WTD") {
-      const wtdRange = getStoreWTDDateRange("All");
-      periodStart = wtdRange.start;
-      periodEnd = wtdRange.end;
-    } else if (timeframe === "MTD") {
-      periodStart = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
-      periodEnd = todayStr;
-    } else if (timeframe === "YTD") {
-      periodStart = getLocalDateString(new Date(today.getFullYear(), 0, 1));
-      periodEnd = todayStr;
-    } else if (timeframe === "CUSTOM") {
-      periodStart = customStartDate || todayStr;
-      periodEnd = customEndDate || todayStr;
-    }
-
-    const lyPeriodStart = shiftDateYear(periodStart, -1);
-    const lyPeriodEnd = shiftDateYear(periodEnd, -1);
+    // (timeframe variables are initialized at the top of the memo block)
 
     let dapprSquadBills = 0;
     let dapprSquadValue = 0;
     let dapprSquadQty = 0;
+
+    let lyDapprSquadBills = 0;
+    let lyDapprSquadValue = 0;
+    let lyDapprSquadQty = 0;
+
     const squadPeriodList = performanceData["25"] || [];
+    const lySquadPeriodList = lyPerformanceData["25"] || [];
+
     filteredStoresForKPIs.forEach(c => {
       const name = c.name;
       const locId = getBranchLocationId(name);
       if (!locId || locId === "25") return;
+
       const dapprPeriodForStore = getDapprSquadDataForStore(locId, squadPeriodList);
       const isGMGRoad = locId === "23";
       const unmappedDapprPeriodList = isGMGRoad
@@ -1746,7 +1784,37 @@ const StoreInsights = () => {
       dapprSquadBills += mergedList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
       dapprSquadValue += mergedList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
       dapprSquadQty += mergedList.reduce((sum, item) => sum + (item.totalQuantity || item.total_Number_Of_Bill || 0), 0);
+
+      // Last Year Dappr Squad
+      const lyDapprPeriodForStore = getDapprSquadDataForStore(locId, lySquadPeriodList);
+      const lyUnmappedDapprPeriodList = isGMGRoad
+        ? lySquadPeriodList.filter(item => {
+            const raw = String(item.bookingBy || "").trim().toLowerCase();
+            const alphaOnly = raw.replace(/[^a-z0-9]/g, "");
+            const dotted = alphaOnly.startsWith("sg") ? "sg." + alphaOnly.slice(2) : raw;
+            return !DAPPR_SQUAD_STORE_MAPPING[raw] && !DAPPR_SQUAD_STORE_MAPPING[dotted];
+          })
+        : [];
+      const lyMergedList = [...lyDapprPeriodForStore, ...lyUnmappedDapprPeriodList];
+
+      lyDapprSquadBills += lyMergedList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
+      lyDapprSquadValue += lyMergedList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+      lyDapprSquadQty += lyMergedList.reduce((sum, item) => sum + (item.totalQuantity || item.total_Number_Of_Bill || 0), 0);
     });
+
+    // Database-wide Walkins override for consolidated cluster filter "All"
+    if (clusterFilter === "All" && !isStoreAdmin) {
+      customerWalkins = walkins.filter(w => isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd)).length;
+      lyCustomerWalkins = lyWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, lyPeriodStart, lyPeriodEnd)).length;
+      convertedWalkinsCount = walkins.filter(w => 
+        isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd) && 
+        w.status?.toLowerCase() === "booked"
+      ).length;
+      lyConvertedWalkinsCount = lyWalkins.filter(w => 
+        isWalkinCreatedInRange(w.createdAt, lyPeriodStart, lyPeriodEnd) && 
+        w.status?.toLowerCase() === "booked"
+      ).length;
+    }
 
     const getChangeStats = (curr, prev) => {
       const change = prev > 0 ? Math.round(((curr - prev) / prev) * 100) : 0;
@@ -1758,17 +1826,28 @@ const StoreInsights = () => {
       };
     };
 
-    const googleReviews = Math.round(14 * ratio);
-    const googleRating = 3.6;
+    const googleReviews = (() => {
+      // Sum thisMonth counts for all stores in the current filter
+      const storeNames = filteredStoresForKPIs.map(s => s.name);
+      if (storeNames.length === 0) {
+        // "All" — sum everything
+        return Object.values(googleReviewData).reduce((sum, d) => sum + (d?.thisMonth || 0), 0);
+      }
+      return storeNames.reduce((sum, name) => {
+        const entry = googleReviewData[name];
+        return sum + (entry?.thisMonth || 0);
+      }, 0);
+    })();
+    const googleRating = 0; // Rating not stored in DB yet
 
     if (isConsolidated) {
-      const consolidatedValue = rentalValue + shoeValue + shirtValue;
-      const consolidatedBills = rentalBills + shoeBills + shirtBills;
-      const consolidatedTotalQty = rentalQty + shoeQty + shirtQty;
+      const consolidatedValue = rentalValue + shoeValue + shirtValue + dapprSquadValue;
+      const consolidatedBills = rentalBills + shoeBills + shirtBills + dapprSquadBills;
+      const consolidatedTotalQty = rentalQty + shoeQty + shirtQty + dapprSquadQty;
 
-      const lyConsolidatedValue = lyRentalValue;
-      const lyConsolidatedBills = lyRentalBills;
-      const lyConsolidatedQty = lyRentalQty;
+      const lyConsolidatedValue = lyRentalValue + lyDapprSquadValue;
+      const lyConsolidatedBills = lyRentalBills + lyDapprSquadBills;
+      const lyConsolidatedQty = lyRentalQty + lyDapprSquadQty;
 
       const trueAchievedPct = totalTarget > 0 ? Math.min(Math.round((consolidatedValue / totalTarget) * 100), 100) : 0;
 
@@ -1834,28 +1913,37 @@ const StoreInsights = () => {
         walkChangeDisplay: walkChange.display, walkChangeColor: walkChange.color, walkTrend: walkChange.trend, walkTrendColor: walkChange.trendColor
       };
     } else {
-      const trueAchievedPct = totalTarget > 0 ? Math.min(Math.round((rentalValue / totalTarget) * 100), 100) : 0;
+      const trueRentalValue = rentalValue + dapprSquadValue;
+      const trueRentalBills = rentalBills + dapprSquadBills;
+      const trueRentalQty = rentalQty + dapprSquadQty;
+
+      const lyTrueRentalValue = lyRentalValue + lyDapprSquadValue;
+      const lyTrueRentalBills = lyRentalBills + lyDapprSquadBills;
+      const lyTrueRentalQty = lyRentalQty + lyDapprSquadQty;
+
+      const trueAchievedPct = totalTarget > 0 ? Math.min(Math.round((trueRentalValue / totalTarget) * 100), 100) : 0;
       const conversionRate = customerWalkins > 0 ? Math.min(100, Math.round((convertedWalkinsCount / customerWalkins) * 100)) : 0;
 
-      const basketSize = rentalBills > 0 ? (rentalQty / rentalBills).toFixed(1) : "0.0";
-      const basketValue = rentalBills > 0 ? Math.round(rentalValue / rentalBills) : 0;
+      const basketSize = trueRentalBills > 0 ? (trueRentalQty / trueRentalBills).toFixed(1) : "0.0";
+      const basketValue = trueRentalBills > 0 ? Math.round(trueRentalValue / trueRentalBills) : 0;
 
-      const lyBasketSize = lyRentalBills > 0 ? parseFloat((lyRentalQty / lyRentalBills).toFixed(1)) : 0.0;
-      const lyBasketValue = lyRentalBills > 0 ? Math.round(lyRentalValue / lyRentalBills) : 0;
+      const lyBasketSize = lyTrueRentalBills > 0 ? parseFloat((lyTrueRentalQty / lyTrueRentalBills).toFixed(1)) : 0.0;
+      const lyBasketValue = lyTrueRentalBills > 0 ? Math.round(lyTrueRentalValue / lyTrueRentalBills) : 0;
 
-      const valChange = getChangeStats(rentalValue * roleMultiplier, lyRentalValue * roleMultiplier);
-      const billsChange = getChangeStats(rentalBills * roleMultiplier, lyRentalBills * roleMultiplier);
-      const qtyChange = getChangeStats(rentalQty * roleMultiplier, lyRentalQty * roleMultiplier);
+      const valChange = getChangeStats(trueRentalValue * roleMultiplier, lyTrueRentalValue * roleMultiplier);
+      const billsChange = getChangeStats(trueRentalBills * roleMultiplier, lyTrueRentalBills * roleMultiplier);
+      const qtyChange = getChangeStats(trueRentalQty * roleMultiplier, lyTrueRentalQty * roleMultiplier);
       const absChange = getChangeStats(parseFloat(basketSize), lyBasketSize);
+
       const abvChange = getChangeStats(basketValue, lyBasketValue);
       const walkChange = getChangeStats(customerWalkins * roleMultiplier, lyCustomerWalkins * roleMultiplier);
 
       return {
         achievedPct: trueAchievedPct,
         targetValue: totalTarget * roleMultiplier,
-        achievedValue: rentalValue * roleMultiplier,
-        billsGenerated: rentalBills * roleMultiplier,
-        quantitySold: rentalQty * roleMultiplier,
+        achievedValue: trueRentalValue * roleMultiplier,
+        billsGenerated: trueRentalBills * roleMultiplier,
+        quantitySold: trueRentalQty * roleMultiplier,
         basketSize,
         basketValue,
         customerWalkins: customerWalkins * roleMultiplier,
@@ -1878,7 +1966,7 @@ const StoreInsights = () => {
         walkChangeDisplay: walkChange.display, walkChangeColor: walkChange.color, walkTrend: walkChange.trend, walkTrendColor: walkChange.trendColor
       };
     }
-  }, [chartData, filteredStoresForKPIs, isConsolidated, roleFilter, performanceData, lyPerformanceData, walkins, lyWalkins, timeframe, customStartDate, customEndDate, salesData, isStoreAdmin, isClusterAdmin, clusterFilter, branches]);
+  }, [chartData, filteredStoresForKPIs, isConsolidated, roleFilter, performanceData, lyPerformanceData, walkins, lyWalkins, timeframe, customStartDate, customEndDate, salesData, isStoreAdmin, isClusterAdmin, clusterFilter, branches, periodStart, periodEnd, lyPeriodStart, lyPeriodEnd, googleReviewData]);
 
   // Store ranking data calculations
   const rankingData = useMemo(() => {
@@ -1895,7 +1983,10 @@ const StoreInsights = () => {
       const staffNames = Array.from(new Set(locPeriodList.map(x => x.bookingBy))).filter(Boolean);
 
       // Filter walkins for this store
-      const storeWalkins = walkins.filter(w => normalizeForMatch(w.store) === storeKeyVal);
+      const storeWalkins = walkins.filter(w => 
+        (w.storeId === singleBranch?._id || w.store === singleBranch?.workingBranch) && 
+        isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd)
+      );
 
       // Sum total value of the store to calculate contribution %
       const storeTotalValue = locPeriodList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
@@ -2003,8 +2094,12 @@ const StoreInsights = () => {
         const abs = bills > 0 ? parseFloat((qty / bills).toFixed(1)) : 0.0;
         const abv = bills > 0 ? Math.round(value / bills) : 0;
 
+        const bObj = branches.find(br => normalizeForMatch(br.workingBranch) === normalizeForMatch(name));
         const storeKeyVal = normalizeForMatch(name);
-        const storeWalkins = walkins.filter(w => normalizeForMatch(w.store) === storeKeyVal).length;
+        const storeWalkins = walkins.filter(w => 
+          (w.storeId === bObj?._id || w.store === bObj?.workingBranch) && 
+          isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd)
+        ).length;
         const conversion = storeWalkins > 0 ? Math.min(100, Math.round((bills / storeWalkins) * 100)) : 0;
 
         return { name, targetAchieved, value, abs, abv, conversion };
@@ -2055,7 +2150,10 @@ const StoreInsights = () => {
         const abv = bills > 0 ? Math.round(value / bills) : 0;
 
         const storeKeyVal = normalizeForMatch(name);
-        const storeWalkins = walkins.filter(w => normalizeForMatch(w.store) === storeKeyVal).length;
+        const storeWalkins = walkins.filter(w => 
+          (w.storeId === b?._id || w.store === b?.workingBranch) && 
+          isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd)
+        ).length;
         const conversion = storeWalkins > 0 ? Math.min(100, Math.round((bills / storeWalkins) * 100)) : 0;
 
         return { name, targetAchieved, value, abs, abv, conversion };
@@ -2099,7 +2197,7 @@ const StoreInsights = () => {
     const highlights = [];
 
     if (isStoreAdmin) {
-      // 1. Lowest Performing Employee
+      // 1. Lowest Performing Employee (target)
       const activeEmployeesData = [...employeeChartData];
       if (activeEmployeesData.length > 0) {
         const sortedByPct = [...activeEmployeesData].sort((a, b) => a.pct - b.pct);
@@ -2115,7 +2213,7 @@ const StoreInsights = () => {
           });
         }
 
-        // 2. Lowest Conversion Employee (lowest conversion rate)
+        // 2. Lowest Conversion Employee
         const staffRanking = [...rankingData].sort((a, b) => a.conversion - b.conversion);
         const worstConvStaff = staffRanking.find(s => s.conversion > 0);
         if (worstConvStaff && worstConvStaff.conversion < 75) {
@@ -2128,11 +2226,41 @@ const StoreInsights = () => {
             severity: "red"
           });
         }
+
+        // 3. Low ABV Employee
+        const staffWithAbv = [...rankingData].filter(s => s.abv > 0).sort((a, b) => a.abv - b.abv);
+        const lowestAbvStaff = staffWithAbv[0];
+        const avgAbv = staffWithAbv.length > 0 ? Math.round(staffWithAbv.reduce((s, x) => s + x.abv, 0) / staffWithAbv.length) : 0;
+        if (lowestAbvStaff && avgAbv > 0 && lowestAbvStaff.abv < avgAbv * 0.7) {
+          highlights.push({
+            type: "low_abv_employee",
+            title: "Low Average Basket Value",
+            description: `${lowestAbvStaff.name} has an ABV of ₹${lowestAbvStaff.abv.toLocaleString()} vs store avg ₹${avgAbv.toLocaleString()}. Upselling opportunities being missed.`,
+            location: lowestAbvStaff.name,
+            meta: `ABV ₹${lowestAbvStaff.abv.toLocaleString()}`,
+            severity: "amber"
+          });
+        }
+
+        // 4. Low ABS Employee
+        const staffWithAbs = [...rankingData].filter(s => s.abs > 0).sort((a, b) => a.abs - b.abs);
+        const lowestAbsStaff = staffWithAbs[0];
+        const avgAbs = staffWithAbs.length > 0 ? parseFloat((staffWithAbs.reduce((s, x) => s + x.abs, 0) / staffWithAbs.length).toFixed(1)) : 0;
+        if (lowestAbsStaff && avgAbs > 0 && lowestAbsStaff.abs < avgAbs * 0.7) {
+          highlights.push({
+            type: "low_abs_employee",
+            title: "Low Average Basket Size",
+            description: `${lowestAbsStaff.name} is averaging ${lowestAbsStaff.abs} items/bill vs store avg ${avgAbs}. Review cross-selling techniques.`,
+            location: lowestAbsStaff.name,
+            meta: `ABS ${lowestAbsStaff.abs} items/bill`,
+            severity: "blue"
+          });
+        }
       }
     } else {
       // Admin / Cluster Admin view (Store-level highlights)
-      
-      // 1. Lowest Performing Store
+
+      // 1. Lowest Performing Store (target %)
       const activeStores = [...filteredStoresForKPIs].sort((a, b) => a.pct - b.pct);
       if (activeStores.length > 0) {
         const lowestStore = activeStores[0];
@@ -2145,6 +2273,28 @@ const StoreInsights = () => {
             meta: `${lowestStore.pct}% of target`,
             severity: "amber"
           });
+
+          // --- Drill-in: find worst staff in the underperforming store ---
+          const underBranch = branches.find(b => normalizeForMatch(b.workingBranch) === normalizeForMatch(lowestStore.name));
+          if (underBranch) {
+            const locId = getBranchLocationId(underBranch.workingBranch);
+            const staffList = performanceData[locId] || [];
+            if (staffList.length > 0) {
+              const storeTotalVal = staffList.reduce((s, x) => s + (x.totalValue || 0), 0);
+              const worstStaff = [...staffList].sort((a, b) => (a.totalValue || 0) - (b.totalValue || 0))[0];
+              if (worstStaff) {
+                const staffPct = storeTotalVal > 0 ? Math.round(((worstStaff.totalValue || 0) / storeTotalVal) * 100) : 0;
+                highlights.push({
+                  type: "underperforming_employee_in_store",
+                  title: "Underperforming Employee Detected",
+                  description: `In ${lowestStore.name}, ${worstStaff.bookingBy} contributes only ${staffPct}% of store revenue — the lowest among all staff.`,
+                  location: `${lowestStore.name} → ${worstStaff.bookingBy}`,
+                  meta: `₹${(worstStaff.totalValue || 0).toLocaleString()} revenue`,
+                  severity: "red"
+                });
+              }
+            }
+          }
         }
       }
 
@@ -2152,7 +2302,6 @@ const StoreInsights = () => {
       const sortedByConversion = [...rankingData]
         .filter(s => s.conversion > 0)
         .sort((a, b) => a.conversion - b.conversion);
-
       if (sortedByConversion.length > 0) {
         const lowestConvStore = sortedByConversion[0];
         if (lowestConvStore.conversion < 75) {
@@ -2166,9 +2315,39 @@ const StoreInsights = () => {
           });
         }
       }
+
+      // 3. Lowest ABV Store
+      const storesWithAbv = [...rankingData].filter(s => s.abv > 0).sort((a, b) => a.abv - b.abv);
+      const lowestAbvStore = storesWithAbv[0];
+      const avgAbv = storesWithAbv.length > 0 ? Math.round(storesWithAbv.reduce((s, x) => s + x.abv, 0) / storesWithAbv.length) : 0;
+      if (lowestAbvStore && avgAbv > 0 && lowestAbvStore.abv < avgAbv * 0.75) {
+        highlights.push({
+          type: "low_abv_store",
+          title: "Below-Average Basket Value",
+          description: `${lowestAbvStore.name} has the lowest ABV at ₹${lowestAbvStore.abv.toLocaleString()} vs network avg ₹${avgAbv.toLocaleString()}. Focus on upselling premium items.`,
+          location: lowestAbvStore.name,
+          meta: `ABV ₹${lowestAbvStore.abv.toLocaleString()}`,
+          severity: "amber"
+        });
+      }
+
+      // 4. Lowest ABS Store
+      const storesWithAbs = [...rankingData].filter(s => s.abs > 0).sort((a, b) => a.abs - b.abs);
+      const lowestAbsStore = storesWithAbs[0];
+      const avgAbs = storesWithAbs.length > 0 ? parseFloat((storesWithAbs.reduce((s, x) => s + x.abs, 0) / storesWithAbs.length).toFixed(1)) : 0;
+      if (lowestAbsStore && avgAbs > 0 && lowestAbsStore.abs < avgAbs * 0.75) {
+        highlights.push({
+          type: "low_abs_store",
+          title: "Low Items Per Bill",
+          description: `${lowestAbsStore.name} averages only ${lowestAbsStore.abs} items/bill vs network avg ${avgAbs}. Bundling and cross-sell training recommended.`,
+          location: lowestAbsStore.name,
+          meta: `ABS ${lowestAbsStore.abs} items/bill`,
+          severity: "blue"
+        });
+      }
     }
 
-    // Default highlights fallback if highlights list is empty
+    // Default fallback
     if (highlights.length === 0) {
       highlights.push({
         type: "info",
@@ -2181,7 +2360,7 @@ const StoreInsights = () => {
     }
 
     return highlights;
-  }, [isStoreAdmin, branches, employees, employeeChartData, rankingData, filteredStoresForKPIs]);
+  }, [isStoreAdmin, branches, employees, employeeChartData, rankingData, filteredStoresForKPIs, performanceData]);
 
   const itemsPerPageRanking = 6;
   const totalRankingItems = processedRanking.length;
@@ -2816,6 +2995,15 @@ const StoreInsights = () => {
               <div>
                 <h2 className="text-[18px] font-bold text-gray-900 leading-tight">Operational Highlights</h2>
                 <p className="text-gray-400 text-[12px] mt-0.5 font-medium">Areas requiring attention to improve performance</p>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                  <span className="text-[10px] text-gray-400 font-semibold">
+                    Live · updated {lastRefreshed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · refreshes every 5 min
+                  </span>
+                </div>
               </div>
               <button 
                 onClick={() => alert("All highlights loaded")}
@@ -2841,17 +3029,30 @@ const StoreInsights = () => {
                       <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                         isBlue ? "bg-blue-50" : isAmber ? "bg-amber-50" : "bg-red-50"
                       }`}>
-                        {isBlue && (
+                        {hl.type === "low_abv_store" || hl.type === "low_abv_employee" ? (
+                          // Shopping bag — low ABV
+                          <svg className="w-5 h-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                          </svg>
+                        ) : hl.type === "low_abs_store" || hl.type === "low_abs_employee" ? (
+                          // Package/box — low ABS
+                          <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10" />
+                          </svg>
+                        ) : hl.type === "underperforming_employee_in_store" ? (
+                          // Person with exclamation — underperforming employee
+                          <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                        ) : isBlue ? (
                           <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                           </svg>
-                        )}
-                        {isAmber && (
+                        ) : isAmber ? (
                           <svg className="w-5 h-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                           </svg>
-                        )}
-                        {isRed && (
+                        ) : (
                           <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                           </svg>
@@ -2864,13 +3065,20 @@ const StoreInsights = () => {
                     </div>
                     <div className="border-t border-dashed border-gray-100 my-3" />
                     <div className="flex items-center justify-between text-[11px] font-bold">
-                      <div className="flex items-center gap-1.5 text-gray-700">
-                        <span className={`w-2 h-2 rounded-full ${
+                      <div className="flex items-center gap-1.5 text-gray-700 min-w-0">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${
                           isBlue ? "bg-blue-600" : isAmber ? "bg-amber-500" : "bg-red-500"
                         }`} />
-                        <span>{hl.location}</span>
+                        {hl.type === "underperforming_employee_in_store" ? (
+                          <span className="flex flex-col leading-tight">
+                            <span>{hl.location.split(" → ")[0]}</span>
+                            <span className="text-gray-400 font-medium text-[10px]">↳ {hl.location.split(" → ")[1]}</span>
+                          </span>
+                        ) : (
+                          <span>{hl.location}</span>
+                        )}
                       </div>
-                      <span className="text-gray-900 font-extrabold">{hl.meta}</span>
+                      <span className="text-gray-900 font-extrabold shrink-0 ml-2">{hl.meta}</span>
                     </div>
                   </div>
                 );

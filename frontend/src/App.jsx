@@ -404,6 +404,9 @@ function App() {
             <Route path="/store-analysis/dsr-report" element={<ProtectedLayout hideForRoles={['telecaller']}><DSRReport /></ProtectedLayout>} />
             <Route path="/store-analysis/growth-comparison" element={<ProtectedLayout hideForRoles={['telecaller']}><GrowthComparison /></ProtectedLayout>} />
             <Route path="/store-analysis/google-review-task" element={<ProtectedLayout hideForRoles={['telecaller']}><GoogleReviewTask /></ProtectedLayout>} />
+            <Route path="/store-analysis/store-rating" element={<ProtectedLayout hideForRoles={['telecaller']}><BranchAudit /></ProtectedLayout>} />
+            <Route path="/store-analysis/store-rating/create" element={<ProtectedLayout hideForRoles={['telecaller']}><BranchAuditForm /></ProtectedLayout>} />
+            <Route path="/store-analysis/store-rating/:id" element={<ProtectedLayout hideForRoles={['telecaller']}><BranchAuditProfile /></ProtectedLayout>} />
             <Route path="/store-insights" element={<ProtectedLayout hideForRoles={['telecaller']}><StoreInsights /></ProtectedLayout>} />
 
           </Routes>

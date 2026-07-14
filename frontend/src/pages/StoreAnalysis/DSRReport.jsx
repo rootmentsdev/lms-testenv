@@ -44,6 +44,17 @@ function getLocalDateString(date) {
   return `${year}-${month}-${day}`;
 }
 
+const isWalkinCreatedInRange = (dateVal, startStr, endStr) => {
+  if (!dateVal) return false;
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return false;
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const ymd = `${year}-${month}-${day}`;
+  return ymd >= startStr && ymd <= endStr;
+};
+
 const BRANCH_LOCATION_MAPPING = {
   "z-edapally1": "1",
   "z-edappally1": "1",
@@ -346,6 +357,7 @@ const DSRReport = () => {
     return getLocalDateString(d);
   });
   const [customEndDate, setCustomEndDate] = useState(() => getLocalDateString(new Date()));
+  const todayStr = getLocalDateString(new Date());
 
   const getCustomDateRangeString = () => {
     if (!customStartDate || !customEndDate) return "Custom Range";
@@ -1299,201 +1311,78 @@ const DSRReport = () => {
               { name: "G Perumbavoor", workingBranch: "G.Perumbavoor", locCode: "703" }
             ];
 
-        const fetchSalesForBranchRange = async (locCode, fromDate, toDate) => {
-          const EMPTY = { value: 0, qty: 0, bills: 0, shoeValue: 0, shoeQty: 0, shoeBills: 0, shirtValue: 0, shirtQty: 0, shirtBills: 0, byStaff: {} };
-          if (!locCode) return EMPTY;
+        // New summary API: single call per date range returns all stores in one shot
+        const fetchSummary = async (fromDate, toDate) => {
           try {
-            const bookingsUrl = `${baseUrl.baseUrl}api/brynex/shoe-sales/bookings?fromDate=${fromDate}&toDate=${toDate}&locCode=${locCode}`;
-            const returnsUrl = `${baseUrl.baseUrl}api/brynex/shoe-sales/returns?fromDate=${fromDate}&toDate=${toDate}&locCode=${locCode}`;
-
-            // Abort after 8 s so a timing-out server doesn't stall the whole page
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-            let bRes, rRes;
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+            let res;
             try {
-              [bRes, rRes] = await Promise.all([
-                fetch(bookingsUrl, { signal: controller.signal }).then(r => r.ok ? r.json() : []),
-                fetch(returnsUrl,  { signal: controller.signal }).then(r => r.ok ? r.json() : [])
-              ]);
+              res = await fetch(
+                `${baseUrl.baseUrl}api/brynex/shoe-sales/summary?fromDate=${fromDate}&toDate=${toDate}`,
+                { signal: controller.signal }
+              );
             } finally {
               clearTimeout(timeoutId);
             }
-
-            const bookings = Array.isArray(bRes) ? bRes : [];
-            const returns = Array.isArray(rRes) ? rRes : [];
-
-            const value = bookings.reduce((sum, b) => sum + (b.value || 0), 0) + returns.reduce((sum, r) => sum + (r.value || 0), 0);
-            const qty = bookings.reduce((sum, b) => sum + (b.quantity || 0), 0) - returns.reduce((sum, r) => sum + Math.abs(r.quantity || 0), 0);
-            const bills = bookings.length - returns.length;
-
-            let shoeValue = 0, shoeQty = 0, shoeBills = 0;
-            let shirtValue = 0, shirtQty = 0, shirtBills = 0;
-
-            const processList = (list, sign) => {
-              list.forEach(invoice => {
-                const items = Array.isArray(invoice.items) ? invoice.items : [];
-                let isShirtInvoice = false;
-                let isShoeInvoice = false;
-
-                if (items.length > 0) {
-                  items.forEach(item => {
-                    const cat = String(item.category || "").toLowerCase();
-                    const q = (item.quantity || 0) * sign;
-                    const v = (item.amount || item.rate * item.quantity || 0) * sign;
-                    if (cat.includes("shirt")) {
-                      shirtQty += q;
-                      shirtValue += v;
-                      isShirtInvoice = true;
-                    } else {
-                      shoeQty += q;
-                      shoeValue += v;
-                      isShoeInvoice = true;
-                    }
-                  });
-                } else {
-                  const cat = String(invoice.category || "").toLowerCase();
-                  const q = (invoice.quantity || 0) * sign;
-                  const v = (invoice.value || 0) * sign;
-                  if (cat.includes("shirt")) {
-                    shirtQty += q;
-                    shirtValue += v;
-                    isShirtInvoice = true;
-                  } else {
-                    shoeQty += q;
-                    shoeValue += v;
-                    isShoeInvoice = true;
-                  }
-                }
-
-                if (isShirtInvoice) shirtBills += sign;
-                if (isShoeInvoice) shoeBills += sign;
-              });
-            };
-
-            processList(bookings, 1);
-            processList(returns, -1);
-
-            // Build per-staff breakdown using salesPerson field
-            const byStaff = {};
-            const processStaffList = (list, sign) => {
-              list.forEach(invoice => {
-                const staff = String(invoice.salesPerson || "").trim();
-                if (!staff) return;
-                if (!byStaff[staff]) byStaff[staff] = { 
-                  shoeValue: 0, shoeQty: 0, shoeBills: 0,
-                  shirtValue: 0, shirtQty: 0, shirtBills: 0,
-                  value: 0, qty: 0, bills: 0
-                };
-
-                const items = Array.isArray(invoice.items) ? invoice.items : [];
-                let isShirt = false;
-                let isShoe = false;
-
-                if (items.length > 0) {
-                  items.forEach(item => {
-                    const cat = String(item.category || "").toLowerCase();
-                    const q = (item.quantity || 0) * sign;
-                    const v = (item.amount || item.rate * item.quantity || 0) * sign;
-                    if (cat.includes("shirt")) {
-                      byStaff[staff].shirtQty += q;
-                      byStaff[staff].shirtValue += v;
-                      isShirt = true;
-                    } else {
-                      byStaff[staff].shoeQty += q;
-                      byStaff[staff].shoeValue += v;
-                      isShoe = true;
-                    }
-                  });
-                } else {
-                  const cat = String(invoice.category || "").toLowerCase();
-                  const q = (invoice.quantity || 0) * sign;
-                  const v = (invoice.value || 0) * sign;
-                  if (cat.includes("shirt")) {
-                    byStaff[staff].shirtQty += q;
-                    byStaff[staff].shirtValue += v;
-                    isShirt = true;
-                  } else {
-                    byStaff[staff].shoeQty += q;
-                    byStaff[staff].shoeValue += v;
-                    isShoe = true;
-                  }
-                }
-
-                if (isShirt) byStaff[staff].shirtBills += sign;
-                if (isShoe) byStaff[staff].shoeBills += sign;
-
-                byStaff[staff].value += (invoice.value || 0) * sign;
-                byStaff[staff].qty += (invoice.quantity || 0) * sign;
-                byStaff[staff].bills += sign;
-              });
-            };
-
-            processStaffList(bookings, 1);
-            processStaffList(returns, -1);
-
-            return { 
-              value, qty, bills, 
-              shoeValue, shoeQty, shoeBills,
-              shirtValue, shirtQty, shirtBills,
-              byStaff 
-            };
+            if (!res.ok) return {};
+            const json = await res.json();
+            const stores = Array.isArray(json.stores) ? json.stores : [];
+            const map = {};
+            stores.forEach(s => {
+              const lc = String(s.locCode || "");
+              const shoe  = s.shoe  || {};
+              const shirt = s.shirt || {};
+              const mixed = s.mixed || {};
+              const total = s.total || {};
+              const entry = {
+                value:      total.value  || 0,
+                qty:        total.qty    || 0,
+                bills:      total.bills  || 0,
+                shoeQty:   (shoe.qty   || 0) + (mixed.qty   || 0),
+                shoeValue: (shoe.value || 0) + (mixed.value || 0),
+                shoeBills: (shoe.bills || 0) + (mixed.bills || 0),
+                shirtQty:   shirt.qty   || 0,
+                shirtValue: shirt.value || 0,
+                shirtBills: shirt.bills || 0,
+                byStaff: {}
+              };
+              // Index by locCode
+              if (lc) map[lc] = entry;
+              // Also index by normalised store name from the API so name-based lookup works
+              if (s.storeName) {
+                const nameKey = normalizeForMatch(s.storeName);
+                if (nameKey && !map[nameKey]) map[nameKey] = entry;
+              }
+            });
+            return map;
           } catch (err) {
             if (err.name !== "AbortError") {
-              console.error(`Error fetching shoe sales for branch ${locCode}:`, err);
+              console.error("Error fetching shoe-sales summary:", err);
             }
-            return EMPTY;
+            return {};
           }
         };
 
-        const ftdTasks = activeList.map((item) => async () => {
-          const locCode = item.locCode || getBranchLocCode(item.workingBranch, branches);
-          const data = await fetchSalesForBranchRange(locCode, todayStr, todayStr);
-          return { workingBranch: item.workingBranch, locCode, data };
-        });
+        const [ftdMap, periodMap] = await Promise.all([
+          fetchSummary(todayStr, todayStr),
+          fetchSummary(periodStart, periodEnd)
+        ]);
 
-        const periodTasks = activeList.map((item) => async () => {
-          const locCode = item.locCode || getBranchLocCode(item.workingBranch, branches);
-          
-          let storePeriodStart = periodStart;
-          let storePeriodEnd = periodEnd;
-          if (activeTab === "WTD") {
-            const wtdRange = getStoreWTDDateRange(item.name);
-            storePeriodStart = wtdRange.start;
-            storePeriodEnd = wtdRange.end;
-          }
+        // Also index by normalised branch name for lookup flexibility
+        const indexByName = (map) => {
+          const out = { ...map };
+          activeList.forEach(item => {
+            const lc = item.locCode || getBranchLocCode(item.workingBranch, branches);
+            if (lc && map[lc]) {
+              const key = normalizeForMatch(item.workingBranch);
+              if (key && !out[key]) out[key] = map[lc]; // only add if not already present
+            }
+          });
+          return out;
+        };
 
-          const data = await fetchSalesForBranchRange(locCode, storePeriodStart, storePeriodEnd);
-          return { workingBranch: item.workingBranch, locCode, data };
-        });
-
-        const ftdResults = await runWithConcurrencyLimit(ftdTasks, 5);
-        const periodResults = await runWithConcurrencyLimit(periodTasks, 5);
-
-        const ftdMap = {};
-        const periodMap = {};
-
-        ftdResults.forEach((r) => {
-          if (r.locCode) {
-            ftdMap[r.locCode] = r.data;
-          }
-          const keyName = normalizeForMatch(r.workingBranch);
-          if (keyName) {
-            ftdMap[keyName] = r.data;
-          }
-        });
-
-        periodResults.forEach((r) => {
-          if (r.locCode) {
-            periodMap[r.locCode] = r.data;
-          }
-          const keyName = normalizeForMatch(r.workingBranch);
-          if (keyName) {
-            periodMap[keyName] = r.data;
-          }
-        });
-
-        setSalesData({ ftd: ftdMap, period: periodMap });
+        setSalesData({ ftd: indexByName(ftdMap), period: indexByName(periodMap) });
       } catch (err) {
         console.error("Error in fetchSales:", err);
       } finally {
@@ -1739,7 +1628,7 @@ const DSRReport = () => {
 
   // Generate dynamic Sales Funnel data based on fetched branches (with mock fallback)
   const funnelRows = useMemo(() => {
-    const todayStr = getLocalDateString(new Date());
+
     
     // Calculate active period start and end date
     let periodStart = todayStr;
@@ -1758,6 +1647,9 @@ const DSRReport = () => {
     }
 
     const getWalkinDateString = (w) => {
+      if (w.createdAt) {
+        return getLocalDateString(w.createdAt);
+      }
       if (!w.date || w.date === '-') return '';
       return w.date.split(' ')[0];
     };
@@ -1770,6 +1662,8 @@ const DSRReport = () => {
              rentalS === 'loss' || rentalS === 'revisit loss' || rentalS === 'lost' ||
              shoeS === 'loss' || shoeS === 'revisit loss' || shoeS === 'lost';
     };
+
+
 
     const isFtdEmpty = Object.keys(performanceData.ftd).length === 0;
     const isPeriodEmpty = Object.keys(performanceData.period).length === 0;
@@ -1867,12 +1761,12 @@ const DSRReport = () => {
             storePeriodEnd = customEndDate || todayStr;
           }
 
-          const storeWalkins = walkins.filter(w => locationKey(w.store) === storeKeyVal);
-          const ftdWalkins = storeWalkins.filter(w => getWalkinDateString(w) === todayStr);
-          const periodWalkins = storeWalkins.filter(w => {
-            const d = getWalkinDateString(w);
-            return d && d >= storePeriodStart && d <= storePeriodEnd;
-          });
+          const storeWalkins = walkins.filter(w => 
+            String(w.storeId || '') === String(b._id || '') || 
+            locationKey(w.store) === storeKeyVal
+          );
+          const ftdWalkins = storeWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, todayStr, todayStr));
+          const periodWalkins = storeWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, storePeriodStart, storePeriodEnd));
 
           // Performance API aggregations (includes Dappr Squad data merged in)
           // Note: totalValue mapped to bill, total_Number_Of_Bill mapped to val, totalQuantity mapped to qty
@@ -1974,14 +1868,11 @@ const DSRReport = () => {
           }
 
           const staffWalkins = walkins.filter(w => 
-            locationKey(w.store) === storeKeyVal && 
+            (String(w.storeId || '') === String(b._id || '') || locationKey(w.store) === storeKeyVal) && 
             w.staff && w.staff.trim().toLowerCase() === staffName.trim().toLowerCase()
           );
-          const ftdWalkins = staffWalkins.filter(w => getWalkinDateString(w) === todayStr);
-          const periodWalkins = staffWalkins.filter(w => {
-            const d = getWalkinDateString(w);
-            return d && d >= storePeriodStart && d <= storePeriodEnd;
-          });
+          const ftdWalkins = staffWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, todayStr, todayStr));
+          const periodWalkins = staffWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, storePeriodStart, storePeriodEnd));
 
           let billFtd = staffFtd.totalValue || 0;
           let billWtd = staffPeriod.totalValue || 0;
@@ -2085,14 +1976,11 @@ const DSRReport = () => {
           }
 
           const staffWalkins = walkins.filter(w => 
-            locationKey(w.store) === storeKeyVal && 
+            (String(w.storeId || '') === String(b._id || '') || locationKey(w.store) === storeKeyVal) && 
             w.staff && w.staff.trim().toLowerCase() === staffName.trim().toLowerCase()
           );
-          const ftdWalkins = staffWalkins.filter(w => getWalkinDateString(w) === todayStr);
-          const periodWalkins = staffWalkins.filter(w => {
-            const d = getWalkinDateString(w);
-            return d && d >= storePeriodStart && d <= storePeriodEnd;
-          });
+          const ftdWalkins = staffWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, todayStr, todayStr));
+          const periodWalkins = staffWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, storePeriodStart, storePeriodEnd));
 
           let billFtd = staffFtd.totalValue || 0;
           let billWtd = staffPeriod.totalValue || 0;
@@ -2205,10 +2093,90 @@ const DSRReport = () => {
   const grandTotalValWtd = useMemo(() => {
     return Object.values(performanceData.period).flat().reduce((acc, item) => acc + (item?.total_Number_Of_Bill || 0), 0);
   }, [performanceData]);
+
+  const grandTotalBillFtd = useMemo(() => {
+    let total = 0;
+    branches.forEach(b => {
+      const locId = getBranchLocationId(b.workingBranch);
+      if (!locId || locId === "25") return;
+      
+      const locFtdList = performanceData.ftd[locId] || [];
+      const dapprFtdList = performanceData.ftd["25"] || [];
+      const dapprFtdForStore = getDapprSquadDataForStore(locId, dapprFtdList);
+      const isGMGRoad = locId === "23";
+      const unmappedDapprFtdList = isGMGRoad
+        ? dapprFtdList.filter(item => {
+            const raw = String(item.bookingBy || "").trim().toLowerCase();
+            const alphaOnly = raw.replace(/[^a-z0-9]/g, "");
+            const dotted = alphaOnly.startsWith("sg") ? "sg." + alphaOnly.slice(2) : raw;
+            return !DAPPR_SQUAD_STORE_MAPPING[raw] && !DAPPR_SQUAD_STORE_MAPPING[dotted];
+          })
+        : [];
+      const mergedFtdList = [...locFtdList, ...dapprFtdForStore, ...unmappedDapprFtdList];
+      total += mergedFtdList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+
+      if (funnelView === "Consolidated") {
+        const locCode = b.locCode;
+        if (locCode && salesData.byBranch?.[locCode]) {
+          total += salesData.byBranch[locCode].totalValue || 0;
+        }
+      }
+    });
+    return total;
+  }, [branches, performanceData, salesData, funnelView]);
+
+  const grandTotalBillWtd = useMemo(() => {
+    let total = 0;
+    branches.forEach(b => {
+      const locId = getBranchLocationId(b.workingBranch);
+      if (!locId || locId === "25") return;
+      
+      const locPeriodList = performanceData.period[locId] || [];
+      const dapprPeriodList = performanceData.period["25"] || [];
+      const dapprPeriodForStore = getDapprSquadDataForStore(locId, dapprPeriodList);
+      const isGMGRoad = locId === "23";
+      const unmappedDapprPeriodList = isGMGRoad
+        ? dapprPeriodList.filter(item => {
+            const raw = String(item.bookingBy || "").trim().toLowerCase();
+            const alphaOnly = raw.replace(/[^a-z0-9]/g, "");
+            const dotted = alphaOnly.startsWith("sg") ? "sg." + alphaOnly.slice(2) : raw;
+            return !DAPPR_SQUAD_STORE_MAPPING[raw] && !DAPPR_SQUAD_STORE_MAPPING[dotted];
+          })
+        : [];
+      const mergedPeriodList = [...locPeriodList, ...dapprPeriodForStore, ...unmappedDapprPeriodList];
+      total += mergedPeriodList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+
+      if (funnelView === "Consolidated") {
+        const locCode = b.locCode;
+        if (locCode && salesData.byBranch?.[locCode]) {
+          total += salesData.byBranch[locCode].totalValue || 0;
+        }
+      }
+    });
+    return total;
+  }, [branches, performanceData, salesData, funnelView]);
   const totalQtyFtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + (row.qtyFtd || 0), 0), [filteredFunnelRows]);
   const totalQtyWtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + (row.qtyWtd || 0), 0), [filteredFunnelRows]);
-  const totalWalkFtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + row.walkFtd, 0), [filteredFunnelRows]);
-  const totalWalkWtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + row.walkWtd, 0), [filteredFunnelRows]);
+  const totalWalkFtd = useMemo(() => {
+    return walkins.filter(w => isWalkinCreatedInRange(w.createdAt, todayStr, todayStr)).length;
+  }, [walkins, todayStr]);
+
+  const totalWalkWtd = useMemo(() => {
+    const today = new Date();
+    let periodStart = todayStr;
+    let periodEnd = todayStr;
+    if (activeTab === "WTD") {
+      periodStart = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
+      periodEnd = todayStr;
+    } else if (activeTab === "MTD") {
+      periodStart = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
+      periodEnd = todayStr;
+    } else if (activeTab === "Custom") {
+      periodStart = customStartDate || todayStr;
+      periodEnd = customEndDate || todayStr;
+    }
+    return walkins.filter(w => isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd)).length;
+  }, [walkins, activeTab, customStartDate, customEndDate, todayStr]);
   const totalLossFtd = useMemo(() => Math.max(0, totalWalkFtd - totalValFtd), [totalWalkFtd, totalValFtd]);
   const totalLossWtd = useMemo(() => Math.max(0, totalWalkWtd - totalValWtd), [totalWalkWtd, totalValWtd]);
 
@@ -2961,8 +2929,8 @@ const DSRReport = () => {
                 </thead>
                 <tbody className="text-xs text-gray-700 divide-y divide-gray-100">
                   {filteredFunnelRows.map((row, idx) => {
-                    const contributionFtd = grandTotalValFtd > 0 ? Math.round((row.valFtd / grandTotalValFtd) * 100) : 0;
-                    const contributionWtd = grandTotalValWtd > 0 ? Math.round((row.valWtd / grandTotalValWtd) * 100) : 0;
+                    const contributionFtd = grandTotalBillFtd > 0 ? Math.round((row.billFtd / grandTotalBillFtd) * 100) : 0;
+                    const contributionWtd = grandTotalBillWtd > 0 ? Math.round((row.billWtd / grandTotalBillWtd) * 100) : 0;
                     
                     return (
                       <tr key={idx} className="odd:bg-white even:bg-[#f9fafb] hover:bg-gray-50/50 transition-colors">
@@ -3032,8 +3000,8 @@ const DSRReport = () => {
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(totalConvWtd, true)}</td>
 
                     {/* Contribution — average of staff rows for store_admin; store share for admin */}
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(grandTotalValFtd > 0 ? (Math.round((totalValFtd / grandTotalValFtd) * 100)) + "%" : "0%")}</td>
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(grandTotalValWtd > 0 ? (Math.round((totalValWtd / grandTotalValWtd) * 100)) + "%" : "0%")}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(grandTotalBillFtd > 0 ? (Math.round((totalBillFtd / grandTotalBillFtd) * 100)) + "%" : "0%")}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(grandTotalBillWtd > 0 ? (Math.round((totalBillWtd / grandTotalBillWtd) * 100)) + "%" : "0%")}</td>
 
                     {/* ARP */}
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalArpFtd))}</td>

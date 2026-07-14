@@ -689,10 +689,30 @@ import StoreTargetRouter from './routes/StoreTargetRoute.js';
 app.use('/api/store-targets', StoreTargetRouter)
 
 /* =================================================
-   ✅ PROXY: GET /api/brynex/shoe-sales/bookings
-              GET /api/brynex/shoe-sales/returns
-   -> Forwards to https://backend.brynex.com/api/external/shoe-sales/*
-   -> Solves CORS: browser hits our backend, our backend hits brynex
+   ✅ PROXY: GET /api/brynex/shoe-sales/summary
+   -> Forwards to https://backend.brynex.com/api/external/shoe-sales/summary
+   -> Returns pre-aggregated shoe/shirt data per store — no bookings/returns needed
+================================================== */
+app.get('/api/brynex/shoe-sales/summary', async (req, res) => {
+  try {
+    const { fromDate, toDate, locCode } = req.query;
+    let url = `https://backend.brynex.com/api/external/shoe-sales/summary?fromDate=${fromDate}&toDate=${toDate}`;
+    if (locCode) url += `&locCode=${locCode}`;
+    const { data } = await axios.get(url, { timeout: 15000 });
+    return res.status(200).json(data);
+  } catch (err) {
+    if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT') {
+      return res.status(200).json({ stores: [], grandTotal: {} });
+    }
+    const status = err?.response?.status || 500;
+    const payload = err?.response?.data || { message: err.message || 'Brynex summary proxy failed' };
+    console.error('❌ /api/brynex/shoe-sales/summary error:', status, payload);
+    return res.status(status).json(payload);
+  }
+});
+
+/* =================================================
+   ✅ PROXY: GET /api/brynex/shoe-sales/:type  (kept for backwards compat — bookings/returns)
 ================================================== */
 app.get('/api/brynex/shoe-sales/:type', async (req, res) => {
   try {
@@ -728,6 +748,10 @@ app.use('/api/lms-login', LMSLoginRouter)
 // Google Form Management Routes
 import GoogleFormRouter from './routes/GoogleFormRoute.js';
 app.use('/api/google-form', GoogleFormRouter)
+
+// Google Review Routes
+import GoogleReviewRouter from './routes/GoogleReviewRoute.js';
+app.use('/api/google-reviews', GoogleReviewRouter)
 
 console.log(new Date());
 

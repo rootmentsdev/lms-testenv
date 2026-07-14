@@ -713,8 +713,8 @@ const GrowthComparison = () => {
                       <td className="px-4 py-4 font-medium border-r border-gray-100 text-gray-500">{renderCellVal(formatIndianNumber(row.lyVal))}</td>
                       <td className="px-4 py-4 border-r border-gray-100">
                         <div className="flex flex-col items-center justify-center gap-0.5">
-                          <span className="font-semibold text-gray-900">{valL2lPctText}</span>
-                          <span className={`text-[11px] font-semibold ${valL2lColor}`}>
+                          <span className="text-[13px] font-bold text-gray-900">{valL2lPctText}</span>
+                          <span className={`text-[10px] font-semibold ${valL2lColor}`}>
                             {calculatedL2lVal >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(calculatedL2lVal))}
                           </span>
                         </div>
@@ -724,8 +724,8 @@ const GrowthComparison = () => {
                       <td className="px-4 py-4 font-medium border-r border-gray-100 text-gray-500">{renderCellVal(row.lyBill)}</td>
                       <td className="px-4 py-4 border-r border-gray-100">
                         <div className="flex flex-col items-center justify-center gap-0.5">
-                          <span className="font-semibold text-gray-900">{billL2lPctText}</span>
-                          <span className={`text-[11px] font-semibold ${billL2lColor}`}>
+                          <span className="text-[13px] font-bold text-gray-900">{billL2lPctText}</span>
+                          <span className={`text-[10px] font-semibold ${billL2lColor}`}>
                             {calculatedL2lBill >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(calculatedL2lBill))}
                           </span>
                         </div>
@@ -735,8 +735,8 @@ const GrowthComparison = () => {
                       <td className="px-4 py-4 font-medium border-r border-gray-100 text-gray-500">{renderCellVal(row.lyQty)}</td>
                       <td className="px-4 py-4 border-r border-gray-100">
                         <div className="flex flex-col items-center justify-center gap-0.5">
-                          <span className="font-semibold text-gray-900">{qtyL2lPctText}</span>
-                          <span className={`text-[11px] font-semibold ${qtyL2lColor}`}>
+                          <span className="text-[13px] font-bold text-gray-900">{qtyL2lPctText}</span>
+                          <span className={`text-[10px] font-semibold ${qtyL2lColor}`}>
                             {calculatedL2lQty >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(calculatedL2lQty))}
                           </span>
                         </div>
@@ -746,8 +746,8 @@ const GrowthComparison = () => {
                       <td className="px-4 py-4 font-medium border-r border-gray-100 text-gray-500">{renderCellVal(formatIndianNumber(row.lyWalk))}</td>
                       <td className="px-4 py-4">
                         <div className="flex flex-col items-center justify-center gap-0.5">
-                          <span className="font-semibold text-gray-900">{walkL2lPctText}</span>
-                          <span className={`text-[11px] font-semibold ${walkL2lColor}`}>
+                          <span className="text-[13px] font-bold text-gray-900">{walkL2lPctText}</span>
+                          <span className={`text-[10px] font-semibold ${walkL2lColor}`}>
                             {calculatedL2lWalk >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(calculatedL2lWalk))}
                           </span>
                         </div>
@@ -764,8 +764,8 @@ const GrowthComparison = () => {
                   <td className="px-4 py-4 border-r border-zinc-200 text-gray-600">{renderCellVal(formatIndianNumber(totalLyVal))}</td>
                   <td className="px-4 py-4 border-r border-zinc-200">
                     <div className="flex flex-col items-center justify-center gap-0.5">
-                      <span className="font-bold text-gray-900">{totalLyVal > 0 ? ((totalTyVal / totalLyVal) * 100).toFixed(0) : "0"}%</span>
-                      <span className={`text-[11px] font-bold ${totalL2lVal >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
+                      <span className="text-[13px] font-bold text-gray-900">{totalLyVal > 0 ? ((totalTyVal / totalLyVal) * 100).toFixed(0) : "0"}%</span>
+                      <span className={`text-[10px] font-bold ${totalL2lVal >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
                         {totalL2lVal >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(totalL2lVal))}
                       </span>
                     </div>
@@ -775,8 +775,8 @@ const GrowthComparison = () => {
                   <td className="px-4 py-4 border-r border-zinc-200 text-gray-600">{renderCellVal(formatIndianNumber(totalLyBill))}</td>
                   <td className="px-4 py-4 border-r border-zinc-200">
                     <div className="flex flex-col items-center justify-center gap-0.5">
-                      <span className="font-bold text-gray-900">{totalLyBill > 0 ? ((totalTyBill / totalLyBill) * 100).toFixed(0) : "0"}%</span>
-                      <span className={`text-[11px] font-bold ${totalL2lBill >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
+                      <span className="text-[13px] font-bold text-gray-900">{totalLyBill > 0 ? ((totalTyBill / totalLyBill) * 100).toFixed(0) : "0"}%</span>
+                      <span className={`text-[10px] font-bold ${totalL2lBill >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
                         {totalL2lBill >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(totalL2lBill))}
                       </span>
                     </div>
@@ -786,8 +786,8 @@ const GrowthComparison = () => {
                   <td className="px-4 py-4 border-r border-zinc-200 text-gray-600">{renderCellVal(formatIndianNumber(totalLyQty))}</td>
                   <td className="px-4 py-4 border-r border-zinc-200">
                     <div className="flex flex-col items-center justify-center gap-0.5">
-                      <span className="font-bold text-gray-900">{totalLyQty > 0 ? ((totalTyQty / totalLyQty) * 100).toFixed(0) : "0"}%</span>
-                      <span className={`text-[11px] font-bold ${totalL2lQty >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
+                      <span className="text-[13px] font-bold text-gray-900">{totalLyQty > 0 ? ((totalTyQty / totalLyQty) * 100).toFixed(0) : "0"}%</span>
+                      <span className={`text-[10px] font-bold ${totalL2lQty >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
                         {totalL2lQty >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(totalL2lQty))}
                       </span>
                     </div>
@@ -797,8 +797,8 @@ const GrowthComparison = () => {
                   <td className="px-4 py-4 border-r border-zinc-200 text-gray-600">{renderCellVal(formatIndianNumber(totalLyWalk))}</td>
                   <td className="px-4 py-4">
                     <div className="flex flex-col items-center justify-center gap-0.5">
-                      <span className="font-bold text-gray-900">{totalLyWalk > 0 ? ((totalTyWalk / totalLyWalk) * 100).toFixed(0) : "0"}%</span>
-                      <span className={`text-[11px] font-bold ${totalL2lWalk >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
+                      <span className="text-[13px] font-bold text-gray-900">{totalLyWalk > 0 ? ((totalTyWalk / totalLyWalk) * 100).toFixed(0) : "0"}%</span>
+                      <span className={`text-[10px] font-bold ${totalL2lWalk >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
                         {totalL2lWalk >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(totalL2lWalk))}
                       </span>
                     </div>
