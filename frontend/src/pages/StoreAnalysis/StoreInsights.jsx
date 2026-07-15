@@ -704,6 +704,7 @@ const StoreInsights = () => {
   const [lyWalkins, setLyWalkins] = useState([]);
   const [loadingWalkins, setLoadingWalkins] = useState(false);
   const [salesData, setSalesData] = useState({ shoeQty: 0, shirtQty: 0, shoeValue: 0, shirtValue: 0, shoeBills: 0, shirtBills: 0, byBranch: {} });
+  const [salespersons, setSalespersons] = useState([]);
   const [loadingSales, setLoadingSales] = useState(false);
 
   // Google Reviews real data from backend
@@ -1411,12 +1412,19 @@ const StoreInsights = () => {
           periodEnd = customEndDate || todayStr;
         }
 
-        // Single call — returns all stores in one shot
-        const res = await fetch(
-          `${baseUrl.baseUrl}api/brynex/shoe-sales/summary?fromDate=${periodStart}&toDate=${periodEnd}`
-        ).then(r => r.ok ? r.json() : { stores: [], grandTotal: {} });
+        // Fetch summary and salesperson lists in parallel
+        const [res, resSalespersons] = await Promise.all([
+          fetch(
+            `${baseUrl.baseUrl}api/brynex/shoe-sales/summary?fromDate=${periodStart}&toDate=${periodEnd}`
+          ).then(r => r.ok ? r.json() : { stores: [], grandTotal: {} }),
+          fetch(
+            `${baseUrl.baseUrl}api/brynex/shoe-sales/by-salesperson?fromDate=${periodStart}&toDate=${periodEnd}`
+          ).then(r => r.ok ? r.json() : { salespersons: [] })
+        ]);
 
         const stores = Array.isArray(res.stores) ? res.stores : [];
+        const salespersonsList = Array.isArray(resSalespersons.salespersons) ? resSalespersons.salespersons : [];
+        setSalespersons(salespersonsList);
 
         const byBranch = {};
         let totalShoeQty = 0, totalShirtQty = 0;
@@ -1841,13 +1849,13 @@ const StoreInsights = () => {
     const googleRating = 0; // Rating not stored in DB yet
 
     if (isConsolidated) {
-      const consolidatedValue = rentalValue + shoeValue + shirtValue + dapprSquadValue;
-      const consolidatedBills = rentalBills + shoeBills + shirtBills + dapprSquadBills;
-      const consolidatedTotalQty = rentalQty + shoeQty + shirtQty + dapprSquadQty;
+      const consolidatedValue = rentalValue + shoeValue + shirtValue;
+      const consolidatedBills = rentalBills + shoeBills + shirtBills;
+      const consolidatedTotalQty = rentalQty + shoeQty + shirtQty;
 
-      const lyConsolidatedValue = lyRentalValue + lyDapprSquadValue;
-      const lyConsolidatedBills = lyRentalBills + lyDapprSquadBills;
-      const lyConsolidatedQty = lyRentalQty + lyDapprSquadQty;
+      const lyConsolidatedValue = lyRentalValue;
+      const lyConsolidatedBills = lyRentalBills;
+      const lyConsolidatedQty = lyRentalQty;
 
       const trueAchievedPct = totalTarget > 0 ? Math.min(Math.round((consolidatedValue / totalTarget) * 100), 100) : 0;
 
@@ -1913,13 +1921,13 @@ const StoreInsights = () => {
         walkChangeDisplay: walkChange.display, walkChangeColor: walkChange.color, walkTrend: walkChange.trend, walkTrendColor: walkChange.trendColor
       };
     } else {
-      const trueRentalValue = rentalValue + dapprSquadValue;
-      const trueRentalBills = rentalBills + dapprSquadBills;
-      const trueRentalQty = rentalQty + dapprSquadQty;
+      const trueRentalValue = rentalValue;
+      const trueRentalBills = rentalBills;
+      const trueRentalQty = rentalQty;
 
-      const lyTrueRentalValue = lyRentalValue + lyDapprSquadValue;
-      const lyTrueRentalBills = lyRentalBills + lyDapprSquadBills;
-      const lyTrueRentalQty = lyRentalQty + lyDapprSquadQty;
+      const lyTrueRentalValue = lyRentalValue;
+      const lyTrueRentalBills = lyRentalBills;
+      const lyTrueRentalQty = lyRentalQty;
 
       const trueAchievedPct = totalTarget > 0 ? Math.min(Math.round((trueRentalValue / totalTarget) * 100), 100) : 0;
       const conversionRate = customerWalkins > 0 ? Math.min(100, Math.round((convertedWalkinsCount / customerWalkins) * 100)) : 0;
@@ -1976,11 +1984,67 @@ const StoreInsights = () => {
       const name = displayBranchName(singleBranch?.workingBranch);
       const storeKeyVal = normalizeForMatch(singleBranch?.workingBranch);
       const locId = getBranchLocationId(singleBranch?.workingBranch);
+      const locCode = singleBranch.locCode || getBranchLocCode(singleBranch.workingBranch, branches);
 
       const locPeriodList = performanceData[locId] || [];
 
-      // Get all unique staff names from the location's performance data
-      const staffNames = Array.from(new Set(locPeriodList.map(x => x.bookingBy))).filter(Boolean);
+      // Find shoe sales specifically for this branch's locCode from salespersons
+      const getSalesDataForStaff = (staffName) => {
+        const staffKey = normalizeForMatch(staffName);
+        const match = salespersons.find(sp => normalizeForMatch(sp.salesperson) === staffKey);
+        if (!match) return { bills: 0, qty: 0, value: 0 };
+        const storeMatch = match.stores && match.stores.find(st => String(st.locCode) === String(locCode));
+        if (storeMatch) {
+          const tot = storeMatch.total || {};
+          return {
+            bills: tot.bills || 0,
+            qty: tot.qty || 0,
+            value: tot.value || 0
+          };
+        }
+        return { bills: 0, qty: 0, value: 0 };
+      };
+
+      const canonicalizeName = (rawName) => {
+        if (!rawName) return "";
+        const strName = String(rawName);
+        if (strName.toLowerCase() === "unassigned") return "Unassigned";
+        const normName = normalizeForMatch(strName);
+        const match = locPeriodList.find(n => n && normalizeForMatch(n.bookingBy) === normName);
+        return match ? match.bookingBy : strName;
+      };
+
+      const salesStaffNames = isConsolidated
+        ? salespersons
+            .filter(sp => sp.stores && sp.stores.some(st => String(st.locCode) === String(locCode)))
+            .map(sp => canonicalizeName(sp.salesperson))
+            .filter(Boolean)
+        : [];
+
+      const rawStaffNames = [
+        ...locPeriodList.map(x => x && x.bookingBy),
+        ...salesStaffNames
+      ].filter(name => typeof name === "string" && name.trim() !== "");
+
+      const staffNames = [];
+      const seenNormalized = new Set();
+      
+      const sortedStaffNames = Array.from(new Set(rawStaffNames)).sort((a, b) => {
+        const aUpper = /[A-Z]/.test(a);
+        const bUpper = /[A-Z]/.test(b);
+        if (aUpper && !bUpper) return -1;
+        if (!aUpper && bUpper) return 1;
+        return (b || "").length - (a || "").length;
+      });
+
+      sortedStaffNames.forEach(name => {
+        if (!name) return;
+        const norm = normalizeForMatch(name);
+        if (norm && !seenNormalized.has(norm)) {
+          seenNormalized.add(norm);
+          staffNames.push(name);
+        }
+      });
 
       // Filter walkins for this store
       const storeWalkins = walkins.filter(w => 
@@ -1988,8 +2052,13 @@ const StoreInsights = () => {
         isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd)
       );
 
-      // Sum total value of the store to calculate contribution %
-      const storeTotalValue = locPeriodList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+      // Sum total value of the store (rentals + sales if consolidated) to calculate contribution %
+      let storeTotalValue = locPeriodList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+      if (isConsolidated) {
+        // Add total shoe sales specifically for this branch
+        const branchSales = salesData.byBranch?.[locCode] || {};
+        storeTotalValue += branchSales.totalValue || 0;
+      }
 
       if (staffNames.length === 0) {
         // Fallback mock staff if no real data exists yet
@@ -2002,11 +2071,19 @@ const StoreInsights = () => {
       }
 
       return staffNames.map(staffName => {
-        const staffData = locPeriodList.find(x => x.bookingBy === staffName) || {};
+        const staffKey = normalizeForMatch(staffName);
+        const staffFtdList = locPeriodList.filter(x => x && normalizeForMatch(x.bookingBy) === staffKey);
 
-        const bills = staffData.total_Number_Of_Bill || 0;
-        const qty = staffData.totalQuantity || 0;
-        const value = staffData.totalValue || 0;
+        let bills = staffFtdList.reduce((sum, x) => sum + (x.total_Number_Of_Bill || 0), 0);
+        let qty = staffFtdList.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
+        let value = staffFtdList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
+
+        if (isConsolidated) {
+          const staffSales = getSalesDataForStaff(staffName);
+          bills += staffSales.bills || 0;
+          qty += staffSales.qty || 0;
+          value += staffSales.value || 0;
+        }
 
         const abs = bills > 0 ? parseFloat((qty / bills).toFixed(1)) : 0;
         const abv = bills > 0 ? Math.round(value / bills) : 0;
@@ -2171,7 +2248,7 @@ const StoreInsights = () => {
         };
       });
     }
-  }, [branches, chartData, isConsolidated, performanceData, walkins, isStoreAdmin, isClusterAdmin, salesData, clusterFilter, clusters]);
+  }, [branches, chartData, isConsolidated, performanceData, walkins, isStoreAdmin, isClusterAdmin, salesData, salespersons, clusterFilter, clusters, periodStart, periodEnd]);
 
   const processedRanking = useMemo(() => {
     let result = [...rankingData];

@@ -716,18 +716,26 @@ app.get('/api/brynex/shoe-sales/summary', async (req, res) => {
 ================================================== */
 app.get('/api/brynex/shoe-sales/:type', async (req, res) => {
   try {
-    const { type } = req.params; // "bookings" or "returns"
+    const { type } = req.params; // "bookings", "returns", or "by-salesperson"
     const { fromDate, toDate, locCode } = req.query;
 
-    if (!['bookings', 'returns'].includes(type)) {
-      return res.status(400).json({ message: 'Invalid type. Use bookings or returns.' });
+    if (!['bookings', 'returns', 'by-salesperson'].includes(type)) {
+      return res.status(400).json({ message: 'Invalid type. Use bookings, returns, or by-salesperson.' });
     }
 
-    const url = `https://backend.brynex.com/api/external/shoe-sales/${type}?fromDate=${fromDate}&toDate=${toDate}&locCode=${locCode}`;
+    let url = `https://backend.brynex.com/api/external/shoe-sales/${type}?fromDate=${fromDate}&toDate=${toDate}`;
+    if (locCode && locCode !== 'undefined') {
+      url += `&locCode=${locCode}`;
+    }
+
     const { data } = await axios.get(url, { timeout: 15000 });
     return res.status(200).json(data);
   } catch (err) {
+    const { type } = req.params;
     if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT') {
+      if (type === 'by-salesperson') {
+        return res.status(200).json({ salespersons: [], grandTotal: {} });
+      }
       return res.status(200).json([]); // timeout → return empty, don't crash the page
     }
     const status = err?.response?.status || 500;

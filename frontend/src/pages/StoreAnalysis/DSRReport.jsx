@@ -723,6 +723,14 @@ const DSRReport = () => {
   const [configWeek1, setConfigWeek1] = useState(`01 - 10 ${CURRENT_MONTH_SHORT}`);
   const [configWeek2, setConfigWeek2] = useState(`11 - 17 ${CURRENT_MONTH_SHORT}`);
   const [configWeek3, setConfigWeek3] = useState("Select Days");
+
+  // Dappr Squad attribution modal states
+  const [dapprModalOpen, setDapprModalOpen] = useState(false);
+  // { [staffName]: { billFtd, billWtd, valFtd, valWtd } }
+  const [dapprAttribution, setDapprAttribution] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("dapprAttribution") || "{}"); } catch { return {}; }
+  });
+  const [dapprInputs, setDapprInputs] = useState({});
   const [configWeek4, setConfigWeek4] = useState("Select Days");
   const [configCalendarOpen, setConfigCalendarOpen] = useState(null);
   const [configStartDays, setConfigStartDays] = useState({ 1: 1, 2: 11, 3: null, 4: null });
@@ -1315,7 +1323,7 @@ const DSRReport = () => {
         const fetchSummary = async (fromDate, toDate) => {
           try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000);
+            const timeoutId = setTimeout(() => controller.abort(), 60000);
             let res;
             try {
               res = await fetch(
@@ -1325,9 +1333,13 @@ const DSRReport = () => {
             } finally {
               clearTimeout(timeoutId);
             }
-            if (!res.ok) return {};
+            if (!res.ok) {
+              console.error("fetchSummary HTTP error:", res.status);
+              return {};
+            }
             const json = await res.json();
             const stores = Array.isArray(json.stores) ? json.stores : [];
+            console.log(`fetchSummary succeeded for ${fromDate} to ${toDate}, stores count:`, stores.length);
             const map = {};
             stores.forEach(s => {
               const lc = String(s.locCode || "");
@@ -1357,17 +1369,81 @@ const DSRReport = () => {
             });
             return map;
           } catch (err) {
-            if (err.name !== "AbortError") {
-              console.error("Error fetching shoe-sales summary:", err);
-            }
+            console.error("Error fetching shoe-sales summary:", err);
             return {};
           }
         };
 
-        const [ftdMap, periodMap] = await Promise.all([
+        const fetchSalespersons = async (fromDate, toDate) => {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000);
+            let res;
+            try {
+              res = await fetch(
+                `${baseUrl.baseUrl}api/brynex/shoe-sales/by-salesperson?fromDate=${fromDate}&toDate=${toDate}`,
+                { signal: controller.signal }
+              );
+            } finally {
+              clearTimeout(timeoutId);
+            }
+            if (!res.ok) {
+              console.error("fetchSalespersons HTTP error:", res.status);
+              return [];
+            }
+            const json = await res.json();
+            const list = Array.isArray(json.salespersons) ? json.salespersons : [];
+            console.log(`fetchSalespersons succeeded for ${fromDate} to ${toDate}, count:`, list.length);
+            return list;
+          } catch (err) {
+            console.error(`Error fetching shoe-sales by-salesperson for ${fromDate} to ${toDate}:`, err);
+            return [];
+          }
+        };
+
+        const [ftdMap, periodMap, ftdSalespersons, periodSalespersons] = await Promise.all([
           fetchSummary(todayStr, todayStr),
-          fetchSummary(periodStart, periodEnd)
+          fetchSummary(periodStart, periodEnd),
+          fetchSalespersons(todayStr, todayStr),
+          fetchSalespersons(periodStart, periodEnd)
         ]);
+
+        const mergeSalespersons = (map, salespersonsList) => {
+          salespersonsList.forEach(sp => {
+            const staffName = sp.salesperson || "Unassigned";
+            const staffKey = normalizeForMatch(staffName);
+            const storesList = Array.isArray(sp.stores) ? sp.stores : [];
+            
+            storesList.forEach(st => {
+              const lc = String(st.locCode || "");
+              const total = st.total || {};
+              const entryVal = {
+                value: total.value || 0,
+                qty: total.qty || 0,
+                bills: total.bills || 0
+              };
+              
+              const applyToEntry = (entry) => {
+                if (!entry.byStaff) entry.byStaff = {};
+                entry.byStaff[staffKey] = entryVal;
+                entry.byStaff[staffName] = entryVal;
+              };
+
+              if (lc && map[lc]) {
+                applyToEntry(map[lc]);
+              }
+              if (st.storeName) {
+                const nameKey = normalizeForMatch(st.storeName);
+                if (nameKey && map[nameKey]) {
+                  applyToEntry(map[nameKey]);
+                }
+              }
+            });
+          });
+        };
+
+        mergeSalespersons(ftdMap, ftdSalespersons);
+        mergeSalespersons(periodMap, periodSalespersons);
 
         // Also index by normalised branch name for lookup flexibility
         const indexByName = (map) => {
@@ -1527,44 +1603,83 @@ const DSRReport = () => {
       const storeTarget = getStoreTarget(name, defaultTarget, activeTab, customFactor);
 
       const locPeriodList = performanceData.period[locId] || [];
-      const squadPeriodList = performanceData.period["25"] || [];
-      const dapprPeriodForStore = getDapprSquadDataForStore(locId, squadPeriodList);
 
-      const isGMGRoad = locId === "23";
-      const unmappedDapprPeriodList = isGMGRoad
-        ? squadPeriodList.filter(item => {
-            const raw = String(item.bookingBy || "").trim().toLowerCase();
-            const alphaOnly = raw.replace(/[^a-z0-9]/g, "");
-            const dotted = alphaOnly.startsWith("sg") ? "sg." + alphaOnly.slice(2) : raw;
-            return !DAPPR_SQUAD_STORE_MAPPING[raw] && !DAPPR_SQUAD_STORE_MAPPING[dotted];
-          })
-        : [];
-
-      const mergedPeriodList = [...locPeriodList, ...dapprPeriodForStore, ...unmappedDapprPeriodList];
+      // Dappr Squad data is now entered manually via dapprAttribution — no longer auto-merged here
+      const mergedPeriodList = [...locPeriodList];
       const storeTotalRental = mergedPeriodList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
 
       let storeTotalSales = 0;
       if (funnelView === "Consolidated") {
         const salesPeriodItem = salesData.period[locCode] || salesData.period[storeKeyVal] || { value: 0 };
         storeTotalSales = salesPeriodItem.value || 0;
+        // Add total manually-attributed Dappr Squad value
+        storeTotalSales += Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
       }
 
       const storeTotalAchieved = storeTotalRental + storeTotalSales;
       const salesPeriodItem = salesData.period[locCode] || salesData.period[storeKeyVal] || { byStaff: {} };
 
-      const staffNames = Array.from(new Set([
-        ...mergedPeriodList.map(x => x.bookingBy),
-        ...(funnelView === "Consolidated" ? Object.keys(salesPeriodItem.byStaff || {}) : [])
-      ])).filter(Boolean);
+      const canonicalizeName = (rawName) => {
+        if (!rawName) return "";
+        const strName = String(rawName);
+        if (strName.toLowerCase() === "unassigned") return "Unassigned";
+        const normName = normalizeForMatch(strName);
+        const match = mergedPeriodList.find(n => n && normalizeForMatch(n.bookingBy) === normName);
+        return match ? match.bookingBy : strName;
+      };
+
+      const salesStaffNames = funnelView === "Consolidated"
+        ? Object.keys(salesPeriodItem.byStaff || {}).map(canonicalizeName).filter(Boolean)
+        : [];
+
+      const rawStaffNames = [
+        ...mergedPeriodList.map(x => x && x.bookingBy),
+        ...salesStaffNames,
+        ...(funnelView === "Consolidated" ? Object.keys(dapprAttribution) : [])
+      ].filter(name => typeof name === "string" && name.trim() !== "");
+
+      const staffNames = [];
+      const seenNormalized = new Set();
+      
+      const sortedStaffNames = Array.from(new Set(rawStaffNames)).sort((a, b) => {
+        const aUpper = /[A-Z]/.test(a);
+        const bUpper = /[A-Z]/.test(b);
+        if (aUpper && !bUpper) return -1;
+        if (!aUpper && bUpper) return 1;
+        return (b || "").length - (a || "").length;
+      });
+
+      sortedStaffNames.forEach(name => {
+        if (!name) return;
+        const norm = normalizeForMatch(name);
+        if (norm && !seenNormalized.has(norm)) {
+          seenNormalized.add(norm);
+          staffNames.push(name);
+        }
+      });
 
       return staffNames.map((staffName, index) => {
         const sl = String(index + 1).padStart(2, "0");
         const fullName = String(staffName).trim();
+        const staffKey = normalizeForMatch(staffName);
 
-        const rentalVal = mergedPeriodList.filter(x => x.bookingBy === staffName).reduce((sum, x) => sum + (x.totalValue || 0), 0);
+        const rentalVal = mergedPeriodList.filter(x => x && normalizeForMatch(x.bookingBy) === staffKey).reduce((sum, x) => sum + (x.totalValue || 0), 0);
         let salesVal = 0;
         if (funnelView === "Consolidated") {
-          salesVal = salesPeriodItem.byStaff[staffName]?.value || 0;
+          const getSalesDataForStaff = (salesItem) => {
+            if (!salesItem || !salesItem.byStaff) return {};
+            if (salesItem.byStaff[staffName]) return salesItem.byStaff[staffName];
+            const foundKey = Object.keys(salesItem.byStaff).find(k => normalizeForMatch(k) === staffKey);
+            if (foundKey) return salesItem.byStaff[foundKey];
+            return {};
+          };
+          salesVal = getSalesDataForStaff(salesPeriodItem).value || 0;
+          
+          // Add manually attributed Dappr Squad value for this staff member (using case-insensitive keys)
+          const dapprKey = Object.keys(dapprAttribution).find(k => normalizeForMatch(k) === staffKey);
+          if (dapprKey) {
+            salesVal += Number(dapprAttribution[dapprKey]?.billWtd) || 0;
+          }
         }
 
         const achieved = rentalVal + salesVal;
@@ -1624,7 +1739,7 @@ const DSRReport = () => {
       return { sl, name, target, achieved, balance, pct };
     }).filter(Boolean);
     return list;
-  }, [branches, weeklyTargets, activeTab, customStartDate, customEndDate, performanceData, funnelView, salesData]);
+  }, [branches, weeklyTargets, activeTab, customStartDate, customEndDate, performanceData, funnelView, salesData, dapprAttribution]);
 
   // Generate dynamic Sales Funnel data based on fetched branches (with mock fallback)
   const funnelRows = useMemo(() => {
@@ -1836,20 +1951,54 @@ const DSRReport = () => {
         const salesFtdItem = salesData.ftd[locCode] || salesData.ftd[storeKeyVal] || { byStaff: {} };
         const salesPeriodItem = salesData.period[locCode] || salesData.period[storeKeyVal] || { byStaff: {} };
 
-        const salesStaffNames = Array.from(new Set([
-          ...Object.keys(salesFtdItem.byStaff || {}),
-          ...Object.keys(salesPeriodItem.byStaff || {})
-        ])).filter(Boolean);
+        const canonicalizeName = (rawName) => {
+          if (!rawName) return "";
+          const strName = String(rawName);
+          if (strName.toLowerCase() === "unassigned") return "Unassigned";
+          const normName = normalizeForMatch(strName);
+          const match = locFtdList.find(n => n && normalizeForMatch(n.bookingBy) === normName) ||
+                        locPeriodList.find(n => n && normalizeForMatch(n.bookingBy) === normName);
+          return match ? match.bookingBy : strName;
+        };
 
-        const staffNames = Array.from(new Set([
-          ...locFtdList.map(x => x.bookingBy),
-          ...locPeriodList.map(x => x.bookingBy),
-          ...(funnelView === "Consolidated" ? salesStaffNames : [])
-        ])).filter(Boolean);
+        const salesStaffNames = funnelView === "Consolidated"
+          ? Array.from(new Set([
+              ...Object.keys(salesFtdItem.byStaff || {}).map(canonicalizeName),
+              ...Object.keys(salesPeriodItem.byStaff || {}).map(canonicalizeName)
+            ])).filter(Boolean)
+          : [];
+
+        const rawStaffNames = [
+          ...locFtdList.map(x => x && x.bookingBy),
+          ...locPeriodList.map(x => x && x.bookingBy),
+          ...salesStaffNames
+        ].filter(name => typeof name === "string" && name.trim() !== "");
+
+        const staffNames = [];
+        const seenNormalized = new Set();
+        
+        const sortedStaffNames = Array.from(new Set(rawStaffNames)).sort((a, b) => {
+          const aUpper = /[A-Z]/.test(a);
+          const bUpper = /[A-Z]/.test(b);
+          if (aUpper && !bUpper) return -1;
+          if (!aUpper && bUpper) return 1;
+          return (b || "").length - (a || "").length;
+        });
+
+        sortedStaffNames.forEach(name => {
+          if (!name) return;
+          const norm = normalizeForMatch(name);
+          if (norm && !seenNormalized.has(norm)) {
+            seenNormalized.add(norm);
+            staffNames.push(name);
+          }
+        });
 
         return staffNames.map(staffName => {
-          const staffFtd = locFtdList.find(x => x.bookingBy === staffName) || {};
-          const staffPeriod = locPeriodList.find(x => x.bookingBy === staffName) || {};
+          const staffKey = normalizeForMatch(staffName);
+          
+          const staffFtdList = locFtdList.filter(x => x && normalizeForMatch(x.bookingBy) === staffKey);
+          const staffPeriodList = locPeriodList.filter(x => x && normalizeForMatch(x.bookingBy) === staffKey);
 
           // Walk-ins filtered by staff name
           let storePeriodStart = todayStr;
@@ -1868,22 +2017,36 @@ const DSRReport = () => {
           }
 
           const staffWalkins = walkins.filter(w => 
-            (String(w.storeId || '') === String(b._id || '') || locationKey(w.store) === storeKeyVal) && 
+            (String(w.storeId || '') === String(selectedBranch._id || '') || locationKey(w.store) === storeKeyVal) && 
             w.staff && w.staff.trim().toLowerCase() === staffName.trim().toLowerCase()
           );
           const ftdWalkins = staffWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, todayStr, todayStr));
           const periodWalkins = staffWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, storePeriodStart, storePeriodEnd));
 
-          let billFtd = staffFtd.totalValue || 0;
-          let billWtd = staffPeriod.totalValue || 0;
-          let valFtd = staffFtd.total_Number_Of_Bill || 0;
-          let valWtd = staffPeriod.total_Number_Of_Bill || 0;
-          let qtyFtd = staffFtd.totalQuantity || 0;
-          let qtyWtd = staffPeriod.totalQuantity || 0;
+          const rentalValFtd = staffFtdList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
+          const rentalValWtd = staffPeriodList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
+          const rentalBillFtd = staffFtdList.reduce((sum, x) => sum + (x.total_Number_Of_Bill || 0), 0);
+          const rentalBillWtd = staffPeriodList.reduce((sum, x) => sum + (x.total_Number_Of_Bill || 0), 0);
+          const rentalQtyFtd = staffFtdList.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
+          const rentalQtyWtd = staffPeriodList.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
+
+          let billFtd = rentalValFtd;
+          let billWtd = rentalValWtd;
+          let valFtd = rentalBillFtd;
+          let valWtd = rentalBillWtd;
+          let qtyFtd = rentalQtyFtd;
+          let qtyWtd = rentalQtyWtd;
 
           if (funnelView === "Consolidated") {
-            const staffSalesFtd = salesFtdItem.byStaff?.[staffName] || { value: 0, qty: 0, bills: 0 };
-            const staffSalesPeriod = salesPeriodItem.byStaff?.[staffName] || { value: 0, qty: 0, bills: 0 };
+            const getSalesDataForStaff = (salesItem) => {
+              if (!salesItem || !salesItem.byStaff) return {};
+              if (salesItem.byStaff[staffName]) return salesItem.byStaff[staffName];
+              const foundKey = Object.keys(salesItem.byStaff).find(k => normalizeForMatch(k) === staffKey);
+              if (foundKey) return salesItem.byStaff[foundKey];
+              return {};
+            };
+            const staffSalesFtd = getSalesDataForStaff(salesFtdItem);
+            const staffSalesPeriod = getSalesDataForStaff(salesPeriodItem);
 
             billFtd += staffSalesFtd.value || 0;
             billWtd += staffSalesPeriod.value || 0;
@@ -1893,10 +2056,10 @@ const DSRReport = () => {
             qtyWtd += staffSalesPeriod.qty || 0;
           }
 
-          const createdValFtd = staffFtd.created_Number_Of_Bill || 0;
-          const createdValWtd = staffPeriod.created_Number_Of_Bill || 0;
-          const createdQtyFtd = staffFtd.createdQuantity || 0;
-          const createdQtyWtd = staffPeriod.createdQuantity || 0;
+          const createdValFtd = staffFtdList.reduce((sum, x) => sum + (x.created_Number_Of_Bill || 0), 0);
+          const createdValWtd = staffPeriodList.reduce((sum, x) => sum + (x.created_Number_Of_Bill || 0), 0);
+          const createdQtyFtd = staffFtdList.reduce((sum, x) => sum + (x.createdQuantity || 0), 0);
+          const createdQtyWtd = staffPeriodList.reduce((sum, x) => sum + (x.createdQuantity || 0), 0);
 
           const walkFtd = ftdWalkins.length;
           const walkWtd = periodWalkins.length;
@@ -1934,30 +2097,62 @@ const DSRReport = () => {
         const locFtdList = performanceData.ftd[locId] || [];
         const locPeriodList = performanceData.period[locId] || [];
 
-        // Also include Dappr Squad (loc 25) staff belonging to this store
-        const dapprFtdForStore = getDapprSquadDataForStore(locId, performanceData.ftd["25"] || []);
-        const dapprPeriodForStore = getDapprSquadDataForStore(locId, performanceData.period["25"] || []);
-        const combinedFtdList = [...locFtdList, ...dapprFtdForStore];
-        const combinedPeriodList = [...locPeriodList, ...dapprPeriodForStore];
+        // Dappr Squad data is now entered manually via dapprAttribution — no longer auto-merged here
+        const combinedFtdList = [...locFtdList];
+        const combinedPeriodList = [...locPeriodList];
 
         const locCode = b.locCode || getBranchLocCode(b.workingBranch, branches);
         const salesFtdItem = salesData.ftd[locCode] || salesData.ftd[storeKeyVal] || { byStaff: {} };
         const salesPeriodItem = salesData.period[locCode] || salesData.period[storeKeyVal] || { byStaff: {} };
 
-        const salesStaffNames = Array.from(new Set([
-          ...Object.keys(salesFtdItem.byStaff || {}),
-          ...Object.keys(salesPeriodItem.byStaff || {})
-        ])).filter(Boolean);
+        const canonicalizeName = (rawName) => {
+          if (!rawName) return "";
+          const strName = String(rawName);
+          if (strName.toLowerCase() === "unassigned") return "Unassigned";
+          const normName = normalizeForMatch(strName);
+          const match = combinedFtdList.find(n => n && normalizeForMatch(n.bookingBy) === normName) ||
+                        combinedPeriodList.find(n => n && normalizeForMatch(n.bookingBy) === normName);
+          return match ? match.bookingBy : strName;
+        };
 
-        const staffNames = Array.from(new Set([
-          ...combinedFtdList.map(x => x.bookingBy),
-          ...combinedPeriodList.map(x => x.bookingBy),
-          ...(funnelView === "Consolidated" ? salesStaffNames : [])
-        ])).filter(Boolean);
+        const salesStaffNames = funnelView === "Consolidated"
+          ? Array.from(new Set([
+              ...Object.keys(salesFtdItem.byStaff || {}).map(canonicalizeName),
+              ...Object.keys(salesPeriodItem.byStaff || {}).map(canonicalizeName)
+            ])).filter(Boolean)
+          : [];
+
+        const rawStaffNames = [
+          ...combinedFtdList.map(x => x && x.bookingBy),
+          ...combinedPeriodList.map(x => x && x.bookingBy),
+          ...salesStaffNames
+        ].filter(name => typeof name === "string" && name.trim() !== "");
+
+        const staffNames = [];
+        const seenNormalized = new Set();
+        
+        const sortedStaffNames = Array.from(new Set(rawStaffNames)).sort((a, b) => {
+          const aUpper = /[A-Z]/.test(a);
+          const bUpper = /[A-Z]/.test(b);
+          if (aUpper && !bUpper) return -1;
+          if (!aUpper && bUpper) return 1;
+          return (b || "").length - (a || "").length;
+        });
+
+        sortedStaffNames.forEach(name => {
+          if (!name) return;
+          const norm = normalizeForMatch(name);
+          if (norm && !seenNormalized.has(norm)) {
+            seenNormalized.add(norm);
+            staffNames.push(name);
+          }
+        });
 
         staffNames.forEach(staffName => {
-          const staffFtd = combinedFtdList.find(x => x.bookingBy === staffName) || {};
-          const staffPeriod = combinedPeriodList.find(x => x.bookingBy === staffName) || {};
+          const staffKey = normalizeForMatch(staffName);
+          
+          const staffFtdList = combinedFtdList.filter(x => x && normalizeForMatch(x.bookingBy) === staffKey);
+          const staffPeriodList = combinedPeriodList.filter(x => x && normalizeForMatch(x.bookingBy) === staffKey);
 
           // Walk-ins filtered by staff name
           let storePeriodStart = todayStr;
@@ -1982,16 +2177,38 @@ const DSRReport = () => {
           const ftdWalkins = staffWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, todayStr, todayStr));
           const periodWalkins = staffWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, storePeriodStart, storePeriodEnd));
 
-          let billFtd = staffFtd.totalValue || 0;
-          let billWtd = staffPeriod.totalValue || 0;
-          let valFtd = staffFtd.total_Number_Of_Bill || 0;
-          let valWtd = staffPeriod.total_Number_Of_Bill || 0;
-          let qtyFtd = staffFtd.totalQuantity || 0;
-          let qtyWtd = staffPeriod.totalQuantity || 0;
+          const rentalValFtd = staffFtdList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
+          const rentalValWtd = staffPeriodList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
+          const rentalBillFtd = staffFtdList.reduce((sum, x) => sum + (x.total_Number_Of_Bill || 0), 0);
+          const rentalBillWtd = staffPeriodList.reduce((sum, x) => sum + (x.total_Number_Of_Bill || 0), 0);
+          const rentalQtyFtd = staffFtdList.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
+          const rentalQtyWtd = staffPeriodList.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
+
+          let billFtd = rentalValFtd;
+          let billWtd = rentalValWtd;
+          let valFtd = rentalBillFtd;
+          let valWtd = rentalBillWtd;
+          let qtyFtd = rentalQtyFtd;
+          let qtyWtd = rentalQtyWtd;
+
+          // Merge manual Dappr Squad attribution — only in Consolidated view
+          if (funnelView === "Consolidated") {
+            const dapprAttr = dapprAttribution[staffName] || {};
+            billWtd += Number(dapprAttr.billWtd) || 0;
+            valWtd  += Number(dapprAttr.valWtd)  || 0;
+            qtyWtd  += Number(dapprAttr.qtyWtd)  || 0;
+          }
 
           if (funnelView === "Consolidated") {
-            const staffSalesFtd = salesFtdItem.byStaff?.[staffName] || { value: 0, qty: 0, bills: 0 };
-            const staffSalesPeriod = salesPeriodItem.byStaff?.[staffName] || { value: 0, qty: 0, bills: 0 };
+            const getSalesDataForStaff = (salesItem) => {
+              if (!salesItem || !salesItem.byStaff) return {};
+              if (salesItem.byStaff[staffName]) return salesItem.byStaff[staffName];
+              const foundKey = Object.keys(salesItem.byStaff).find(k => normalizeForMatch(k) === staffKey);
+              if (foundKey) return salesItem.byStaff[foundKey];
+              return {};
+            };
+            const staffSalesFtd = getSalesDataForStaff(salesFtdItem);
+            const staffSalesPeriod = getSalesDataForStaff(salesPeriodItem);
 
             billFtd += staffSalesFtd.value || 0;
             billWtd += staffSalesPeriod.value || 0;
@@ -2001,10 +2218,10 @@ const DSRReport = () => {
             qtyWtd += staffSalesPeriod.qty || 0;
           }
 
-          const createdValFtd = staffFtd.created_Number_Of_Bill || 0;
-          const createdValWtd = staffPeriod.created_Number_Of_Bill || 0;
-          const createdQtyFtd = staffFtd.createdQuantity || 0;
-          const createdQtyWtd = staffPeriod.createdQuantity || 0;
+          const createdValFtd = staffFtdList.reduce((sum, x) => sum + (x.created_Number_Of_Bill || 0), 0);
+          const createdValWtd = staffPeriodList.reduce((sum, x) => sum + (x.created_Number_Of_Bill || 0), 0);
+          const createdQtyFtd = staffFtdList.reduce((sum, x) => sum + (x.createdQuantity || 0), 0);
+          const createdQtyWtd = staffPeriodList.reduce((sum, x) => sum + (x.createdQuantity || 0), 0);
 
           const walkFtd = ftdWalkins.length;
           const walkWtd = periodWalkins.length;
@@ -2033,7 +2250,7 @@ const DSRReport = () => {
       });
       return allRows;
     }
-  }, [branches, isAdminOrSuperAdmin, isStoreAdmin, walkins, performanceData, selectedStore, activeTab, customStartDate, customEndDate, funnelView, salesData]);
+  }, [branches, isAdminOrSuperAdmin, isStoreAdmin, walkins, performanceData, selectedStore, activeTab, customStartDate, customEndDate, funnelView, salesData, dapprAttribution]);
 
   // Populate dynamic store options for dropdown
   const storeOptions = useMemo(() => {
@@ -2224,63 +2441,162 @@ const DSRReport = () => {
       const squadFtdList = performanceData.ftd["25"] || [];
       const squadPeriodList = performanceData.period["25"] || [];
 
-      // Sales data for the whole store (locCode level — no per-staff breakdown from brynex API)
-      const salesFtdItem = salesData.ftd[locCode] || salesData.ftd[storeKeyVal] || { value: 0, qty: 0, bills: 0 };
+      const salesFtdItem  = salesData.ftd[locCode]    || salesData.ftd[storeKeyVal]    || { value: 0, qty: 0, bills: 0 };
       const salesPeriodItem = salesData.period[locCode] || salesData.period[storeKeyVal] || { value: 0, qty: 0, bills: 0 };
 
-      // Collect all unique staff names from rental + dappr squad
+
+
+      // Collect all unique staff names from rental + dappr squad + sales
       const rentalStaffNames = Array.from(new Set([
         ...locFtdList.map(x => x.bookingBy),
         ...locPeriodList.map(x => x.bookingBy)
       ])).filter(Boolean);
 
+      // Filter Dappr Squad lists to only include items belonging to this store
+      const storeSquadFtd = squadFtdList.filter(x => {
+        const raw = String(x.bookingBy || "").trim().toLowerCase();
+        return DAPPR_SQUAD_STORE_MAPPING[raw] === locId || normalizeForMatch(x.bookingBy) === storeKeyVal;
+      });
+      const storeSquadPeriod = squadPeriodList.filter(x => {
+        const raw = String(x.bookingBy || "").trim().toLowerCase();
+        return DAPPR_SQUAD_STORE_MAPPING[raw] === locId || normalizeForMatch(x.bookingBy) === storeKeyVal;
+      });
+
       const squadStaffNames = Array.from(new Set([
-        ...squadFtdList.map(x => x.bookingBy),
-        ...squadPeriodList.map(x => x.bookingBy)
-      ])).filter(Boolean);
+        ...storeSquadFtd.map(x => x && x.bookingBy),
+        ...storeSquadPeriod.map(x => x && x.bookingBy)
+      ])).filter(n => typeof n === "string" && n.trim() !== "");
 
-      // Sales Products API now has salesPerson — build per-staff lookup
-      const salesFtdByStaff = salesFtdItem.byStaff || {};
-      const salesPeriodByStaff = salesPeriodItem.byStaff || {};
+      const canonicalizeName = (rawName) => {
+        if (!rawName) return "";
+        const strName = String(rawName);
+        if (strName.toLowerCase() === "unassigned") return "Unassigned";
+        const normName = normalizeForMatch(strName);
+        const match = rentalStaffNames.find(n => normalizeForMatch(n) === normName) ||
+                      squadStaffNames.find(n => normalizeForMatch(n) === normName);
+        return match || strName;
+      };
 
-      // Collect all unique staff names from rental + dappr squad + sales
-      const salesStaffNames = Array.from(new Set([
-        ...Object.keys(salesFtdByStaff),
-        ...Object.keys(salesPeriodByStaff)
-      ])).filter(Boolean);
+      const salesFtdStaffNames = Object.keys(salesFtdItem.byStaff || {}).map(canonicalizeName).filter(Boolean);
+      const salesPeriodStaffNames = Object.keys(salesPeriodItem.byStaff || {}).map(canonicalizeName).filter(Boolean);
 
-      const allStaffNames = Array.from(new Set([...rentalStaffNames, ...squadStaffNames, ...salesStaffNames]));
+      // De-duplicate case-insensitively, preferring casing with uppercase letters
+      const rawAllStaff = [
+        ...rentalStaffNames,
+        ...squadStaffNames,
+        ...salesFtdStaffNames,
+        ...salesPeriodStaffNames
+      ].filter(name => typeof name === "string" && name.trim() !== "");
+      
+      const allStaffNames = [];
+      const seenNormalized = new Set();
+      
+      const sortedStaffNames = Array.from(new Set(rawAllStaff)).sort((a, b) => {
+        const aUpper = /[A-Z]/.test(a);
+        const bUpper = /[A-Z]/.test(b);
+        if (aUpper && !bUpper) return -1;
+        if (!aUpper && bUpper) return 1;
+        return (b || "").length - (a || "").length;
+      });
 
-      // All staff rows with per-person sales data
-      return allStaffNames.map((staffName) => {
-        const staffFtd = locFtdList.find(x => x.bookingBy === staffName) || {};
-        const staffPeriod = locPeriodList.find(x => x.bookingBy === staffName) || {};
-        const squadFtd = squadFtdList.find(x => x.bookingBy === staffName) || {};
-        const squadPeriod = squadPeriodList.find(x => x.bookingBy === staffName) || {};
-        const salesFtdStaff = salesFtdByStaff[staffName] || { value: 0, qty: 0, bills: 0 };
-        const salesPeriodStaff = salesPeriodByStaff[staffName] || { value: 0, qty: 0, bills: 0 };
+      sortedStaffNames.forEach(name => {
+        if (!name) return;
+        const norm = normalizeForMatch(name);
+        if (norm && !seenNormalized.has(norm)) {
+          seenNormalized.add(norm);
+          allStaffNames.push(name);
+        }
+      });
+
+      // Include "Unassigned" row if there are any unassigned sales
+      const hasUnassignedFtd = salesFtdItem.byStaff?.["Unassigned"] || salesFtdItem.byStaff?.["unassigned"];
+      const hasUnassignedPeriod = salesPeriodItem.byStaff?.["Unassigned"] || salesPeriodItem.byStaff?.["unassigned"];
+      if ((hasUnassignedFtd || hasUnassignedPeriod) && !allStaffNames.includes("Unassigned")) {
+        allStaffNames.push("Unassigned");
+      }
+
+      // Staff rows — rental, dappr squad & sales product data is per-staff (aggregated case-insensitively)
+      const staffRows = allStaffNames.map((staffName) => {
+        const staffKey = normalizeForMatch(staffName);
+        
+        const staffFtdList = locFtdList.filter(x => x && normalizeForMatch(x.bookingBy) === staffKey);
+        const staffPeriodList = locPeriodList.filter(x => x && normalizeForMatch(x.bookingBy) === staffKey);
+        const squadFtdListForStaff = storeSquadFtd.filter(x => x && normalizeForMatch(x.bookingBy) === staffKey);
+        const squadPeriodListForStaff = storeSquadPeriod.filter(x => x && normalizeForMatch(x.bookingBy) === staffKey);
+
+        const rentalValFtd = staffFtdList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
+        const rentalValWtd = staffPeriodList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
+        const rentalBillFtd = staffFtdList.reduce((sum, x) => sum + (x.total_Number_Of_Bill || 0), 0);
+        const rentalBillWtd = staffPeriodList.reduce((sum, x) => sum + (x.total_Number_Of_Bill || 0), 0);
+        const rentalQtyFtd = staffFtdList.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
+        const rentalQtyWtd = staffPeriodList.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
+
+        const squadValFtd = squadFtdListForStaff.reduce((sum, x) => sum + (x.totalValue || 0), 0);
+        const squadValWtd = squadPeriodListForStaff.reduce((sum, x) => sum + (x.totalValue || 0), 0);
+        const squadBillFtd = squadFtdListForStaff.reduce((sum, x) => sum + (x.total_Number_Of_Bill || 0), 0);
+        const squadBillWtd = squadPeriodListForStaff.reduce((sum, x) => sum + (x.total_Number_Of_Bill || 0), 0);
+        const squadQtyFtd = squadFtdListForStaff.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
+        const squadQtyWtd = squadPeriodListForStaff.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
+
+        const getSalesDataForStaff = (salesItem) => {
+          if (!salesItem || !salesItem.byStaff) return {};
+          if (salesItem.byStaff[staffName]) return salesItem.byStaff[staffName];
+          const foundKey = Object.keys(salesItem.byStaff).find(k => normalizeForMatch(k) === staffKey);
+          if (foundKey) return salesItem.byStaff[foundKey];
+          return {};
+        };
+
+        const staffSalesFtd = getSalesDataForStaff(salesFtdItem);
+        const staffSalesPeriod = getSalesDataForStaff(salesPeriodItem);
+
         return {
           name: staffName,
-          rentalValFtd: staffFtd.totalValue || 0,
-          rentalValWtd: staffPeriod.totalValue || 0,
-          rentalBillFtd: staffFtd.total_Number_Of_Bill || 0,
-          rentalBillWtd: staffPeriod.total_Number_Of_Bill || 0,
-          rentalQtyFtd: staffFtd.totalQuantity || 0,
-          rentalQtyWtd: staffPeriod.totalQuantity || 0,
-          squadValFtd: squadFtd.totalValue || 0,
-          squadValWtd: squadPeriod.totalValue || 0,
-          squadBillFtd: squadFtd.total_Number_Of_Bill || 0,
-          squadBillWtd: squadPeriod.total_Number_Of_Bill || 0,
-          squadQtyFtd: squadFtd.totalQuantity || 0,
-          squadQtyWtd: squadPeriod.totalQuantity || 0,
-          salesValFtd: salesFtdStaff.value || 0,
-          salesValWtd: salesPeriodStaff.value || 0,
-          salesBillFtd: salesFtdStaff.bills || 0,
-          salesBillWtd: salesPeriodStaff.bills || 0,
-          salesQtyFtd: salesFtdStaff.qty || 0,
-          salesQtyWtd: salesPeriodStaff.qty || 0,
+          rentalValFtd:  rentalValFtd,
+          rentalValWtd:  rentalValWtd,
+          rentalBillFtd: rentalBillFtd,
+          rentalBillWtd: rentalBillWtd,
+          rentalQtyFtd:  rentalQtyFtd,
+          rentalQtyWtd:  rentalQtyWtd,
+          squadValFtd:   squadValFtd,
+          squadValWtd:   squadValWtd,
+          squadBillFtd:  squadBillFtd,
+          squadBillWtd:  squadBillWtd,
+          squadQtyFtd:   squadQtyFtd,
+          squadQtyWtd:   squadQtyWtd,
+          
+          salesValFtd:  staffSalesFtd.value  || 0,
+          salesValWtd:  staffSalesPeriod.value || 0,
+          salesBillFtd: staffSalesFtd.bills  || 0,
+          salesBillWtd: staffSalesPeriod.bills || 0,
+          salesQtyFtd:  staffSalesFtd.qty    || 0,
+          salesQtyWtd:  staffSalesPeriod.qty    || 0,
+          isSalesPlaceholder: false,
         };
       });
+
+      // Append a dedicated "Store Sales Total" row only as a fallback if no staff member has any sales attributed to them
+      const hasAttributedSales = staffRows.some(row => row.salesValFtd > 0 || row.salesValWtd > 0 || row.salesBillFtd > 0 || row.salesBillWtd > 0);
+      const hasSalesData = (salesFtdItem.value || salesPeriodItem.value || salesFtdItem.bills || salesPeriodItem.bills);
+      if (hasSalesData && !hasAttributedSales) {
+        staffRows.push({
+          name: '— Store Sales Total (Fallback) —',
+          rentalValFtd: 0, rentalValWtd: 0,
+          rentalBillFtd: 0, rentalBillWtd: 0,
+          rentalQtyFtd: 0, rentalQtyWtd: 0,
+          squadValFtd: 0, squadValWtd: 0,
+          squadBillFtd: 0, squadBillWtd: 0,
+          squadQtyFtd: 0, squadQtyWtd: 0,
+          salesValFtd:  salesFtdItem.value  || 0,
+          salesValWtd:  salesPeriodItem.value  || 0,
+          salesBillFtd: salesFtdItem.bills  || 0,
+          salesBillWtd: salesPeriodItem.bills  || 0,
+          salesQtyFtd:  salesFtdItem.qty    || 0,
+          salesQtyWtd:  salesPeriodItem.qty    || 0,
+          isSalesPlaceholder: true,
+        });
+      }
+
+      return staffRows;
     }
 
     // Admin view: one row per store
@@ -2563,6 +2879,37 @@ const DSRReport = () => {
             >
               Configure Weeks
             </button>
+
+            {/* Add Dappr Squad Button — store_admin only */}
+            {isStoreAdmin && (
+              <button
+                onClick={() => {
+                  // Pre-fill inputs from saved attribution
+                  const branch = branches[0];
+                  if (!branch) return;
+                  const locId = getBranchLocationId(branch.workingBranch);
+                  const dapprPeriod = getDapprSquadDataForStore(locId, performanceData.period["25"] || []);
+                  const staffNames = Array.from(new Set([
+                    ...(performanceData.period[locId] || []).map(x => x.bookingBy),
+                    ...(performanceData.ftd[locId]    || []).map(x => x.bookingBy),
+                  ])).filter(Boolean);
+                  const inputs = {};
+                  staffNames.forEach(name => {
+                    const saved = dapprAttribution[name] || {};
+                    inputs[name] = {
+                      billWtd: saved.billWtd ?? "",
+                      valWtd:  saved.valWtd  ?? "",
+                      qtyWtd:  saved.qtyWtd  ?? "",
+                    };
+                  });
+                  setDapprInputs(inputs);
+                  setDapprModalOpen(true);
+                }}
+                className="flex items-center gap-2 bg-[#6366f1] hover:bg-[#4f46e5] text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+              >
+                Add Dappr Squad
+              </button>
+            )}
 
             {/* Assign Target Button */}
             <button 
@@ -3200,6 +3547,158 @@ const DSRReport = () => {
             </div>
           </div>
         )}
+
+        {/* Dappr Squad Attribution Modal — store_admin only */}
+        {dapprModalOpen && isStoreAdmin && (() => {
+          const branch = branches[0];
+          const locId = branch ? getBranchLocationId(branch.workingBranch) : null;
+          const dapprPeriod = locId ? getDapprSquadDataForStore(locId, performanceData.period["25"] || []) : [];
+          const dapprTotalValue = dapprPeriod.reduce((s, x) => s + (x.totalValue || 0), 0);
+          const dapprTotalBills = dapprPeriod.reduce((s, x) => s + (x.total_Number_Of_Bill || 0), 0);
+          const dapprTotalQty = dapprPeriod.reduce((s, x) => s + (x.totalQuantity || 0), 0);
+          const staffList = branch ? Array.from(new Set([
+            ...(performanceData.period[locId] || []).map(x => x.bookingBy),
+            ...(performanceData.ftd[locId]    || []).map(x => x.bookingBy),
+          ])).filter(Boolean) : [];
+
+          const allocatedBills = Object.values(dapprInputs).reduce((s, v) => s + (Number(v.valWtd) || 0), 0);
+          const allocatedValue = Object.values(dapprInputs).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
+          const allocatedQty = Object.values(dapprInputs).reduce((s, v) => s + (Number(v.qtyWtd) || 0), 0);
+
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div className="fixed inset-0 bg-black/40 backdrop-blur-[6px]" onClick={() => setDapprModalOpen(false)} />
+              <div className="bg-white rounded-[28px] w-full max-w-[540px] shadow-2xl relative z-10 border border-gray-100 overflow-hidden">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
+                  <div>
+                    <h2 className="text-[15px] font-extrabold text-gray-900">Add Dappr Squad</h2>
+                    <p className="text-[11px] text-gray-400 font-medium mt-0.5">
+                      Attribute Dappr Squad revenue to store staff
+                    </p>
+                  </div>
+                  <button onClick={() => setDapprModalOpen(false)} className="text-gray-400 hover:text-gray-700 text-xl font-bold">✕</button>
+                </div>
+
+                {/* Dappr Squad Store Total */}
+                <div className="mx-6 mt-4 mb-2 bg-indigo-50 border border-indigo-100 rounded-2xl px-4 py-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Dappr Squad Total (this store)</p>
+                    <p className="text-[18px] font-extrabold text-indigo-700 mt-0.5">
+                      ₹{dapprTotalValue.toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-5">
+                    <div className="text-right">
+                      <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Bills</p>
+                      <p className="text-[18px] font-extrabold text-indigo-700">{dapprTotalBills}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Qty</p>
+                      <p className="text-[18px] font-extrabold text-indigo-700">{dapprTotalQty}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Allocated so far */}
+                <div className="mx-6 mb-3 flex gap-2 text-[11px] font-semibold text-gray-500">
+                  <span>Allocated: ₹{allocatedValue.toLocaleString()} / {allocatedBills} bills / {allocatedQty} qty</span>
+                  <span className="text-gray-300">|</span>
+                  <span className={allocatedValue > dapprTotalValue ? "text-red-500" : "text-emerald-600"}>
+                    Remaining: ₹{(dapprTotalValue - allocatedValue).toLocaleString()}
+                  </span>
+                </div>
+
+                {/* Staff rows */}
+                <div className="px-6 pb-2 max-h-[340px] overflow-y-auto space-y-2">
+                  {staffList.length === 0 && (
+                    <p className="text-center text-gray-400 text-xs py-6">No staff found for this store</p>
+                  )}
+                  {staffList.map(name => (
+                    <div key={name} className="flex items-center gap-3 bg-gray-50 rounded-xl px-3 py-2.5">
+                      <span className="flex-1 text-[12px] font-bold text-gray-800 truncate">{name}</span>
+                      <div className="flex items-center gap-2">
+                        <div className="flex flex-col items-center">
+                          <span className="text-[9px] font-bold text-gray-400 uppercase mb-0.5">Value (₹)</span>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                            value={dapprInputs[name]?.billWtd ?? ""}
+                            onChange={e => setDapprInputs(prev => ({
+                              ...prev,
+                              [name]: { ...prev[name], billWtd: e.target.value }
+                            }))}
+                            className="w-24 text-center text-xs font-semibold border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-indigo-400"
+                          />
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <span className="text-[9px] font-bold text-gray-400 uppercase mb-0.5">Bills</span>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                            value={dapprInputs[name]?.valWtd ?? ""}
+                            onChange={e => setDapprInputs(prev => ({
+                              ...prev,
+                              [name]: { ...prev[name], valWtd: e.target.value }
+                            }))}
+                            className="w-20 text-center text-xs font-semibold border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-indigo-400"
+                          />
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <span className="text-[9px] font-bold text-gray-400 uppercase mb-0.5">Qty</span>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                            value={dapprInputs[name]?.qtyWtd ?? ""}
+                            onChange={e => setDapprInputs(prev => ({
+                              ...prev,
+                              [name]: { ...prev[name], qtyWtd: e.target.value }
+                            }))}
+                            className="w-20 text-center text-xs font-semibold border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-indigo-400"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 py-4 border-t border-gray-100 flex justify-between items-center">
+                  <button
+                    onClick={() => {
+                      const cleared = {};
+                      staffList.forEach(n => { cleared[n] = { billWtd: "", valWtd: "", qtyWtd: "" }; });
+                      setDapprInputs(cleared);
+                    }}
+                    className="text-xs font-semibold text-gray-400 hover:text-gray-600"
+                  >
+                    Clear All
+                  </button>
+                  <button
+                    onClick={() => {
+                      const saved = {};
+                      Object.entries(dapprInputs).forEach(([name, v]) => {
+                        const bv = Number(v.billWtd) || 0;
+                        const vv = Number(v.valWtd)  || 0;
+                        const qv = Number(v.qtyWtd)  || 0;
+                        if (bv > 0 || vv > 0 || qv > 0) saved[name] = { billWtd: bv, valWtd: vv, qtyWtd: qv };
+                      });
+                      setDapprAttribution(saved);
+                      localStorage.setItem("dapprAttribution", JSON.stringify(saved));
+                      setDapprModalOpen(false);
+                    }}
+                    className="bg-[#18181b] hover:bg-black text-white text-xs font-bold py-2.5 px-6 rounded-xl"
+                  >
+                    Save & Apply
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Assign Store Target Modal */}
         {assignTargetModalOpen && (
