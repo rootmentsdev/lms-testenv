@@ -153,6 +153,155 @@ router.get('/flutter', MiddilWare, async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// GET & POST /api/store-targets/week-by-date
+//
+// Parameters (Query or Body):
+//   date       (optional) - date string (defaults to today/current date)
+//   storeName  (optional) - store name (defaults to "All")
+//   month      (optional) - month name (defaults to parsed month from date)
+//   year       (optional) - year number (defaults to parsed year from date)
+//
+// Returns the week number, label, and ranges for the date based on config
+// ─────────────────────────────────────────────────────────────────────────────
+const getWeekByDateHandler = async (req, res) => {
+  try {
+    const monthNames = ["January","February","March","April","May","June",
+                        "July","August","September","October","November","December"];
+    
+    let dateVal = req.query.date || req.body.date;
+    let parsedDate = new Date();
+    if (dateVal) {
+      parsedDate = new Date(dateVal);
+      if (isNaN(parsedDate.getTime())) {
+        return res.status(400).json({ success: false, message: "Invalid date format provided" });
+      }
+    }
+
+    const day = parsedDate.getDate();
+    const defaultMonthName = monthNames[parsedDate.getMonth()];
+    const defaultYear = parsedDate.getFullYear();
+
+    const storeName = req.query.storeName || req.body.storeName || 'All';
+    const month = req.query.month || req.body.month || defaultMonthName;
+    const year = Number(req.query.year || req.body.year || defaultYear);
+
+    // Fetch store-specific + global ("All") config for week ranges fallback
+    const [storeDoc, globalDoc] = await Promise.all([
+      StoreTarget.findOne({ storeName, month, year }).lean(),
+      StoreTarget.findOne({ storeName: 'All', month, year }).lean()
+    ]);
+
+    const weekRanges = {
+      1: storeDoc?.weekRanges?.[1] || globalDoc?.weekRanges?.[1] || 'Select Days',
+      2: storeDoc?.weekRanges?.[2] || globalDoc?.weekRanges?.[2] || 'Select Days',
+      3: storeDoc?.weekRanges?.[3] || globalDoc?.weekRanges?.[3] || 'Select Days',
+      4: storeDoc?.weekRanges?.[4] || globalDoc?.weekRanges?.[4] || 'Select Days',
+    };
+
+    let matchedWeek = null;
+    let matchedRangeStr = null;
+    let isConfigured = false;
+    let configSource = 'fallback';
+
+    for (const wk of [1, 2, 3, 4]) {
+      // 1. Check store-specific range first
+      const storeRangeStr = storeDoc?.weekRanges?.[wk];
+      const storeRange = parseWeekRange(storeRangeStr);
+      if (storeRange && day >= storeRange.start && day <= storeRange.end) {
+        matchedWeek = wk;
+        matchedRangeStr = storeRangeStr;
+        isConfigured = true;
+        configSource = 'store';
+        break;
+      }
+
+      // 2. Check global "All" range second
+      const globalRangeStr = globalDoc?.weekRanges?.[wk];
+      const globalRange = parseWeekRange(globalRangeStr);
+      if (globalRange && day >= globalRange.start && day <= globalRange.end) {
+        matchedWeek = wk;
+        matchedRangeStr = globalRangeStr;
+        isConfigured = true;
+        configSource = 'global';
+        break;
+      }
+    }
+
+    // Fallback standard weekly split
+    if (matchedWeek === null) {
+      if (day <= 7) {
+        matchedWeek = 1;
+        matchedRangeStr = `01 - 07 ${month.substring(0, 3)}`;
+      } else if (day <= 14) {
+        matchedWeek = 2;
+        matchedRangeStr = `08 - 14 ${month.substring(0, 3)}`;
+      } else if (day <= 21) {
+        matchedWeek = 3;
+        matchedRangeStr = `15 - 21 ${month.substring(0, 3)}`;
+      } else {
+        matchedWeek = 4;
+        const lastDay = new Date(year, parsedDate.getMonth() + 1, 0).getDate();
+        matchedRangeStr = `22 - ${lastDay} ${month.substring(0, 3)}`;
+      }
+      isConfigured = false;
+      configSource = 'fallback';
+    }
+
+    // Build details for all weeks in the month
+    const allWeeks = [1, 2, 3, 4].map(wk => {
+      let rangeStr = weekRanges[wk];
+      let isFallbackRange = false;
+      if (!rangeStr || rangeStr === 'Select Days') {
+        isFallbackRange = true;
+        if (wk === 1) rangeStr = `01 - 07 ${month.substring(0, 3)}`;
+        else if (wk === 2) rangeStr = `08 - 14 ${month.substring(0, 3)}`;
+        else if (wk === 3) rangeStr = `15 - 21 ${month.substring(0, 3)}`;
+        else {
+          const lastDay = new Date(year, parsedDate.getMonth() + 1, 0).getDate();
+          rangeStr = `22 - ${lastDay} ${month.substring(0, 3)}`;
+        }
+      }
+      return {
+        week: wk,
+        weekLabel: `Week ${wk}`,
+        dateRange: rangeStr,
+        isFallback: isFallbackRange,
+        isCurrent: matchedWeek === wk
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      storeName,
+      month,
+      year,
+      inputDate: parsedDate.toISOString(),
+      day,
+      week: matchedWeek,
+      weekLabel: `Week ${matchedWeek}`,
+      dateRange: matchedRangeStr,
+      isConfigured,
+      configSource,
+      storeConfig: {
+        exists: !!storeDoc,
+        weekRanges: storeDoc?.weekRanges || null
+      },
+      globalConfig: {
+        exists: !!globalDoc,
+        weekRanges: globalDoc?.weekRanges || null
+      },
+      allWeeks
+    });
+  } catch (error) {
+    console.error("Error in /store-targets/week-by-date:", error);
+    return res.status(500).json({ success: false, message: "Internal server error", error: error.message });
+  }
+};
+
+router.get('/week-by-date', MiddilWare, getWeekByDateHandler);
+router.post('/week-by-date', MiddilWare, getWeekByDateHandler);
+
 // GET all store targets for a month and year
 router.get('/', MiddilWare, async (req, res) => {
   try {
