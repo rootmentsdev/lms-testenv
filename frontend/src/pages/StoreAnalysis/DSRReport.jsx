@@ -1093,9 +1093,9 @@ const DSRReport = () => {
         }
       });
       const json = await res.json();
-      if (json.success && json.data) {
+      if (json.success && json.data && json.data.attributions && json.data.attributions.length > 0) {
         const mapped = {};
-        (json.data.attributions || []).forEach(attr => {
+        json.data.attributions.forEach(attr => {
           mapped[attr.staffName] = {
             billWtd: attr.billWtd,
             valWtd: attr.valWtd,
@@ -1103,12 +1103,12 @@ const DSRReport = () => {
           };
         });
         setDapprAttribution(mapped);
-      } else {
-        setDapprAttribution({});
+        // Sync to localStorage so table hydrates correctly
+        localStorage.setItem("dapprAttribution", JSON.stringify(mapped));
       }
+      // If no DB data found, keep whatever is in state (from localStorage)
     } catch (err) {
       console.error("Error loading Dappr attributions:", err);
-      setDapprAttribution({});
     }
   };
 
@@ -2935,22 +2935,48 @@ const DSRReport = () => {
             {/* Add Dappr Squad Button — store_admin only */}
             {isStoreAdmin && (
               <button
-                onClick={() => {
-                  // Pre-fill inputs from saved attribution
+                onClick={async () => {
+                  // Pre-fill inputs from saved attribution (always fetch fresh from DB)
                   const branch = branches[0];
                   if (!branch) return;
                   const locId = getBranchLocationId(branch.workingBranch);
-                  const dapprPeriod = getDapprSquadDataForStore(locId, performanceData.period["25"] || []);
                   const staffNames = Array.from(new Set([
                     ...(performanceData.period[locId] || []).map(x => x.bookingBy),
                     ...(performanceData.ftd[locId]    || []).map(x => x.bookingBy),
                   ])).filter(Boolean);
+
+                  // Fetch latest from DB first
+                  let freshAttribution = { ...dapprAttribution };
+                  try {
+                    const token = localStorage.getItem("token");
+                    const targetMonth = activeTab === "Custom" ? getMonthNameFromDateStr(customStartDate) : CURRENT_MONTH_LONG;
+                    const targetYear = activeTab === "Custom" ? getYearFromDateStr(customStartDate) : CURRENT_YEAR;
+                    const currentWeek = getCurrentWeekId(selectedStore) || 1;
+                    const res = await fetch(`${baseUrl.baseUrl}api/dappr-attributions?storeName=${selectedStore}&month=${targetMonth}&year=${targetYear}&week=${currentWeek}`, {
+                      headers: { "Authorization": `Bearer ${token}` }
+                    });
+                    const json = await res.json();
+                    if (json.success && json.data) {
+                      freshAttribution = {};
+                      (json.data.attributions || []).forEach(attr => {
+                        freshAttribution[attr.staffName] = {
+                          billWtd: attr.billWtd,
+                          valWtd: attr.valWtd,
+                          qtyWtd: attr.qtyWtd
+                        };
+                      });
+                      setDapprAttribution(freshAttribution);
+                    }
+                  } catch (err) {
+                    console.error("Error pre-loading Dappr attributions:", err);
+                  }
+
                   const inputs = {};
                   staffNames.forEach(name => {
-                    const matchedKey = Object.keys(dapprAttribution).find(
+                    const matchedKey = Object.keys(freshAttribution).find(
                       k => k.trim().toLowerCase() === name.trim().toLowerCase()
                     );
-                    const saved = matchedKey ? dapprAttribution[matchedKey] : {};
+                    const saved = matchedKey ? freshAttribution[matchedKey] : {};
                     inputs[name] = {
                       billWtd: saved.billWtd ?? "",
                       valWtd:  saved.valWtd  ?? "",
