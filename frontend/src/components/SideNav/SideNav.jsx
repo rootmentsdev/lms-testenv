@@ -263,7 +263,7 @@ const SideNav = () => {
                 { to: '/store-analysis/dsr-report', label: 'DSR Report', active: is('/store-analysis/dsr-report') },
                 { to: '/store-analysis/growth-comparison', label: 'Growth Comparison', active: is('/store-analysis/growth-comparison') },
                 { to: '/store-analysis/google-review-task', label: 'Google Review', active: is('/store-analysis/google-review-task') },
-                { to: '/store-analysis/store-rating', label: 'Store Rating', active: is('/store-analysis/store-rating') || is('/store-analysis/store-rating/create') || location.pathname.startsWith('/store-analysis/store-rating/') }
+                { to: '/store-analysis/store-rating', label: user?.role === 'store_admin' ? 'Staff Rating' : 'Store Rating', active: is('/store-analysis/store-rating') || is('/store-analysis/store-rating/create') || location.pathname.startsWith('/store-analysis/store-rating/') }
               ]}
             />
           )}
