@@ -310,7 +310,7 @@ const DashboardOverview = ({ range = "7", customRange }) => {
       iconBg: "#DCFCE7",
     },
     {
-      title: "Average Staff Rating",
+      title: user?.role === "store_admin" ? "Staff Rating" : "Average Staff Rating",
       value: staffRatingLoading ? "..." : `${staffRatingSummary.averageRating} / 5`,
       subtitle: `Based on ${staffRatingSummary.totalRatings} ratings`,
       icon: <RatingIcon />,

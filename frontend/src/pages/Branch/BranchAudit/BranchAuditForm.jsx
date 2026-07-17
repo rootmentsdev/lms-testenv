@@ -145,7 +145,7 @@ const SectionBlock = ({ title, items, values, setValues }) => (
 const EmployeeRatingBlock = ({ criteria, values, setValues }) => (
   <section className="rounded-[8px] bg-white px-6 py-8 shadow-sm">
     <h2 className="mb-6 text-[16px] font-bold text-black border-b border-gray-100 pb-3">
-      Staff Performance
+      Employee Performance Rating
     </h2>
     <div className="grid grid-cols-1 gap-y-8 sm:grid-cols-2 lg:grid-cols-4 lg:gap-x-6">
       {criteria.map((label, idx) => (
@@ -371,7 +371,7 @@ const BranchAuditForm = () => {
           {/* Page title */}
           <div className="mb-6 flex items-center gap-3">
             <h1 className="text-[22px] font-bold text-black">
-              {isStoreAdmin ? "Staff Performance" : "Store Rating Audit"}
+              {isStoreAdmin ? "Employee Performance Rating" : "Store Rating Audit"}
             </h1>
             <span
               className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${
@@ -425,8 +425,7 @@ const BranchAuditForm = () => {
                     <label className="mb-2 block text-[14px] font-semibold text-[#30343b]">
                       Employee<span className="text-red-500">*</span>
                     </label>
-                    {employeeOptions.length > 0 ? (
-                      <div className="relative">
+                    <div className="relative">
                         <select
                           value={employeeId}
                           required
@@ -443,7 +442,9 @@ const BranchAuditForm = () => {
                           }}
                           className="w-full appearance-none rounded-[8px] border border-gray-200 bg-white px-4 py-3 text-[14px] font-medium outline-none focus:border-gray-400"
                         >
-                          <option value="">Select Employee</option>
+                          <option value="">
+                            {employeeOptions.length === 0 ? "Loading employees..." : "Select Employee"}
+                          </option>
                           {employeeOptions.map((emp) => (
                             <option
                               key={emp._id || emp.employeeId}
@@ -455,16 +456,6 @@ const BranchAuditForm = () => {
                         </select>
                         <FaUser className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-[12px]" />
                       </div>
-                    ) : (
-                      <input
-                        type="text"
-                        value={employeeName}
-                        required
-                        onChange={(e) => setEmployeeName(e.target.value)}
-                        placeholder="Enter employee name"
-                        className="w-full rounded-[8px] border border-gray-200 bg-white px-4 py-3 text-[14px] font-medium outline-none focus:border-gray-400"
-                      />
-                    )}
                   </div>
                 )}
               </div>
