@@ -530,7 +530,8 @@ const DSRReport = () => {
       4: parseRange(w4, 4),
     };
     
-    const storeTargetObj = overrideTargetObj || weeklyTargets[storeName] || {};
+    const storeNameNorm = storeName ? storeName.replace(/[.\-]/g, '-') : storeName;
+    const storeTargetObj = overrideTargetObj || weeklyTargets[storeName] || weeklyTargets[storeNameNorm] || {};
     
     // Sum daily target contributions
     let totalTarget = 0;
@@ -567,7 +568,8 @@ const DSRReport = () => {
   };
 
   const getStoreTarget = (storeName, defaultTarget, activeTabVal, customFactorVal) => {
-    const storeTargetObj = weeklyTargets[storeName] || {};
+    const snorm = storeName ? storeName.replace(/[.\-]/g, '-') : storeName;
+    const storeTargetObj = weeklyTargets[storeName] || weeklyTargets[snorm] || {};
     
     // Monthly (MTD) is the sum of all weeks
     if (activeTabVal === "MTD") {
@@ -605,7 +607,8 @@ const DSRReport = () => {
   };
 
   const getStaffTarget = (storeName, staffName, activeTabVal) => {
-    const storeEmpTargets = employeeTargets[storeName] || [];
+    const snorm = storeName ? storeName.replace(/[.\-]/g, '-') : storeName;
+    const storeEmpTargets = employeeTargets[storeName] || employeeTargets[snorm] || [];
     const empT = storeEmpTargets.find(e => e.staffName === staffName);
     if (!empT || !empT.weeklyTargets) return null; // No explicit target
 
@@ -1003,6 +1006,9 @@ const DSRReport = () => {
         
         data.forEach((doc) => {
           const store = doc.storeName;
+          // Normalize store name: treat dots and dashes as the same separator
+          const storeNorm = store.replace(/[.\-]/g, '-');
+
           if (store === "All") {
             w1 = doc.weekRanges?.[1] || `01 - 10 ${monthShort}`;
             w2 = doc.weekRanges?.[2] || `11 - 17 ${monthShort}`;
@@ -1010,21 +1016,28 @@ const DSRReport = () => {
             w4 = doc.weekRanges?.[4] || "Select Days";
           }
           
-          targetsMap[store] = {
+          const targetEntry = {
             1: doc.weeklyTargets?.[1] || 0,
             2: doc.weeklyTargets?.[2] || 0,
             3: doc.weeklyTargets?.[3] || 0,
             4: doc.weeklyTargets?.[4] || 0,
           };
-          
-          rangesMap[store] = {
+          const rangeEntry = {
             1: doc.weekRanges?.[1] || "Select Days",
             2: doc.weekRanges?.[2] || "Select Days",
             3: doc.weekRanges?.[3] || "Select Days",
             4: doc.weekRanges?.[4] || "Select Days",
           };
 
+          // Store under exact DB key AND normalized key (dot→dash)
+          targetsMap[store] = targetEntry;
+          if (storeNorm !== store) targetsMap[storeNorm] = targetEntry;
+          
+          rangesMap[store] = rangeEntry;
+          if (storeNorm !== store) rangesMap[storeNorm] = rangeEntry;
+
           empTargetsMap[store] = doc.employeeTargets || [];
+          if (storeNorm !== store) empTargetsMap[storeNorm] = doc.employeeTargets || [];
         });
         
         setWeeklyTargets(targetsMap);
