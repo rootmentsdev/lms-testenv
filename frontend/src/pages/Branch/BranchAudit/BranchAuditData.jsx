@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSelector } from "react-redux";
 import SideNav from "../../../components/SideNav/SideNav";
 import { Link, useLocation } from "react-router-dom";
 import { FaAngleDoubleLeft, FaAngleDoubleRight, FaAngleLeft, FaAngleRight, FaChevronDown, FaEye, FaSearch } from "react-icons/fa";
@@ -22,6 +23,10 @@ const PaginationButton = ({ children, active = false, disabled = false, onClick 
 
 const BranchAuditData = () => {
   const location = useLocation();
+  const user = useSelector((s) => s.auth.user);
+  const isStoreAdmin = user?.role === "store_admin";
+  // store_admin's branch is the first in their branches list
+  const myStoreName = user?.branches?.[0]?.workingBranch || "";
   const basePath = location.pathname.startsWith('/store-analysis/store-rating') ? '/store-analysis/store-rating' : '/branch/audit';
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
@@ -91,9 +96,13 @@ const BranchAuditData = () => {
         row.ratedBy.toLowerCase().includes(q) ||
         String(row.overallRating).includes(q);
       const matchesFilter = filter === "All" || row.storeName === filter;
-      return matchesSearch && matchesFilter;
+      // store_admin: only show their own store's ratings
+      const matchesRole = !isStoreAdmin || 
+        row.storeName.trim().toLowerCase().replace(/[.\-]/g, '-') === 
+        myStoreName.trim().toLowerCase().replace(/[.\-]/g, '-');
+      return matchesSearch && matchesFilter && matchesRole;
     });
-  }, [branches, filter, search]);
+  }, [branches, filter, search, isStoreAdmin, myStoreName]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
   const safePage = Math.min(page, totalPages);
