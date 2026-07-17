@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { normalizeBranchProgress } from "../../features/dashboard/dashboardUtils";
 import { fetchDashboardTasks, fetchHomeProgress, fetchHomeProgressChart, fetchWeeklyWalkinCount } from "../../features/dashboard/dashboardFetch";
+import baseUrl from "../../api/api";
 
 const StatCard = ({ title, value, subtitle, icon, iconBg }) => (
   <div
@@ -84,10 +85,9 @@ const EmployeeIcon = () => (
   </svg>
 );
 
-const AssessmentIcon = () => (
+const RatingIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9 11l3 3L22 4" />
-    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
   </svg>
 );
 
@@ -105,10 +105,13 @@ const DashboardOverview = ({ range = "7", customRange }) => {
   const [chartResponse, setChartResponse] = useState(null);
   const [walkinCount, setWalkinCount] = useState(0);
   const [tasksResponse, setTasksResponse] = useState(null);
+  const [staffRatingSummary, setStaffRatingSummary] = useState({ averageRating: 0.0, totalRatings: 0 });
+  
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [chartLoading, setChartLoading] = useState(true);
   const [walkinLoading, setWalkinLoading] = useState(true);
   const [tasksLoading, setTasksLoading] = useState(true);
+  const [staffRatingLoading, setStaffRatingLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -173,16 +176,43 @@ const DashboardOverview = ({ range = "7", customRange }) => {
       }
     };
 
+    const loadStaffRating = async () => {
+      setStaffRatingLoading(true);
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${baseUrl.baseUrl}api/admin/branch-audit/staff-rating-summary`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json?.success && json?.data) {
+            setStaffRatingSummary(json.data);
+          }
+        }
+      } catch {
+        if (!mounted) return;
+        setStaffRatingSummary({ averageRating: 0.0, totalRatings: 0 });
+      } finally {
+        if (mounted) setStaffRatingLoading(false);
+      }
+    };
+
     loadSummary();
     loadChart();
     loadWalkins();
     loadTasks();
+    loadStaffRating();
 
     const refresh = () => {
       loadSummary();
       loadChart();
       loadWalkins();
       loadTasks();
+      loadStaffRating();
     };
 
     window.addEventListener("dashboard:refresh", refresh);
@@ -280,12 +310,10 @@ const DashboardOverview = ({ range = "7", customRange }) => {
       iconBg: "#DCFCE7",
     },
     {
-      title: "Completed Assessments",
-      value: summaryLoading ? "..." : (stats.completedAssessments || "0"),
-      subtitle: stats.totalAssessments
-        ? `${Math.round((stats.completedAssessments / stats.totalAssessments) * 100)}% of ${stats.totalAssessments} total`
-        : "No assessments yet",
-      icon: <AssessmentIcon />,
+      title: "Average Staff Rating",
+      value: staffRatingLoading ? "..." : `${staffRatingSummary.averageRating} / 5`,
+      subtitle: `Based on ${staffRatingSummary.totalRatings} ratings`,
+      icon: <RatingIcon />,
       iconBg: "#DBEAFE",
     },
   ];

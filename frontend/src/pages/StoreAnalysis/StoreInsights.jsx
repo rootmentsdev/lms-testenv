@@ -505,7 +505,8 @@ const CircularProgress = ({ percentage, benchmarkPercentage = 82 }) => {
   const outerRadius = 34;
   const outerCircumference = outerRadius * 2 * Math.PI; // ~213.6
   const maxLen = (280 / 360) * outerCircumference; // limit track to 280 degrees
-  const outerStrokeDashoffset = outerCircumference - (percentage / 100) * maxLen;
+  const visualPercentage = Math.min(100, Math.max(0, percentage));
+  const outerStrokeDashoffset = outerCircumference - (visualPercentage / 100) * maxLen;
 
   // Inner thin ring (with the benchmark text inside)
   const innerRadius = 20;
@@ -1550,7 +1551,7 @@ const StoreInsights = () => {
       }
 
       const balance = target - achieved;
-      const pct = target > 0 ? Math.min(Math.round((achieved / target) * 100), 100) : 0;
+      const pct = target > 0 ? Math.round((achieved / target) * 100) : 0;
       return { 
         name, 
         target, 
@@ -1635,7 +1636,7 @@ const StoreInsights = () => {
         const achieved = item.totalValue || 0;
         const target = resolveStaffTarget(fullName);
         const balance = target - achieved;
-        const pct = target > 0 ? Math.min(Math.round((achieved / target) * 100), 100) : 0;
+        const pct = target > 0 ? Math.round((achieved / target) * 100) : 0;
         return { name: fullName, abbr: firstName, achieved, target, balance, pct };
       })
       .filter(item => item.achieved > 0)
@@ -1649,7 +1650,7 @@ const StoreInsights = () => {
     // Totals from filtered stores
     const totalTarget = filteredStoresForKPIs.reduce((acc, c) => acc + c.target, 0);
     const totalAchieved = filteredStoresForKPIs.reduce((acc, c) => acc + c.achieved, 0);
-    const achievedPct = totalTarget > 0 ? Math.min(Math.round((totalAchieved / totalTarget) * 100), 100) : 0;
+    const achievedPct = totalTarget > 0 ? Math.round((totalAchieved / totalTarget) * 100) : 0;
 
     // Scale other count metrics proportionally to the number of filtered stores vs total stores
     const ratio = chartData.length > 0 ? filteredStoresForKPIs.length / chartData.length : 1;
@@ -1846,7 +1847,18 @@ const StoreInsights = () => {
         return sum + (entry?.thisMonth || 0);
       }, 0);
     })();
-    const googleRating = 0; // Rating not stored in DB yet
+    const googleRating = (() => {
+      const storeNames = filteredStoresForKPIs.map(s => s.name);
+      const activeEntries = storeNames.length === 0 
+        ? Object.values(googleReviewData)
+        : storeNames.map(name => googleReviewData[name]).filter(Boolean);
+      
+      const ratedEntries = activeEntries.filter(entry => entry.rating > 0);
+      if (ratedEntries.length === 0) return 0;
+      
+      const sum = ratedEntries.reduce((acc, curr) => acc + (curr.rating || 0), 0);
+      return parseFloat((sum / ratedEntries.length).toFixed(1));
+    })();
 
     if (isConsolidated) {
       const consolidatedValue = rentalValue + shoeValue + shirtValue;
@@ -1857,7 +1869,7 @@ const StoreInsights = () => {
       const lyConsolidatedBills = lyRentalBills;
       const lyConsolidatedQty = lyRentalQty;
 
-      const trueAchievedPct = totalTarget > 0 ? Math.min(Math.round((consolidatedValue / totalTarget) * 100), 100) : 0;
+      const trueAchievedPct = totalTarget > 0 ? Math.round((consolidatedValue / totalTarget) * 100) : 0;
 
       const basketSize = consolidatedBills > 0 ? (consolidatedTotalQty / consolidatedBills).toFixed(1) : "0.0";
       const basketValue = consolidatedBills > 0 ? Math.round(consolidatedValue / consolidatedBills) : 0;
@@ -1929,7 +1941,7 @@ const StoreInsights = () => {
       const lyTrueRentalBills = lyRentalBills;
       const lyTrueRentalQty = lyRentalQty;
 
-      const trueAchievedPct = totalTarget > 0 ? Math.min(Math.round((trueRentalValue / totalTarget) * 100), 100) : 0;
+      const trueAchievedPct = totalTarget > 0 ? Math.round((trueRentalValue / totalTarget) * 100) : 0;
       const conversionRate = customerWalkins > 0 ? Math.min(100, Math.round((convertedWalkinsCount / customerWalkins) * 100)) : 0;
 
       const basketSize = trueRentalBills > 0 ? (trueRentalQty / trueRentalBills).toFixed(1) : "0.0";
@@ -2943,11 +2955,8 @@ const StoreInsights = () => {
               <div className="flex flex-col justify-center min-w-0">
                 <h3 className="text-[20px] xs:text-[22px] sm:text-[24px] lg:text-[18px] xl:text-[22px] 2xl:text-[28px] font-extrabold text-slate-900 leading-none truncate" title={stats.googleReviews}>{stats.googleReviews}</h3>
                 <span className="text-[12px] text-gray-400 font-semibold font-sans mt-3 block">
-                  Average rating <span className="font-extrabold text-slate-700">{stats.googleRating}</span>
+                  Total customer reviews
                 </span>
-              </div>
-              <div className="shrink-0 flex items-center h-full pt-4">
-                <StarRating rating={stats.googleRating} />
               </div>
             </div>
           </div>

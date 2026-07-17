@@ -220,6 +220,15 @@ const getStoreNameFromLocId = (locId) => {
 const GrowthComparison = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("MTD");
+  const [customStartDate, setCustomStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return `2026-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
+  const [customEndDate, setCustomEndDate] = useState(() => {
+    const d = new Date();
+    return `2026-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
   const [branches, setBranches] = useState([]);
   const [tyWalkins, setTyWalkins] = useState([]);
   const [lyWalkins, setLyWalkins] = useState([]);
@@ -277,6 +286,14 @@ const GrowthComparison = () => {
           tyEnd = getLocalDateString(new Date(2026, today.getMonth(), today.getDate()));
           lyStart = getLocalDateString(new Date(2025, today.getMonth(), 1));
           lyEnd = getLocalDateString(new Date(2025, today.getMonth(), today.getDate()));
+        } else if (activeTab === "CUSTOM") {
+          tyStart = customStartDate;
+          tyEnd = customEndDate;
+          
+          const tyYear = new Date(customStartDate).getFullYear() || 2026;
+          const lyYear = tyYear - 1;
+          lyStart = customStartDate.replace(String(tyYear), String(lyYear));
+          lyEnd = customEndDate.replace(String(tyYear), String(lyYear));
         } else {
           const tyRange = getMTDDateRange(2026);
           const lyRange = getMTDDateRange(2025);
@@ -403,7 +420,7 @@ const GrowthComparison = () => {
     };
 
     fetchData();
-  }, [activeTab]);
+  }, [activeTab, customStartDate, customEndDate]);
 
   const formatIndianNumber = (num) => {
     const isNegative = num < 0;
@@ -506,7 +523,7 @@ const GrowthComparison = () => {
   const totalL2lWalk = useMemo(() => totalTyWalk - totalLyWalk, [totalTyWalk, totalLyWalk]);
 
   const handleExportCSV = () => {
-    const scaleLabel = activeTab === "MTD" ? "MTD" : "WTD";
+    const scaleLabel = activeTab === "MTD" ? "MTD" : (activeTab === "WTD" ? "WTD" : "CUSTOM");
     const fileName = `Growth_Comparison_${scaleLabel}_2026.csv`;
     
     const headers = [
@@ -571,6 +588,8 @@ const GrowthComparison = () => {
     document.body.removeChild(link);
   };
 
+  const scaleLabel = activeTab === "MTD" ? "MTD" : (activeTab === "WTD" ? "WTD" : "CUSTOM");
+
   return (
     <div className="flex w-full min-h-screen bg-[#f3f4f6] text-gray-800" style={{ fontFamily: "DM Sans, sans-serif" }}>
       {/* SideNav desktop */}
@@ -591,7 +610,25 @@ const GrowthComparison = () => {
             <p className="text-gray-500 text-[13px] mt-0.5">Real time performance overview across all stores</p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            {activeTab === "CUSTOM" && (
+              <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-gray-200 shadow-sm text-xs font-medium text-gray-600">
+                <span className="font-bold">TY Range:</span>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="bg-transparent border-none outline-none text-gray-800 font-semibold cursor-pointer"
+                />
+                <span className="text-gray-300">|</span>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="bg-transparent border-none outline-none text-gray-800 font-semibold cursor-pointer"
+                />
+              </div>
+            )}
             {/* MTD / WTD switcher */}
             <div className="flex bg-[#e5e7eb] p-1 rounded-xl shadow-sm">
               <button 
@@ -613,6 +650,16 @@ const GrowthComparison = () => {
                 }`}
               >
                 WTD
+              </button>
+              <button 
+                onClick={() => setActiveTab("CUSTOM")}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  activeTab === "CUSTOM" 
+                    ? "bg-[#18181b] text-white shadow-sm" 
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                Custom
               </button>
             </div>
           </div>
@@ -661,23 +708,23 @@ const GrowthComparison = () => {
                 {/* Secondary header row */}
                 <tr className="bg-[#18181b] text-zinc-300 text-[10px] font-bold tracking-wider uppercase">
                   {/* Value */}
-                  <th className="px-4 py-2 border-r border-zinc-700">{activeTab === "MTD" ? "TY MTD" : "TY WTD"}</th>
-                  <th className="px-4 py-2 border-r border-zinc-700">{activeTab === "MTD" ? "LY MTD" : "LY WTD"}</th>
+                  <th className="px-4 py-2 border-r border-zinc-700">{`TY ${scaleLabel}`}</th>
+                  <th className="px-4 py-2 border-r border-zinc-700">{`LY ${scaleLabel}`}</th>
                   <th className="px-4 py-2 border-r border-zinc-700">L2L</th>
                   
                   {/* Bill */}
-                  <th className="px-4 py-2 border-r border-zinc-700">{activeTab === "MTD" ? "TY MTD" : "TY WTD"}</th>
-                  <th className="px-4 py-2 border-r border-zinc-700">{activeTab === "MTD" ? "LY MTD" : "LY WTD"}</th>
+                  <th className="px-4 py-2 border-r border-zinc-700">{`TY ${scaleLabel}`}</th>
+                  <th className="px-4 py-2 border-r border-zinc-700">{`LY ${scaleLabel}`}</th>
                   <th className="px-4 py-2 border-r border-zinc-700">L2L</th>
                   
                   {/* Quantity */}
-                  <th className="px-4 py-2 border-r border-zinc-700">{activeTab === "MTD" ? "TY MTD" : "TY WTD"}</th>
-                  <th className="px-4 py-2 border-r border-zinc-700">{activeTab === "MTD" ? "LY MTD" : "LY WTD"}</th>
+                  <th className="px-4 py-2 border-r border-zinc-700">{`TY ${scaleLabel}`}</th>
+                  <th className="px-4 py-2 border-r border-zinc-700">{`LY ${scaleLabel}`}</th>
                   <th className="px-4 py-2 border-r border-zinc-700">L2L</th>
 
                   {/* Walk In */}
-                  <th className="px-4 py-2 border-r border-zinc-700">{activeTab === "MTD" ? "TY MTD" : "TY WTD"}</th>
-                  <th className="px-4 py-2 border-r border-zinc-700">{activeTab === "MTD" ? "LY MTD" : "LY WTD"}</th>
+                  <th className="px-4 py-2 border-r border-zinc-700">{`TY ${scaleLabel}`}</th>
+                  <th className="px-4 py-2 border-r border-zinc-700">{`LY ${scaleLabel}`}</th>
                   <th className="px-4 py-2">L2L</th>
                 </tr>
               </thead>

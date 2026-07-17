@@ -171,3 +171,39 @@ export const getBranchAuditById = async (req, res) => {
     return res.status(500).json({ success: false, message: "Failed to fetch branch audit", error: error.message });
   }
 };
+
+export const getStaffRatingSummary = async (req, res) => {
+  try {
+    const audits = await BranchAudit.find({
+      $or: [
+        { "metadata.employeeId": { $exists: true, $ne: null } },
+        { "metadata.employeeName": { $exists: true, $ne: "" } }
+      ]
+    }).lean();
+
+    if (audits.length === 0) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          averageRating: 0,
+          totalRatings: 0
+        }
+      });
+    }
+
+    const totalRatings = audits.length;
+    const sumRatings = audits.reduce((sum, a) => sum + (a.overallRating || 0), 0);
+    const averageRating = parseFloat((sumRatings / totalRatings).toFixed(1));
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        averageRating,
+        totalRatings
+      }
+    });
+  } catch (error) {
+    console.error("getStaffRatingSummary error:", error);
+    return res.status(500).json({ success: false, message: "Failed to get staff rating summary", error: error.message });
+  }
+};

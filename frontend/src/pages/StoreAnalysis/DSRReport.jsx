@@ -741,10 +741,10 @@ const DSRReport = () => {
     if (configWeeksModalOpen) {
       if (configStore && configStore !== "All" && storeWeekRanges[configStore]) {
         const sr = storeWeekRanges[configStore];
-        setConfigWeek1(sr[1] || week1Dates);
-        setConfigWeek2(sr[2] || week2Dates);
-        setConfigWeek3(sr[3] || week3Dates);
-        setConfigWeek4(sr[4] || week4Dates);
+        setConfigWeek1((sr[1] && sr[1] !== "Select Days") ? sr[1] : week1Dates);
+        setConfigWeek2((sr[2] && sr[2] !== "Select Days") ? sr[2] : week2Dates);
+        setConfigWeek3((sr[3] && sr[3] !== "Select Days") ? sr[3] : week3Dates);
+        setConfigWeek4((sr[4] && sr[4] !== "Select Days") ? sr[4] : week4Dates);
       } else {
         setConfigWeek1(week1Dates);
         setConfigWeek2(week2Dates);
@@ -885,10 +885,10 @@ const DSRReport = () => {
 
       if (effectiveStore && effectiveStore !== "All" && storeWeekRanges[effectiveStore]) {
         const sr = storeWeekRanges[effectiveStore];
-        setModalWeek1(sr[1] || week1Dates);
-        setModalWeek2(sr[2] || week2Dates);
-        setModalWeek3(sr[3] || week3Dates);
-        setModalWeek4(sr[4] || week4Dates);
+        setModalWeek1((sr[1] && sr[1] !== "Select Days") ? sr[1] : week1Dates);
+        setModalWeek2((sr[2] && sr[2] !== "Select Days") ? sr[2] : week2Dates);
+        setModalWeek3((sr[3] && sr[3] !== "Select Days") ? sr[3] : week3Dates);
+        setModalWeek4((sr[4] && sr[4] !== "Select Days") ? sr[4] : week4Dates);
       } else {
         setModalWeek1(week1Dates);
         setModalWeek2(week2Dates);
@@ -1079,6 +1079,39 @@ const DSRReport = () => {
     }
   };
 
+  const fetchDapprAttribution = async () => {
+    if (!isStoreAdmin || selectedStore === "All") return;
+    try {
+      const token = localStorage.getItem("token");
+      const targetMonth = activeTab === "Custom" ? getMonthNameFromDateStr(customStartDate) : CURRENT_MONTH_LONG;
+      const targetYear = activeTab === "Custom" ? getYearFromDateStr(customStartDate) : CURRENT_YEAR;
+      const currentWeek = getCurrentWeekId(selectedStore) || 1;
+
+      const res = await fetch(`${baseUrl.baseUrl}api/dappr-attributions?storeName=${selectedStore}&month=${targetMonth}&year=${targetYear}&week=${currentWeek}`, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        const mapped = {};
+        (json.data.attributions || []).forEach(attr => {
+          mapped[attr.staffName] = {
+            billWtd: attr.billWtd,
+            valWtd: attr.valWtd,
+            qtyWtd: attr.qtyWtd
+          };
+        });
+        setDapprAttribution(mapped);
+      } else {
+        setDapprAttribution({});
+      }
+    } catch (err) {
+      console.error("Error loading Dappr attributions:", err);
+      setDapprAttribution({});
+    }
+  };
+
   // Dynamic branches state — declared at top of component
 
   // Auto-select the store for store_admin so they see staff view immediately
@@ -1158,6 +1191,11 @@ const DSRReport = () => {
       fetchStoreTargets(configMonth, CURRENT_YEAR);
     }
   }, [configMonth, configWeeksModalOpen]);
+
+  // Fetch Dappr Squad manually-attributed values dynamically
+  useEffect(() => {
+    fetchDapprAttribution();
+  }, [activeTab, customStartDate, selectedStore, storeWeekRanges, dapprModalOpen]);
 
   // Fetch walkins dynamically based on timeframe range
   useEffect(() => {
@@ -1606,14 +1644,13 @@ const DSRReport = () => {
 
       // Dappr Squad data is now entered manually via dapprAttribution — no longer auto-merged here
       const mergedPeriodList = [...locPeriodList];
-      const storeTotalRental = mergedPeriodList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
+      let storeTotalRental = mergedPeriodList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
+      storeTotalRental += Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
 
       let storeTotalSales = 0;
       if (funnelView === "Consolidated") {
         const salesPeriodItem = salesData.period[locCode] || salesData.period[storeKeyVal] || { value: 0 };
         storeTotalSales = salesPeriodItem.value || 0;
-        // Add total manually-attributed Dappr Squad value
-        storeTotalSales += Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
       }
 
       const storeTotalAchieved = storeTotalRental + storeTotalSales;
@@ -1635,7 +1672,7 @@ const DSRReport = () => {
       const rawStaffNames = [
         ...mergedPeriodList.map(x => x && x.bookingBy),
         ...salesStaffNames,
-        ...(funnelView === "Consolidated" ? Object.keys(dapprAttribution) : [])
+        ...Object.keys(dapprAttribution)
       ].filter(name => typeof name === "string" && name.trim() !== "");
 
       const staffNames = [];
@@ -1663,7 +1700,12 @@ const DSRReport = () => {
         const fullName = String(staffName).trim();
         const staffKey = normalizeForMatch(staffName);
 
-        const rentalVal = mergedPeriodList.filter(x => x && normalizeForMatch(x.bookingBy) === staffKey).reduce((sum, x) => sum + (x.totalValue || 0), 0);
+        let rentalVal = mergedPeriodList.filter(x => x && normalizeForMatch(x.bookingBy) === staffKey).reduce((sum, x) => sum + (x.totalValue || 0), 0);
+        const dapprKey = Object.keys(dapprAttribution).find(k => normalizeForMatch(k) === staffKey);
+        if (dapprKey) {
+          rentalVal += Number(dapprAttribution[dapprKey]?.billWtd) || 0;
+        }
+
         let salesVal = 0;
         if (funnelView === "Consolidated") {
           const getSalesDataForStaff = (salesItem) => {
@@ -1674,12 +1716,6 @@ const DSRReport = () => {
             return {};
           };
           salesVal = getSalesDataForStaff(salesPeriodItem).value || 0;
-          
-          // Add manually attributed Dappr Squad value for this staff member (using case-insensitive keys)
-          const dapprKey = Object.keys(dapprAttribution).find(k => normalizeForMatch(k) === staffKey);
-          if (dapprKey) {
-            salesVal += Number(dapprAttribution[dapprKey]?.billWtd) || 0;
-          }
         }
 
         const achieved = rentalVal + salesVal;
@@ -2125,7 +2161,8 @@ const DSRReport = () => {
         const rawStaffNames = [
           ...combinedFtdList.map(x => x && x.bookingBy),
           ...combinedPeriodList.map(x => x && x.bookingBy),
-          ...salesStaffNames
+          ...salesStaffNames,
+          ...Object.keys(dapprAttribution)
         ].filter(name => typeof name === "string" && name.trim() !== "");
 
         const staffNames = [];
@@ -2191,13 +2228,14 @@ const DSRReport = () => {
           let qtyFtd = rentalQtyFtd;
           let qtyWtd = rentalQtyWtd;
 
-          // Merge manual Dappr Squad attribution — only in Consolidated view
-          if (funnelView === "Consolidated") {
-            const dapprAttr = dapprAttribution[staffName] || {};
-            billWtd += Number(dapprAttr.billWtd) || 0;
-            valWtd  += Number(dapprAttr.valWtd)  || 0;
-            qtyWtd  += Number(dapprAttr.qtyWtd)  || 0;
-          }
+          // Merge manual Dappr Squad attribution — ALWAYS (since it is rental!)
+          const matchedDapprKey = Object.keys(dapprAttribution).find(
+            k => k.trim().toLowerCase() === staffName.trim().toLowerCase()
+          );
+          const dapprAttr = matchedDapprKey ? dapprAttribution[matchedDapprKey] : {};
+          billWtd += Number(dapprAttr.billWtd) || 0;
+          valWtd  += Number(dapprAttr.valWtd)  || 0;
+          qtyWtd  += Number(dapprAttr.qtyWtd)  || 0;
 
           if (funnelView === "Consolidated") {
             const getSalesDataForStaff = (salesItem) => {
@@ -2372,11 +2410,22 @@ const DSRReport = () => {
     });
     return total;
   }, [branches, performanceData, salesData, funnelView]);
+  const filteredWalkinsList = useMemo(() => {
+    if (!selectedStore || selectedStore === "All") return walkins;
+    const selectedBranch = branches.find(b => displayBranchName(b.workingBranch) === selectedStore);
+    if (!selectedBranch) return [];
+    const storeKeyVal = locationKey(selectedBranch.workingBranch);
+    return walkins.filter(w => 
+      String(w.storeId || '') === String(selectedBranch._id || '') || 
+      locationKey(w.store) === storeKeyVal
+    );
+  }, [walkins, selectedStore, branches]);
+
   const totalQtyFtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + (row.qtyFtd || 0), 0), [filteredFunnelRows]);
   const totalQtyWtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + (row.qtyWtd || 0), 0), [filteredFunnelRows]);
   const totalWalkFtd = useMemo(() => {
-    return walkins.filter(w => isWalkinCreatedInRange(w.createdAt, todayStr, todayStr)).length;
-  }, [walkins, todayStr]);
+    return filteredWalkinsList.filter(w => isWalkinCreatedInRange(w.createdAt, todayStr, todayStr)).length;
+  }, [filteredWalkinsList, todayStr]);
 
   const totalWalkWtd = useMemo(() => {
     const today = new Date();
@@ -2392,8 +2441,8 @@ const DSRReport = () => {
       periodStart = customStartDate || todayStr;
       periodEnd = customEndDate || todayStr;
     }
-    return walkins.filter(w => isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd)).length;
-  }, [walkins, activeTab, customStartDate, customEndDate, todayStr]);
+    return filteredWalkinsList.filter(w => isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd)).length;
+  }, [filteredWalkinsList, activeTab, customStartDate, customEndDate, todayStr]);
   const totalLossFtd = useMemo(() => Math.max(0, totalWalkFtd - totalValFtd), [totalWalkFtd, totalValFtd]);
   const totalLossWtd = useMemo(() => Math.max(0, totalWalkWtd - totalValWtd), [totalWalkWtd, totalValWtd]);
 
@@ -2408,6 +2457,9 @@ const DSRReport = () => {
 
   const totalArpFtd = useMemo(() => (totalQtyFtd > 0 ? Math.round(totalBillFtd / totalQtyFtd) : 0), [totalBillFtd, totalQtyFtd]);
   const totalArpWtd = useMemo(() => (totalQtyWtd > 0 ? Math.round(totalBillWtd / totalQtyWtd) : 0), [totalBillWtd, totalQtyWtd]);
+
+  const denominatorFtd = (selectedStore && selectedStore !== "All") ? totalBillFtd : grandTotalBillFtd;
+  const denominatorWtd = (selectedStore && selectedStore !== "All") ? totalBillWtd : grandTotalBillWtd;
 
   // Generate dynamic Category Contribution data based on fetched branches (with mock fallback)
   const categoryRows = useMemo(() => {
@@ -2895,7 +2947,10 @@ const DSRReport = () => {
                   ])).filter(Boolean);
                   const inputs = {};
                   staffNames.forEach(name => {
-                    const saved = dapprAttribution[name] || {};
+                    const matchedKey = Object.keys(dapprAttribution).find(
+                      k => k.trim().toLowerCase() === name.trim().toLowerCase()
+                    );
+                    const saved = matchedKey ? dapprAttribution[matchedKey] : {};
                     inputs[name] = {
                       billWtd: saved.billWtd ?? "",
                       valWtd:  saved.valWtd  ?? "",
@@ -3238,8 +3293,8 @@ const DSRReport = () => {
                     <th colSpan={2} className="px-6 py-2 border-r border-gray-600 text-center">ABV</th>
                     <th colSpan={2} className="px-6 py-2 border-r border-gray-600 text-center">ABS</th>
                     <th colSpan={2} className="px-6 py-2 border-r border-gray-600 text-center">Conversion (%)</th>
-                    <th colSpan={2} className="px-6 py-2 border-r border-gray-600 text-center">Contribution (%)</th>
-                    <th colSpan={2} className="px-6 py-2 text-center">ARP</th>
+                    <th colSpan={2} className={`px-6 py-2 ${isStoreAdmin ? "" : "border-r border-gray-600"} text-center`}>Contribution (%)</th>
+                    {!isStoreAdmin && <th colSpan={2} className="px-6 py-2 text-center">ARP</th>}
                   </tr>
                   {/* Secondary header row */}
                   <tr className="bg-[#2e2e2e] text-white text-[10px] font-bold tracking-wider uppercase">
@@ -3268,16 +3323,20 @@ const DSRReport = () => {
                     <th className="px-4 py-2 border-r border-gray-600">{activeTab}</th>
 
                     <th className="px-4 py-2 border-r border-gray-600">FTD</th>
-                    <th className="px-4 py-2 border-r border-gray-600">{activeTab}</th>
+                    <th className={`px-4 py-2 ${isStoreAdmin ? "" : "border-r border-gray-600"}`}>{activeTab}</th>
 
-                    <th className="px-4 py-2 border-r border-gray-600">FTD</th>
-                    <th className="px-4 py-2">{activeTab}</th>
+                    {!isStoreAdmin && (
+                      <>
+                        <th className="px-4 py-2 border-r border-gray-600">FTD</th>
+                        <th className="px-4 py-2">{activeTab}</th>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="text-xs text-gray-700 divide-y divide-gray-100">
                   {filteredFunnelRows.map((row, idx) => {
-                    const contributionFtd = grandTotalBillFtd > 0 ? Math.round((row.billFtd / grandTotalBillFtd) * 100) : 0;
-                    const contributionWtd = grandTotalBillWtd > 0 ? Math.round((row.billWtd / grandTotalBillWtd) * 100) : 0;
+                    const contributionFtd = denominatorFtd > 0 ? Math.round((row.billFtd / denominatorFtd) * 100) : 0;
+                    const contributionWtd = denominatorWtd > 0 ? Math.round((row.billWtd / denominatorWtd) * 100) : 0;
                     
                     return (
                       <tr key={idx} className="odd:bg-white even:bg-[#f9fafb] hover:bg-gray-50/50 transition-colors">
@@ -3307,10 +3366,14 @@ const DSRReport = () => {
                         <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{renderCellVal(row.convWtd !== undefined ? Math.min(100, row.convWtd) : Math.min(100, Math.round((row.valWtd / (row.walkWtd || 1)) * 100)), true)}</td>
 
                         <td className="px-4 py-3.5 border-r border-gray-100 font-semibold text-[#00A36C]">{renderCellVal(contributionFtd, true)}</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-semibold text-[#00A36C]">{renderCellVal(contributionWtd, true)}</td>
+                        <td className={`px-4 py-3.5 ${isStoreAdmin ? "" : "border-r border-gray-100"} text-gray-700 font-semibold text-[#00A36C]`}>{renderCellVal(contributionWtd, true)}</td>
 
-                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{renderCellVal(formatIndianNumber(row.arpFtd !== undefined ? row.arpFtd : Math.round(row.billFtd / (row.qtyFtd || 1))))}</td>
-                        <td className="px-4 py-3.5 text-gray-700 font-medium">{renderCellVal(formatIndianNumber(row.arpWtd !== undefined ? row.arpWtd : Math.round(row.billWtd / (row.qtyWtd || 1))))}</td>
+                        {!isStoreAdmin && (
+                          <>
+                            <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{renderCellVal(formatIndianNumber(row.arpFtd !== undefined ? row.arpFtd : Math.round(row.billFtd / (row.qtyFtd || 1))))}</td>
+                            <td className="px-4 py-3.5 text-gray-700 font-medium">{renderCellVal(formatIndianNumber(row.arpWtd !== undefined ? row.arpWtd : Math.round(row.billWtd / (row.qtyWtd || 1))))}</td>
+                          </>
+                        )}
                       </tr>
                     );
                   })}
@@ -3347,12 +3410,16 @@ const DSRReport = () => {
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(totalConvWtd, true)}</td>
 
                     {/* Contribution — average of staff rows for store_admin; store share for admin */}
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(grandTotalBillFtd > 0 ? (Math.round((totalBillFtd / grandTotalBillFtd) * 100)) + "%" : "0%")}</td>
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(grandTotalBillWtd > 0 ? (Math.round((totalBillWtd / grandTotalBillWtd) * 100)) + "%" : "0%")}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(denominatorFtd > 0 ? (Math.round((totalBillFtd / denominatorFtd) * 100)) + "%" : "0%")}</td>
+                    <td className={`px-4 py-3.5 ${isStoreAdmin ? "" : "border-r border-blue-200/50"}`}>{renderCellVal(denominatorWtd > 0 ? (Math.round((totalBillWtd / denominatorWtd) * 100)) + "%" : "0%")}</td>
 
-                    {/* ARP */}
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalArpFtd))}</td>
-                    <td className="px-4 py-3.5">{renderCellVal(formatIndianNumber(totalArpWtd))}</td>
+                    {!isStoreAdmin && (
+                      <>
+                        {/* ARP */}
+                        <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalArpFtd))}</td>
+                        <td className="px-4 py-3.5">{renderCellVal(formatIndianNumber(totalArpWtd))}</td>
+                      </>
+                    )}
                   </tr>
                 </tbody>
               </table>
@@ -3678,16 +3745,45 @@ const DSRReport = () => {
                     Clear All
                   </button>
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       const saved = {};
+                      const attributionsList = [];
                       Object.entries(dapprInputs).forEach(([name, v]) => {
                         const bv = Number(v.billWtd) || 0;
                         const vv = Number(v.valWtd)  || 0;
                         const qv = Number(v.qtyWtd)  || 0;
-                        if (bv > 0 || vv > 0 || qv > 0) saved[name] = { billWtd: bv, valWtd: vv, qtyWtd: qv };
+                        if (bv > 0 || vv > 0 || qv > 0) {
+                          saved[name] = { billWtd: bv, valWtd: vv, qtyWtd: qv };
+                          attributionsList.push({ staffName: name, billWtd: bv, valWtd: vv, qtyWtd: qv });
+                        }
                       });
                       setDapprAttribution(saved);
                       localStorage.setItem("dapprAttribution", JSON.stringify(saved));
+                      
+                      try {
+                        const token = localStorage.getItem("token");
+                        const targetMonth = activeTab === "Custom" ? getMonthNameFromDateStr(customStartDate) : CURRENT_MONTH_LONG;
+                        const targetYear = activeTab === "Custom" ? getYearFromDateStr(customStartDate) : CURRENT_YEAR;
+                        const currentWeek = getCurrentWeekId(selectedStore) || 1;
+
+                        await fetch(`${baseUrl.baseUrl}api/dappr-attributions`, {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${token}`
+                          },
+                          body: JSON.stringify({
+                            storeName: selectedStore,
+                            month: targetMonth,
+                            year: Number(targetYear),
+                            week: Number(currentWeek),
+                            attributions: attributionsList
+                          })
+                        });
+                      } catch (err) {
+                        console.error("Error saving Dappr attribution to MongoDB:", err);
+                      }
+
                       setDapprModalOpen(false);
                     }}
                     className="bg-[#18181b] hover:bg-black text-white text-xs font-bold py-2.5 px-6 rounded-xl"

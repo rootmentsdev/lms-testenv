@@ -299,7 +299,7 @@ const GoogleReviewTask = () => {
                   <th className="px-6 py-4 font-semibold text-center">Today</th>
                   <th className="px-6 py-4 font-semibold text-center">This Week</th>
                   <th className="px-6 py-4 font-semibold text-center">This Month</th>
-                  <th className="px-6 py-4 font-semibold text-center">Total Rating Count</th>
+                  <th className="px-6 py-4 font-semibold text-center">Total Count</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 text-xs sm:text-sm text-gray-700">

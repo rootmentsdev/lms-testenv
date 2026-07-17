@@ -281,10 +281,12 @@ function App() {
 
       const isCAndS = pressedKeys.has("c") && pressedKeys.has("s");
       const isCAndW = pressedKeys.has("c") && pressedKeys.has("w");
+      const isCAndD = pressedKeys.has("c") && pressedKeys.has("d");
 
       const now = Date.now();
       const isSeqCAndS = (lastKey === "c" && key === "s" && (now - lastKeyTime < 500));
       const isSeqCAndW = (lastKey === "c" && key === "w" && (now - lastKeyTime < 500));
+      const isSeqCAndD = (lastKey === "c" && key === "d" && (now - lastKeyTime < 500));
 
       if (isCAndS || isSeqCAndS) {
         navigate("/store-insights");
@@ -294,6 +296,11 @@ function App() {
         // Prevent default browser behavior if needed
         e.preventDefault();
         navigate("/walkin/list", { state: { openAdd: true } });
+        pressedKeys.clear();
+        lastKey = "";
+      } else if (isCAndD || isSeqCAndD) {
+        e.preventDefault();
+        navigate("/store-analysis/dsr-report");
         pressedKeys.clear();
         lastKey = "";
       } else {

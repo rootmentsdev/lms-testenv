@@ -18,7 +18,7 @@ function getTodayIST() {
 // ─────────────────────────────────────────────────────────────────────────────
 export const upsertGoogleReview = async (req, res) => {
   try {
-    const { branchName, branchId, count } = req.body;
+    const { branchName, branchId, count, rating } = req.body;
 
     if (!branchName) {
       return res.status(400).json({ success: false, message: 'branchName is required' });
@@ -26,23 +26,29 @@ export const upsertGoogleReview = async (req, res) => {
     if (typeof count !== 'number' || count < 0) {
       return res.status(400).json({ success: false, message: 'count must be a non-negative number' });
     }
+    if (rating !== undefined && (typeof rating !== 'number' || rating < 0 || rating > 5)) {
+      return res.status(400).json({ success: false, message: 'rating must be a number between 0 and 5' });
+    }
 
     const today = getTodayIST();
     const adminId   = req.admin?.userId  || null;
     const adminName = req.admin?.username || '';
 
+    const updateObj = {
+      branchId:      branchId || null,
+      count,
+      enteredBy:     adminId,
+      enteredByName: adminName,
+      date:          today,
+    };
+    if (rating !== undefined) {
+      updateObj.rating = rating;
+    }
+
     // Upsert: one entry per branch per day
     const entry = await GoogleReviewEntry.findOneAndUpdate(
       { branchName, date: today },
-      {
-        $set: {
-          branchId:      branchId || null,
-          count,
-          enteredBy:     adminId,
-          enteredByName: adminName,
-          date:          today,
-        },
-      },
+      { $set: updateObj },
       { upsert: true, new: true }
     );
 
@@ -96,6 +102,24 @@ export const getGoogleReviewDashboard = async (req, res) => {
     const totalByBranch = {};
     for (const t of totals) totalByBranch[t._id] = t.total;
 
+    // Fetch average rating for each branch based on entered ratings
+    const ratingStats = await GoogleReviewEntry.aggregate([
+      { $match: { rating: { $gt: 0 } } },
+      {
+        $group: {
+          _id: '$branchName',
+          totalWeightedRating: { $sum: { $multiply: ['$rating', { $cond: [{ $gt: ['$count', 0] }, '$count', 1] }] } },
+          totalWeight: { $sum: { $cond: [{ $gt: ['$count', 0] }, '$count', 1] } }
+        }
+      }
+    ]);
+    const ratingByBranch = {};
+    for (const r of ratingStats) {
+      ratingByBranch[r._id] = r.totalWeight > 0
+        ? parseFloat((r.totalWeightedRating / r.totalWeight).toFixed(1))
+        : 0;
+    }
+
     // Merge
     const allBranches = new Set([
       ...Object.keys(byBranch),
@@ -109,6 +133,7 @@ export const getGoogleReviewDashboard = async (req, res) => {
         thisWeek:  byBranch[branch]?.thisWeek  || 0,
         thisMonth: byBranch[branch]?.thisMonth || 0,
         total:     totalByBranch[branch]       || 0,
+        rating:    ratingByBranch[branch]      || 0,
       };
     }
 

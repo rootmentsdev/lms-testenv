@@ -111,12 +111,12 @@ const BranchAuditData = () => {
       <div className="md:ml-[120px] px-4 sm:px-6 lg:px-8 py-6">
         <div className="mx-auto max-w-[1600px]">
           <div className="mb-5 flex items-center justify-between gap-4">
-            <h1 className="text-[22px] font-bold leading-tight text-black">Store Audit List</h1>
+            <h1 className="text-[22px] font-bold leading-tight text-black">Store Rating</h1>
             <Link
             to={`${basePath}/create`}
               className="inline-flex items-center rounded-full bg-white px-5 py-3 text-[14px] font-semibold text-black shadow-[0_1px_4px_rgba(0,0,0,0.08)] transition hover:bg-gray-50"
             >
-              + Add Audit
+              {basePath === "/store-analysis/store-rating" ? "+ Add Store Rating" : "+ Add Staff Rating"}
             </Link>
           </div>
 

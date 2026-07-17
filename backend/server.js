@@ -25,6 +25,7 @@ import WalkinRouter from './routes/WalkinRoute.js'
 import TaskRouter from './routes/TaskRoute.js'
 import AutoTaskRouter from './routes/AutoTaskRoute.js'
 import CategoryRouter from './routes/CategoryRoute.js'
+import DapprAttributionRouter from './routes/DapprAttributionRoute.js'
 import { seedDefaultCategories } from './model/Category.js'
 
 import { AlertNotification } from './lib/CornJob.js';
@@ -687,6 +688,7 @@ app.use('/api/task-category', CategoryRouter)
 
 import StoreTargetRouter from './routes/StoreTargetRoute.js';
 app.use('/api/store-targets', StoreTargetRouter)
+app.use('/api/dappr-attributions', DapprAttributionRouter)
 
 /* =================================================
    ✅ PROXY: GET /api/brynex/shoe-sales/summary

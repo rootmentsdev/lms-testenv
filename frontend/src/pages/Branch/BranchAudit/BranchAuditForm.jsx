@@ -124,7 +124,7 @@ const SectionBlock = ({ title, items, values, setValues }) => (
     </div>
     <div className="mt-8">
       <label className="mb-2 block text-[14px] font-semibold text-[#30343b]">
-        Remarks<span className="text-red-500">*</span>
+        Remarks
       </label>
       <textarea
         rows={2}
@@ -499,7 +499,7 @@ const BranchAuditForm = () => {
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-[14px] font-semibold text-[#30343b]">
-                    Observation Acknowledged<span className="text-red-500">*</span>
+                    Observation Acknowledged{isStoreAdmin && <span className="text-red-500">*</span>}
                   </label>
                   <textarea
                     rows={3}
@@ -513,7 +513,7 @@ const BranchAuditForm = () => {
                 </div>
                 <div>
                   <label className="mb-2 block text-[14px] font-semibold text-[#30343b]">
-                    Action Plan for Shortfalls<span className="text-red-500">*</span>
+                    Action Plan for Shortfalls{isStoreAdmin && <span className="text-red-500">*</span>}
                   </label>
                   <textarea
                     rows={3}
