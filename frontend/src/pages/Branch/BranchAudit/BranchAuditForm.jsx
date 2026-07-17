@@ -145,7 +145,7 @@ const SectionBlock = ({ title, items, values, setValues }) => (
 const EmployeeRatingBlock = ({ criteria, values, setValues }) => (
   <section className="rounded-[8px] bg-white px-6 py-8 shadow-sm">
     <h2 className="mb-6 text-[16px] font-bold text-black border-b border-gray-100 pb-3">
-      Employee Performance Rating
+      Staff Performance
     </h2>
     <div className="grid grid-cols-1 gap-y-8 sm:grid-cols-2 lg:grid-cols-4 lg:gap-x-6">
       {criteria.map((label, idx) => (
@@ -371,7 +371,7 @@ const BranchAuditForm = () => {
           {/* Page title */}
           <div className="mb-6 flex items-center gap-3">
             <h1 className="text-[22px] font-bold text-black">
-              {isStoreAdmin ? "Employee Performance Rating" : "Store Rating Audit"}
+              {isStoreAdmin ? "Staff Performance" : "Store Rating Audit"}
             </h1>
             <span
               className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${
