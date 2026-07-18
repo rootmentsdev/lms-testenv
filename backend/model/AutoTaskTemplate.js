@@ -21,7 +21,7 @@ const autoTaskTemplateSchema = new mongoose.Schema(
     // Recurrence
     repeatType: {
       type: String,
-      enum: ['daily', 'weekly', 'monthly', 'custom'],
+      enum: ['daily', 'weekly', 'monthly', 'quarterly', 'yearly', 'custom'],
       required: true,
       default: 'daily',
     },

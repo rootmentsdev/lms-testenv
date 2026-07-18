@@ -1449,3 +1449,31 @@ export const GetUserAllTrainings = async (req, res) => {
     res.status(500).json({ message: "Server error while fetching trainings" });
   }
 };
+
+export const saveFcmToken = async (req, res) => {
+  try {
+    const { fcmToken } = req.body;
+    if (!fcmToken) {
+      return res.status(400).json({ success: false, message: 'fcmToken is required' });
+    }
+
+    const { userId } = req.user;
+
+    // Update in User collection
+    let updated = await User.findByIdAndUpdate(userId, { fcmToken }, { new: true });
+    if (!updated) {
+      // If not found in User, try Admin collection
+      updated = await Admin.findByIdAndUpdate(userId, { fcmToken }, { new: true });
+    }
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'User or Admin not found' });
+    }
+
+    return res.status(200).json({ success: true, message: 'FCM token saved successfully' });
+  } catch (error) {
+    console.error('Error saving FCM token:', error);
+    return res.status(500).json({ success: false, message: 'Failed to save FCM token' });
+  }
+};
+

@@ -52,7 +52,7 @@ const parseDate = (str) => {
  * @param {string} targetDate — YYYY-MM-DD
  * @returns {boolean}
  */
-const shouldGenerateToday = (template, targetDate) => {
+export const shouldGenerateToday = (template, targetDate) => {
   const target = parseDate(targetDate);
   const start  = parseDate(template.startDate);
   const end    = parseDate(template.endDate);
@@ -97,6 +97,32 @@ const shouldGenerateToday = (template, targetDate) => {
     }
     // Same day of the month as startDate
     return target.getDate() === start.getDate();
+  }
+
+  if (type === 'quarterly') {
+    const monthDiff = (target.getFullYear() - start.getFullYear()) * 12 + (target.getMonth() - start.getMonth());
+    if (monthDiff >= 0 && monthDiff % 3 === 0) {
+      if (template.monthDays && template.monthDays.length > 0) {
+        return template.monthDays.includes(target.getDate());
+      }
+      const lastDayOfTargetMonth = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+      const expectedDay = Math.min(start.getDate(), lastDayOfTargetMonth);
+      return target.getDate() === expectedDay;
+    }
+    return false;
+  }
+
+  if (type === 'yearly') {
+    const monthDiff = (target.getFullYear() - start.getFullYear()) * 12 + (target.getMonth() - start.getMonth());
+    if (monthDiff >= 0 && monthDiff % 12 === 0) {
+      if (template.monthDays && template.monthDays.length > 0) {
+        return template.monthDays.includes(target.getDate());
+      }
+      const lastDayOfTargetMonth = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+      const expectedDay = Math.min(start.getDate(), lastDayOfTargetMonth);
+      return target.getDate() === expectedDay;
+    }
+    return false;
   }
 
   return false;

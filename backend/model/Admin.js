@@ -21,6 +21,7 @@ const adminSchema = new mongoose.Schema({
     assignedClusters: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Cluster' }],
     employeeId: { type: String, default: "" },
     isActive: { type: Boolean, default: true },
+    fcmToken: { type: String, default: '' },
 }, { timestamps: true });
 
 // Queried by role to find super_admins and filter by admin type
