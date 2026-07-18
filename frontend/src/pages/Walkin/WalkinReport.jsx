@@ -230,7 +230,7 @@ const getCombinedStateAt = (w, endDateStr) => {
 };
 
 /* ── Export to CSV ───────────────────────────────────────────────────────── */
-const exportCSV = (data) => {
+const exportCSV = (data, endDate) => {
   const headers = [
     '#', 
     'DATE', 
@@ -261,7 +261,7 @@ const exportCSV = (data) => {
 
 
   const rows = data.map((w, i) => {
-    const itemState = getCombinedStateAt(w, formData.endDate) || w;
+    const itemState = getCombinedStateAt(w, endDate) || w;
     const productType = w.lossProductType || '-';
     const notesText = w.notes || '-';
 
@@ -909,7 +909,7 @@ const WalkinReport = () => {
               </div>
               {/* Export button – single button only */}
               <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
-                <button onClick={()=>exportCSV(displayed)} style={{ display:'flex', alignItems:'center', gap:'6px', border:'1px solid #e5e7eb', borderRadius:'8px', padding:'7px 14px', fontSize:'13px', fontWeight:500, color:'#374151', background:'#f9fafb', cursor:'pointer' }}>
+                <button onClick={()=>exportCSV(displayed, formData.endDate)} style={{ display:'flex', alignItems:'center', gap:'6px', border:'1px solid #e5e7eb', borderRadius:'8px', padding:'7px 14px', fontSize:'13px', fontWeight:500, color:'#374151', background:'#f9fafb', cursor:'pointer' }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                   Export CSV
                 </button>

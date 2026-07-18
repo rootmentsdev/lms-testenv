@@ -460,6 +460,10 @@ const AutoTask = () => {
       } else {
         text = `Repeats monthly at ${startTime}`;
       }
+    } else if (repeatType === 'Quarterly') {
+      text = `Repeats quarterly at ${startTime}`;
+    } else if (repeatType === 'Yearly') {
+      text = `Repeats yearly at ${startTime}`;
     }
     
     if (endDate) {
@@ -831,10 +835,10 @@ const AutoTask = () => {
             <div className="auto-task-grid-12">
               
               {/* Repeat Type Button Group */}
-              <div className="auto-task-field col-span-1 md:col-span-4">
+              <div className="auto-task-field col-span-1 md:col-span-6">
                 <label className="auto-task-label">Repeat Type<span className="auto-task-req">*</span></label>
-                <div className="repeat-type-group">
-                  {['Daily', 'Weekly', 'Monthly'].map((type) => (
+                <div className="repeat-type-group" style={{ flexWrap: 'wrap' }}>
+                  {['Daily', 'Weekly', 'Monthly', 'Quarterly', 'Yearly'].map((type) => (
                     <button
                       key={type}
                       type="button"
@@ -852,7 +856,7 @@ const AutoTask = () => {
               </div>
 
               {/* Repeat Continuously Toggle & End Date & Time */}
-              <div className="auto-task-field col-span-1 md:col-span-8">
+              <div className="auto-task-field col-span-1 md:col-span-6">
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '24px' }}>
                   
                   {/* Repeat Continuously Switch */}

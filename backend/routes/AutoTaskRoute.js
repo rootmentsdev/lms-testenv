@@ -52,7 +52,7 @@ const router = express.Router();
  *                 default: Normal
  *               repeatType:
  *                 type: string
- *                 enum: [daily, weekly, monthly, custom]
+ *                 enum: [daily, weekly, monthly, quarterly, yearly, custom]
  *                 default: daily
  *               startDate:
  *                 type: string
