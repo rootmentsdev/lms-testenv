@@ -1,8 +1,18 @@
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getMessaging } from 'firebase-admin/messaging';
 import fs from 'fs';
+import path from 'path';
 import dotenv from 'dotenv';
-dotenv.config();
+
+if (fs.existsSync('./backend/.env')) {
+  dotenv.config({ path: './backend/.env' });
+} else if (fs.existsSync('./.env')) {
+  dotenv.config({ path: './.env' });
+} else if (fs.existsSync('../.env')) {
+  dotenv.config({ path: '../.env' });
+} else {
+  dotenv.config();
+}
 
 let firebaseApp = null;
 
