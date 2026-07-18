@@ -1658,7 +1658,9 @@ const DSRReport = () => {
       // Dappr Squad data is now entered manually via dapprAttribution — no longer auto-merged here
       const mergedPeriodList = [...locPeriodList];
       let storeTotalRental = mergedPeriodList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
-      storeTotalRental += Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
+      if (funnelView === "Consolidated") {
+        storeTotalRental += Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
+      }
 
       let storeTotalSales = 0;
       if (funnelView === "Consolidated") {
@@ -1685,7 +1687,7 @@ const DSRReport = () => {
       const rawStaffNames = [
         ...mergedPeriodList.map(x => x && x.bookingBy),
         ...salesStaffNames,
-        ...Object.keys(dapprAttribution)
+        ...(funnelView === "Consolidated" ? Object.keys(dapprAttribution) : [])
       ].filter(name => typeof name === "string" && name.trim() !== "");
 
       const staffNames = [];
@@ -1701,9 +1703,9 @@ const DSRReport = () => {
 
       sortedStaffNames.forEach(name => {
         if (!name) return;
-        const norm = normalizeForMatch(name);
-        if (norm && !seenNormalized.has(norm)) {
-          seenNormalized.add(norm);
+        const normReal = normalizeForMatch(name);
+        if (normReal && !seenNormalized.has(normReal)) {
+          seenNormalized.add(normReal);
           staffNames.push(name);
         }
       });
@@ -1714,9 +1716,11 @@ const DSRReport = () => {
         const staffKey = normalizeForMatch(staffName);
 
         let rentalVal = mergedPeriodList.filter(x => x && normalizeForMatch(x.bookingBy) === staffKey).reduce((sum, x) => sum + (x.totalValue || 0), 0);
-        const dapprKey = Object.keys(dapprAttribution).find(k => normalizeForMatch(k) === staffKey);
-        if (dapprKey) {
-          rentalVal += Number(dapprAttribution[dapprKey]?.billWtd) || 0;
+        if (funnelView === "Consolidated") {
+          const dapprKey = Object.keys(dapprAttribution).find(k => normalizeForMatch(k) === staffKey);
+          if (dapprKey) {
+            rentalVal += Number(dapprAttribution[dapprKey]?.billWtd) || 0;
+          }
         }
 
         let salesVal = 0;
@@ -1759,12 +1763,12 @@ const DSRReport = () => {
 
       // Rental value (from rental API)
       const locPeriodList = performanceData.period[locId] || [];
-      const dapprPeriodList = performanceData.period["25"] || [];
-      const dapprPeriodForStore = getDapprSquadDataForStore(locId, dapprPeriodList);
+      const dapprPeriodList = funnelView === "Consolidated" ? (performanceData.period["25"] || []) : [];
+      const dapprPeriodForStore = funnelView === "Consolidated" ? getDapprSquadDataForStore(locId, dapprPeriodList) : [];
 
       // Also absorb unmapped Dappr Squad staff into G.MG Road (locId "23")
       const isGMGRoad = locId === "23";
-      const unmappedDapprPeriodList = isGMGRoad
+      const unmappedDapprPeriodList = (isGMGRoad && funnelView === "Consolidated")
         ? dapprPeriodList.filter(item => {
             const raw = String(item.bookingBy || "").trim().toLowerCase();
             const alphaOnly = raw.replace(/[^a-z0-9]/g, "");
@@ -1882,14 +1886,14 @@ const DSRReport = () => {
           const isDapprSquadBranch = locId === "25";
           if (isDapprSquadBranch) return null; // Dappr Squad row is hidden; data is merged into store rows
 
-          const dapprFtdList = performanceData.ftd["25"] || [];
-          const dapprPeriodList = performanceData.period["25"] || [];
-          const dapprFtdForStore = getDapprSquadDataForStore(locId, dapprFtdList);
-          const dapprPeriodForStore = getDapprSquadDataForStore(locId, dapprPeriodList);
+          const dapprFtdList = funnelView === "Consolidated" ? (performanceData.ftd["25"] || []) : [];
+          const dapprPeriodList = funnelView === "Consolidated" ? (performanceData.period["25"] || []) : [];
+          const dapprFtdForStore = funnelView === "Consolidated" ? getDapprSquadDataForStore(locId, dapprFtdList) : [];
+          const dapprPeriodForStore = funnelView === "Consolidated" ? getDapprSquadDataForStore(locId, dapprPeriodList) : [];
 
           // For G.MG Road (locId "23"): also absorb any Dappr Squad staff not matched to any store
           const isGMGRoad = locId === "23";
-          const unmappedDapprFtdList = isGMGRoad
+          const unmappedDapprFtdList = (isGMGRoad && funnelView === "Consolidated")
             ? dapprFtdList.filter(item => {
                 const raw = String(item.bookingBy || "").trim().toLowerCase();
                 const normalized = raw.replace(/[^a-z0-9]/g, "");
@@ -1897,7 +1901,7 @@ const DSRReport = () => {
                 return !DAPPR_SQUAD_STORE_MAPPING[raw] && !DAPPR_SQUAD_STORE_MAPPING[dotted];
               })
             : [];
-          const unmappedDapprPeriodList = isGMGRoad
+          const unmappedDapprPeriodList = (isGMGRoad && funnelView === "Consolidated")
             ? dapprPeriodList.filter(item => {
                 const raw = String(item.bookingBy || "").trim().toLowerCase();
                 const normalized = raw.replace(/[^a-z0-9]/g, "");
@@ -2175,7 +2179,7 @@ const DSRReport = () => {
           ...combinedFtdList.map(x => x && x.bookingBy),
           ...combinedPeriodList.map(x => x && x.bookingBy),
           ...salesStaffNames,
-          ...Object.keys(dapprAttribution)
+          ...(funnelView === "Consolidated" ? Object.keys(dapprAttribution) : [])
         ].filter(name => typeof name === "string" && name.trim() !== "");
 
         const staffNames = [];
@@ -2241,14 +2245,16 @@ const DSRReport = () => {
           let qtyFtd = rentalQtyFtd;
           let qtyWtd = rentalQtyWtd;
 
-          // Merge manual Dappr Squad attribution — ALWAYS (since it is rental!)
-          const matchedDapprKey = Object.keys(dapprAttribution).find(
-            k => k.trim().toLowerCase() === staffName.trim().toLowerCase()
-          );
-          const dapprAttr = matchedDapprKey ? dapprAttribution[matchedDapprKey] : {};
-          billWtd += Number(dapprAttr.billWtd) || 0;
-          valWtd  += Number(dapprAttr.valWtd)  || 0;
-          qtyWtd  += Number(dapprAttr.qtyWtd)  || 0;
+           // Merge manual Dappr Squad attribution — ONLY in Consolidated view
+          if (funnelView === "Consolidated") {
+            const matchedDapprKey = Object.keys(dapprAttribution).find(
+              k => k.trim().toLowerCase() === staffName.trim().toLowerCase()
+            );
+            const dapprAttr = matchedDapprKey ? dapprAttribution[matchedDapprKey] : {};
+            billWtd += Number(dapprAttr.billWtd) || 0;
+            valWtd  += Number(dapprAttr.valWtd)  || 0;
+            qtyWtd  += Number(dapprAttr.qtyWtd)  || 0;
+          }
 
           if (funnelView === "Consolidated") {
             const getSalesDataForStaff = (salesItem) => {
@@ -2369,10 +2375,10 @@ const DSRReport = () => {
       if (!locId || locId === "25") return;
       
       const locFtdList = performanceData.ftd[locId] || [];
-      const dapprFtdList = performanceData.ftd["25"] || [];
-      const dapprFtdForStore = getDapprSquadDataForStore(locId, dapprFtdList);
+      const dapprFtdList = funnelView === "Consolidated" ? (performanceData.ftd["25"] || []) : [];
+      const dapprFtdForStore = funnelView === "Consolidated" ? getDapprSquadDataForStore(locId, dapprFtdList) : [];
       const isGMGRoad = locId === "23";
-      const unmappedDapprFtdList = isGMGRoad
+      const unmappedDapprFtdList = (isGMGRoad && funnelView === "Consolidated")
         ? dapprFtdList.filter(item => {
             const raw = String(item.bookingBy || "").trim().toLowerCase();
             const alphaOnly = raw.replace(/[^a-z0-9]/g, "");
@@ -2400,10 +2406,10 @@ const DSRReport = () => {
       if (!locId || locId === "25") return;
       
       const locPeriodList = performanceData.period[locId] || [];
-      const dapprPeriodList = performanceData.period["25"] || [];
-      const dapprPeriodForStore = getDapprSquadDataForStore(locId, dapprPeriodList);
+      const dapprPeriodList = funnelView === "Consolidated" ? (performanceData.period["25"] || []) : [];
+      const dapprPeriodForStore = funnelView === "Consolidated" ? getDapprSquadDataForStore(locId, dapprPeriodList) : [];
       const isGMGRoad = locId === "23";
-      const unmappedDapprPeriodList = isGMGRoad
+      const unmappedDapprPeriodList = (isGMGRoad && funnelView === "Consolidated")
         ? dapprPeriodList.filter(item => {
             const raw = String(item.bookingBy || "").trim().toLowerCase();
             const alphaOnly = raw.replace(/[^a-z0-9]/g, "");

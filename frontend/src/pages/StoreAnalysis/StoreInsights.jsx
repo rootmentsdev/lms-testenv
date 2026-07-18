@@ -679,6 +679,7 @@ const StoreInsights = () => {
   const [chartFilter, setChartFilter] = useState("All"); // All, On Track, At Risk
   const [roleFilter, setRoleFilter] = useState("Cluster");
   const [clusterFilter, setClusterFilter] = useState("All");
+  const [storeFilter, setStoreFilter] = useState("All");
   const [clusters, setClusters] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [rankingSearch, setRankingSearch] = useState("");
@@ -705,11 +706,13 @@ const StoreInsights = () => {
   const [lyWalkins, setLyWalkins] = useState([]);
   const [loadingWalkins, setLoadingWalkins] = useState(false);
   const [salesData, setSalesData] = useState({ shoeQty: 0, shirtQty: 0, shoeValue: 0, shirtValue: 0, shoeBills: 0, shirtBills: 0, byBranch: {} });
+  const [lySalesData, setLySalesData] = useState({ shoeQty: 0, shirtQty: 0, shoeValue: 0, shirtValue: 0, shoeBills: 0, shirtBills: 0, byBranch: {} });
   const [salespersons, setSalespersons] = useState([]);
   const [loadingSales, setLoadingSales] = useState(false);
 
   // Google Reviews real data from backend
   const [googleReviewData, setGoogleReviewData] = useState({});
+  const [ratingSummary, setRatingSummary] = useState({ averageRating: 0.0, totalRatings: 0 });
 
   // Last refreshed timestamp for real-time indicator
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
@@ -781,6 +784,31 @@ const StoreInsights = () => {
     fetchGoogleReviews();
   }, []);
 
+  // Fetch branch audit rating summary (staff/store ratings) from backend
+  useEffect(() => {
+    const fetchRatingSummary = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${baseUrl.baseUrl}api/admin/branch-audit/staff-rating-summary`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json?.success && json?.data) {
+            setRatingSummary(json.data);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching rating summary in StoreInsights:", err);
+      }
+    };
+    fetchRatingSummary();
+  }, []);
+
   // Fetch active clusters dynamically (by querying admins/employees with role 'cluster_admin')
   useEffect(() => {
     const fetchClusters = async () => {
@@ -841,11 +869,13 @@ const StoreInsights = () => {
   const getCurrentWeekId = (storeName = "All", targetMonthName = CURRENT_MONTH_LONG) => {
     const today = new Date();
     const todayDateNum = today.getDate();
+    const daysInMonth = getDaysCountInMonth(targetMonthName);
+    const daysInMonthStr = String(daysInMonth).padStart(2, "0");
     
-    let w1 = `01 - 10 ${CURRENT_MONTH_SHORT}`;
-    let w2 = `11 - 17 ${CURRENT_MONTH_SHORT}`;
-    let w3 = "Select Days";
-    let w4 = "Select Days";
+    let w1 = `01 - 07 ${CURRENT_MONTH_SHORT}`;
+    let w2 = `08 - 14 ${CURRENT_MONTH_SHORT}`;
+    let w3 = `15 - 21 ${CURRENT_MONTH_SHORT}`;
+    let w4 = `22 - ${daysInMonthStr} ${CURRENT_MONTH_SHORT}`;
 
     if (storeName !== "All" && storeWeekRanges[storeName]?.[targetMonthName]) {
       const sr = storeWeekRanges[storeName][targetMonthName];
@@ -871,10 +901,10 @@ const StoreInsights = () => {
         }
       }
       if (startDay === null || endDay === null) {
-        if (weekId === 1) { startDay = 1; endDay = 10; }
-        else if (weekId === 2) { startDay = 11; endDay = 17; }
-        else if (weekId === 3) { startDay = 18; endDay = 24; }
-        else { startDay = 25; endDay = getDaysCountInMonth(targetMonthName); }
+        if (weekId === 1) { startDay = 1; endDay = 7; }
+        else if (weekId === 2) { startDay = 8; endDay = 14; }
+        else if (weekId === 3) { startDay = 15; endDay = 21; }
+        else { startDay = 22; endDay = getDaysCountInMonth(targetMonthName); }
       }
       return { startDay, endDay };
     };
@@ -894,9 +924,9 @@ const StoreInsights = () => {
       }
     }
     
-    if (todayDateNum <= 10) return 1;
-    if (todayDateNum <= 17) return 2;
-    if (todayDateNum <= 24) return 3;
+    if (todayDateNum <= 7) return 1;
+    if (todayDateNum <= 14) return 2;
+    if (todayDateNum <= 21) return 3;
     return 4;
   };
 
@@ -909,10 +939,13 @@ const StoreInsights = () => {
     
     const targetMonth = start.getMonth();
     
-    let w1 = `01 - 10 ${CURRENT_MONTH_SHORT}`;
-    let w2 = `11 - 17 ${CURRENT_MONTH_SHORT}`;
-    let w3 = "Select Days";
-    let w4 = "Select Days";
+    const daysInMonth = getDaysCountInMonth(targetMonthName);
+    const daysInMonthStr = String(daysInMonth).padStart(2, "0");
+    
+    let w1 = `01 - 07 ${CURRENT_MONTH_SHORT}`;
+    let w2 = `08 - 14 ${CURRENT_MONTH_SHORT}`;
+    let w3 = `15 - 21 ${CURRENT_MONTH_SHORT}`;
+    let w4 = `22 - ${daysInMonthStr} ${CURRENT_MONTH_SHORT}`;
     
     if (storeName !== "All" && storeWeekRanges[storeName]?.[targetMonthName]) {
       const sr = storeWeekRanges[storeName][targetMonthName];
@@ -938,10 +971,10 @@ const StoreInsights = () => {
         }
       }
       if (startDay === null || endDay === null) {
-        if (weekId === 1) { startDay = 1; endDay = 10; }
-        else if (weekId === 2) { startDay = 11; endDay = 17; }
-        else if (weekId === 3) { startDay = 18; endDay = 24; }
-        else { startDay = 25; endDay = getDaysCountInMonth(targetMonthName); }
+        if (weekId === 1) { startDay = 1; endDay = 7; }
+        else if (weekId === 2) { startDay = 8; endDay = 14; }
+        else if (weekId === 3) { startDay = 15; endDay = 21; }
+        else { startDay = 22; endDay = getDaysCountInMonth(targetMonthName); }
       }
       return { startDay, endDay, count: (endDay - startDay + 1) };
     };
@@ -1041,10 +1074,12 @@ const StoreInsights = () => {
     const activeWeekId = getCurrentWeekId(storeName);
     const monthName = CURRENT_MONTH_LONG;
     
-    let w1 = `01 - 10 ${CURRENT_MONTH_SHORT}`;
-    let w2 = `11 - 17 ${CURRENT_MONTH_SHORT}`;
-    let w3 = "Select Days";
-    let w4 = "Select Days";
+    const daysInMonth = getDaysCountInMonth(monthName);
+    const daysInMonthStr = String(daysInMonth).padStart(2, "0");
+    let w1 = `01 - 07 ${CURRENT_MONTH_SHORT}`;
+    let w2 = `08 - 14 ${CURRENT_MONTH_SHORT}`;
+    let w3 = `15 - 21 ${CURRENT_MONTH_SHORT}`;
+    let w4 = `22 - ${daysInMonthStr} ${CURRENT_MONTH_SHORT}`;
 
     if (storeName !== "All" && storeWeekRanges[storeName]?.[monthName]) {
       const sr = storeWeekRanges[storeName][monthName];
@@ -1413,14 +1448,27 @@ const StoreInsights = () => {
           periodEnd = customEndDate || todayStr;
         }
 
-        // Fetch summary and salesperson lists in parallel
-        const [res, resSalespersons] = await Promise.all([
+        const shiftDateYear = (dateStr, years = -1) => {
+          if (!dateStr) return "";
+          const d = new Date(dateStr);
+          if (isNaN(d.getTime())) return "";
+          d.setFullYear(d.getFullYear() + years);
+          return getLocalDateString(d);
+        };
+        const lyPeriodStart = shiftDateYear(periodStart, -1);
+        const lyPeriodEnd = shiftDateYear(periodEnd, -1);
+
+        // Fetch summary, salesperson lists, and last year summary in parallel
+        const [res, resSalespersons, lyRes] = await Promise.all([
           fetch(
             `${baseUrl.baseUrl}api/brynex/shoe-sales/summary?fromDate=${periodStart}&toDate=${periodEnd}`
           ).then(r => r.ok ? r.json() : { stores: [], grandTotal: {} }),
           fetch(
             `${baseUrl.baseUrl}api/brynex/shoe-sales/by-salesperson?fromDate=${periodStart}&toDate=${periodEnd}`
-          ).then(r => r.ok ? r.json() : { salespersons: [] })
+          ).then(r => r.ok ? r.json() : { salespersons: [] }),
+          fetch(
+            `${baseUrl.baseUrl}api/brynex/shoe-sales/summary?fromDate=${lyPeriodStart}&toDate=${lyPeriodEnd}`
+          ).then(r => r.ok ? r.json() : { stores: [], grandTotal: {} })
         ]);
 
         const stores = Array.isArray(res.stores) ? res.stores : [];
@@ -1474,6 +1522,55 @@ const StoreInsights = () => {
           shirtBills: totalShirtBills,
           byBranch
         });
+
+        // Map last year sales data
+        const lyStores = Array.isArray(lyRes.stores) ? lyRes.stores : [];
+        const lyByBranch = {};
+        let lyTotalShoeQty = 0, lyTotalShirtQty = 0;
+        let lyTotalShoeValue = 0, lyTotalShirtValue = 0;
+        let lyTotalShoeBills = 0, lyTotalShirtBills = 0;
+
+        lyStores.forEach(s => {
+          const locCode = String(s.locCode || "");
+          if (!locCode) return;
+
+          const shoe  = s.shoe  || {};
+          const shirt = s.shirt || {};
+          const mixed = s.mixed || {};
+          const total = s.total || {};
+
+          const shoeQty   = (shoe.qty   || 0) + (mixed.qty   || 0);
+          const shoeValue = (shoe.value || 0) + (mixed.value || 0);
+          const shoeBills = (shoe.bills || 0) + (mixed.bills || 0);
+          const shirtQty   = shirt.qty   || 0;
+          const shirtValue = shirt.value || 0;
+          const shirtBills = shirt.bills || 0;
+
+          lyByBranch[locCode] = {
+            totalValue: Math.round((total.value || 0)),
+            totalQty:   total.qty   || 0,
+            totalBills: total.bills || 0,
+            shoeQty,   shoeValue,   shoeBills,
+            shirtQty,  shirtValue,  shirtBills,
+          };
+
+          lyTotalShoeQty   += shoeQty;
+          lyTotalShirtQty  += shirtQty;
+          lyTotalShoeValue += shoeValue;
+          lyTotalShirtValue += shirtValue;
+          lyTotalShoeBills += shoeBills;
+          lyTotalShirtBills += shirtBills;
+        });
+
+        setLySalesData({
+          shoeQty:   Math.round(lyTotalShoeQty),
+          shirtQty:  Math.round(lyTotalShirtQty),
+          shoeValue: Math.round(lyTotalShoeValue),
+          shirtValue: Math.round(lyTotalShirtValue),
+          shoeBills: lyTotalShoeBills,
+          shirtBills: lyTotalShirtBills,
+          byBranch: lyByBranch
+        });
       } catch (err) {
         console.error("Error fetching sales data in StoreInsights:", err);
       } finally {
@@ -1526,10 +1623,10 @@ const StoreInsights = () => {
       }
 
       const locPeriodList = performanceData[locId] || [];
-      const dapprPeriodList = performanceData["25"] || [];
-      const dapprPeriodForStore = getDapprSquadDataForStore(locId, dapprPeriodList);
+      const dapprPeriodList = isConsolidated ? (performanceData["25"] || []) : [];
+      const dapprPeriodForStore = isConsolidated ? getDapprSquadDataForStore(locId, dapprPeriodList) : [];
       const isGMGRoad = locId === "23";
-      const unmappedDapprPeriodList = isGMGRoad
+      const unmappedDapprPeriodList = (isGMGRoad && isConsolidated)
         ? dapprPeriodList.filter(item => {
             const raw = String(item.bookingBy || "").trim().toLowerCase();
             const alphaOnly = raw.replace(/[^a-z0-9]/g, "");
@@ -1578,7 +1675,25 @@ const StoreInsights = () => {
         list = [];
       }
     }
+    if (storeFilter !== "All") {
+      list = list.filter(s => s.name === storeFilter);
+    }
     return list;
+  }, [chartData, clusterFilter, clusters, storeFilter]);
+
+  // Stores available for the store filter dropdown — scoped to selected cluster
+  const storeOptionsForFilter = useMemo(() => {
+    let list = chartData;
+    if (clusterFilter !== "All") {
+      const selectedClusterAdmin = clusters.find(c => String(c._id) === clusterFilter);
+      if (selectedClusterAdmin) {
+        const assignedIds = (selectedClusterAdmin.branches || []).map(b => String(b._id || b));
+        list = chartData.filter(s => assignedIds.includes(String(s._id)));
+      } else {
+        list = [];
+      }
+    }
+    return list.map(s => s.name).filter(Boolean).sort();
   }, [chartData, clusterFilter, clusters]);
 
   // Filtered chart data based on classification (All, On Track, At Risk)
@@ -1694,10 +1809,10 @@ const StoreInsights = () => {
 
       // 1. Current Rental
       const locPeriodList = performanceData[locId] || [];
-      const dapprPeriodList = performanceData["25"] || [];
-      const dapprPeriodForStore = getDapprSquadDataForStore(locId, dapprPeriodList);
+      const dapprPeriodList = isConsolidated ? (performanceData["25"] || []) : [];
+      const dapprPeriodForStore = isConsolidated ? getDapprSquadDataForStore(locId, dapprPeriodList) : [];
       const isGMGRoad = locId === "23";
-      const unmappedDapprPeriodList = isGMGRoad
+      const unmappedDapprPeriodList = (isGMGRoad && isConsolidated)
         ? dapprPeriodList.filter(item => {
             const raw = String(item.bookingBy || "").trim().toLowerCase();
             const alphaOnly = raw.replace(/[^a-z0-9]/g, "");
@@ -1713,9 +1828,9 @@ const StoreInsights = () => {
 
       // 2. Last Year Rental
       const lyLocPeriodList = lyPerformanceData[locId] || [];
-      const lyDapprPeriodList = lyPerformanceData["25"] || [];
-      const lyDapprPeriodForStore = getDapprSquadDataForStore(locId, lyDapprPeriodList);
-      const lyUnmappedDapprPeriodList = isGMGRoad
+      const lyDapprPeriodList = isConsolidated ? (lyPerformanceData["25"] || []) : [];
+      const lyDapprPeriodForStore = isConsolidated ? getDapprSquadDataForStore(locId, lyDapprPeriodList) : [];
+      const lyUnmappedDapprPeriodList = (isGMGRoad && isConsolidated)
         ? lyDapprPeriodList.filter(item => {
             const raw = String(item.bookingBy || "").trim().toLowerCase();
             const alphaOnly = raw.replace(/[^a-z0-9]/g, "");
@@ -1770,8 +1885,8 @@ const StoreInsights = () => {
     let lyDapprSquadValue = 0;
     let lyDapprSquadQty = 0;
 
-    const squadPeriodList = performanceData["25"] || [];
-    const lySquadPeriodList = lyPerformanceData["25"] || [];
+    const squadPeriodList = isConsolidated ? (performanceData["25"] || []) : [];
+    const lySquadPeriodList = isConsolidated ? (lyPerformanceData["25"] || []) : [];
 
     filteredStoresForKPIs.forEach(c => {
       const name = c.name;
@@ -1831,7 +1946,10 @@ const StoreInsights = () => {
         display: change >= 0 ? `+${change}%` : `${change}%`,
         color: change >= 0 ? "text-emerald-600" : "text-rose-500",
         trend: change >= 0 ? "up" : "down",
-        trendColor: change >= 0 ? "#00A36C" : "#e11d48"
+        trendColor: change >= 0 ? "#00A36C" : "#e11d48",
+        curr,
+        prev,
+        diff: curr - prev
       };
     };
 
@@ -1847,6 +1965,17 @@ const StoreInsights = () => {
         return sum + (entry?.thisMonth || 0);
       }, 0);
     })();
+
+    const lyGoogleReviews = (() => {
+      const storeNames = filteredStoresForKPIs.map(s => s.name);
+      if (storeNames.length === 0) {
+        return Object.values(googleReviewData).reduce((sum, d) => sum + (d?.lyThisMonth || 0), 0);
+      }
+      return storeNames.reduce((sum, name) => {
+        const entry = googleReviewData[name];
+        return sum + (entry?.lyThisMonth || 0);
+      }, 0);
+    })();
     const googleRating = (() => {
       const storeNames = filteredStoresForKPIs.map(s => s.name);
       const activeEntries = storeNames.length === 0 
@@ -1858,6 +1987,17 @@ const StoreInsights = () => {
       
       const sum = ratedEntries.reduce((acc, curr) => acc + (curr.rating || 0), 0);
       return parseFloat((sum / ratedEntries.length).toFixed(1));
+    })();
+
+    const totalReviewsCount = (() => {
+      const storeNames = filteredStoresForKPIs.map(s => s.name);
+      if (storeNames.length === 0) {
+        return Object.values(googleReviewData).reduce((sum, d) => sum + (d?.total || 0), 0);
+      }
+      return storeNames.reduce((sum, name) => {
+        const entry = googleReviewData[name];
+        return sum + (entry?.total || 0);
+      }, 0);
     })();
 
     if (isConsolidated) {
@@ -1892,6 +2032,9 @@ const StoreInsights = () => {
       // Recalculate from byBranch using shoeValue/shirtValue (category-level)
       let cardShoeQty = 0, cardShirtQty = 0;
       let cardShoeValue = 0, cardShirtValue = 0;
+      let lyCardShoeQty = 0, lyCardShirtQty = 0;
+      let lyCardShoeValue = 0, lyCardShirtValue = 0;
+
       filteredStoresForKPIs.forEach(c => {
         const cName = c.name;
         const cBObj = branches.find(b => normalizeForMatch(b.workingBranch) === normalizeForMatch(cName));
@@ -1903,7 +2046,21 @@ const StoreInsights = () => {
           cardShoeValue += bs.shoeValue || 0;
           cardShirtValue += bs.shirtValue || 0;
         }
+        if (cLocCode && lySalesData.byBranch?.[cLocCode]) {
+          const lbs = lySalesData.byBranch[cLocCode];
+          lyCardShoeQty += lbs.shoeQty || 0;
+          lyCardShirtQty += lbs.shirtQty || 0;
+          lyCardShoeValue += lbs.shoeValue || 0;
+          lyCardShirtValue += lbs.shirtValue || 0;
+        }
       });
+
+      const lyConversionRate = lyCustomerWalkins > 0 ? Math.min(100, Math.round((lyConvertedWalkinsCount / lyCustomerWalkins) * 100)) : 0;
+      const conversionChange = getChangeStats(conversionRate, lyConversionRate);
+      const shoeChange = getChangeStats(cardShoeQty, lyCardShoeQty);
+      const shirtChange = getChangeStats(cardShirtQty, lyCardShirtQty);
+      const dapprChange = getChangeStats(dapprSquadBills, lyDapprSquadBills);
+      const reviewsChange = getChangeStats(googleReviews, lyGoogleReviews);
 
       return {
         achievedPct: trueAchievedPct,
@@ -1930,7 +2087,25 @@ const StoreInsights = () => {
         qtyChangeDisplay: qtyChange.display, qtyChangeColor: qtyChange.color, qtyTrend: qtyChange.trend, qtyTrendColor: qtyChange.trendColor,
         absChangeDisplay: absChange.display, absChangeColor: absChange.color, absTrend: absChange.trend, absTrendColor: absChange.trendColor,
         abvChangeDisplay: abvChange.display, abvChangeColor: abvChange.color, abvTrend: abvChange.trend, abvTrendColor: abvChange.trendColor,
-        walkChangeDisplay: walkChange.display, walkChangeColor: walkChange.color, walkTrend: walkChange.trend, walkTrendColor: walkChange.trendColor
+        walkChangeDisplay: walkChange.display, walkChangeColor: walkChange.color, walkTrend: walkChange.trend, walkTrendColor: walkChange.trendColor,
+        valChange,
+        billsChange,
+        qtyChange,
+        absChange,
+        abvChange,
+        walkChange,
+        lyConversionRate,
+        conversionChange,
+        shoeChange,
+        shirtChange,
+        dapprChange,
+        reviewsChange,
+        lyCardShoeQty,
+        lyCardShirtQty,
+        lyCardShoeValue,
+        lyCardShirtValue,
+        lyGoogleReviews,
+        totalReviewsCount
       };
     } else {
       const trueRentalValue = rentalValue;
@@ -1958,6 +2133,28 @@ const StoreInsights = () => {
       const abvChange = getChangeStats(basketValue, lyBasketValue);
       const walkChange = getChangeStats(customerWalkins * roleMultiplier, lyCustomerWalkins * roleMultiplier);
 
+      let lyCardShoeQty = 0, lyCardShirtQty = 0;
+      let lyCardShoeValue = 0, lyCardShirtValue = 0;
+      filteredStoresForKPIs.forEach(c => {
+        const cName = c.name;
+        const cBObj = branches.find(b => normalizeForMatch(b.workingBranch) === normalizeForMatch(cName));
+        const cLocCode = cBObj?.locCode;
+        if (cLocCode && lySalesData.byBranch?.[cLocCode]) {
+          const lbs = lySalesData.byBranch[cLocCode];
+          lyCardShoeQty += lbs.shoeQty || 0;
+          lyCardShirtQty += lbs.shirtQty || 0;
+          lyCardShoeValue += lbs.shoeValue || 0;
+          lyCardShirtValue += lbs.shirtValue || 0;
+        }
+      });
+
+      const lyConversionRate = lyCustomerWalkins > 0 ? Math.min(100, Math.round((lyConvertedWalkinsCount / lyCustomerWalkins) * 100)) : 0;
+      const conversionChange = getChangeStats(conversionRate, lyConversionRate);
+      const shoeChange = getChangeStats(shoeQty, lyCardShoeQty);
+      const shirtChange = getChangeStats(shirtQty, lyCardShirtQty);
+      const dapprChange = getChangeStats(dapprSquadBills, lyDapprSquadBills);
+      const reviewsChange = getChangeStats(googleReviews, lyGoogleReviews);
+
       return {
         achievedPct: trueAchievedPct,
         targetValue: totalTarget * roleMultiplier,
@@ -1983,10 +2180,28 @@ const StoreInsights = () => {
         qtyChangeDisplay: qtyChange.display, qtyChangeColor: qtyChange.color, qtyTrend: qtyChange.trend, qtyTrendColor: qtyChange.trendColor,
         absChangeDisplay: absChange.display, absChangeColor: absChange.color, absTrend: absChange.trend, absTrendColor: absChange.trendColor,
         abvChangeDisplay: abvChange.display, abvChangeColor: abvChange.color, abvTrend: abvChange.trend, abvTrendColor: abvChange.trendColor,
-        walkChangeDisplay: walkChange.display, walkChangeColor: walkChange.color, walkTrend: walkChange.trend, walkTrendColor: walkChange.trendColor
+        walkChangeDisplay: walkChange.display, walkChangeColor: walkChange.color, walkTrend: walkChange.trend, walkTrendColor: walkChange.trendColor,
+        valChange,
+        billsChange,
+        qtyChange,
+        absChange,
+        abvChange,
+        walkChange,
+        lyConversionRate,
+        conversionChange,
+        shoeChange,
+        shirtChange,
+        dapprChange,
+        reviewsChange,
+        lyCardShoeQty,
+        lyCardShirtQty,
+        lyCardShoeValue,
+        lyCardShirtValue,
+        lyGoogleReviews,
+        totalReviewsCount
       };
     }
-  }, [chartData, filteredStoresForKPIs, isConsolidated, roleFilter, performanceData, lyPerformanceData, walkins, lyWalkins, timeframe, customStartDate, customEndDate, salesData, isStoreAdmin, isClusterAdmin, clusterFilter, branches, periodStart, periodEnd, lyPeriodStart, lyPeriodEnd, googleReviewData]);
+  }, [chartData, filteredStoresForKPIs, isConsolidated, roleFilter, performanceData, lyPerformanceData, walkins, lyWalkins, timeframe, customStartDate, customEndDate, salesData, lySalesData, isStoreAdmin, isClusterAdmin, clusterFilter, storeFilter, branches, periodStart, periodEnd, lyPeriodStart, lyPeriodEnd, googleReviewData]);
 
   // Store ranking data calculations
   const rankingData = useMemo(() => {
@@ -2137,7 +2352,8 @@ const StoreInsights = () => {
         if (!selectedClusterAdmin) return false;
         const assignedIds = (selectedClusterAdmin.branches || []).map(br => String(br._id || br));
         return assignedIds.includes(String(b._id));
-      });
+      })
+      .filter(b => storeFilter === "All" || displayBranchName(b.workingBranch) === storeFilter);
 
     if (isConsolidated) {
       // Calculate consolidated total value across all stores for contribution %
@@ -2148,10 +2364,10 @@ const StoreInsights = () => {
         const locCode = b.locCode;
 
         const locPeriodList = performanceData[locId] || [];
-        const dapprPeriodList = performanceData["25"] || [];
-        const dapprPeriodForStore = getDapprSquadDataForStore(locId, dapprPeriodList);
+        const dapprPeriodList = isConsolidated ? (performanceData["25"] || []) : [];
+        const dapprPeriodForStore = isConsolidated ? getDapprSquadDataForStore(locId, dapprPeriodList) : [];
         const isGMGRoad = locId === "23";
-        const unmappedDapprPeriodList = isGMGRoad
+        const unmappedDapprPeriodList = (isGMGRoad && isConsolidated)
           ? dapprPeriodList.filter(item => {
               const raw = String(item.bookingBy || "").trim().toLowerCase();
               const alphaOnly = raw.replace(/[^a-z0-9]/g, "");
@@ -2213,10 +2429,10 @@ const StoreInsights = () => {
         const locId = getBranchLocationId(b.workingBranch);
 
         const locPeriodList = performanceData[locId] || [];
-        const dapprPeriodList = performanceData["25"] || [];
-        const dapprPeriodForStore = getDapprSquadDataForStore(locId, dapprPeriodList);
+        const dapprPeriodList = isConsolidated ? (performanceData["25"] || []) : [];
+        const dapprPeriodForStore = isConsolidated ? getDapprSquadDataForStore(locId, dapprPeriodList) : [];
         const isGMGRoad = locId === "23";
-        const unmappedDapprPeriodList = isGMGRoad
+        const unmappedDapprPeriodList = (isGMGRoad && isConsolidated)
           ? dapprPeriodList.filter(item => {
               const raw = String(item.bookingBy || "").trim().toLowerCase();
               const alphaOnly = raw.replace(/[^a-z0-9]/g, "");
@@ -2260,7 +2476,7 @@ const StoreInsights = () => {
         };
       });
     }
-  }, [branches, chartData, isConsolidated, performanceData, walkins, isStoreAdmin, isClusterAdmin, salesData, salespersons, clusterFilter, clusters, periodStart, periodEnd]);
+  }, [branches, chartData, isConsolidated, performanceData, walkins, isStoreAdmin, isClusterAdmin, salesData, salespersons, clusterFilter, storeFilter, clusters, periodStart, periodEnd]);
 
   const processedRanking = useMemo(() => {
     let result = [...rankingData];
@@ -2458,6 +2674,118 @@ const StoreInsights = () => {
     const start = (rankingPage - 1) * itemsPerPageRanking;
     return processedRanking.slice(start, start + itemsPerPageRanking);
   }, [processedRanking, rankingPage]);
+
+  const renderKpiChangeDetails = (changeObj, isCurrency = false, isFloat = false) => {
+    if (!changeObj) return null;
+    const tyVal = isCurrency 
+      ? `₹${formatIndianNumber(changeObj.curr, 0)}` 
+      : isFloat 
+        ? changeObj.curr.toFixed(1) 
+        : formatIndianNumber(changeObj.curr);
+    
+    const lyVal = isCurrency 
+      ? `₹${formatIndianNumber(changeObj.prev || 0, 0)}` 
+      : isFloat 
+        ? (changeObj.prev || 0).toFixed(1) 
+        : formatIndianNumber(changeObj.prev || 0);
+
+    const diffVal = isCurrency 
+      ? `₹${formatIndianNumber(Math.abs(changeObj.diff || 0), 0)}` 
+      : isFloat 
+        ? Math.abs(changeObj.diff || 0).toFixed(1) 
+        : formatIndianNumber(Math.abs(changeObj.diff || 0));
+
+    const diffPrefix = changeObj.diff >= 0 ? "+" : "-";
+    const diffColor = changeObj.diff >= 0 ? "text-emerald-600" : "text-rose-500";
+
+    return (
+      <div className="text-[11px] font-semibold text-gray-500 font-sans mt-1.5 flex flex-col gap-0.5 leading-tight">
+        <div>TY ({timeframe}): <span className="font-bold text-gray-800">{tyVal}</span></div>
+        <div>LY ({timeframe}): <span className="font-bold text-gray-800">{lyVal}</span></div>
+        <div>Diff: <span className={`font-bold ${diffColor}`}>{diffPrefix}{diffVal}</span></div>
+      </div>
+    );
+  };
+
+  const renderKpiComparisonBadge = (changeObj, unit = "") => {
+    if (!changeObj) return null;
+    const isUp = changeObj.diff >= 0;
+    
+    // Formatted absolute difference
+    let absDiff = Math.abs(changeObj.diff);
+    let diffStr = "";
+    if (unit === "currency") {
+      diffStr = `₹${formatIndianNumber(absDiff, 0)}`;
+    } else if (unit === "float" || unit === "Basket Size") {
+      diffStr = absDiff.toFixed(1);
+    } else {
+      diffStr = formatIndianNumber(absDiff);
+    }
+
+    // Add prefix/suffix
+    let text = "";
+    if (unit === "currency") {
+      text = `${isUp ? "+" : "-"}${diffStr}`;
+    } else if (unit === "pts") {
+      text = `${isUp ? "+" : "-"}${diffStr} pts`;
+    } else if (unit === "Walk-ins") {
+      text = `${diffStr} Customers`;
+    } else if (unit === "Basket Size") {
+      text = `${diffStr} Items`;
+    } else if (unit === "Shoes") {
+      text = `${diffStr} Pairs`;
+    } else if (unit === "Shirts") {
+      text = `${diffStr} Shirts`;
+    } else if (unit === "Bills") {
+      text = `${diffStr} Bills`;
+    } else if (unit === "Reviews") {
+      text = `${diffStr} Reviews`;
+    } else {
+      text = `${isUp ? "+" : "-"}${diffStr}`;
+    }
+
+    const percentage = changeObj.display; // e.g. "+11.8%" or "-5.9%"
+    
+    const badgeBg = isUp ? "bg-emerald-50 text-emerald-700 font-sans" : "bg-rose-50 text-rose-600 font-sans";
+    const arrow = isUp ? "↗" : "↘";
+
+    return (
+      <div className={`mt-3 py-1.5 px-3 rounded-xl flex items-center justify-center text-[11.5px] font-bold ${badgeBg}`}>
+        <span className="flex items-center gap-1.5">
+          <span>{arrow}</span>
+          <span>{text} ({percentage})</span>
+        </span>
+      </div>
+    );
+  };
+
+  const renderKpiCard = ({ title, mainVal, tyVal, lyVal, changeObj, unit, trend, trendColor }) => {
+    const isUp = trend === "up" || (changeObj && changeObj.diff >= 0);
+    const finalTrendColor = trendColor || (isUp ? "#00A36C" : "#e11d48");
+    const finalTrend = trend || (isUp ? "up" : "down");
+    return (
+      <div className="bg-white rounded-[20px] shadow-sm border border-gray-100 p-5 flex flex-col justify-between h-[200px] w-full font-sans">
+        <div>
+          <span className="text-[13px] font-bold text-gray-700 block">{title}</span>
+        </div>
+        <div className="flex items-center justify-between mt-1">
+          <span className="text-[28px] xs:text-[30px] sm:text-[32px] font-extrabold text-gray-900 leading-none">{mainVal}</span>
+          <Sparkline type={finalTrend} color={finalTrendColor} />
+        </div>
+        <div className="flex flex-col gap-1.5 mt-3">
+          <div className="flex justify-between items-center text-[12px]">
+            <span className="text-gray-400 font-semibold">This Year :</span>
+            <span className="text-gray-800 font-bold">{tyVal}</span>
+          </div>
+          <div className="flex justify-between items-center text-[12px]">
+            <span className="text-gray-400 font-semibold">Last Year :</span>
+            <span className="text-gray-800 font-bold">{lyVal}</span>
+          </div>
+        </div>
+        {renderKpiComparisonBadge(changeObj, unit)}
+      </div>
+    );
+  };
 
   return (
     <div className="flex w-full min-h-screen bg-[#f3f4f6] text-gray-800 animate-fadeIn" style={{ fontFamily: "DM Sans, sans-serif" }}>
@@ -2751,7 +3079,7 @@ const StoreInsights = () => {
                 <div className="relative">
                   <select 
                     value={clusterFilter} 
-                    onChange={(e) => setClusterFilter(e.target.value)}
+                    onChange={(e) => { setClusterFilter(e.target.value); setStoreFilter("All"); }}
                     className="appearance-none bg-white border border-gray-200 rounded-[14px] px-4 py-2 pr-10 text-[13px] font-bold text-gray-700 shadow-sm focus:outline-none cursor-pointer hover:border-gray-300"
                   >
                     <option value="All">Cluster : All</option>
@@ -2767,196 +3095,176 @@ const StoreInsights = () => {
                     </svg>
                   </div>
                 </div>
+
+                {/* Store Select Dropdown — visible only when stores are available */}
+                {storeOptionsForFilter.length > 0 && (
+                  <div className="relative">
+                    <select
+                      value={storeFilter}
+                      onChange={(e) => setStoreFilter(e.target.value)}
+                      className="appearance-none bg-white border border-gray-200 rounded-[14px] px-4 py-2 pr-10 text-[13px] font-bold text-gray-700 shadow-sm focus:outline-none cursor-pointer hover:border-gray-300"
+                    >
+                      <option value="All">Store : All</option>
+                      {storeOptionsForFilter.map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                      <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
 
-          {/* Card 1: Achieved Target % */}
-          <div className="bg-white rounded-[24px] shadow-sm border border-gray-100 p-5 h-[162px] flex flex-col justify-between">
-            <div>
-              <span className="text-[14px] font-bold text-gray-700 block">Achieved Target %</span>
-              <div className="w-[85%] border-b border-gray-100 my-2" />
-            </div>
-            <div className="flex-1 flex items-center justify-between min-h-0 mt-1">
-              <div className="flex flex-col justify-center min-w-0">
-                <h3 className="text-[20px] xs:text-[22px] sm:text-[24px] lg:text-[18px] xl:text-[22px] 2xl:text-[28px] font-extrabold text-slate-900 leading-none truncate" title={`${stats.achievedPct}%`}>{stats.achievedPct}%</h3>
-                <span className="text-[12px] text-gray-400 font-semibold font-sans block mt-3">
-                  of Target Value <span className="font-extrabold text-[#1d4ed8]">₹{formatIndianNumber(stats.targetValue)}</span>
-                </span>
-              </div>
-              <div className="mr-2">
-                <CircularProgress percentage={stats.achievedPct} benchmarkPercentage={82} />
-              </div>
-            </div>
-          </div>
+          {renderKpiCard({
+            title: "Achieved Target %",
+            mainVal: `${stats.achievedPct}%`,
+            tyVal: `₹${formatIndianNumber(stats.achievedValue, 0)}`,
+            lyVal: `₹${formatIndianNumber(stats.valChange?.prev || 0, 0)}`,
+            changeObj: stats.valChange,
+            unit: "currency",
+            trend: stats.valTrend,
+            trendColor: stats.valTrendColor
+          })}
 
-          {/* Card 2: Achieved Target Value */}
-          <div className="bg-white rounded-[24px] shadow-sm border border-gray-100 p-5 h-[162px] flex flex-col justify-between">
-            <div>
-              <span className="text-[14px] font-bold text-gray-700 block">Achieved Target Value</span>
-              <div className="w-[85%] border-b border-gray-100 my-2" />
-            </div>
-            <div className="flex-1 flex items-center justify-between min-h-0 mt-1">
-              <div className="flex flex-col justify-center min-w-0">
-                <h3 className="text-[20px] xs:text-[22px] sm:text-[24px] lg:text-[18px] xl:text-[22px] 2xl:text-[28px] font-extrabold text-slate-900 leading-none truncate" title={`₹${formatIndianNumber(stats.achievedValue, 2)}`}>₹{formatIndianNumber(stats.achievedValue, 2)}</h3>
-                <span className={`text-[12px] font-bold block mt-3 ${stats.valChangeColor}`}>{stats.valChangeDisplay} <span className="text-gray-400 font-semibold font-sans">vs L2L</span></span>
-              </div>
-              <Sparkline type={stats.valTrend} color={stats.valTrendColor} />
-            </div>
-          </div>
+          {renderKpiCard({
+            title: "Bills Generated",
+            mainVal: `${stats.billsChange?.prev > 0 ? Math.round((stats.billsGenerated / stats.billsChange.prev) * 100) : 100}%`,
+            tyVal: formatIndianNumber(stats.billsGenerated),
+            lyVal: formatIndianNumber(stats.billsChange?.prev || 0),
+            changeObj: stats.billsChange,
+            unit: "Bills",
+            trend: stats.billsTrend,
+            trendColor: stats.billsTrendColor
+          })}
 
-          {/* Card 3: Bills Generated */}
-          <div className="bg-white rounded-[24px] shadow-sm border border-gray-100 p-5 h-[162px] flex flex-col justify-between">
-            <div>
-              <span className="text-[14px] font-bold text-gray-700 block">Bills Generated</span>
-              <div className="w-[85%] border-b border-gray-100 my-2" />
-            </div>
-            <div className="flex-1 flex items-center justify-between min-h-0 mt-1">
-              <div className="flex flex-col justify-center min-w-0">
-                <h3 className="text-[20px] xs:text-[22px] sm:text-[24px] lg:text-[18px] xl:text-[22px] 2xl:text-[28px] font-extrabold text-slate-900 leading-none truncate" title={formatIndianNumber(stats.billsGenerated)}>{formatIndianNumber(stats.billsGenerated)}</h3>
-                <span className={`text-[12px] font-bold block mt-3 ${stats.billsChangeColor}`}>{stats.billsChangeDisplay} <span className="text-gray-400 font-semibold font-sans">vs L2L</span></span>
-              </div>
-              <Sparkline type={stats.billsTrend} color={stats.billsTrendColor} />
-            </div>
-          </div>
+          {renderKpiCard({
+            title: "Quantity Sold",
+            mainVal: `${stats.qtyChange?.prev > 0 ? Math.round((stats.quantitySold / stats.qtyChange.prev) * 100) : 100}%`,
+            tyVal: formatIndianNumber(stats.quantitySold),
+            lyVal: formatIndianNumber(stats.qtyChange?.prev || 0),
+            changeObj: stats.qtyChange,
+            unit: "",
+            trend: stats.qtyTrend,
+            trendColor: stats.qtyTrendColor
+          })}
 
-          {/* Card 4: Quantity Sold */}
-          <div className="bg-white rounded-[24px] shadow-sm border border-gray-100 p-5 h-[162px] flex flex-col justify-between">
-            <div>
-              <span className="text-[14px] font-bold text-gray-700 block">Quantity Sold</span>
-              <div className="w-[85%] border-b border-gray-100 my-2" />
-            </div>
-            <div className="flex-1 flex items-center justify-between min-h-0 mt-1">
-              <div className="flex flex-col justify-center min-w-0">
-                <h3 className="text-[20px] xs:text-[22px] sm:text-[24px] lg:text-[18px] xl:text-[22px] 2xl:text-[28px] font-extrabold text-slate-900 leading-none truncate" title={formatIndianNumber(stats.quantitySold)}>{formatIndianNumber(stats.quantitySold)}</h3>
-                <span className={`text-[12px] font-bold block mt-3 ${stats.qtyChangeColor}`}>{stats.qtyChangeDisplay} <span className="text-gray-400 font-semibold font-sans">vs L2L</span></span>
-              </div>
-              <Sparkline type={stats.qtyTrend} color={stats.qtyTrendColor} />
-            </div>
-          </div>
+          {renderKpiCard({
+            title: "Customer Walk-ins",
+            mainVal: `${stats.walkChange?.prev > 0 ? Math.round((stats.customerWalkins / stats.walkChange.prev) * 100) : 100}%`,
+            tyVal: formatIndianNumber(stats.customerWalkins),
+            lyVal: formatIndianNumber(stats.walkChange?.prev || 0),
+            changeObj: stats.walkChange,
+            unit: "Walk-ins",
+            trend: stats.walkTrend,
+            trendColor: stats.walkTrendColor
+          })}
 
-          {/* Card 5: Average Basket Size */}
-          <div className="bg-white rounded-[24px] shadow-sm border border-gray-100 p-5 h-[162px] flex flex-col justify-between">
-            <div>
-              <span className="text-[14px] font-bold text-gray-700 block">Average Basket Size</span>
-              <div className="w-[85%] border-b border-gray-100 my-2" />
-            </div>
-            <div className="flex-1 flex items-center justify-between min-h-0 mt-1">
-              <div className="flex flex-col justify-center min-w-0">
-                <h3 className="text-[20px] xs:text-[22px] sm:text-[24px] lg:text-[18px] xl:text-[22px] 2xl:text-[28px] font-extrabold text-slate-900 leading-none truncate" title={stats.basketSize}>{stats.basketSize}</h3>
-                <span className={`text-[12px] font-bold block mt-3 ${stats.absChangeColor}`}>{stats.absChangeDisplay} <span className="text-gray-400 font-semibold font-sans">vs L2L</span></span>
-              </div>
-              <Sparkline type={stats.absTrend} color={stats.absTrendColor} />
-            </div>
-          </div>
+          {renderKpiCard({
+            title: "Average Basket Size",
+            mainVal: `${stats.absChange?.prev > 0 ? Math.round((parseFloat(stats.basketSize) / stats.absChange.prev) * 100) : 100}%`,
+            tyVal: `${parseFloat(stats.basketSize).toFixed(1)} Items`,
+            lyVal: `${(stats.absChange?.prev || 0).toFixed(1)} Items`,
+            changeObj: stats.absChange,
+            unit: "Basket Size",
+            trend: stats.absTrend,
+            trendColor: stats.absTrendColor
+          })}
 
-          {/* Card 6: Average Basket Value */}
-          <div className="bg-white rounded-[24px] shadow-sm border border-gray-100 p-5 h-[162px] flex flex-col justify-between">
-            <div>
-              <span className="text-[14px] font-bold text-gray-700 block">Average Basket Value</span>
-              <div className="w-[85%] border-b border-gray-100 my-2" />
-            </div>
-            <div className="flex-1 flex items-center justify-between min-h-0 mt-1">
-              <div className="flex flex-col justify-center min-w-0">
-                <h3 className="text-[20px] xs:text-[22px] sm:text-[24px] lg:text-[18px] xl:text-[22px] 2xl:text-[28px] font-extrabold text-slate-900 leading-none truncate" title={`₹${formatIndianNumber(stats.basketValue, 2)}`}>₹{formatIndianNumber(stats.basketValue, 2)}</h3>
-                <span className={`text-[12px] font-bold block mt-3 ${stats.abvChangeColor}`}>{stats.abvChangeDisplay} <span className="text-gray-400 font-semibold font-sans">vs L2L</span></span>
-              </div>
-              <Sparkline type={stats.abvTrend} color={stats.abvTrendColor} />
-            </div>
-          </div>
+          {renderKpiCard({
+            title: "Average Basket Value",
+            mainVal: `${stats.abvChange?.prev > 0 ? Math.round((stats.basketValue / stats.abvChange.prev) * 100) : 100}%`,
+            tyVal: `₹${formatIndianNumber(stats.basketValue, 0)}`,
+            lyVal: `₹${formatIndianNumber(stats.abvChange?.prev || 0, 0)}`,
+            changeObj: stats.abvChange,
+            unit: "currency",
+            trend: stats.abvTrend,
+            trendColor: stats.abvTrendColor
+          })}
 
-          {/* Card 7: Customer Walk-ins */}
-          <div className="bg-white rounded-[24px] shadow-sm border border-gray-100 p-5 h-[162px] flex flex-col justify-between">
-            <div>
-              <span className="text-[14px] font-bold text-gray-700 block">Customer Walk-ins</span>
-              <div className="w-[85%] border-b border-gray-100 my-2" />
-            </div>
-            <div className="flex-1 flex items-center justify-between min-h-0 mt-1">
-              <div className="flex flex-col justify-center min-w-0">
-                <h3 className="text-[20px] xs:text-[22px] sm:text-[24px] lg:text-[18px] xl:text-[22px] 2xl:text-[28px] font-extrabold text-slate-900 leading-none truncate" title={formatIndianNumber(stats.customerWalkins)}>{formatIndianNumber(stats.customerWalkins)}</h3>
-                <span className={`text-[12px] font-bold block mt-3 ${stats.walkChangeColor}`}>{stats.walkChangeDisplay} <span className="text-gray-400 font-semibold font-sans">vs L2L</span></span>
-              </div>
-              <Sparkline type={stats.walkTrend} color={stats.walkTrendColor} />
-            </div>
-          </div>
+          {renderKpiCard({
+            title: "Conversion %",
+            mainVal: `${stats.conversionRate}%`,
+            tyVal: `${stats.conversionRate}%`,
+            lyVal: `${stats.lyConversionRate}%`,
+            changeObj: stats.conversionChange,
+            unit: "pts",
+            trend: stats.conversionChange?.trend,
+            trendColor: stats.conversionChange?.trendColor
+          })}
 
-          {/* Card 8: Conversion Rate % */}
-          <div className="bg-white rounded-[24px] shadow-sm border border-gray-100 p-5 h-[162px] flex flex-col justify-between">
-            <div>
-              <span className="text-[14px] font-bold text-gray-700 block">Conversion Rate %</span>
-              <div className="w-[85%] border-b border-gray-100 my-2" />
-            </div>
-            <div className="flex-1 flex items-center justify-between min-h-0 mt-1">
-              <div className="flex flex-col justify-center min-w-0">
-                <h3 className="text-[20px] xs:text-[22px] sm:text-[24px] lg:text-[18px] xl:text-[22px] 2xl:text-[28px] font-extrabold text-slate-900 leading-none truncate" title={`${stats.conversionRate}%`}>{stats.conversionRate}%</h3>
-                <span className="text-[12px] text-gray-400 font-semibold font-sans block mt-3">
-                  <span className="font-extrabold text-[#1d4ed8]">{formatIndianNumber(stats.convertedWalkins)}</span> walkins converted
-                </span>
-              </div>
-              <div className="mr-2">
-                <CircularProgress percentage={stats.conversionRate} benchmarkPercentage={82} />
-              </div>
-            </div>
-          </div>
+          {renderKpiCard({
+            title: "Shoe Sale",
+            mainVal: `${stats.shoeChange?.prev > 0 ? Math.round((stats.shoeSale / stats.shoeChange.prev) * 100) : 100}%`,
+            tyVal: formatIndianNumber(stats.shoeSale),
+            lyVal: formatIndianNumber(stats.shoeChange?.prev || 0),
+            changeObj: stats.shoeChange,
+            unit: "Shoes",
+            trend: stats.shoeChange?.trend,
+            trendColor: stats.shoeChange?.trendColor
+          })}
 
-          {/* Card 9: Shoe Sale */}
-          <div className="bg-white rounded-[24px] shadow-sm border border-gray-100 p-5 h-[162px] flex flex-col justify-between">
-            <div>
-              <span className="text-[14px] font-bold text-gray-700 block">Shoe Sale</span>
-              <div className="w-[85%] border-b border-gray-100 my-2" />
-            </div>
-            <div className="flex-1 flex items-center justify-between min-h-0 mt-1">
-              <div className="flex flex-col justify-center min-w-0">
-                <h3 className="text-[20px] xs:text-[22px] sm:text-[24px] lg:text-[18px] xl:text-[22px] 2xl:text-[28px] font-extrabold text-gray-950 leading-none truncate" title={stats.shoeSale}>{stats.shoeSale}</h3>
-                <span className="text-[12px] text-gray-400 font-semibold font-sans block mt-3">₹{formatIndianNumber(stats.shoeValue)} value</span>
-              </div>
-              <Sparkline type="up" color="#00A36C" />
-            </div>
-          </div>
+          {renderKpiCard({
+            title: "Shirt Sale",
+            mainVal: `${stats.shirtChange?.prev > 0 ? Math.round((stats.shirtSales / stats.shirtChange.prev) * 100) : 100}%`,
+            tyVal: formatIndianNumber(stats.shirtSales),
+            lyVal: formatIndianNumber(stats.shirtChange?.prev || 0),
+            changeObj: stats.shirtChange,
+            unit: "Shirts",
+            trend: stats.shirtChange?.trend,
+            trendColor: stats.shirtChange?.trendColor
+          })}
 
-          {/* Card 10: Shirt Sales */}
-          <div className="bg-white rounded-[24px] shadow-sm border border-gray-100 p-5 h-[162px] flex flex-col justify-between">
-            <div>
-              <span className="text-[14px] font-bold text-gray-700 block">Shirt Sales</span>
-              <div className="w-[85%] border-b border-gray-100 my-2" />
-            </div>
-            <div className="flex-1 flex items-center justify-between min-h-0 mt-1">
-              <div className="flex flex-col justify-center min-w-0">
-                <h3 className="text-[20px] xs:text-[22px] sm:text-[24px] lg:text-[18px] xl:text-[22px] 2xl:text-[28px] font-extrabold text-gray-950 leading-none truncate" title={stats.shirtSales}>{stats.shirtSales}</h3>
-                <span className="text-[12px] text-gray-400 font-semibold font-sans block mt-3">₹{formatIndianNumber(stats.shirtValue)} value</span>
-              </div>
-              <Sparkline type="down" color="#e11d48" />
-            </div>
-          </div>
+          {renderKpiCard({
+            title: "Dappr Squad Bills",
+            mainVal: `${stats.dapprChange?.prev > 0 ? Math.round((stats.dapprSquadBills / stats.dapprChange.prev) * 100) : 100}%`,
+            tyVal: formatIndianNumber(stats.dapprSquadBills),
+            lyVal: formatIndianNumber(stats.dapprChange?.prev || 0),
+            changeObj: stats.dapprChange,
+            unit: "Bills",
+            trend: stats.dapprChange?.trend,
+            trendColor: stats.dapprChange?.trendColor
+          })}
 
-          {/* Card 11: Dappr Squad Bills */}
-          <div className="bg-white rounded-[24px] shadow-sm border border-gray-100 p-5 h-[162px] flex flex-col justify-between">
+          {renderKpiCard({
+            title: "Google Reviews",
+            mainVal: `${stats.reviewsChange?.prev > 0 ? Math.round((stats.googleReviews / stats.reviewsChange.prev) * 100) : 100}%`,
+            tyVal: formatIndianNumber(stats.googleReviews),
+            lyVal: formatIndianNumber(stats.reviewsChange?.prev || 0),
+            changeObj: stats.reviewsChange,
+            unit: "Reviews",
+            trend: stats.reviewsChange?.trend,
+            trendColor: stats.reviewsChange?.trendColor
+          })}
+
+          {/* Card 12: Staff Rating / Store Rating */}
+          <div className="bg-white rounded-[20px] shadow-sm border border-gray-100 p-5 h-[200px] flex flex-col justify-between font-sans">
             <div>
-              <span className="text-[14px] font-bold text-gray-700 block">Dappr Squad Bills</span>
-              <div className="w-[85%] border-b border-gray-100 my-2" />
-            </div>
-            <div className="flex-1 flex flex-col justify-center min-h-0">
-              <h3 className="text-[20px] xs:text-[22px] sm:text-[24px] lg:text-[18px] xl:text-[22px] 2xl:text-[28px] font-extrabold text-slate-900 leading-none truncate" title={stats.dapprSquadBills}>{stats.dapprSquadBills}</h3>
-              <span className="text-[12px] text-gray-400 font-semibold font-sans mt-3 block">
-                Total bill value <span className="font-extrabold text-[#1d4ed8]">₹{formatIndianNumber(stats.dapprSquadValue, 2)}</span>
+              <span className="text-[13px] font-bold text-gray-700 block">
+                {user?.role === "store_admin" ? "Staff Rating" : "Store Rating"}
               </span>
             </div>
-          </div>
-
-          {/* Card 12: Google Reviews */}
-          <div className="bg-white rounded-[24px] shadow-sm border border-gray-100 p-5 h-[162px] flex flex-col justify-between">
-            <div>
-              <span className="text-[14px] font-bold text-gray-700 block">Google Reviews</span>
-              <div className="w-[85%] border-b border-gray-100 my-2" />
-            </div>
             <div className="flex-1 flex items-center justify-between min-h-0 mt-1">
               <div className="flex flex-col justify-center min-w-0">
-                <h3 className="text-[20px] xs:text-[22px] sm:text-[24px] lg:text-[18px] xl:text-[22px] 2xl:text-[28px] font-extrabold text-slate-900 leading-none truncate" title={stats.googleReviews}>{stats.googleReviews}</h3>
-                <span className="text-[12px] text-gray-400 font-semibold font-sans mt-3 block">
-                  Total customer reviews
+                <h3 className="text-[28px] xs:text-[30px] sm:text-[32px] font-extrabold text-gray-900 leading-none">
+                  {ratingSummary.averageRating} <span className="text-gray-400 font-normal text-[20px]">/ 5</span>
+                </h3>
+                <span className="text-[12px] text-gray-400 font-semibold font-sans block mt-3">
+                  Based on {ratingSummary.totalRatings} ratings
                 </span>
+              </div>
+              <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center shrink-0">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.907c.961 0 1.36 1.237.588 1.81l-3.97 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.971-2.888a1 1 0 00-1.17 0l-3.971 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.97-2.888c-.772-.573-.37-1.81.588-1.81h4.907a1 1 0 00.95-.69l1.519-4.674z" />
+                </svg>
               </div>
             </div>
           </div>
@@ -3025,9 +3333,9 @@ const StoreInsights = () => {
                   <tr className="bg-[#f3f4f6] rounded-xl text-gray-500 text-[10px] font-extrabold tracking-wider uppercase">
                     <th className="py-3 px-4 rounded-l-xl">{isStoreAdmin ? "Staff Name" : "Store Name"}</th>
                     <th className="py-3 px-4 text-center">{isStoreAdmin ? "Value" : "Target Achieved %"}</th>
-                    <th className="py-3 px-4 text-center">Contribution %</th>
                     <th className="py-3 px-4 text-center">ABS</th>
                     <th className="py-3 px-4 text-center">ABV</th>
+                    <th className="py-3 px-4 text-center">Contribution %</th>
                     <th className="py-3 px-4 text-center rounded-r-xl">Conversion %</th>
                   </tr>
                 </thead>
@@ -3052,9 +3360,9 @@ const StoreInsights = () => {
                         <td className="py-3 px-4 text-center text-gray-900 font-extrabold text-[13px]">
                           {isStoreAdmin ? `₹${formatIndianNumber(s.targetAchieved)}` : `${s.targetAchieved}%`}
                         </td>
-                        <td className="py-3 px-4 text-center text-gray-500">{s.contribution}%</td>
                         <td className="py-3 px-4 text-center text-gray-500">{s.abs}</td>
                         <td className="py-3 px-4 text-center text-gray-900 font-extrabold">₹{formatIndianNumber(s.abv)}</td>
+                        <td className="py-3 px-4 text-center text-gray-500">{s.contribution}%</td>
                         <td className="py-3 px-4 text-center text-gray-900 font-extrabold">{s.conversion}%</td>
                       </tr>
                     );

@@ -253,13 +253,13 @@ const BranchAuditForm = () => {
 
   /* Load employees when store selected (only for store_admin) */
   useEffect(() => {
-    if (!isStoreAdmin || !selectedBranch?._id) return;
+    if (!isStoreAdmin || !store) return;
     let mounted = true;
     const loadEmployees = async () => {
       try {
         const token = localStorage.getItem("token");
         const response = await fetch(
-          `${baseUrl.baseUrl}api/usercreate/getEmployeesByBranch/${selectedBranch._id}`,
+          `${baseUrl.baseUrl}api/admin/accessible-employees?store=${encodeURIComponent(store)}`,
           {
             headers: {
               "Content-Type": "application/json",
@@ -268,7 +268,7 @@ const BranchAuditForm = () => {
           }
         );
         const json = await response.json();
-        const list = Array.isArray(json?.data) ? json.data : [];
+        const list = Array.isArray(json?.employees) ? json.employees : Array.isArray(json?.data) ? json.data : [];
         if (mounted) setEmployeeOptions(list);
       } catch {
         if (mounted) setEmployeeOptions([]);
@@ -276,7 +276,7 @@ const BranchAuditForm = () => {
     };
     loadEmployees();
     return () => { mounted = false; };
-  }, [isStoreAdmin, selectedBranch]);
+  }, [isStoreAdmin, store]);
 
   /* Build submission payload */
   const buildPayload = () => {
@@ -304,7 +304,7 @@ const BranchAuditForm = () => {
           actionPlanForShortfalls: values["audit-action-plan"] || "",
         },
         ratedOn: new Date().toISOString().slice(0, 10),
-        metadata: { totalQuestions: EMPLOYEE_CRITERIA.length },
+        metadata: { totalQuestions: EMPLOYEE_CRITERIA.length, employeeId, employeeName },
       };
     } else {
       const sections = STORE_SECTIONS.map((section) => ({

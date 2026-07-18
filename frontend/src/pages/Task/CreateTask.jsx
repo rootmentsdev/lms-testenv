@@ -837,25 +837,14 @@ const CreateTask = () => {
               </div>
             </div>
 
-            {/* Row 3: Description, Additional Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4" style={{}}>
+            {/* Row 3: Description */}
+            <div className="grid grid-cols-1 gap-4" style={{}}>
               <div>
-                <label style={lbl}>Task Description <span style={req}>*</span></label>
+                <label style={lbl}>Task Description</label>
                 <textarea 
                   placeholder="Enter task description" 
                   value={form.description} 
                   onChange={(e) => set('description', e.target.value)} 
-                  required 
-                  rows={4} 
-                  className="premium-textarea"
-                />
-              </div>
-              <div>
-                <label style={lbl}>Additional Information</label>
-                <textarea 
-                  placeholder="Enter additional information" 
-                  value={form.additionalInfo} 
-                  onChange={(e) => set('additionalInfo', e.target.value)} 
                   rows={4} 
                   className="premium-textarea"
                 />

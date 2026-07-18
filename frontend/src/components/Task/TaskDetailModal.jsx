@@ -1307,16 +1307,7 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
                     />
                   </div>
 
-                  <div className="task-detail-edit-field mt-4">
-                    <label className="task-detail-field__label">Additional Info</label>
-                    <textarea
-                      value={editAdditionalInfo}
-                      onChange={(e) => setEditAdditionalInfo(e.target.value)}
-                      className="task-detail-textarea"
-                      placeholder="Additional Info"
-                      rows={2}
-                    />
-                  </div>
+
 
                   <div className="task-detail-edit-actions mt-6">
                     <button

@@ -121,13 +121,40 @@ export const createBranchAudit = async (req, res) => {
 export const getBranchAudits = async (req, res) => {
   try {
     const { store, search = "", limit = 1000 } = req.query || {};
-    const query = {};
+    const isStoreAdmin = req.admin?.role === "store_admin";
+
+    // Base type filter — store admins see employee ratings, others see store-level ratings
+    let query = {};
+    if (isStoreAdmin) {
+      query = {
+        $or: [
+          { ratingType: "employee" },
+          { "metadata.employeeId": { $exists: true, $ne: null } },
+          { "metadata.employeeName": { $exists: true, $ne: "" } },
+          { "sections.title": "Employee Performance Rating" },
+        ],
+      };
+    } else {
+      query = {
+        $nor: [
+          { ratingType: "employee" },
+          { "metadata.employeeId": { $exists: true, $ne: null } },
+          { "metadata.employeeName": { $exists: true, $ne: "" } },
+          { "sections.title": "Employee Performance Rating" },
+        ],
+      };
+    }
 
     if (store && store !== "All") query.store = store;
     if (search.trim()) {
-      query.$or = [
-        { store: { $regex: search.trim(), $options: "i" } },
-        { ratedBy: { $regex: search.trim(), $options: "i" } },
+      query.$and = [
+        query.$and ? { $and: query.$and } : {},
+        {
+          $or: [
+            { store: { $regex: search.trim(), $options: "i" } },
+            { ratedBy: { $regex: search.trim(), $options: "i" } },
+          ],
+        },
       ];
     }
 
@@ -174,20 +201,49 @@ export const getBranchAuditById = async (req, res) => {
 
 export const getStaffRatingSummary = async (req, res) => {
   try {
-    const audits = await BranchAudit.find({
-      $or: [
-        { "metadata.employeeId": { $exists: true, $ne: null } },
-        { "metadata.employeeName": { $exists: true, $ne: "" } }
-      ]
-    }).lean();
+    const isStoreAdmin = req.admin?.role === "store_admin";
+
+    let query = {};
+
+    if (isStoreAdmin) {
+      // Store admin sees only employee-type ratings scoped to their own store
+      query = {
+        $or: [
+          { ratingType: "employee" },
+          { "metadata.employeeId": { $exists: true, $ne: null } },
+          { "metadata.employeeName": { $exists: true, $ne: "" } },
+          { "sections.title": "Employee Performance Rating" },
+        ],
+      };
+
+      const admin = await Admin.findById(req.admin.userId).select("branches").lean();
+      const branchIds = admin?.branches || [];
+      if (branchIds.length > 0) {
+        const branches = await Branch.find({ _id: { $in: branchIds } }).select("workingBranch").lean();
+        const storeNames = branches.map((b) => b.workingBranch).filter(Boolean);
+        if (storeNames.length > 0) {
+          query.store = { $in: storeNames };
+        }
+      }
+    }
+    // Non-store-admin (cluster/admin): show only store-level audit records, exclude employee ratings
+    if (!isStoreAdmin) {
+      query = {
+        $nor: [
+          { ratingType: "employee" },
+          { "metadata.employeeId": { $exists: true, $ne: null } },
+          { "metadata.employeeName": { $exists: true, $ne: "" } },
+          { "sections.title": "Employee Performance Rating" },
+        ],
+      };
+    }
+
+    const audits = await BranchAudit.find(query).lean();
 
     if (audits.length === 0) {
       return res.status(200).json({
         success: true,
-        data: {
-          averageRating: 0,
-          totalRatings: 0
-        }
+        data: { averageRating: 0, totalRatings: 0 },
       });
     }
 
@@ -197,10 +253,7 @@ export const getStaffRatingSummary = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      data: {
-        averageRating,
-        totalRatings
-      }
+      data: { averageRating, totalRatings },
     });
   } catch (error) {
     console.error("getStaffRatingSummary error:", error);

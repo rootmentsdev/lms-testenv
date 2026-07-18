@@ -85,9 +85,10 @@ const EmployeeIcon = () => (
   </svg>
 );
 
-const RatingIcon = () => (
+const AssessmentIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+    <polyline points="22 4 12 14.01 9 11.01" />
   </svg>
 );
 
@@ -105,13 +106,11 @@ const DashboardOverview = ({ range = "7", customRange }) => {
   const [chartResponse, setChartResponse] = useState(null);
   const [walkinCount, setWalkinCount] = useState(0);
   const [tasksResponse, setTasksResponse] = useState(null);
-  const [staffRatingSummary, setStaffRatingSummary] = useState({ averageRating: 0.0, totalRatings: 0 });
   
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [chartLoading, setChartLoading] = useState(true);
   const [walkinLoading, setWalkinLoading] = useState(true);
   const [tasksLoading, setTasksLoading] = useState(true);
-  const [staffRatingLoading, setStaffRatingLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -176,43 +175,16 @@ const DashboardOverview = ({ range = "7", customRange }) => {
       }
     };
 
-    const loadStaffRating = async () => {
-      setStaffRatingLoading(true);
-      try {
-        const token = localStorage.getItem("token");
-        const res = await fetch(`${baseUrl.baseUrl}api/admin/branch-audit/staff-rating-summary`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (res.ok) {
-          const json = await res.json();
-          if (json?.success && json?.data) {
-            setStaffRatingSummary(json.data);
-          }
-        }
-      } catch {
-        if (!mounted) return;
-        setStaffRatingSummary({ averageRating: 0.0, totalRatings: 0 });
-      } finally {
-        if (mounted) setStaffRatingLoading(false);
-      }
-    };
-
     loadSummary();
     loadChart();
     loadWalkins();
     loadTasks();
-    loadStaffRating();
 
     const refresh = () => {
       loadSummary();
       loadChart();
       loadWalkins();
       loadTasks();
-      loadStaffRating();
     };
 
     window.addEventListener("dashboard:refresh", refresh);
@@ -310,10 +282,10 @@ const DashboardOverview = ({ range = "7", customRange }) => {
       iconBg: "#DCFCE7",
     },
     {
-      title: user?.role === "store_admin" ? "Staff Rating" : "Average Staff Rating",
-      value: staffRatingLoading ? "..." : `${staffRatingSummary.averageRating} / 5`,
-      subtitle: `Based on ${staffRatingSummary.totalRatings} ratings`,
-      icon: <RatingIcon />,
+      title: "Completed Assessments",
+      value: summaryLoading ? "..." : (stats.completedAssessments || "0"),
+      subtitle: `Across ${stats.totalBranches} stores`,
+      icon: <AssessmentIcon />,
       iconBg: "#DBEAFE",
     },
   ];

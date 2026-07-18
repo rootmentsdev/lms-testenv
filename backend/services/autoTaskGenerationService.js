@@ -155,66 +155,24 @@ const resolveAssignees = async (template, creator) => {
   // ── all_employees ──────────────────────────────────────────────
   if (assignMode === 'all_employees') {
     const storeIds   = await getAccessibleStoreIds(creator._id);
-    const dbEmployees = await Employee.find({
-      storeId: { $in: storeIds },
-      status:  'Active',
-    }).populate('storeId');
-
-    const branches   = await Branch.find({ _id: { $in: storeIds } });
-    const locCodes   = branches.map(b => b.locCode);
-    const users      = await User.find({ locCode: { $in: locCodes } }).lean();
-
-    dbEmployees.forEach(emp => {
-      const name  = emp.firstName ? `${emp.firstName} ${emp.lastName || ''}`.trim() : (emp.username || 'Employee');
-      const desig = emp.designation || 'Staff';
-      const store = (emp.storeId && emp.storeId.workingBranch) || emp.workingBranch || 'Store';
-      targets.push({ id: emp._id.toString(), label: `${name} - ${desig} - ${store}` });
-    });
-
-    users.forEach(u => {
-      if (!targets.some(t => t.id === u._id.toString())) {
-        targets.push({
-          id:    u._id.toString(),
-          label: `${u.username || 'Employee'} - ${u.designation || 'Staff'} - ${u.workingBranch || 'Store'}`,
-        });
-      }
+    const admins = await Admin.find({ role: 'store_admin', branches: { $in: storeIds }, isActive: true }).populate('branches');
+    admins.forEach(ad => {
+      const storeName = ad.branches?.[0]?.workingBranch || 'Store';
+      targets.push({ id: ad._id.toString(), label: `${ad.name} - Store Admin - ${storeName}` });
     });
     return targets;
   }
 
   // ── store ──────────────────────────────────────────────────────
   if (assignMode === 'store' && selectedStores?.length) {
-    // Fetch all accessible employees then filter by store name
     const storeIds    = await getAccessibleStoreIds(creator._id);
-    const dbEmployees = await Employee.find({
-      storeId: { $in: storeIds },
-      status:  'Active',
-    }).populate('storeId');
-
-    const branches  = await Branch.find({ _id: { $in: storeIds } });
-    const locCodes  = branches.map(b => b.locCode);
-    const users     = await User.find({ locCode: { $in: locCodes } }).lean();
-
-    // Normalize selected store names for comparison
+    const admins = await Admin.find({ role: 'store_admin', branches: { $in: storeIds }, isActive: true }).populate('branches');
     const storeSet = new Set(selectedStores.map(s => s.toLowerCase().trim()));
 
-    dbEmployees.forEach(emp => {
-      const empStore = ((emp.storeId && emp.storeId.workingBranch) || emp.workingBranch || '').toLowerCase().trim();
-      if (storeSet.has(empStore)) {
-        const name  = emp.firstName ? `${emp.firstName} ${emp.lastName || ''}`.trim() : (emp.username || 'Employee');
-        const desig = emp.designation || 'Staff';
-        const store = (emp.storeId && emp.storeId.workingBranch) || emp.workingBranch || 'Store';
-        targets.push({ id: emp._id.toString(), label: `${name} - ${desig} - ${store}` });
-      }
-    });
-
-    users.forEach(u => {
-      const empStore = (u.workingBranch || '').toLowerCase().trim();
-      if (storeSet.has(empStore) && !targets.some(t => t.id === u._id.toString())) {
-        targets.push({
-          id:    u._id.toString(),
-          label: `${u.username || 'Employee'} - ${u.designation || 'Staff'} - ${u.workingBranch || 'Store'}`,
-        });
+    admins.forEach(ad => {
+      const storeName = ad.branches?.[0]?.workingBranch || '';
+      if (storeSet.has(storeName.toLowerCase().trim())) {
+        targets.push({ id: ad._id.toString(), label: `${ad.name} - Store Admin - ${storeName}` });
       }
     });
     return targets;
@@ -222,62 +180,12 @@ const resolveAssignees = async (template, creator) => {
 
   // ── role ───────────────────────────────────────────────────────
   if (assignMode === 'role' && selectedRoles?.length) {
-    const roleSet = new Set(selectedRoles.map(r => r.toLowerCase()));
-    // Map UI role keys to Admin.role values
-    const adminRoles = [];
-    const includeStaff = roleSet.has('employee') || roleSet.has('staff');
-    if (roleSet.has('super_admin'))   adminRoles.push('super_admin');
-    if (roleSet.has('admin'))         adminRoles.push('admin');
-    if (roleSet.has('hr_admin'))      adminRoles.push('hr_admin');
-    if (roleSet.has('cluster_admin')) adminRoles.push('cluster_admin');
-    if (roleSet.has('store_admin'))   adminRoles.push('store_admin');
-
-    if (adminRoles.length) {
-      const storeIds = await getAccessibleStoreIds(creator._id);
-      let adminQuery = { role: { $in: adminRoles }, isActive: true };
-
-      // Cluster/Store admins: scope to accessible stores
-      if (!['super_admin', 'admin', 'hr_admin'].includes(creator.role)) {
-        adminQuery.branches = { $in: storeIds };
-      }
-      const admins = await Admin.find(adminQuery).populate('branches');
-      admins.forEach(ad => {
-        const desig = ad.subRole && ad.subRole !== 'NR' ? ad.subRole : ad.role;
-        const store = (ad.role === 'super_admin' || ad.role === 'admin' || ad.role === 'hr_admin')
-          ? 'Office'
-          : (ad.branches?.[0]?.workingBranch || 'Store');
-        targets.push({ id: ad._id.toString(), label: `${ad.name} - ${desig} - ${store}` });
-      });
-    }
-
-    if (includeStaff) {
-      const storeIds    = await getAccessibleStoreIds(creator._id);
-      const dbEmployees = await Employee.find({
-        storeId: { $in: storeIds },
-        status:  'Active',
-      }).populate('storeId');
-
-      const branches = await Branch.find({ _id: { $in: storeIds } });
-      const locCodes = branches.map(b => b.locCode);
-      const users    = await User.find({ locCode: { $in: locCodes } }).lean();
-
-      dbEmployees.forEach(emp => {
-        if (!targets.some(t => t.id === emp._id.toString())) {
-          const name  = emp.firstName ? `${emp.firstName} ${emp.lastName || ''}`.trim() : (emp.username || 'Employee');
-          const desig = emp.designation || 'Staff';
-          const store = (emp.storeId && emp.storeId.workingBranch) || emp.workingBranch || 'Store';
-          targets.push({ id: emp._id.toString(), label: `${name} - ${desig} - ${store}` });
-        }
-      });
-      users.forEach(u => {
-        if (!targets.some(t => t.id === u._id.toString())) {
-          targets.push({
-            id:    u._id.toString(),
-            label: `${u.username || 'Employee'} - ${u.designation || 'Staff'} - ${u.workingBranch || 'Store'}`,
-          });
-        }
-      });
-    }
+    const storeIds = await getAccessibleStoreIds(creator._id);
+    const admins = await Admin.find({ role: 'store_admin', branches: { $in: storeIds }, isActive: true }).populate('branches');
+    admins.forEach(ad => {
+      const storeName = ad.branches?.[0]?.workingBranch || 'Store';
+      targets.push({ id: ad._id.toString(), label: `${ad.name} - Store Admin - ${storeName}` });
+    });
     return targets;
   }
 

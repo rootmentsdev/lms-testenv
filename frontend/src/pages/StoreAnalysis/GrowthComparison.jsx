@@ -72,15 +72,35 @@ const getLocalDateString = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+const CURRENT_MONTH_LONG = new Date().toLocaleString("en-US", { month: "long" });
+const CURRENT_MONTH_SHORT = new Date().toLocaleString("en-US", { month: "short" });
+const CURRENT_YEAR = new Date().getFullYear();
+
+const getDaysInMonth = (monthName, year = CURRENT_YEAR) => {
+  const months = {
+    January: 31, February: 28, March: 31, April: 30, May: 31, June: 30,
+    July: 31, August: 31, September: 30, October: 31, November: 30, December: 31
+  };
+  if (monthName === "February") {
+    if ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) {
+      return 29;
+    }
+    return 28;
+  }
+  return months[monthName] || 30;
+};
+
 // Date Range Helpers for TY/LY (This Year / Last Year)
 const getStoreWTDDateRange = (storeName = "All", targetYear) => {
   const today = new Date();
   const todayDateNum = today.getDate();
+  const daysInMonth = getDaysInMonth(CURRENT_MONTH_LONG);
+  const daysInMonthStr = String(daysInMonth).padStart(2, "0");
 
-  const week1Dates = localStorage.getItem("week1Dates") || "01 - 10 Jun";
-  const week2Dates = localStorage.getItem("week2Dates") || "11 - 17 Jun";
-  const week3Dates = localStorage.getItem("week3Dates") || "Select Days";
-  const week4Dates = localStorage.getItem("week4Dates") || "Select Days";
+  const week1Dates = localStorage.getItem("week1Dates") || `01 - 07 ${CURRENT_MONTH_SHORT}`;
+  const week2Dates = localStorage.getItem("week2Dates") || `08 - 14 ${CURRENT_MONTH_SHORT}`;
+  const week3Dates = localStorage.getItem("week3Dates") || `15 - 21 ${CURRENT_MONTH_SHORT}`;
+  const week4Dates = localStorage.getItem("week4Dates") || `22 - ${daysInMonthStr} ${CURRENT_MONTH_SHORT}`;
 
   let w1 = week1Dates, w2 = week2Dates, w3 = week3Dates, w4 = week4Dates;
   try {
@@ -125,11 +145,13 @@ const getStoreWTDDateRange = (storeName = "All", targetYear) => {
   }
 
   if (!found) {
-    if (todayDateNum <= 10) activeWeekId = 1;
-    else if (todayDateNum <= 17) activeWeekId = 2;
-    else if (todayDateNum <= 24) activeWeekId = 3;
+    if (todayDateNum <= 7) activeWeekId = 1;
+    else if (todayDateNum <= 14) activeWeekId = 2;
+    else if (todayDateNum <= 21) activeWeekId = 3;
     else activeWeekId = 4;
   }
+
+
 
   let startDayNum = 1;
   const weekVal = activeWeekId === 1 ? w1 

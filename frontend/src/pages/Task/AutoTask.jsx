@@ -808,12 +808,11 @@ const AutoTask = () => {
             {/* Row 2: Description, Priority */}
             <div className="auto-task-grid-12">
               <div className="auto-task-field col-span-1 md:col-span-6" style={{}}>
-                <label className="auto-task-label">Task Description<span className="auto-task-req">*</span></label>
+                <label className="auto-task-label">Task Description</label>
                 <textarea 
                   placeholder="Enter task description" 
                   value={description} 
                   onChange={(e) => setDescription(e.target.value)} 
-                  required 
                   rows={4} 
                   className="premium-textarea"
                 />
@@ -1007,7 +1006,7 @@ const AutoTask = () => {
                         onChange={() => setAssignTo('employees')}
                         className="assign-radio-input"
                       />
-                      All Employees
+                      All Store Admins
                     </label>
                   )}
 
@@ -1022,20 +1021,6 @@ const AutoTask = () => {
                         className="assign-radio-input"
                       />
                       Store
-                    </label>
-                  )}
-
-                  {user?.role !== 'store_admin' && user?.role !== 'cluster_admin' && (
-                    <label className="assign-radio-label">
-                      <input 
-                        type="radio" 
-                        name="assignTo" 
-                        value="role"
-                        checked={assignTo === 'role'}
-                        onChange={() => setAssignTo('role')}
-                        className="assign-radio-input"
-                      />
-                      Role
                     </label>
                   )}
 

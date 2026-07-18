@@ -83,6 +83,14 @@ export const getGoogleReviewDashboard = async (req, res) => {
       date: { $gte: monthStartStr },
     }).lean();
 
+    // Fetch last year actual reviews for the same range
+    const lyYear = Number(today.slice(0, 4)) - 1;
+    const lyMonthStartStr = lyYear + today.slice(4, 7) + '-01';
+    const lyToday = lyYear + today.slice(4);
+    const lyEntries = await GoogleReviewEntry.find({
+      date: { $gte: lyMonthStartStr, $lte: lyToday },
+    }).lean();
+
     // Group by branchName
     const byBranch = {};
     for (const entry of entries) {
@@ -93,6 +101,14 @@ export const getGoogleReviewDashboard = async (req, res) => {
       if (entry.date === today)          g.today     += entry.count;
       if (entry.date >= weekStartStr)    g.thisWeek  += entry.count;
       if (entry.date >= monthStartStr)   g.thisMonth += entry.count;
+    }
+
+    const lyByBranch = {};
+    for (const entry of lyEntries) {
+      if (!lyByBranch[entry.branchName]) {
+        lyByBranch[entry.branchName] = { thisMonth: 0 };
+      }
+      lyByBranch[entry.branchName].thisMonth += entry.count;
     }
 
     // Fetch total for all time (separate query)
@@ -132,6 +148,7 @@ export const getGoogleReviewDashboard = async (req, res) => {
         today:     byBranch[branch]?.today    || 0,
         thisWeek:  byBranch[branch]?.thisWeek  || 0,
         thisMonth: byBranch[branch]?.thisMonth || 0,
+        lyThisMonth: lyByBranch[branch]?.thisMonth || 0,
         total:     totalByBranch[branch]       || 0,
         rating:    ratingByBranch[branch]      || 0,
       };
