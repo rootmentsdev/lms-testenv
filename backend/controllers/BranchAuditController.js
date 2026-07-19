@@ -62,6 +62,8 @@ export const createBranchAudit = async (req, res) => {
       storeId,
       sections = [],
       auditorRemarks = {},
+      auditorObservation,
+      actionPlanForShortfalls,
       ratedOn,
       metadata = {},
     } = req.body || {};
@@ -100,9 +102,11 @@ export const createBranchAudit = async (req, res) => {
       overallRating,
       sections: normalizedSections,
       auditorRemarks: {
-        observationAcknowledged: auditorRemarks?.observationAcknowledged || "",
-        actionPlanForShortfalls: auditorRemarks?.actionPlanForShortfalls || "",
+        observationAcknowledged: auditorRemarks?.observationAcknowledged || auditorObservation || "",
+        actionPlanForShortfalls: auditorRemarks?.actionPlanForShortfalls || actionPlanForShortfalls || "",
       },
+      auditorObservation: auditorObservation || auditorRemarks?.observationAcknowledged || "",
+      actionPlanForShortfalls: actionPlanForShortfalls || auditorRemarks?.actionPlanForShortfalls || "",
       totalRatingsCount,
       metadata,
     });

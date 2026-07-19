@@ -27,6 +27,8 @@ const branchAuditSchema = new mongoose.Schema(
       observationAcknowledged: { type: String, default: "" },
       actionPlanForShortfalls: { type: String, default: "" },
     },
+    auditorObservation: { type: String, default: "" },
+    actionPlanForShortfalls: { type: String, default: "" },
     totalRatingsCount: { type: Number, default: 0 },
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
