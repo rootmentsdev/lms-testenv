@@ -3,7 +3,7 @@ import { useSelector } from "react-redux";
 import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
-import { FiSearch, FiDownload, FiArrowLeft, FiCalendar, FiEdit3 } from "react-icons/fi";
+import { FiSearch, FiDownload, FiArrowLeft, FiCalendar, FiEdit3, FiLock, FiUnlock } from "react-icons/fi";
 import baseUrl from "../../api/api";
 
 const BRAND_TOKENS = new Set(["zorucci", "grooms", "suitor", "guy", "sg"]);
@@ -340,6 +340,77 @@ const getYearFromDateStr = (dateStr) => {
   return d.getFullYear();
 };
 
+const getClusterForStoreName = (name) => {
+  const norm = String(name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  
+  // Zorucci stores
+  if (norm.startsWith("z")) {
+    return "Zorucci";
+  }
+  
+  // South Cluster stores
+  const southStores = [
+    "gedappally",
+    "gtrivandrum",
+    "gkottayam",
+    "gperumbavoor",
+    "gthrissur",
+    "gchavakkad",
+    "gmgroad"
+  ];
+  if (southStores.some(s => norm.includes(s) || s.includes(norm))) {
+    return "South Cluster";
+  }
+  
+  // North Cluster stores
+  const northStores = [
+    "gcalicut",
+    "gvadakara",
+    "gedappal",
+    "gperinthalmanna",
+    "gkottakkal",
+    "gmanjeri",
+    "gpalakkad",
+    "gkalpetta",
+    "gkannur"
+  ];
+  if (northStores.some(s => norm.includes(s) || s.includes(norm))) {
+    return "North Cluster";
+  }
+  
+  return "Unassigned";
+};
+
+const getDaysCountInMonth = (monthName, year = CURRENT_YEAR) => {
+  const months = {
+    January: 31, February: 28, March: 31, April: 30, May: 31, June: 30,
+    July: 31, August: 31, September: 30, October: 31, November: 30, December: 31
+  };
+  if (monthName === "February") {
+    if ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) {
+      return 29;
+    }
+    return 28;
+  }
+  return months[monthName] || 30;
+};
+
+const getAutoWeekDates = (monthName, year = CURRENT_YEAR) => {
+  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const monthIdx = monthNames.indexOf(monthName);
+  const effectiveMonthIdx = monthIdx !== -1 ? monthIdx : new Date().getMonth();
+  const d = new Date(year, effectiveMonthIdx, 1);
+  const monthShort = d.toLocaleString("en-US", { month: "short" });
+  const daysInMonth = getDaysCountInMonth(monthName, year);
+  
+  return {
+    1: `01 - 07 ${monthShort}`,
+    2: `08 - 14 ${monthShort}`,
+    3: `15 - 21 ${monthShort}`,
+    4: `22 - ${String(daysInMonth).padStart(2, "0")} ${monthShort}`
+  };
+};
+
 const DSRReport = () => {
   const user = useSelector((state) => state.auth.user);
   const isAdminOrSuperAdmin = user?.role === "super_admin" || user?.role === "admin";
@@ -395,16 +466,18 @@ const DSRReport = () => {
   const [targetAssignMode, setTargetAssignMode] = useState("Store"); // "Store" | "Staff"
   const [modalStaff, setModalStaff] = useState("");
   const [activeWeeks, setActiveWeeks] = useState([1]);
-  const [week1Dates, setWeek1Dates] = useState(() => localStorage.getItem("week1Dates") || `01 - 10 ${CURRENT_MONTH_SHORT}`);
-  const [week2Dates, setWeek2Dates] = useState(() => localStorage.getItem("week2Dates") || `11 - 17 ${CURRENT_MONTH_SHORT}`);
-  const [week3Dates, setWeek3Dates] = useState(() => localStorage.getItem("week3Dates") || "Select Days");
-  const [week4Dates, setWeek4Dates] = useState(() => localStorage.getItem("week4Dates") || "Select Days");
+
+  const defaultAutoWeeks = getAutoWeekDates(CURRENT_MONTH_LONG, CURRENT_YEAR);
+  const [week1Dates, setWeek1Dates] = useState(() => localStorage.getItem("week1Dates") || defaultAutoWeeks[1]);
+  const [week2Dates, setWeek2Dates] = useState(() => localStorage.getItem("week2Dates") || defaultAutoWeeks[2]);
+  const [week3Dates, setWeek3Dates] = useState(() => localStorage.getItem("week3Dates") || defaultAutoWeeks[3]);
+  const [week4Dates, setWeek4Dates] = useState(() => localStorage.getItem("week4Dates") || defaultAutoWeeks[4]);
 
   // Local modal week date states
-  const [modalWeek1, setModalWeek1] = useState(`01 - 10 ${CURRENT_MONTH_SHORT}`);
-  const [modalWeek2, setModalWeek2] = useState(`11 - 17 ${CURRENT_MONTH_SHORT}`);
-  const [modalWeek3, setModalWeek3] = useState("Select Days");
-  const [modalWeek4, setModalWeek4] = useState("Select Days");
+  const [modalWeek1, setModalWeek1] = useState(defaultAutoWeeks[1]);
+  const [modalWeek2, setModalWeek2] = useState(defaultAutoWeeks[2]);
+  const [modalWeek3, setModalWeek3] = useState(defaultAutoWeeks[3]);
+  const [modalWeek4, setModalWeek4] = useState(defaultAutoWeeks[4]);
 
   const [storeWeekRanges, setStoreWeekRanges] = useState(() => {
     try {
@@ -469,9 +542,9 @@ const DSRReport = () => {
         }
       }
     }
-      if (todayDateNum <= 10) return 1;
-    if (todayDateNum <= 17) return 2;
-    if (todayDateNum <= 24) return 3;
+    if (todayDateNum <= 7) return 1;
+    if (todayDateNum <= 14) return 2;
+    if (todayDateNum <= 21) return 3;
     return 4;
   };
 
@@ -484,19 +557,26 @@ const DSRReport = () => {
     
     // Parse the week date ranges for the store
     const targetMonth = start.getMonth(); // target month is the month of custom range start date
+    const targetMonthName = start.toLocaleString("en-US", { month: "long" });
+    const targetYearNum = start.getFullYear();
+    const autoWeeks = getAutoWeekDates(targetMonthName, targetYearNum);
     
-    const week1DatesVal = localStorage.getItem("week1Dates") || `01 - 10 ${CURRENT_MONTH_SHORT}`;
-    const week2DatesVal = localStorage.getItem("week2Dates") || `11 - 17 ${CURRENT_MONTH_SHORT}`;
-    const week3DatesVal = localStorage.getItem("week3Dates") || "Select Days";
-    const week4DatesVal = localStorage.getItem("week4Dates") || "Select Days";
+    const week1DatesVal = localStorage.getItem("week1Dates") || autoWeeks[1];
+    const week2DatesVal = localStorage.getItem("week2Dates") || autoWeeks[2];
+    const week3DatesVal = localStorage.getItem("week3Dates") || autoWeeks[3];
+    const week4DatesVal = localStorage.getItem("week4Dates") || autoWeeks[4];
 
-    let w1 = week1DatesVal, w2 = week2DatesVal, w3 = week3DatesVal, w4 = week4DatesVal;
+    let w1 = week1DatesVal && week1DatesVal !== "Select Days" ? week1DatesVal : autoWeeks[1];
+    let w2 = week2DatesVal && week2DatesVal !== "Select Days" ? week2DatesVal : autoWeeks[2];
+    let w3 = week3DatesVal && week3DatesVal !== "Select Days" ? week3DatesVal : autoWeeks[3];
+    let w4 = week4DatesVal && week4DatesVal !== "Select Days" ? week4DatesVal : autoWeeks[4];
+
     if (storeName !== "All" && storeWeekRanges[storeName]) {
       const sr = storeWeekRanges[storeName];
-      if (sr[1]) w1 = sr[1];
-      if (sr[2]) w2 = sr[2];
-      if (sr[3]) w3 = sr[3];
-      if (sr[4]) w4 = sr[4];
+      if (sr[1] && sr[1] !== "Select Days") w1 = sr[1];
+      if (sr[2] && sr[2] !== "Select Days") w2 = sr[2];
+      if (sr[3] && sr[3] !== "Select Days") w3 = sr[3];
+      if (sr[4] && sr[4] !== "Select Days") w4 = sr[4];
     }
     
     const parseRange = (val, weekId) => {
@@ -511,13 +591,12 @@ const DSRReport = () => {
       }
       
       if (!startDay || !endDay || isNaN(startDay) || isNaN(endDay)) {
-        if (weekId === 1) { startDay = 1; endDay = 10; }
-        else if (weekId === 2) { startDay = 11; endDay = 17; }
-        else if (weekId === 3) { startDay = 18; endDay = 24; }
+        if (weekId === 1) { startDay = 1; endDay = 7; }
+        else if (weekId === 2) { startDay = 8; endDay = 14; }
+        else if (weekId === 3) { startDay = 15; endDay = 21; }
         else if (weekId === 4) { 
-          const startMonthName = CURRENT_MONTH_LONG; 
-          startDay = 25; 
-          endDay = getDaysCountInMonth(startMonthName); 
+          startDay = 22; 
+          endDay = getDaysCountInMonth(targetMonthName, targetYearNum); 
         }
       }
       return { startDay, endDay, count: (endDay - startDay + 1) };
@@ -721,11 +800,27 @@ const DSRReport = () => {
 
   // Configure Week Dates Modal States
   const [configWeeksModalOpen, setConfigWeeksModalOpen] = useState(false);
+  const [isEditingWeeks, setIsEditingWeeks] = useState(false);
   const [configStore, setConfigStore] = useState("All");
   const [configMonth, setConfigMonth] = useState(CURRENT_MONTH_LONG);
-  const [configWeek1, setConfigWeek1] = useState(`01 - 10 ${CURRENT_MONTH_SHORT}`);
-  const [configWeek2, setConfigWeek2] = useState(`11 - 17 ${CURRENT_MONTH_SHORT}`);
-  const [configWeek3, setConfigWeek3] = useState("Select Days");
+  const [configWeek1, setConfigWeek1] = useState(defaultAutoWeeks[1]);
+  const [configWeek2, setConfigWeek2] = useState(defaultAutoWeeks[2]);
+  const [configWeek3, setConfigWeek3] = useState(defaultAutoWeeks[3]);
+
+  // Reset editing weeks state when the modal closes
+  useEffect(() => {
+    if (!configWeeksModalOpen) {
+      setIsEditingWeeks(false);
+      setConfigCalendarOpen(null);
+    }
+  }, [configWeeksModalOpen]);
+
+  // Close calendar popups if inputs are locked
+  useEffect(() => {
+    if (!isEditingWeeks) {
+      setConfigCalendarOpen(null);
+    }
+  }, [isEditingWeeks]);
 
   // Dappr Squad attribution modal states
   const [dapprModalOpen, setDapprModalOpen] = useState(false);
@@ -734,10 +829,17 @@ const DSRReport = () => {
     try { return JSON.parse(localStorage.getItem("dapprAttribution") || "{}"); } catch { return {}; }
   });
   const [dapprInputs, setDapprInputs] = useState({});
-  const [configWeek4, setConfigWeek4] = useState("Select Days");
+  const [configWeek4, setConfigWeek4] = useState(defaultAutoWeeks[4]);
   const [configCalendarOpen, setConfigCalendarOpen] = useState(null);
-  const [configStartDays, setConfigStartDays] = useState({ 1: 1, 2: 11, 3: null, 4: null });
-  const [configEndDays, setConfigEndDays] = useState({ 1: 10, 2: 17, 3: null, 4: null });
+  const [configStartDays, setConfigStartDays] = useState({ 1: 1, 2: 8, 3: 15, 4: 22 });
+  const [configEndDays, setConfigEndDays] = useState({ 1: 7, 2: 14, 3: 21, 4: 31 });
+
+  // Reset selected report if unauthorized user tries to view Cluster DSR
+  useEffect(() => {
+    if (selectedReport === "Cluster DSR" && !isAdminOrSuperAdmin) {
+      setSelectedReport("Revenue Vs Target");
+    }
+  }, [selectedReport, isAdminOrSuperAdmin]);
 
   // Sync config week dates when configStore changes
   useEffect(() => {
@@ -902,8 +1004,8 @@ const DSRReport = () => {
   }, [modalStore, assignTargetModalOpen, storeWeekRanges, week1Dates, week2Dates, week3Dates, week4Dates, isStoreAdmin, branches]);
 
   const [calendarOpenForWeek, setCalendarOpenForWeek] = useState(null);
-  const [weekStartDays, setWeekStartDays] = useState({ 1: 1, 2: 11, 3: null, 4: null });
-  const [weekEndDays, setWeekEndDays] = useState({ 1: 10, 2: 17, 3: null, 4: null });
+  const [weekStartDays, setWeekStartDays] = useState({ 1: 1, 2: 8, 3: 15, 4: 22 });
+  const [weekEndDays, setWeekEndDays] = useState({ 1: 7, 2: 14, 3: 21, 4: 31 });
 
   useEffect(() => {
     const parseDays = (dateStr) => {
@@ -927,20 +1029,6 @@ const DSRReport = () => {
     setWeekStartDays({ 1: p1.start, 2: p2.start, 3: p3.start, 4: p4.start });
     setWeekEndDays({ 1: p1.end, 2: p2.end, 3: p3.end, 4: p4.end });
   }, [modalWeek1, modalWeek2, modalWeek3, modalWeek4, assignTargetModalOpen]);
-
-  const getDaysCountInMonth = (monthName, year = CURRENT_YEAR) => {
-    const months = {
-      January: 31, February: 28, March: 31, April: 30, May: 31, June: 30,
-      July: 31, August: 31, September: 30, October: 31, November: 30, December: 31
-    };
-    if (monthName === "February") {
-      if ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) {
-        return 29;
-      }
-      return 28;
-    }
-    return months[monthName] || 30;
-  };
 
   const handleWeekCardClick = (weekId, currentVal) => {
     setActiveWeek(weekId);
@@ -998,11 +1086,11 @@ const DSRReport = () => {
         const targetsMap = {};
         const rangesMap = {};
         const empTargetsMap = {};
-        const monthShort = targetMonth.substring(0, 3);
-        let w1 = `01 - 10 ${monthShort}`;
-        let w2 = `11 - 17 ${monthShort}`;
-        let w3 = "Select Days";
-        let w4 = "Select Days";
+        const autoWeeks = getAutoWeekDates(targetMonth, targetYear);
+        let w1 = autoWeeks[1];
+        let w2 = autoWeeks[2];
+        let w3 = autoWeeks[3];
+        let w4 = autoWeeks[4];
         
         data.forEach((doc) => {
           const store = doc.storeName;
@@ -1010,10 +1098,10 @@ const DSRReport = () => {
           const storeNorm = store.replace(/[.\-]/g, '-');
 
           if (store === "All") {
-            w1 = doc.weekRanges?.[1] || `01 - 10 ${monthShort}`;
-            w2 = doc.weekRanges?.[2] || `11 - 17 ${monthShort}`;
-            w3 = doc.weekRanges?.[3] || "Select Days";
-            w4 = doc.weekRanges?.[4] || "Select Days";
+            w1 = (doc.weekRanges?.[1] && doc.weekRanges?.[1] !== "Select Days") ? doc.weekRanges[1] : autoWeeks[1];
+            w2 = (doc.weekRanges?.[2] && doc.weekRanges?.[2] !== "Select Days") ? doc.weekRanges[2] : autoWeeks[2];
+            w3 = (doc.weekRanges?.[3] && doc.weekRanges?.[3] !== "Select Days") ? doc.weekRanges[3] : autoWeeks[3];
+            w4 = (doc.weekRanges?.[4] && doc.weekRanges?.[4] !== "Select Days") ? doc.weekRanges[4] : autoWeeks[4];
           }
           
           const targetEntry = {
@@ -1023,10 +1111,10 @@ const DSRReport = () => {
             4: doc.weeklyTargets?.[4] || 0,
           };
           const rangeEntry = {
-            1: doc.weekRanges?.[1] || "Select Days",
-            2: doc.weekRanges?.[2] || "Select Days",
-            3: doc.weekRanges?.[3] || "Select Days",
-            4: doc.weekRanges?.[4] || "Select Days",
+            1: (doc.weekRanges?.[1] && doc.weekRanges?.[1] !== "Select Days") ? doc.weekRanges[1] : autoWeeks[1],
+            2: (doc.weekRanges?.[2] && doc.weekRanges?.[2] !== "Select Days") ? doc.weekRanges[2] : autoWeeks[2],
+            3: (doc.weekRanges?.[3] && doc.weekRanges?.[3] !== "Select Days") ? doc.weekRanges[3] : autoWeeks[3],
+            4: (doc.weekRanges?.[4] && doc.weekRanges?.[4] !== "Select Days") ? doc.weekRanges[4] : autoWeeks[4],
           };
 
           // Store under exact DB key AND normalized key (dot→dash)
@@ -1574,9 +1662,9 @@ const DSRReport = () => {
       }
     } else {
       if (activeWeekId === 1) startDayNum = 1;
-      else if (activeWeekId === 2) startDayNum = 11;
-      else if (activeWeekId === 3) startDayNum = 18;
-      else startDayNum = 25;
+      else if (activeWeekId === 2) startDayNum = 8;
+      else if (activeWeekId === 3) startDayNum = 15;
+      else startDayNum = 22;
     }
     
     const startDate = new Date(today.getFullYear(), today.getMonth(), startDayNum);
@@ -2315,7 +2403,16 @@ const DSRReport = () => {
     return ["All", ...Array.from(new Set(names))];
   }, [branches]);
 
-  // Filter functions
+  const storeToClusterMap = useMemo(() => {
+    const map = {};
+    branches.forEach((b) => {
+      const storeName = displayBranchName(b.workingBranch);
+      const clusterName = b.clusterId?.clusterName || "Unassigned";
+      map[storeName] = clusterName;
+    });
+    return map;
+  }, [branches]);
+
   const filteredData = useMemo(() => {
     return dsrData.filter((item) => {
       const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -2335,11 +2432,11 @@ const DSRReport = () => {
 
   // Dynamic calculations for Revenue Vs Target metrics cards
   const overallTarget = useMemo(() => {
-    return filteredData.reduce((acc, row) => acc + row.target, 0);
+    return filteredData.reduce((acc, row) => acc + (row.target || 0), 0);
   }, [filteredData]);
 
   const overallAchieved = useMemo(() => {
-    return filteredData.reduce((acc, row) => acc + row.achieved, 0);
+    return filteredData.reduce((acc, row) => acc + (row.achieved || 0), 0);
   }, [filteredData]);
 
   const overallBalance = useMemo(() => {
@@ -2766,9 +2863,9 @@ const DSRReport = () => {
     let csvContent = "";
     let fileName = "";
 
-    if (selectedReport === "Revenue Vs Target") {
-      fileName = `Revenue_Vs_Target_${activeTab}_${CURRENT_YEAR}.csv`;
-      const storeColumnName = isStoreAdmin ? "Staff Name" : "Store Name";
+    if (selectedReport === "Revenue Vs Target" || selectedReport === "Cluster DSR") {
+      fileName = `${selectedReport.replace(/\s+/g, "_")}_${activeTab}_${CURRENT_YEAR}.csv`;
+      const storeColumnName = selectedReport === "Cluster DSR" ? "Cluster Name" : isStoreAdmin ? "Staff Name" : "Store Name";
       const headers = ["Sl No", storeColumnName, "Target (INR)", "Achieved (INR)", "Balance (INR)", "Achieved (%)"];
       const rows = filteredData.map((row) => [
         row.sl,
@@ -2780,7 +2877,7 @@ const DSRReport = () => {
       ]);
       rows.push([
         "Total",
-        "ALL STORES",
+        selectedReport === "Cluster DSR" ? "ALL CLUSTERS" : "ALL STORES",
         overallTarget,
         overallAchieved,
         Math.abs(overallBalance),
@@ -3012,12 +3109,14 @@ const DSRReport = () => {
             )}
 
             {/* Assign Target Button */}
-            <button 
-              onClick={() => setAssignTargetModalOpen(true)}
-              className="flex items-center gap-2 bg-[#18181b] hover:bg-black text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-            >
-              Assign Target
-            </button>
+            {(isAdminOrSuperAdmin || isClusterAdmin) && (
+              <button 
+                onClick={() => setAssignTargetModalOpen(true)}
+                className="flex items-center gap-2 bg-[#18181b] hover:bg-black text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+              >
+                Assign Target
+              </button>
+            )}
           </div>
         </div>
 
@@ -3114,7 +3213,9 @@ const DSRReport = () => {
                     : "opacity-0 scale-95 -translate-y-2 pointer-events-none"
                 }`}
               >
-                {["Revenue Vs Target", "Sales Funnel", "Category Contribution"].map((opt) => (
+                {["Revenue Vs Target", isAdminOrSuperAdmin && "Cluster DSR", "Sales Funnel", "Category Contribution"]
+                  .filter(Boolean)
+                  .map((opt) => (
                   <button
                     key={opt}
                     onClick={() => {
@@ -3139,7 +3240,7 @@ const DSRReport = () => {
             </div>
 
             {/* Custom Funnel View Dropdown — shown when report is Sales Funnel or Revenue Vs Target */}
-            {(selectedReport === "Sales Funnel" || selectedReport === "Revenue Vs Target") && (
+            {(selectedReport === "Sales Funnel" || selectedReport === "Revenue Vs Target" || selectedReport === "Cluster DSR") && (
               <div className="relative">
                 <button 
                   onClick={() => setFunnelDropdownOpen(!funnelDropdownOpen)}
@@ -3251,7 +3352,7 @@ const DSRReport = () => {
                   </tr>
                 </thead>
                 <tbody className="text-xs text-gray-700 divide-y divide-gray-100">
-                  {filteredData.map((row) => {
+                  {filteredData.map((row, index) => {
                     let pctColorClass = "text-gray-900";
                     if (row.pct >= 100) {
                       pctColorClass = "text-[#00A36C] font-semibold";
@@ -3275,7 +3376,7 @@ const DSRReport = () => {
                     }
 
                     return (
-                      <tr key={row.sl} className="odd:bg-white even:bg-[#f9fafb] hover:bg-gray-50/50 transition-colors">
+                      <tr key={row.sl || index} className="odd:bg-white even:bg-[#f9fafb] hover:bg-gray-50/50 transition-colors">
                         <td className="px-6 py-3.5 text-center text-gray-400 font-medium">{row.sl}</td>
                         <td className="px-6 py-3.5 font-bold text-gray-800">{row.name}</td>
                         <td className={`px-6 py-3.5 text-right font-medium ${targetColorClass}`}>
@@ -3296,6 +3397,107 @@ const DSRReport = () => {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {selectedReport === "Cluster DSR" && (
+          <div className="space-y-8">
+            {["Zorucci", "South Cluster", "North Cluster", "Unassigned"].map((clusterName) => {
+              const stores = dsrData.filter((row) => {
+                if (row.isStaff) return false;
+                const matchesSearch = row.name.toLowerCase().includes(searchQuery.toLowerCase());
+                return matchesSearch && getClusterForStoreName(row.name) === clusterName;
+              });
+
+              if (stores.length === 0) return null;
+
+              const clusterTarget = stores.reduce((sum, s) => sum + (s.target || 0), 0);
+              const clusterAchieved = stores.reduce((sum, s) => sum + (s.achieved || 0), 0);
+              const clusterBalance = clusterTarget - clusterAchieved;
+              const clusterPct = clusterTarget > 0 ? Math.round((clusterAchieved / clusterTarget) * 100) : 0;
+
+              return (
+                <div key={clusterName} className="bg-white rounded-[20px] shadow-sm border border-gray-100 overflow-hidden">
+                  
+                  {/* Cluster Title Header */}
+                  <div className="px-6 py-5 bg-gray-50/50 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-[16px] font-black text-gray-900 tracking-tight">{clusterName}</h2>
+                      <p className="text-gray-400 text-[11px] mt-0.5 font-medium">
+                        DSR Overview for {clusterName} stores
+                      </p>
+                    </div>
+                    {/* Miniature metrics summary */}
+                    <div className="flex items-center gap-5 text-[11px] font-bold text-gray-500">
+                      <div>Target: <span className="font-extrabold text-gray-900">₹{formatIndianNumber(clusterTarget)}</span></div>
+                      <div>Achieved: <span className="font-extrabold text-[#00A36C]">₹{formatIndianNumber(clusterAchieved)}</span></div>
+                      <div>Achieved %: <span className="font-extrabold text-gray-900">{clusterPct}%</span></div>
+                    </div>
+                  </div>
+
+                  {/* Data Table */}
+                  <div className="overflow-x-auto w-full">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-[#2e2e2e] text-white text-[11px] font-bold tracking-wider uppercase">
+                          <th className="px-6 py-3.5 text-center w-20">Sl No</th>
+                          <th className="px-6 py-3.5">Store Name</th>
+                          <th className="px-6 py-3.5 text-right">Target (₹)</th>
+                          <th className="px-6 py-3.5 text-right">Achieved (₹)</th>
+                          <th className="px-6 py-3.5 text-right">Balance (₹)</th>
+                          <th className="px-6 py-3.5 text-center">Achieved (%)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-xs text-gray-700 divide-y divide-gray-100">
+                        {stores.map((store, idx) => {
+                          let pctColorClass = "text-gray-900";
+                          if (store.pct >= 100) pctColorClass = "text-[#00A36C] font-semibold";
+                          else if (store.pct <= 93) pctColorClass = "text-[#e05a47] font-semibold";
+
+                          let targetColorClass = "text-gray-900";
+                          if (store.target === 0) targetColorClass = "text-[#e05a47] font-semibold";
+
+                          let achievedColorClass = "text-gray-900";
+                          if (store.achieved === 0) achievedColorClass = "text-[#e05a47]";
+
+                          let balColorClass = store.balance < 0 ? "text-[#00A36C]" : "text-gray-900";
+                          if (store.pct <= 93 || store.balance === 0) balColorClass = "text-[#e05a47]";
+
+                          return (
+                            <tr key={store.name} className="odd:bg-white even:bg-[#f9fafb] hover:bg-gray-50/50 transition-colors">
+                              <td className="px-6 py-3.5 text-center text-gray-400 font-medium">{idx + 1}</td>
+                              <td className="px-6 py-3.5 font-bold text-gray-800">{store.name}</td>
+                              <td className={`px-6 py-3.5 text-right font-medium ${targetColorClass}`}>
+                                {formatIndianNumber(store.target)}
+                              </td>
+                              <td className={`px-6 py-3.5 text-right font-bold ${achievedColorClass}`}>
+                                {formatIndianNumber(store.achieved)}
+                              </td>
+                              <td className={`px-6 py-3.5 text-right font-bold ${balColorClass}`}>
+                                {formatIndianNumber(Math.abs(store.balance))}
+                              </td>
+                              <td className={`px-6 py-3.5 text-center font-bold ${pctColorClass}`}>
+                                {store.pct}%
+                              </td>
+                            </tr>
+                          );
+                        })}
+
+                        {/* Cluster Total Row */}
+                        <tr className="bg-gray-50/80 font-black border-t border-b border-gray-200">
+                          <td className="px-6 py-3.5 text-center text-gray-400 font-medium">—</td>
+                          <td className="px-6 py-3.5 font-extrabold text-[#18181b]">{clusterName} Total</td>
+                          <td className="px-6 py-3.5 text-right font-extrabold text-gray-900">{formatIndianNumber(clusterTarget)}</td>
+                          <td className="px-6 py-3.5 text-right font-extrabold text-gray-900">{formatIndianNumber(clusterAchieved)}</td>
+                          <td className="px-6 py-3.5 text-right font-extrabold text-[#e05a47]">{formatIndianNumber(Math.abs(clusterBalance))}</td>
+                          <td className={`px-6 py-3.5 text-center font-extrabold ${clusterPct >= 100 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>{clusterPct}%</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -4132,14 +4334,36 @@ const DSRReport = () => {
             {/* Modal Container */}
             <div className="bg-white rounded-[24px] w-full max-w-[620px] shadow-2xl relative z-10 p-6 border border-gray-100/50 scale-100 transition-all">
               {/* Header */}
-              <div className="flex items-center gap-3.5 mb-6">
-                <button 
-                  onClick={() => setConfigWeeksModalOpen(false)}
-                  className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3.5">
+                  <button 
+                    onClick={() => setConfigWeeksModalOpen(false)}
+                    className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+                  >
+                    <FiArrowLeft size={20} className="text-gray-800" />
+                  </button>
+                  <h2 className="text-lg font-bold text-gray-900 leading-none">Configure Week Dates</h2>
+                </div>
+                <button
+                  onClick={() => setIsEditingWeeks(prev => !prev)}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200 border ${
+                    isEditingWeeks 
+                      ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100" 
+                      : "bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200"
+                  }`}
                 >
-                  <FiArrowLeft size={20} className="text-gray-800" />
+                  {isEditingWeeks ? (
+                    <>
+                      <FiLock size={13} />
+                      Lock Dates
+                    </>
+                  ) : (
+                    <>
+                      <FiUnlock size={13} />
+                      Unlock to Edit
+                    </>
+                  )}
                 </button>
-                <h2 className="text-lg font-bold text-gray-900 leading-none">Configure Week Dates</h2>
               </div>
 
               {/* Store Name & Month Fields */}
@@ -4154,7 +4378,8 @@ const DSRReport = () => {
                     <select 
                       value={configStore}
                       onChange={(e) => setConfigStore(e.target.value)}
-                      className="w-full bg-[#fcfcfc] border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-1 focus:ring-black hover:border-gray-300 transition-colors"
+                      disabled={!isEditingWeeks}
+                      className="w-full bg-[#fcfcfc] border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-1 focus:ring-black hover:border-gray-300 transition-colors disabled:bg-gray-50/50 disabled:cursor-not-allowed disabled:text-gray-500"
                     >
                       <option value="All">All Stores (Global)</option>
                       {storeOptions.filter(o => o !== "All").map((store) => (
@@ -4169,7 +4394,8 @@ const DSRReport = () => {
                   <select 
                     value={configMonth}
                     onChange={(e) => setConfigMonth(e.target.value)}
-                    className="w-full bg-[#fcfcfc] border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-1 focus:ring-black hover:border-gray-300 transition-colors"
+                    disabled={!isEditingWeeks}
+                    className="w-full bg-[#fcfcfc] border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-1 focus:ring-black hover:border-gray-300 transition-colors disabled:bg-gray-50/50 disabled:cursor-not-allowed disabled:text-gray-500"
                   >
                     <option value="">Select Month</option>
                     {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"].map((m) => (
@@ -4188,29 +4414,21 @@ const DSRReport = () => {
                   { id: 4, label: "Week 4*", val: configWeek4, setVal: setConfigWeek4 }
                 ].map((w) => {
                   const isActive = configCalendarOpen === w.id;
-                  const isDayTakenInOtherWeeks = (day) => {
-                    const weeks = [1, 2, 3, 4];
-                    for (const wid of weeks) {
-                      if (wid === w.id) continue;
-                      const start = configStartDays[wid];
-                      const end = configEndDays[wid];
-                      if (start !== null && end !== null && start !== undefined && end !== undefined) {
-                        if (day >= start && day <= end) {
-                          return true;
-                        }
-                      }
-                    }
-                    return false;
-                  };
                   return (
                     <div key={w.id} className="relative flex flex-col">
                       <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">{w.label}</label>
                       <div 
-                        onClick={() => setConfigCalendarOpen(configCalendarOpen === w.id ? null : w.id)}
-                        className={`relative flex items-center justify-between w-full bg-[#fcfcfc] border rounded-xl px-3 py-2.5 text-xs font-semibold text-gray-700 cursor-pointer transition-all duration-200 ${
-                          isActive 
-                            ? "border-black ring-1 ring-black shadow-[0_0_0_1px_black]" 
-                            : "border-gray-200 hover:border-gray-400"
+                        onClick={() => {
+                          if (isEditingWeeks) {
+                            setConfigCalendarOpen(configCalendarOpen === w.id ? null : w.id);
+                          }
+                        }}
+                        className={`relative flex items-center justify-between w-full bg-[#fcfcfc] border rounded-xl px-3 py-2.5 text-xs font-semibold transition-all duration-200 ${
+                          !isEditingWeeks
+                            ? "border-gray-150 bg-gray-50/50 text-gray-500 cursor-not-allowed opacity-80"
+                            : isActive 
+                              ? "border-black ring-1 ring-black shadow-[0_0_0_1px_black] text-gray-700 cursor-pointer" 
+                              : "border-gray-200 hover:border-gray-400 text-gray-700 cursor-pointer"
                         }`}
                       >
                         <input 
@@ -4218,9 +4436,11 @@ const DSRReport = () => {
                           value={w.val}
                           onChange={(e) => w.setVal(e.target.value)}
                           onClick={(e) => e.stopPropagation()}
-                          className="bg-transparent border-none outline-none w-full text-xs font-semibold text-gray-700 focus:ring-0 p-0"
+                          readOnly={!isEditingWeeks}
+                          disabled={!isEditingWeeks}
+                          className="bg-transparent border-none outline-none w-full text-xs font-semibold text-gray-700 focus:ring-0 p-0 disabled:text-gray-400"
                         />
-                        <FiCalendar size={14} className="text-gray-400 ml-1.5 flex-shrink-0" />
+                        <FiCalendar size={14} className={`ml-1.5 flex-shrink-0 ${isEditingWeeks ? "text-gray-400" : "text-gray-300"}`} />
                       </div>
 
                       {/* Custom Scroll Wheel Range Selector Popup */}
@@ -4230,9 +4450,9 @@ const DSRReport = () => {
                             <span>{configMonth || CURRENT_MONTH_LONG} {CURRENT_YEAR} Picker</span>
                             <button 
                               onClick={(e) => {
-                                e.stopPropagation();
-                                setConfigCalendarOpen(null);
-                              }}
+                                  e.stopPropagation();
+                                  setConfigCalendarOpen(null);
+                                }}
                               className="text-gray-400 hover:text-gray-900 text-[10px] font-bold uppercase tracking-wider"
                             >
                               Done
@@ -4246,13 +4466,14 @@ const DSRReport = () => {
                               <div className="h-[150px] overflow-y-auto flex flex-col gap-1 pr-1 scrollbar-thin scrollbar-thumb-gray-200">
                                 {Array.from({ length: getDaysCountInMonth(configMonth || CURRENT_MONTH_LONG) }, (_, i) => i + 1).map((d) => {
                                   const isSelected = configStartDays[w.id] === d;
-                                  const isDisabled = isDayTakenInOtherWeeks(d);
+                                  const isDisabled = false;
                                   return (
                                     <button
                                       key={`start-${d}`}
                                       disabled={isDisabled}
                                       onClick={(e) => {
                                         e.stopPropagation();
+                                        if (!isEditingWeeks) return;
                                         const newStart = d;
                                         let newEnd = configEndDays[w.id];
                                         if (newStart !== null && newEnd !== null && newEnd < newStart) {
@@ -4286,20 +4507,14 @@ const DSRReport = () => {
                               <div className="h-[150px] overflow-y-auto flex flex-col gap-1 pr-1 scrollbar-thin scrollbar-thumb-gray-200">
                                 {Array.from({ length: getDaysCountInMonth(configMonth || CURRENT_MONTH_LONG) }, (_, i) => i + 1).map((d) => {
                                   const isSelected = configEndDays[w.id] === d;
-                                  const isDisabled = (() => {
-                                    if (configStartDays[w.id] === null) return true;
-                                    if (d < configStartDays[w.id]) return true;
-                                    for (let day = configStartDays[w.id]; day <= d; day++) {
-                                      if (isDayTakenInOtherWeeks(day)) return true;
-                                    }
-                                    return false;
-                                  })();
+                                  const isDisabled = configStartDays[w.id] === null || d < configStartDays[w.id];
                                   return (
                                     <button
                                       key={`end-${d}`}
                                       disabled={isDisabled}
                                       onClick={(e) => {
                                         e.stopPropagation();
+                                        if (!isEditingWeeks) return;
                                         const newEnd = d;
                                         setConfigEndDays(prev => ({ ...prev, [w.id]: newEnd }));
                                         const monthAbbr = (configMonth || CURRENT_MONTH_LONG).substring(0, 3);
@@ -4309,7 +4524,7 @@ const DSRReport = () => {
                                       }}
                                       className={`py-1.5 text-xs font-semibold rounded-lg transition-colors text-center ${
                                         isDisabled 
-                                          ? "text-gray-300 cursor-not-allowed opacity-40"
+                                          ? "text-gray-305 cursor-not-allowed opacity-40"
                                           : isSelected 
                                             ? "bg-black text-white font-bold" 
                                             : "text-gray-700 hover:bg-gray-100"

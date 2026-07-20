@@ -2205,9 +2205,14 @@ const StoreInsights = () => {
 
   // Store ranking data calculations
   const rankingData = useMemo(() => {
-    if (isStoreAdmin) {
+    const showStaffRanking = isStoreAdmin || storeFilter !== "All";
+    if (showStaffRanking) {
       if (branches.length === 0) return [];
-      const singleBranch = branches[0];
+      const singleBranch = storeFilter !== "All"
+        ? branches.find(b => displayBranchName(b.workingBranch) === storeFilter)
+        : branches[0];
+
+      if (!singleBranch) return [];
       const name = displayBranchName(singleBranch?.workingBranch);
       const storeKeyVal = normalizeForMatch(singleBranch?.workingBranch);
       const locId = getBranchLocationId(singleBranch?.workingBranch);
@@ -2501,7 +2506,8 @@ const StoreInsights = () => {
   const operationalHighlights = useMemo(() => {
     const highlights = [];
 
-    if (isStoreAdmin) {
+    const showStaffRanking = isStoreAdmin || storeFilter !== "All";
+    if (showStaffRanking) {
       // 1. Lowest Performing Employee (target)
       const activeEmployeesData = [...employeeChartData];
       if (activeEmployeesData.length > 0) {
@@ -2665,7 +2671,7 @@ const StoreInsights = () => {
     }
 
     return highlights;
-  }, [isStoreAdmin, branches, employees, employeeChartData, rankingData, filteredStoresForKPIs, performanceData]);
+  }, [isStoreAdmin, storeFilter, branches, employees, employeeChartData, rankingData, filteredStoresForKPIs, performanceData]);
 
   const itemsPerPageRanking = 6;
   const totalRankingItems = processedRanking.length;
@@ -3281,10 +3287,10 @@ const StoreInsights = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
               <div>
                 <h2 className="text-[18px] font-bold text-gray-900 leading-tight">
-                  {isStoreAdmin ? "Staff Performance Ranking" : "Store Performance Ranking"}
+                  {isStoreAdmin || storeFilter !== "All" ? "Staff Performance Ranking" : "Store Performance Ranking"}
                 </h2>
                 <p className="text-gray-400 text-[12px] mt-0.5 font-medium">
-                  Best to least - {timeframe} - Showing all {totalRankingItems} {isStoreAdmin ? "staff" : "stores"}
+                  Best to least - {timeframe} - Showing all {totalRankingItems} {isStoreAdmin || storeFilter !== "All" ? "staff" : "stores"}
                 </p>
               </div>
               
@@ -3321,7 +3327,7 @@ const StoreInsights = () => {
                 onChange={(e) => {
                   setRankingSearch(e.target.value);
                 }}
-                placeholder={isStoreAdmin ? "Search by staff name..." : "Search by store name..."} 
+                placeholder={isStoreAdmin || storeFilter !== "All" ? "Search by staff name..." : "Search by store name..."} 
                 className="w-full bg-[#f3f4f6] text-gray-700 text-xs font-semibold rounded-[14px] pl-9 pr-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-gray-300"
               />
             </div>
@@ -3331,8 +3337,8 @@ const StoreInsights = () => {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-[#f3f4f6] rounded-xl text-gray-500 text-[10px] font-extrabold tracking-wider uppercase">
-                    <th className="py-3 px-4 rounded-l-xl">{isStoreAdmin ? "Staff Name" : "Store Name"}</th>
-                    <th className="py-3 px-4 text-center">{isStoreAdmin ? "Value" : "Target Achieved %"}</th>
+                    <th className="py-3 px-4 rounded-l-xl">{isStoreAdmin || storeFilter !== "All" ? "Staff Name" : "Store Name"}</th>
+                    <th className="py-3 px-4 text-center">{isStoreAdmin || storeFilter !== "All" ? "Value" : "Target Achieved %"}</th>
                     <th className="py-3 px-4 text-center">ABS</th>
                     <th className="py-3 px-4 text-center">ABV</th>
                     <th className="py-3 px-4 text-center">Contribution %</th>
@@ -3348,7 +3354,7 @@ const StoreInsights = () => {
                     return (
                       <tr key={idx} className="hover:bg-gray-50 transition-colors">
                         <td className="py-3 px-4">
-                          {isStoreAdmin ? (
+                          {isStoreAdmin || storeFilter !== "All" ? (
                             <span className="block font-extrabold text-gray-900 text-[13px]">{s.name}</span>
                           ) : (
                             <>
@@ -3358,7 +3364,7 @@ const StoreInsights = () => {
                           )}
                         </td>
                         <td className="py-3 px-4 text-center text-gray-900 font-extrabold text-[13px]">
-                          {isStoreAdmin ? `₹${formatIndianNumber(s.targetAchieved)}` : `${s.targetAchieved}%`}
+                          {isStoreAdmin || storeFilter !== "All" ? `₹${formatIndianNumber(s.targetAchieved)}` : `${s.targetAchieved}%`}
                         </td>
                         <td className="py-3 px-4 text-center text-gray-500">{s.abs}</td>
                         <td className="py-3 px-4 text-center text-gray-900 font-extrabold">₹{formatIndianNumber(s.abv)}</td>
@@ -3370,7 +3376,7 @@ const StoreInsights = () => {
                   {processedRanking.length === 0 && (
                     <tr>
                       <td colSpan={6} className="py-8 text-center text-gray-400 font-semibold">
-                        {isStoreAdmin ? "No staff found matching search criteria." : "No stores found matching search criteria."}
+                        {isStoreAdmin || storeFilter !== "All" ? "No staff found matching search criteria." : "No stores found matching search criteria."}
                       </td>
                     </tr>
                   )}

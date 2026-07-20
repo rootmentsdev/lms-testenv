@@ -321,6 +321,11 @@ router.get('/', MiddilWare, async (req, res) => {
 // POST save/update a store target config
 router.post('/', MiddilWare, async (req, res) => {
   try {
+    const userRole = req.admin?.role;
+    if (!['super_admin', 'admin', 'cluster_admin'].includes(userRole)) {
+      return res.status(403).json({ success: false, message: "Forbidden: Only admin and cluster admin can assign targets." });
+    }
+
     const { storeName, month, year, weekRanges, weeklyTargets, employeeTargets } = req.body;
     if (!storeName || !month) {
       return res.status(400).json({ success: false, message: "storeName and month are required" });

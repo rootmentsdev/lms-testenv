@@ -701,7 +701,7 @@ export const GetBranch = async (req, res) => {
   try {
     // Public access (no token) — return all branches for signup dropdown
     if (!req.admin?.userId) {
-      const allBranches = await Branch.find({}).select('locCode workingBranch location').lean();
+      const allBranches = await Branch.find({}).select('locCode workingBranch location clusterId').populate('clusterId').lean();
       return res.status(200).json({ message: 'Data found', data: allBranches });
     }
 
@@ -714,7 +714,7 @@ export const GetBranch = async (req, res) => {
 
     // Super admin, admin, or admin with no branches assigned — return all branches
     if (!AdminBranch.branches || AdminBranch.branches.length === 0 || ['super_admin', 'admin'].includes(AdminBranch.role)) {
-      const allBranches = await Branch.find({});
+      const allBranches = await Branch.find({}).populate('clusterId');
 
       const branchesWithCounts = await Promise.all(allBranches.map(async (branch) => {
         const branchLocCode = String(branch.locCode);
@@ -746,7 +746,7 @@ export const GetBranch = async (req, res) => {
       ...allowedLocCodes.map(c => Number(c)).filter(c => !isNaN(c))
     ];
 
-    const branches = await Branch.find({ locCode: { $in: allowedBoth } });
+    const branches = await Branch.find({ locCode: { $in: allowedBoth } }).populate('clusterId');
 
     if (branches.length === 0) {
       return res.status(404).json({ message: "No branches found matching admin's location codes" });
