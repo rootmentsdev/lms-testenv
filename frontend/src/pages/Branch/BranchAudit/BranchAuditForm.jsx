@@ -482,42 +482,44 @@ const BranchAuditForm = () => {
                 />
               ))}
 
-            {/* Auditor Remarks (both roles) */}
-            <section className="rounded-[8px] bg-white px-6 py-8 shadow-sm">
-              <h2 className="mb-6 text-[16px] font-bold text-black border-b border-gray-100 pb-3">
-                Auditor Remarks
-              </h2>
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-[14px] font-semibold text-[#30343b]">
-                    Observation Acknowledged{isStoreAdmin && <span className="text-red-500">*</span>}
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={values["audit-observation"] || ""}
-                    onChange={(e) =>
-                      setValues((prev) => ({ ...prev, "audit-observation": e.target.value }))
-                    }
-                    placeholder="Key observations noted during this rating..."
-                    className="w-full rounded-[6px] border border-gray-200 px-3 py-2 text-[14px] outline-none focus:border-gray-500 resize-none"
-                  />
+            {/* Auditor Remarks (only for non-store admins) */}
+            {!isStoreAdmin && (
+              <section className="rounded-[8px] bg-white px-6 py-8 shadow-sm">
+                <h2 className="mb-6 text-[16px] font-bold text-black border-b border-gray-100 pb-3">
+                  Auditor Remarks
+                </h2>
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-[14px] font-semibold text-[#30343b]">
+                      Observation Acknowledged
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={values["audit-observation"] || ""}
+                      onChange={(e) =>
+                        setValues((prev) => ({ ...prev, "audit-observation": e.target.value }))
+                      }
+                      placeholder="Key observations noted during this rating..."
+                      className="w-full rounded-[6px] border border-gray-200 px-3 py-2 text-[14px] outline-none focus:border-gray-500 resize-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-[14px] font-semibold text-[#30343b]">
+                      Action Plan for Shortfalls
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={values["audit-action-plan"] || ""}
+                      onChange={(e) =>
+                        setValues((prev) => ({ ...prev, "audit-action-plan": e.target.value }))
+                      }
+                      placeholder="Steps to address identified shortfalls..."
+                      className="w-full rounded-[6px] border border-gray-200 px-3 py-2 text-[14px] outline-none focus:border-gray-500 resize-none"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="mb-2 block text-[14px] font-semibold text-[#30343b]">
-                    Action Plan for Shortfalls{isStoreAdmin && <span className="text-red-500">*</span>}
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={values["audit-action-plan"] || ""}
-                    onChange={(e) =>
-                      setValues((prev) => ({ ...prev, "audit-action-plan": e.target.value }))
-                    }
-                    placeholder="Steps to address identified shortfalls..."
-                    className="w-full rounded-[6px] border border-gray-200 px-3 py-2 text-[14px] outline-none focus:border-gray-500 resize-none"
-                  />
-                </div>
-              </div>
-            </section>
+              </section>
+            )}
 
             {/* Submit */}
             <div className="flex justify-center pb-8">

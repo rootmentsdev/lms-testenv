@@ -1529,6 +1529,12 @@ export const getWalkinCountPageData = async (req, res) => {
             totalWalkinObj.inCam = hasAnyTotalInCam ? String(sumTotalInCam) : '-';
         }
 
+        if (req.admin?.role === 'store_admin') {
+            aggregatedCounts.forEach(c => {
+                c.inCam = '-';
+            });
+        }
+
         const savedCount = {
             date: hasRange ? `${startDate} to ${endDate}` : date,
             store: store.toLowerCase() === 'all' ? 'All' : resolvedStoreName,
@@ -1542,7 +1548,7 @@ export const getWalkinCountPageData = async (req, res) => {
             success: true,
             inApp: counts,
             saved: savedCount,
-            cameraChecks
+            cameraChecks: req.admin?.role === 'store_admin' ? [] : cameraChecks
         });
 
 
