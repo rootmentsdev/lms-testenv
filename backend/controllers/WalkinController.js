@@ -1791,3 +1791,125 @@ export const deleteCameraCheckEntry = async (req, res) => {
         return res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
     }
 };
+
+/**
+ * GET /api/walkin/flutter/walkin-count
+ * GET /api/walkin/flutter-count
+ * Dedicated lightweight API for Flutter app to retrieve only the WALKIN count (new walk-ins)
+ */
+export const getFlutterWalkinCount = async (req, res) => {
+    try {
+        let { date, store, startDate, endDate } = req.query;
+
+        // Auto-detect store for store_admin or employee if store param is not passed
+        if (!store) {
+            if (req.admin?.role === 'store_admin' || req.admin?.role === 'employee') {
+                const userDoc = await Admin.findById(req.admin.userId).populate('branches').lean()
+                    || await User.findById(req.admin.userId).lean();
+                if (userDoc?.branches?.length > 0) {
+                    store = userDoc.branches[0].workingBranch || 'All';
+                } else if (userDoc?.workingBranch) {
+                    store = userDoc.workingBranch;
+                } else {
+                    store = 'All';
+                }
+            } else {
+                store = 'All';
+            }
+        }
+
+        // Default date to today's date in IST if no date filters provided
+        if (!date && !startDate && !endDate) {
+            const now = new Date();
+            const istDate = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+            const y = istDate.getUTCFullYear();
+            const m = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+            const d = String(istDate.getUTCDate()).padStart(2, '0');
+            date = `${y}-${m}-${d}`;
+        }
+
+        let queryConditions = [];
+        let resolvedStoreName = store;
+        let resolvedStoreId = null;
+
+        if (store.toLowerCase() !== 'all') {
+            const branch = await Branch.findOne({ workingBranch: { $regex: `^${store.trim()}$`, $options: 'i' } });
+            if (branch) {
+                resolvedStoreId = branch._id;
+                resolvedStoreName = branch.workingBranch;
+                queryConditions.push({
+                    $or: [
+                        { store: resolvedStoreName },
+                        { storeId: resolvedStoreId }
+                    ]
+                });
+            } else {
+                resolvedStoreId = new mongoose.Types.ObjectId();
+                resolvedStoreName = store;
+                queryConditions.push({
+                    $or: [
+                        { store: resolvedStoreName },
+                        { storeId: resolvedStoreId }
+                    ]
+                });
+            }
+        }
+
+        const hasRange = (startDate !== undefined && startDate !== '') || (endDate !== undefined && endDate !== '');
+        let dateQuery = {};
+        let startUTC = null;
+        let nextDayStartUTC = null;
+
+        if (hasRange) {
+            const range = getISTRangeBetween(startDate, endDate);
+            startUTC = range.startUTC;
+            nextDayStartUTC = range.nextDayStartUTC;
+
+            dateQuery = {
+                $or: [
+                    { date: { $gte: startDate, $lte: endDate + ' 23:59:59' } },
+                    { createdAt: { $gte: startUTC, $lt: nextDayStartUTC } }
+                ]
+            };
+        } else {
+            const range = getISTDayRange(date);
+            startUTC = range.startUTC;
+            nextDayStartUTC = range.nextDayStartUTC;
+
+            dateQuery = {
+                $or: [
+                    { date: { $gte: date, $lte: date + ' 23:59:59' } },
+                    { createdAt: { $gte: startUTC, $lt: nextDayStartUTC } }
+                ]
+            };
+        }
+
+        if (queryConditions.length > 0) {
+            queryConditions.push(dateQuery);
+        } else {
+            queryConditions = [dateQuery];
+        }
+
+        const walkins = await Walkin.find({ $and: queryConditions }).select('_id createdAt').lean();
+
+        const walkinSet = new Set();
+        walkins.forEach(w => {
+            if (isInISTRange(w.createdAt, startUTC, nextDayStartUTC)) {
+                walkinSet.add(w._id.toString());
+            }
+        });
+
+        const walkinCount = walkinSet.size;
+
+        return res.status(200).json({
+            success: true,
+            date: hasRange ? `${startDate} to ${endDate}` : date,
+            store: store.toLowerCase() === 'all' ? 'All' : resolvedStoreName,
+            walkinCount
+        });
+    } catch (error) {
+        console.error('Error in getFlutterWalkinCount:', error);
+        return res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
+    }
+};
+
