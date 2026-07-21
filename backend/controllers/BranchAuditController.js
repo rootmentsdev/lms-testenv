@@ -66,6 +66,8 @@ export const createBranchAudit = async (req, res) => {
       actionPlanForShortfalls,
       ratedOn,
       metadata = {},
+      ratedBy: bodyRatedBy,
+      ratedById: bodyRatedById,
     } = req.body || {};
 
     if (!store) {
@@ -88,16 +90,18 @@ export const createBranchAudit = async (req, res) => {
     const overallRating = computeOverallRating(normalizedSections);
     const totalRatingsCount = normalizedSections.reduce((sum, section) => sum + (section.items?.length || 0), 0);
 
-    const [branch, ratedBy] = await Promise.all([
+    const [branch, resolvedRatedBy] = await Promise.all([
       findBranchForAudit({ storeId, store }),
-      normalizeRatedBy(req.admin?.userId),
+      bodyRatedBy ? Promise.resolve(bodyRatedBy) : normalizeRatedBy(req.admin?.userId),
     ]);
+
+    const resolvedRatedById = bodyRatedById || req.admin?.userId || undefined;
 
     const audit = await BranchAudit.create({
       store: branch?.workingBranch || store,
       storeId: branch?._id || storeId || undefined,
-      ratedBy,
-      ratedById: req.admin?.userId || undefined,
+      ratedBy: resolvedRatedBy,
+      ratedById: resolvedRatedById,
       ratedOn: ratedOn || toISODate(),
       overallRating,
       sections: normalizedSections,

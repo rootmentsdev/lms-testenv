@@ -11,9 +11,9 @@ const auditItemSchema = new mongoose.Schema(
 const branchAuditSchema = new mongoose.Schema(
   {
     store: { type: String, required: true, trim: true },
-    storeId: { type: mongoose.Schema.Types.ObjectId, ref: "Branch" },
+    storeId: { type: mongoose.Schema.Types.Mixed, ref: "Branch" },
     ratedBy: { type: String, required: true, trim: true },
-    ratedById: { type: mongoose.Schema.Types.ObjectId, ref: "Admin" },
+    ratedById: { type: mongoose.Schema.Types.Mixed, ref: "Admin" },
     ratedOn: { type: String, required: true, trim: true },
     overallRating: { type: Number, required: true, min: 0, max: 5 },
     sections: [
