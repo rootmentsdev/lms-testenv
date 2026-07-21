@@ -440,8 +440,8 @@ router.get('/', MiddilWare, async (req, res) => {
 router.post('/', MiddilWare, async (req, res) => {
   try {
     const userRole = req.admin?.role;
-    if (!['super_admin', 'admin', 'cluster_admin'].includes(userRole)) {
-      return res.status(403).json({ success: false, message: "Forbidden: Only admin and cluster admin can assign targets." });
+    if (!['super_admin', 'admin', 'cluster_admin', 'store_admin'].includes(userRole)) {
+      return res.status(403).json({ success: false, message: "Forbidden: Only admin, cluster admin, and store managers can assign targets." });
     }
 
     const { storeName, month, year, weekRanges, weeklyTargets, employeeTargets } = req.body;

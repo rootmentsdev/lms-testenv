@@ -3041,12 +3041,14 @@ const DSRReport = () => {
             )}
 
             {/* Configure Weeks Button */}
-            <button 
-              onClick={() => setConfigWeeksModalOpen(true)}
-              className="flex items-center gap-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-            >
-              Configure Weeks
-            </button>
+            {!isStoreAdmin && (
+              <button 
+                onClick={() => setConfigWeeksModalOpen(true)}
+                className="flex items-center gap-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+              >
+                Configure Weeks
+              </button>
+            )}
 
             {/* Add Dappr Squad Button — store_admin only */}
             {isStoreAdmin && (
@@ -3109,9 +3111,18 @@ const DSRReport = () => {
             )}
 
             {/* Assign Target Button */}
-            {(isAdminOrSuperAdmin || isClusterAdmin) && (
+            {(isAdminOrSuperAdmin || isClusterAdmin || isStoreAdmin) && (
               <button 
-                onClick={() => setAssignTargetModalOpen(true)}
+                onClick={() => {
+                  if (isStoreAdmin) {
+                    setTargetAssignMode("Staff");
+                    if (branches.length > 0) {
+                      const storeName = displayBranchName(branches[0].workingBranch);
+                      setModalStore(storeName);
+                    }
+                  }
+                  setAssignTargetModalOpen(true);
+                }}
                 className="flex items-center gap-2 bg-[#18181b] hover:bg-black text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer"
               >
                 Assign Target
