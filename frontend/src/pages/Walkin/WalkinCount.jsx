@@ -694,8 +694,14 @@ const WalkinCount = () => {
             csvContent += `Selected Date: ${selectedDate}\r\n\r\n`;
         }
         
+        const showInCam = user?.role !== 'store_admin';
+
         // Add table headers
-        csvContent += `STATUS CATEGORY,IN APP,IN CAM\r\n`;
+        if (showInCam) {
+            csvContent += `STATUS CATEGORY,IN APP,IN CAM\r\n`;
+        } else {
+            csvContent += `STATUS CATEGORY,IN APP\r\n`;
+        }
         
         // Add rows
         CATEGORIES.forEach(cat => {
@@ -706,7 +712,11 @@ const WalkinCount = () => {
             const escapedInApp = `"${String(inAppVal).replace(/"/g, '""')}"`;
             const escapedInCam = `"${String(inCam).replace(/"/g, '""')}"`;
             
-            csvContent += `${escapedLabel},${escapedInApp},${escapedInCam}\r\n`;
+            if (showInCam) {
+                csvContent += `${escapedLabel},${escapedInApp},${escapedInCam}\r\n`;
+            } else {
+                csvContent += `${escapedLabel},${escapedInApp}\r\n`;
+            }
         });
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -1043,9 +1053,11 @@ const WalkinCount = () => {
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
                                 <thead>
                                     <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                                        <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '34%' }}>STATUS CATEGORY</th>
-                                        <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '33%' }}>IN APP</th>
-                                        <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '33%' }}>IN CAM</th>
+                                        <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: user?.role === 'store_admin' ? '50%' : '34%' }}>STATUS CATEGORY</th>
+                                        <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: user?.role === 'store_admin' ? '50%' : '33%' }}>IN APP</th>
+                                        {user?.role !== 'store_admin' && (
+                                            <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '33%' }}>IN CAM</th>
+                                        )}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1064,9 +1076,11 @@ const WalkinCount = () => {
                                                 <td style={{ padding: '12px 20px', fontWeight: 700, color: inAppVal > 0 ? '#2563eb' : '#6b7280', fontSize: '14px' }}>
                                                     {inAppVal}
                                                 </td>
-                                                <td style={{ padding: '12px 20px', fontWeight: 700, color: '#111827' }}>
-                                                    {rowValues[cat.key].inCam || '-'}
-                                                </td>
+                                                {user?.role !== 'store_admin' && (
+                                                    <td style={{ padding: '12px 20px', fontWeight: 700, color: '#111827' }}>
+                                                        {rowValues[cat.key].inCam || '-'}
+                                                    </td>
+                                                )}
                                             </tr>
                                         );
                                     })}

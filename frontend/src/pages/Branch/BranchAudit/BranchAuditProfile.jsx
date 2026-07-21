@@ -82,13 +82,15 @@ const BranchAuditProfile = () => {
               <AuditCard key={section.title} title={section.title} items={section.items || []} remarks={section.remarks || ""} />
             ))}
 
-            <AuditCard
-              title="Auditor Remarks"
-              items={[]}
-              remarks={audit.auditorRemarks?.observationAcknowledged || ""}
-              extraTitle="Action Plan for Shortfalls"
-              extraRemarks={audit.auditorRemarks?.actionPlanForShortfalls || ""}
-            />
+            {(audit.auditorRemarks?.observationAcknowledged || audit.auditorRemarks?.actionPlanForShortfalls) && (
+              <AuditCard
+                title="Auditor Remarks"
+                items={[]}
+                remarks={audit.auditorRemarks?.observationAcknowledged || ""}
+                extraTitle="Action Plan for Shortfalls"
+                extraRemarks={audit.auditorRemarks?.actionPlanForShortfalls || ""}
+              />
+            )}
 
             <div className="rounded-[4px] border border-gray-300 bg-white p-4">
               <h3 className="text-[14px] font-semibold text-black">Average Rating</h3>
