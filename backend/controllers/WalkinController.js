@@ -1796,6 +1796,7 @@ export const deleteCameraCheckEntry = async (req, res) => {
  * GET /api/walkin/flutter/walkin-count
  * GET /api/walkin/flutter-count
  * Dedicated lightweight API for Flutter app to retrieve only the WALKIN count (new walk-ins)
+ * Shares 100% identical calculation logic with the web dashboard Walkin Count page.
  */
 export const getFlutterWalkinCount = async (req, res) => {
     try {
@@ -1828,9 +1829,10 @@ export const getFlutterWalkinCount = async (req, res) => {
             date = `${y}-${m}-${d}`;
         }
 
-        let queryConditions = [];
+        // 1. Resolve store branch and storeId
         let resolvedStoreName = store;
         let resolvedStoreId = null;
+        let queryConditions = [];
 
         if (store.toLowerCase() !== 'all') {
             const branch = await Branch.findOne({ workingBranch: { $regex: `^${store.trim()}$`, $options: 'i' } });
@@ -1868,7 +1870,16 @@ export const getFlutterWalkinCount = async (req, res) => {
             dateQuery = {
                 $or: [
                     { date: { $gte: startDate, $lte: endDate + ' 23:59:59' } },
-                    { createdAt: { $gte: startUTC, $lt: nextDayStartUTC } }
+                    { createdAt:            { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { updatedAt:            { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { bookingDate:          { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { rentoutDate:          { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { returnDate:           { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { cancelDate:           { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { billedDate:           { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { billReturnedDate:     { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { lastStatusChangeDate: { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { statusHistory:        { $elemMatch: { date: { $gte: startUTC, $lt: nextDayStartUTC } } } }
                 ]
             };
         } else {
@@ -1879,7 +1890,16 @@ export const getFlutterWalkinCount = async (req, res) => {
             dateQuery = {
                 $or: [
                     { date: { $gte: date, $lte: date + ' 23:59:59' } },
-                    { createdAt: { $gte: startUTC, $lt: nextDayStartUTC } }
+                    { createdAt:            { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { updatedAt:            { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { bookingDate:          { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { rentoutDate:          { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { returnDate:           { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { cancelDate:           { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { billedDate:           { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { billReturnedDate:     { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { lastStatusChangeDate: { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { statusHistory:        { $elemMatch: { date: { $gte: startUTC, $lt: nextDayStartUTC } } } }
                 ]
             };
         }
@@ -1890,11 +1910,13 @@ export const getFlutterWalkinCount = async (req, res) => {
             queryConditions = [dateQuery];
         }
 
-        const walkins = await Walkin.find({ $and: queryConditions }).select('_id createdAt').lean();
-
+        const walkins = await Walkin.find({ $and: queryConditions }).lean();
         const walkinSet = new Set();
+
         walkins.forEach(w => {
-            if (isInISTRange(w.createdAt, startUTC, nextDayStartUTC)) {
+            const isDateInRange = (dateVal) => isInISTRange(dateVal, startUTC, nextDayStartUTC);
+            const createdInRange = isDateInRange(w.createdAt);
+            if (createdInRange) {
                 walkinSet.add(w._id.toString());
             }
         });
