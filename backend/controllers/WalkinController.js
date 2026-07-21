@@ -1097,7 +1097,7 @@ const BACKEND_CATEGORIES = [
     { key: 'new_others', label: 'NEW OTHERS' },
     { key: 'revisit_loss', label: 'REVISIT LOSS' },
     { key: 'revisit_rentout', label: 'REVISIT RENTOUT' },
-    { key: 'revisit_return', label: 'REVISIT RETURN' },
+    { key: 'revisit_return', label: 'RETURN' },
     { key: 'revisit_trial', label: 'REVISIT TRIAL' },
     { key: 'revisit_booking', label: 'REVISIT BOOKING' },
     { key: 'revisit_reissue', label: 'REVISIT REISSUE' },
