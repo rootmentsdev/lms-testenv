@@ -1,4 +1,8 @@
 import mongoose from 'mongoose';
+import dns from 'dns';
+
+// Set public DNS servers to resolve MongoDB SRV records if local DNS blocks querySrv
+dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 const connectMongoDB = async () => {
     try {

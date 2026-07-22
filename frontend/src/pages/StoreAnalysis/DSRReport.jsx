@@ -1957,7 +1957,7 @@ const DSRReport = () => {
     };
 
     // Real API Data calculations (no mock fallback!)
-    if (isAdminOrSuperAdmin) {
+    if (isAdminOrSuperAdmin || isClusterAdmin) {
       if (selectedStore === "All") {
         // Show store-level summary (Dappr Squad branch is skipped — its data is merged into store rows)
         return branches.map((b) => {
@@ -2395,7 +2395,7 @@ const DSRReport = () => {
       });
       return allRows;
     }
-  }, [branches, isAdminOrSuperAdmin, isStoreAdmin, walkins, performanceData, selectedStore, activeTab, customStartDate, customEndDate, funnelView, salesData, dapprAttribution]);
+  }, [branches, isAdminOrSuperAdmin, isClusterAdmin, isStoreAdmin, walkins, performanceData, selectedStore, activeTab, customStartDate, customEndDate, funnelView, salesData, dapprAttribution]);
 
   // Populate dynamic store options for dropdown
   const storeOptions = useMemo(() => {
@@ -2889,7 +2889,7 @@ const DSRReport = () => {
     } else if (selectedReport === "Sales Funnel") {
       fileName = `Sales_Funnel_${activeTab}_${CURRENT_YEAR}.csv`;
       const headers = [
-        isAdminOrSuperAdmin && !isStoreAdmin ? "Store Name" : "Staff Name",
+        selectedStore === "All" && !isStoreAdmin ? "Store Name" : "Staff Name",
         "Bill (FTD)", `Bill (${activeTab})`,
         "Value (FTD)", `Value (${activeTab})`,
         "Qty (FTD)", `Qty (${activeTab})`,
@@ -3140,7 +3140,7 @@ const DSRReport = () => {
             </span>
             <input 
               type="text" 
-              placeholder={selectedReport === "Sales Funnel" ? ((isAdminOrSuperAdmin && !isStoreAdmin) ? "Search by Store name" : "Search by Staff name") : "Search by Store name"}
+              placeholder={selectedReport === "Sales Funnel" ? ((selectedStore === "All" && !isStoreAdmin) ? "Search by Store name" : "Search by Staff name") : "Search by Store name"}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-[#eef1f6] border-none rounded-xl pl-10 pr-4 py-2.5 text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-black"
@@ -3542,7 +3542,7 @@ const DSRReport = () => {
                 <thead>
                   {/* Primary header row */}
                   <tr className="bg-[#2e2e2e] text-white text-[11px] font-bold tracking-wider uppercase border-b border-gray-600">
-                    <th rowSpan={2} className="sticky left-0 z-20 bg-[#2e2e2e] px-6 py-4 text-left border-r border-gray-600 w-60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]">{(isAdminOrSuperAdmin && !isStoreAdmin) ? "Store Name" : "Staff Name"}</th>
+                    <th rowSpan={2} className="sticky left-0 z-20 bg-[#2e2e2e] px-6 py-4 text-left border-r border-gray-600 w-60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]">{(selectedStore === "All" && !isStoreAdmin) ? "Store Name" : "Staff Name"}</th>
                     <th colSpan={2} className="px-6 py-2 border-r border-gray-600 text-center">Bill</th>
                     <th colSpan={2} className="px-6 py-2 border-r border-gray-600 text-center">Value</th>
                     <th colSpan={2} className="px-6 py-2 border-r border-gray-600 text-center">Quantity</th>
@@ -4198,7 +4198,7 @@ const DSRReport = () => {
 
                 {/* Week selector */}
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Select Week(s)</label>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Select Week</label>
                   <div className="grid grid-cols-4 gap-2">
                     {[
                       { id: 1, label: "W1", val: modalWeek1 },
@@ -4211,15 +4211,7 @@ const DSRReport = () => {
                         <button
                           key={w.id}
                           type="button"
-                          onClick={() => {
-                            setActiveWeeks(prev => {
-                              if (prev.includes(w.id)) {
-                                if (prev.length === 1) return prev;
-                                return prev.filter(id => id !== w.id);
-                              }
-                              return [...prev, w.id];
-                            });
-                          }}
+                          onClick={() => setActiveWeeks([w.id])}
                           className={`relative flex flex-col items-center justify-center py-2.5 px-2 rounded-xl border transition-all duration-150 cursor-pointer ${
                             isActive
                               ? "bg-gray-900 border-gray-900 text-white shadow-sm"
@@ -4274,9 +4266,12 @@ const DSRReport = () => {
 
                 {/* Target input */}
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Target Amount (₹)</label>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
+                    Target Amount (₹)<span className="text-red-500">*</span>
+                  </label>
                   <input
                     ref={targetInputRef}
+                    required
                     type="text"
                     inputMode="numeric"
                     placeholder="e.g. 500000"
@@ -4319,7 +4314,18 @@ const DSRReport = () => {
                   <button
                     onClick={() => {
                       if (!modalStore) { alert("Please select a store."); return; }
-                      if (!modalTarget || modalTarget.trim() === "") { alert("Please enter a target value."); return; }
+                      if (targetAssignMode === "Staff" && !modalStaff) { alert("Please select a staff member."); return; }
+                      if (!modalTarget || modalTarget.trim() === "") {
+                        alert("Target Amount is required.");
+                        targetInputRef.current?.focus();
+                        return;
+                      }
+                      const cleanVal = String(modalTarget || "").replace(/[^0-9.-]/g, "");
+                      if (isNaN(Number(cleanVal)) || cleanVal.trim() === "") {
+                        alert("Please enter a valid numeric target amount.");
+                        targetInputRef.current?.focus();
+                        return;
+                      }
                       handleSubmitTarget(modalStore, modalTarget, modalMonth);
                     }}
                     className="px-6 py-2.5 text-[12px] font-bold text-white bg-gray-900 rounded-xl hover:bg-black transition-colors shadow-sm"
