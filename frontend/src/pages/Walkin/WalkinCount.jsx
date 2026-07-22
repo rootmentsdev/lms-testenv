@@ -16,7 +16,7 @@ const CATEGORIES = [
     { key: 'new_others', label: 'NEW OTHERS', tooltip: "New walk-ins not fitting the above categories." },
     { key: 'revisit_loss', label: 'REVISIT LOSS', tooltip: "Revisit walk-ins that became Loss on the selected date." },
     { key: 'revisit_rentout', label: 'REVISIT RENTOUT', tooltip: "Revisit walk-ins rented out on the selected date." },
-    { key: 'revisit_return', label: 'REVISIT RETURN', tooltip: "Revisit walk-ins returned or bill returned on the selected date." },
+    { key: 'revisit_return', label: 'RETURN', tooltip: "Revisit walk-ins returned or bill returned on the selected date." },
     { key: 'revisit_trial', label: 'REVISIT TRIAL', tooltip: "Revisit walk-ins revisited for Trial on the selected date." },
     { key: 'revisit_booking', label: 'REVISIT BOOKING', tooltip: "Revisit walk-ins booked or shoe billed on the selected date." },
     { key: 'revisit_reissue', label: 'REVISIT REISSUE', tooltip: "Revisit walk-ins revisited for Reissue on the selected date." },

@@ -1,5 +1,5 @@
 import express from 'express';
-import { checkCustomerExists, saveWalkin, getWalkins, getAllWalkinsPublic, getCronLogs, getWalkinCountPageData, saveWalkinCountPageData, saveCameraCheckEntry, getCameraCheckEntries, deleteCameraCheckEntry } from '../controllers/WalkinController.js';
+import { checkCustomerExists, saveWalkin, getWalkins, getAllWalkinsPublic, getCronLogs, getWalkinCountPageData, saveWalkinCountPageData, saveCameraCheckEntry, getCameraCheckEntries, deleteCameraCheckEntry, getFlutterWalkinCount } from '../controllers/WalkinController.js';
 import { MiddilWare } from '../lib/middilWare.js';
 
 const router = express.Router();
@@ -612,5 +612,35 @@ router.post('/walkin-count/save', MiddilWare, saveWalkinCountPageData);
 router.post('/camera-check', MiddilWare, saveCameraCheckEntry);
 router.get('/camera-check', MiddilWare, getCameraCheckEntries);
 router.delete('/camera-check/:id', MiddilWare, deleteCameraCheckEntry);
+
+/**
+ * @swagger
+ * /api/walkin/flutter/walkin-count:
+ *   get:
+ *     tags: [Walkin]
+ *     summary: Get walkin count for Flutter mobile app
+ *     description: Returns only the WALKIN count (new walk-ins) for the specified date and store.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: store
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Store/branch name (defaults to 'All' or user's assigned store)
+ *       - in: query
+ *         name: date
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Date formatted as YYYY-MM-DD (defaults to today's date in IST)
+ *     responses:
+ *       200:
+ *         description: Returns { success: true, date, store, walkinCount }
+Subscribers: Flutter Mobile App
+ */
+router.get('/flutter/walkin-count', MiddilWare, getFlutterWalkinCount);
+router.get('/flutter-count', MiddilWare, getFlutterWalkinCount);
 
 export default router;
