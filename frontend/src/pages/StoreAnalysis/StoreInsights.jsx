@@ -902,16 +902,52 @@ const StoreInsights = () => {
   }
 
   const getStoreWeekRange = (storeName, monthName = CURRENT_MONTH_LONG) => {
-    if (!storeName || storeName === "All") return null;
-    const snorm = storeName.replace(/[.\-]/g, '-');
-    const matchKey = Object.keys(storeWeekRanges).find(
-      k => k === storeName || k === snorm || normalizeForMatch(k) === normalizeForMatch(storeName)
-    );
-    if (!matchKey) return null;
-    const storeVal = storeWeekRanges[matchKey];
-    if (!storeVal) return null;
-    if (storeVal[monthName]) return storeVal[monthName];
-    if (storeVal[1] || storeVal[2] || storeVal[3] || storeVal[4]) return storeVal;
+    if (!storeName) return null;
+
+    const tryMatch = (name) => {
+      if (!name) return null;
+      const snorm = name.replace(/[.\-]/g, '-');
+      const normKey = normalizeForMatch(name);
+      const matchKey = Object.keys(storeWeekRanges).find(
+        k => k === name || k === snorm || (normKey && normalizeForMatch(k) === normKey)
+      );
+      if (matchKey && storeWeekRanges[matchKey]) {
+        const storeVal = storeWeekRanges[matchKey];
+        if (storeVal[monthName]) {
+          const mVal = storeVal[monthName];
+          if (mVal[1] || mVal[2] || mVal[3] || mVal[4]) return mVal;
+        }
+        if (storeVal[1] || storeVal[2] || storeVal[3] || storeVal[4]) return storeVal;
+      }
+      return null;
+    };
+
+    const exactMatch = tryMatch(storeName);
+    const allMatch = tryMatch("All");
+
+    if (exactMatch && storeName !== "All") {
+      if (allMatch) {
+        const exact3 = String(exactMatch[3] || "");
+        const all3 = String(allMatch[3] || "");
+        if (exact3.includes("15 - 21") && !all3.includes("15 - 21")) {
+          return allMatch;
+        }
+      }
+      return exactMatch;
+    }
+
+    if (allMatch) return allMatch;
+    if (exactMatch) return exactMatch;
+
+    const firstKey = Object.keys(storeWeekRanges)[0];
+    if (firstKey && storeWeekRanges[firstKey]) {
+      const storeVal = storeWeekRanges[firstKey];
+      if (storeVal[monthName]) {
+        const mVal = storeVal[monthName];
+        if (mVal[1] || mVal[2] || mVal[3] || mVal[4]) return mVal;
+      }
+      if (storeVal[1] || storeVal[2] || storeVal[3] || storeVal[4]) return storeVal;
+    }
     return null;
   };
 
@@ -926,14 +962,12 @@ const StoreInsights = () => {
     let w3 = `15 - 21 ${CURRENT_MONTH_SHORT}`;
     let w4 = `22 - ${daysInMonthStr} ${CURRENT_MONTH_SHORT}`;
 
-    if (storeName !== "All") {
-      const sr = getStoreWeekRange(storeName, targetMonthName);
-      if (sr) {
-        if (sr[1]) w1 = sr[1];
-        if (sr[2]) w2 = sr[2];
-        if (sr[3]) w3 = sr[3];
-        if (sr[4]) w4 = sr[4];
-      }
+    const sr = getStoreWeekRange(storeName, targetMonthName);
+    if (sr) {
+      if (sr[1]) w1 = sr[1];
+      if (sr[2]) w2 = sr[2];
+      if (sr[3]) w3 = sr[3];
+      if (sr[4]) w4 = sr[4];
     }
 
     const parseRange = (val, weekId) => {
@@ -1151,7 +1185,7 @@ const StoreInsights = () => {
 
   const getWTDDateRangeString = () => {
     const today = new Date();
-    const activeStore = isStoreAdmin && branches[0] ? displayBranchName(branches[0].workingBranch) : selectedStore;
+    const activeStore = isStoreAdmin && branches[0] ? displayBranchName(branches[0].workingBranch) : storeFilter;
     const wtdRange = getStoreWTDDateRange(activeStore || "All");
     const startDate = new Date(wtdRange.start);
     const startMonth = startDate.toLocaleString("en-US", { month: "long" });
@@ -1237,14 +1271,41 @@ const StoreInsights = () => {
           const empTargetsMap = {};
           list.forEach((t) => {
             const store = t.storeName;
+            const storeNorm = store.replace(/[.\-]/g, '-');
+            const normKey = normalizeForMatch(store);
             const month = t.month;
             if (!targetsMap[store]) targetsMap[store] = {};
             if (!rangesMap[store]) rangesMap[store] = {};
             targetsMap[store][month] = t.weeklyTargets || {};
             rangesMap[store][month] = t.weekRanges || {};
+            rangesMap[store] = { ...rangesMap[store], ...(t.weekRanges || {}) };
+
+            if (storeNorm !== store) {
+              if (!targetsMap[storeNorm]) targetsMap[storeNorm] = {};
+              if (!rangesMap[storeNorm]) rangesMap[storeNorm] = {};
+              targetsMap[storeNorm][month] = t.weeklyTargets || {};
+              rangesMap[storeNorm][month] = t.weekRanges || {};
+              rangesMap[storeNorm] = { ...rangesMap[storeNorm], ...(t.weekRanges || {}) };
+            }
+            if (normKey) {
+              if (!targetsMap[normKey]) targetsMap[normKey] = {};
+              if (!rangesMap[normKey]) rangesMap[normKey] = {};
+              targetsMap[normKey][month] = t.weeklyTargets || {};
+              rangesMap[normKey][month] = t.weekRanges || {};
+              rangesMap[normKey] = { ...rangesMap[normKey], ...(t.weekRanges || {}) };
+            }
+
             if (t.employeeTargets && t.employeeTargets.length > 0) {
               if (!empTargetsMap[store]) empTargetsMap[store] = {};
               empTargetsMap[store][month] = t.employeeTargets;
+              if (storeNorm !== store) {
+                if (!empTargetsMap[storeNorm]) empTargetsMap[storeNorm] = {};
+                empTargetsMap[storeNorm][month] = t.employeeTargets;
+              }
+              if (normKey) {
+                if (!empTargetsMap[normKey]) empTargetsMap[normKey] = {};
+                empTargetsMap[normKey][month] = t.employeeTargets;
+              }
             }
           });
           setWeeklyTargets(targetsMap);

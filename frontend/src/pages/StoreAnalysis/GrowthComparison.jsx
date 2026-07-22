@@ -5,6 +5,62 @@ import ModileNav from "../../components/SideNav/ModileNav";
 import { FiSearch, FiDownload } from "react-icons/fi";
 import baseUrl from "../../api/api";
 
+// Shared performance cache (same as StoreInsights/HomeBar to reuse cross-page results)
+const getPerformanceCached = async (locId, startDate, endDate) => {
+  const cacheKey = `perf_${locId}_${startDate}_${endDate}`;
+  if (!window.__performanceCache) window.__performanceCache = {};
+  if (window.__performanceCache[cacheKey]?.promise) {
+    return window.__performanceCache[cacheKey].promise;
+  }
+  const promise = (async () => {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
+      const res = await fetch("https://rentalapi.rootments.live/api/Reports/GetPerformanceStaffReportWithCancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          DateFrom: startDate,
+          DateTo: endDate,
+          BookingNo: "",
+          LocationID: locId,
+          UserID: "7777"
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+      if (res.ok) {
+        const json = await res.json();
+        return Array.isArray(json.dataSet?.data) ? json.dataSet.data : [];
+      }
+    } catch (err) {
+      if (err.name !== "AbortError") {
+        console.error(`Error fetching performance for loc ${locId}:`, err);
+      }
+    } finally {
+      delete window.__performanceCache[cacheKey];
+    }
+    return [];
+  })();
+  window.__performanceCache[cacheKey] = { promise, timestamp: Date.now() };
+  return promise;
+};
+
+// Concurrency limiter — same pattern as StoreInsights
+const runWithConcurrencyLimit = async (tasks, limit) => {
+  const results = [];
+  const executing = new Set();
+  for (const task of tasks) {
+    const p = Promise.resolve().then(() => task());
+    results.push(p);
+    executing.add(p);
+    const clean = () => executing.delete(p);
+    p.then(clean, clean);
+    if (executing.size >= limit) await Promise.race(executing);
+  }
+  return Promise.all(results);
+};
+
 const BRAND_TOKENS = new Set(["zorucci", "grooms", "suitor", "guy", "sg"]);
 
 function canonFixes(s) {
@@ -103,30 +159,85 @@ const getDaysInMonth = (monthName, year = CURRENT_YEAR) => {
   return months[monthName] || 30;
 };
 
+function normalizeForMatch(str) {
+  if (!str) return "";
+  return String(str)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+    .replace(/^sg/, "g")
+    .replace(/^dapper/, "dappr");
+}
+
+const getAutoWeekDates = (monthName = CURRENT_MONTH_LONG, year = CURRENT_YEAR) => {
+  const daysInMonth = getDaysInMonth(monthName, year);
+  const mShort = monthName.substring(0, 3);
+  return {
+    1: `01 - 07 ${mShort}`,
+    2: `08 - 14 ${mShort}`,
+    3: `15 - 21 ${mShort}`,
+    4: `22 - ${String(daysInMonth).padStart(2, "0")} ${mShort}`,
+  };
+};
+
+const getStoreWeekRange = (storeName, storeWeekRanges = {}) => {
+  if (!storeName) return null;
+
+  const tryMatch = (name) => {
+    if (!name) return null;
+    const snorm = name.replace(/[.\-]/g, '-');
+    const normKey = normalizeForMatch(name);
+    const matchKey = Object.keys(storeWeekRanges).find(
+      k => k === name || k === snorm || (normKey && normalizeForMatch(k) === normKey)
+    );
+    if (matchKey && storeWeekRanges[matchKey]) {
+      const storeVal = storeWeekRanges[matchKey];
+      if (storeVal[CURRENT_MONTH_LONG]) {
+        const mVal = storeVal[CURRENT_MONTH_LONG];
+        if (mVal[1] || mVal[2] || mVal[3] || mVal[4]) return mVal;
+      }
+      if (storeVal[1] || storeVal[2] || storeVal[3] || storeVal[4]) return storeVal;
+    }
+    return null;
+  };
+
+  const exactMatch = tryMatch(storeName);
+  const allMatch = tryMatch("All");
+
+  if (exactMatch && storeName !== "All") {
+    if (allMatch) {
+      const exact3 = String(exactMatch[3] || "");
+      const all3 = String(allMatch[3] || "");
+      if (exact3.includes("15 - 21") && !all3.includes("15 - 21")) {
+        return allMatch;
+      }
+    }
+    return exactMatch;
+  }
+
+  if (allMatch) return allMatch;
+  if (exactMatch) return exactMatch;
+
+  return null;
+};
+
 // Date Range Helpers for TY/LY (This Year / Last Year)
-const getStoreWTDDateRange = (storeName = "All", targetYear) => {
+const getStoreWTDDateRange = (storeName = "All", targetYear, storeWeekRanges = {}) => {
   const today = new Date();
   const todayDateNum = today.getDate();
   const daysInMonth = getDaysInMonth(CURRENT_MONTH_LONG);
   const daysInMonthStr = String(daysInMonth).padStart(2, "0");
 
-  const week1Dates = localStorage.getItem("week1Dates") || `01 - 07 ${CURRENT_MONTH_SHORT}`;
-  const week2Dates = localStorage.getItem("week2Dates") || `08 - 14 ${CURRENT_MONTH_SHORT}`;
-  const week3Dates = localStorage.getItem("week3Dates") || `15 - 21 ${CURRENT_MONTH_SHORT}`;
-  const week4Dates = localStorage.getItem("week4Dates") || `22 - ${daysInMonthStr} ${CURRENT_MONTH_SHORT}`;
+  let w1 = localStorage.getItem("week1Dates") || `01 - 07 ${CURRENT_MONTH_SHORT}`;
+  let w2 = localStorage.getItem("week2Dates") || `08 - 14 ${CURRENT_MONTH_SHORT}`;
+  let w3 = localStorage.getItem("week3Dates") || `15 - 21 ${CURRENT_MONTH_SHORT}`;
+  let w4 = localStorage.getItem("week4Dates") || `22 - ${daysInMonthStr} ${CURRENT_MONTH_SHORT}`;
 
-  let w1 = week1Dates, w2 = week2Dates, w3 = week3Dates, w4 = week4Dates;
-  try {
-    const storeWeekRanges = JSON.parse(localStorage.getItem("storeWeekRanges") || "{}");
-    if (storeName !== "All" && storeWeekRanges[storeName]) {
-      const sr = storeWeekRanges[storeName];
-      if (sr[1]) w1 = sr[1];
-      if (sr[2]) w2 = sr[2];
-      if (sr[3]) w3 = sr[3];
-      if (sr[4]) w4 = sr[4];
-    }
-  } catch (err) {
-    console.error("Error parsing storeWeekRanges in GrowthComparison:", err);
+  const sr = getStoreWeekRange(storeName, storeWeekRanges);
+  if (sr) {
+    if (sr[1]) w1 = sr[1];
+    if (sr[2]) w2 = sr[2];
+    if (sr[3]) w3 = sr[3];
+    if (sr[4]) w4 = sr[4];
   }
 
   const weeks = [
@@ -156,28 +267,21 @@ const getStoreWTDDateRange = (storeName = "All", targetYear) => {
     else activeWeekId = 4;
   }
 
-
-
   let startDayNum = 1;
+  let endDayNum = Math.min(todayDateNum, daysInMonth);
   const weekVal = activeWeekId === 1 ? w1 
                 : activeWeekId === 2 ? w2 
                 : activeWeekId === 3 ? w3 
                 : w4;
                 
   if (weekVal && weekVal !== "Select Days") {
-    const parts = weekVal.split("-");
-    if (parts.length === 2) {
-      startDayNum = parseInt(parts[0].trim(), 10);
-    }
-  } else {
-    if (activeWeekId === 1) startDayNum = 1;
-    else if (activeWeekId === 2) startDayNum = 11;
-    else if (activeWeekId === 3) startDayNum = 18;
-    else startDayNum = 25;
+    const { start: pStart, end: pEnd } = parseWeekDays(weekVal);
+    if (pStart !== null) startDayNum = pStart;
+    if (pEnd !== null) endDayNum = Math.min(todayDateNum, pEnd, daysInMonth);
   }
 
   const start = new Date(targetYear, today.getMonth(), startDayNum);
-  const end = new Date(targetYear, today.getMonth(), today.getDate());
+  const end = new Date(targetYear, today.getMonth(), endDayNum);
 
   return {
     start: getLocalDateString(start),
@@ -193,6 +297,46 @@ const getMTDDateRange = (targetYear) => {
     start: getLocalDateString(start),
     end: getLocalDateString(end)
   };
+};
+
+const getActiveWeekInfo = (storeWeekRanges = {}) => {
+  const today = new Date();
+  const todayDateNum = today.getDate();
+  const daysInMonth = getDaysInMonth(CURRENT_MONTH_LONG);
+
+  let w1 = localStorage.getItem("week1Dates") || `01 - 07 ${CURRENT_MONTH_SHORT}`;
+  let w2 = localStorage.getItem("week2Dates") || `08 - 14 ${CURRENT_MONTH_SHORT}`;
+  let w3 = localStorage.getItem("week3Dates") || `15 - 21 ${CURRENT_MONTH_SHORT}`;
+  let w4 = localStorage.getItem("week4Dates") || `22 - ${daysInMonth} ${CURRENT_MONTH_SHORT}`;
+
+  const sr = getStoreWeekRange("All", storeWeekRanges);
+  if (sr) {
+    if (sr[1]) w1 = sr[1];
+    if (sr[2]) w2 = sr[2];
+    if (sr[3]) w3 = sr[3];
+    if (sr[4]) w4 = sr[4];
+  }
+
+  const weeks = [
+    { id: 1, val: w1 },
+    { id: 2, val: w2 },
+    { id: 3, val: w3 },
+    { id: 4, val: w4 },
+  ];
+
+  let activeWeekId = 4;
+  for (const w of weeks) {
+    const { start: startDay, end: endDay } = parseWeekDays(w.val);
+    if (startDay !== null && endDay !== null) {
+      if (todayDateNum >= startDay && todayDateNum <= endDay) {
+        activeWeekId = w.id;
+        break;
+      }
+    }
+  }
+
+  const rangeStr = activeWeekId === 1 ? w1 : activeWeekId === 2 ? w2 : activeWeekId === 3 ? w3 : w4;
+  return { activeWeekId, rangeStr };
 };
 
 const mockComparisonRows = [
@@ -246,6 +390,8 @@ const getStoreNameFromLocId = (locId) => {
 
 const GrowthComparison = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const STORES_PER_PAGE = 5;
   const [activeTab, setActiveTab] = useState("MTD");
   const [customStartDate, setCustomStartDate] = useState(() => {
     const d = new Date();
@@ -262,6 +408,55 @@ const GrowthComparison = () => {
   const [tyPerformance, setTyPerformance] = useState({});
   const [lyPerformance, setLyPerformance] = useState({});
   const [loading, setLoading] = useState(false);
+  const [storeWeekRanges, setStoreWeekRanges] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("storeWeekRanges") || "{}"); } catch { return {}; }
+  });
+
+  // Fetch store target week ranges on mount
+  useEffect(() => {
+    const fetchStoreTargets = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${baseUrl.baseUrl}api/store-targets?month=${CURRENT_MONTH_LONG}&year=${CURRENT_YEAR}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          }
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const data = Array.isArray(json?.data) ? json.data : [];
+          const rangesMap = {};
+          const autoWeeks = getAutoWeekDates(CURRENT_MONTH_LONG, CURRENT_YEAR);
+          data.forEach((doc) => {
+            const store = doc.storeName;
+            const storeNorm = store.replace(/[.\-]/g, '-');
+            const normKey = normalizeForMatch(store);
+            const rangeEntry = {
+              1: (doc.weekRanges?.[1] && doc.weekRanges?.[1] !== "Select Days") ? doc.weekRanges[1] : autoWeeks[1],
+              2: (doc.weekRanges?.[2] && doc.weekRanges?.[2] !== "Select Days") ? doc.weekRanges[2] : autoWeeks[2],
+              3: (doc.weekRanges?.[3] && doc.weekRanges?.[3] !== "Select Days") ? doc.weekRanges[3] : autoWeeks[3],
+              4: (doc.weekRanges?.[4] && doc.weekRanges?.[4] !== "Select Days") ? doc.weekRanges[4] : autoWeeks[4],
+              [CURRENT_MONTH_LONG]: {
+                1: (doc.weekRanges?.[1] && doc.weekRanges?.[1] !== "Select Days") ? doc.weekRanges[1] : autoWeeks[1],
+                2: (doc.weekRanges?.[2] && doc.weekRanges?.[2] !== "Select Days") ? doc.weekRanges[2] : autoWeeks[2],
+                3: (doc.weekRanges?.[3] && doc.weekRanges?.[3] !== "Select Days") ? doc.weekRanges[3] : autoWeeks[3],
+                4: (doc.weekRanges?.[4] && doc.weekRanges?.[4] !== "Select Days") ? doc.weekRanges[4] : autoWeeks[4],
+              }
+            };
+            rangesMap[store] = rangeEntry;
+            if (storeNorm !== store) rangesMap[storeNorm] = rangeEntry;
+            if (normKey) rangesMap[normKey] = rangeEntry;
+          });
+          setStoreWeekRanges(rangesMap);
+        }
+      } catch (err) {
+        console.error("Error fetching store targets in GrowthComparison:", err);
+      }
+    };
+    fetchStoreTargets();
+  }, []);
 
   const renderCellVal = (val, isPercent = false) => {
     const rawVal = String(val);
@@ -301,6 +496,7 @@ const GrowthComparison = () => {
 
   // Fetch Year-Over-Year Walk-Ins and Performance Report Data
   useEffect(() => {
+    let cancelled = false;
     const fetchData = async () => {
       setLoading(true);
       try {
@@ -308,15 +504,15 @@ const GrowthComparison = () => {
         
         let tyStart, tyEnd, lyStart, lyEnd;
         if (activeTab === "WTD") {
-          const today = new Date();
-          tyStart = getLocalDateString(new Date(2026, today.getMonth(), 1));
-          tyEnd = getLocalDateString(new Date(2026, today.getMonth(), today.getDate()));
-          lyStart = getLocalDateString(new Date(2025, today.getMonth(), 1));
-          lyEnd = getLocalDateString(new Date(2025, today.getMonth(), today.getDate()));
+          const wtdTy = getStoreWTDDateRange("All", 2026, storeWeekRanges);
+          const wtdLy = getStoreWTDDateRange("All", 2025, storeWeekRanges);
+          tyStart = wtdTy.start;
+          tyEnd = wtdTy.end;
+          lyStart = wtdLy.start;
+          lyEnd = wtdLy.end;
         } else if (activeTab === "CUSTOM") {
           tyStart = customStartDate;
           tyEnd = customEndDate;
-          
           const tyYear = new Date(customStartDate).getFullYear() || 2026;
           const lyYear = tyYear - 1;
           lyStart = customStartDate.replace(String(tyYear), String(lyYear));
@@ -330,106 +526,64 @@ const GrowthComparison = () => {
           lyEnd = lyRange.end;
         }
 
-        // Fetch TY walkins
-        const resTy = await fetch(`${baseUrl.baseUrl}api/walkin/list?startDate=${tyStart}&endDate=${tyEnd}`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        let tyList = [];
-        if (resTy.ok) {
-          const jsonTy = await resTy.json();
-          tyList = Array.isArray(jsonTy?.data) ? jsonTy.data : [];
-        }
-
-        // Fetch LY walkins
-        const resLy = await fetch(`${baseUrl.baseUrl}api/walkin/list?startDate=${lyStart}&endDate=${lyEnd}`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        let lyList = [];
-        if (resLy.ok) {
-          const jsonLy = await resLy.json();
-          lyList = Array.isArray(jsonLy?.data) ? jsonLy.data : [];
-        }
-
-        setTyWalkins(tyList);
-        setLyWalkins(lyList);
-
-        // Fetch Performance Report Data (TY and LY)
         const locationIds = ["1", "3", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "23", "25"];
-        
-        const tyPromises = locationIds.map(async (locId) => {
+
+        const tyTasks = locationIds.map((locId) => async () => {
           let storeStart = tyStart;
           let storeEnd = tyEnd;
           if (activeTab === "WTD") {
             const storeName = getStoreNameFromLocId(locId);
-            const range = getStoreWTDDateRange(storeName, 2026);
+            const range = getStoreWTDDateRange(storeName, 2026, storeWeekRanges);
             storeStart = range.start;
             storeEnd = range.end;
           }
-
-          try {
-            const res = await fetch("https://rentalapi.rootments.live/api/Reports/GetPerformanceStaffReportWithCancel", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                DateFrom: storeStart,
-                DateTo: storeEnd,
-                BookingNo: "",
-                LocationID: locId,
-                UserID: "7777"
-              })
-            });
-            if (res.ok) {
-              const json = await res.json();
-              return { locId, data: json.dataSet?.data || [] };
-            }
-          } catch (err) {
-            console.error(`Error fetching TY performance for location ${locId}:`, err);
-          }
-          return { locId, data: [] };
+          const data = await getPerformanceCached(locId, storeStart, storeEnd);
+          return { locId, data };
         });
 
-        const lyPromises = locationIds.map(async (locId) => {
+        const lyTasks = locationIds.map((locId) => async () => {
           let storeStart = lyStart;
           let storeEnd = lyEnd;
           if (activeTab === "WTD") {
             const storeName = getStoreNameFromLocId(locId);
-            const range = getStoreWTDDateRange(storeName, 2025);
+            const range = getStoreWTDDateRange(storeName, 2025, storeWeekRanges);
             storeStart = range.start;
             storeEnd = range.end;
           }
-
-          try {
-            const res = await fetch("https://rentalapi.rootments.live/api/Reports/GetPerformanceStaffReportWithCancel", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                DateFrom: storeStart,
-                DateTo: storeEnd,
-                BookingNo: "",
-                LocationID: locId,
-                UserID: "7777"
-              })
-            });
-            if (res.ok) {
-              const json = await res.json();
-              return { locId, data: json.dataSet?.data || [] };
-            }
-          } catch (err) {
-            console.error(`Error fetching LY performance for location ${locId}:`, err);
-          }
-          return { locId, data: [] };
+          const data = await getPerformanceCached(locId, storeStart, storeEnd);
+          return { locId, data };
         });
 
-        const tyResults = await Promise.all(tyPromises);
-        const lyResults = await Promise.all(lyPromises);
+        // Run ALL fetches in parallel: TY walkins, LY walkins, TY performance, LY performance
+        const walkinFetch = async (start, end) => {
+          try {
+            const ctrl = new AbortController();
+            const t = setTimeout(() => ctrl.abort(), 8000); // 8s timeout
+            const res = await fetch(`${baseUrl.baseUrl}api/walkin/list?startDate=${start}&endDate=${end}`, {
+              method: "GET",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+              signal: ctrl.signal,
+            });
+            clearTimeout(t);
+            if (res.ok) {
+              const json = await res.json();
+              return Array.isArray(json?.data) ? json.data : [];
+            }
+          } catch (e) { /* ignore timeout/network errors */ }
+          return [];
+        };
+
+        const [tyList, lyList, tyResults, lyResults] = await Promise.all([
+          walkinFetch(tyStart, tyEnd),
+          walkinFetch(lyStart, lyEnd),
+          runWithConcurrencyLimit(tyTasks, 10),
+          runWithConcurrencyLimit(lyTasks, 10),
+        ]);
+
+        if (cancelled) return;
+
+        setTyWalkins(tyList);
+        setLyWalkins(lyList);
 
         const tyMap = {};
         const lyMap = {};
@@ -447,6 +601,7 @@ const GrowthComparison = () => {
     };
 
     fetchData();
+    return () => { cancelled = true; };
   }, [activeTab, customStartDate, customEndDate]);
 
   const formatIndianNumber = (num) => {
@@ -473,12 +628,19 @@ const GrowthComparison = () => {
       
       let tyStoreStart, tyStoreEnd, lyStoreStart, lyStoreEnd;
       if (activeTab === "WTD") {
-        const rangeTy = getStoreWTDDateRange(name, 2026);
-        const rangeLy = getStoreWTDDateRange(name, 2025);
+        const rangeTy = getStoreWTDDateRange(name, 2026, storeWeekRanges);
+        const rangeLy = getStoreWTDDateRange(name, 2025, storeWeekRanges);
         tyStoreStart = rangeTy.start;
         tyStoreEnd = rangeTy.end;
         lyStoreStart = rangeLy.start;
         lyStoreEnd = rangeLy.end;
+      } else if (activeTab === "CUSTOM") {
+        tyStoreStart = customStartDate;
+        tyStoreEnd = customEndDate;
+        const tyYear = new Date(customStartDate).getFullYear() || 2026;
+        const lyYear = tyYear - 1;
+        lyStoreStart = customStartDate.replace(String(tyYear), String(lyYear));
+        lyStoreEnd = customEndDate.replace(String(tyYear), String(lyYear));
       } else {
         const rangeTy = getMTDDateRange(2026);
         const rangeLy = getMTDDateRange(2025);
@@ -503,9 +665,11 @@ const GrowthComparison = () => {
         return locationKey(w.store) === storeKeyVal && d && d >= lyStoreStart && d <= lyStoreEnd;
       }).length;
 
-      const tyLocList = tyPerformance[locId] || [];
-      const lyLocList = lyPerformance[locId] || [];
+      const tyLocList = Array.isArray(tyPerformance[locId]) ? tyPerformance[locId] : [];
+      const lyLocList = Array.isArray(lyPerformance[locId]) ? lyPerformance[locId] : [];
 
+      // API property mapping from GetPerformanceStaffReportWithCancel:
+      // totalValue = Sales Value (Rupees), total_Number_Of_Bill = Bill Count, totalQuantity = Qty
       const tyVal = tyLocList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
       const lyVal = lyLocList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
       const tyBill = tyLocList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
@@ -530,7 +694,13 @@ const GrowthComparison = () => {
     return activeList.filter((row) =>
       row.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [branches, tyWalkins, lyWalkins, tyPerformance, lyPerformance, searchQuery]);
+  }, [branches, tyWalkins, lyWalkins, tyPerformance, lyPerformance, searchQuery, activeTab, customStartDate, customEndDate, storeWeekRanges]);
+
+  // Reset to page 1 when search or tab changes
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, activeTab]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / STORES_PER_PAGE));
+  const paginatedRows = filteredRows.slice((currentPage - 1) * STORES_PER_PAGE, currentPage * STORES_PER_PAGE);
 
   // Dynamic calculations for totals row
   const totalTyVal = useMemo(() => filteredRows.reduce((acc, r) => acc + r.tyVal, 0), [filteredRows]);
@@ -638,9 +808,17 @@ const GrowthComparison = () => {
           </div>
 
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            {activeTab === "WTD" && (
+              <div className="flex items-center gap-2 bg-zinc-900 text-white px-3.5 py-1.5 rounded-xl text-xs font-semibold shadow-sm">
+                <span className="bg-amber-500 text-black px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
+                  Week {getActiveWeekInfo(storeWeekRanges).activeWeekId}
+                </span>
+                <span>{getActiveWeekInfo(storeWeekRanges).rangeStr}</span>
+              </div>
+            )}
             {activeTab === "CUSTOM" && (
               <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-gray-200 shadow-sm text-xs font-medium text-gray-600">
-                <span className="font-bold">TY Range:</span>
+                <span className="font-bold text-gray-800">TY Range:</span>
                 <input
                   type="date"
                   value={customStartDate}
@@ -656,7 +834,7 @@ const GrowthComparison = () => {
                 />
               </div>
             )}
-            {/* MTD / WTD switcher */}
+            {/* MTD / WTD / Custom switcher */}
             <div className="flex bg-[#e5e7eb] p-1 rounded-xl shadow-sm">
               <button 
                 onClick={() => setActiveTab("MTD")}
@@ -718,7 +896,13 @@ const GrowthComparison = () => {
         </div>
 
         {/* Main Content Area Card */}
-        <div className="bg-white rounded-[20px] shadow-sm border border-gray-100 overflow-hidden">
+        <div className="relative bg-white rounded-[20px] shadow-sm border border-gray-100 overflow-hidden">
+          {loading && (
+            <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] flex flex-col items-center justify-center z-30 min-h-[300px]">
+              <div className="w-8 h-8 border-3 border-zinc-300 border-t-zinc-900 rounded-full animate-spin mb-2" />
+              <span className="text-xs font-bold text-gray-700">Loading Store Comparison Data...</span>
+            </div>
+          )}
           
           {/* Data Table */}
           <div className="overflow-x-auto w-full">
@@ -756,7 +940,7 @@ const GrowthComparison = () => {
                 </tr>
               </thead>
               <tbody className="text-xs text-gray-700 divide-y divide-gray-100">
-                {filteredRows.map((row, idx) => {
+                {paginatedRows.map((row, idx) => {
                   const calculatedL2lVal = row.tyVal - row.lyVal;
                   const calculatedL2lBill = row.tyBill - row.lyBill;
                   const calculatedL2lQty = row.tyQty - row.lyQty;
@@ -780,7 +964,7 @@ const GrowthComparison = () => {
                   const walkL2lColor = calculatedL2lWalk >= 0 ? "text-[#00A36C]" : "text-[#e05a47]";
 
                   return (
-                    <tr key={idx} className="odd:bg-white even:bg-[#f9fafb] hover:bg-gray-50/50 transition-colors">
+                    <tr key={idx} className="odd:bg-white even:bg-[#f9fafb] hover:bg-gray-50/50 transition-colors" style={{ animationDelay: `${idx * 40}ms` }}>
                       <td className={`sticky left-0 z-10 px-6 py-4 text-left font-bold text-gray-800 border-r border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)] ${idx % 2 === 0 ? "bg-white" : "bg-[#f9fafb]"}`}>{row.name}</td>
                       
                       <td className="px-4 py-4 font-medium border-r border-gray-100">{renderCellVal(formatIndianNumber(row.tyVal))}</td>
@@ -881,6 +1065,62 @@ const GrowthComparison = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Bar */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-[#fafafa]">
+              <span className="text-xs text-gray-500 font-medium">
+                Showing <span className="font-bold text-gray-800">{((currentPage - 1) * STORES_PER_PAGE) + 1}–{Math.min(currentPage * STORES_PER_PAGE, filteredRows.length)}</span> of <span className="font-bold text-gray-800">{filteredRows.length}</span> stores
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  title="First page"
+                >
+                  «
+                </button>
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  title="Previous page"
+                >
+                  ‹
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-all ${
+                      page === currentPage
+                        ? "bg-[#18181b] text-white shadow-sm"
+                        : "text-gray-600 hover:bg-gray-200"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  title="Next page"
+                >
+                  ›
+                </button>
+                <button
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  title="Last page"
+                >
+                  »
+                </button>
+              </div>
+            </div>
+          )}
 
         </div>
 

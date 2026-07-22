@@ -381,10 +381,13 @@ const getStoreWTDStart = (storeWeekRanges) => {
   let weekRanges = defaultRanges;
   const storeKeys = Object.keys(storeWeekRanges);
   for (const store of storeKeys) {
-    const monthRanges = storeWeekRanges[store]?.[monthName];
-    if (monthRanges) {
-      weekRanges = { ...defaultRanges, ...monthRanges };
-      break;
+    const storeObj = storeWeekRanges[store];
+    if (storeObj) {
+      const monthRanges = storeObj[monthName] || (storeObj[1] || storeObj[2] || storeObj[3] || storeObj[4] ? storeObj : null);
+      if (monthRanges) {
+        weekRanges = { ...defaultRanges, ...monthRanges };
+        break;
+      }
     }
   }
 

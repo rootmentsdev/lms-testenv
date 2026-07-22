@@ -569,13 +569,45 @@ const DSRReport = () => {
     }
   });
 
-  const getStoreWeekRange = (storeName) => {
-    if (!storeName || storeName === "All") return null;
-    const snorm = storeName.replace(/[.\-]/g, '-');
-    const matchKey = Object.keys(storeWeekRanges).find(
-      k => k === storeName || k === snorm || normalizeForMatch(k) === normalizeForMatch(storeName)
-    );
-    return matchKey ? storeWeekRanges[matchKey] : null;
+  const getStoreWeekRange = (storeName, monthName = CURRENT_MONTH_LONG) => {
+    if (!storeName) return null;
+
+    const tryMatch = (name) => {
+      if (!name) return null;
+      const snorm = name.replace(/[.\-]/g, '-');
+      const normKey = normalizeForMatch(name);
+      const matchKey = Object.keys(storeWeekRanges).find(
+        k => k === name || k === snorm || (normKey && normalizeForMatch(k) === normKey)
+      );
+      if (matchKey && storeWeekRanges[matchKey]) {
+        const storeVal = storeWeekRanges[matchKey];
+        if (storeVal[monthName]) {
+          const mVal = storeVal[monthName];
+          if (mVal[1] || mVal[2] || mVal[3] || mVal[4]) return mVal;
+        }
+        if (storeVal[1] || storeVal[2] || storeVal[3] || storeVal[4]) return storeVal;
+      }
+      return null;
+    };
+
+    const exactMatch = tryMatch(storeName);
+    const allMatch = tryMatch("All");
+
+    if (exactMatch && storeName !== "All") {
+      if (allMatch) {
+        const exact3 = String(exactMatch[3] || "");
+        const all3 = String(allMatch[3] || "");
+        if (exact3.includes("15 - 21") && !all3.includes("15 - 21")) {
+          return allMatch;
+        }
+      }
+      return exactMatch;
+    }
+
+    if (allMatch) return allMatch;
+    if (exactMatch) return exactMatch;
+
+    return null;
   };
 
   const getStoreEmployeeTargets = (storeName) => {
@@ -596,40 +628,63 @@ const DSRReport = () => {
     return matchKey ? weeklyTargets[matchKey] || {} : {};
   };
 
-  const getCurrentWeekId = (storeName = "All") => {
+  const getCurrentWeekId = (storeName = "All", targetMonthName = CURRENT_MONTH_LONG) => {
     const today = new Date();
     const todayDateNum = today.getDate();
+    const daysInMonth = getDaysCountInMonth(targetMonthName);
 
-    let w1 = week1Dates, w2 = week2Dates, w3 = week3Dates, w4 = week4Dates;
-    if (storeName !== "All") {
-      const sr = getStoreWeekRange(storeName);
-      if (sr) {
-        if (sr[1]) w1 = sr[1];
-        if (sr[2]) w2 = sr[2];
-        if (sr[3]) w3 = sr[3];
-        if (sr[4]) w4 = sr[4];
-      }
+    let w1 = week1Dates;
+    let w2 = week2Dates;
+    let w3 = week3Dates;
+    let w4 = week4Dates;
+
+    const sr = getStoreWeekRange(storeName, targetMonthName);
+    if (sr) {
+      if (sr[1]) w1 = sr[1];
+      if (sr[2]) w2 = sr[2];
+      if (sr[3]) w3 = sr[3];
+      if (sr[4]) w4 = sr[4];
     }
 
+    const parseRange = (val, weekId) => {
+      let { start: startDay, end: endDay } = parseWeekDays(val);
+      if (startDay === null || endDay === null || isNaN(startDay) || isNaN(endDay)) {
+        if (weekId === 1) { startDay = 1; endDay = 7; }
+        else if (weekId === 2) { startDay = 8; endDay = 14; }
+        else if (weekId === 3) { startDay = 15; endDay = 21; }
+        else { startDay = 22; endDay = daysInMonth; }
+      }
+      return { startDay, endDay };
+    };
+
     const weeks = [
-      { id: 1, val: w1 },
-      { id: 2, val: w2 },
-      { id: 3, val: w3 },
-      { id: 4, val: w4 },
+      { id: 1, range: parseRange(w1, 1) },
+      { id: 2, range: parseRange(w2, 2) },
+      { id: 3, range: parseRange(w3, 3) },
+      { id: 4, range: parseRange(w4, 4) }
     ];
 
     for (const w of weeks) {
-      const { start, end } = parseWeekDays(w.val);
-      if (start !== null && end !== null) {
-        if (todayDateNum >= start && todayDateNum <= end) {
+      if (w.range.startDay !== null && w.range.endDay !== null) {
+        if (todayDateNum >= w.range.startDay && todayDateNum <= w.range.endDay) {
           return w.id;
         }
       }
     }
-    if (todayDateNum <= 7) return 1;
-    if (todayDateNum <= 14) return 2;
-    if (todayDateNum <= 21) return 3;
-    return 4;
+    // Fallback: find the week whose range is closest (handles gaps between custom week configs)
+    let nearest = 4;
+    let minDist = Infinity;
+    for (const w of weeks) {
+      if (w.range.startDay !== null && w.range.endDay !== null) {
+        const midpoint = (w.range.startDay + w.range.endDay) / 2;
+        const dist = Math.abs(todayDateNum - midpoint);
+        if (dist < minDist) {
+          minDist = dist;
+          nearest = w.id;
+        }
+      }
+    }
+    return nearest;
   };
 
   const getCustomRangeTarget = (storeName, startDateStr, endDateStr, overrideTargetObj = null) => {
@@ -967,6 +1022,17 @@ const DSRReport = () => {
       return;
     }
     
+    // Instantly close modal so click is responsive with 0 lag
+    setConfigWeeksModalOpen(false);
+    setIsEditingWeeks(false);
+
+    const rangeData = {
+      1: configWeek1,
+      2: configWeek2,
+      3: configWeek3,
+      4: configWeek4,
+    };
+
     if (targetStore === "All") {
       setWeek1Dates(configWeek1);
       setWeek2Dates(configWeek2);
@@ -978,35 +1044,70 @@ const DSRReport = () => {
       localStorage.setItem("week4Dates", configWeek4);
       
       setStoreWeekRanges((prev) => {
-        const updated = {
-          ...prev,
-          "All": {
-            1: configWeek1,
-            2: configWeek2,
-            3: configWeek3,
-            4: configWeek4
-          }
+        const updated = { ...prev };
+        updated["All"] = {
+          ...prev["All"],
+          ...rangeData,
+          [configMonth]: rangeData
         };
+        Object.keys(prev).forEach((k) => {
+          updated[k] = {
+            ...prev[k],
+            ...rangeData,
+            [configMonth]: rangeData
+          };
+        });
+        branches.forEach((b) => {
+          const sName = displayBranchName(b.workingBranch);
+          const wName = b.workingBranch;
+          const sNorm = sName.replace(/[.\-]/g, '-');
+          const wNorm = wName.replace(/[.\-]/g, '-');
+          const sMatch = normalizeForMatch(sName);
+          const wMatch = normalizeForMatch(wName);
+
+          [sName, wName, sNorm, wNorm, sMatch, wMatch].forEach(key => {
+            if (key) {
+              updated[key] = {
+                ...prev[key],
+                ...rangeData,
+                [configMonth]: rangeData
+              };
+            }
+          });
+        });
         localStorage.setItem("storeWeekRanges", JSON.stringify(updated));
         return updated;
       });
       
-      // Save global All default range to DB
+      // Save global All default range to DB (backend updateMany updates all stores in DB)
       await saveStoreTargetToDb("All", weeklyTargets, {
         ...storeWeekRanges,
-        "All": { 1: configWeek1, 2: configWeek2, 3: configWeek3, 4: configWeek4 }
+        "All": rangeData
       }, configMonth, CURRENT_YEAR);
     } else {
+      const targetNorm = targetStore.replace(/[.\-]/g, '-');
+      const targetNormMatch = normalizeForMatch(targetStore);
       setStoreWeekRanges((prev) => {
         const updated = {
           ...prev,
           [targetStore]: {
-            1: configWeek1,
-            2: configWeek2,
-            3: configWeek3,
-            4: configWeek4
+            ...prev[targetStore],
+            ...rangeData,
+            [configMonth]: rangeData
+          },
+          [targetNorm]: {
+            ...prev[targetNorm],
+            ...rangeData,
+            [configMonth]: rangeData
           }
         };
+        if (targetNormMatch) {
+          updated[targetNormMatch] = {
+            ...prev[targetNormMatch],
+            ...rangeData,
+            [configMonth]: rangeData
+          };
+        }
         localStorage.setItem("storeWeekRanges", JSON.stringify(updated));
         return updated;
       });
@@ -1014,12 +1115,12 @@ const DSRReport = () => {
       // Save specific store range to DB
       await saveStoreTargetToDb(targetStore, weeklyTargets, {
         ...storeWeekRanges,
-        [targetStore]: { 1: configWeek1, 2: configWeek2, 3: configWeek3, 4: configWeek4 }
+        [targetStore]: rangeData
       }, configMonth, CURRENT_YEAR);
     }
     
     window.__performanceCache = {};
-    setConfigWeeksModalOpen(false);
+    fetchStoreTargets(configMonth, CURRENT_YEAR);
   };
 
   useEffect(() => {
@@ -1146,6 +1247,7 @@ const DSRReport = () => {
           const store = doc.storeName;
           // Normalize store name: treat dots and dashes as the same separator
           const storeNorm = store.replace(/[.\-]/g, '-');
+          const normKey = normalizeForMatch(store);
 
           if (store === "All") {
             w1 = (doc.weekRanges?.[1] && doc.weekRanges?.[1] !== "Select Days") ? doc.weekRanges[1] : autoWeeks[1];
@@ -1165,17 +1267,30 @@ const DSRReport = () => {
             2: (doc.weekRanges?.[2] && doc.weekRanges?.[2] !== "Select Days") ? doc.weekRanges[2] : autoWeeks[2],
             3: (doc.weekRanges?.[3] && doc.weekRanges?.[3] !== "Select Days") ? doc.weekRanges[3] : autoWeeks[3],
             4: (doc.weekRanges?.[4] && doc.weekRanges?.[4] !== "Select Days") ? doc.weekRanges[4] : autoWeeks[4],
+            [targetMonth]: {
+              1: (doc.weekRanges?.[1] && doc.weekRanges?.[1] !== "Select Days") ? doc.weekRanges[1] : autoWeeks[1],
+              2: (doc.weekRanges?.[2] && doc.weekRanges?.[2] !== "Select Days") ? doc.weekRanges[2] : autoWeeks[2],
+              3: (doc.weekRanges?.[3] && doc.weekRanges?.[3] !== "Select Days") ? doc.weekRanges[3] : autoWeeks[3],
+              4: (doc.weekRanges?.[4] && doc.weekRanges?.[4] !== "Select Days") ? doc.weekRanges[4] : autoWeeks[4],
+            }
           };
 
           // Store under exact DB key AND normalized key (dot→dash)
           targetsMap[store] = targetEntry;
-          if (storeNorm !== store) targetsMap[storeNorm] = targetEntry;
-          
           rangesMap[store] = rangeEntry;
-          if (storeNorm !== store) rangesMap[storeNorm] = rangeEntry;
+
+          if (storeNorm !== store) {
+            targetsMap[storeNorm] = targetEntry;
+            rangesMap[storeNorm] = rangeEntry;
+          }
+          if (normKey) {
+            targetsMap[normKey] = targetEntry;
+            rangesMap[normKey] = rangeEntry;
+          }
 
           empTargetsMap[store] = doc.employeeTargets || [];
           if (storeNorm !== store) empTargetsMap[storeNorm] = doc.employeeTargets || [];
+          if (normKey) empTargetsMap[normKey] = doc.employeeTargets || [];
         });
         
         setWeeklyTargets(targetsMap);
@@ -1359,8 +1474,16 @@ const DSRReport = () => {
         let periodStart = todayStr;
         let periodEnd = todayStr;
         if (activeTab === "WTD") {
-          const today = new Date();
-          periodStart = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
+          // Use the actual WTD range instead of MTD
+          let minStart = getStoreWTDDateRange("All").start;
+          branches.forEach((b) => {
+            const storeName = displayBranchName(b.workingBranch);
+            const range = getStoreWTDDateRange(storeName);
+            if (range.start < minStart) {
+              minStart = range.start;
+            }
+          });
+          periodStart = minStart;
           periodEnd = todayStr;
         } else if (activeTab === "MTD") {
           const today = new Date();
@@ -1394,7 +1517,7 @@ const DSRReport = () => {
     };
 
     fetchWalkins();
-  }, [activeTab, customStartDate, customEndDate]);
+  }, [activeTab, customStartDate, customEndDate, storeWeekRanges, week1Dates, week2Dates, week3Dates, week4Dates, branches]);
 
   // Fetch staff performance dynamically based on timeframe range
   useEffect(() => {
@@ -1692,16 +1815,24 @@ const DSRReport = () => {
     return `${monthName} 01-${day}, ${year}`;
   };
 
+  const getDaysCountInMonth = (monthName = CURRENT_MONTH_LONG) => {
+    const months = {
+      January: 31, February: 28, March: 31, April: 30, May: 31, June: 30,
+      July: 31, August: 31, September: 30, October: 31, November: 30, December: 31
+    };
+    return months[monthName] || 30;
+  };
+
   const getStoreWTDDateRange = (storeName = "All") => {
     const today = new Date();
     const todayStr = getLocalDateString(today);
-    const todayDateNum = today.getDate();
     
     const activeWeekId = getCurrentWeekId(storeName);
     
     let w1 = week1Dates, w2 = week2Dates, w3 = week3Dates, w4 = week4Dates;
-    if (storeName !== "All" && storeWeekRanges[storeName]) {
-      const sr = storeWeekRanges[storeName];
+    // For all stores (including "All"), try to read the configured week ranges
+    const sr = getStoreWeekRange(storeName);
+    if (sr) {
       if (sr[1]) w1 = sr[1];
       if (sr[2]) w2 = sr[2];
       if (sr[3]) w3 = sr[3];
@@ -1994,8 +2125,8 @@ const DSRReport = () => {
       const absFtd = row.valFtd > 0 ? parseFloat((row.qtyFtd / row.valFtd).toFixed(1)) : 0;
       const absWtd = row.valWtd > 0 ? parseFloat((row.qtyWtd / row.valWtd).toFixed(1)) : 0;
       // Conversion = Total Bills / Walk-ins
-      const convFtd = row.walkFtd > 0 ? Math.min(100, Math.round((row.valFtd / row.walkFtd) * 100)) : 0;
-      const convWtd = row.walkWtd > 0 ? Math.min(100, Math.round((row.valWtd / row.walkWtd) * 100)) : 0;
+      const convFtd = row.walkFtd > 0 ? Math.round((row.valFtd / row.walkFtd) * 100) : 0;
+      const convWtd = row.walkWtd > 0 ? Math.round((row.valWtd / row.walkWtd) * 100) : 0;
       // ARP = Total Value / Total Quantity
       const arpFtd = row.qtyFtd > 0 ? Math.round(row.billFtd / row.qtyFtd) : 0;
       const arpWtd = row.qtyWtd > 0 ? Math.round(row.billWtd / row.qtyWtd) : 0;
@@ -3738,8 +3869,8 @@ const DSRReport = () => {
                         <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{renderCellVal(row.absFtd !== undefined ? row.absFtd : (row.qtyFtd / (row.valFtd || 1)).toFixed(1))}</td>
                         <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{renderCellVal(row.absWtd !== undefined ? row.absWtd : (row.qtyWtd / (row.valWtd || 1)).toFixed(1))}</td>
 
-                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{renderCellVal(row.convFtd !== undefined ? Math.min(100, row.convFtd) : Math.min(100, Math.round((row.valFtd / (row.walkFtd || 1)) * 100)), true)}</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{renderCellVal(row.convWtd !== undefined ? Math.min(100, row.convWtd) : Math.min(100, Math.round((row.valWtd / (row.walkWtd || 1)) * 100)), true)}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{renderCellVal(row.convFtd !== undefined ? row.convFtd : Math.round((row.valFtd / (row.walkFtd || 1)) * 100), true)}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{renderCellVal(row.convWtd !== undefined ? row.convWtd : Math.round((row.valWtd / (row.walkWtd || 1)) * 100), true)}</td>
 
                         <td className="px-4 py-3.5 border-r border-gray-100 font-semibold text-[#00A36C]">{renderCellVal(contributionFtd, true)}</td>
                         <td className={`px-4 py-3.5 ${isStoreAdmin ? "" : "border-r border-gray-100"} text-gray-700 font-semibold text-[#00A36C]`}>{renderCellVal(contributionWtd, true)}</td>

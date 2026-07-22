@@ -464,6 +464,13 @@ router.post('/', MiddilWare, async (req, res) => {
       setDefaultsOnInsert: true
     });
 
+    if (storeName === 'All' && weekRanges) {
+      await StoreTarget.updateMany(
+        { month, year: Number(year) || 2026 },
+        { $set: { weekRanges } }
+      );
+    }
+
     return res.status(200).json({ success: true, data: doc });
   } catch (error) {
     console.error("Error saving StoreTarget:", error);
