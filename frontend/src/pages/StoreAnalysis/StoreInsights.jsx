@@ -687,7 +687,7 @@ const StoreInsights = () => {
   const isClusterAdmin = user?.role === "cluster_admin";
 
   // Page State
-  const [isConsolidated, setIsConsolidated] = useState(true); // Consolidated vs Rental
+  const [isConsolidated, setIsConsolidated] = useState(false); // Rental vs Consolidated (Rental is default)
   const [timeframe, setTimeframe] = useState("MTD"); // MTD, WTD, YTD, CUSTOM
   const [chartFilter, setChartFilter] = useState("All"); // All, On Track, At Risk
   const [roleFilter, setRoleFilter] = useState("Cluster");
@@ -2915,18 +2915,8 @@ const StoreInsights = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-4">
-            {/* Consolidated vs Rental Toggle */}
+            {/* Rental vs Consolidated Toggle */}
             <div className="flex bg-[#e5e7eb] p-1 rounded-xl shadow-sm">
-              <button 
-                onClick={() => setIsConsolidated(true)}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  isConsolidated 
-                    ? "bg-[#18181b] text-white shadow-sm" 
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                Consolidated
-              </button>
               <button 
                 onClick={() => setIsConsolidated(false)}
                 className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
@@ -2936,6 +2926,16 @@ const StoreInsights = () => {
                 }`}
               >
                 Rental
+              </button>
+              <button 
+                onClick={() => setIsConsolidated(true)}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  isConsolidated 
+                    ? "bg-[#18181b] text-white shadow-sm" 
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                Consolidated
               </button>
             </div>
 
