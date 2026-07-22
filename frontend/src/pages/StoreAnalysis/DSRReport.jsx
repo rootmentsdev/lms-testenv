@@ -372,6 +372,19 @@ function normalizeForMatch(str) {
     .replace(/^dapper/, "dappr");
 }
 
+function isStaffNameMatch(strA, strB) {
+  if (!strA || !strB) return false;
+  const normA = normalizeForMatch(strA);
+  const normB = normalizeForMatch(strB);
+  if (!normA || !normB) return false;
+  if (normA === normB) return true;
+
+  if (normA.length >= 4 && normB.length >= 4) {
+    if (normA.startsWith(normB) || normB.startsWith(normA)) return true;
+  }
+  return false;
+}
+
 const CURRENT_MONTH_LONG = new Date().toLocaleString("en-US", { month: "long" });
 const CURRENT_MONTH_SHORT = new Date().toLocaleString("en-US", { month: "short" });
 const CURRENT_YEAR = new Date().getFullYear();
@@ -2157,14 +2170,19 @@ const DSRReport = () => {
             ])).filter(Boolean)
           : [];
 
+        const walkinStaffNames = walkins
+          .filter(w => String(w.storeId || '') === String(selectedBranch._id || '') || locationKey(w.store) === storeKeyVal || normalizeForMatch(w.store) === normalizeForMatch(storeName))
+          .map(w => w.staff || w.staffName || (typeof w.createdBy === 'string' ? w.createdBy : w.createdBy?.name))
+          .filter(Boolean);
+
         const rawStaffNames = [
           ...locFtdList.map(x => x && x.bookingBy),
           ...locPeriodList.map(x => x && x.bookingBy),
-          ...salesStaffNames
+          ...salesStaffNames,
+          ...walkinStaffNames
         ].filter(name => typeof name === "string" && name.trim() !== "");
 
         const staffNames = [];
-        const seenNormalized = new Set();
         
         const sortedStaffNames = Array.from(new Set(rawStaffNames)).sort((a, b) => {
           const aUpper = /[A-Z]/.test(a);
@@ -2176,12 +2194,24 @@ const DSRReport = () => {
 
         sortedStaffNames.forEach(name => {
           if (!name) return;
-          const norm = normalizeForMatch(name);
-          if (norm && !seenNormalized.has(norm)) {
-            seenNormalized.add(norm);
+          const existing = staffNames.find(existingName => isStaffNameMatch(existingName, name));
+          if (!existing) {
             staffNames.push(name);
           }
         });
+
+        const hasUnassignedWalkins = walkins.some(w => {
+          const matchesStore = String(w.storeId || '') === String(selectedBranch._id || '') || 
+                               locationKey(w.store) === storeKeyVal ||
+                               normalizeForMatch(w.store) === normalizeForMatch(storeName);
+          if (!matchesStore) return false;
+          const wStaff = w.staff || w.staffName || (typeof w.createdBy === 'string' ? w.createdBy : w.createdBy?.name) || w.managerName || '';
+          return !wStaff || wStaff.toLowerCase() === "unassigned";
+        });
+
+        if (hasUnassignedWalkins && !staffNames.some(n => n.toLowerCase() === "unassigned")) {
+          staffNames.push("Unassigned");
+        }
 
         return staffNames.map(staffName => {
           const staffKey = normalizeForMatch(staffName);
@@ -2189,7 +2219,7 @@ const DSRReport = () => {
           const staffFtdList = locFtdList.filter(x => x && normalizeForMatch(x.bookingBy) === staffKey);
           const staffPeriodList = locPeriodList.filter(x => x && normalizeForMatch(x.bookingBy) === staffKey);
 
-          // Walk-ins filtered by staff name
+          // Walk-ins filtered by staff name with normalized matching
           let storePeriodStart = todayStr;
           let storePeriodEnd = todayStr;
           if (activeTab === "WTD") {
@@ -2205,10 +2235,18 @@ const DSRReport = () => {
             storePeriodEnd = customEndDate || todayStr;
           }
 
-          const staffWalkins = walkins.filter(w => 
-            (String(w.storeId || '') === String(selectedBranch._id || '') || locationKey(w.store) === storeKeyVal) && 
-            w.staff && w.staff.trim().toLowerCase() === staffName.trim().toLowerCase()
-          );
+          const staffWalkins = walkins.filter(w => {
+            const matchesStore = String(w.storeId || '') === String(selectedBranch._id || '') || 
+                                 locationKey(w.store) === storeKeyVal ||
+                                 normalizeForMatch(w.store) === normalizeForMatch(storeName);
+            if (!matchesStore) return false;
+
+            const wStaff = w.staff || w.staffName || (typeof w.createdBy === 'string' ? w.createdBy : w.createdBy?.name) || w.managerName || '';
+            if (!wStaff) {
+              return staffKey === "unassigned" || staffName.toLowerCase() === "unassigned";
+            }
+            return isStaffNameMatch(wStaff, staffName);
+          });
           const ftdWalkins = staffWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, todayStr, todayStr));
           const periodWalkins = staffWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, storePeriodStart, storePeriodEnd));
 
@@ -2311,15 +2349,20 @@ const DSRReport = () => {
             ])).filter(Boolean)
           : [];
 
+        const walkinStaffNames = walkins
+          .filter(w => String(w.storeId || '') === String(b._id || '') || locationKey(w.store) === storeKeyVal || normalizeForMatch(w.store) === normalizeForMatch(storeName))
+          .map(w => w.staff || w.staffName || (typeof w.createdBy === 'string' ? w.createdBy : w.createdBy?.name))
+          .filter(Boolean);
+
         const rawStaffNames = [
           ...combinedFtdList.map(x => x && x.bookingBy),
           ...combinedPeriodList.map(x => x && x.bookingBy),
           ...salesStaffNames,
+          ...walkinStaffNames,
           ...(funnelView === "Consolidated" ? Object.keys(dapprAttribution) : [])
         ].filter(name => typeof name === "string" && name.trim() !== "");
 
         const staffNames = [];
-        const seenNormalized = new Set();
         
         const sortedStaffNames = Array.from(new Set(rawStaffNames)).sort((a, b) => {
           const aUpper = /[A-Z]/.test(a);
@@ -2331,12 +2374,24 @@ const DSRReport = () => {
 
         sortedStaffNames.forEach(name => {
           if (!name) return;
-          const norm = normalizeForMatch(name);
-          if (norm && !seenNormalized.has(norm)) {
-            seenNormalized.add(norm);
+          const existing = staffNames.find(existingName => isStaffNameMatch(existingName, name));
+          if (!existing) {
             staffNames.push(name);
           }
         });
+
+        const hasUnassignedWalkins = walkins.some(w => {
+          const matchesStore = String(w.storeId || '') === String(b._id || '') || 
+                               locationKey(w.store) === storeKeyVal ||
+                               normalizeForMatch(w.store) === normalizeForMatch(storeName);
+          if (!matchesStore) return false;
+          const wStaff = w.staff || w.staffName || (typeof w.createdBy === 'string' ? w.createdBy : w.createdBy?.name) || w.managerName || '';
+          return !wStaff || wStaff.toLowerCase() === "unassigned";
+        });
+
+        if (hasUnassignedWalkins && !staffNames.some(n => n.toLowerCase() === "unassigned")) {
+          staffNames.push("Unassigned");
+        }
 
         staffNames.forEach(staffName => {
           const staffKey = normalizeForMatch(staffName);
@@ -2360,10 +2415,18 @@ const DSRReport = () => {
             storePeriodEnd = customEndDate || todayStr;
           }
 
-          const staffWalkins = walkins.filter(w => 
-            (String(w.storeId || '') === String(b._id || '') || locationKey(w.store) === storeKeyVal) && 
-            w.staff && w.staff.trim().toLowerCase() === staffName.trim().toLowerCase()
-          );
+          const staffWalkins = walkins.filter(w => {
+            const matchesStore = String(w.storeId || '') === String(b._id || '') || 
+                                 locationKey(w.store) === storeKeyVal ||
+                                 normalizeForMatch(w.store) === normalizeForMatch(storeName);
+            if (!matchesStore) return false;
+
+            const wStaff = w.staff || w.staffName || (typeof w.createdBy === 'string' ? w.createdBy : w.createdBy?.name) || w.managerName || '';
+            if (!wStaff) {
+              return staffKey === "unassigned" || staffName.toLowerCase() === "unassigned";
+            }
+            return isStaffNameMatch(wStaff, staffName);
+          });
           const ftdWalkins = staffWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, todayStr, todayStr));
           const periodWalkins = staffWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, storePeriodStart, storePeriodEnd));
 
@@ -2602,8 +2665,9 @@ const DSRReport = () => {
     let periodStart = todayStr;
     let periodEnd = todayStr;
     if (activeTab === "WTD") {
-      periodStart = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
-      periodEnd = todayStr;
+      const wtdRange = getStoreWTDDateRange(selectedStore);
+      periodStart = wtdRange.start;
+      periodEnd = wtdRange.end;
     } else if (activeTab === "MTD") {
       periodStart = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
       periodEnd = todayStr;
@@ -2612,9 +2676,9 @@ const DSRReport = () => {
       periodEnd = customEndDate || todayStr;
     }
     return filteredWalkinsList.filter(w => isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd)).length;
-  }, [filteredWalkinsList, activeTab, customStartDate, customEndDate, todayStr]);
-  const totalLossFtd = useMemo(() => Math.max(0, totalWalkFtd - totalValFtd), [totalWalkFtd, totalValFtd]);
-  const totalLossWtd = useMemo(() => Math.max(0, totalWalkWtd - totalValWtd), [totalWalkWtd, totalValWtd]);
+  }, [filteredWalkinsList, activeTab, customStartDate, customEndDate, todayStr, selectedStore, storeWeekRanges, week1Dates, week2Dates, week3Dates, week4Dates]);
+  const totalLossFtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + (row.lossFtd || 0), 0), [filteredFunnelRows]);
+  const totalLossWtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + (row.lossWtd || 0), 0), [filteredFunnelRows]);
 
   const totalAbvFtd = useMemo(() => (totalValFtd > 0 ? Math.round(totalBillFtd / totalValFtd) : 0), [totalBillFtd, totalValFtd]);
   const totalAbvWtd = useMemo(() => (totalValWtd > 0 ? Math.round(totalBillWtd / totalValWtd) : 0), [totalBillWtd, totalValWtd]);

@@ -879,6 +879,28 @@ const StoreInsights = () => {
     return months[monthName] || 30;
   };
 
+  function normalizeForMatch(str) {
+    if (!str) return "";
+    return String(str)
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "")
+      .replace(/^sg/, "g")
+      .replace(/^dapper/, "dappr");
+  }
+
+  function isStaffNameMatch(strA, strB) {
+    if (!strA || !strB) return false;
+    const normA = normalizeForMatch(strA);
+    const normB = normalizeForMatch(strB);
+    if (!normA || !normB) return false;
+    if (normA === normB) return true;
+
+    if (normA.length >= 4 && normB.length >= 4) {
+      if (normA.startsWith(normB) || normB.startsWith(normA)) return true;
+    }
+    return false;
+  }
+
   const getStoreWeekRange = (storeName, monthName = CURRENT_MONTH_LONG) => {
     if (!storeName || storeName === "All") return null;
     const snorm = storeName.replace(/[.\-]/g, '-');
@@ -2335,9 +2357,13 @@ const StoreInsights = () => {
         const abv = bills > 0 ? Math.round(value / bills) : 0;
 
         // Conversion = bills / walkins for this staff
-        const staffWalkins = storeWalkins.filter(w => 
-          w.staff && w.staff.trim().toLowerCase() === staffName.trim().toLowerCase()
-        ).length;
+        const staffWalkins = storeWalkins.filter(w => {
+          const wStaff = w.staff || w.staffName || (typeof w.createdBy === 'string' ? w.createdBy : w.createdBy?.name) || w.managerName || '';
+          if (!wStaff) {
+            return staffKey === "unassigned" || staffName.toLowerCase() === "unassigned";
+          }
+          return isStaffNameMatch(wStaff, staffName);
+        }).length;
         const conversion = staffWalkins > 0 ? Math.min(100, Math.round((bills / staffWalkins) * 100)) : 0;
 
         // Contribution % of total store revenue
