@@ -76,6 +76,19 @@ const CURRENT_MONTH_LONG = new Date().toLocaleString("en-US", { month: "long" })
 const CURRENT_MONTH_SHORT = new Date().toLocaleString("en-US", { month: "short" });
 const CURRENT_YEAR = new Date().getFullYear();
 
+const parseWeekDays = (val) => {
+  if (!val || val === "Select Days") return { start: null, end: null };
+  const digits = String(val).match(/\d+/g);
+  if (digits && digits.length >= 2) {
+    const start = parseInt(digits[0], 10);
+    const end = parseInt(digits[1], 10);
+    if (!isNaN(start) && !isNaN(end)) {
+      return { start, end };
+    }
+  }
+  return { start: null, end: null };
+};
+
 const getDaysInMonth = (monthName, year = CURRENT_YEAR) => {
   const months = {
     January: 31, February: 28, March: 31, April: 30, May: 31, June: 30,
@@ -126,20 +139,12 @@ const getStoreWTDDateRange = (storeName = "All", targetYear) => {
   let activeWeekId = 4;
   let found = false;
   for (const w of weeks) {
-    if (w.val && w.val !== "Select Days") {
-      const parts = w.val.split("-");
-      if (parts.length === 2) {
-        const startDay = parseInt(parts[0].trim(), 10);
-        const endPart = parts[1].trim().split(" ");
-        const endDay = parseInt(endPart[0], 10);
-
-        if (!isNaN(startDay) && !isNaN(endDay)) {
-          if (todayDateNum >= startDay && todayDateNum <= endDay) {
-            activeWeekId = w.id;
-            found = true;
-            break;
-          }
-        }
+    const { start: startDay, end: endDay } = parseWeekDays(w.val);
+    if (startDay !== null && endDay !== null) {
+      if (todayDateNum >= startDay && todayDateNum <= endDay) {
+        activeWeekId = w.id;
+        found = true;
+        break;
       }
     }
   }
