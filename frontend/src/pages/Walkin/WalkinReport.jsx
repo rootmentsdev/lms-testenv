@@ -169,7 +169,7 @@ const getCombinedStatus = (rental, shoe) => {
   return `${r}, ${s}`;
 };
 
-const getCombinedStateAt = (w, endDateStr) => {
+const getCombinedStateAt = (w, endDateStr, startDateStr, statusFilterOrList) => {
   if (!endDateStr) {
     return {
       status: w.status,
@@ -179,29 +179,24 @@ const getCombinedStateAt = (w, endDateStr) => {
     };
   }
 
-  const { nextDayStartUTC } = getISTDayRange(endDateStr);
-  const cutoff = nextDayStartUTC.getTime();
-
-  // Filter history up to cutoff
-  const history = (w.statusHistory || []).filter(h => new Date(h.date).getTime() < cutoff);
-
-  // If no history exists before cutoff, but walkin was created after cutoff:
-  const createdTime = new Date(w.createdAt).getTime();
-  if (createdTime >= cutoff) {
-    return null; // did not exist yet
-  }
-
+  // 1. Build chronological timeline of all states
+  const timeline = [];
   let rentalStatus = 'New Walkin';
   let shoeStatus = '-';
-  let latestDate = w.createdAt;
+  let initialDate = w.createdAt || w.date;
+  
+  timeline.push({
+    status: getCombinedStatus(rentalStatus, shoeStatus),
+    rentalStatus,
+    shoeStatus,
+    date: initialDate
+  });
 
-  // Sort history ascending by date
-  const sorted = [...history].sort((a, b) => new Date(a.date) - new Date(b.date));
+  const sortedHistory = [...(w.statusHistory || [])].sort((a, b) => new Date(a.date) - new Date(b.date));
 
   const rentalStatuses = ['New Walkin', 'Booked', 'Rentout', 'Return', 'Cancelled', 'Cancel'];
-  const shoeStatuses = ['Billed', 'Bill Returned'];
 
-  sorted.forEach(h => {
+  sortedHistory.forEach(h => {
     const s = String(h.status || '').trim();
     const isRental = rentalStatuses.includes(s) || (h.category && h.category !== 'Sales');
     if (isRental) {
@@ -209,28 +204,74 @@ const getCombinedStateAt = (w, endDateStr) => {
     } else {
       shoeStatus = s;
     }
-    latestDate = h.date;
+    timeline.push({
+      status: getCombinedStatus(rentalStatus, shoeStatus),
+      rentalStatus,
+      shoeStatus,
+      date: h.date
+    });
   });
 
-  if (history.length === 0) {
-    return {
-      status: w.status,
-      rentalStatus: w.rentalStatus || 'New Walkin',
-      shoeStatus: w.shoeStatus || '-',
-      date: w.createdAt
-    };
+  // 2. Filter states by the endDate cutoff
+  const { nextDayStartUTC } = getISTDayRange(endDateStr);
+  const cutoff = nextDayStartUTC.getTime();
+  const statesBeforeCutoff = timeline.filter(s => new Date(s.date).getTime() < cutoff);
+  
+  if (statesBeforeCutoff.length === 0) {
+    return null; // did not exist yet
   }
 
-  return {
-    status: getCombinedStatus(rentalStatus, shoeStatus),
-    rentalStatus,
-    shoeStatus,
-    date: latestDate
-  };
+  // 3. Resolve status filters (if any are active)
+  let activeFilters = [];
+  if (Array.isArray(statusFilterOrList)) {
+    activeFilters = statusFilterOrList.filter(s => s && s !== 'All');
+  } else if (statusFilterOrList && statusFilterOrList !== 'All') {
+    activeFilters = [statusFilterOrList];
+  }
+
+  if (activeFilters.length > 0) {
+    // Determine startBoundary UTC
+    let startBoundary = 0;
+    if (startDateStr) {
+      const { startUTC } = getISTDayRange(startDateStr);
+      startBoundary = startUTC.getTime();
+    }
+
+    const normalizedFilters = activeFilters.map(f => f.trim().toLowerCase());
+
+    // Filter timeline states that fall within [startBoundary, cutoff) and match any filter
+    const matchingStates = statesBeforeCutoff.filter(s => {
+      const stateTime = new Date(s.date).getTime();
+      if (stateTime < startBoundary) return false;
+
+      const wStatus = String(s.status).trim().toLowerCase();
+      return normalizedFilters.some(target => {
+        if (target === 'cancelled' || target === 'cancel') {
+          return wStatus.includes('cancel') || wStatus.includes('cancelled') || 
+                 String(s.rentalStatus).toLowerCase().includes('cancel') || 
+                 String(s.shoeStatus).toLowerCase().includes('cancel');
+        } else {
+          const parts = wStatus.split(',').map(p => p.trim());
+          return parts.includes(target) || 
+                 String(s.rentalStatus).trim().toLowerCase() === target || 
+                 String(s.shoeStatus).trim().toLowerCase() === target;
+        }
+      });
+    });
+
+    if (matchingStates.length > 0) {
+      return matchingStates[matchingStates.length - 1];
+    } else {
+      return null; // Does not match filter in date range
+    }
+  }
+
+  // 4. Default: return the latest state before cutoff
+  return statesBeforeCutoff[statesBeforeCutoff.length - 1];
 };
 
 /* ── Export to CSV ───────────────────────────────────────────────────────── */
-const exportCSV = (data, endDate) => {
+const exportCSV = (data, getState) => {
   const headers = [
     '#', 
     'DATE', 
@@ -261,7 +302,7 @@ const exportCSV = (data, endDate) => {
 
 
   const rows = data.map((w, i) => {
-    const itemState = getCombinedStateAt(w, endDate) || w;
+    const itemState = getState(w) || w;
     const productType = w.lossProductType || '-';
     const notesText = w.notes || '-';
 
@@ -701,8 +742,14 @@ const WalkinReport = () => {
 
         // Sort descending by the reconstructed state date (latest activity first)
         data.sort((a, b) => {
-          const stateA = getCombinedStateAt(a, formData.endDate);
-          const stateB = getCombinedStateAt(b, formData.endDate);
+          const getReportState = (item) => {
+            if (Array.isArray(selectedStatuses) && selectedStatuses.length > 0) {
+              return getCombinedStateAt(item, formData.endDate, formData.startDate, selectedStatuses) || item;
+            }
+            return getCombinedStateAt(item, formData.endDate) || item;
+          };
+          const stateA = getReportState(a);
+          const stateB = getReportState(b);
           
           const getSortDate = (item, state) => {
             const rawDate = state?.date || item.createdAt;
@@ -776,27 +823,18 @@ const WalkinReport = () => {
   };
 
   const matchStatusAndDate = (w, targetStatus) => {
-    const target = targetStatus.trim().toLowerCase();
-    
-    // Reconstruct state at the end of the queried date range (formData.endDate)
-    const state = getCombinedStateAt(w, formData.endDate);
-    if (!state) return false;
+    const state = getCombinedStateAt(w, formData.endDate, formData.startDate, targetStatus);
+    return state !== null;
+  };
 
-    const wStatus = String(state.status).trim().toLowerCase();
-    
-    let isStatusMatch = false;
-    if (target === 'cancelled' || target === 'cancel') {
-      isStatusMatch = wStatus.includes('cancel') || wStatus.includes('cancelled') || 
-                      String(state.rentalStatus).toLowerCase().includes('cancel') || 
-                      String(state.shoeStatus).toLowerCase().includes('cancel');
-    } else {
-      const parts = wStatus.split(',').map(p => p.trim());
-      isStatusMatch = parts.includes(target) || 
-                      String(state.rentalStatus).trim().toLowerCase() === target || 
-                      String(state.shoeStatus).trim().toLowerCase() === target;
+  const getDisplayedState = (w) => {
+    if (tableStatus && tableStatus !== 'All') {
+      return getCombinedStateAt(w, formData.endDate, formData.startDate, tableStatus) || w;
     }
-
-    return isStatusMatch;
+    if (Array.isArray(selectedStatuses) && selectedStatuses.length > 0) {
+      return getCombinedStateAt(w, formData.endDate, formData.startDate, selectedStatuses) || w;
+    }
+    return getCombinedStateAt(w, formData.endDate) || w;
   };
 
   /* table-level filter */
@@ -909,7 +947,7 @@ const WalkinReport = () => {
               </div>
               {/* Export button – single button only */}
               <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
-                <button onClick={()=>exportCSV(displayed, formData.endDate)} style={{ display:'flex', alignItems:'center', gap:'6px', border:'1px solid #e5e7eb', borderRadius:'8px', padding:'7px 14px', fontSize:'13px', fontWeight:500, color:'#374151', background:'#f9fafb', cursor:'pointer' }}>
+                <button onClick={()=>exportCSV(displayed, getDisplayedState)} style={{ display:'flex', alignItems:'center', gap:'6px', border:'1px solid #e5e7eb', borderRadius:'8px', padding:'7px 14px', fontSize:'13px', fontWeight:500, color:'#374151', background:'#f9fafb', cursor:'pointer' }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                   Export CSV
                 </button>
@@ -985,7 +1023,7 @@ const WalkinReport = () => {
                   </thead>
                   <tbody>
                     {currentItems.map((w,i)=>{
-                      const itemState = getCombinedStateAt(w, formData.endDate) || w;
+                      const itemState = getDisplayedState(w);
                       const sc = getStatusColors(itemState.status);
                       
                       const productType = w.lossProductType || '–';
