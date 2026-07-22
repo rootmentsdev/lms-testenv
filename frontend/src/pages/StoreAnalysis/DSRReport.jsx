@@ -44,6 +44,19 @@ function getLocalDateString(date) {
   return `${year}-${month}-${day}`;
 }
 
+const parseWeekDays = (val) => {
+  if (!val || val === "Select Days") return { start: null, end: null };
+  const digits = String(val).match(/\d+/g);
+  if (digits && digits.length >= 2) {
+    const start = parseInt(digits[0], 10);
+    const end = parseInt(digits[1], 10);
+    if (!isNaN(start) && !isNaN(end)) {
+      return { start, end };
+    }
+  }
+  return { start: null, end: null };
+};
+
 const isWalkinCreatedInRange = (dateVal, startStr, endStr) => {
   if (!dateVal) return false;
   const d = new Date(dateVal);
@@ -180,8 +193,45 @@ function getDapprSquadDataForStore(locId, dapprList) {
 
 function getBranchLocationId(workingBranch) {
   if (!workingBranch) return null;
-  const normalized = String(workingBranch).trim().toLowerCase();
-  return BRANCH_LOCATION_MAPPING[normalized] || null;
+  const raw = String(workingBranch).trim().toLowerCase();
+  if (BRANCH_LOCATION_MAPPING[raw]) return BRANCH_LOCATION_MAPPING[raw];
+
+  const normClean = raw
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "")
+    .replace(/^grooms/, "g")
+    .replace(/^suitorguy/, "g")
+    .replace(/^sg/, "g")
+    .replace(/^zorucci/, "z");
+
+  const NORM_LOCATION_MAPPING = {
+    "zedapally1": "1",
+    "zedappally1": "1",
+    "gedappally": "3",
+    "gtrivandrum": "5",
+    "zedappal": "6",
+    "zperinthalmanna": "7",
+    "zkottakkal": "8",
+    "gkottayam": "9",
+    "gperumbavoor": "10",
+    "gthrissur": "11",
+    "gchavakkad": "12",
+    "gcalicut": "13",
+    "gvadakara": "14",
+    "gedappal": "15",
+    "gperinthalmanna": "16",
+    "gperinthalmana": "16",
+    "gkottakkal": "17",
+    "gmanjeri": "18",
+    "gmanjery": "18",
+    "gpalakkad": "19",
+    "gkalpetta": "20",
+    "gkannur": "21",
+    "gmgroad": "23",
+    "dapprsquad": "25"
+  };
+
+  return NORM_LOCATION_MAPPING[normClean] || null;
 }
 
 const STORE_TO_LOC_CODE = {
@@ -506,17 +556,46 @@ const DSRReport = () => {
     }
   });
 
+  const getStoreWeekRange = (storeName) => {
+    if (!storeName || storeName === "All") return null;
+    const snorm = storeName.replace(/[.\-]/g, '-');
+    const matchKey = Object.keys(storeWeekRanges).find(
+      k => k === storeName || k === snorm || normalizeForMatch(k) === normalizeForMatch(storeName)
+    );
+    return matchKey ? storeWeekRanges[matchKey] : null;
+  };
+
+  const getStoreEmployeeTargets = (storeName) => {
+    if (!storeName || storeName === "All") return [];
+    const snorm = storeName.replace(/[.\-]/g, '-');
+    const matchKey = Object.keys(employeeTargets).find(
+      k => k === storeName || k === snorm || normalizeForMatch(k) === normalizeForMatch(storeName)
+    );
+    return matchKey ? employeeTargets[matchKey] || [] : [];
+  };
+
+  const getStoreWeeklyTargets = (storeName) => {
+    if (!storeName) return {};
+    const snorm = storeName.replace(/[.\-]/g, '-');
+    const matchKey = Object.keys(weeklyTargets).find(
+      k => k === storeName || k === snorm || normalizeForMatch(k) === normalizeForMatch(storeName)
+    );
+    return matchKey ? weeklyTargets[matchKey] || {} : {};
+  };
+
   const getCurrentWeekId = (storeName = "All") => {
     const today = new Date();
     const todayDateNum = today.getDate();
 
     let w1 = week1Dates, w2 = week2Dates, w3 = week3Dates, w4 = week4Dates;
-    if (storeName !== "All" && storeWeekRanges[storeName]) {
-      const sr = storeWeekRanges[storeName];
-      if (sr[1]) w1 = sr[1];
-      if (sr[2]) w2 = sr[2];
-      if (sr[3]) w3 = sr[3];
-      if (sr[4]) w4 = sr[4];
+    if (storeName !== "All") {
+      const sr = getStoreWeekRange(storeName);
+      if (sr) {
+        if (sr[1]) w1 = sr[1];
+        if (sr[2]) w2 = sr[2];
+        if (sr[3]) w3 = sr[3];
+        if (sr[4]) w4 = sr[4];
+      }
     }
 
     const weeks = [
@@ -527,18 +606,10 @@ const DSRReport = () => {
     ];
 
     for (const w of weeks) {
-      if (w.val && w.val !== "Select Days") {
-        const parts = w.val.split("-");
-        if (parts.length === 2) {
-          const startDay = parseInt(parts[0].trim(), 10);
-          const endPart = parts[1].trim().split(" ");
-          const endDay = parseInt(endPart[0], 10);
-
-          if (!isNaN(startDay) && !isNaN(endDay)) {
-            if (todayDateNum >= startDay && todayDateNum <= endDay) {
-              return w.id;
-            }
-          }
+      const { start, end } = parseWeekDays(w.val);
+      if (start !== null && end !== null) {
+        if (todayDateNum >= start && todayDateNum <= end) {
+          return w.id;
         }
       }
     }
@@ -571,26 +642,20 @@ const DSRReport = () => {
     let w3 = week3DatesVal && week3DatesVal !== "Select Days" ? week3DatesVal : autoWeeks[3];
     let w4 = week4DatesVal && week4DatesVal !== "Select Days" ? week4DatesVal : autoWeeks[4];
 
-    if (storeName !== "All" && storeWeekRanges[storeName]) {
-      const sr = storeWeekRanges[storeName];
-      if (sr[1] && sr[1] !== "Select Days") w1 = sr[1];
-      if (sr[2] && sr[2] !== "Select Days") w2 = sr[2];
-      if (sr[3] && sr[3] !== "Select Days") w3 = sr[3];
-      if (sr[4] && sr[4] !== "Select Days") w4 = sr[4];
+    if (storeName !== "All") {
+      const sr = getStoreWeekRange(storeName);
+      if (sr) {
+        if (sr[1] && sr[1] !== "Select Days") w1 = sr[1];
+        if (sr[2] && sr[2] !== "Select Days") w2 = sr[2];
+        if (sr[3] && sr[3] !== "Select Days") w3 = sr[3];
+        if (sr[4] && sr[4] !== "Select Days") w4 = sr[4];
+      }
     }
     
     const parseRange = (val, weekId) => {
-      let startDay = null;
-      let endDay = null;
-      if (val && val !== "Select Days") {
-        const parts = val.split("-");
-        if (parts.length === 2) {
-          startDay = parseInt(parts[0].trim(), 10);
-          endDay = parseInt(parts[1].trim().split(" ")[0], 10);
-        }
-      }
+      let { start: startDay, end: endDay } = parseWeekDays(val);
       
-      if (!startDay || !endDay || isNaN(startDay) || isNaN(endDay)) {
+      if (startDay === null || endDay === null || isNaN(startDay) || isNaN(endDay)) {
         if (weekId === 1) { startDay = 1; endDay = 7; }
         else if (weekId === 2) { startDay = 8; endDay = 14; }
         else if (weekId === 3) { startDay = 15; endDay = 21; }
@@ -609,8 +674,7 @@ const DSRReport = () => {
       4: parseRange(w4, 4),
     };
     
-    const storeNameNorm = storeName ? storeName.replace(/[.\-]/g, '-') : storeName;
-    const storeTargetObj = overrideTargetObj || weeklyTargets[storeName] || weeklyTargets[storeNameNorm] || {};
+    const storeTargetObj = overrideTargetObj || getStoreWeeklyTargets(storeName);
     
     // Sum daily target contributions
     let totalTarget = 0;
@@ -633,7 +697,7 @@ const DSRReport = () => {
         }
         
         if (foundWeekId) {
-          const targetW = storeTargetObj[foundWeekId] || 0;
+          const targetW = storeTargetObj[foundWeekId] || storeTargetObj[String(foundWeekId)] || 0;
           const daysInW = wRanges[foundWeekId].count || 7;
           totalTarget += targetW / daysInW;
         }
@@ -647,20 +711,20 @@ const DSRReport = () => {
   };
 
   const getStoreTarget = (storeName, defaultTarget, activeTabVal, customFactorVal) => {
-    const snorm = storeName ? storeName.replace(/[.\-]/g, '-') : storeName;
-    const storeTargetObj = weeklyTargets[storeName] || weeklyTargets[snorm] || {};
+    const storeTargetObj = getStoreWeeklyTargets(storeName);
     
     // Monthly (MTD) is the sum of all weeks
     if (activeTabVal === "MTD") {
-      const hasCustomWeeks = [1, 2, 3, 4].some(wId => storeTargetObj[wId] !== undefined);
+      const hasCustomWeeks = [1, 2, 3, 4].some(wId => storeTargetObj[wId] !== undefined || storeTargetObj[String(wId)] !== undefined);
       if (!hasCustomWeeks) {
         return defaultTarget;
       }
       
       let sum = 0;
       for (let wId = 1; wId <= 4; wId++) {
-        if (storeTargetObj[wId] !== undefined) {
-          sum += storeTargetObj[wId];
+        const val = storeTargetObj[wId] !== undefined ? storeTargetObj[wId] : storeTargetObj[String(wId)];
+        if (val !== undefined) {
+          sum += Number(val);
         } else {
           sum += Math.round(defaultTarget * 0.23);
         }
@@ -671,8 +735,9 @@ const DSRReport = () => {
     if (activeTabVal === "WTD") {
       // Weekly (WTD) shows the active week target
       const currentWeekId = getCurrentWeekId(storeName); 
-      if (storeTargetObj[currentWeekId] !== undefined) {
-        return storeTargetObj[currentWeekId];
+      const val = storeTargetObj[currentWeekId] !== undefined ? storeTargetObj[currentWeekId] : storeTargetObj[String(currentWeekId)];
+      if (val !== undefined) {
+        return Number(val);
       }
       return Math.round(defaultTarget * 0.23);
     }
@@ -686,9 +751,10 @@ const DSRReport = () => {
   };
 
   const getStaffTarget = (storeName, staffName, activeTabVal) => {
-    const snorm = storeName ? storeName.replace(/[.\-]/g, '-') : storeName;
-    const storeEmpTargets = employeeTargets[storeName] || employeeTargets[snorm] || [];
-    const empT = storeEmpTargets.find(e => e.staffName === staffName);
+    const storeEmpTargets = getStoreEmployeeTargets(storeName);
+    const empT = storeEmpTargets.find(
+      e => e && (e.staffName === staffName || normalizeForMatch(e.staffName) === normalizeForMatch(staffName))
+    );
     if (!empT || !empT.weeklyTargets) return null; // No explicit target
 
     const empTargetObj = empT.weeklyTargets;
@@ -696,14 +762,16 @@ const DSRReport = () => {
     if (activeTabVal === "MTD") {
       let sum = 0;
       for (let wId = 1; wId <= 4; wId++) {
-        sum += (empTargetObj[wId] || 0);
+        const val = empTargetObj[wId] !== undefined ? empTargetObj[wId] : empTargetObj[String(wId)];
+        sum += (Number(val) || 0);
       }
       return sum;
     }
 
     if (activeTabVal === "WTD") {
       const currentWeekId = getCurrentWeekId(storeName); 
-      return empTargetObj[currentWeekId] || 0;
+      const val = empTargetObj[currentWeekId] !== undefined ? empTargetObj[currentWeekId] : empTargetObj[String(currentWeekId)];
+      return val !== undefined && val !== null ? Number(val) : 0;
     }
 
     if (activeTabVal === "Custom") {
@@ -795,6 +863,7 @@ const DSRReport = () => {
       }
     }
 
+    window.__performanceCache = {};
     setAssignTargetModalOpen(false);
   };
 
@@ -861,24 +930,10 @@ const DSRReport = () => {
 
   // Parse picker days for the config weeks modal
   useEffect(() => {
-    const parseDays = (dateStr) => {
-      if (!dateStr || dateStr === "Select Days") return { start: null, end: null };
-      const parts = dateStr.split("-");
-      if (parts.length === 2) {
-        const startDay = parseInt(parts[0].trim(), 10);
-        const cleanEndPart = parts[1].trim().split(" ")[0];
-        const endDay = parseInt(cleanEndPart, 10);
-        if (!isNaN(startDay) && !isNaN(endDay)) {
-          return { start: startDay, end: endDay };
-        }
-      }
-      return { start: null, end: null };
-    };
-
-    const p1 = parseDays(configWeek1);
-    const p2 = parseDays(configWeek2);
-    const p3 = parseDays(configWeek3);
-    const p4 = parseDays(configWeek4);
+    const p1 = parseWeekDays(configWeek1);
+    const p2 = parseWeekDays(configWeek2);
+    const p3 = parseWeekDays(configWeek3);
+    const p4 = parseWeekDays(configWeek4);
     setConfigStartDays({ 1: p1.start, 2: p2.start, 3: p3.start, 4: p4.start });
     setConfigEndDays({ 1: p1.end, 2: p2.end, 3: p3.end, 4: p4.end });
   }, [configWeek1, configWeek2, configWeek3, configWeek4, configWeeksModalOpen]);
@@ -950,6 +1005,7 @@ const DSRReport = () => {
       }, configMonth, CURRENT_YEAR);
     }
     
+    window.__performanceCache = {};
     setConfigWeeksModalOpen(false);
   };
 
@@ -1008,24 +1064,10 @@ const DSRReport = () => {
   const [weekEndDays, setWeekEndDays] = useState({ 1: 7, 2: 14, 3: 21, 4: 31 });
 
   useEffect(() => {
-    const parseDays = (dateStr) => {
-      if (!dateStr || dateStr === "Select Days") return { start: null, end: null };
-      const parts = dateStr.split("-");
-      if (parts.length === 2) {
-        const startDay = parseInt(parts[0].trim(), 10);
-        const cleanEndPart = parts[1].trim().split(" ")[0];
-        const endDay = parseInt(cleanEndPart, 10);
-        if (!isNaN(startDay) && !isNaN(endDay)) {
-          return { start: startDay, end: endDay };
-        }
-      }
-      return { start: null, end: null };
-    };
-
-    const p1 = parseDays(modalWeek1);
-    const p2 = parseDays(modalWeek2);
-    const p3 = parseDays(modalWeek3);
-    const p4 = parseDays(modalWeek4);
+    const p1 = parseWeekDays(modalWeek1);
+    const p2 = parseWeekDays(modalWeek2);
+    const p3 = parseWeekDays(modalWeek3);
+    const p4 = parseWeekDays(modalWeek4);
     setWeekStartDays({ 1: p1.start, 2: p2.start, 3: p3.start, 4: p4.start });
     setWeekEndDays({ 1: p1.end, 2: p2.end, 3: p3.end, 4: p4.end });
   }, [modalWeek1, modalWeek2, modalWeek3, modalWeek4, assignTargetModalOpen]);
@@ -1035,16 +1077,11 @@ const DSRReport = () => {
     setCalendarOpenForWeek(calendarOpenForWeek === weekId ? null : weekId);
     
     if (currentVal && currentVal !== "Select Days") {
-      const parts = currentVal.split("-");
-      if (parts.length === 2) {
-        const startDay = parseInt(parts[0].trim(), 10);
-        const cleanEndPart = parts[1].trim().split(" ")[0];
-        const endDay = parseInt(cleanEndPart, 10);
-        if (!isNaN(startDay) && !isNaN(endDay)) {
-          setWeekStartDays(prev => ({ ...prev, [weekId]: startDay }));
-          setWeekEndDays(prev => ({ ...prev, [weekId]: endDay }));
-          return;
-        }
+      const { start: startDay, end: endDay } = parseWeekDays(currentVal);
+      if (startDay !== null && endDay !== null) {
+        setWeekStartDays(prev => ({ ...prev, [weekId]: startDay }));
+        setWeekEndDays(prev => ({ ...prev, [weekId]: endDay }));
+        return;
       }
     }
   };
@@ -1372,6 +1409,8 @@ const DSRReport = () => {
         const locationIds = ["1", "3", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "23", "25"];
 
         const getStoreNameFromLocId = (locId) => {
+          const foundBranch = branches.find(b => getBranchLocationId(b.workingBranch) === locId);
+          if (foundBranch) return displayBranchName(foundBranch.workingBranch);
           const branchKey = Object.keys(BRANCH_LOCATION_MAPPING).find(key => BRANCH_LOCATION_MAPPING[key] === locId);
           if (!branchKey) return "All";
           return displayBranchName(branchKey);
@@ -1420,7 +1459,7 @@ const DSRReport = () => {
     };
 
     fetchPerformance();
-  }, [activeTab, customStartDate, customEndDate]);
+  }, [activeTab, customStartDate, customEndDate, storeWeekRanges, week1Dates, week2Dates, week3Dates, week4Dates]);
 
   // Fetch Shoe Sales Bookings & Returns dynamically based on timeframe range
   useEffect(() => {
@@ -1432,9 +1471,16 @@ const DSRReport = () => {
         let periodStart = todayStr;
         let periodEnd = todayStr;
         if (activeTab === "WTD") {
-          const wtdRange = getStoreWTDDateRange("All");
-          periodStart = wtdRange.start;
-          periodEnd = wtdRange.end;
+          let minStart = getStoreWTDDateRange("All").start;
+          branches.forEach((b) => {
+            const storeName = displayBranchName(b.workingBranch);
+            const range = getStoreWTDDateRange(storeName);
+            if (range.start < minStart) {
+              minStart = range.start;
+            }
+          });
+          periodStart = minStart;
+          periodEnd = todayStr;
         } else if (activeTab === "MTD") {
           const today = new Date();
           periodStart = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -1606,7 +1652,7 @@ const DSRReport = () => {
     };
 
     fetchSales();
-  }, [activeTab, customStartDate, customEndDate, branches]);
+  }, [activeTab, customStartDate, customEndDate, branches, storeWeekRanges, week1Dates, week2Dates, week3Dates, week4Dates]);
 
 
   useEffect(() => {
@@ -1655,11 +1701,9 @@ const DSRReport = () => {
                   : activeWeekId === 3 ? w3 
                   : w4;
                   
-    if (weekVal && weekVal !== "Select Days") {
-      const parts = weekVal.split("-");
-      if (parts.length === 2) {
-        startDayNum = parseInt(parts[0].trim(), 10);
-      }
+    const { start: parsedStart } = parseWeekDays(weekVal);
+    if (parsedStart !== null) {
+      startDayNum = parsedStart;
     } else {
       if (activeWeekId === 1) startDayNum = 1;
       else if (activeWeekId === 2) startDayNum = 8;
@@ -1957,7 +2001,7 @@ const DSRReport = () => {
     };
 
     // Real API Data calculations (no mock fallback!)
-    if (isAdminOrSuperAdmin) {
+    if (isAdminOrSuperAdmin || isClusterAdmin) {
       if (selectedStore === "All") {
         // Show store-level summary (Dappr Squad branch is skipped — its data is merged into store rows)
         return branches.map((b) => {
@@ -2077,7 +2121,11 @@ const DSRReport = () => {
         }).filter(Boolean); // filter out null entries (Dappr Squad branch is skipped)
       } else {
         // Drill-down view: Show individual staff members of the selected store
-        const selectedBranch = branches.find(b => displayBranchName(b.workingBranch) === selectedStore);
+        const selectedBranch = branches.find(b => 
+          displayBranchName(b.workingBranch) === selectedStore ||
+          normalizeForMatch(b.workingBranch) === normalizeForMatch(selectedStore) ||
+          locationKey(b.workingBranch) === locationKey(selectedStore)
+        );
         if (!selectedBranch) return [];
 
         const storeName = displayBranchName(selectedBranch.workingBranch);
@@ -2395,7 +2443,7 @@ const DSRReport = () => {
       });
       return allRows;
     }
-  }, [branches, isAdminOrSuperAdmin, isStoreAdmin, walkins, performanceData, selectedStore, activeTab, customStartDate, customEndDate, funnelView, salesData, dapprAttribution]);
+  }, [branches, isAdminOrSuperAdmin, isClusterAdmin, isStoreAdmin, walkins, performanceData, selectedStore, activeTab, customStartDate, customEndDate, funnelView, salesData, dapprAttribution, storeWeekRanges, week1Dates, week2Dates, week3Dates, week4Dates]);
 
   // Populate dynamic store options for dropdown
   const storeOptions = useMemo(() => {
@@ -2425,7 +2473,13 @@ const DSRReport = () => {
   const filteredFunnelRows = useMemo(() => {
     return funnelRows.filter((item) => {
       const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStore = selectedStore === "All" || item.storeName === selectedStore || (item.storeName === undefined && selectedStore === "G Thrissur");
+      const matchesStore = selectedStore === "All" ||
+        (item.storeName && (
+          item.storeName === selectedStore ||
+          normalizeForMatch(item.storeName) === normalizeForMatch(selectedStore) ||
+          locationKey(item.storeName) === locationKey(selectedStore)
+        )) ||
+        (item.storeName === undefined && selectedStore === "G Thrissur");
       return matchesSearch && matchesStore;
     });
   }, [funnelRows, searchQuery, selectedStore]);
@@ -2889,7 +2943,7 @@ const DSRReport = () => {
     } else if (selectedReport === "Sales Funnel") {
       fileName = `Sales_Funnel_${activeTab}_${CURRENT_YEAR}.csv`;
       const headers = [
-        isAdminOrSuperAdmin && !isStoreAdmin ? "Store Name" : "Staff Name",
+        selectedStore === "All" && !isStoreAdmin ? "Store Name" : "Staff Name",
         "Bill (FTD)", `Bill (${activeTab})`,
         "Value (FTD)", `Value (${activeTab})`,
         "Qty (FTD)", `Qty (${activeTab})`,
@@ -3140,7 +3194,7 @@ const DSRReport = () => {
             </span>
             <input 
               type="text" 
-              placeholder={selectedReport === "Sales Funnel" ? ((isAdminOrSuperAdmin && !isStoreAdmin) ? "Search by Store name" : "Search by Staff name") : "Search by Store name"}
+              placeholder={selectedReport === "Sales Funnel" ? ((selectedStore === "All" && !isStoreAdmin) ? "Search by Store name" : "Search by Staff name") : "Search by Store name"}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-[#eef1f6] border-none rounded-xl pl-10 pr-4 py-2.5 text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-black"
@@ -3542,7 +3596,7 @@ const DSRReport = () => {
                 <thead>
                   {/* Primary header row */}
                   <tr className="bg-[#2e2e2e] text-white text-[11px] font-bold tracking-wider uppercase border-b border-gray-600">
-                    <th rowSpan={2} className="sticky left-0 z-20 bg-[#2e2e2e] px-6 py-4 text-left border-r border-gray-600 w-60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]">{(isAdminOrSuperAdmin && !isStoreAdmin) ? "Store Name" : "Staff Name"}</th>
+                    <th rowSpan={2} className="sticky left-0 z-20 bg-[#2e2e2e] px-6 py-4 text-left border-r border-gray-600 w-60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]">{(selectedStore === "All" && !isStoreAdmin) ? "Store Name" : "Staff Name"}</th>
                     <th colSpan={2} className="px-6 py-2 border-r border-gray-600 text-center">Bill</th>
                     <th colSpan={2} className="px-6 py-2 border-r border-gray-600 text-center">Value</th>
                     <th colSpan={2} className="px-6 py-2 border-r border-gray-600 text-center">Quantity</th>
@@ -4198,7 +4252,7 @@ const DSRReport = () => {
 
                 {/* Week selector */}
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Select Week(s)</label>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Select Week</label>
                   <div className="grid grid-cols-4 gap-2">
                     {[
                       { id: 1, label: "W1", val: modalWeek1 },
@@ -4211,15 +4265,7 @@ const DSRReport = () => {
                         <button
                           key={w.id}
                           type="button"
-                          onClick={() => {
-                            setActiveWeeks(prev => {
-                              if (prev.includes(w.id)) {
-                                if (prev.length === 1) return prev;
-                                return prev.filter(id => id !== w.id);
-                              }
-                              return [...prev, w.id];
-                            });
-                          }}
+                          onClick={() => setActiveWeeks([w.id])}
                           className={`relative flex flex-col items-center justify-center py-2.5 px-2 rounded-xl border transition-all duration-150 cursor-pointer ${
                             isActive
                               ? "bg-gray-900 border-gray-900 text-white shadow-sm"
@@ -4274,9 +4320,12 @@ const DSRReport = () => {
 
                 {/* Target input */}
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Target Amount (₹)</label>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
+                    Target Amount (₹)<span className="text-red-500">*</span>
+                  </label>
                   <input
                     ref={targetInputRef}
+                    required
                     type="text"
                     inputMode="numeric"
                     placeholder="e.g. 500000"
@@ -4319,7 +4368,18 @@ const DSRReport = () => {
                   <button
                     onClick={() => {
                       if (!modalStore) { alert("Please select a store."); return; }
-                      if (!modalTarget || modalTarget.trim() === "") { alert("Please enter a target value."); return; }
+                      if (targetAssignMode === "Staff" && !modalStaff) { alert("Please select a staff member."); return; }
+                      if (!modalTarget || modalTarget.trim() === "") {
+                        alert("Target Amount is required.");
+                        targetInputRef.current?.focus();
+                        return;
+                      }
+                      const cleanVal = String(modalTarget || "").replace(/[^0-9.-]/g, "");
+                      if (isNaN(Number(cleanVal)) || cleanVal.trim() === "") {
+                        alert("Please enter a valid numeric target amount.");
+                        targetInputRef.current?.focus();
+                        return;
+                      }
                       handleSubmitTarget(modalStore, modalTarget, modalMonth);
                     }}
                     className="px-6 py-2.5 text-[12px] font-bold text-white bg-gray-900 rounded-xl hover:bg-black transition-colors shadow-sm"
