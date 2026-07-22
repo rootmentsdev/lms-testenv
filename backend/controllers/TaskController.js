@@ -809,7 +809,7 @@ export const getTaskAssignees = async (req, res) => {
       const hasAllStoreRole = ['super_admin', 'admin', 'hr_admin'].includes(design) || 
                               design.includes('hr admin') || 
                               design.includes('super admin') || 
-                              design.includes('admin');
+                              (design.includes('admin') && !design.includes('store') && !design.includes('cluster'));
       
       const hasAllStoreBranch = workingBranch.includes(',') || 
                               workingBranch.includes('all store') || 
@@ -845,11 +845,29 @@ export const getTaskAssignees = async (req, res) => {
       }
     }
 
-    // 2. Build generic options list based on role (only allow all_store_admins group option)
+    // 2. Build generic options list based on role
     const genericOptions = [];
-    if (['super_admin', 'admin', 'hr_admin', 'cluster_admin'].includes(role)) {
+    if (role === 'super_admin' || role === 'admin') {
       genericOptions.push(
+        { value: 'all_employees', label: 'All Employees', type: 'group' },
+        { value: 'all_hr_admins', label: 'All HR Admins', type: 'group' },
+        { value: 'all_cluster_admins', label: 'All Cluster Admins', type: 'group' },
         { value: 'all_store_admins', label: 'All Store Admins', type: 'group' }
+      );
+    } else if (role === 'hr_admin') {
+      genericOptions.push(
+        { value: 'all_employees', label: 'All Employees', type: 'group' },
+        { value: 'all_cluster_admins', label: 'All Cluster Admins', type: 'group' },
+        { value: 'all_store_admins', label: 'All Store Admins', type: 'group' }
+      );
+    } else if (role === 'cluster_admin') {
+      genericOptions.push(
+        { value: 'all_employees', label: 'All Employees', type: 'group' },
+        { value: 'all_store_admins', label: 'All Store Admins', type: 'group' }
+      );
+    } else if (role === 'store_admin' || role === 'user') {
+      genericOptions.push(
+        { value: 'all_employees', label: 'All Employees', type: 'group' }
       );
     }
 
@@ -865,7 +883,10 @@ export const getTaskAssignees = async (req, res) => {
       }
     }
 
-    // 4. Fetch Accessible Store Admins
+    // 4. Get Accessible Employees under these stores
+    let employeeIds = await getAccessibleEmployeeIds(adminId, targetBranchId || null);
+
+    // 5. Fetch Accessible Store Admins
     let adminQuery = { role: 'store_admin', isActive: true };
     if (['cluster_admin', 'store_admin', 'user'].includes(role)) {
       adminQuery.branches = { $in: accessibleStoreIds };
@@ -873,7 +894,7 @@ export const getTaskAssignees = async (req, res) => {
 
     const admins = await Admin.find(adminQuery).populate('branches');
 
-    // 5. Format individual lists
+    // 6. Format individual lists
     const individualAssignees = [];
 
     // Add Admins
@@ -918,6 +939,72 @@ export const getTaskAssignees = async (req, res) => {
         role: user.role,
         isAllStore,
         storeNameNormalized: storeName
+      });
+    }
+
+    // Add Employees from Employee collection
+    const dbEmployees = await Employee.find({ _id: { $in: employeeIds }, storeId: { $in: accessibleStoreIds }, status: 'Active' }).populate('storeId');
+    dbEmployees.forEach(emp => {
+      if (!individualAssignees.some(item => item.value === emp._id.toString())) {
+        const name = emp.firstName ? `${emp.firstName} ${emp.lastName || ''}`.trim() : (emp.username || 'Employee');
+        const designation = emp.designation || 'Staff';
+        let storeNameVal = (emp.storeId && emp.storeId.workingBranch) || emp.workingBranch || 'Store';
+
+        const isAllStore = isAllStoreEmployee(emp, designation);
+        if (isAllStore) {
+          storeNameVal = 'All Store';
+        }
+
+        individualAssignees.push({
+          value: emp._id.toString(),
+          label: `${name} - ${designation} - ${storeNameVal}`,
+          type: 'employee',
+          isAllStore,
+          storeNameNormalized: storeNameVal
+        });
+      }
+    });
+
+    // Add Users from User collection
+    const branches = await Branch.find({ _id: { $in: accessibleStoreIds } });
+    const locCodes = branches.map(b => b.locCode);
+    const dbUsers = await User.find({ _id: { $in: employeeIds }, locCode: { $in: locCodes } }).lean();
+    dbUsers.forEach(u => {
+      if (!individualAssignees.some(item => item.value === u._id.toString())) {
+        const designation = u.designation || 'Staff';
+        let storeNameVal = u.workingBranch || 'Store';
+
+        const isAllStore = isAllStoreEmployee(u, designation);
+        if (isAllStore) {
+          storeNameVal = 'All Store';
+        }
+
+        individualAssignees.push({
+          value: u._id.toString(),
+          label: `${u.username || 'Employee'} - ${designation} - ${storeNameVal}`,
+          type: 'employee',
+          isAllStore,
+          storeNameNormalized: storeNameVal
+        });
+      }
+    });
+
+    // Make sure logged-in regular user is in the list
+    if (!isUserAdmin && !individualAssignees.some(emp => emp.value === adminId.toString())) {
+      const designation = user.designation || 'Staff';
+      let storeNameVal = user.workingBranch || 'Store';
+
+      const isAllStore = isAllStoreEmployee(user, designation);
+      if (isAllStore) {
+        storeNameVal = 'All Store';
+      }
+
+      individualAssignees.push({
+        value: user._id.toString(),
+        label: `${user.username || 'Employee'} - ${designation} - ${storeNameVal}`,
+        type: 'employee',
+        isAllStore,
+        storeNameNormalized: storeNameVal
       });
     }
 
