@@ -304,14 +304,22 @@ const runWithConcurrencyLimit = async (tasks, limit) => {
   return Promise.all(results);
 };
 
-const getPerformanceCached = async (locId, startDate, endDate) => {
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes memory cache
+
+const getPerformanceCached = async (locId, startDate, endDate, forceRefresh = false) => {
   const cacheKey = `perfnc_${locId}_${startDate}_${endDate}`;
   if (!window.__performanceCache) {
     window.__performanceCache = {};
   }
   
-  if (window.__performanceCache[cacheKey]?.promise) {
-    return window.__performanceCache[cacheKey].promise;
+  const existing = window.__performanceCache[cacheKey];
+  if (!forceRefresh && existing) {
+    if (existing.data && (Date.now() - existing.timestamp < CACHE_TTL_MS)) {
+      return existing.data;
+    }
+    if (existing.promise) {
+      return existing.promise;
+    }
   }
 
   const promise = (async () => {
@@ -332,11 +340,14 @@ const getPerformanceCached = async (locId, startDate, endDate) => {
       if (res.ok) {
         const json = await res.json();
         const data = json.dataSet?.data || [];
+        window.__performanceCache[cacheKey] = {
+          data,
+          timestamp: Date.now()
+        };
         return data;
       }
     } catch (err) {
       console.error(`Error in getPerformanceCached for loc ${locId}:`, err);
-    } finally {
       delete window.__performanceCache[cacheKey];
     }
     return [];
@@ -1550,7 +1561,10 @@ const DSRReport = () => {
 
   // Fetch walkins dynamically based on timeframe range
   useEffect(() => {
-    if (activeTab === "Custom" && !customApplied) return;
+    if (activeTab === "Custom" && !customApplied) {
+      setLoadingWalkins(false);
+      return;
+    }
     const fetchWalkins = async () => {
       setLoadingWalkins(true);
       try {
@@ -1607,7 +1621,10 @@ const DSRReport = () => {
 
   // Fetch staff performance dynamically based on timeframe range
   useEffect(() => {
-    if (activeTab === "Custom" && !customApplied) return;
+    if (activeTab === "Custom" && !customApplied) {
+      setLoadingPerformance(false);
+      return;
+    }
     const fetchPerformance = async () => {
       setLoadingPerformance(true);
       try {
@@ -1639,14 +1656,21 @@ const DSRReport = () => {
           return displayBranchName(branchKey);
         };
 
-        // Parallel fetch for FTD (For The Day - today) with concurrency limit
-        const ftdTasks = locationIds.map((locId) => async () => {
-          const data = await getPerformanceCached(locId, todayStr, todayStr);
-          return { locId, data };
-        });
+        // Reuse FTD data if already loaded (FTD is always for today)
+        let ftdMap = performanceData.ftd;
+        if (!ftdMap || Object.keys(ftdMap).length === 0) {
+          const ftdResults = await Promise.all(locationIds.map(async (locId) => {
+            const data = await getPerformanceCached(locId, todayStr, todayStr);
+            return { locId, data };
+          }));
+          ftdMap = {};
+          ftdResults.forEach(r => {
+            ftdMap[r.locId] = r.data;
+          });
+        }
 
-        // Parallel fetch for Period (WTD, MTD, Custom) with concurrency limit
-        const periodTasks = locationIds.map((locId) => async () => {
+        // Parallel fetch for Period (WTD, MTD, Custom) all locations simultaneously
+        const periodResults = await Promise.all(locationIds.map(async (locId) => {
           let storePeriodStart = periodStart;
           let storePeriodEnd = periodEnd;
           if (activeTab === "WTD") {
@@ -1658,17 +1682,9 @@ const DSRReport = () => {
 
           const data = await getPerformanceCached(locId, storePeriodStart, storePeriodEnd);
           return { locId, data };
-        });
+        }));
 
-        const ftdResults = await runWithConcurrencyLimit(ftdTasks, 4);
-        const periodResults = await runWithConcurrencyLimit(periodTasks, 4);
-
-        const ftdMap = {};
         const periodMap = {};
-
-        ftdResults.forEach(r => {
-          ftdMap[r.locId] = r.data;
-        });
         periodResults.forEach(r => {
           periodMap[r.locId] = r.data;
         });
@@ -1686,7 +1702,10 @@ const DSRReport = () => {
 
   // Fetch Shoe Sales Bookings & Returns dynamically based on timeframe range
   useEffect(() => {
-    if (activeTab === "Custom" && !customApplied) return;
+    if (activeTab === "Custom" && !customApplied) {
+      setLoadingSales(false);
+      return;
+    }
     const fetchSales = async () => {
       setLoadingSales(true);
       try {
@@ -2305,11 +2324,10 @@ const DSRReport = () => {
           const periodWalkins = storeWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, storePeriodStart, storePeriodEnd));
 
           // Performance API aggregations (includes Dappr Squad data merged in)
-          // Note: totalValue mapped to bill, total_Number_Of_Bill mapped to val, totalQuantity mapped to qty
-          let billFtd = mergedFtdList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
-          let billWtd = mergedPeriodList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
-          let valFtd = mergedFtdList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
-          let valWtd = mergedPeriodList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
+          let valFtd = mergedFtdList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+          let valWtd = mergedPeriodList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+          let billFtd = mergedFtdList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
+          let billWtd = mergedPeriodList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
           let qtyFtd = mergedFtdList.reduce((sum, item) => sum + (item.totalQuantity || 0), 0);
           let qtyWtd = mergedPeriodList.reduce((sum, item) => sum + (item.totalQuantity || 0), 0);
 
@@ -2318,10 +2336,10 @@ const DSRReport = () => {
             const salesFtdItem = salesData.ftd[locCode] || salesData.ftd[storeKeyVal] || { value: 0, qty: 0, bills: 0 };
             const salesPeriodItem = salesData.period[locCode] || salesData.period[storeKeyVal] || { value: 0, qty: 0, bills: 0 };
 
-            billFtd += salesFtdItem.value || 0;
-            billWtd += salesPeriodItem.value || 0;
-            valFtd += salesFtdItem.bills || 0;
-            valWtd += salesPeriodItem.bills || 0;
+            valFtd += salesFtdItem.value || 0;
+            valWtd += salesPeriodItem.value || 0;
+            billFtd += salesFtdItem.bills || 0;
+            billWtd += salesPeriodItem.bills || 0;
             qtyFtd += salesFtdItem.qty || 0;
             qtyWtd += salesPeriodItem.qty || 0;
           }
@@ -2333,8 +2351,8 @@ const DSRReport = () => {
 
           const walkFtd = ftdWalkins.length;
           const walkWtd = periodWalkins.length;
-          const lossFtd = Math.max(0, walkFtd - valFtd);
-          const lossWtd = Math.max(0, walkWtd - valWtd);
+          const lossFtd = Math.max(0, walkFtd - billFtd);
+          const lossWtd = Math.max(0, walkWtd - billWtd);
 
           return withDerivedMetrics({
             name: storeName,
@@ -2907,27 +2925,8 @@ const DSRReport = () => {
 
   const totalQtyFtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + (row.qtyFtd || 0), 0), [filteredFunnelRows]);
   const totalQtyWtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + (row.qtyWtd || 0), 0), [filteredFunnelRows]);
-  const totalWalkFtd = useMemo(() => {
-    return filteredWalkinsList.filter(w => isWalkinCreatedInRange(w.createdAt, todayStr, todayStr)).length;
-  }, [filteredWalkinsList, todayStr]);
-
-  const totalWalkWtd = useMemo(() => {
-    const today = new Date();
-    let periodStart = todayStr;
-    let periodEnd = todayStr;
-    if (activeTab === "WTD") {
-      const wtdRange = getStoreWTDDateRange(selectedStore);
-      periodStart = wtdRange.start;
-      periodEnd = wtdRange.end;
-    } else if (activeTab === "MTD") {
-      periodStart = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
-      periodEnd = todayStr;
-    } else if (activeTab === "Custom") {
-      periodStart = customStartDate || todayStr;
-      periodEnd = customEndDate || todayStr;
-    }
-    return filteredWalkinsList.filter(w => isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd)).length;
-  }, [filteredWalkinsList, activeTab, customStartDate, customEndDate, todayStr, selectedStore, storeWeekRanges, week1Dates, week2Dates, week3Dates, week4Dates]);
+  const totalWalkFtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + (row.walkFtd || 0), 0), [filteredFunnelRows]);
+  const totalWalkWtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + (row.walkWtd || 0), 0), [filteredFunnelRows]);
   const totalLossFtd = useMemo(() => Math.max(0, totalWalkFtd - totalBillFtd), [totalWalkFtd, totalBillFtd]);
   const totalLossWtd = useMemo(() => Math.max(0, totalWalkWtd - totalBillWtd), [totalWalkWtd, totalBillWtd]);
 
