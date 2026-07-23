@@ -3153,6 +3153,10 @@ const DSRReport = () => {
 
       // Real API data (NO MOCK DATA!)
       const locId = getBranchLocationId(workingBranch);
+      if (locId === "25" || normalizeForMatch(workingBranch) === "dapprsquad" || normalizeForMatch(name) === "dapprsquad") {
+        return null; // Hide dedicated Dappr Squad branch row
+      }
+
       const storeKeyVal = normalizeForMatch(workingBranch);
       const locCode = item.locCode || getBranchLocCode(workingBranch, branches);
 
@@ -3204,7 +3208,7 @@ const DSRReport = () => {
         squadValFtd, squadValWtd, squadBillFtd, squadBillWtd, squadQtyFtd, squadQtyWtd,
         salesValFtd, salesValWtd, salesBillFtd, salesBillWtd, salesQtyFtd, salesQtyWtd
       };
-    });
+    }).filter(Boolean);
   }, [branches, isStoreAdmin, performanceData, salesData]);
 
   const filteredCategoryRows = useMemo(() => {
