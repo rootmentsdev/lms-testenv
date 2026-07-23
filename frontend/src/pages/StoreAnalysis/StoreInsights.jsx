@@ -23,113 +23,51 @@ const BRAND_TOKENS = new Set(["zorucci", "grooms", "suitor", "guy", "sg"]);
 
 const BRANCH_LOCATION_MAPPING = {
   // Z-Edappally (loc 1)
-  "z-edapally1": "1",
-  "z-edappally1": "1",
-  "z edapally1": "1",
-  "z edappally1": "1",
-  "zorucci edappally": "1",
-  "zorucci edapally": "1",
+  "z-edapally1": "1", "z-edappally1": "1", "z edapally1": "1", "z edappally1": "1",
+  "zorucci edappally": "1", "zorucci edapally": "1", "z.edappally": "1", "z.edapally": "1",
   // G-Edappally (loc 3)
-  "g-edappally": "3",
-  "g edappally": "3",
-  "grooms edappally": "3",
-  "suitor guy edappally": "3",
+  "g-edappally": "3", "g edappally": "3", "grooms edappally": "3", "suitor guy edappally": "3",
+  "sg.edappally": "3", "sg edappally": "3", "sg.edapally": "3", "sg edapally": "3",
   // G-Trivandrum (loc 5)
-  "g-trivandrum": "5",
-  "g.trivandrum": "5",
-  "g trivandrum": "5",
-  "grooms trivandrum": "5",
-  "suitor guy trivandrum": "5",
+  "g-trivandrum": "5", "g.trivandrum": "5", "g trivandrum": "5",
+  "grooms trivandrum": "5", "suitor guy trivandrum": "5", "sg.trivandrum": "5", "sg trivandrum": "5", "sg.tvm": "5",
   // Z-Edappal (loc 6)
-  "z- edappal": "6",
-  "z.edappal": "6",
-  "z edappal": "6",
-  "zorucci edappal": "6",
+  "z- edappal": "6", "z.edappal": "6", "z edappal": "6", "zorucci edappal": "6",
   // Z-Perinthalmanna (loc 7)
-  "z.perinthalmanna": "7",
-  "z perinthalmanna": "7",
-  "zorucci perinthalmanna": "7",
+  "z.perinthalmanna": "7", "z perinthalmanna": "7", "zorucci perinthalmanna": "7", "z.perinthalmana": "7",
   // Z-Kottakkal (loc 8)
-  "z.kottakkal": "8",
-  "z kottakkal": "8",
-  "zorucci kottakkal": "8",
+  "z.kottakkal": "8", "z kottakkal": "8", "zorucci kottakkal": "8",
   // G-Kottayam (loc 9)
-  "g.kottayam": "9",
-  "g kottayam": "9",
-  "grooms kottayam": "9",
-  "suitor guy kottayam": "9",
+  "g.kottayam": "9", "g kottayam": "9", "grooms kottayam": "9", "suitor guy kottayam": "9", "sg.kottayam": "9", "sg kottayam": "9",
   // G-Perumbavoor (loc 10)
-  "g.perumbavoor": "10",
-  "g perumbavoor": "10",
-  "grooms perumbavoor": "10",
-  "suitor guy perumbavoor": "10",
+  "g.perumbavoor": "10", "g perumbavoor": "10", "grooms perumbavoor": "10", "suitor guy perumbavoor": "10", "sg.perumbavoor": "10", "sg perumbavoor": "10",
   // G-Thrissur (loc 11)
-  "g.thrissur": "11",
-  "g thrissur": "11",
-  "grooms thrissur": "11",
-  "suitor guy thrissur": "11",
+  "g.thrissur": "11", "g thrissur": "11", "grooms thrissur": "11", "suitor guy thrissur": "11", "sg.thrissur": "11", "sg thrissur": "11", "sg.tsr": "11",
   // G-Chavakkad (loc 12)
-  "g.chavakkad": "12",
-  "g chavakkad": "12",
-  "grooms chavakkad": "12",
-  "suitor guy chavakkad": "12",
+  "g.chavakkad": "12", "g chavakkad": "12", "grooms chavakkad": "12", "suitor guy chavakkad": "12", "sg.chavakkad": "12", "sg chavakkad": "12",
   // G-Calicut (loc 13)
-  "g.calicut": "13",
-  "g calicut": "13",
-  "grooms calicut": "13",
-  "suitor guy calicut": "13",
+  "g.calicut": "13", "g calicut": "13", "grooms calicut": "13", "suitor guy calicut": "13", "sg.calicut": "13", "sg calicut": "13",
   // G-Vadakara (loc 14)
-  "g.vadakara": "14",
-  "g vadakara": "14",
-  "grooms vadakara": "14",
-  "suitor guy vadakara": "14",
+  "g.vadakara": "14", "g vadakara": "14", "grooms vadakara": "14", "suitor guy vadakara": "14", "sg.vadakara": "14", "sg vadakara": "14",
   // G-Edappal (loc 15)
-  "g.edappal": "15",
-  "g edappal": "15",
-  "grooms edappal": "15",
-  "suitor guy edappal": "15",
+  "g.edappal": "15", "g edappal": "15", "grooms edappal": "15", "suitor guy edappal": "15", "sg.edappal": "15", "sg edappal": "15",
   // G-Perinthalmanna (loc 16)
-  "g.perinthalmanna": "16",
-  "g perinthalmanna": "16",
-  "grooms perinthalmanna": "16",
-  "suitor guy perinthalmanna": "16",
+  "g.perinthalmanna": "16", "g perinthalmanna": "16", "grooms perinthalmanna": "16", "suitor guy perinthalmanna": "16",
+  "sg.perinthalmanna": "16", "sg perinthalmanna": "16", "sg-perinthalmanna": "16", "sg.perinthalmana": "16", "sg perinthalmana": "16", "sg.pma": "16", "sg pma": "16",
   // G-Kottakkal (loc 17)
-  "g.kottakkal": "17",
-  "g kottakkal": "17",
-  "grooms kottakkal": "17",
-  "suitor guy kottakkal": "17",
+  "g.kottakkal": "17", "g kottakkal": "17", "grooms kottakkal": "17", "suitor guy kottakkal": "17", "sg.kottakkal": "17", "sg kottakkal": "17", "sg.ktk": "17",
   // G-Manjeri (loc 18)
-  "g.manjeri": "18",
-  "g manjeri": "18",
-  "grooms manjeri": "18",
-  "suitor guy manjeri": "18",
+  "g.manjeri": "18", "g manjeri": "18", "grooms manjeri": "18", "suitor guy manjeri": "18", "sg.manjeri": "18", "sg manjeri": "18",
   // G-Palakkad (loc 19)
-  "g.palakkad": "19",
-  "g palakkad": "19",
-  "grooms palakkad": "19",
-  "suitor guy palakkad": "19",
+  "g.palakkad": "19", "g palakkad": "19", "grooms palakkad": "19", "suitor guy palakkad": "19", "sg.palakkad": "19", "sg palakkad": "19", "sg.pkd": "19",
   // G-Kalpetta (loc 20)
-  "g.kalpetta": "20",
-  "g kalpetta": "20",
-  "grooms kalpetta": "20",
-  "suitor guy kalpetta": "20",
+  "g.kalpetta": "20", "g kalpetta": "20", "grooms kalpetta": "20", "suitor guy kalpetta": "20", "sg.kalpetta": "20", "sg kalpetta": "20",
   // G-Kannur (loc 21)
-  "g.kannur": "21",
-  "g kannur": "21",
-  "grooms kannur": "21",
-  "suitor guy kannur": "21",
+  "g.kannur": "21", "g kannur": "21", "grooms kannur": "21", "suitor guy kannur": "21", "sg.kannur": "21", "sg kannur": "21", "sg.knr": "21",
   // G-MG Road (loc 23)
-  "g.mg road": "23",
-  "g.mgroad": "23",
-  "g mg road": "23",
-  "gmg road": "23",
-  "grooms mg road": "23",
-  "suitor guy mg road": "23",
+  "g.mg road": "23", "g.mgroad": "23", "g mg road": "23", "gmg road": "23", "grooms mg road": "23", "suitor guy mg road": "23", "sg.mg road": "23", "sg.mgroad": "23", "sg mg road": "23",
   // Dappr Squad (loc 25)
-  "dappr squad": "25",
-  "sg.edappally": "25",
-  "sg.perumbavoor": "25",
-  "crsrootments": "25"
+  "dappr squad": "25", "crsrootments": "25"
 };
 
 // Fuzzy normalized lookup: strips all non-alphanumeric chars then matches
@@ -154,8 +92,8 @@ function getBranchLocationId(workingBranch) {
   const CITY_TO_LOC = {
     "edappally": "3", "edapally": "3",
     "trivandrum": "5", "thiruvananthapuram": "5",
-    "perinthalmanna": "7",
-    "kottakkal": "8",
+    "perinthalmanna": "16", "perinthalmana": "16",
+    "kottakkal": "17",
     "kottayam": "9",
     "perumbavoor": "10",
     "thrissur": "11",
@@ -171,13 +109,10 @@ function getBranchLocationId(workingBranch) {
   };
   for (const [city, locId] of Object.entries(CITY_TO_LOC)) {
     if (stripped.endsWith(city) || stripped.includes(city)) {
-      // Only match if starts with a known brand prefix
       if (stripped.startsWith("z") || stripped.startsWith("g") || stripped.startsWith("sg") || stripped.startsWith("suitor") || stripped.startsWith("grooms") || stripped.startsWith("zorucci")) {
-        // Distinguish zorucci (z) vs grooms/sg (g) based on prefix
-        if ((stripped.startsWith("z") || stripped.startsWith("zorucci")) && city === "edappally") return "1";
-        if ((stripped.startsWith("z") || stripped.startsWith("zorucci")) && city === "perinthalmanna") return "7";
-        if ((stripped.startsWith("z") || stripped.startsWith("zorucci")) && city === "kottakkal") return "8";
-        if ((stripped.startsWith("z") || stripped.startsWith("zorucci")) && city === "edappal") return "6";
+        if ((stripped.startsWith("z") || stripped.startsWith("zorucci")) && city.includes("edappal")) return city.includes("edappally") ? "1" : "6";
+        if ((stripped.startsWith("z") || stripped.startsWith("zorucci")) && city.includes("perinthalman")) return "7";
+        if ((stripped.startsWith("z") || stripped.startsWith("zorucci")) && city.includes("kottakkal")) return "8";
         return locId;
       }
     }
@@ -706,6 +641,8 @@ const StoreInsights = () => {
     return getLocalDateString(d);
   });
   const [customEndDate, setCustomEndDate] = useState(() => getLocalDateString(new Date()));
+  const [tempStartDate, setTempStartDate] = useState(customStartDate);
+  const [tempEndDate, setTempEndDate] = useState(customEndDate);
 
   // Target and performance fetch states
   const [weeklyTargets, setWeeklyTargets] = useState({});
@@ -888,16 +825,75 @@ const StoreInsights = () => {
       .replace(/^dapper/, "dappr");
   }
 
+  const STAFF_ALIAS_MAPPING = {
+    "niyas": "NIYAS DINU NASAR K",
+    "m shamil k p": "Muhammed Shamil K P",
+    "shamil k p": "Muhammed Shamil K P",
+    "shahil shan": "Shahil shan v",
+    "m riswan": "MOHAMMAD RISWAN",
+    "riswan": "MOHAMMAD RISWAN",
+    "m shan k": "Muhammed Shan K",
+    "shan k": "Muhammed Shan K",
+    "s faris vk": "Salmanul Faris V K",
+    "salman faris": "Salmanul Faris V K",
+    "salman muhammed.v": "SALMAN MUHAMMED V",
+    "salman muhammed v": "SALMAN MUHAMMED V",
+    "muhammed shamil": "Muhammed Shamil K P",
+    "muhammed basil": "Muhammed Basil P K",
+    "muhammad shabir": "MUHAMMAD SHABIR VT",
+    "shabir vt": "MUHAMMAD SHABIR VT",
+  };
+
+  function getCanonicalStaffName(rawName) {
+    if (!rawName) return "";
+    const str = String(rawName).trim();
+    const lower = str.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ");
+    if (STAFF_ALIAS_MAPPING[lower]) {
+      return STAFF_ALIAS_MAPPING[lower];
+    }
+    return str;
+  }
+
   function isStaffNameMatch(strA, strB) {
     if (!strA || !strB) return false;
-    const normA = normalizeForMatch(strA);
-    const normB = normalizeForMatch(strB);
+    const canonA = getCanonicalStaffName(strA);
+    const canonB = getCanonicalStaffName(strB);
+    if (canonA === canonB) return true;
+
+    const normA = normalizeForMatch(canonA);
+    const normB = normalizeForMatch(canonB);
     if (!normA || !normB) return false;
     if (normA === normB) return true;
 
     if (normA.length >= 4 && normB.length >= 4) {
-      if (normA.startsWith(normB) || normB.startsWith(normA)) return true;
+      if (normA.startsWith(normB) || normB.startsWith(normA) ||
+          normA.endsWith(normB) || normB.endsWith(normA) ||
+          normA.includes(normB) || normB.includes(normA)) {
+        return true;
+      }
     }
+
+    const cleanTokens = (str) => String(str).toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/).filter(Boolean);
+    const tokensA = cleanTokens(canonA);
+    const tokensB = cleanTokens(canonB);
+
+    const subA = tokensA.filter(t => t.length >= 3);
+    const subB = tokensB.filter(t => t.length >= 3);
+
+    if (subA.length > 0 && subB.length > 0) {
+      const common = subA.filter(t => subB.includes(t));
+      const unsharedA = subA.filter(t => !subB.includes(t));
+      const unsharedB = subB.filter(t => !subA.includes(t));
+
+      if (common.length === Math.min(subA.length, subB.length)) {
+        const conflictA = unsharedA.filter(t => t.length > 3 && !["muhammed", "mohammad", "mohammed"].includes(t));
+        const conflictB = unsharedB.filter(t => t.length > 3 && !["muhammed", "mohammad", "mohammed"].includes(t));
+        if (conflictA.length === 0 && conflictB.length === 0) {
+          return true;
+        }
+      }
+    }
+
     return false;
   }
 
@@ -1468,8 +1464,8 @@ const StoreInsights = () => {
           periodEnd = customEndDate || todayStr;
         }
 
-        const fetchStart = periodStart < todayStr ? periodStart : todayStr;
-        const fetchEnd = periodEnd > todayStr ? periodEnd : todayStr;
+        const fetchStart = periodStart;
+        const fetchEnd = periodEnd;
 
         const res = await fetch(`${baseUrl.baseUrl}api/walkin/list?startDate=${fetchStart}&endDate=${fetchEnd}`, {
           method: "GET",
@@ -1811,7 +1807,84 @@ const StoreInsights = () => {
     const singleBranch = branches[0];
     const locId = getBranchLocationId(singleBranch?.workingBranch);
     if (!locId) return [];
+    const locCode = singleBranch.locCode || getBranchLocCode(singleBranch.workingBranch, branches);
     const locPeriodList = performanceData[locId] || [];
+
+    // If consolidated, also include Dappr Squad data for this location
+    const dapprPeriodList = isConsolidated ? (performanceData["25"] || []) : [];
+    const dapprPeriodForStore = isConsolidated ? getDapprSquadDataForStore(locId, dapprPeriodList) : [];
+    const isGMGRoad = locId === "23";
+    const unmappedDapprPeriodList = (isGMGRoad && isConsolidated)
+      ? dapprPeriodList.filter(item => {
+          const raw = String(item.bookingBy || "").trim().toLowerCase();
+          const alphaOnly = raw.replace(/[^a-z0-9]/g, "");
+          const dotted = alphaOnly.startsWith("sg") ? "sg." + alphaOnly.slice(2) : raw;
+          return !DAPPR_SQUAD_STORE_MAPPING[raw] && !DAPPR_SQUAD_STORE_MAPPING[dotted];
+        })
+      : [];
+    const mergedPeriodList = [...locPeriodList, ...dapprPeriodForStore, ...unmappedDapprPeriodList];
+
+    // Helper: find shoe/shirt sales for a staff member
+    const getSalesDataForStaff = (staffName) => {
+      const canonName = getCanonicalStaffName(staffName);
+      const staffKey = normalizeForMatch(staffName);
+      const canonKey = normalizeForMatch(canonName);
+
+      const match = (salespersons || []).find(sp => {
+        const spName = sp.salesperson;
+        const spCanon = getCanonicalStaffName(spName);
+        return normalizeForMatch(spName) === staffKey ||
+               normalizeForMatch(spName) === canonKey ||
+               normalizeForMatch(spCanon) === staffKey ||
+               normalizeForMatch(spCanon) === canonKey ||
+               isStaffNameMatch(spName, staffName) ||
+               isStaffNameMatch(spName, canonName);
+      });
+      if (!match) return { bills: 0, qty: 0, value: 0 };
+      const storeMatch = match.stores && match.stores.find(st => String(st.locCode) === String(locCode));
+      if (storeMatch) {
+        const tot = storeMatch.total || {};
+        return {
+          bills: tot.bills || 0,
+          qty: tot.qty || 0,
+          value: tot.value || 0
+        };
+      }
+      return { bills: 0, qty: 0, value: 0 };
+    };
+
+    const canonicalizeName = (rawName) => {
+      if (!rawName) return "";
+      const strName = String(rawName);
+      if (strName.toLowerCase() === "unassigned") return "Unassigned";
+      const normName = normalizeForMatch(strName);
+      const match = mergedPeriodList.find(n => n && normalizeForMatch(n.bookingBy) === normName);
+      return match ? match.bookingBy : strName;
+    };
+
+    const salesStaffNames = isConsolidated
+      ? (salespersons || [])
+          .filter(sp => sp.stores && sp.stores.some(st => String(st.locCode) === String(locCode)))
+          .map(sp => canonicalizeName(sp.salesperson))
+          .filter(Boolean)
+      : [];
+
+    const rawStaffNames = [
+      ...mergedPeriodList.map(x => x && x.bookingBy),
+      ...salesStaffNames
+    ].filter(name => typeof name === "string" && name.trim() !== "");
+
+    const staffNames = [];
+    const seenNormalized = new Set();
+    
+    rawStaffNames.forEach(name => {
+      if (!name) return;
+      const norm = normalizeForMatch(name);
+      if (norm && !seenNormalized.has(norm)) {
+        seenNormalized.add(norm);
+        staffNames.push(name);
+      }
+    });
 
     // Determine the target month name from the active timeframe
     const targetMonthName = timeframe === "CUSTOM"
@@ -1823,7 +1896,7 @@ const StoreInsights = () => {
 
     // Helper: resolve a staff member's target for the current timeframe
     const resolveStaffTarget = (staffName) => {
-      const empT = storeEmpTargets.find(e => e.staffName === staffName);
+      const empT = storeEmpTargets.find(e => normalizeForMatch(e.staffName) === normalizeForMatch(staffName));
       if (!empT || !empT.weeklyTargets) return 0;
       const wt = empT.weeklyTargets;
 
@@ -1840,20 +1913,27 @@ const StoreInsights = () => {
       return 0;
     };
 
-    return locPeriodList
-      .filter(item => item.bookingBy)
-      .map(item => {
-        const fullName = String(item.bookingBy || "").trim();
+    return staffNames
+      .map(staffName => {
+        const fullName = String(staffName || "").trim();
         const firstName = fullName.split(/\s+/)[0] || fullName;
-        const achieved = item.totalValue || 0;
+        const staffKey = normalizeForMatch(fullName);
+        const staffRentalItems = mergedPeriodList.filter(x => x && (normalizeForMatch(x.bookingBy) === staffKey || isStaffNameMatch(x.bookingBy, fullName)));
+        
+        let achieved = staffRentalItems.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+        if (isConsolidated) {
+          const staffSales = getSalesDataForStaff(fullName);
+          achieved += staffSales.value || 0;
+        }
+
         const target = resolveStaffTarget(fullName);
         const balance = target - achieved;
         const pct = target > 0 ? Math.round((achieved / target) * 100) : 0;
         return { name: fullName, abbr: firstName, achieved, target, balance, pct };
       })
-      .filter(item => item.achieved > 0)
+      .filter(item => item.achieved > 0 || item.target > 0)
       .sort((a, b) => b.achieved - a.achieved);
-  }, [isStoreAdmin, branches, performanceData, employeeTargets, timeframe, customStartDate, customEndDate]);
+  }, [isStoreAdmin, branches, performanceData, employeeTargets, timeframe, customStartDate, customEndDate, isConsolidated, salespersons, salesData]);
 
 
 
@@ -2110,7 +2190,7 @@ const StoreInsights = () => {
 
       const basketSize = consolidatedBills > 0 ? (consolidatedTotalQty / consolidatedBills).toFixed(1) : "0.0";
       const basketValue = consolidatedBills > 0 ? Math.round(consolidatedValue / consolidatedBills) : 0;
-      const conversionRate = customerWalkins > 0 ? Math.min(100, Math.round((convertedWalkinsCount / customerWalkins) * 100)) : 0;
+      const conversionRate = customerWalkins > 0 ? Math.round((consolidatedBills / customerWalkins) * 100) : 0;
 
       const valChange = getChangeStats(consolidatedValue * roleMultiplier, lyConsolidatedValue * roleMultiplier);
       const billsChange = getChangeStats(consolidatedBills * roleMultiplier, lyConsolidatedBills * roleMultiplier);
@@ -2152,7 +2232,7 @@ const StoreInsights = () => {
         }
       });
 
-      const lyConversionRate = lyCustomerWalkins > 0 ? Math.min(100, Math.round((lyConvertedWalkinsCount / lyCustomerWalkins) * 100)) : 0;
+      const lyConversionRate = lyCustomerWalkins > 0 ? Math.round((lyConsolidatedBills / lyCustomerWalkins) * 100) : 0;
       const conversionChange = getChangeStats(conversionRate, lyConversionRate);
       const shoeChange = getChangeStats(cardShoeQty, lyCardShoeQty);
       const shirtChange = getChangeStats(cardShirtQty, lyCardShirtQty);
@@ -2214,7 +2294,7 @@ const StoreInsights = () => {
       const lyTrueRentalQty = lyRentalQty;
 
       const trueAchievedPct = totalTarget > 0 ? Math.round((trueRentalValue / totalTarget) * 100) : 0;
-      const conversionRate = customerWalkins > 0 ? Math.min(100, Math.round((convertedWalkinsCount / customerWalkins) * 100)) : 0;
+      const conversionRate = customerWalkins > 0 ? Math.round((trueRentalBills / customerWalkins) * 100) : 0;
 
       const basketSize = trueRentalBills > 0 ? (trueRentalQty / trueRentalBills).toFixed(1) : "0.0";
       const basketValue = trueRentalBills > 0 ? Math.round(trueRentalValue / trueRentalBills) : 0;
@@ -2245,7 +2325,7 @@ const StoreInsights = () => {
         }
       });
 
-      const lyConversionRate = lyCustomerWalkins > 0 ? Math.min(100, Math.round((lyConvertedWalkinsCount / lyCustomerWalkins) * 100)) : 0;
+      const lyConversionRate = lyCustomerWalkins > 0 ? Math.round((lyTrueRentalBills / lyCustomerWalkins) * 100) : 0;
       const conversionChange = getChangeStats(conversionRate, lyConversionRate);
       const shoeChange = getChangeStats(shoeQty, lyCardShoeQty);
       const shirtChange = getChangeStats(shirtQty, lyCardShirtQty);
@@ -2338,9 +2418,9 @@ const StoreInsights = () => {
         if (!rawName) return "";
         const strName = String(rawName);
         if (strName.toLowerCase() === "unassigned") return "Unassigned";
-        const normName = normalizeForMatch(strName);
-        const match = locPeriodList.find(n => n && normalizeForMatch(n.bookingBy) === normName);
-        return match ? match.bookingBy : strName;
+        const canon = getCanonicalStaffName(strName);
+        const match = locPeriodList.find(n => n && (n.bookingBy === canon || isStaffNameMatch(n.bookingBy, strName)));
+        return match ? match.bookingBy : canon;
       };
 
       const salesStaffNames = isConsolidated
@@ -2353,10 +2433,9 @@ const StoreInsights = () => {
       const rawStaffNames = [
         ...locPeriodList.map(x => x && x.bookingBy),
         ...salesStaffNames
-      ].filter(name => typeof name === "string" && name.trim() !== "");
+      ].filter(name => typeof name === "string" && name.trim() !== "").map(getCanonicalStaffName);
 
       const staffNames = [];
-      const seenNormalized = new Set();
       
       const sortedStaffNames = Array.from(new Set(rawStaffNames)).sort((a, b) => {
         const aUpper = /[A-Z]/.test(a);
@@ -2368,10 +2447,10 @@ const StoreInsights = () => {
 
       sortedStaffNames.forEach(name => {
         if (!name) return;
-        const norm = normalizeForMatch(name);
-        if (norm && !seenNormalized.has(norm)) {
-          seenNormalized.add(norm);
-          staffNames.push(name);
+        const canon = getCanonicalStaffName(name);
+        const existing = staffNames.find(existingName => isStaffNameMatch(existingName, canon));
+        if (!existing) {
+          staffNames.push(canon);
         }
       });
 
@@ -2401,7 +2480,7 @@ const StoreInsights = () => {
 
       return staffNames.map(staffName => {
         const staffKey = normalizeForMatch(staffName);
-        const staffFtdList = locPeriodList.filter(x => x && normalizeForMatch(x.bookingBy) === staffKey);
+        const staffFtdList = locPeriodList.filter(x => x && (normalizeForMatch(x.bookingBy) === staffKey || isStaffNameMatch(x.bookingBy, staffName)));
 
         let bills = staffFtdList.reduce((sum, x) => sum + (x.total_Number_Of_Bill || 0), 0);
         let qty = staffFtdList.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
@@ -2425,7 +2504,7 @@ const StoreInsights = () => {
           }
           return isStaffNameMatch(wStaff, staffName);
         }).length;
-        const conversion = staffWalkins > 0 ? Math.min(100, Math.round((bills / staffWalkins) * 100)) : 0;
+        const conversion = staffWalkins > 0 ? Math.round((bills / staffWalkins) * 100) : 0;
 
         // Contribution % of total store revenue
         const contribution = storeTotalValue > 0 ? Math.round((value / storeTotalValue) * 100) : 0;
@@ -2511,7 +2590,7 @@ const StoreInsights = () => {
           (w.storeId === bObj?._id || w.store === bObj?.workingBranch) && 
           isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd)
         ).length;
-        const conversion = storeWalkins > 0 ? Math.min(100, Math.round((bills / storeWalkins) * 100)) : 0;
+        const conversion = storeWalkins > 0 ? Math.round((bills / storeWalkins) * 100) : 0;
 
         return { name, targetAchieved, value, abs, abv, conversion };
       });
@@ -2565,7 +2644,7 @@ const StoreInsights = () => {
           (w.storeId === b?._id || w.store === b?.workingBranch) && 
           isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd)
         ).length;
-        const conversion = storeWalkins > 0 ? Math.min(100, Math.round((bills / storeWalkins) * 100)) : 0;
+        const conversion = storeWalkins > 0 ? Math.round((bills / storeWalkins) * 100) : 0;
 
         return { name, targetAchieved, value, abs, abv, conversion };
       });
@@ -2962,8 +3041,8 @@ const StoreInsights = () => {
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">From:</span>
                   <input 
                     type="date" 
-                    value={customStartDate} 
-                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    value={tempStartDate} 
+                    onChange={(e) => setTempStartDate(e.target.value)}
                     className="border-none bg-transparent text-xs font-bold text-gray-700 outline-none p-0 focus:ring-0 cursor-pointer"
                   />
                 </div>
@@ -2972,11 +3051,25 @@ const StoreInsights = () => {
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">To:</span>
                   <input 
                     type="date" 
-                    value={customEndDate} 
-                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    value={tempEndDate} 
+                    onChange={(e) => setTempEndDate(e.target.value)}
                     className="border-none bg-transparent text-xs font-bold text-gray-700 outline-none p-0 focus:ring-0 cursor-pointer"
                   />
                 </div>
+                <button
+                  onClick={() => {
+                    if (tempStartDate && tempEndDate) {
+                      setCustomStartDate(tempStartDate);
+                      setCustomEndDate(tempEndDate);
+                    }
+                  }}
+                  className="ml-1 bg-black hover:bg-gray-800 text-white font-bold text-xs px-3 py-1.5 rounded-lg transition-all shadow-sm flex items-center gap-1 cursor-pointer active:scale-95"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  Fetch
+                </button>
               </div>
             )}
 

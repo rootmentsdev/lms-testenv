@@ -11,49 +11,50 @@ import baseUrl from "../../api/api";
 const BRANCH_LOCATION_MAPPING = {
   // Z-Edappally (loc 1)
   "z-edapally1": "1", "z-edappally1": "1", "z edapally1": "1", "z edappally1": "1",
-  "zorucci edappally": "1", "zorucci edapally": "1",
+  "zorucci edappally": "1", "zorucci edapally": "1", "z.edappally": "1", "z.edapally": "1",
   // G-Edappally (loc 3)
   "g-edappally": "3", "g edappally": "3", "grooms edappally": "3", "suitor guy edappally": "3",
+  "sg.edappally": "3", "sg edappally": "3", "sg.edapally": "3", "sg edapally": "3",
   // G-Trivandrum (loc 5)
   "g-trivandrum": "5", "g.trivandrum": "5", "g trivandrum": "5",
-  "grooms trivandrum": "5", "suitor guy trivandrum": "5",
+  "grooms trivandrum": "5", "suitor guy trivandrum": "5", "sg.trivandrum": "5", "sg trivandrum": "5", "sg.tvm": "5",
   // Z-Edappal (loc 6)
   "z- edappal": "6", "z.edappal": "6", "z edappal": "6", "zorucci edappal": "6",
   // Z-Perinthalmanna (loc 7)
-  "z.perinthalmanna": "7", "z perinthalmanna": "7", "zorucci perinthalmanna": "7",
+  "z.perinthalmanna": "7", "z perinthalmanna": "7", "zorucci perinthalmanna": "7", "z.perinthalmana": "7",
   // Z-Kottakkal (loc 8)
   "z.kottakkal": "8", "z kottakkal": "8", "zorucci kottakkal": "8",
   // G-Kottayam (loc 9)
-  "g.kottayam": "9", "g kottayam": "9", "grooms kottayam": "9", "suitor guy kottayam": "9",
+  "g.kottayam": "9", "g kottayam": "9", "grooms kottayam": "9", "suitor guy kottayam": "9", "sg.kottayam": "9", "sg kottayam": "9",
   // G-Perumbavoor (loc 10)
-  "g.perumbavoor": "10", "g perumbavoor": "10", "grooms perumbavoor": "10", "suitor guy perumbavoor": "10",
+  "g.perumbavoor": "10", "g perumbavoor": "10", "grooms perumbavoor": "10", "suitor guy perumbavoor": "10", "sg.perumbavoor": "10", "sg perumbavoor": "10",
   // G-Thrissur (loc 11)
-  "g.thrissur": "11", "g thrissur": "11", "grooms thrissur": "11", "suitor guy thrissur": "11",
+  "g.thrissur": "11", "g thrissur": "11", "grooms thrissur": "11", "suitor guy thrissur": "11", "sg.thrissur": "11", "sg thrissur": "11", "sg.tsr": "11",
   // G-Chavakkad (loc 12)
-  "g.chavakkad": "12", "g chavakkad": "12", "grooms chavakkad": "12", "suitor guy chavakkad": "12",
+  "g.chavakkad": "12", "g chavakkad": "12", "grooms chavakkad": "12", "suitor guy chavakkad": "12", "sg.chavakkad": "12", "sg chavakkad": "12",
   // G-Calicut (loc 13)
-  "g.calicut": "13", "g calicut": "13", "grooms calicut": "13", "suitor guy calicut": "13",
+  "g.calicut": "13", "g calicut": "13", "grooms calicut": "13", "suitor guy calicut": "13", "sg.calicut": "13", "sg calicut": "13",
   // G-Vadakara (loc 14)
-  "g.vadakara": "14", "g vadakara": "14", "grooms vadakara": "14", "suitor guy vadakara": "14",
+  "g.vadakara": "14", "g vadakara": "14", "grooms vadakara": "14", "suitor guy vadakara": "14", "sg.vadakara": "14", "sg vadakara": "14",
   // G-Edappal (loc 15)
-  "g.edappal": "15", "g edappal": "15", "grooms edappal": "15", "suitor guy edappal": "15",
+  "g.edappal": "15", "g edappal": "15", "grooms edappal": "15", "suitor guy edappal": "15", "sg.edappal": "15", "sg edappal": "15",
   // G-Perinthalmanna (loc 16)
   "g.perinthalmanna": "16", "g perinthalmanna": "16", "grooms perinthalmanna": "16", "suitor guy perinthalmanna": "16",
+  "sg.perinthalmanna": "16", "sg perinthalmanna": "16", "sg-perinthalmanna": "16", "sg.perinthalmana": "16", "sg perinthalmana": "16", "sg.pma": "16", "sg pma": "16",
   // G-Kottakkal (loc 17)
-  "g.kottakkal": "17", "g kottakkal": "17", "grooms kottakkal": "17", "suitor guy kottakkal": "17",
+  "g.kottakkal": "17", "g kottakkal": "17", "grooms kottakkal": "17", "suitor guy kottakkal": "17", "sg.kottakkal": "17", "sg kottakkal": "17", "sg.ktk": "17",
   // G-Manjeri (loc 18)
-  "g.manjeri": "18", "g manjeri": "18", "grooms manjeri": "18", "suitor guy manjeri": "18",
+  "g.manjeri": "18", "g manjeri": "18", "grooms manjeri": "18", "suitor guy manjeri": "18", "sg.manjeri": "18", "sg manjeri": "18",
   // G-Palakkad (loc 19)
-  "g.palakkad": "19", "g palakkad": "19", "grooms palakkad": "19", "suitor guy palakkad": "19",
+  "g.palakkad": "19", "g palakkad": "19", "grooms palakkad": "19", "suitor guy palakkad": "19", "sg.palakkad": "19", "sg palakkad": "19", "sg.pkd": "19",
   // G-Kalpetta (loc 20)
-  "g.kalpetta": "20", "g kalpetta": "20", "grooms kalpetta": "20", "suitor guy kalpetta": "20",
+  "g.kalpetta": "20", "g kalpetta": "20", "grooms kalpetta": "20", "suitor guy kalpetta": "20", "sg.kalpetta": "20", "sg kalpetta": "20",
   // G-Kannur (loc 21)
-  "g.kannur": "21", "g kannur": "21", "grooms kannur": "21", "suitor guy kannur": "21",
+  "g.kannur": "21", "g kannur": "21", "grooms kannur": "21", "suitor guy kannur": "21", "sg.kannur": "21", "sg kannur": "21", "sg.knr": "21",
   // G-MG Road (loc 23)
-  "g.mg road": "23", "g.mgroad": "23", "g mg road": "23", "gmg road": "23",
-  "grooms mg road": "23", "suitor guy mg road": "23",
+  "g.mg road": "23", "g.mgroad": "23", "g mg road": "23", "gmg road": "23", "grooms mg road": "23", "suitor guy mg road": "23", "sg.mg road": "23", "sg.mgroad": "23", "sg mg road": "23",
   // Dappr Squad (loc 25)
-  "dappr squad": "25", "sg.edappally": "25", "sg.perumbavoor": "25", "crsrootments": "25",
+  "dappr squad": "25", "crsrootments": "25"
 };
 
 // Fuzzy stripped lookup (strips all non-alphanumeric) — matches StoreInsights
@@ -76,21 +77,30 @@ function getBranchLocationId(workingBranch) {
   if (BRANCH_LOCATION_MAPPING_FUZZY[stripped]) return BRANCH_LOCATION_MAPPING_FUZZY[stripped];
   // 3. City keyword fallback
   const CITY_TO_LOC = {
-    "edappally": "3", "edapally": "3", "trivandrum": "5",
-    "perinthalmanna": "7", "kottakkal": "8", "kottayam": "9",
-    "perumbavoor": "10", "thrissur": "11", "chavakkad": "12",
-    "calicut": "13", "kozhikode": "13", "vadakara": "14",
-    "edappal": "15", "manjeri": "18", "palakkad": "19",
-    "kalpetta": "20", "kannur": "21", "mgroad": "23",
+    "edappally": "3", "edapally": "3",
+    "trivandrum": "5", "thiruvananthapuram": "5",
+    "perinthalmanna": "16", "perinthalmana": "16",
+    "kottakkal": "17",
+    "kottayam": "9",
+    "perumbavoor": "10",
+    "thrissur": "11",
+    "chavakkad": "12",
+    "calicut": "13", "kozhikode": "13",
+    "vadakara": "14",
+    "edappal": "15",
+    "manjeri": "18",
+    "palakkad": "19",
+    "kalpetta": "20",
+    "kannur": "21",
+    "mgroad": "23",
   };
   for (const [city, locId] of Object.entries(CITY_TO_LOC)) {
     if (stripped.endsWith(city) || stripped.includes(city)) {
       if (stripped.startsWith("z") || stripped.startsWith("g") || stripped.startsWith("sg") ||
           stripped.startsWith("suitor") || stripped.startsWith("grooms") || stripped.startsWith("zorucci")) {
-        if ((stripped.startsWith("z") || stripped.startsWith("zorucci")) && city === "edappally") return "1";
-        if ((stripped.startsWith("z") || stripped.startsWith("zorucci")) && city === "perinthalmanna") return "7";
-        if ((stripped.startsWith("z") || stripped.startsWith("zorucci")) && city === "kottakkal") return "8";
-        if ((stripped.startsWith("z") || stripped.startsWith("zorucci")) && city === "edappal") return "6";
+        if ((stripped.startsWith("z") || stripped.startsWith("zorucci")) && city.includes("edappal")) return city.includes("edappally") ? "1" : "6";
+        if ((stripped.startsWith("z") || stripped.startsWith("zorucci")) && city.includes("perinthalman")) return "7";
+        if ((stripped.startsWith("z") || stripped.startsWith("zorucci")) && city.includes("kottakkal")) return "8";
         return locId;
       }
     }
@@ -496,6 +506,8 @@ const HomeBar = () => {
   const [timeframe, setTimeframe] = useState("MTD");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
+  const [tempStart, setTempStart] = useState("");
+  const [tempEnd, setTempEnd] = useState("");
   const [showCustomPicker, setShowCustomPicker] = useState(false);
   const [responseData, setResponseData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -854,8 +866,8 @@ const HomeBar = () => {
               <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                 <input
                   type="date"
-                  value={customStart}
-                  onChange={(e) => setCustomStart(e.target.value)}
+                  value={tempStart}
+                  onChange={(e) => setTempStart(e.target.value)}
                   style={{
                     border: "1px solid #e5e7eb", borderRadius: "8px", padding: "4px 8px",
                     fontSize: "12px", color: "#374151", outline: "none", cursor: "pointer",
@@ -864,13 +876,28 @@ const HomeBar = () => {
                 <span style={{ fontSize: "12px", color: "#9ca3af" }}>–</span>
                 <input
                   type="date"
-                  value={customEnd}
-                  onChange={(e) => setCustomEnd(e.target.value)}
+                  value={tempEnd}
+                  onChange={(e) => setTempEnd(e.target.value)}
                   style={{
                     border: "1px solid #e5e7eb", borderRadius: "8px", padding: "4px 8px",
                     fontSize: "12px", color: "#374151", outline: "none", cursor: "pointer",
                   }}
                 />
+                <button
+                  onClick={() => {
+                    if (tempStart && tempEnd) {
+                      setCustomStart(tempStart);
+                      setCustomEnd(tempEnd);
+                    }
+                  }}
+                  style={{
+                    background: "#000", color: "#fff", border: "none", borderRadius: "8px",
+                    padding: "5px 12px", fontSize: "12px", fontWeight: "bold", cursor: "pointer",
+                    display: "flex", alignItems: "center", gap: "4px"
+                  }}
+                >
+                  Fetch
+                </button>
               </div>
             )}
           </div>

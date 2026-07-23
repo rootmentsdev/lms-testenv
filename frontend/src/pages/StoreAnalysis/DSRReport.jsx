@@ -69,34 +69,52 @@ const isWalkinCreatedInRange = (dateVal, startStr, endStr) => {
 };
 
 const BRANCH_LOCATION_MAPPING = {
-  "z-edapally1": "1",
-  "z-edappally1": "1",
-  "g.mg road": "23",
-  "g.mgroad": "23",
-  "gmg road": "23",
-  "g-edappally": "3",
-  "g-trivandrum": "5",
-  "z- edappal": "6",
-  "z.edappal": "6",
-  "z.perinthalmanna": "7",
-  "z.kottakkal": "8",
-  "g.kottayam": "9",
-  "g.perumbavoor": "10",
-  "g.thrissur": "11",
-  "g.chavakkad": "12",
-  "g.calicut": "13",
-  "g.vadakara": "14",
-  "g.edappal": "15",
-  "g.perinthalmanna": "16",
-  "g.kottakkal": "17",
-  "g.manjeri": "18",
-  "g.palakkad": "19",
-  "g.kalpetta": "20",
-  "g.kannur": "21",
-  "dappr squad": "25",
-  "sg.edappally": "25",
-  "sg.kannur": "25",
-  "sg.thrissur": "25",
+  // Z-Edappally (loc 1)
+  "z-edapally1": "1", "z-edappally1": "1", "z edapally1": "1", "z edappally1": "1",
+  "zorucci edappally": "1", "zorucci edapally": "1", "z.edappally": "1", "z.edapally": "1",
+  // G-Edappally (loc 3)
+  "g-edappally": "3", "g edappally": "3", "grooms edappally": "3", "suitor guy edappally": "3",
+  "sg.edappally": "3", "sg edappally": "3", "sg.edapally": "3", "sg edapally": "3",
+  // G-Trivandrum (loc 5)
+  "g-trivandrum": "5", "g.trivandrum": "5", "g trivandrum": "5",
+  "grooms trivandrum": "5", "suitor guy trivandrum": "5", "sg.trivandrum": "5", "sg trivandrum": "5", "sg.tvm": "5",
+  // Z-Edappal (loc 6)
+  "z- edappal": "6", "z.edappal": "6", "z edappal": "6", "zorucci edappal": "6",
+  // Z-Perinthalmanna (loc 7)
+  "z.perinthalmanna": "7", "z perinthalmanna": "7", "zorucci perinthalmanna": "7", "z.perinthalmana": "7",
+  // Z-Kottakkal (loc 8)
+  "z.kottakkal": "8", "z kottakkal": "8", "zorucci kottakkal": "8",
+  // G-Kottayam (loc 9)
+  "g.kottayam": "9", "g kottayam": "9", "grooms kottayam": "9", "suitor guy kottayam": "9", "sg.kottayam": "9", "sg kottayam": "9",
+  // G-Perumbavoor (loc 10)
+  "g.perumbavoor": "10", "g perumbavoor": "10", "grooms perumbavoor": "10", "suitor guy perumbavoor": "10", "sg.perumbavoor": "10", "sg perumbavoor": "10",
+  // G-Thrissur (loc 11)
+  "g.thrissur": "11", "g thrissur": "11", "grooms thrissur": "11", "suitor guy thrissur": "11", "sg.thrissur": "11", "sg thrissur": "11", "sg.tsr": "11",
+  // G-Chavakkad (loc 12)
+  "g.chavakkad": "12", "g chavakkad": "12", "grooms chavakkad": "12", "suitor guy chavakkad": "12", "sg.chavakkad": "12", "sg chavakkad": "12",
+  // G-Calicut (loc 13)
+  "g.calicut": "13", "g calicut": "13", "grooms calicut": "13", "suitor guy calicut": "13", "sg.calicut": "13", "sg calicut": "13",
+  // G-Vadakara (loc 14)
+  "g.vadakara": "14", "g vadakara": "14", "grooms vadakara": "14", "suitor guy vadakara": "14", "sg.vadakara": "14", "sg vadakara": "14",
+  // G-Edappal (loc 15)
+  "g.edappal": "15", "g edappal": "15", "grooms edappal": "15", "suitor guy edappal": "15", "sg.edappal": "15", "sg edappal": "15",
+  // G-Perinthalmanna (loc 16)
+  "g.perinthalmanna": "16", "g perinthalmanna": "16", "grooms perinthalmanna": "16", "suitor guy perinthalmanna": "16",
+  "sg.perinthalmanna": "16", "sg perinthalmanna": "16", "sg-perinthalmanna": "16", "sg.perinthalmana": "16", "sg perinthalmana": "16", "sg.pma": "16", "sg pma": "16",
+  // G-Kottakkal (loc 17)
+  "g.kottakkal": "17", "g kottakkal": "17", "grooms kottakkal": "17", "suitor guy kottakkal": "17", "sg.kottakkal": "17", "sg kottakkal": "17", "sg.ktk": "17",
+  // G-Manjeri (loc 18)
+  "g.manjeri": "18", "g manjeri": "18", "grooms manjeri": "18", "suitor guy manjeri": "18", "sg.manjeri": "18", "sg manjeri": "18",
+  // G-Palakkad (loc 19)
+  "g.palakkad": "19", "g palakkad": "19", "grooms palakkad": "19", "suitor guy palakkad": "19", "sg.palakkad": "19", "sg palakkad": "19", "sg.pkd": "19",
+  // G-Kalpetta (loc 20)
+  "g.kalpetta": "20", "g kalpetta": "20", "grooms kalpetta": "20", "suitor guy kalpetta": "20", "sg.kalpetta": "20", "sg kalpetta": "20",
+  // G-Kannur (loc 21)
+  "g.kannur": "21", "g kannur": "21", "grooms kannur": "21", "suitor guy kannur": "21", "sg.kannur": "21", "sg kannur": "21", "sg.knr": "21",
+  // G-MG Road (loc 23)
+  "g.mg road": "23", "g.mgroad": "23", "g mg road": "23", "gmg road": "23", "grooms mg road": "23", "suitor guy mg road": "23", "sg.mg road": "23", "sg.mgroad": "23", "sg mg road": "23",
+  // Dappr Squad (loc 25)
+  "dappr squad": "25", "crsrootments": "25"
 };
 
 // Maps Dappr Squad (loc 25) bookingBy names → the target store locId they belong to
@@ -372,16 +390,75 @@ function normalizeForMatch(str) {
     .replace(/^dapper/, "dappr");
 }
 
+const STAFF_ALIAS_MAPPING = {
+  "niyas": "NIYAS DINU NASAR K",
+  "m shamil k p": "Muhammed Shamil K P",
+  "shamil k p": "Muhammed Shamil K P",
+  "shahil shan": "Shahil shan v",
+  "m riswan": "MOHAMMAD RISWAN",
+  "riswan": "MOHAMMAD RISWAN",
+  "m shan k": "Muhammed Shan K",
+  "shan k": "Muhammed Shan K",
+  "s faris vk": "Salmanul Faris V K",
+  "salman faris": "Salmanul Faris V K",
+  "salman muhammed.v": "SALMAN MUHAMMED V",
+  "salman muhammed v": "SALMAN MUHAMMED V",
+  "muhammed shamil": "Muhammed Shamil K P",
+  "muhammed basil": "Muhammed Basil P K",
+  "muhammad shabir": "MUHAMMAD SHABIR VT",
+  "shabir vt": "MUHAMMAD SHABIR VT",
+};
+
+function getCanonicalStaffName(rawName) {
+  if (!rawName) return "";
+  const str = String(rawName).trim();
+  const lower = str.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ");
+  if (STAFF_ALIAS_MAPPING[lower]) {
+    return STAFF_ALIAS_MAPPING[lower];
+  }
+  return str;
+}
+
 function isStaffNameMatch(strA, strB) {
   if (!strA || !strB) return false;
-  const normA = normalizeForMatch(strA);
-  const normB = normalizeForMatch(strB);
+  const canonA = getCanonicalStaffName(strA);
+  const canonB = getCanonicalStaffName(strB);
+  if (canonA === canonB) return true;
+
+  const normA = normalizeForMatch(canonA);
+  const normB = normalizeForMatch(canonB);
   if (!normA || !normB) return false;
   if (normA === normB) return true;
 
   if (normA.length >= 4 && normB.length >= 4) {
-    if (normA.startsWith(normB) || normB.startsWith(normA)) return true;
+    if (normA.startsWith(normB) || normB.startsWith(normA) ||
+        normA.endsWith(normB) || normB.endsWith(normA) ||
+        normA.includes(normB) || normB.includes(normA)) {
+      return true;
+    }
   }
+
+  const cleanTokens = (str) => String(str).toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/).filter(Boolean);
+  const tokensA = cleanTokens(canonA);
+  const tokensB = cleanTokens(canonB);
+
+  const subA = tokensA.filter(t => t.length >= 3);
+  const subB = tokensB.filter(t => t.length >= 3);
+
+  if (subA.length > 0 && subB.length > 0) {
+    const common = subA.filter(t => subB.includes(t));
+    const unsharedA = subA.filter(t => !subB.includes(t));
+    const unsharedB = subB.filter(t => !subA.includes(t));
+
+    if (common.length === Math.min(subA.length, subB.length)) {
+      const conflictA = unsharedA.filter(t => t.length > 3 && !["muhammed", "mohammad", "mohammed"].includes(t));
+      const conflictB = unsharedB.filter(t => t.length > 3 && !["muhammed", "mohammad", "mohammed"].includes(t));
+      if (conflictA.length === 0 && conflictB.length === 0) {
+        return true;
+      }
+    }
+  }
+
   return false;
 }
 
@@ -491,12 +568,19 @@ const DSRReport = () => {
     return getLocalDateString(d);
   });
   const [customEndDate, setCustomEndDate] = useState(() => getLocalDateString(new Date()));
+  const [tempStartDate, setTempStartDate] = useState(customStartDate);
+  const [tempEndDate, setTempEndDate] = useState(customEndDate);
+  const [appliedStartDate, setAppliedStartDate] = useState(customStartDate);
+  const [appliedEndDate, setAppliedEndDate] = useState(customEndDate);
+  const [customApplied, setCustomApplied] = useState(false);
   const todayStr = getLocalDateString(new Date());
 
   const getCustomDateRangeString = () => {
-    if (!customStartDate || !customEndDate) return "Custom Range";
-    const start = new Date(customStartDate);
-    const end = new Date(customEndDate);
+    const sStr = customApplied ? appliedStartDate : customStartDate;
+    const eStr = customApplied ? appliedEndDate : customEndDate;
+    if (!sStr || !eStr) return "Custom Range";
+    const start = new Date(sStr);
+    const end = new Date(eStr);
     
     const startMonth = start.toLocaleString("en-US", { month: "long" });
     const startDay = String(start.getDate()).padStart(2, "0");
@@ -962,9 +1046,7 @@ const DSRReport = () => {
   // Dappr Squad attribution modal states
   const [dapprModalOpen, setDapprModalOpen] = useState(false);
   // { [staffName]: { billFtd, billWtd, valFtd, valWtd } }
-  const [dapprAttribution, setDapprAttribution] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("dapprAttribution") || "{}"); } catch { return {}; }
-  });
+  const [dapprAttribution, setDapprAttribution] = useState({});
   const [dapprInputs, setDapprInputs] = useState({});
   const [configWeek4, setConfigWeek4] = useState(defaultAutoWeeks[4]);
   const [configCalendarOpen, setConfigCalendarOpen] = useState(null);
@@ -1369,12 +1451,12 @@ const DSRReport = () => {
           };
         });
         setDapprAttribution(mapped);
-        // Sync to localStorage so table hydrates correctly
-        localStorage.setItem("dapprAttribution", JSON.stringify(mapped));
+      } else {
+        setDapprAttribution({});
       }
-      // If no DB data found, keep whatever is in state (from localStorage)
     } catch (err) {
       console.error("Error loading Dappr attributions:", err);
+      setDapprAttribution({});
     }
   };
 
@@ -1395,6 +1477,7 @@ const DSRReport = () => {
   const [loadingPerformance, setLoadingPerformance] = useState(false);
   const [salesData, setSalesData] = useState({ ftd: {}, period: {} });
   const [loadingSales, setLoadingSales] = useState(false);
+  const isFetchingAny = loadingPerformance || loadingWalkins || loadingSales || loadingBranches;
 
   // Fetch branches dynamically
   useEffect(() => {
@@ -1438,11 +1521,12 @@ const DSRReport = () => {
   // Fetch targets dynamically when not editing targets in modals
   useEffect(() => {
     if (!assignTargetModalOpen && !configWeeksModalOpen) {
-      const targetMonth = activeTab === "Custom" ? getMonthNameFromDateStr(customStartDate) : CURRENT_MONTH_LONG;
-      const targetYear = activeTab === "Custom" ? getYearFromDateStr(customStartDate) : CURRENT_YEAR;
+      if (activeTab === "Custom" && !customApplied) return;
+      const targetMonth = activeTab === "Custom" ? getMonthNameFromDateStr(appliedStartDate) : CURRENT_MONTH_LONG;
+      const targetYear = activeTab === "Custom" ? getYearFromDateStr(appliedStartDate) : CURRENT_YEAR;
       fetchStoreTargets(targetMonth, targetYear);
     }
-  }, [assignTargetModalOpen, configWeeksModalOpen, activeTab, customStartDate]);
+  }, [assignTargetModalOpen, configWeeksModalOpen, activeTab, appliedStartDate, customApplied]);
 
   // Fetch targets when assignTargetModalOpen is active and modalMonth changes
   useEffect(() => {
@@ -1460,11 +1544,13 @@ const DSRReport = () => {
 
   // Fetch Dappr Squad manually-attributed values dynamically
   useEffect(() => {
+    if (activeTab === "Custom" && !customApplied) return;
     fetchDapprAttribution();
-  }, [activeTab, customStartDate, selectedStore, storeWeekRanges, dapprModalOpen]);
+  }, [activeTab, appliedStartDate, selectedStore, storeWeekRanges, dapprModalOpen, customApplied]);
 
   // Fetch walkins dynamically based on timeframe range
   useEffect(() => {
+    if (activeTab === "Custom" && !customApplied) return;
     const fetchWalkins = async () => {
       setLoadingWalkins(true);
       try {
@@ -1490,12 +1576,12 @@ const DSRReport = () => {
           periodStart = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
           periodEnd = todayStr;
         } else if (activeTab === "Custom") {
-          periodStart = customStartDate || todayStr;
-          periodEnd = customEndDate || todayStr;
+          periodStart = appliedStartDate || todayStr;
+          periodEnd = appliedEndDate || todayStr;
         }
 
-        const fetchStart = periodStart < todayStr ? periodStart : todayStr;
-        const fetchEnd = periodEnd > todayStr ? periodEnd : todayStr;
+        const fetchStart = periodStart;
+        const fetchEnd = periodEnd;
 
         const res = await fetch(`${baseUrl.baseUrl}api/walkin/list?startDate=${fetchStart}&endDate=${fetchEnd}`, {
           method: "GET",
@@ -1517,10 +1603,11 @@ const DSRReport = () => {
     };
 
     fetchWalkins();
-  }, [activeTab, customStartDate, customEndDate, storeWeekRanges, week1Dates, week2Dates, week3Dates, week4Dates, branches]);
+  }, [activeTab, appliedStartDate, appliedEndDate, customApplied, storeWeekRanges, week1Dates, week2Dates, week3Dates, week4Dates, branches]);
 
   // Fetch staff performance dynamically based on timeframe range
   useEffect(() => {
+    if (activeTab === "Custom" && !customApplied) return;
     const fetchPerformance = async () => {
       setLoadingPerformance(true);
       try {
@@ -1538,8 +1625,8 @@ const DSRReport = () => {
           periodStart = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
           periodEnd = todayStr;
         } else if (activeTab === "Custom") {
-          periodStart = customStartDate || todayStr;
-          periodEnd = customEndDate || todayStr;
+          periodStart = appliedStartDate || todayStr;
+          periodEnd = appliedEndDate || todayStr;
         }
 
         const locationIds = ["1", "3", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "23", "25"];
@@ -1595,10 +1682,11 @@ const DSRReport = () => {
     };
 
     fetchPerformance();
-  }, [activeTab, customStartDate, customEndDate, storeWeekRanges, week1Dates, week2Dates, week3Dates, week4Dates]);
+  }, [activeTab, appliedStartDate, appliedEndDate, customApplied, storeWeekRanges, week1Dates, week2Dates, week3Dates, week4Dates]);
 
   // Fetch Shoe Sales Bookings & Returns dynamically based on timeframe range
   useEffect(() => {
+    if (activeTab === "Custom" && !customApplied) return;
     const fetchSales = async () => {
       setLoadingSales(true);
       try {
@@ -1622,8 +1710,8 @@ const DSRReport = () => {
           periodStart = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
           periodEnd = todayStr;
         } else if (activeTab === "Custom") {
-          periodStart = customStartDate || todayStr;
-          periodEnd = customEndDate || todayStr;
+          periodStart = appliedStartDate || todayStr;
+          periodEnd = appliedEndDate || todayStr;
         }
 
         const activeList = branches.length > 0
@@ -1690,7 +1778,9 @@ const DSRReport = () => {
             });
             return map;
           } catch (err) {
-            console.error("Error fetching shoe-sales summary:", err);
+            if (err.name !== "AbortError") {
+              console.error("Error fetching shoe-sales summary:", err);
+            }
             return {};
           }
         };
@@ -1717,7 +1807,9 @@ const DSRReport = () => {
             console.log(`fetchSalespersons succeeded for ${fromDate} to ${toDate}, count:`, list.length);
             return list;
           } catch (err) {
-            console.error(`Error fetching shoe-sales by-salesperson for ${fromDate} to ${toDate}:`, err);
+            if (err.name !== "AbortError") {
+              console.error(`Error fetching shoe-sales by-salesperson for ${fromDate} to ${toDate}:`, err);
+            }
             return [];
           }
         };
@@ -1788,7 +1880,7 @@ const DSRReport = () => {
     };
 
     fetchSales();
-  }, [activeTab, customStartDate, customEndDate, branches, storeWeekRanges, week1Dates, week2Dates, week3Dates, week4Dates]);
+  }, [activeTab, appliedStartDate, appliedEndDate, customApplied, branches, storeWeekRanges, week1Dates, week2Dates, week3Dates, week4Dates]);
 
 
   useEffect(() => {
@@ -2119,17 +2211,17 @@ const DSRReport = () => {
     // qtyFtd/qtyWtd = totalQuantity
     const withDerivedMetrics = (row) => {
       // ABV = Total Value / Total Bills
-      const abvFtd = row.valFtd > 0 ? Math.round(row.billFtd / row.valFtd) : 0;
-      const abvWtd = row.valWtd > 0 ? Math.round(row.billWtd / row.valWtd) : 0;
+      const abvFtd = row.billFtd > 0 ? Math.round(row.valFtd / row.billFtd) : 0;
+      const abvWtd = row.billWtd > 0 ? Math.round(row.valWtd / row.billWtd) : 0;
       // ABS = Total Quantity / Total Bills
-      const absFtd = row.valFtd > 0 ? parseFloat((row.qtyFtd / row.valFtd).toFixed(1)) : 0;
-      const absWtd = row.valWtd > 0 ? parseFloat((row.qtyWtd / row.valWtd).toFixed(1)) : 0;
-      // Conversion = Total Bills / Walk-ins
-      const convFtd = row.walkFtd > 0 ? Math.round((row.valFtd / row.walkFtd) * 100) : 0;
-      const convWtd = row.walkWtd > 0 ? Math.round((row.valWtd / row.walkWtd) * 100) : 0;
+      const absFtd = row.billFtd > 0 ? parseFloat((row.qtyFtd / row.billFtd).toFixed(1)) : 0;
+      const absWtd = row.billWtd > 0 ? parseFloat((row.qtyWtd / row.billWtd).toFixed(1)) : 0;
+      // Conversion = (Total Bills / Walk-ins) * 100
+      const convFtd = row.walkFtd > 0 ? Math.round((row.billFtd / row.walkFtd) * 100) : 0;
+      const convWtd = row.walkWtd > 0 ? Math.round((row.billWtd / row.walkWtd) * 100) : 0;
       // ARP = Total Value / Total Quantity
-      const arpFtd = row.qtyFtd > 0 ? Math.round(row.billFtd / row.qtyFtd) : 0;
-      const arpWtd = row.qtyWtd > 0 ? Math.round(row.billWtd / row.qtyWtd) : 0;
+      const arpFtd = row.qtyFtd > 0 ? Math.round(row.valFtd / row.qtyFtd) : 0;
+      const arpWtd = row.qtyWtd > 0 ? Math.round(row.valWtd / row.qtyWtd) : 0;
       
       return {
         ...row,
@@ -2288,10 +2380,10 @@ const DSRReport = () => {
           if (!rawName) return "";
           const strName = String(rawName);
           if (strName.toLowerCase() === "unassigned") return "Unassigned";
-          const normName = normalizeForMatch(strName);
-          const match = locFtdList.find(n => n && normalizeForMatch(n.bookingBy) === normName) ||
-                        locPeriodList.find(n => n && normalizeForMatch(n.bookingBy) === normName);
-          return match ? match.bookingBy : strName;
+          const canon = getCanonicalStaffName(strName);
+          const match = locFtdList.find(n => n && (n.bookingBy === canon || isStaffNameMatch(n.bookingBy, strName))) ||
+                        locPeriodList.find(n => n && (n.bookingBy === canon || isStaffNameMatch(n.bookingBy, strName)));
+          return match ? match.bookingBy : canon;
         };
 
         const salesStaffNames = funnelView === "Consolidated"
@@ -2311,7 +2403,7 @@ const DSRReport = () => {
           ...locPeriodList.map(x => x && x.bookingBy),
           ...salesStaffNames,
           ...walkinStaffNames
-        ].filter(name => typeof name === "string" && name.trim() !== "");
+        ].filter(name => typeof name === "string" && name.trim() !== "").map(getCanonicalStaffName);
 
         const staffNames = [];
         
@@ -2325,9 +2417,10 @@ const DSRReport = () => {
 
         sortedStaffNames.forEach(name => {
           if (!name) return;
-          const existing = staffNames.find(existingName => isStaffNameMatch(existingName, name));
+          const canon = getCanonicalStaffName(name);
+          const existing = staffNames.find(existingName => isStaffNameMatch(existingName, canon));
           if (!existing) {
-            staffNames.push(name);
+            staffNames.push(canon);
           }
         });
 
@@ -2347,8 +2440,8 @@ const DSRReport = () => {
         return staffNames.map(staffName => {
           const staffKey = normalizeForMatch(staffName);
           
-          const staffFtdList = locFtdList.filter(x => x && normalizeForMatch(x.bookingBy) === staffKey);
-          const staffPeriodList = locPeriodList.filter(x => x && normalizeForMatch(x.bookingBy) === staffKey);
+          const staffFtdList = locFtdList.filter(x => x && (normalizeForMatch(x.bookingBy) === staffKey || isStaffNameMatch(x.bookingBy, staffName)));
+          const staffPeriodList = locPeriodList.filter(x => x && (normalizeForMatch(x.bookingBy) === staffKey || isStaffNameMatch(x.bookingBy, staffName)));
 
           // Walk-ins filtered by staff name with normalized matching
           let storePeriodStart = todayStr;
@@ -2388,28 +2481,40 @@ const DSRReport = () => {
           const rentalQtyFtd = staffFtdList.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
           const rentalQtyWtd = staffPeriodList.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
 
-          let billFtd = rentalValFtd;
-          let billWtd = rentalValWtd;
-          let valFtd = rentalBillFtd;
-          let valWtd = rentalBillWtd;
+          let valFtd = rentalValFtd;
+          let valWtd = rentalValWtd;
+          let billFtd = rentalBillFtd;
+          let billWtd = rentalBillWtd;
           let qtyFtd = rentalQtyFtd;
           let qtyWtd = rentalQtyWtd;
 
           if (funnelView === "Consolidated") {
             const getSalesDataForStaff = (salesItem) => {
               if (!salesItem || !salesItem.byStaff) return {};
+              const canonName = getCanonicalStaffName(staffName);
+              const canonKey = normalizeForMatch(canonName);
+
               if (salesItem.byStaff[staffName]) return salesItem.byStaff[staffName];
-              const foundKey = Object.keys(salesItem.byStaff).find(k => normalizeForMatch(k) === staffKey);
+              if (salesItem.byStaff[canonName]) return salesItem.byStaff[canonName];
+              if (salesItem.byStaff[staffKey]) return salesItem.byStaff[staffKey];
+              if (salesItem.byStaff[canonKey]) return salesItem.byStaff[canonKey];
+
+              const foundKey = Object.keys(salesItem.byStaff).find(k => 
+                normalizeForMatch(k) === staffKey ||
+                normalizeForMatch(k) === canonKey ||
+                isStaffNameMatch(k, staffName) ||
+                isStaffNameMatch(k, canonName)
+              );
               if (foundKey) return salesItem.byStaff[foundKey];
               return {};
             };
             const staffSalesFtd = getSalesDataForStaff(salesFtdItem);
             const staffSalesPeriod = getSalesDataForStaff(salesPeriodItem);
 
-            billFtd += staffSalesFtd.value || 0;
-            billWtd += staffSalesPeriod.value || 0;
-            valFtd += staffSalesFtd.bills || 0;
-            valWtd += staffSalesPeriod.bills || 0;
+            valFtd += staffSalesFtd.value || 0;
+            valWtd += staffSalesPeriod.value || 0;
+            billFtd += staffSalesFtd.bills || 0;
+            billWtd += staffSalesPeriod.bills || 0;
             qtyFtd += staffSalesFtd.qty || 0;
             qtyWtd += staffSalesPeriod.qty || 0;
           }
@@ -2421,8 +2526,8 @@ const DSRReport = () => {
 
           const walkFtd = ftdWalkins.length;
           const walkWtd = periodWalkins.length;
-          const lossFtd = Math.max(0, walkFtd - valFtd);
-          const lossWtd = Math.max(0, walkWtd - valWtd);
+          const lossFtd = Math.max(0, walkFtd - billFtd);
+          const lossWtd = Math.max(0, walkWtd - billWtd);
 
           return withDerivedMetrics({
             name: staffName,
@@ -2467,10 +2572,10 @@ const DSRReport = () => {
           if (!rawName) return "";
           const strName = String(rawName);
           if (strName.toLowerCase() === "unassigned") return "Unassigned";
-          const normName = normalizeForMatch(strName);
-          const match = combinedFtdList.find(n => n && normalizeForMatch(n.bookingBy) === normName) ||
-                        combinedPeriodList.find(n => n && normalizeForMatch(n.bookingBy) === normName);
-          return match ? match.bookingBy : strName;
+          const canon = getCanonicalStaffName(strName);
+          const match = combinedFtdList.find(n => n && (n.bookingBy === canon || isStaffNameMatch(n.bookingBy, strName))) ||
+                        combinedPeriodList.find(n => n && (n.bookingBy === canon || isStaffNameMatch(n.bookingBy, strName)));
+          return match ? match.bookingBy : canon;
         };
 
         const salesStaffNames = funnelView === "Consolidated"
@@ -2491,7 +2596,7 @@ const DSRReport = () => {
           ...salesStaffNames,
           ...walkinStaffNames,
           ...(funnelView === "Consolidated" ? Object.keys(dapprAttribution) : [])
-        ].filter(name => typeof name === "string" && name.trim() !== "");
+        ].filter(name => typeof name === "string" && name.trim() !== "").map(getCanonicalStaffName);
 
         const staffNames = [];
         
@@ -2505,9 +2610,10 @@ const DSRReport = () => {
 
         sortedStaffNames.forEach(name => {
           if (!name) return;
-          const existing = staffNames.find(existingName => isStaffNameMatch(existingName, name));
+          const canon = getCanonicalStaffName(name);
+          const existing = staffNames.find(existingName => isStaffNameMatch(existingName, canon));
           if (!existing) {
-            staffNames.push(name);
+            staffNames.push(canon);
           }
         });
 
@@ -2527,8 +2633,8 @@ const DSRReport = () => {
         staffNames.forEach(staffName => {
           const staffKey = normalizeForMatch(staffName);
           
-          const staffFtdList = combinedFtdList.filter(x => x && normalizeForMatch(x.bookingBy) === staffKey);
-          const staffPeriodList = combinedPeriodList.filter(x => x && normalizeForMatch(x.bookingBy) === staffKey);
+          const staffFtdList = combinedFtdList.filter(x => x && (normalizeForMatch(x.bookingBy) === staffKey || isStaffNameMatch(x.bookingBy, staffName)));
+          const staffPeriodList = combinedPeriodList.filter(x => x && (normalizeForMatch(x.bookingBy) === staffKey || isStaffNameMatch(x.bookingBy, staffName)));
 
           // Walk-ins filtered by staff name
           let storePeriodStart = todayStr;
@@ -2568,39 +2674,53 @@ const DSRReport = () => {
           const rentalQtyFtd = staffFtdList.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
           const rentalQtyWtd = staffPeriodList.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
 
-          let billFtd = rentalValFtd;
-          let billWtd = rentalValWtd;
-          let valFtd = rentalBillFtd;
-          let valWtd = rentalBillWtd;
+          let valFtd = rentalValFtd;
+          let valWtd = rentalValWtd;
+          let billFtd = rentalBillFtd;
+          let billWtd = rentalBillWtd;
           let qtyFtd = rentalQtyFtd;
           let qtyWtd = rentalQtyWtd;
 
            // Merge manual Dappr Squad attribution — ONLY in Consolidated view
           if (funnelView === "Consolidated") {
+            const canonName = getCanonicalStaffName(staffName);
             const matchedDapprKey = Object.keys(dapprAttribution).find(
-              k => k.trim().toLowerCase() === staffName.trim().toLowerCase()
+              k => k.trim().toLowerCase() === staffName.trim().toLowerCase() ||
+                   k.trim().toLowerCase() === canonName.trim().toLowerCase() ||
+                   isStaffNameMatch(k, staffName)
             );
             const dapprAttr = matchedDapprKey ? dapprAttribution[matchedDapprKey] : {};
-            billWtd += Number(dapprAttr.billWtd) || 0;
-            valWtd  += Number(dapprAttr.valWtd)  || 0;
+            valWtd  += Number(dapprAttr.billWtd)  || 0;
             qtyWtd  += Number(dapprAttr.qtyWtd)  || 0;
           }
 
           if (funnelView === "Consolidated") {
             const getSalesDataForStaff = (salesItem) => {
               if (!salesItem || !salesItem.byStaff) return {};
+              const canonName = getCanonicalStaffName(staffName);
+              const canonKey = normalizeForMatch(canonName);
+
               if (salesItem.byStaff[staffName]) return salesItem.byStaff[staffName];
-              const foundKey = Object.keys(salesItem.byStaff).find(k => normalizeForMatch(k) === staffKey);
+              if (salesItem.byStaff[canonName]) return salesItem.byStaff[canonName];
+              if (salesItem.byStaff[staffKey]) return salesItem.byStaff[staffKey];
+              if (salesItem.byStaff[canonKey]) return salesItem.byStaff[canonKey];
+
+              const foundKey = Object.keys(salesItem.byStaff).find(k => 
+                normalizeForMatch(k) === staffKey ||
+                normalizeForMatch(k) === canonKey ||
+                isStaffNameMatch(k, staffName) ||
+                isStaffNameMatch(k, canonName)
+              );
               if (foundKey) return salesItem.byStaff[foundKey];
               return {};
             };
             const staffSalesFtd = getSalesDataForStaff(salesFtdItem);
             const staffSalesPeriod = getSalesDataForStaff(salesPeriodItem);
 
-            billFtd += staffSalesFtd.value || 0;
-            billWtd += staffSalesPeriod.value || 0;
-            valFtd += staffSalesFtd.bills || 0;
-            valWtd += staffSalesPeriod.bills || 0;
+            valFtd += staffSalesFtd.value || 0;
+            valWtd += staffSalesPeriod.value || 0;
+            billFtd += staffSalesFtd.bills || 0;
+            billWtd += staffSalesPeriod.bills || 0;
             qtyFtd += staffSalesFtd.qty || 0;
             qtyWtd += staffSalesPeriod.qty || 0;
           }
@@ -2612,8 +2732,8 @@ const DSRReport = () => {
 
           const walkFtd = ftdWalkins.length;
           const walkWtd = periodWalkins.length;
-          const lossFtd = Math.max(0, walkFtd - valFtd);
-          const lossWtd = Math.max(0, walkWtd - valWtd);
+          const lossFtd = Math.max(0, walkFtd - billFtd);
+          const lossWtd = Math.max(0, walkWtd - billWtd);
 
           allRows.push(withDerivedMetrics({
             name: staffName,
@@ -2808,20 +2928,20 @@ const DSRReport = () => {
     }
     return filteredWalkinsList.filter(w => isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd)).length;
   }, [filteredWalkinsList, activeTab, customStartDate, customEndDate, todayStr, selectedStore, storeWeekRanges, week1Dates, week2Dates, week3Dates, week4Dates]);
-  const totalLossFtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + (row.lossFtd || 0), 0), [filteredFunnelRows]);
-  const totalLossWtd = useMemo(() => filteredFunnelRows.reduce((acc, row) => acc + (row.lossWtd || 0), 0), [filteredFunnelRows]);
+  const totalLossFtd = useMemo(() => Math.max(0, totalWalkFtd - totalBillFtd), [totalWalkFtd, totalBillFtd]);
+  const totalLossWtd = useMemo(() => Math.max(0, totalWalkWtd - totalBillWtd), [totalWalkWtd, totalBillWtd]);
 
-  const totalAbvFtd = useMemo(() => (totalValFtd > 0 ? Math.round(totalBillFtd / totalValFtd) : 0), [totalBillFtd, totalValFtd]);
-  const totalAbvWtd = useMemo(() => (totalValWtd > 0 ? Math.round(totalBillWtd / totalValWtd) : 0), [totalBillWtd, totalValWtd]);
+  const totalAbvFtd = useMemo(() => (totalBillFtd > 0 ? Math.round(totalValFtd / totalBillFtd) : 0), [totalBillFtd, totalValFtd]);
+  const totalAbvWtd = useMemo(() => (totalBillWtd > 0 ? Math.round(totalValWtd / totalBillWtd) : 0), [totalBillWtd, totalValWtd]);
 
-  const totalAbsFtd = useMemo(() => (totalValFtd > 0 ? (totalQtyFtd / totalValFtd).toFixed(1) : "0.0"), [totalQtyFtd, totalValFtd]);
-  const totalAbsWtd = useMemo(() => (totalValWtd > 0 ? (totalQtyWtd / totalValWtd).toFixed(1) : "0.0"), [totalQtyWtd, totalValWtd]);
+  const totalAbsFtd = useMemo(() => (totalBillFtd > 0 ? (totalQtyFtd / totalBillFtd).toFixed(1) : "0.0"), [totalQtyFtd, totalBillFtd]);
+  const totalAbsWtd = useMemo(() => (totalBillWtd > 0 ? (totalQtyWtd / totalBillWtd).toFixed(1) : "0.0"), [totalQtyWtd, totalBillWtd]);
 
-  const totalConvFtd = useMemo(() => (totalWalkFtd > 0 ? Math.round((totalValFtd / totalWalkFtd) * 100) : 0), [totalValFtd, totalWalkFtd]);
-  const totalConvWtd = useMemo(() => (totalWalkWtd > 0 ? Math.round((totalValWtd / totalWalkWtd) * 100) : 0), [totalValWtd, totalWalkWtd]);
+  const totalConvFtd = useMemo(() => (totalWalkFtd > 0 ? Math.round((totalBillFtd / totalWalkFtd) * 100) : 0), [totalBillFtd, totalWalkFtd]);
+  const totalConvWtd = useMemo(() => (totalWalkWtd > 0 ? Math.round((totalBillWtd / totalWalkWtd) * 100) : 0), [totalBillWtd, totalWalkWtd]);
 
-  const totalArpFtd = useMemo(() => (totalQtyFtd > 0 ? Math.round(totalBillFtd / totalQtyFtd) : 0), [totalBillFtd, totalQtyFtd]);
-  const totalArpWtd = useMemo(() => (totalQtyWtd > 0 ? Math.round(totalBillWtd / totalQtyWtd) : 0), [totalBillWtd, totalQtyWtd]);
+  const totalArpFtd = useMemo(() => (totalQtyFtd > 0 ? Math.round(totalValFtd / totalQtyFtd) : 0), [totalValFtd, totalQtyFtd]);
+  const totalArpWtd = useMemo(() => (totalQtyWtd > 0 ? Math.round(totalValWtd / totalQtyWtd) : 0), [totalValWtd, totalQtyWtd]);
 
   const denominatorFtd = (selectedStore && selectedStore !== "All") ? totalBillFtd : grandTotalBillFtd;
   const denominatorWtd = (selectedStore && selectedStore !== "All") ? totalBillWtd : grandTotalBillWtd;
@@ -2888,10 +3008,10 @@ const DSRReport = () => {
         if (!rawName) return "";
         const strName = String(rawName);
         if (strName.toLowerCase() === "unassigned") return "Unassigned";
-        const normName = normalizeForMatch(strName);
-        const match = rentalStaffNames.find(n => normalizeForMatch(n) === normName) ||
-                      squadStaffNames.find(n => normalizeForMatch(n) === normName);
-        return match || strName;
+        const canon = getCanonicalStaffName(strName);
+        const match = rentalStaffNames.find(n => n && (n === canon || isStaffNameMatch(n, strName))) ||
+                      squadStaffNames.find(n => n && (n === canon || isStaffNameMatch(n, strName)));
+        return match || canon;
       };
 
       const salesFtdStaffNames = Object.keys(salesFtdItem.byStaff || {}).map(canonicalizeName).filter(Boolean);
@@ -2903,10 +3023,9 @@ const DSRReport = () => {
         ...squadStaffNames,
         ...salesFtdStaffNames,
         ...salesPeriodStaffNames
-      ].filter(name => typeof name === "string" && name.trim() !== "");
+      ].filter(name => typeof name === "string" && name.trim() !== "").map(getCanonicalStaffName);
       
       const allStaffNames = [];
-      const seenNormalized = new Set();
       
       const sortedStaffNames = Array.from(new Set(rawAllStaff)).sort((a, b) => {
         const aUpper = /[A-Z]/.test(a);
@@ -2918,10 +3037,10 @@ const DSRReport = () => {
 
       sortedStaffNames.forEach(name => {
         if (!name) return;
-        const norm = normalizeForMatch(name);
-        if (norm && !seenNormalized.has(norm)) {
-          seenNormalized.add(norm);
-          allStaffNames.push(name);
+        const canon = getCanonicalStaffName(name);
+        const existing = allStaffNames.find(existingName => isStaffNameMatch(existingName, canon));
+        if (!existing) {
+          allStaffNames.push(canon);
         }
       });
 
@@ -2936,10 +3055,10 @@ const DSRReport = () => {
       const staffRows = allStaffNames.map((staffName) => {
         const staffKey = normalizeForMatch(staffName);
         
-        const staffFtdList = locFtdList.filter(x => x && normalizeForMatch(x.bookingBy) === staffKey);
-        const staffPeriodList = locPeriodList.filter(x => x && normalizeForMatch(x.bookingBy) === staffKey);
-        const squadFtdListForStaff = storeSquadFtd.filter(x => x && normalizeForMatch(x.bookingBy) === staffKey);
-        const squadPeriodListForStaff = storeSquadPeriod.filter(x => x && normalizeForMatch(x.bookingBy) === staffKey);
+        const staffFtdList = locFtdList.filter(x => x && (normalizeForMatch(x.bookingBy) === staffKey || isStaffNameMatch(x.bookingBy, staffName)));
+        const staffPeriodList = locPeriodList.filter(x => x && (normalizeForMatch(x.bookingBy) === staffKey || isStaffNameMatch(x.bookingBy, staffName)));
+        const squadFtdListForStaff = storeSquadFtd.filter(x => x && (normalizeForMatch(x.bookingBy) === staffKey || isStaffNameMatch(x.bookingBy, staffName)));
+        const squadPeriodListForStaff = storeSquadPeriod.filter(x => x && (normalizeForMatch(x.bookingBy) === staffKey || isStaffNameMatch(x.bookingBy, staffName)));
 
         const rentalValFtd = staffFtdList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
         const rentalValWtd = staffPeriodList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
@@ -2957,8 +3076,20 @@ const DSRReport = () => {
 
         const getSalesDataForStaff = (salesItem) => {
           if (!salesItem || !salesItem.byStaff) return {};
+          const canonName = getCanonicalStaffName(staffName);
+          const canonKey = normalizeForMatch(canonName);
+
           if (salesItem.byStaff[staffName]) return salesItem.byStaff[staffName];
-          const foundKey = Object.keys(salesItem.byStaff).find(k => normalizeForMatch(k) === staffKey);
+          if (salesItem.byStaff[canonName]) return salesItem.byStaff[canonName];
+          if (salesItem.byStaff[staffKey]) return salesItem.byStaff[staffKey];
+          if (salesItem.byStaff[canonKey]) return salesItem.byStaff[canonKey];
+
+          const foundKey = Object.keys(salesItem.byStaff).find(k => 
+            normalizeForMatch(k) === staffKey ||
+            normalizeForMatch(k) === canonKey ||
+            isStaffNameMatch(k, staffName) ||
+            isStaffNameMatch(k, canonName)
+          );
           if (foundKey) return salesItem.byStaff[foundKey];
           return {};
         };
@@ -3254,7 +3385,10 @@ const DSRReport = () => {
                 WTD
               </button>
               <button 
-                onClick={() => setActiveTab("Custom")}
+                onClick={() => {
+                  setActiveTab("Custom");
+                  setCustomApplied(false);
+                }}
                 className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   activeTab === "Custom" 
                     ? "bg-[#18181b] text-white shadow-sm" 
@@ -3271,8 +3405,8 @@ const DSRReport = () => {
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">From:</span>
                   <input 
                     type="date" 
-                    value={customStartDate} 
-                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    value={tempStartDate} 
+                    onChange={(e) => setTempStartDate(e.target.value)}
                     className="border-none bg-transparent text-xs font-bold text-gray-700 outline-none p-0 focus:ring-0 cursor-pointer"
                   />
                 </div>
@@ -3281,11 +3415,36 @@ const DSRReport = () => {
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">To:</span>
                   <input 
                     type="date" 
-                    value={customEndDate} 
-                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    value={tempEndDate} 
+                    onChange={(e) => setTempEndDate(e.target.value)}
                     className="border-none bg-transparent text-xs font-bold text-gray-700 outline-none p-0 focus:ring-0 cursor-pointer"
                   />
                 </div>
+                <button
+                  disabled={isFetchingAny}
+                  onClick={() => {
+                    if (tempStartDate && tempEndDate) {
+                      setCustomStartDate(tempStartDate);
+                      setCustomEndDate(tempEndDate);
+                      setAppliedStartDate(tempStartDate);
+                      setAppliedEndDate(tempEndDate);
+                      setCustomApplied(true);
+                    }
+                  }}
+                  className={`ml-1 bg-black hover:bg-gray-800 text-white font-bold text-xs px-3.5 py-1.5 rounded-lg transition-all shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95 ${isFetchingAny ? "opacity-75 cursor-not-allowed" : ""}`}
+                >
+                  {isFetchingAny ? (
+                    <svg className="animate-spin w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                    </svg>
+                  ) : (
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  )}
+                  {isFetchingAny ? "Fetching..." : "Fetch"}
+                </button>
               </div>
             )}
 
@@ -3565,15 +3724,28 @@ const DSRReport = () => {
           <div className="bg-white rounded-[20px] shadow-sm border border-gray-100 overflow-hidden">
             
             {/* Card Title Header */}
-            <div className="px-6 py-5">
-              <h2 className="text-[17px] font-bold text-gray-900">Revenue Vs Target</h2>
-              <p className="text-gray-400 text-xs mt-0.5 font-medium font-sans">
-                {activeTab === "MTD" 
-                  ? getMTDDateRangeString() 
-                  : activeTab === "WTD" 
-                    ? getWTDDateRangeString() 
-                    : getCustomDateRangeString()}
-              </p>
+            <div className="px-6 py-5 flex justify-between items-center">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-[17px] font-bold text-gray-900">Revenue Vs Target</h2>
+                  {isFetchingAny && (
+                    <span className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-[11px] font-bold px-2.5 py-0.5 rounded-full border border-emerald-200 shadow-sm animate-pulse">
+                      <svg className="animate-spin w-3 h-3 text-emerald-600" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                      </svg>
+                      Fetching data...
+                    </span>
+                  )}
+                </div>
+                <p className="text-gray-400 text-xs mt-0.5 font-medium font-sans">
+                  {activeTab === "MTD" 
+                    ? getMTDDateRangeString() 
+                    : activeTab === "WTD" 
+                      ? getWTDDateRangeString() 
+                      : getCustomDateRangeString()}
+                </p>
+              </div>
             </div>
 
             {/* Metric Summary Indicators Grid */}
@@ -3769,10 +3941,13 @@ const DSRReport = () => {
                 {isStoreAdmin && selectedStore !== "All" && (
                   <span className="text-xs font-semibold text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">{selectedStore}</span>
                 )}
-                {(loadingPerformance || loadingWalkins) && (
-                  <span className="flex h-2.5 w-2.5 relative" title="Syncing real-time store performance data...">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                {isFetchingAny && (
+                  <span className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-[11px] font-bold px-2.5 py-0.5 rounded-full border border-emerald-200 shadow-sm animate-pulse">
+                    <svg className="animate-spin w-3 h-3 text-emerald-600" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                    </svg>
+                    Fetching data...
                   </span>
                 )}
               </div>
@@ -3848,11 +4023,11 @@ const DSRReport = () => {
                     return (
                       <tr key={idx} className="odd:bg-white even:bg-[#f9fafb] hover:bg-gray-50/50 transition-colors">
                         <td className={`sticky left-0 z-10 px-6 py-3.5 text-left font-semibold text-gray-800 border-r border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)] ${idx % 2 === 0 ? "bg-white" : "bg-[#f9fafb]"}`}>{row.name}</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(row.valFtd)}</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(row.valWtd)}</td>
-                        
                         <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(formatIndianNumber(row.billFtd))}</td>
                         <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(formatIndianNumber(row.billWtd))}</td>
+                        
+                        <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(formatIndianNumber(row.valFtd))}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(formatIndianNumber(row.valWtd))}</td>
                         
                         <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(row.qtyFtd)}</td>
                         <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(row.qtyWtd)}</td>
@@ -3863,14 +4038,14 @@ const DSRReport = () => {
                         <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(row.lossFtd)}</td>
                         <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(row.lossWtd)}</td>
 
-                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{renderCellVal(formatIndianNumber(row.abvFtd !== undefined ? row.abvFtd : Math.round(row.billFtd / (row.valFtd || 1))))}</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{renderCellVal(formatIndianNumber(row.abvWtd !== undefined ? row.abvWtd : Math.round(row.billWtd / (row.valWtd || 1))))}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{renderCellVal(formatIndianNumber(row.abvFtd !== undefined ? row.abvFtd : Math.round(row.valFtd / (row.billFtd || 1))))}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{renderCellVal(formatIndianNumber(row.abvWtd !== undefined ? row.abvWtd : Math.round(row.valWtd / (row.billWtd || 1))))}</td>
 
-                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{renderCellVal(row.absFtd !== undefined ? row.absFtd : (row.qtyFtd / (row.valFtd || 1)).toFixed(1))}</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{renderCellVal(row.absWtd !== undefined ? row.absWtd : (row.qtyWtd / (row.valWtd || 1)).toFixed(1))}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{renderCellVal(row.absFtd !== undefined ? row.absFtd : (row.qtyFtd / (row.billFtd || 1)).toFixed(1))}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{renderCellVal(row.absWtd !== undefined ? row.absWtd : (row.qtyWtd / (row.billFtd || 1)).toFixed(1))}</td>
 
-                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{renderCellVal(row.convFtd !== undefined ? row.convFtd : Math.round((row.valFtd / (row.walkFtd || 1)) * 100), true)}</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{renderCellVal(row.convWtd !== undefined ? row.convWtd : Math.round((row.valWtd / (row.walkWtd || 1)) * 100), true)}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 font-medium">{renderCellVal(row.convFtd !== undefined ? row.convFtd : Math.round((row.billFtd / (row.walkFtd || 1)) * 100), true)}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium">{renderCellVal(row.convWtd !== undefined ? row.convWtd : Math.round((row.billWtd / (row.walkWtd || 1)) * 100), true)}</td>
 
                         <td className="px-4 py-3.5 border-r border-gray-100 font-semibold text-[#00A36C]">{renderCellVal(contributionFtd, true)}</td>
                         <td className={`px-4 py-3.5 ${isStoreAdmin ? "" : "border-r border-gray-100"} text-gray-700 font-semibold text-[#00A36C]`}>{renderCellVal(contributionWtd, true)}</td>
@@ -3889,11 +4064,11 @@ const DSRReport = () => {
                   <tr className="bg-[#dce9f5] font-bold text-gray-900">
                     <td className="sticky left-0 z-10 bg-[#dce9f5] px-6 py-3.5 text-left border-r border-blue-200/50 uppercase tracking-wider shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)]">Store Total</td>
                     
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalValFtd))}</td>
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalValWtd))}</td>
-                    
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalBillFtd))}</td>
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalBillWtd))}</td>
+                    
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalValFtd))}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalValWtd))}</td>
                     
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalQtyFtd))}</td>
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalQtyWtd))}</td>
@@ -3942,10 +4117,13 @@ const DSRReport = () => {
                 {isStoreAdmin && selectedStore !== "All" && (
                   <span className="text-xs font-semibold text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">{selectedStore}</span>
                 )}
-                {(loadingPerformance || loadingWalkins || loadingSales) && (
-                  <span className="flex h-2.5 w-2.5 relative" title="Syncing real-time category performance data...">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                {isFetchingAny && (
+                  <span className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-[11px] font-bold px-2.5 py-0.5 rounded-full border border-emerald-200 shadow-sm animate-pulse">
+                    <svg className="animate-spin w-3 h-3 text-emerald-600" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                    </svg>
+                    Fetching data...
                   </span>
                 )}
               </div>
