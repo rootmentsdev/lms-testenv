@@ -402,22 +402,55 @@ function normalizeForMatch(str) {
 }
 
 const STAFF_ALIAS_MAPPING = {
-  "niyas": "NIYAS DINU NASAR K",
-  "m shamil k p": "Muhammed Shamil K P",
-  "shamil k p": "Muhammed Shamil K P",
-  "shahil shan": "Shahil shan v",
+  "niyas dinu nasar k": "NIYAS",
+  "niyas dinu nasar": "NIYAS",
+  "niyasdinunasark": "NIYAS",
+  "niyasdinunasar": "NIYAS",
+  "niyas": "NIYAS",
+  "m shamil k p": "M SHAMIL K P",
+  "mshamilkp": "M SHAMIL K P",
+  "muhammed shamil k p": "M SHAMIL K P",
+  "muhammedshamilkp": "M SHAMIL K P",
+  "shamil k p": "M SHAMIL K P",
+  "shamilkp": "M SHAMIL K P",
+  "shamil": "M SHAMIL K P",
+  "shahil shan v": "SHAHIL SHAN",
+  "shahilshanv": "SHAHIL SHAN",
+  "shahil shan": "SHAHIL SHAN",
+  "shahilshan": "SHAHIL SHAN",
   "m riswan": "MOHAMMAD RISWAN",
+  "mriswan": "MOHAMMAD RISWAN",
   "riswan": "MOHAMMAD RISWAN",
-  "m shan k": "Muhammed Shan K",
-  "shan k": "Muhammed Shan K",
-  "s faris vk": "Salmanul Faris V K",
-  "salman faris": "Salmanul Faris V K",
-  "salman muhammed.v": "SALMAN MUHAMMED V",
-  "salman muhammed v": "SALMAN MUHAMMED V",
-  "muhammed shamil": "Muhammed Shamil K P",
+  "m shan k": "M SHAN K",
+  "mshank": "M SHAN K",
+  "muhammed shan k": "M SHAN K",
+  "muhammedshank": "M SHAN K",
+  "shan k": "M SHAN K",
+  "shank": "M SHAN K",
+  "shan": "M SHAN K",
+  "s faris vk": "S FARIS VK",
+  "sfarisvk": "S FARIS VK",
+  "salmanul faris v k": "S FARIS VK",
+  "salmanulfarisvk": "S FARIS VK",
+  "salman faris v k": "S FARIS VK",
+  "salmanfarisvk": "S FARIS VK",
+  "salman faris": "S FARIS VK",
+  "salmanfaris": "S FARIS VK",
+  "faris": "S FARIS VK",
+  "salman muhammed v": "SALMAN MUHAMMED.V",
+  "salmanmuhammedv": "SALMAN MUHAMMED.V",
+  "salman muhammed": "SALMAN MUHAMMED.V",
+  "salmanmuhammed": "SALMAN MUHAMMED.V",
+  "muhammed basil p k": "Muhammed Basil P K",
+  "muhammedbasilpk": "Muhammed Basil P K",
   "muhammed basil": "Muhammed Basil P K",
-  "muhammad shabir": "MUHAMMAD SHABIR VT",
-  "shabir vt": "MUHAMMAD SHABIR VT",
+  "muhammedbasil": "Muhammed Basil P K",
+  "basil": "Muhammed Basil P K",
+  "muhammad shabir vt": "SHABIR VT",
+  "muhammadshabirvt": "SHABIR VT",
+  "shabir vt": "SHABIR VT",
+  "shabirvt": "SHABIR VT",
+  "shabir": "SHABIR VT",
 };
 
 function getCanonicalStaffName(rawName) {
@@ -426,6 +459,10 @@ function getCanonicalStaffName(rawName) {
   const lower = str.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ");
   if (STAFF_ALIAS_MAPPING[lower]) {
     return STAFF_ALIAS_MAPPING[lower];
+  }
+  const normKey = lower.replace(/\s+/g, "");
+  if (STAFF_ALIAS_MAPPING[normKey]) {
+    return STAFF_ALIAS_MAPPING[normKey];
   }
   return str;
 }
@@ -470,6 +507,69 @@ function isStaffNameMatch(strA, strB) {
     }
   }
 
+  return false;
+}
+
+function normalizeEmpCode(code) {
+  if (!code) return "";
+  const str = String(code).trim().toUpperCase();
+  const digits = str.replace(/[^0-9]/g, "");
+  if (digits.length > 0) {
+    return `EMP${parseInt(digits, 10)}`;
+  }
+  return str.replace(/[^A-Z0-9]/g, "");
+}
+
+function extractWalkinEmpCodes(w, empNameToCodeMap) {
+  if (!w) return [];
+  const codes = [];
+  [w.empCode, w.empId, w.empID, w.EmpId, w.employeeId, w.emp_code].forEach(val => {
+    if (val) codes.push(normalizeEmpCode(val));
+  });
+  if (w.createdBy && typeof w.createdBy === "object") {
+    [w.createdBy.empID, w.createdBy.EmpId, w.createdBy.employeeId, w.createdBy.empCode, w.createdBy.emp_code].forEach(val => {
+      if (val) codes.push(normalizeEmpCode(val));
+    });
+    if (w.createdBy.name && empNameToCodeMap) {
+      const code = empNameToCodeMap.get(getCanonicalStaffName(w.createdBy.name).toLowerCase()) || empNameToCodeMap.get(normalizeForMatch(w.createdBy.name));
+      if (code) codes.push(code);
+    }
+  } else if (typeof w.createdBy === "string" && empNameToCodeMap) {
+    const code = empNameToCodeMap.get(getCanonicalStaffName(w.createdBy).toLowerCase()) || empNameToCodeMap.get(normalizeForMatch(w.createdBy));
+    if (code) codes.push(code);
+  }
+
+  if (w.staffId && typeof w.staffId === "object") {
+    [w.staffId.empID, w.staffId.EmpId, w.staffId.employeeId, w.staffId.empCode, w.staffId.emp_code].forEach(val => {
+      if (val) codes.push(normalizeEmpCode(val));
+    });
+  }
+
+  const wStaff = w.staff || w.staffName || w.managerName;
+  if (wStaff && empNameToCodeMap) {
+    const code = empNameToCodeMap.get(getCanonicalStaffName(wStaff).toLowerCase()) || empNameToCodeMap.get(normalizeForMatch(wStaff));
+    if (code) codes.push(code);
+  }
+
+  return Array.from(new Set(codes.filter(Boolean)));
+}
+
+function isStoreAliasName(rawName) {
+  if (!rawName) return false;
+  const normStr = String(rawName).trim().toLowerCase();
+  if (DAPPR_SQUAD_STORE_MAPPING[normStr]) return true;
+  const alphaOnly = normStr.replace(/[^a-z0-9]/g, "");
+  if (alphaOnly.startsWith("sg")) {
+    const code = alphaOnly.slice(2);
+    const storeAbbrevs = [
+      "edappally", "edapally", "edapally1", "edappally1", "trivandrum", "tvm", "tvpm",
+      "edappal", "perinthalmanna", "perinthalmana", "pma", "kottakkal", "kottakal", "ktk",
+      "kottayam", "ktm", "perumbavoor", "perumbavur", "thrissur", "tsr", "chavakkad", "chavakad",
+      "calicut", "kozhikode", "vadakara", "manjeri", "manjery", "palakkad", "palakad", "pkd",
+      "kalpetta", "kalpeta", "kannur", "knr", "mgroad", "mgrd"
+    ];
+    if (storeAbbrevs.includes(code)) return true;
+  }
   return false;
 }
 
@@ -1529,6 +1629,48 @@ const DSRReport = () => {
     fetchBranches();
   }, [isStoreAdmin, isClusterAdmin]);
 
+  const [systemEmployees, setSystemEmployees] = useState([]);
+
+  useEffect(() => {
+    const fetchSystemEmployees = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${baseUrl.baseUrl}api/admin/accessible-employees`, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          }
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const list = Array.isArray(json?.employees) ? json.employees : (Array.isArray(json?.data) ? json.data : []);
+          setSystemEmployees(list);
+        }
+      } catch (err) {
+        console.error("Error fetching system employees:", err);
+      }
+    };
+    fetchSystemEmployees();
+  }, []);
+
+  const systemEmpNameToCodeMap = useMemo(() => {
+    const map = new Map();
+    systemEmployees.forEach(emp => {
+      const code = emp.EmpId || emp.empID || emp.employeeId || emp.emp_code;
+      const normCode = normalizeEmpCode(code);
+      if (!normCode) return;
+
+      [emp.username, emp.name, emp.staffName].forEach(rawName => {
+        if (rawName) {
+          const canon = getCanonicalStaffName(rawName);
+          map.set(canon.toLowerCase(), normCode);
+          map.set(normalizeForMatch(rawName), normCode);
+        }
+      });
+    });
+    return map;
+  }, [systemEmployees]);
+
   // Fetch targets dynamically when not editing targets in modals
   useEffect(() => {
     if (!assignTargetModalOpen && !configWeeksModalOpen) {
@@ -1844,6 +1986,8 @@ const DSRReport = () => {
           salespersonsList.forEach(sp => {
             const staffName = sp.salesperson || "Unassigned";
             const staffKey = normalizeForMatch(staffName);
+            const rawEmpCode = sp.empId || sp.employeeId || "";
+            const empCode = normalizeEmpCode(rawEmpCode) || systemEmpNameToCodeMap.get(getCanonicalStaffName(staffName).toLowerCase()) || systemEmpNameToCodeMap.get(normalizeForMatch(staffName)) || "";
             const storesList = Array.isArray(sp.stores) ? sp.stores : [];
             
             storesList.forEach(st => {
@@ -1852,12 +1996,15 @@ const DSRReport = () => {
               const entryVal = {
                 value: total.value || 0,
                 qty: total.qty || 0,
-                bills: total.bills || 0
+                bills: total.bills || 0,
+                empCode: empCode,
+                staffName: staffName
               };
               
               const applyToEntry = (entry) => {
                 if (!entry.byStaff) entry.byStaff = {};
-                entry.byStaff[staffKey] = entryVal;
+                const canon = getCanonicalStaffName(staffName);
+                entry.byStaff[canon] = entryVal;
                 entry.byStaff[staffName] = entryVal;
               };
 
@@ -2062,9 +2209,10 @@ const DSRReport = () => {
         if (!rawName) return "";
         const strName = String(rawName);
         if (strName.toLowerCase() === "unassigned") return "Unassigned";
-        const normName = normalizeForMatch(strName);
-        const match = mergedPeriodList.find(n => n && normalizeForMatch(n.bookingBy) === normName);
-        return match ? match.bookingBy : strName;
+        const canon = getCanonicalStaffName(strName);
+        const normCanon = normalizeForMatch(canon);
+        const match = mergedPeriodList.find(n => n && (normalizeForMatch(n.bookingBy) === normCanon || normalizeForMatch(getCanonicalStaffName(n.bookingBy)) === normCanon));
+        return match ? match.bookingBy : canon;
       };
 
       const salesStaffNames = funnelView === "Consolidated"
@@ -2090,21 +2238,23 @@ const DSRReport = () => {
 
       sortedStaffNames.forEach(name => {
         if (!name) return;
-        const normReal = normalizeForMatch(name);
+        const canonName = getCanonicalStaffName(name);
+        const normReal = normalizeForMatch(canonName);
         if (normReal && !seenNormalized.has(normReal)) {
           seenNormalized.add(normReal);
-          staffNames.push(name);
+          staffNames.push(canonName);
         }
       });
 
       return staffNames.map((staffName, index) => {
         const sl = String(index + 1).padStart(2, "0");
         const fullName = String(staffName).trim();
-        const staffKey = normalizeForMatch(staffName);
+        const targetCanon = getCanonicalStaffName(staffName);
+        const staffKey = normalizeForMatch(targetCanon);
 
-        let rentalVal = mergedPeriodList.filter(x => x && normalizeForMatch(x.bookingBy) === staffKey).reduce((sum, x) => sum + (x.totalValue || 0), 0);
+        let rentalVal = mergedPeriodList.filter(x => x && (normalizeForMatch(getCanonicalStaffName(x.bookingBy)) === staffKey || normalizeForMatch(x.bookingBy) === staffKey)).reduce((sum, x) => sum + (x.totalValue || 0), 0);
         if (funnelView === "Consolidated") {
-          const dapprKey = Object.keys(dapprAttribution).find(k => normalizeForMatch(k) === staffKey);
+          const dapprKey = Object.keys(dapprAttribution).find(k => normalizeForMatch(getCanonicalStaffName(k)) === staffKey || normalizeForMatch(k) === staffKey);
           if (dapprKey) {
             rentalVal += Number(dapprAttribution[dapprKey]?.billWtd) || 0;
           }
@@ -2114,10 +2264,20 @@ const DSRReport = () => {
         if (funnelView === "Consolidated") {
           const getSalesDataForStaff = (salesItem) => {
             if (!salesItem || !salesItem.byStaff) return {};
-            if (salesItem.byStaff[staffName]) return salesItem.byStaff[staffName];
-            const foundKey = Object.keys(salesItem.byStaff).find(k => normalizeForMatch(k) === staffKey);
-            if (foundKey) return salesItem.byStaff[foundKey];
-            return {};
+            if (salesItem.byStaff[fullName]) return salesItem.byStaff[fullName];
+            if (salesItem.byStaff[targetCanon]) return salesItem.byStaff[targetCanon];
+
+            const staffEmpCode = systemEmpNameToCodeMap.get(targetCanon.toLowerCase()) || systemEmpNameToCodeMap.get(staffKey);
+
+            const foundKey = Object.keys(salesItem.byStaff).find(k => {
+              const item = salesItem.byStaff[k];
+              const kCode = item?.empCode || normalizeEmpCode(k) || systemEmpNameToCodeMap.get(getCanonicalStaffName(k).toLowerCase()) || systemEmpNameToCodeMap.get(normalizeForMatch(k));
+              if (staffEmpCode && kCode && staffEmpCode === kCode) return true;
+
+              const kCanon = getCanonicalStaffName(k);
+              return kCanon === targetCanon || normalizeForMatch(kCanon) === staffKey || isStaffNameMatch(k, staffName);
+            });
+            return foundKey ? salesItem.byStaff[foundKey] : {};
           };
           salesVal = getSalesDataForStaff(salesPeriodItem).value || 0;
         }
@@ -2255,6 +2415,273 @@ const DSRReport = () => {
       };
     };
 
+    const buildStoreStaffRows = ({
+      storeName,
+      storeKeyVal,
+      locId,
+      selectedBranch,
+      locFtdList = [],
+      locPeriodList = [],
+      salesFtdItem = { byStaff: {} },
+      salesPeriodItem = { byStaff: {} }
+    }) => {
+      const staffMap = new Map();
+
+      const getOrCreateStaffEntry = (empCode, rawName) => {
+        const normCode = normalizeEmpCode(empCode);
+        const rentalName = rawName ? String(rawName).trim() : "";
+        const canonName = rentalName ? getCanonicalStaffName(rentalName) : "";
+
+        let entry = null;
+
+        if (normCode) {
+          for (const e of staffMap.values()) {
+            if (e.empCodes.includes(normCode)) {
+              entry = e;
+              break;
+            }
+          }
+        }
+
+        if (!entry && (rentalName || canonName)) {
+          for (const e of staffMap.values()) {
+            if (
+              isStaffNameMatch(e.displayName, rentalName) ||
+              isStaffNameMatch(e.displayName, canonName) ||
+              e.rentalNames.some(rn => isStaffNameMatch(rn, rentalName) || isStaffNameMatch(rn, canonName))
+            ) {
+              entry = e;
+              break;
+            }
+          }
+        }
+
+        if (!entry) {
+          entry = {
+            empCodes: normCode ? [normCode] : [],
+            displayName: rentalName || canonName || "Unassigned",
+            rentalNames: rentalName ? [rentalName] : [],
+            siteNames: []
+          };
+          const key = normCode || (canonName || "unassigned").toLowerCase();
+          staffMap.set(key, entry);
+        } else {
+          if (normCode && !entry.empCodes.includes(normCode)) {
+            entry.empCodes.push(normCode);
+          }
+          if (rentalName && !entry.rentalNames.includes(rentalName)) {
+            entry.rentalNames.push(rentalName);
+          }
+          // Rule: Always prefer Rental POS Software Name for Display!
+          if (rentalName && rentalName !== entry.displayName) {
+            entry.displayName = rentalName;
+          }
+        }
+
+        return entry;
+      };
+
+      // 1. Process Rental POS items (FTD + Period)
+      [...locFtdList, ...locPeriodList].forEach(x => {
+        if (x && (x.bookingBy || x.empCode)) {
+          const rentalCode = normalizeEmpCode(x.empCode) || systemEmpNameToCodeMap.get(getCanonicalStaffName(x.bookingBy).toLowerCase()) || systemEmpNameToCodeMap.get(normalizeForMatch(x.bookingBy)) || "";
+          getOrCreateStaffEntry(rentalCode, x.bookingBy);
+        }
+      });
+
+      // 2. Process Shoe/Shirt Sales items if present
+      if (funnelView === "Consolidated") {
+        const byStaffMap = { ...(salesFtdItem.byStaff || {}), ...(salesPeriodItem.byStaff || {}) };
+        const seenSalesStaff = new Set();
+        Object.values(byStaffMap).forEach(item => {
+          if (!item || !item.staffName) return;
+          const rawName = item.staffName;
+          const rawCode = item.empCode || "";
+          const salesCode = rawCode || normalizeEmpCode(rawName) || systemEmpNameToCodeMap.get(getCanonicalStaffName(rawName).toLowerCase()) || systemEmpNameToCodeMap.get(normalizeForMatch(rawName)) || "";
+          
+          const dedupeKey = salesCode || normalizeForMatch(rawName);
+          if (seenSalesStaff.has(dedupeKey)) return;
+          seenSalesStaff.add(dedupeKey);
+
+          getOrCreateStaffEntry(salesCode, rawName);
+        });
+      }
+
+      // 3. Process Walk-ins for this store
+      const storeWalkins = walkins.filter(w => {
+        return String(w.storeId || '') === String(selectedBranch?._id || '') ||
+               locationKey(w.store) === storeKeyVal ||
+               normalizeForMatch(w.store) === normalizeForMatch(storeName);
+      });
+
+      storeWalkins.forEach(w => {
+        const wCodes = extractWalkinEmpCodes(w, systemEmpNameToCodeMap);
+        const wStaff = w.staff || w.staffName || (typeof w.createdBy === 'string' ? w.createdBy : w.createdBy?.name) || w.managerName || '';
+
+        let entry = null;
+        if (wCodes.length > 0) {
+          for (const e of staffMap.values()) {
+            if (e.empCodes.some(c => wCodes.includes(c))) {
+              entry = e;
+              break;
+            }
+          }
+        }
+
+        if (!entry && wStaff) {
+          for (const e of staffMap.values()) {
+            if (
+              isStaffNameMatch(e.displayName, wStaff) ||
+              e.rentalNames.some(rn => isStaffNameMatch(rn, wStaff)) ||
+              e.siteNames.some(sn => isStaffNameMatch(sn, wStaff))
+            ) {
+              entry = e;
+              break;
+            }
+          }
+        }
+
+        if (!entry) {
+          const canonW = wStaff ? getCanonicalStaffName(wStaff) : "Unassigned";
+          entry = {
+            empCodes: wCodes,
+            displayName: wStaff || canonW,
+            rentalNames: [],
+            siteNames: wStaff ? [wStaff] : []
+          };
+          const key = wCodes[0] || canonW.toLowerCase();
+          staffMap.set(key, entry);
+        } else {
+          wCodes.forEach(c => {
+            if (!entry.empCodes.includes(c)) entry.empCodes.push(c);
+          });
+          if (wStaff && !entry.siteNames.includes(wStaff)) {
+            entry.siteNames.push(wStaff);
+          }
+        }
+      });
+
+      // Calculate Date Ranges for Walk-ins
+      let storePeriodStart = todayStr;
+      let storePeriodEnd = todayStr;
+      if (activeTab === "WTD") {
+        const wtdRange = getStoreWTDDateRange(storeName);
+        storePeriodStart = wtdRange.start;
+        storePeriodEnd = wtdRange.end;
+      } else if (activeTab === "MTD") {
+        const today = new Date();
+        storePeriodStart = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
+        storePeriodEnd = todayStr;
+      } else if (activeTab === "Custom") {
+        storePeriodStart = customStartDate || todayStr;
+        storePeriodEnd = customEndDate || todayStr;
+      }
+
+      // 4. Map staff entries to output row objects
+      return Array.from(staffMap.values()).map(entry => {
+        const staffFtdList = locFtdList.filter(x => {
+          if (!x) return false;
+          const xCode = normalizeEmpCode(x.empCode);
+          if (xCode && entry.empCodes.includes(xCode)) return true;
+          return entry.rentalNames.some(rn => isStaffNameMatch(rn, x.bookingBy)) || isStaffNameMatch(entry.displayName, x.bookingBy);
+        });
+
+        const staffPeriodList = locPeriodList.filter(x => {
+          if (!x) return false;
+          const xCode = normalizeEmpCode(x.empCode);
+          if (xCode && entry.empCodes.includes(xCode)) return true;
+          return entry.rentalNames.some(rn => isStaffNameMatch(rn, x.bookingBy)) || isStaffNameMatch(entry.displayName, x.bookingBy);
+        });
+
+        const staffWalkinsList = storeWalkins.filter(w => {
+          const wCodes = extractWalkinEmpCodes(w, systemEmpNameToCodeMap);
+          if (wCodes.length > 0 && entry.empCodes.some(c => wCodes.includes(c))) return true;
+          const wStaff = w.staff || w.staffName || (typeof w.createdBy === 'string' ? w.createdBy : w.createdBy?.name) || w.managerName || '';
+          if (!wStaff && entry.displayName.toLowerCase() === "unassigned") return true;
+          return isStaffNameMatch(entry.displayName, wStaff) || entry.rentalNames.some(rn => isStaffNameMatch(rn, wStaff)) || entry.siteNames.some(sn => isStaffNameMatch(sn, wStaff));
+        });
+
+        const ftdWalkins = staffWalkinsList.filter(w => isWalkinCreatedInRange(w.createdAt, todayStr, todayStr));
+        const periodWalkins = staffWalkinsList.filter(w => isWalkinCreatedInRange(w.createdAt, storePeriodStart, storePeriodEnd));
+
+        const rentalValFtd = staffFtdList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
+        const rentalValWtd = staffPeriodList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
+        const rentalBillFtd = staffFtdList.reduce((sum, x) => sum + (x.total_Number_Of_Bill || 0), 0);
+        const rentalBillWtd = staffPeriodList.reduce((sum, x) => sum + (x.total_Number_Of_Bill || 0), 0);
+        const rentalQtyFtd = staffFtdList.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
+        const rentalQtyWtd = staffPeriodList.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
+
+        let valFtd = rentalValFtd;
+        let valWtd = rentalValWtd;
+        let billFtd = rentalBillFtd;
+        let billWtd = rentalBillWtd;
+        let qtyFtd = rentalQtyFtd;
+        let qtyWtd = rentalQtyWtd;
+
+        if (funnelView === "Consolidated") {
+          const getSalesDataForStaff = (salesItem) => {
+            if (!salesItem || !salesItem.byStaff) return {};
+
+            // 1. Direct empCode lookup if entry has empCodes
+            if (entry.empCodes && entry.empCodes.length > 0) {
+              for (const code of entry.empCodes) {
+                if (salesItem.byStaff[code]) {
+                  return salesItem.byStaff[code];
+                }
+              }
+            }
+
+            // 2. Matching by item.empCode or name
+            const foundKey = Object.keys(salesItem.byStaff).find(k => {
+              const item = salesItem.byStaff[k];
+              const itemCode = item?.empCode || normalizeEmpCode(k) || systemEmpNameToCodeMap.get(getCanonicalStaffName(k).toLowerCase()) || systemEmpNameToCodeMap.get(normalizeForMatch(k));
+              if (itemCode && entry.empCodes.includes(itemCode)) return true;
+              return isStaffNameMatch(k, entry.displayName) || entry.rentalNames.some(rn => isStaffNameMatch(k, rn)) || entry.siteNames.some(sn => isStaffNameMatch(k, sn));
+            });
+            return foundKey ? salesItem.byStaff[foundKey] : {};
+          };
+          const staffSalesFtd = getSalesDataForStaff(salesFtdItem);
+          const staffSalesPeriod = getSalesDataForStaff(salesPeriodItem);
+
+          valFtd += staffSalesFtd.value || 0;
+          valWtd += staffSalesPeriod.value || 0;
+          billFtd += staffSalesFtd.bills || 0;
+          billWtd += staffSalesPeriod.bills || 0;
+          qtyFtd += staffSalesFtd.qty || 0;
+          qtyWtd += staffSalesPeriod.qty || 0;
+        }
+
+        const createdValFtd = staffFtdList.reduce((sum, x) => sum + (x.created_Number_Of_Bill || 0), 0);
+        const createdValWtd = staffPeriodList.reduce((sum, x) => sum + (x.created_Number_Of_Bill || 0), 0);
+        const createdQtyFtd = staffFtdList.reduce((sum, x) => sum + (x.createdQuantity || 0), 0);
+        const createdQtyWtd = staffPeriodList.reduce((sum, x) => sum + (x.createdQuantity || 0), 0);
+
+        const walkFtd = ftdWalkins.length;
+        const walkWtd = periodWalkins.length;
+        const lossFtd = Math.max(0, walkFtd - billFtd);
+        const lossWtd = Math.max(0, walkWtd - billWtd);
+
+        return withDerivedMetrics({
+          name: entry.displayName, // RENTAL POS SOFTWARE NAME!
+          storeName,
+          billFtd,
+          billWtd,
+          valFtd,
+          valWtd,
+          qtyFtd,
+          qtyWtd,
+          createdValFtd,
+          createdValWtd,
+          createdQtyFtd,
+          createdQtyWtd,
+          walkFtd,
+          walkWtd,
+          lossFtd,
+          lossWtd
+        });
+      });
+    };
+
     // Real API Data calculations (no mock fallback!)
     if (isAdminOrSuperAdmin || isClusterAdmin) {
       if (selectedStore === "All") {
@@ -2389,182 +2816,19 @@ const DSRReport = () => {
         const locFtdList = performanceData.ftd[locId] || [];
         const locPeriodList = performanceData.period[locId] || [];
 
-        // Unique staff names
         const locCode = selectedBranch.locCode || getBranchLocCode(selectedBranch.workingBranch, branches);
         const salesFtdItem = salesData.ftd[locCode] || salesData.ftd[storeKeyVal] || { byStaff: {} };
         const salesPeriodItem = salesData.period[locCode] || salesData.period[storeKeyVal] || { byStaff: {} };
 
-        const canonicalizeName = (rawName) => {
-          if (!rawName) return "";
-          const strName = String(rawName);
-          if (strName.toLowerCase() === "unassigned") return "Unassigned";
-          const canon = getCanonicalStaffName(strName);
-          const match = locFtdList.find(n => n && (n.bookingBy === canon || isStaffNameMatch(n.bookingBy, strName))) ||
-                        locPeriodList.find(n => n && (n.bookingBy === canon || isStaffNameMatch(n.bookingBy, strName)));
-          return match ? match.bookingBy : canon;
-        };
-
-        const salesStaffNames = funnelView === "Consolidated"
-          ? Array.from(new Set([
-              ...Object.keys(salesFtdItem.byStaff || {}).map(canonicalizeName),
-              ...Object.keys(salesPeriodItem.byStaff || {}).map(canonicalizeName)
-            ])).filter(Boolean)
-          : [];
-
-        const walkinStaffNames = walkins
-          .filter(w => String(w.storeId || '') === String(selectedBranch._id || '') || locationKey(w.store) === storeKeyVal || normalizeForMatch(w.store) === normalizeForMatch(storeName))
-          .map(w => w.staff || w.staffName || (typeof w.createdBy === 'string' ? w.createdBy : w.createdBy?.name))
-          .filter(Boolean);
-
-        const rawStaffNames = [
-          ...locFtdList.map(x => x && x.bookingBy),
-          ...locPeriodList.map(x => x && x.bookingBy),
-          ...salesStaffNames,
-          ...walkinStaffNames
-        ].filter(name => typeof name === "string" && name.trim() !== "").map(getCanonicalStaffName);
-
-        const staffNames = [];
-        
-        const sortedStaffNames = Array.from(new Set(rawStaffNames)).sort((a, b) => {
-          const aUpper = /[A-Z]/.test(a);
-          const bUpper = /[A-Z]/.test(b);
-          if (aUpper && !bUpper) return -1;
-          if (!aUpper && bUpper) return 1;
-          return (b || "").length - (a || "").length;
-        });
-
-        sortedStaffNames.forEach(name => {
-          if (!name) return;
-          const canon = getCanonicalStaffName(name);
-          const existing = staffNames.find(existingName => isStaffNameMatch(existingName, canon));
-          if (!existing) {
-            staffNames.push(canon);
-          }
-        });
-
-        const hasUnassignedWalkins = walkins.some(w => {
-          const matchesStore = String(w.storeId || '') === String(selectedBranch._id || '') || 
-                               locationKey(w.store) === storeKeyVal ||
-                               normalizeForMatch(w.store) === normalizeForMatch(storeName);
-          if (!matchesStore) return false;
-          const wStaff = w.staff || w.staffName || (typeof w.createdBy === 'string' ? w.createdBy : w.createdBy?.name) || w.managerName || '';
-          return !wStaff || wStaff.toLowerCase() === "unassigned";
-        });
-
-        if (hasUnassignedWalkins && !staffNames.some(n => n.toLowerCase() === "unassigned")) {
-          staffNames.push("Unassigned");
-        }
-
-        return staffNames.map(staffName => {
-          const staffKey = normalizeForMatch(staffName);
-          
-          const staffFtdList = locFtdList.filter(x => x && (normalizeForMatch(x.bookingBy) === staffKey || isStaffNameMatch(x.bookingBy, staffName)));
-          const staffPeriodList = locPeriodList.filter(x => x && (normalizeForMatch(x.bookingBy) === staffKey || isStaffNameMatch(x.bookingBy, staffName)));
-
-          // Walk-ins filtered by staff name with normalized matching
-          let storePeriodStart = todayStr;
-          let storePeriodEnd = todayStr;
-          if (activeTab === "WTD") {
-            const wtdRange = getStoreWTDDateRange(storeName);
-            storePeriodStart = wtdRange.start;
-            storePeriodEnd = wtdRange.end;
-          } else if (activeTab === "MTD") {
-            const today = new Date();
-            storePeriodStart = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
-            storePeriodEnd = todayStr;
-          } else if (activeTab === "Custom") {
-            storePeriodStart = customStartDate || todayStr;
-            storePeriodEnd = customEndDate || todayStr;
-          }
-
-          const staffWalkins = walkins.filter(w => {
-            const matchesStore = String(w.storeId || '') === String(selectedBranch._id || '') || 
-                                 locationKey(w.store) === storeKeyVal ||
-                                 normalizeForMatch(w.store) === normalizeForMatch(storeName);
-            if (!matchesStore) return false;
-
-            const wStaff = w.staff || w.staffName || (typeof w.createdBy === 'string' ? w.createdBy : w.createdBy?.name) || w.managerName || '';
-            if (!wStaff) {
-              return staffKey === "unassigned" || staffName.toLowerCase() === "unassigned";
-            }
-            return isStaffNameMatch(wStaff, staffName);
-          });
-          const ftdWalkins = staffWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, todayStr, todayStr));
-          const periodWalkins = staffWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, storePeriodStart, storePeriodEnd));
-
-          const rentalValFtd = staffFtdList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
-          const rentalValWtd = staffPeriodList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
-          const rentalBillFtd = staffFtdList.reduce((sum, x) => sum + (x.total_Number_Of_Bill || 0), 0);
-          const rentalBillWtd = staffPeriodList.reduce((sum, x) => sum + (x.total_Number_Of_Bill || 0), 0);
-          const rentalQtyFtd = staffFtdList.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
-          const rentalQtyWtd = staffPeriodList.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
-
-          let valFtd = rentalValFtd;
-          let valWtd = rentalValWtd;
-          let billFtd = rentalBillFtd;
-          let billWtd = rentalBillWtd;
-          let qtyFtd = rentalQtyFtd;
-          let qtyWtd = rentalQtyWtd;
-
-          if (funnelView === "Consolidated") {
-            const getSalesDataForStaff = (salesItem) => {
-              if (!salesItem || !salesItem.byStaff) return {};
-              const canonName = getCanonicalStaffName(staffName);
-              const canonKey = normalizeForMatch(canonName);
-
-              if (salesItem.byStaff[staffName]) return salesItem.byStaff[staffName];
-              if (salesItem.byStaff[canonName]) return salesItem.byStaff[canonName];
-              if (salesItem.byStaff[staffKey]) return salesItem.byStaff[staffKey];
-              if (salesItem.byStaff[canonKey]) return salesItem.byStaff[canonKey];
-
-              const foundKey = Object.keys(salesItem.byStaff).find(k => 
-                normalizeForMatch(k) === staffKey ||
-                normalizeForMatch(k) === canonKey ||
-                isStaffNameMatch(k, staffName) ||
-                isStaffNameMatch(k, canonName)
-              );
-              if (foundKey) return salesItem.byStaff[foundKey];
-              return {};
-            };
-            const staffSalesFtd = getSalesDataForStaff(salesFtdItem);
-            const staffSalesPeriod = getSalesDataForStaff(salesPeriodItem);
-
-            valFtd += staffSalesFtd.value || 0;
-            valWtd += staffSalesPeriod.value || 0;
-            billFtd += staffSalesFtd.bills || 0;
-            billWtd += staffSalesPeriod.bills || 0;
-            qtyFtd += staffSalesFtd.qty || 0;
-            qtyWtd += staffSalesPeriod.qty || 0;
-          }
-
-          const createdValFtd = staffFtdList.reduce((sum, x) => sum + (x.created_Number_Of_Bill || 0), 0);
-          const createdValWtd = staffPeriodList.reduce((sum, x) => sum + (x.created_Number_Of_Bill || 0), 0);
-          const createdQtyFtd = staffFtdList.reduce((sum, x) => sum + (x.createdQuantity || 0), 0);
-          const createdQtyWtd = staffPeriodList.reduce((sum, x) => sum + (x.createdQuantity || 0), 0);
-
-          const walkFtd = ftdWalkins.length;
-          const walkWtd = periodWalkins.length;
-          const lossFtd = Math.max(0, walkFtd - billFtd);
-          const lossWtd = Math.max(0, walkWtd - billWtd);
-
-          return withDerivedMetrics({
-            name: staffName,
-            storeName,
-            billFtd,
-            billWtd,
-            valFtd,
-            valWtd,
-            qtyFtd,
-            qtyWtd,
-            createdValFtd,
-            createdValWtd,
-            createdQtyFtd,
-            createdQtyWtd,
-            walkFtd,
-            walkWtd,
-            lossFtd,
-            lossWtd
-          });
+        return buildStoreStaffRows({
+          storeName,
+          storeKeyVal,
+          locId,
+          selectedBranch,
+          locFtdList,
+          locPeriodList,
+          salesFtdItem,
+          salesPeriodItem
         });
       }
     } else {
@@ -2578,200 +2842,21 @@ const DSRReport = () => {
         const locFtdList = performanceData.ftd[locId] || [];
         const locPeriodList = performanceData.period[locId] || [];
 
-        // Dappr Squad data is now entered manually via dapprAttribution — no longer auto-merged here
-        const combinedFtdList = [...locFtdList];
-        const combinedPeriodList = [...locPeriodList];
-
         const locCode = b.locCode || getBranchLocCode(b.workingBranch, branches);
         const salesFtdItem = salesData.ftd[locCode] || salesData.ftd[storeKeyVal] || { byStaff: {} };
         const salesPeriodItem = salesData.period[locCode] || salesData.period[storeKeyVal] || { byStaff: {} };
 
-        const canonicalizeName = (rawName) => {
-          if (!rawName) return "";
-          const strName = String(rawName);
-          if (strName.toLowerCase() === "unassigned") return "Unassigned";
-          const canon = getCanonicalStaffName(strName);
-          const match = combinedFtdList.find(n => n && (n.bookingBy === canon || isStaffNameMatch(n.bookingBy, strName))) ||
-                        combinedPeriodList.find(n => n && (n.bookingBy === canon || isStaffNameMatch(n.bookingBy, strName)));
-          return match ? match.bookingBy : canon;
-        };
-
-        const salesStaffNames = funnelView === "Consolidated"
-          ? Array.from(new Set([
-              ...Object.keys(salesFtdItem.byStaff || {}).map(canonicalizeName),
-              ...Object.keys(salesPeriodItem.byStaff || {}).map(canonicalizeName)
-            ])).filter(Boolean)
-          : [];
-
-        const walkinStaffNames = walkins
-          .filter(w => String(w.storeId || '') === String(b._id || '') || locationKey(w.store) === storeKeyVal || normalizeForMatch(w.store) === normalizeForMatch(storeName))
-          .map(w => w.staff || w.staffName || (typeof w.createdBy === 'string' ? w.createdBy : w.createdBy?.name))
-          .filter(Boolean);
-
-        const rawStaffNames = [
-          ...combinedFtdList.map(x => x && x.bookingBy),
-          ...combinedPeriodList.map(x => x && x.bookingBy),
-          ...salesStaffNames,
-          ...walkinStaffNames,
-          ...(funnelView === "Consolidated" ? Object.keys(dapprAttribution) : [])
-        ].filter(name => typeof name === "string" && name.trim() !== "").map(getCanonicalStaffName);
-
-        const staffNames = [];
-        
-        const sortedStaffNames = Array.from(new Set(rawStaffNames)).sort((a, b) => {
-          const aUpper = /[A-Z]/.test(a);
-          const bUpper = /[A-Z]/.test(b);
-          if (aUpper && !bUpper) return -1;
-          if (!aUpper && bUpper) return 1;
-          return (b || "").length - (a || "").length;
+        const storeStaff = buildStoreStaffRows({
+          storeName,
+          storeKeyVal,
+          locId,
+          selectedBranch: b,
+          locFtdList,
+          locPeriodList,
+          salesFtdItem,
+          salesPeriodItem
         });
-
-        sortedStaffNames.forEach(name => {
-          if (!name) return;
-          const canon = getCanonicalStaffName(name);
-          const existing = staffNames.find(existingName => isStaffNameMatch(existingName, canon));
-          if (!existing) {
-            staffNames.push(canon);
-          }
-        });
-
-        const hasUnassignedWalkins = walkins.some(w => {
-          const matchesStore = String(w.storeId || '') === String(b._id || '') || 
-                               locationKey(w.store) === storeKeyVal ||
-                               normalizeForMatch(w.store) === normalizeForMatch(storeName);
-          if (!matchesStore) return false;
-          const wStaff = w.staff || w.staffName || (typeof w.createdBy === 'string' ? w.createdBy : w.createdBy?.name) || w.managerName || '';
-          return !wStaff || wStaff.toLowerCase() === "unassigned";
-        });
-
-        if (hasUnassignedWalkins && !staffNames.some(n => n.toLowerCase() === "unassigned")) {
-          staffNames.push("Unassigned");
-        }
-
-        staffNames.forEach(staffName => {
-          const staffKey = normalizeForMatch(staffName);
-          
-          const staffFtdList = combinedFtdList.filter(x => x && (normalizeForMatch(x.bookingBy) === staffKey || isStaffNameMatch(x.bookingBy, staffName)));
-          const staffPeriodList = combinedPeriodList.filter(x => x && (normalizeForMatch(x.bookingBy) === staffKey || isStaffNameMatch(x.bookingBy, staffName)));
-
-          // Walk-ins filtered by staff name
-          let storePeriodStart = todayStr;
-          let storePeriodEnd = todayStr;
-          if (activeTab === "WTD") {
-            const wtdRange = getStoreWTDDateRange(storeName);
-            storePeriodStart = wtdRange.start;
-            storePeriodEnd = wtdRange.end;
-          } else if (activeTab === "MTD") {
-            const today = new Date();
-            storePeriodStart = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
-            storePeriodEnd = todayStr;
-          } else if (activeTab === "Custom") {
-            storePeriodStart = customStartDate || todayStr;
-            storePeriodEnd = customEndDate || todayStr;
-          }
-
-          const staffWalkins = walkins.filter(w => {
-            const matchesStore = String(w.storeId || '') === String(b._id || '') || 
-                                 locationKey(w.store) === storeKeyVal ||
-                                 normalizeForMatch(w.store) === normalizeForMatch(storeName);
-            if (!matchesStore) return false;
-
-            const wStaff = w.staff || w.staffName || (typeof w.createdBy === 'string' ? w.createdBy : w.createdBy?.name) || w.managerName || '';
-            if (!wStaff) {
-              return staffKey === "unassigned" || staffName.toLowerCase() === "unassigned";
-            }
-            return isStaffNameMatch(wStaff, staffName);
-          });
-          const ftdWalkins = staffWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, todayStr, todayStr));
-          const periodWalkins = staffWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, storePeriodStart, storePeriodEnd));
-
-          const rentalValFtd = staffFtdList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
-          const rentalValWtd = staffPeriodList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
-          const rentalBillFtd = staffFtdList.reduce((sum, x) => sum + (x.total_Number_Of_Bill || 0), 0);
-          const rentalBillWtd = staffPeriodList.reduce((sum, x) => sum + (x.total_Number_Of_Bill || 0), 0);
-          const rentalQtyFtd = staffFtdList.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
-          const rentalQtyWtd = staffPeriodList.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
-
-          let valFtd = rentalValFtd;
-          let valWtd = rentalValWtd;
-          let billFtd = rentalBillFtd;
-          let billWtd = rentalBillWtd;
-          let qtyFtd = rentalQtyFtd;
-          let qtyWtd = rentalQtyWtd;
-
-           // Merge manual Dappr Squad attribution — ONLY in Consolidated view
-          if (funnelView === "Consolidated") {
-            const canonName = getCanonicalStaffName(staffName);
-            const matchedDapprKey = Object.keys(dapprAttribution).find(
-              k => k.trim().toLowerCase() === staffName.trim().toLowerCase() ||
-                   k.trim().toLowerCase() === canonName.trim().toLowerCase() ||
-                   isStaffNameMatch(k, staffName)
-            );
-            const dapprAttr = matchedDapprKey ? dapprAttribution[matchedDapprKey] : {};
-            valWtd  += Number(dapprAttr.billWtd)  || 0;
-            qtyWtd  += Number(dapprAttr.qtyWtd)  || 0;
-          }
-
-          if (funnelView === "Consolidated") {
-            const getSalesDataForStaff = (salesItem) => {
-              if (!salesItem || !salesItem.byStaff) return {};
-              const canonName = getCanonicalStaffName(staffName);
-              const canonKey = normalizeForMatch(canonName);
-
-              if (salesItem.byStaff[staffName]) return salesItem.byStaff[staffName];
-              if (salesItem.byStaff[canonName]) return salesItem.byStaff[canonName];
-              if (salesItem.byStaff[staffKey]) return salesItem.byStaff[staffKey];
-              if (salesItem.byStaff[canonKey]) return salesItem.byStaff[canonKey];
-
-              const foundKey = Object.keys(salesItem.byStaff).find(k => 
-                normalizeForMatch(k) === staffKey ||
-                normalizeForMatch(k) === canonKey ||
-                isStaffNameMatch(k, staffName) ||
-                isStaffNameMatch(k, canonName)
-              );
-              if (foundKey) return salesItem.byStaff[foundKey];
-              return {};
-            };
-            const staffSalesFtd = getSalesDataForStaff(salesFtdItem);
-            const staffSalesPeriod = getSalesDataForStaff(salesPeriodItem);
-
-            valFtd += staffSalesFtd.value || 0;
-            valWtd += staffSalesPeriod.value || 0;
-            billFtd += staffSalesFtd.bills || 0;
-            billWtd += staffSalesPeriod.bills || 0;
-            qtyFtd += staffSalesFtd.qty || 0;
-            qtyWtd += staffSalesPeriod.qty || 0;
-          }
-
-          const createdValFtd = staffFtdList.reduce((sum, x) => sum + (x.created_Number_Of_Bill || 0), 0);
-          const createdValWtd = staffPeriodList.reduce((sum, x) => sum + (x.created_Number_Of_Bill || 0), 0);
-          const createdQtyFtd = staffFtdList.reduce((sum, x) => sum + (x.createdQuantity || 0), 0);
-          const createdQtyWtd = staffPeriodList.reduce((sum, x) => sum + (x.createdQuantity || 0), 0);
-
-          const walkFtd = ftdWalkins.length;
-          const walkWtd = periodWalkins.length;
-          const lossFtd = Math.max(0, walkFtd - billFtd);
-          const lossWtd = Math.max(0, walkWtd - billWtd);
-
-          allRows.push(withDerivedMetrics({
-            name: staffName,
-            storeName,
-            billFtd,
-            billWtd,
-            valFtd,
-            valWtd,
-            qtyFtd,
-            qtyWtd,
-            createdValFtd,
-            createdValWtd,
-            createdQtyFtd,
-            createdQtyWtd,
-            walkFtd,
-            walkWtd,
-            lossFtd,
-            lossWtd
-          }));
-        });
+        allRows.push(...storeStaff);
       });
       return allRows;
     }
@@ -3001,7 +3086,7 @@ const DSRReport = () => {
       const squadStaffNames = Array.from(new Set([
         ...storeSquadFtd.map(x => x && x.bookingBy),
         ...storeSquadPeriod.map(x => x && x.bookingBy)
-      ])).filter(n => typeof n === "string" && n.trim() !== "");
+      ])).filter(n => typeof n === "string" && n.trim() !== "" && !isStoreAliasName(n));
 
       const canonicalizeName = (rawName) => {
         if (!rawName) return "";
@@ -3021,7 +3106,8 @@ const DSRReport = () => {
         ...rentalStaffNames,
         ...squadStaffNames,
         ...salesFtdStaffNames,
-        ...salesPeriodStaffNames
+        ...salesPeriodStaffNames,
+        ...Object.keys(dapprAttribution)
       ].filter(name => typeof name === "string" && name.trim() !== "").map(getCanonicalStaffName);
       
       const allStaffNames = [];
@@ -3066,12 +3152,25 @@ const DSRReport = () => {
         const rentalQtyFtd = staffFtdList.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
         const rentalQtyWtd = staffPeriodList.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
 
-        const squadValFtd = squadFtdListForStaff.reduce((sum, x) => sum + (x.totalValue || 0), 0);
-        const squadValWtd = squadPeriodListForStaff.reduce((sum, x) => sum + (x.totalValue || 0), 0);
-        const squadBillFtd = squadFtdListForStaff.reduce((sum, x) => sum + (x.total_Number_Of_Bill || 0), 0);
-        const squadBillWtd = squadPeriodListForStaff.reduce((sum, x) => sum + (x.total_Number_Of_Bill || 0), 0);
-        const squadQtyFtd = squadFtdListForStaff.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
-        const squadQtyWtd = squadPeriodListForStaff.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
+        let squadValFtd = squadFtdListForStaff.reduce((sum, x) => sum + (x.totalValue || 0), 0);
+        let squadValWtd = squadPeriodListForStaff.reduce((sum, x) => sum + (x.totalValue || 0), 0);
+        let squadBillFtd = squadFtdListForStaff.reduce((sum, x) => sum + (x.total_Number_Of_Bill || 0), 0);
+        let squadBillWtd = squadPeriodListForStaff.reduce((sum, x) => sum + (x.total_Number_Of_Bill || 0), 0);
+        let squadQtyFtd = squadFtdListForStaff.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
+        let squadQtyWtd = squadPeriodListForStaff.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
+
+        // Include manual Dappr Squad attributions for this staff member
+        const dapprKey = Object.keys(dapprAttribution).find(k => 
+          normalizeForMatch(getCanonicalStaffName(k)) === staffKey || 
+          normalizeForMatch(k) === staffKey || 
+          isStaffNameMatch(k, staffName)
+        );
+        if (dapprKey) {
+          const dAttr = dapprAttribution[dapprKey] || {};
+          squadValWtd += Number(dAttr.billWtd) || 0;
+          squadBillWtd += Number(dAttr.valWtd) || 0;
+          squadQtyWtd += Number(dAttr.qtyWtd) || 0;
+        }
 
         const getSalesDataForStaff = (salesItem) => {
           if (!salesItem || !salesItem.byStaff) return {};
@@ -3209,7 +3308,7 @@ const DSRReport = () => {
         salesValFtd, salesValWtd, salesBillFtd, salesBillWtd, salesQtyFtd, salesQtyWtd
       };
     }).filter(Boolean);
-  }, [branches, isStoreAdmin, performanceData, salesData]);
+  }, [branches, isStoreAdmin, performanceData, salesData, dapprAttribution]);
 
   const filteredCategoryRows = useMemo(() => {
     return categoryRows.filter((item) => {
@@ -4020,8 +4119,8 @@ const DSRReport = () => {
                 </thead>
                 <tbody className="text-xs text-gray-700 divide-y divide-gray-100">
                   {filteredFunnelRows.map((row, idx) => {
-                    const contributionFtd = denominatorFtd > 0 ? Math.round((row.billFtd / denominatorFtd) * 100) : 0;
-                    const contributionWtd = denominatorWtd > 0 ? Math.round((row.billWtd / denominatorWtd) * 100) : 0;
+                    const contributionFtd = (totalValFtd !== 0 && row.valFtd) ? Math.round((row.valFtd / totalValFtd) * 100) : 0;
+                    const contributionWtd = (totalValWtd !== 0 && row.valWtd) ? Math.round((row.valWtd / totalValWtd) * 100) : 0;
                     
                     return (
                       <tr key={idx} className="odd:bg-white even:bg-[#f9fafb] hover:bg-gray-50/50 transition-colors">
@@ -4094,9 +4193,9 @@ const DSRReport = () => {
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(totalConvFtd, true)}</td>
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(totalConvWtd, true)}</td>
 
-                    {/* Contribution — average of staff rows for store_admin; store share for admin */}
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(denominatorFtd > 0 ? (Math.round((totalBillFtd / denominatorFtd) * 100)) + "%" : "0%")}</td>
-                    <td className={`px-4 py-3.5 ${isStoreAdmin ? "" : "border-r border-blue-200/50"}`}>{renderCellVal(denominatorWtd > 0 ? (Math.round((totalBillWtd / denominatorWtd) * 100)) + "%" : "0%")}</td>
+                    {/* Contribution */}
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(totalValFtd !== 0 ? "100%" : "0%")}</td>
+                    <td className={`px-4 py-3.5 ${isStoreAdmin ? "" : "border-r border-blue-200/50"}`}>{renderCellVal(totalValWtd !== 0 ? "100%" : "0%")}</td>
 
                     {!isStoreAdmin && (
                       <>

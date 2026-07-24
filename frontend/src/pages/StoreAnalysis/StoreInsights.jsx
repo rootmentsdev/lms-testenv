@@ -1833,6 +1833,11 @@ const StoreInsights = () => {
       const match = (salespersons || []).find(sp => {
         const spName = sp.salesperson;
         const spCanon = getCanonicalStaffName(spName);
+        const spCode = normalizeEmpCode(sp.empId || sp.employeeId || "");
+        const targetCode = normalizeEmpCode(staffName);
+
+        if (spCode && targetCode && spCode === targetCode) return true;
+
         return normalizeForMatch(spName) === staffKey ||
                normalizeForMatch(spName) === canonKey ||
                normalizeForMatch(spCanon) === staffKey ||
