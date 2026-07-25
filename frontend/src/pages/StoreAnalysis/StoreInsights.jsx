@@ -1095,7 +1095,7 @@ const StoreInsights = () => {
 
   useEffect(() => {
     const fetchAttributions = async () => {
-      const activeStore = isStoreAdmin && branches[0] ? displayBranchName(branches[0].workingBranch) : (storeFilter !== "All" ? storeFilter : (branches[0] ? displayBranchName(branches[0].workingBranch) : ""));
+      const activeStore = isStoreAdmin && branches[0] ? displayBranchName(branches[0].workingBranch) : (storeFilter !== "All" ? storeFilter : "All");
       if (!activeStore) return;
       try {
         const token = localStorage.getItem("token");
@@ -1103,35 +1103,102 @@ const StoreInsights = () => {
         const targetYear = timeframe === "CUSTOM" ? (customStartDate ? new Date(customStartDate).getFullYear() : CURRENT_YEAR) : CURRENT_YEAR;
         const currentWeek = getCurrentWeekId(activeStore, targetMonth) || 1;
 
-        // Fetch Dappr attributions
-        const dapprRes = await fetch(`${baseUrl.baseUrl}api/dappr-attributions?storeName=${encodeURIComponent(activeStore)}&month=${targetMonth}&year=${targetYear}&week=${currentWeek}`, {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        const dapprJson = await dapprRes.json();
-        if (dapprJson.success && dapprJson.data && dapprJson.data.attributions) {
-          const mapped = {};
-          dapprJson.data.attributions.forEach(attr => {
-            mapped[attr.staffName] = { billWtd: attr.billWtd, valWtd: attr.valWtd, qtyWtd: attr.qtyWtd };
+        // Fetch Dappr attributions for all stores when viewing "All"
+        const fetchDapprStoreWeek = async (storeName, weekId) => {
+          const dapprRes = await fetch(`${baseUrl.baseUrl}api/dappr-attributions?storeName=${encodeURIComponent(storeName)}&month=${targetMonth}&year=${targetYear}&week=${weekId}`, {
+            headers: { "Authorization": `Bearer ${token}` }
           });
-          setDapprAttribution(mapped);
-        } else {
-          setDapprAttribution({});
-        }
+          const dapprJson = await dapprRes.json();
+          if (!dapprJson.success || !dapprJson.data || !Array.isArray(dapprJson.data.attributions)) return [];
+          return dapprJson.data.attributions.map(attr => ({
+            ...attr,
+            storeName: attr.storeName || storeName
+          }));
+        };
 
-        // Fetch Customization attributions
-        const custRes = await fetch(`${baseUrl.baseUrl}api/customization-attributions?storeName=${encodeURIComponent(activeStore)}&month=${targetMonth}&year=${targetYear}&week=${currentWeek}`, {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        const custJson = await custRes.json();
-        if (custJson.success && custJson.data && custJson.data.attributions) {
-          const mapped = {};
-          custJson.data.attributions.forEach(attr => {
-            mapped[attr.staffName] = { billWtd: attr.billWtd, valWtd: attr.valWtd, qtyWtd: attr.qtyWtd };
+        const mappedDappr = {};
+        if (isStoreAdmin || storeFilter !== "All") {
+          const attributions = await fetchDapprStoreWeek(activeStore, currentWeek);
+          attributions.forEach(attr => {
+            mappedDappr[attr.staffName] = {
+              staffName: attr.staffName,
+              storeName: attr.storeName,
+              billWtd: attr.billWtd,
+              valWtd: attr.valWtd,
+              qtyWtd: attr.qtyWtd
+            };
           });
-          setCustomizationAttribution(mapped);
         } else {
-          setCustomizationAttribution({});
+          const storeNames = branches
+            .map(branch => displayBranchName(branch.workingBranch))
+            .filter(storeName => storeName && normalizeForMatch(storeName) !== "dapprsquad");
+          const requests = [];
+          storeNames.forEach(storeName => {
+            [1, 2, 3, 4].forEach(weekId => {
+              requests.push(fetchDapprStoreWeek(storeName, weekId));
+            });
+          });
+          const results = await Promise.all(requests);
+          results.flat().forEach(attr => {
+            const key = `${attr.storeName}::${attr.staffName}`;
+            const existing = mappedDappr[key] || { staffName: attr.staffName, storeName: attr.storeName, billWtd: 0, valWtd: 0, qtyWtd: 0 };
+            mappedDappr[key] = {
+              ...existing,
+              billWtd: existing.billWtd + (Number(attr.billWtd) || 0),
+              valWtd: existing.valWtd + (Number(attr.valWtd) || 0),
+              qtyWtd: existing.qtyWtd + (Number(attr.qtyWtd) || 0)
+            };
+          });
         }
+        setDapprAttribution(mappedDappr);
+
+        const fetchCustomizationStoreWeek = async (storeName, weekId) => {
+          const custRes = await fetch(`${baseUrl.baseUrl}api/customization-attributions?storeName=${encodeURIComponent(storeName)}&month=${targetMonth}&year=${targetYear}&week=${weekId}`, {
+            headers: { "Authorization": `Bearer ${token}` }
+          });
+          const custJson = await custRes.json();
+          if (!custJson.success || !custJson.data || !Array.isArray(custJson.data.attributions)) return [];
+          return custJson.data.attributions.map(attr => ({
+            ...attr,
+            storeName: attr.storeName || storeName
+          }));
+        };
+
+        const mappedCustomization = {};
+        if (isStoreAdmin || storeFilter !== "All") {
+          const attributions = await fetchCustomizationStoreWeek(activeStore, currentWeek);
+          attributions.forEach(attr => {
+            mappedCustomization[attr.staffName] = {
+              staffName: attr.staffName,
+              storeName: attr.storeName,
+              billWtd: attr.billWtd,
+              valWtd: attr.valWtd,
+              qtyWtd: attr.qtyWtd
+            };
+          });
+        } else {
+          const storeNames = branches
+            .map(branch => displayBranchName(branch.workingBranch))
+            .filter(storeName => storeName && normalizeForMatch(storeName) !== "dapprsquad");
+          const requests = [];
+          storeNames.forEach(storeName => {
+            [1, 2, 3, 4].forEach(weekId => {
+              requests.push(fetchCustomizationStoreWeek(storeName, weekId));
+            });
+          });
+          const results = await Promise.all(requests);
+          results.flat().forEach(attr => {
+            const key = `${attr.storeName}::${attr.staffName}`;
+            const existing = mappedCustomization[key] || { staffName: attr.staffName, storeName: attr.storeName, billWtd: 0, valWtd: 0, qtyWtd: 0 };
+            mappedCustomization[key] = {
+              ...existing,
+              billWtd: existing.billWtd + (Number(attr.billWtd) || 0),
+              valWtd: existing.valWtd + (Number(attr.valWtd) || 0),
+              qtyWtd: existing.qtyWtd + (Number(attr.qtyWtd) || 0)
+            };
+          });
+        }
+        setCustomizationAttribution(mappedCustomization);
       } catch (err) {
         console.error("Error fetching attributions in StoreInsights:", err);
       }
@@ -1139,6 +1206,17 @@ const StoreInsights = () => {
 
     fetchAttributions();
   }, [branches, isStoreAdmin, storeFilter, timeframe, customStartDate]);
+
+  const getStoreAttributionTotal = (attributionMap, storeName, workingBranch) => {
+    const storeKeys = [storeName, workingBranch].map(normalizeForMatch).filter(Boolean);
+    return Object.values(attributionMap || {}).reduce((sum, attr) => {
+      const attrStore = attr && attr.storeName;
+      if (!attrStore) {
+        return storeFilter !== "All" || isStoreAdmin ? sum + (Number(attr.billWtd) || 0) : sum;
+      }
+      return storeKeys.includes(normalizeForMatch(attrStore)) ? sum + (Number(attr.billWtd) || 0) : sum;
+    }, 0);
+  };
 
   const getCustomRangeTarget = (storeName, startDateStr, endDateStr, targetMonthName, overrideTargetObj = null) => {
     if (!startDateStr || !endDateStr) return 0;
@@ -1806,6 +1884,20 @@ const StoreInsights = () => {
           shirtBills: lyTotalShirtBills,
           byBranch: lyByBranch
         });
+        console.log('[StoreInsights] Last Year Sales Data loaded:', {
+          totalBills: lyTotalShoeBills + lyTotalShirtBills,
+          storesCount: Object.keys(lyByBranch).length,
+          lyPeriodStart,
+          lyPeriodEnd,
+          lyTotalShoeBills,
+          lyTotalShirtBills,
+          sample: Object.entries(lyByBranch).slice(0, 3).map(([key, val]) => ({
+            locCode: key,
+            totalBills: val.totalBills,
+            shoeBills: val.shoeBills,
+            shirtBills: val.shirtBills
+          }))
+        });
       } catch (err) {
         console.error("Error fetching sales data in StoreInsights:", err);
       } finally {
@@ -1860,7 +1952,7 @@ const StoreInsights = () => {
 
       const locPeriodList = performanceData[locId] || [];
       const dapprPeriodList = isConsolidated ? (performanceData["25"] || []) : [];
-      const dapprPeriodForStore = [];
+      const dapprPeriodForStore = isConsolidated ? getDapprSquadDataForStore(locId, dapprPeriodList) : [];
       const isGMGRoad = locId === "23";
       const unmappedDapprPeriodList = (isGMGRoad && isConsolidated)
         ? dapprPeriodList.filter(item => {
@@ -1880,14 +1972,20 @@ const StoreInsights = () => {
         const branchSales = (locCode && salesData.byBranch?.[locCode]) || {};
         const salesTotalValue = branchSales.totalValue || 0;
 
-        let custTotalValue = 0;
         let dapprTotalValue = 0;
-        if (isStoreAdmin || storeFilter === name) {
-          custTotalValue = Object.values(customizationAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
+        if (isStoreAdmin || storeFilter !== "All") {
           dapprTotalValue = Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
+        } else {
+          // Sum Dappr attribution for this specific store
+          const storeKeys = [name, b.workingBranch].map(normalizeForMatch).filter(Boolean);
+          dapprTotalValue = Object.values(dapprAttribution || {}).reduce((sum, attr) => {
+            const attrStore = attr && attr.storeName;
+            if (!attrStore) return sum;
+            return storeKeys.includes(normalizeForMatch(attrStore)) ? sum + (Number(attr.billWtd) || 0) : sum;
+          }, 0);
         }
 
-        achieved = rentalValue + salesTotalValue + custTotalValue + dapprTotalValue;
+        achieved = rentalValue + salesTotalValue + dapprTotalValue;
       }
 
       const balance = target - achieved;
@@ -1986,7 +2084,7 @@ const StoreInsights = () => {
 
     // If consolidated, also include Dappr Squad data for this location
     const dapprPeriodList = isConsolidated ? (performanceData["25"] || []) : [];
-    const dapprPeriodForStore = [];
+    const dapprPeriodForStore = isConsolidated ? getDapprSquadDataForStore(locId, dapprPeriodList) : [];
     const isGMGRoad = locId === "23";
     const unmappedDapprPeriodList = (isGMGRoad && isConsolidated)
       ? dapprPeriodList.filter(item => {
@@ -2156,10 +2254,21 @@ const StoreInsights = () => {
     let shoeQty = 0, shirtQty = 0;
     let shoeBills = 0, shirtBills = 0;
 
+    let lyShoeValue = 0, lyShirtValue = 0;
+    let lyShoeQty = 0, lyShirtQty = 0;
+    let lyShoeBills = 0, lyShirtBills = 0;
+
     let customerWalkins = 0;
     let lyCustomerWalkins = 0;
     let convertedWalkinsCount = 0;
     let lyConvertedWalkinsCount = 0;
+
+    console.log('[StoreInsights KPI] Sales data check:', {
+      salesDataKeys: Object.keys(salesData.byBranch || {}),
+      lySalesDataKeys: Object.keys(lySalesData.byBranch || {}),
+      filteredStoresCount: filteredStoresForKPIs.length,
+      lySalesDataSample: lySalesData.byBranch ? Object.entries(lySalesData.byBranch).slice(0, 2) : 'empty'
+    });
 
     filteredStoresForKPIs.forEach(c => {
       const name = c.name;
@@ -2169,7 +2278,7 @@ const StoreInsights = () => {
       // 1. Current Rental
       const locPeriodList = performanceData[locId] || [];
       const dapprPeriodList = isConsolidated ? (performanceData["25"] || []) : [];
-      const dapprPeriodForStore = [];
+      const dapprPeriodForStore = isConsolidated ? getDapprSquadDataForStore(locId, dapprPeriodList) : [];
       const isGMGRoad = locId === "23";
       const unmappedDapprPeriodList = (isGMGRoad && isConsolidated)
         ? dapprPeriodList.filter(item => {
@@ -2217,17 +2326,31 @@ const StoreInsights = () => {
         shirtBills += 0;
       }
 
+      // 3b. Last Year Shoe & Shirt Sales
+      if (locCode && lySalesData.byBranch?.[locCode]) {
+        const lyBranchSales = lySalesData.byBranch[locCode];
+        console.log(`[StoreInsights KPI] LY Sales for ${name} (locCode: ${locCode}):`, lyBranchSales);
+        lyShoeValue += lyBranchSales.totalValue || 0;
+        lyShirtValue += 0; // shirt already included in totalValue
+        lyShoeQty += lyBranchSales.totalQty || 0;
+        lyShirtQty += 0;
+        lyShoeBills += lyBranchSales.totalBills || 0;
+        lyShirtBills += 0;
+      } else {
+        console.log(`[StoreInsights KPI] No LY Sales data for ${name} (locCode: ${locCode})`);
+      }
+
       // 4. Walkins
       const storeKeyVal = normalizeForMatch(name);
       const storeWalkins = walkins.filter(w => 
-        (w.storeId === bObj?._id || w.store === bObj?.workingBranch) && 
+        (w.storeId === bObj?._id || w.store === bObj?.workingBranch || (w.store && normalizeForMatch(w.store) === storeKeyVal)) && 
         isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd)
       );
       customerWalkins += storeWalkins.length;
       convertedWalkinsCount += storeWalkins.filter(w => w.status?.toLowerCase() === "booked").length;
 
       const lyStoreWalkins = lyWalkins.filter(w => 
-        (w.storeId === bObj?._id || w.store === bObj?.workingBranch) && 
+        (w.storeId === bObj?._id || w.store === bObj?.workingBranch || (w.store && normalizeForMatch(w.store) === storeKeyVal)) && 
         isWalkinCreatedInRange(w.createdAt, lyPeriodStart, lyPeriodEnd)
       );
       lyCustomerWalkins += lyStoreWalkins.length;
@@ -2244,15 +2367,15 @@ const StoreInsights = () => {
     let lyDapprSquadValue = 0;
     let lyDapprSquadQty = 0;
 
-    const squadPeriodList = isConsolidated ? (performanceData["25"] || []) : [];
-    const lySquadPeriodList = isConsolidated ? (lyPerformanceData["25"] || []) : [];
+    const squadPeriodList = performanceData["25"] || [];
+    const lySquadPeriodList = lyPerformanceData["25"] || [];
 
     filteredStoresForKPIs.forEach(c => {
       const name = c.name;
       const locId = getBranchLocationId(name);
       if (!locId || locId === "25") return;
 
-      const dapprPeriodForStore = [];
+      const dapprPeriodForStore = getDapprSquadDataForStore(locId, squadPeriodList);
       const isGMGRoad = locId === "23";
       const unmappedDapprPeriodList = isGMGRoad
         ? squadPeriodList.filter(item => {
@@ -2285,8 +2408,8 @@ const StoreInsights = () => {
       lyDapprSquadQty += lyMergedList.reduce((sum, item) => sum + (item.totalQuantity || item.total_Number_Of_Bill || 0), 0);
     });
 
-    // Database-wide Walkins override for consolidated cluster filter "All"
-    if (clusterFilter === "All" && !isStoreAdmin) {
+    // Database-wide Walkins override ONLY when both cluster and store filters are "All"
+    if (clusterFilter === "All" && storeFilter === "All" && !isStoreAdmin) {
       customerWalkins = walkins.filter(w => isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd)).length;
       lyCustomerWalkins = lyWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, lyPeriodStart, lyPeriodEnd)).length;
       convertedWalkinsCount = walkins.filter(w => 
@@ -2362,15 +2485,47 @@ const StoreInsights = () => {
     if (isConsolidated) {
       let custVal = 0, custBills = 0, custQty = 0;
       Object.values(customizationAttribution).forEach(v => {
-        custVal += Number(v.billWtd) || 0;
-        custBills += Number(v.valWtd) || 0;
+        custVal += Number(v.valWtd) || 0;
+        custBills += Number(v.billWtd) || 0;
         custQty += Number(v.qtyWtd) || 0;
       });
       Object.values(dapprAttribution).forEach(v => {
-        custVal += Number(v.billWtd) || 0;
-        custBills += Number(v.valWtd) || 0;
+        custVal += Number(v.valWtd) || 0;
+        custBills += Number(v.billWtd) || 0;
         custQty += Number(v.qtyWtd) || 0;
       });
+
+      // Last Year Customization Attribution (not available, set to 0 for now)
+      // TODO: Fetch last year attribution data if needed for accurate comparison
+      const lyCustVal = 0;
+      const lyCustBills = 0;
+      const lyCustQty = 0;
+
+      // Debug logging for bills calculation
+      console.log('[StoreInsights KPI] Bills breakdown - TY:', {
+        rentalBills,
+        shoeBills,
+        shirtBills,
+        custBills,
+        total: rentalBills + shoeBills + shirtBills + custBills
+      });
+      console.log('[StoreInsights KPI] Bills breakdown - LY:', {
+        lyRentalBills,
+        lyShoeBills,
+        lyShirtBills,
+        lyCustBills,
+        total: lyRentalBills + lyShoeBills + lyShirtBills + lyCustBills
+      });
+      
+      // Temporary alert for debugging
+      if (lyRentalBills > 0 && lyShoeBills === 0) {
+        console.warn('[StoreInsights KPI] WARNING: Last year has rental bills but NO sales bills!', {
+          lyRentalBills,
+          lyShoeBills,
+          'lySalesData.byBranch keys': Object.keys(lySalesData.byBranch || {}),
+          'filteredStoresForKPIs count': filteredStoresForKPIs.length
+        });
+      }
 
       const consolidatedValue = ((isStoreAdmin || storeFilter !== "All") && employeeChartData.length > 0)
         ? employeeChartData.reduce((sum, emp) => sum + emp.achieved, 0)
@@ -2378,9 +2533,9 @@ const StoreInsights = () => {
       const consolidatedBills = rentalBills + shoeBills + shirtBills + custBills;
       const consolidatedTotalQty = rentalQty + shoeQty + shirtQty + custQty;
 
-      const lyConsolidatedValue = lyRentalValue;
-      const lyConsolidatedBills = lyRentalBills;
-      const lyConsolidatedQty = lyRentalQty;
+      const lyConsolidatedValue = lyRentalValue + lyShoeValue + lyShirtValue + lyCustVal;
+      const lyConsolidatedBills = lyRentalBills + lyShoeBills + lyShirtBills + lyCustBills;
+      const lyConsolidatedQty = lyRentalQty + lyShoeQty + lyShirtQty + lyCustQty;
 
       const trueAchievedPct = totalTarget > 0 ? Math.round((consolidatedValue / totalTarget) * 100) : 0;
 
@@ -2662,7 +2817,6 @@ const StoreInsights = () => {
         const branchSales = salesData.byBranch?.[locCode] || {};
         storeTotalValue += branchSales.totalValue || 0;
         storeTotalValue += Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
-        storeTotalValue += Object.values(customizationAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
       }
 
       if (staffNames.length === 0) {
@@ -2767,7 +2921,7 @@ const StoreInsights = () => {
 
         const locPeriodList = performanceData[locId] || [];
         const dapprPeriodList = isConsolidated ? (performanceData["25"] || []) : [];
-        const dapprPeriodForStore = [];
+        const dapprPeriodForStore = isConsolidated ? getDapprSquadDataForStore(locId, dapprPeriodList) : [];
         const isGMGRoad = locId === "23";
         const unmappedDapprPeriodList = (isGMGRoad && isConsolidated)
           ? dapprPeriodList.filter(item => {
@@ -2804,7 +2958,7 @@ const StoreInsights = () => {
         const bObj = branches.find(br => normalizeForMatch(br.workingBranch) === normalizeForMatch(name));
         const storeKeyVal = normalizeForMatch(name);
         const storeWalkins = walkins.filter(w => 
-          (w.storeId === bObj?._id || w.store === bObj?.workingBranch) && 
+          (w.storeId === bObj?._id || w.store === bObj?.workingBranch || (w.store && normalizeForMatch(w.store) === storeKeyVal)) && 
           isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd)
         ).length;
         const conversion = storeWalkins > 0 ? Math.round((bills / storeWalkins) * 100) : 0;
@@ -2858,7 +3012,7 @@ const StoreInsights = () => {
 
         const storeKeyVal = normalizeForMatch(name);
         const storeWalkins = walkins.filter(w => 
-          (w.storeId === b?._id || w.store === b?.workingBranch) && 
+          (w.storeId === b?._id || w.store === b?.workingBranch || (w.store && normalizeForMatch(w.store) === storeKeyVal)) && 
           isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd)
         ).length;
         const conversion = storeWalkins > 0 ? Math.round((bills / storeWalkins) * 100) : 0;

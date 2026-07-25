@@ -1546,12 +1546,13 @@ const DSRReport = () => {
 
   const fetchDapprAttribution = async () => {
     const targetStore = (isStoreAdmin && branches.length > 0) ? displayBranchName(branches[0].workingBranch) : selectedStore;
-    if (!targetStore || targetStore === "All") return;
+    if (!targetStore) return;
     try {
       const token = localStorage.getItem("token");
       const targetMonth = activeTab === "Custom" ? getMonthNameFromDateStr(customStartDate) : CURRENT_MONTH_LONG;
       const targetYear = activeTab === "Custom" ? getYearFromDateStr(customStartDate) : CURRENT_YEAR;
-      const currentWeek = getCurrentWeekId(targetStore) || 1;
+      const sampleStore = targetStore === "All" ? (branches[0] ? displayBranchName(branches[0].workingBranch) : "All") : targetStore;
+      const currentWeek = getCurrentWeekId(sampleStore) || 1;
 
       const res = await fetch(`${baseUrl.baseUrl}api/dappr-attributions?storeName=${encodeURIComponent(targetStore)}&month=${targetMonth}&year=${targetYear}&week=${currentWeek}`, {
         headers: {
@@ -1562,7 +1563,10 @@ const DSRReport = () => {
       if (json.success && json.data && json.data.attributions && json.data.attributions.length > 0) {
         const mapped = {};
         json.data.attributions.forEach(attr => {
-          mapped[attr.staffName] = {
+          const key = attr.storeName && targetStore === "All" ? `${attr.storeName}::${attr.staffName}` : attr.staffName;
+          mapped[key] = {
+            staffName: attr.staffName,
+            storeName: attr.storeName,
             billWtd: attr.billWtd,
             valWtd: attr.valWtd,
             qtyWtd: attr.qtyWtd
@@ -1580,32 +1584,68 @@ const DSRReport = () => {
 
   const fetchCustomizationAttribution = async () => {
     const targetStore = (isStoreAdmin && branches.length > 0) ? displayBranchName(branches[0].workingBranch) : selectedStore;
-    if (!targetStore || targetStore === "All") return;
+    if (!targetStore) return;
     try {
       const token = localStorage.getItem("token");
       const targetMonth = activeTab === "Custom" ? getMonthNameFromDateStr(customStartDate) : CURRENT_MONTH_LONG;
       const targetYear = activeTab === "Custom" ? getYearFromDateStr(customStartDate) : CURRENT_YEAR;
-      const currentWeek = getCurrentWeekId(targetStore) || 1;
+      const sampleStore = targetStore === "All" ? (branches[0] ? displayBranchName(branches[0].workingBranch) : "All") : targetStore;
+      const currentWeek = getCurrentWeekId(sampleStore) || 1;
 
-      const res = await fetch(`${baseUrl.baseUrl}api/customization-attributions?storeName=${encodeURIComponent(targetStore)}&month=${targetMonth}&year=${targetYear}&week=${currentWeek}`, {
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
-      const json = await res.json();
-      if (json.success && json.data && json.data.attributions && json.data.attributions.length > 0) {
-        const mapped = {};
-        json.data.attributions.forEach(attr => {
+      const fetchStoreWeek = async (storeName, weekId) => {
+        const res = await fetch(`${baseUrl.baseUrl}api/customization-attributions?storeName=${encodeURIComponent(storeName)}&month=${targetMonth}&year=${targetYear}&week=${weekId}`, {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        const json = await res.json();
+        if (!json.success || !json.data || !Array.isArray(json.data.attributions)) return [];
+        return json.data.attributions.map(attr => ({
+          ...attr,
+          storeName: attr.storeName || storeName
+        }));
+      };
+
+      const mapped = {};
+      if (isStoreAdmin) {
+        const attributions = await fetchStoreWeek(targetStore, currentWeek);
+        attributions.forEach(attr => {
           mapped[attr.staffName] = {
+            staffName: attr.staffName,
+            storeName: attr.storeName,
             billWtd: attr.billWtd,
             valWtd: attr.valWtd,
             qtyWtd: attr.qtyWtd
           };
         });
-        setCustomizationAttribution(mapped);
       } else {
-        setCustomizationAttribution({});
+        const storeNames = targetStore === "All"
+          ? branches
+              .map(branch => displayBranchName(branch.workingBranch))
+              .filter(storeName => storeName && normalizeForMatch(storeName) !== "dapprsquad")
+          : [targetStore];
+
+        const requests = [];
+        storeNames.forEach(storeName => {
+          [1, 2, 3, 4].forEach(weekId => {
+            requests.push(fetchStoreWeek(storeName, weekId));
+          });
+        });
+
+        const results = await Promise.all(requests);
+        results.flat().forEach(attr => {
+          const key = `${attr.storeName}::${attr.staffName}`;
+          const existing = mapped[key] || { staffName: attr.staffName, storeName: attr.storeName, billWtd: 0, valWtd: 0, qtyWtd: 0 };
+          mapped[key] = {
+            ...existing,
+            billWtd: existing.billWtd + (Number(attr.billWtd) || 0),
+            valWtd: existing.valWtd + (Number(attr.valWtd) || 0),
+            qtyWtd: existing.qtyWtd + (Number(attr.qtyWtd) || 0)
+          };
+        });
       }
+
+      setCustomizationAttribution(mapped);
     } catch (err) {
       console.error("Error loading Customization attributions:", err);
       setCustomizationAttribution({});
@@ -2849,6 +2889,7 @@ const DSRReport = () => {
             billWtd += salesPeriodItem.bills || 0;
             qtyFtd += salesFtdItem.qty || 0;
             qtyWtd += salesPeriodItem.qty || 0;
+
           }
 
           const createdValFtd = mergedFtdList.reduce((sum, item) => sum + (item.created_Number_Of_Bill || 0), 0);
@@ -3410,11 +3451,23 @@ const DSRReport = () => {
       const salesQtyFtd = salesFtdItem.qty || 0;
       const salesQtyWtd = salesPeriodItem.qty || 0;
 
+      const storeCustomizationItems = Object.values(customizationAttribution).filter(attr => {
+        const attrStore = attr && attr.storeName;
+        return attrStore && (
+          normalizeForMatch(attrStore) === normalizeForMatch(name) ||
+          normalizeForMatch(attrStore) === normalizeForMatch(workingBranch)
+        );
+      });
+
+      const customValWtd = storeCustomizationItems.reduce((sum, attr) => sum + (Number(attr.billWtd) || 0), 0);
+      const customBillWtd = storeCustomizationItems.reduce((sum, attr) => sum + (Number(attr.valWtd) || 0), 0);
+      const customQtyWtd = storeCustomizationItems.reduce((sum, attr) => sum + (Number(attr.qtyWtd) || 0), 0);
+
       return {
         name,
         rentalValFtd, rentalValWtd, rentalBillFtd, rentalBillWtd, rentalQtyFtd, rentalQtyWtd,
         squadValFtd, squadValWtd, squadBillFtd, squadBillWtd, squadQtyFtd, squadQtyWtd,
-        customValFtd: 0, customValWtd: 0, customBillFtd: 0, customBillWtd: 0, customQtyFtd: 0, customQtyWtd: 0,
+        customValFtd: 0, customValWtd, customBillFtd: 0, customBillWtd, customQtyFtd: 0, customQtyWtd,
         salesValFtd, salesValWtd, salesBillFtd, salesBillWtd, salesQtyFtd, salesQtyWtd
       };
     }).filter(Boolean);
@@ -4058,6 +4111,24 @@ const DSRReport = () => {
               <div className="p-6">
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Achieved Target</span>
                 <h3 className="text-[22px] font-extrabold text-[#212121] mt-1">₹{formatIndianNumber(overallAchieved)}</h3>
+                {funnelView === "Consolidated" && (
+                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                    <span className="text-[10px] text-gray-500 font-medium">
+                      <span className="text-gray-400">Rental:</span> <span className="text-gray-700 font-semibold">₹{formatIndianNumber(totalRentalValWtd)}</span>
+                    </span>
+                    <span className="text-[10px] text-gray-500 font-medium">
+                      <span className="text-gray-400">Dappr:</span> <span className="text-gray-700 font-semibold">₹{formatIndianNumber(totalSquadValWtd)}</span>
+                    </span>
+                    {totalCustomValWtd > 0 && (
+                      <span className="text-[10px] text-gray-500 font-medium">
+                        <span className="text-gray-400">Custom:</span> <span className="text-gray-700 font-semibold">₹{formatIndianNumber(totalCustomValWtd)}</span>
+                      </span>
+                    )}
+                    <span className="text-[10px] text-gray-500 font-medium">
+                      <span className="text-gray-400">Sales:</span> <span className="text-gray-700 font-semibold">₹{formatIndianNumber(totalSalesValWtd)}</span>
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="p-6">
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Balance</span>
