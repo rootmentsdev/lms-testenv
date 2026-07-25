@@ -120,6 +120,41 @@ function getBranchLocationId(workingBranch) {
   return null;
 }
 
+const STORE_TO_LOC_CODE = {
+  "zedapally1": "144",
+  "zedappally1": "144",
+  "gedappally": "702",
+  "sgedappally": "702",
+  "gtrivandrum": "700",
+  "zedappal": "100",
+  "zperinthalmanna": "133",
+  "zkottakkal": "122",
+  "gkottayam": "701",
+  "gperumbavoor": "703",
+  "gthrissur": "704",
+  "gchavakkad": "706",
+  "gcalicut": "712",
+  "gvadakara": "708",
+  "gedappal": "707",
+  "gperinthalmanna": "709",
+  "gkottakkal": "711",
+  "gmanjeri": "710",
+  "gpalakkad": "705",
+  "gkalpetta": "717",
+  "gkannur": "716",
+  "gmgroad": "718"
+};
+
+function getBranchLocCode(workingBranch, branchesList) {
+  if (!workingBranch) return null;
+  const found = (branchesList || []).find(
+    (b) => String(b.workingBranch).trim().toLowerCase() === String(workingBranch).trim().toLowerCase()
+  );
+  if (found && found.locCode) return found.locCode;
+  const normalized = String(workingBranch).trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+  return STORE_TO_LOC_CODE[normalized] || null;
+}
+
 // Maps Dappr Squad (loc 25) bookingBy names → the target store locId they belong to
 const DAPPR_SQUAD_STORE_MAPPING = {
   // G-Edappally (loc 3)
@@ -660,6 +695,10 @@ const StoreInsights = () => {
   const [salespersons, setSalespersons] = useState([]);
   const [loadingSales, setLoadingSales] = useState(false);
 
+  // Dappr Squad & Customization attributions states
+  const [dapprAttribution, setDapprAttribution] = useState({});
+  const [customizationAttribution, setCustomizationAttribution] = useState({});
+
   // Google Reviews real data from backend
   const [googleReviewData, setGoogleReviewData] = useState({});
   const [ratingSummary, setRatingSummary] = useState({ averageRating: 0.0, totalRatings: 0 });
@@ -826,22 +865,55 @@ const StoreInsights = () => {
   }
 
   const STAFF_ALIAS_MAPPING = {
-    "niyas": "NIYAS DINU NASAR K",
-    "m shamil k p": "Muhammed Shamil K P",
-    "shamil k p": "Muhammed Shamil K P",
-    "shahil shan": "Shahil shan v",
+    "niyas dinu nasar k": "NIYAS",
+    "niyas dinu nasar": "NIYAS",
+    "niyasdinunasark": "NIYAS",
+    "niyasdinunasar": "NIYAS",
+    "niyas": "NIYAS",
+    "m shamil k p": "M SHAMIL K P",
+    "mshamilkp": "M SHAMIL K P",
+    "muhammed shamil k p": "M SHAMIL K P",
+    "muhammedshamilkp": "M SHAMIL K P",
+    "shamil k p": "M SHAMIL K P",
+    "shamilkp": "M SHAMIL K P",
+    "shamil": "M SHAMIL K P",
+    "shahil shan v": "SHAHIL SHAN",
+    "shahilshanv": "SHAHIL SHAN",
+    "shahil shan": "SHAHIL SHAN",
+    "shahilshan": "SHAHIL SHAN",
     "m riswan": "MOHAMMAD RISWAN",
+    "mriswan": "MOHAMMAD RISWAN",
     "riswan": "MOHAMMAD RISWAN",
-    "m shan k": "Muhammed Shan K",
-    "shan k": "Muhammed Shan K",
-    "s faris vk": "Salmanul Faris V K",
-    "salman faris": "Salmanul Faris V K",
-    "salman muhammed.v": "SALMAN MUHAMMED V",
-    "salman muhammed v": "SALMAN MUHAMMED V",
-    "muhammed shamil": "Muhammed Shamil K P",
+    "m shan k": "M SHAN K",
+    "mshank": "M SHAN K",
+    "muhammed shan k": "M SHAN K",
+    "muhammedshank": "M SHAN K",
+    "shan k": "M SHAN K",
+    "shank": "M SHAN K",
+    "shan": "M SHAN K",
+    "s faris vk": "S FARIS VK",
+    "sfarisvk": "S FARIS VK",
+    "salmanul faris v k": "S FARIS VK",
+    "salmanulfarisvk": "S FARIS VK",
+    "salman faris v k": "S FARIS VK",
+    "salmanfarisvk": "S FARIS VK",
+    "salman faris": "S FARIS VK",
+    "salmanfaris": "S FARIS VK",
+    "faris": "S FARIS VK",
+    "salman muhammed v": "SALMAN MUHAMMED.V",
+    "salmanmuhammedv": "SALMAN MUHAMMED.V",
+    "salman muhammed": "SALMAN MUHAMMED.V",
+    "salmanmuhammed": "SALMAN MUHAMMED.V",
+    "muhammed basil p k": "Muhammed Basil P K",
+    "muhammedbasilpk": "Muhammed Basil P K",
     "muhammed basil": "Muhammed Basil P K",
-    "muhammad shabir": "MUHAMMAD SHABIR VT",
-    "shabir vt": "MUHAMMAD SHABIR VT",
+    "muhammedbasil": "Muhammed Basil P K",
+    "basil": "Muhammed Basil P K",
+    "muhammad shabir vt": "SHABIR VT",
+    "muhammadshabirvt": "SHABIR VT",
+    "shabir vt": "SHABIR VT",
+    "shabirvt": "SHABIR VT",
+    "shabir": "SHABIR VT",
   };
 
   function getCanonicalStaffName(rawName) {
@@ -854,8 +926,31 @@ const StoreInsights = () => {
     return str;
   }
 
+  function normalizeEmpCode(code) {
+    if (!code) return "";
+    const str = String(code).trim().toUpperCase();
+    const digits = str.replace(/[^0-9]/g, "");
+    if (digits.length > 0) {
+      return `EMP${parseInt(digits, 10)}`;
+    }
+    return str.replace(/[^A-Z0-9]/g, "");
+  }
+
+
+  const isDapprSquadName = (name) => {
+    if (!name) return false;
+    const lower = name.toLowerCase().trim();
+    const normalized = lower.replace(/[^a-z0-9]/g, "");
+    return lower.startsWith("sg.") || 
+           lower.startsWith("sg ") || 
+           DAPPR_SQUAD_STORE_MAPPING[lower] !== undefined ||
+           DAPPR_SQUAD_STORE_MAPPING[normalized] !== undefined ||
+           lower === "dappr squad";
+  };
+
   function isStaffNameMatch(strA, strB) {
     if (!strA || !strB) return false;
+    if (isDapprSquadName(strA) || isDapprSquadName(strB)) return false;
     const canonA = getCanonicalStaffName(strA);
     const canonB = getCanonicalStaffName(strB);
     if (canonA === canonB) return true;
@@ -997,6 +1092,53 @@ const StoreInsights = () => {
     if (todayDateNum <= 21) return 3;
     return 4;
   };
+
+  useEffect(() => {
+    const fetchAttributions = async () => {
+      const activeStore = isStoreAdmin && branches[0] ? displayBranchName(branches[0].workingBranch) : (storeFilter !== "All" ? storeFilter : (branches[0] ? displayBranchName(branches[0].workingBranch) : ""));
+      if (!activeStore) return;
+      try {
+        const token = localStorage.getItem("token");
+        const targetMonth = timeframe === "CUSTOM" ? (customStartDate ? new Date(customStartDate).toLocaleString("en-US", { month: "long" }) : CURRENT_MONTH_LONG) : CURRENT_MONTH_LONG;
+        const targetYear = timeframe === "CUSTOM" ? (customStartDate ? new Date(customStartDate).getFullYear() : CURRENT_YEAR) : CURRENT_YEAR;
+        const currentWeek = getCurrentWeekId(activeStore, targetMonth) || 1;
+
+        // Fetch Dappr attributions
+        const dapprRes = await fetch(`${baseUrl.baseUrl}api/dappr-attributions?storeName=${encodeURIComponent(activeStore)}&month=${targetMonth}&year=${targetYear}&week=${currentWeek}`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        const dapprJson = await dapprRes.json();
+        if (dapprJson.success && dapprJson.data && dapprJson.data.attributions) {
+          const mapped = {};
+          dapprJson.data.attributions.forEach(attr => {
+            mapped[attr.staffName] = { billWtd: attr.billWtd, valWtd: attr.valWtd, qtyWtd: attr.qtyWtd };
+          });
+          setDapprAttribution(mapped);
+        } else {
+          setDapprAttribution({});
+        }
+
+        // Fetch Customization attributions
+        const custRes = await fetch(`${baseUrl.baseUrl}api/customization-attributions?storeName=${encodeURIComponent(activeStore)}&month=${targetMonth}&year=${targetYear}&week=${currentWeek}`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        const custJson = await custRes.json();
+        if (custJson.success && custJson.data && custJson.data.attributions) {
+          const mapped = {};
+          custJson.data.attributions.forEach(attr => {
+            mapped[attr.staffName] = { billWtd: attr.billWtd, valWtd: attr.valWtd, qtyWtd: attr.qtyWtd };
+          });
+          setCustomizationAttribution(mapped);
+        } else {
+          setCustomizationAttribution({});
+        }
+      } catch (err) {
+        console.error("Error fetching attributions in StoreInsights:", err);
+      }
+    };
+
+    fetchAttributions();
+  }, [branches, isStoreAdmin, storeFilter, timeframe, customStartDate]);
 
   const getCustomRangeTarget = (storeName, startDateStr, endDateStr, targetMonthName, overrideTargetObj = null) => {
     if (!startDateStr || !endDateStr) return 0;
@@ -1675,8 +1817,9 @@ const StoreInsights = () => {
 
   // Format values to match Indian standard layout (e.g. 5,28,080.42)
   const formatIndianNumber = (num, decimals = 0) => {
-    const isNegative = num < 0;
-    const absNum = Math.abs(num);
+    const safeNum = Number(num) || 0;
+    const isNegative = safeNum < 0;
+    const absNum = Math.abs(safeNum);
     const parts = absNum.toFixed(decimals).split(".");
     let integerPart = parts[0];
     const decimalPart = parts[1] ? "." + parts[1] : "";
@@ -1717,7 +1860,7 @@ const StoreInsights = () => {
 
       const locPeriodList = performanceData[locId] || [];
       const dapprPeriodList = isConsolidated ? (performanceData["25"] || []) : [];
-      const dapprPeriodForStore = isConsolidated ? getDapprSquadDataForStore(locId, dapprPeriodList) : [];
+      const dapprPeriodForStore = [];
       const isGMGRoad = locId === "23";
       const unmappedDapprPeriodList = (isGMGRoad && isConsolidated)
         ? dapprPeriodList.filter(item => {
@@ -1737,7 +1880,14 @@ const StoreInsights = () => {
         const branchSales = (locCode && salesData.byBranch?.[locCode]) || {};
         const salesTotalValue = branchSales.totalValue || 0;
 
-        achieved = rentalValue + salesTotalValue;
+        let custTotalValue = 0;
+        let dapprTotalValue = 0;
+        if (isStoreAdmin || storeFilter === name) {
+          custTotalValue = Object.values(customizationAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
+          dapprTotalValue = Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
+        }
+
+        achieved = rentalValue + salesTotalValue + custTotalValue + dapprTotalValue;
       }
 
       const balance = target - achieved;
@@ -1754,7 +1904,7 @@ const StoreInsights = () => {
     }).filter(Boolean);
 
     return list;
-  }, [branches, isConsolidated, timeframe, customStartDate, customEndDate, weeklyTargets, performanceData, salesData]);
+  }, [branches, isConsolidated, timeframe, customStartDate, customEndDate, weeklyTargets, performanceData, salesData, dapprAttribution, customizationAttribution, storeFilter, isStoreAdmin]);
 
   // Filter stores by cluster if selected
   const filteredStoresForKPIs = useMemo(() => {
@@ -1801,6 +1951,30 @@ const StoreInsights = () => {
     return list;
   }, [filteredStoresForKPIs, chartFilter]);
 
+  // Map shoe/shirt sales by locCode and staff name matching DSRReport's mergeSalespersons logic
+  const salesByStaffMap = useMemo(() => {
+    const map = {};
+    (salespersons || []).forEach(sp => {
+      const staffName = sp.salesperson || "Unassigned";
+      const canon = getCanonicalStaffName(staffName);
+      const storesList = Array.isArray(sp.stores) ? sp.stores : [];
+      storesList.forEach(st => {
+        const lc = String(st.locCode || "");
+        if (!lc) return;
+        if (!map[lc]) map[lc] = {};
+        const tot = st.total || {};
+        const entryVal = {
+          bills: tot.bills || 0,
+          qty: tot.qty || 0,
+          value: tot.value || 0
+        };
+        map[lc][canon] = entryVal;
+        map[lc][staffName] = entryVal;
+      });
+    });
+    return map;
+  }, [salespersons]);
+
   // Employee-level chart data for store_admin — shows each employee's achieved vs assigned target
   const employeeChartData = useMemo(() => {
     if (!isStoreAdmin || branches.length === 0) return [];
@@ -1812,7 +1986,7 @@ const StoreInsights = () => {
 
     // If consolidated, also include Dappr Squad data for this location
     const dapprPeriodList = isConsolidated ? (performanceData["25"] || []) : [];
-    const dapprPeriodForStore = isConsolidated ? getDapprSquadDataForStore(locId, dapprPeriodList) : [];
+    const dapprPeriodForStore = [];
     const isGMGRoad = locId === "23";
     const unmappedDapprPeriodList = (isGMGRoad && isConsolidated)
       ? dapprPeriodList.filter(item => {
@@ -1826,34 +2000,10 @@ const StoreInsights = () => {
 
     // Helper: find shoe/shirt sales for a staff member
     const getSalesDataForStaff = (staffName) => {
-      const canonName = getCanonicalStaffName(staffName);
-      const staffKey = normalizeForMatch(staffName);
-      const canonKey = normalizeForMatch(canonName);
-
-      const match = (salespersons || []).find(sp => {
-        const spName = sp.salesperson;
-        const spCanon = getCanonicalStaffName(spName);
-        const spCode = normalizeEmpCode(sp.empId || sp.employeeId || "");
-        const targetCode = normalizeEmpCode(staffName);
-
-        if (spCode && targetCode && spCode === targetCode) return true;
-
-        return normalizeForMatch(spName) === staffKey ||
-               normalizeForMatch(spName) === canonKey ||
-               normalizeForMatch(spCanon) === staffKey ||
-               normalizeForMatch(spCanon) === canonKey ||
-               isStaffNameMatch(spName, staffName) ||
-               isStaffNameMatch(spName, canonName);
-      });
-      if (!match) return { bills: 0, qty: 0, value: 0 };
-      const storeMatch = match.stores && match.stores.find(st => String(st.locCode) === String(locCode));
-      if (storeMatch) {
-        const tot = storeMatch.total || {};
-        return {
-          bills: tot.bills || 0,
-          qty: tot.qty || 0,
-          value: tot.value || 0
-        };
+      const canon = getCanonicalStaffName(staffName);
+      if (locCode && salesByStaffMap[locCode]) {
+        if (salesByStaffMap[locCode][canon]) return salesByStaffMap[locCode][canon];
+        if (salesByStaffMap[locCode][staffName]) return salesByStaffMap[locCode][staffName];
       }
       return { bills: 0, qty: 0, value: 0 };
     };
@@ -1876,18 +2026,26 @@ const StoreInsights = () => {
 
     const rawStaffNames = [
       ...mergedPeriodList.map(x => x && x.bookingBy),
-      ...salesStaffNames
-    ].filter(name => typeof name === "string" && name.trim() !== "");
+      ...salesStaffNames,
+      ...(isConsolidated ? Object.keys(dapprAttribution) : []),
+      ...(isConsolidated ? Object.keys(customizationAttribution) : [])
+    ].filter(name => typeof name === "string" && name.trim() !== "" && !isDapprSquadName(name)).map(getCanonicalStaffName);
 
     const staffNames = [];
-    const seenNormalized = new Set();
-    
-    rawStaffNames.forEach(name => {
+    const sortedStaffNames = Array.from(new Set(rawStaffNames)).sort((a, b) => {
+      const aUpper = /[A-Z]/.test(a);
+      const bUpper = /[A-Z]/.test(b);
+      if (aUpper && !bUpper) return -1;
+      if (!aUpper && bUpper) return 1;
+      return (b || "").length - (a || "").length;
+    });
+
+    sortedStaffNames.forEach(name => {
       if (!name) return;
-      const norm = normalizeForMatch(name);
-      if (norm && !seenNormalized.has(norm)) {
-        seenNormalized.add(norm);
-        staffNames.push(name);
+      const canon = getCanonicalStaffName(name);
+      const existing = staffNames.find(existingName => isStaffNameMatch(existingName, canon));
+      if (!existing) {
+        staffNames.push(canon);
       }
     });
 
@@ -1929,6 +2087,24 @@ const StoreInsights = () => {
         if (isConsolidated) {
           const staffSales = getSalesDataForStaff(fullName);
           achieved += staffSales.value || 0;
+
+          const dapprKey = Object.keys(dapprAttribution).find(k => 
+            normalizeForMatch(getCanonicalStaffName(k)) === staffKey || 
+            normalizeForMatch(k) === staffKey ||
+            isStaffNameMatch(k, fullName)
+          );
+          if (dapprKey) {
+            achieved += Number(dapprAttribution[dapprKey]?.billWtd) || 0;
+          }
+
+          const custKey = Object.keys(customizationAttribution).find(k => 
+            normalizeForMatch(getCanonicalStaffName(k)) === staffKey || 
+            normalizeForMatch(k) === staffKey ||
+            isStaffNameMatch(k, fullName)
+          );
+          if (custKey) {
+            achieved += Number(customizationAttribution[custKey]?.billWtd) || 0;
+          }
         }
 
         const target = resolveStaffTarget(fullName);
@@ -1938,12 +2114,13 @@ const StoreInsights = () => {
       })
       .filter(item => item.achieved > 0 || item.target > 0)
       .sort((a, b) => b.achieved - a.achieved);
-  }, [isStoreAdmin, branches, performanceData, employeeTargets, timeframe, customStartDate, customEndDate, isConsolidated, salespersons, salesData]);
+  }, [isStoreAdmin, branches, performanceData, employeeTargets, timeframe, customStartDate, customEndDate, isConsolidated, salespersons, salesData, dapprAttribution, customizationAttribution]);
 
 
 
   // Dynamic KPI Card Data
   const stats = useMemo(() => {
+    try {
     // Totals from filtered stores
     const totalTarget = filteredStoresForKPIs.reduce((acc, c) => acc + c.target, 0);
     const totalAchieved = filteredStoresForKPIs.reduce((acc, c) => acc + c.achieved, 0);
@@ -1992,7 +2169,7 @@ const StoreInsights = () => {
       // 1. Current Rental
       const locPeriodList = performanceData[locId] || [];
       const dapprPeriodList = isConsolidated ? (performanceData["25"] || []) : [];
-      const dapprPeriodForStore = isConsolidated ? getDapprSquadDataForStore(locId, dapprPeriodList) : [];
+      const dapprPeriodForStore = [];
       const isGMGRoad = locId === "23";
       const unmappedDapprPeriodList = (isGMGRoad && isConsolidated)
         ? dapprPeriodList.filter(item => {
@@ -2075,7 +2252,7 @@ const StoreInsights = () => {
       const locId = getBranchLocationId(name);
       if (!locId || locId === "25") return;
 
-      const dapprPeriodForStore = getDapprSquadDataForStore(locId, squadPeriodList);
+      const dapprPeriodForStore = [];
       const isGMGRoad = locId === "23";
       const unmappedDapprPeriodList = isGMGRoad
         ? squadPeriodList.filter(item => {
@@ -2183,9 +2360,23 @@ const StoreInsights = () => {
     })();
 
     if (isConsolidated) {
-      const consolidatedValue = rentalValue + shoeValue + shirtValue;
-      const consolidatedBills = rentalBills + shoeBills + shirtBills;
-      const consolidatedTotalQty = rentalQty + shoeQty + shirtQty;
+      let custVal = 0, custBills = 0, custQty = 0;
+      Object.values(customizationAttribution).forEach(v => {
+        custVal += Number(v.billWtd) || 0;
+        custBills += Number(v.valWtd) || 0;
+        custQty += Number(v.qtyWtd) || 0;
+      });
+      Object.values(dapprAttribution).forEach(v => {
+        custVal += Number(v.billWtd) || 0;
+        custBills += Number(v.valWtd) || 0;
+        custQty += Number(v.qtyWtd) || 0;
+      });
+
+      const consolidatedValue = ((isStoreAdmin || storeFilter !== "All") && employeeChartData.length > 0)
+        ? employeeChartData.reduce((sum, emp) => sum + emp.achieved, 0)
+        : rentalValue + shoeValue + shirtValue + custVal;
+      const consolidatedBills = rentalBills + shoeBills + shirtBills + custBills;
+      const consolidatedTotalQty = rentalQty + shoeQty + shirtQty + custQty;
 
       const lyConsolidatedValue = lyRentalValue;
       const lyConsolidatedBills = lyRentalBills;
@@ -2383,6 +2574,10 @@ const StoreInsights = () => {
         totalReviewsCount
       };
     }
+    } catch (err) {
+      console.error("[StoreInsights] Error computing stats:", err);
+      return null;
+    }
   }, [chartData, filteredStoresForKPIs, isConsolidated, roleFilter, performanceData, lyPerformanceData, walkins, lyWalkins, timeframe, customStartDate, customEndDate, salesData, lySalesData, isStoreAdmin, isClusterAdmin, clusterFilter, storeFilter, branches, periodStart, periodEnd, lyPeriodStart, lyPeriodEnd, googleReviewData]);
 
   // Store ranking data calculations
@@ -2404,17 +2599,10 @@ const StoreInsights = () => {
 
       // Find shoe sales specifically for this branch's locCode from salespersons
       const getSalesDataForStaff = (staffName) => {
-        const staffKey = normalizeForMatch(staffName);
-        const match = salespersons.find(sp => normalizeForMatch(sp.salesperson) === staffKey);
-        if (!match) return { bills: 0, qty: 0, value: 0 };
-        const storeMatch = match.stores && match.stores.find(st => String(st.locCode) === String(locCode));
-        if (storeMatch) {
-          const tot = storeMatch.total || {};
-          return {
-            bills: tot.bills || 0,
-            qty: tot.qty || 0,
-            value: tot.value || 0
-          };
+        const canon = getCanonicalStaffName(staffName);
+        if (locCode && salesByStaffMap[locCode]) {
+          if (salesByStaffMap[locCode][canon]) return salesByStaffMap[locCode][canon];
+          if (salesByStaffMap[locCode][staffName]) return salesByStaffMap[locCode][staffName];
         }
         return { bills: 0, qty: 0, value: 0 };
       };
@@ -2437,7 +2625,9 @@ const StoreInsights = () => {
 
       const rawStaffNames = [
         ...locPeriodList.map(x => x && x.bookingBy),
-        ...salesStaffNames
+        ...salesStaffNames,
+        ...(isConsolidated ? Object.keys(dapprAttribution) : []),
+        ...(isConsolidated ? Object.keys(customizationAttribution) : [])
       ].filter(name => typeof name === "string" && name.trim() !== "").map(getCanonicalStaffName);
 
       const staffNames = [];
@@ -2465,12 +2655,14 @@ const StoreInsights = () => {
         isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd)
       );
 
-      // Sum total value of the store (rentals + sales if consolidated) to calculate contribution %
+      // Sum total value of the store (rentals + sales + attributions if consolidated) to calculate contribution %
       let storeTotalValue = locPeriodList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
       if (isConsolidated) {
         // Add total shoe sales specifically for this branch
         const branchSales = salesData.byBranch?.[locCode] || {};
         storeTotalValue += branchSales.totalValue || 0;
+        storeTotalValue += Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
+        storeTotalValue += Object.values(customizationAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
       }
 
       if (staffNames.length === 0) {
@@ -2496,6 +2688,26 @@ const StoreInsights = () => {
           bills += staffSales.bills || 0;
           qty += staffSales.qty || 0;
           value += staffSales.value || 0;
+
+          const dapprKey = Object.keys(dapprAttribution).find(k => 
+            isStaffNameMatch(k, staffName) || normalizeForMatch(getCanonicalStaffName(k)) === staffKey
+          );
+          if (dapprKey) {
+            const dAttr = dapprAttribution[dapprKey] || {};
+            value += Number(dAttr.billWtd) || 0;
+            bills += Number(dAttr.valWtd)  || 0;
+            qty   += Number(dAttr.qtyWtd)  || 0;
+          }
+
+          const custKey = Object.keys(customizationAttribution).find(k => 
+            isStaffNameMatch(k, staffName) || normalizeForMatch(getCanonicalStaffName(k)) === staffKey
+          );
+          if (custKey) {
+            const cAttr = customizationAttribution[custKey] || {};
+            value += Number(cAttr.billWtd) || 0;
+            bills += Number(cAttr.valWtd)  || 0;
+            qty   += Number(cAttr.qtyWtd)  || 0;
+          }
         }
 
         const abs = bills > 0 ? parseFloat((qty / bills).toFixed(1)) : 0;
@@ -2555,7 +2767,7 @@ const StoreInsights = () => {
 
         const locPeriodList = performanceData[locId] || [];
         const dapprPeriodList = isConsolidated ? (performanceData["25"] || []) : [];
-        const dapprPeriodForStore = isConsolidated ? getDapprSquadDataForStore(locId, dapprPeriodList) : [];
+        const dapprPeriodForStore = [];
         const isGMGRoad = locId === "23";
         const unmappedDapprPeriodList = (isGMGRoad && isConsolidated)
           ? dapprPeriodList.filter(item => {
@@ -2620,7 +2832,7 @@ const StoreInsights = () => {
 
         const locPeriodList = performanceData[locId] || [];
         const dapprPeriodList = isConsolidated ? (performanceData["25"] || []) : [];
-        const dapprPeriodForStore = isConsolidated ? getDapprSquadDataForStore(locId, dapprPeriodList) : [];
+        const dapprPeriodForStore = [];
         const isGMGRoad = locId === "23";
         const unmappedDapprPeriodList = (isGMGRoad && isConsolidated)
           ? dapprPeriodList.filter(item => {
@@ -2666,7 +2878,7 @@ const StoreInsights = () => {
         };
       });
     }
-  }, [branches, chartData, isConsolidated, performanceData, walkins, isStoreAdmin, isClusterAdmin, salesData, salespersons, clusterFilter, storeFilter, clusters, periodStart, periodEnd]);
+  }, [branches, chartData, isConsolidated, performanceData, walkins, isStoreAdmin, isClusterAdmin, salesData, salespersons, dapprAttribution, customizationAttribution, clusterFilter, storeFilter, clusters, periodStart, periodEnd]);
 
   const processedRanking = useMemo(() => {
     let result = [...rankingData];
@@ -3329,6 +3541,7 @@ const StoreInsights = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
 
+          {stats && (<>
           {renderKpiCard({
             title: "Achieved Target %",
             mainVal: `${stats.achievedPct}%`,
@@ -3376,7 +3589,7 @@ const StoreInsights = () => {
           {renderKpiCard({
             title: "Average Basket Size",
             mainVal: `${stats.absChange?.prev > 0 ? Math.round((parseFloat(stats.basketSize) / stats.absChange.prev) * 100) : 100}%`,
-            tyVal: `${parseFloat(stats.basketSize).toFixed(1)} Items`,
+            tyVal: `${parseFloat(stats.basketSize || 0).toFixed(1)} Items`,
             lyVal: `${(stats.absChange?.prev || 0).toFixed(1)} Items`,
             changeObj: stats.absChange,
             unit: "Basket Size",
@@ -3397,9 +3610,9 @@ const StoreInsights = () => {
 
           {renderKpiCard({
             title: "Conversion %",
-            mainVal: `${stats.conversionRate}%`,
-            tyVal: `${stats.conversionRate}%`,
-            lyVal: `${stats.lyConversionRate}%`,
+            mainVal: `${stats.conversionRate ?? 0}%`,
+            tyVal: `${stats.conversionRate ?? 0}%`,
+            lyVal: `${stats.lyConversionRate ?? 0}%`,
             changeObj: stats.conversionChange,
             unit: "pts",
             trend: stats.conversionChange?.trend,
@@ -3449,6 +3662,7 @@ const StoreInsights = () => {
             trend: stats.reviewsChange?.trend,
             trendColor: stats.reviewsChange?.trendColor
           })}
+          </>)}
 
           {/* Card 12: Staff Rating / Store Rating */}
           <div className="bg-white rounded-[20px] shadow-sm border border-gray-100 p-5 h-[200px] flex flex-col justify-between font-sans">

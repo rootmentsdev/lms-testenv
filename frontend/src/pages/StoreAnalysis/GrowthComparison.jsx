@@ -475,8 +475,9 @@ const GrowthComparison = () => {
   const [tempStartDate, setTempStartDate] = useState(customStartDate);
   const [tempEndDate, setTempEndDate] = useState(customEndDate);
   const [branches, setBranches] = useState([]);
-  const [tyWalkins, setTyWalkins] = useState([]);
-  const [lyWalkins, setLyWalkins] = useState([]);
+  // walkin counts per store: { [storeName]: number } — sourced from walkin-count API (same as WalkinCount page)
+  const [tyWalkinCounts, setTyWalkinCounts] = useState({});
+  const [lyWalkinCounts, setLyWalkinCounts] = useState({});
   const [tyPerformance, setTyPerformance] = useState({});
   const [lyPerformance, setLyPerformance] = useState({});
   const [loading, setLoading] = useState(false);
@@ -566,18 +567,20 @@ const GrowthComparison = () => {
     fetchBranches();
   }, []);
 
-  // Fetch Year-Over-Year Walk-Ins and Performance Report Data
+  // Fetch Year-Over-Year Walk-In Counts (per store via walkin-count API) and Performance Report Data
   useEffect(() => {
     let cancelled = false;
     const fetchData = async () => {
       setLoading(true);
       try {
         const token = localStorage.getItem("token");
-        
+        const currentYear = new Date().getFullYear();
+        const lastYear = currentYear - 1;
+
         let tyStart, tyEnd, lyStart, lyEnd;
         if (activeTab === "WTD") {
-          const wtdTy = getStoreWTDDateRange("All", 2026, storeWeekRanges);
-          const wtdLy = getStoreWTDDateRange("All", 2025, storeWeekRanges);
+          const wtdTy = getStoreWTDDateRange("All", currentYear, storeWeekRanges);
+          const wtdLy = getStoreWTDDateRange("All", lastYear, storeWeekRanges);
           tyStart = wtdTy.start;
           tyEnd = wtdTy.end;
           lyStart = wtdLy.start;
@@ -585,13 +588,13 @@ const GrowthComparison = () => {
         } else if (activeTab === "CUSTOM") {
           tyStart = customStartDate;
           tyEnd = customEndDate;
-          const tyYear = new Date(customStartDate).getFullYear() || 2026;
+          const tyYear = new Date(customStartDate).getFullYear() || currentYear;
           const lyYear = tyYear - 1;
           lyStart = customStartDate.replace(String(tyYear), String(lyYear));
           lyEnd = customEndDate.replace(String(tyYear), String(lyYear));
         } else {
-          const tyRange = getMTDDateRange(2026);
-          const lyRange = getMTDDateRange(2025);
+          const tyRange = getMTDDateRange(currentYear);
+          const lyRange = getMTDDateRange(lastYear);
           tyStart = tyRange.start;
           tyEnd = tyRange.end;
           lyStart = lyRange.start;
@@ -605,7 +608,7 @@ const GrowthComparison = () => {
           let storeEnd = tyEnd;
           if (activeTab === "WTD") {
             const storeName = getStoreNameFromLocId(locId);
-            const range = getStoreWTDDateRange(storeName, 2026, storeWeekRanges);
+            const range = getStoreWTDDateRange(storeName, currentYear, storeWeekRanges);
             storeStart = range.start;
             storeEnd = range.end;
           }
@@ -618,7 +621,7 @@ const GrowthComparison = () => {
           let storeEnd = lyEnd;
           if (activeTab === "WTD") {
             const storeName = getStoreNameFromLocId(locId);
-            const range = getStoreWTDDateRange(storeName, 2025, storeWeekRanges);
+            const range = getStoreWTDDateRange(storeName, lastYear, storeWeekRanges);
             storeStart = range.start;
             storeEnd = range.end;
           }
@@ -626,12 +629,14 @@ const GrowthComparison = () => {
           return { locId, data };
         });
 
-        // Run ALL fetches in parallel: TY walkins, LY walkins, TY performance, LY performance
-        const walkinFetch = async (start, end) => {
+        // Fetch walkin count per store using walkin-count API (same source as WalkinCount page)
+        // Returns inApp.walkin — new walk-ins only (excludes revisits)
+        const walkinCountFetch = async (storeName, startDate, endDate) => {
           try {
             const ctrl = new AbortController();
-            const t = setTimeout(() => ctrl.abort(), 8000); // 8s timeout
-            const res = await fetch(`${baseUrl.baseUrl}api/walkin/list?startDate=${start}&endDate=${end}`, {
+            const t = setTimeout(() => ctrl.abort(), 10000);
+            const url = `${baseUrl.baseUrl}api/walkin/walkin-count?date=${startDate}&store=${encodeURIComponent(storeName)}&startDate=${startDate}&endDate=${endDate}`;
+            const res = await fetch(url, {
               method: "GET",
               headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
               signal: ctrl.signal,
@@ -639,23 +644,71 @@ const GrowthComparison = () => {
             clearTimeout(t);
             if (res.ok) {
               const json = await res.json();
-              return Array.isArray(json?.data) ? json.data : [];
+              if (json?.success && json?.inApp) {
+                return json.inApp.walkin || 0;
+              }
             }
           } catch (e) { /* ignore timeout/network errors */ }
-          return [];
+          return 0;
         };
 
-        const [tyList, lyList, tyResults, lyResults] = await Promise.all([
-          walkinFetch(tyStart, tyEnd),
-          walkinFetch(lyStart, lyEnd),
+        // Build per-store walkin-count tasks for TY and LY
+        // We get the branch list from state (branches already fetched)
+        // But branches may not be loaded yet; use a snapshot passed via closure after branches fetch.
+        // To avoid circular dependency, we fetch branches inline here too.
+        const branchRes = await fetch(`${baseUrl.baseUrl}api/usercreate/getBranch`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        });
+        let branchList = [];
+        if (branchRes.ok) {
+          const branchJson = await branchRes.json();
+          branchList = Array.isArray(branchJson?.data)
+            ? branchJson.data.filter((b) => !isHiddenBranch(b?.workingBranch))
+            : [];
+        }
+
+        const walkinTyTasks = branchList.map((b) => async () => {
+          let storeStart = tyStart;
+          let storeEnd = tyEnd;
+          if (activeTab === "WTD") {
+            const range = getStoreWTDDateRange(displayBranchName(b.workingBranch), currentYear, storeWeekRanges);
+            storeStart = range.start;
+            storeEnd = range.end;
+          }
+          const count = await walkinCountFetch(b.workingBranch, storeStart, storeEnd);
+          return { storeName: b.workingBranch, count };
+        });
+
+        const walkinLyTasks = branchList.map((b) => async () => {
+          let storeStart = lyStart;
+          let storeEnd = lyEnd;
+          if (activeTab === "WTD") {
+            const range = getStoreWTDDateRange(displayBranchName(b.workingBranch), lastYear, storeWeekRanges);
+            storeStart = range.start;
+            storeEnd = range.end;
+          }
+          const count = await walkinCountFetch(b.workingBranch, storeStart, storeEnd);
+          return { storeName: b.workingBranch, count };
+        });
+
+        // Run performance + walkin-count fetches in parallel
+        const [tyResults, lyResults, tyWalkinResults, lyWalkinResults] = await Promise.all([
           runWithConcurrencyLimit(tyTasks, 10),
           runWithConcurrencyLimit(lyTasks, 10),
+          runWithConcurrencyLimit(walkinTyTasks, 5),
+          runWithConcurrencyLimit(walkinLyTasks, 5),
         ]);
 
         if (cancelled) return;
 
-        setTyWalkins(tyList);
-        setLyWalkins(lyList);
+        // Build store-keyed walkin count maps
+        const tyWalkMap = {};
+        const lyWalkMap = {};
+        tyWalkinResults.forEach(r => { tyWalkMap[r.storeName] = r.count; });
+        lyWalkinResults.forEach(r => { lyWalkMap[r.storeName] = r.count; });
+        setTyWalkinCounts(tyWalkMap);
+        setLyWalkinCounts(lyWalkMap);
 
         const tyMap = {};
         const lyMap = {};
@@ -674,7 +727,7 @@ const GrowthComparison = () => {
 
     fetchData();
     return () => { cancelled = true; };
-  }, [activeTab, customStartDate, customEndDate]);
+  }, [activeTab, customStartDate, customEndDate, storeWeekRanges]);
 
   const formatIndianNumber = (num) => {
     const isNegative = num < 0;
@@ -692,50 +745,11 @@ const GrowthComparison = () => {
   const filteredRows = useMemo(() => {
     const activeList = branches.map((b, index) => {
       const name = displayBranchName(b.workingBranch);
-      const storeKeyVal = locationKey(b.workingBranch);
       const locId = getBranchLocationId(b.workingBranch);
 
-      const today = new Date();
-      const todayStr = getLocalDateString(today);
-      
-      let tyStoreStart, tyStoreEnd, lyStoreStart, lyStoreEnd;
-      if (activeTab === "WTD") {
-        const rangeTy = getStoreWTDDateRange(name, 2026, storeWeekRanges);
-        const rangeLy = getStoreWTDDateRange(name, 2025, storeWeekRanges);
-        tyStoreStart = rangeTy.start;
-        tyStoreEnd = rangeTy.end;
-        lyStoreStart = rangeLy.start;
-        lyStoreEnd = rangeLy.end;
-      } else if (activeTab === "CUSTOM") {
-        tyStoreStart = customStartDate;
-        tyStoreEnd = customEndDate;
-        const tyYear = new Date(customStartDate).getFullYear() || 2026;
-        const lyYear = tyYear - 1;
-        lyStoreStart = customStartDate.replace(String(tyYear), String(lyYear));
-        lyStoreEnd = customEndDate.replace(String(tyYear), String(lyYear));
-      } else {
-        const rangeTy = getMTDDateRange(2026);
-        const rangeLy = getMTDDateRange(2025);
-        tyStoreStart = rangeTy.start;
-        tyStoreEnd = rangeTy.end;
-        lyStoreStart = rangeLy.start;
-        lyStoreEnd = rangeLy.end;
-      }
-
-      const getWalkinDateString = (w) => {
-        if (!w.date || w.date === '-') return '';
-        return w.date.split(' ')[0];
-      };
-
-      const tyWalk = tyWalkins.filter(w => {
-        const d = getWalkinDateString(w);
-        return locationKey(w.store) === storeKeyVal && d && d >= tyStoreStart && d <= tyStoreEnd;
-      }).length;
-
-      const lyWalk = lyWalkins.filter(w => {
-        const d = getWalkinDateString(w);
-        return locationKey(w.store) === storeKeyVal && d && d >= lyStoreStart && d <= lyStoreEnd;
-      }).length;
+      // Walk-in counts come directly from walkin-count API (same as WalkinCount page)
+      const tyWalk = tyWalkinCounts[b.workingBranch] || 0;
+      const lyWalk = lyWalkinCounts[b.workingBranch] || 0;
 
       const tyLocList = Array.isArray(tyPerformance[locId]) ? tyPerformance[locId] : [];
       const lyLocList = Array.isArray(lyPerformance[locId]) ? lyPerformance[locId] : [];
@@ -766,7 +780,7 @@ const GrowthComparison = () => {
     return activeList.filter((row) =>
       row.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [branches, tyWalkins, lyWalkins, tyPerformance, lyPerformance, searchQuery, activeTab, customStartDate, customEndDate, storeWeekRanges]);
+  }, [branches, tyWalkinCounts, lyWalkinCounts, tyPerformance, lyPerformance, searchQuery, activeTab, customStartDate, customEndDate, storeWeekRanges]);
 
   // Reset to page 1 when search or tab changes
   useEffect(() => { setCurrentPage(1); }, [searchQuery, activeTab]);

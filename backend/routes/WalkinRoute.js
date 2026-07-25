@@ -637,8 +637,7 @@ router.delete('/camera-check/:id', MiddilWare, deleteCameraCheckEntry);
  *         description: Date formatted as YYYY-MM-DD (defaults to today's date in IST)
  *     responses:
  *       200:
- *         description: Returns { success: true, date, store, walkinCount }
-Subscribers: Flutter Mobile App
+ *         description: "Returns { success: true, date, store, walkinCount }"
  */
 router.get('/flutter/walkin-count', MiddilWare, getFlutterWalkinCount);
 router.get('/flutter-count', MiddilWare, getFlutterWalkinCount);

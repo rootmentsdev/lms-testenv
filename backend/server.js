@@ -687,9 +687,11 @@ app.use('/api/task', TaskRouter)
 app.use('/api/auto-task', AutoTaskRouter)
 app.use('/api/task-category', CategoryRouter)
 
-import StoreTargetRouter from './routes/StoreTargetRoute.js';
+import CustomizationAttributionRouter from './routes/CustomizationAttributionRoute.js'
+import StoreTargetRouter from './routes/StoreTargetRoute.js'
 app.use('/api/store-targets', StoreTargetRouter)
 app.use('/api/dappr-attributions', DapprAttributionRouter)
+app.use('/api/customization-attributions', CustomizationAttributionRouter)
 app.use('/api/performance', PerformanceRouter)
 
 /* =================================================

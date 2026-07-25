@@ -1156,9 +1156,15 @@ const DSRReport = () => {
 
   // Dappr Squad attribution modal states
   const [dapprModalOpen, setDapprModalOpen] = useState(false);
-  // { [staffName]: { billFtd, billWtd, valFtd, valWtd } }
+  // { [staffName]: { billWtd, valWtd, qtyWtd } }
   const [dapprAttribution, setDapprAttribution] = useState({});
   const [dapprInputs, setDapprInputs] = useState({});
+
+  // Customization attribution modal states
+  const [customizationModalOpen, setCustomizationModalOpen] = useState(false);
+  const [customizationAttribution, setCustomizationAttribution] = useState({});
+  const [customizationInputs, setCustomizationInputs] = useState({});
+
   const [configWeek4, setConfigWeek4] = useState(defaultAutoWeeks[4]);
   const [configCalendarOpen, setConfigCalendarOpen] = useState(null);
   const [configStartDays, setConfigStartDays] = useState({ 1: 1, 2: 8, 3: 15, 4: 22 });
@@ -1539,14 +1545,15 @@ const DSRReport = () => {
   };
 
   const fetchDapprAttribution = async () => {
-    if (!isStoreAdmin || selectedStore === "All") return;
+    const targetStore = (isStoreAdmin && branches.length > 0) ? displayBranchName(branches[0].workingBranch) : selectedStore;
+    if (!targetStore || targetStore === "All") return;
     try {
       const token = localStorage.getItem("token");
       const targetMonth = activeTab === "Custom" ? getMonthNameFromDateStr(customStartDate) : CURRENT_MONTH_LONG;
       const targetYear = activeTab === "Custom" ? getYearFromDateStr(customStartDate) : CURRENT_YEAR;
-      const currentWeek = getCurrentWeekId(selectedStore) || 1;
+      const currentWeek = getCurrentWeekId(targetStore) || 1;
 
-      const res = await fetch(`${baseUrl.baseUrl}api/dappr-attributions?storeName=${selectedStore}&month=${targetMonth}&year=${targetYear}&week=${currentWeek}`, {
+      const res = await fetch(`${baseUrl.baseUrl}api/dappr-attributions?storeName=${encodeURIComponent(targetStore)}&month=${targetMonth}&year=${targetYear}&week=${currentWeek}`, {
         headers: {
           "Authorization": `Bearer ${token}`
         }
@@ -1570,6 +1577,47 @@ const DSRReport = () => {
       setDapprAttribution({});
     }
   };
+
+  const fetchCustomizationAttribution = async () => {
+    const targetStore = (isStoreAdmin && branches.length > 0) ? displayBranchName(branches[0].workingBranch) : selectedStore;
+    if (!targetStore || targetStore === "All") return;
+    try {
+      const token = localStorage.getItem("token");
+      const targetMonth = activeTab === "Custom" ? getMonthNameFromDateStr(customStartDate) : CURRENT_MONTH_LONG;
+      const targetYear = activeTab === "Custom" ? getYearFromDateStr(customStartDate) : CURRENT_YEAR;
+      const currentWeek = getCurrentWeekId(targetStore) || 1;
+
+      const res = await fetch(`${baseUrl.baseUrl}api/customization-attributions?storeName=${encodeURIComponent(targetStore)}&month=${targetMonth}&year=${targetYear}&week=${currentWeek}`, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      const json = await res.json();
+      if (json.success && json.data && json.data.attributions && json.data.attributions.length > 0) {
+        const mapped = {};
+        json.data.attributions.forEach(attr => {
+          mapped[attr.staffName] = {
+            billWtd: attr.billWtd,
+            valWtd: attr.valWtd,
+            qtyWtd: attr.qtyWtd
+          };
+        });
+        setCustomizationAttribution(mapped);
+      } else {
+        setCustomizationAttribution({});
+      }
+    } catch (err) {
+      console.error("Error loading Customization attributions:", err);
+      setCustomizationAttribution({});
+    }
+  };
+
+  useEffect(() => {
+    if (branches.length > 0) {
+      fetchDapprAttribution();
+      fetchCustomizationAttribution();
+    }
+  }, [isStoreAdmin, selectedStore, branches, activeTab, customStartDate]);
 
   // Dynamic branches state — declared at top of component
 
@@ -2194,6 +2242,7 @@ const DSRReport = () => {
       let storeTotalRental = mergedPeriodList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
       if (funnelView === "Consolidated") {
         storeTotalRental += Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
+        storeTotalRental += Object.values(customizationAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
       }
 
       let storeTotalSales = 0;
@@ -2222,7 +2271,8 @@ const DSRReport = () => {
       const rawStaffNames = [
         ...mergedPeriodList.map(x => x && x.bookingBy),
         ...salesStaffNames,
-        ...(funnelView === "Consolidated" ? Object.keys(dapprAttribution) : [])
+        ...(funnelView === "Consolidated" ? Object.keys(dapprAttribution) : []),
+        ...(funnelView === "Consolidated" ? Object.keys(customizationAttribution) : [])
       ].filter(name => typeof name === "string" && name.trim() !== "");
 
       const staffNames = [];
@@ -2257,6 +2307,10 @@ const DSRReport = () => {
           const dapprKey = Object.keys(dapprAttribution).find(k => normalizeForMatch(getCanonicalStaffName(k)) === staffKey || normalizeForMatch(k) === staffKey);
           if (dapprKey) {
             rentalVal += Number(dapprAttribution[dapprKey]?.billWtd) || 0;
+          }
+          const custKey = Object.keys(customizationAttribution).find(k => normalizeForMatch(getCanonicalStaffName(k)) === staffKey || normalizeForMatch(k) === staffKey);
+          if (custKey) {
+            rentalVal += Number(customizationAttribution[custKey]?.billWtd) || 0;
           }
         }
 
@@ -2339,7 +2393,7 @@ const DSRReport = () => {
       return { sl, name, target, achieved, balance, pct };
     }).filter(Boolean);
     return list;
-  }, [branches, weeklyTargets, activeTab, customStartDate, customEndDate, performanceData, funnelView, salesData, dapprAttribution]);
+  }, [branches, weeklyTargets, activeTab, customStartDate, customEndDate, performanceData, funnelView, salesData, dapprAttribution, customizationAttribution]);
 
   // Generate dynamic Sales Funnel data based on fetched branches (with mock fallback)
   const funnelRows = useMemo(() => {
@@ -2619,6 +2673,32 @@ const DSRReport = () => {
         let qtyWtd = rentalQtyWtd;
 
         if (funnelView === "Consolidated") {
+          // Merge Dappr Squad attributions
+          const dapprKey = Object.keys(dapprAttribution).find(k => 
+            isStaffNameMatch(k, entry.displayName) || 
+            entry.rentalNames.some(rn => isStaffNameMatch(k, rn)) ||
+            normalizeForMatch(getCanonicalStaffName(k)) === normalizeForMatch(entry.displayName)
+          );
+          if (dapprKey) {
+            const dAttr = dapprAttribution[dapprKey] || {};
+            valWtd += Number(dAttr.billWtd) || 0;
+            billWtd += Number(dAttr.valWtd) || 0;
+            qtyWtd += Number(dAttr.qtyWtd) || 0;
+          }
+
+          // Merge Customization attributions
+          const custKey = Object.keys(customizationAttribution).find(k => 
+            isStaffNameMatch(k, entry.displayName) || 
+            entry.rentalNames.some(rn => isStaffNameMatch(k, rn)) ||
+            normalizeForMatch(getCanonicalStaffName(k)) === normalizeForMatch(entry.displayName)
+          );
+          if (custKey) {
+            const cAttr = customizationAttribution[custKey] || {};
+            valWtd += Number(cAttr.billWtd) || 0;
+            billWtd += Number(cAttr.valWtd) || 0;
+            qtyWtd += Number(cAttr.qtyWtd) || 0;
+          }
+
           const getSalesDataForStaff = (salesItem) => {
             if (!salesItem || !salesItem.byStaff) return {};
 
@@ -2860,7 +2940,7 @@ const DSRReport = () => {
       });
       return allRows;
     }
-  }, [branches, isAdminOrSuperAdmin, isClusterAdmin, isStoreAdmin, walkins, performanceData, selectedStore, activeTab, customStartDate, customEndDate, funnelView, salesData, dapprAttribution, storeWeekRanges, week1Dates, week2Dates, week3Dates, week4Dates]);
+  }, [branches, isAdminOrSuperAdmin, isClusterAdmin, isStoreAdmin, walkins, performanceData, selectedStore, activeTab, customStartDate, customEndDate, funnelView, salesData, dapprAttribution, customizationAttribution, storeWeekRanges, week1Dates, week2Dates, week3Dates, week4Dates]);
 
   // Populate dynamic store options for dropdown
   const storeOptions = useMemo(() => {
@@ -3172,6 +3252,26 @@ const DSRReport = () => {
           squadQtyWtd += Number(dAttr.qtyWtd) || 0;
         }
 
+        let customValFtd = 0;
+        let customValWtd = 0;
+        let customBillFtd = 0;
+        let customBillWtd = 0;
+        let customQtyFtd = 0;
+        let customQtyWtd = 0;
+
+        // Include manual Customization attributions for this staff member
+        const custKey = Object.keys(customizationAttribution).find(k => 
+          normalizeForMatch(getCanonicalStaffName(k)) === staffKey || 
+          normalizeForMatch(k) === staffKey || 
+          isStaffNameMatch(k, staffName)
+        );
+        if (custKey) {
+          const cAttr = customizationAttribution[custKey] || {};
+          customValWtd += Number(cAttr.billWtd) || 0;
+          customBillWtd += Number(cAttr.valWtd) || 0;
+          customQtyWtd += Number(cAttr.qtyWtd) || 0;
+        }
+
         const getSalesDataForStaff = (salesItem) => {
           if (!salesItem || !salesItem.byStaff) return {};
           const canonName = getCanonicalStaffName(staffName);
@@ -3209,6 +3309,12 @@ const DSRReport = () => {
           squadBillWtd:  squadBillWtd,
           squadQtyFtd:   squadQtyFtd,
           squadQtyWtd:   squadQtyWtd,
+          customValFtd:  customValFtd,
+          customValWtd:  customValWtd,
+          customBillFtd: customBillFtd,
+          customBillWtd: customBillWtd,
+          customQtyFtd:  customQtyFtd,
+          customQtyWtd:  customQtyWtd,
           
           salesValFtd:  staffSalesFtd.value  || 0,
           salesValWtd:  staffSalesPeriod.value || 0,
@@ -3232,6 +3338,9 @@ const DSRReport = () => {
           squadValFtd: 0, squadValWtd: 0,
           squadBillFtd: 0, squadBillWtd: 0,
           squadQtyFtd: 0, squadQtyWtd: 0,
+          customValFtd: 0, customValWtd: 0,
+          customBillFtd: 0, customBillWtd: 0,
+          customQtyFtd: 0, customQtyWtd: 0,
           salesValFtd:  salesFtdItem.value  || 0,
           salesValWtd:  salesPeriodItem.value  || 0,
           salesBillFtd: salesFtdItem.bills  || 0,
@@ -3305,10 +3414,11 @@ const DSRReport = () => {
         name,
         rentalValFtd, rentalValWtd, rentalBillFtd, rentalBillWtd, rentalQtyFtd, rentalQtyWtd,
         squadValFtd, squadValWtd, squadBillFtd, squadBillWtd, squadQtyFtd, squadQtyWtd,
+        customValFtd: 0, customValWtd: 0, customBillFtd: 0, customBillWtd: 0, customQtyFtd: 0, customQtyWtd: 0,
         salesValFtd, salesValWtd, salesBillFtd, salesBillWtd, salesQtyFtd, salesQtyWtd
       };
     }).filter(Boolean);
-  }, [branches, isStoreAdmin, performanceData, salesData, dapprAttribution]);
+  }, [branches, isStoreAdmin, performanceData, salesData, dapprAttribution, customizationAttribution]);
 
   const filteredCategoryRows = useMemo(() => {
     return categoryRows.filter((item) => {
@@ -3333,6 +3443,13 @@ const DSRReport = () => {
   const totalSquadBillWtd = useMemo(() => filteredCategoryRows.reduce((acc, row) => acc + row.squadBillWtd, 0), [filteredCategoryRows]);
   const totalSquadQtyFtd = useMemo(() => filteredCategoryRows.reduce((acc, row) => acc + row.squadQtyFtd, 0), [filteredCategoryRows]);
   const totalSquadQtyWtd = useMemo(() => filteredCategoryRows.reduce((acc, row) => acc + row.squadQtyWtd, 0), [filteredCategoryRows]);
+
+  const totalCustomValFtd = useMemo(() => filteredCategoryRows.reduce((acc, row) => acc + row.customValFtd, 0), [filteredCategoryRows]);
+  const totalCustomValWtd = useMemo(() => filteredCategoryRows.reduce((acc, row) => acc + row.customValWtd, 0), [filteredCategoryRows]);
+  const totalCustomBillFtd = useMemo(() => filteredCategoryRows.reduce((acc, row) => acc + row.customBillFtd, 0), [filteredCategoryRows]);
+  const totalCustomBillWtd = useMemo(() => filteredCategoryRows.reduce((acc, row) => acc + row.customBillWtd, 0), [filteredCategoryRows]);
+  const totalCustomQtyFtd = useMemo(() => filteredCategoryRows.reduce((acc, row) => acc + row.customQtyFtd, 0), [filteredCategoryRows]);
+  const totalCustomQtyWtd = useMemo(() => filteredCategoryRows.reduce((acc, row) => acc + row.customQtyWtd, 0), [filteredCategoryRows]);
 
   const totalSalesValFtd = useMemo(() => filteredCategoryRows.reduce((acc, row) => acc + row.salesValFtd, 0), [filteredCategoryRows]);
   const totalSalesValWtd = useMemo(() => filteredCategoryRows.reduce((acc, row) => acc + row.salesValWtd, 0), [filteredCategoryRows]);
@@ -3430,6 +3547,28 @@ const DSRReport = () => {
         totalSalesValFtd, totalSalesValWtd, totalSalesBillFtd, totalSalesBillWtd, totalSalesQtyFtd, totalSalesQtyWtd
       ]);
       
+      csvContent = [headers, ...rows].map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(",")).join("\n");
+    } else if (selectedReport === "Customization") {
+      fileName = `Customization_${activeTab}_${CURRENT_YEAR}.csv`;
+      const storeColumnName = isStoreAdmin ? "Staff Name" : "Store Name";
+      const headers = [
+        storeColumnName,
+        "Value FTD (INR)", `Value ${activeTab} (INR)`,
+        "Bill FTD", `Bill ${activeTab}`,
+        "Qty FTD", `Qty ${activeTab}`
+      ];
+      const rows = filteredCategoryRows.map((row) => [
+        row.name,
+        row.customValFtd, row.customValWtd,
+        row.customBillFtd, row.customBillWtd,
+        row.customQtyFtd, row.customQtyWtd
+      ]);
+      rows.push([
+        "Store Total",
+        totalCustomValFtd, totalCustomValWtd,
+        totalCustomBillFtd, totalCustomBillWtd,
+        totalCustomQtyFtd, totalCustomQtyWtd
+      ]);
       csvContent = [headers, ...rows].map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(",")).join("\n");
     }
 
@@ -3574,13 +3713,14 @@ const DSRReport = () => {
                   ])).filter(Boolean);
 
                   // Fetch latest from DB first
+                  const targetStore = (isStoreAdmin && branches.length > 0) ? displayBranchName(branches[0].workingBranch) : selectedStore;
                   let freshAttribution = { ...dapprAttribution };
                   try {
                     const token = localStorage.getItem("token");
                     const targetMonth = activeTab === "Custom" ? getMonthNameFromDateStr(customStartDate) : CURRENT_MONTH_LONG;
                     const targetYear = activeTab === "Custom" ? getYearFromDateStr(customStartDate) : CURRENT_YEAR;
-                    const currentWeek = getCurrentWeekId(selectedStore) || 1;
-                    const res = await fetch(`${baseUrl.baseUrl}api/dappr-attributions?storeName=${selectedStore}&month=${targetMonth}&year=${targetYear}&week=${currentWeek}`, {
+                    const currentWeek = getCurrentWeekId(targetStore) || 1;
+                    const res = await fetch(`${baseUrl.baseUrl}api/dappr-attributions?storeName=${encodeURIComponent(targetStore)}&month=${targetMonth}&year=${targetYear}&week=${currentWeek}`, {
                       headers: { "Authorization": `Bearer ${token}` }
                     });
                     const json = await res.json();
@@ -3617,6 +3757,65 @@ const DSRReport = () => {
                 className="flex items-center gap-2 bg-[#6366f1] hover:bg-[#4f46e5] text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer"
               >
                 Add Dappr Squad
+              </button>
+            )}
+
+            {/* Add Customization Button — store_admin only */}
+            {isStoreAdmin && (
+              <button
+                onClick={async () => {
+                  const branch = branches[0];
+                  if (!branch) return;
+                  const locId = getBranchLocationId(branch.workingBranch);
+                  const staffNames = Array.from(new Set([
+                    ...(performanceData.period[locId] || []).map(x => x.bookingBy),
+                    ...(performanceData.ftd[locId]    || []).map(x => x.bookingBy),
+                  ])).filter(Boolean);
+
+                  const targetStore = (isStoreAdmin && branches.length > 0) ? displayBranchName(branches[0].workingBranch) : selectedStore;
+                  let freshAttribution = { ...customizationAttribution };
+                  try {
+                    const token = localStorage.getItem("token");
+                    const targetMonth = activeTab === "Custom" ? getMonthNameFromDateStr(customStartDate) : CURRENT_MONTH_LONG;
+                    const targetYear = activeTab === "Custom" ? getYearFromDateStr(customStartDate) : CURRENT_YEAR;
+                    const currentWeek = getCurrentWeekId(targetStore) || 1;
+                    const res = await fetch(`${baseUrl.baseUrl}api/customization-attributions?storeName=${encodeURIComponent(targetStore)}&month=${targetMonth}&year=${targetYear}&week=${currentWeek}`, {
+                      headers: { "Authorization": `Bearer ${token}` }
+                    });
+                    const json = await res.json();
+                    if (json.success && json.data) {
+                      freshAttribution = {};
+                      (json.data.attributions || []).forEach(attr => {
+                        freshAttribution[attr.staffName] = {
+                          billWtd: attr.billWtd,
+                          valWtd: attr.valWtd,
+                          qtyWtd: attr.qtyWtd
+                        };
+                      });
+                      setCustomizationAttribution(freshAttribution);
+                    }
+                  } catch (err) {
+                    console.error("Error pre-loading Customization attributions:", err);
+                  }
+
+                  const inputs = {};
+                  staffNames.forEach(name => {
+                    const matchedKey = Object.keys(freshAttribution).find(
+                      k => k.trim().toLowerCase() === name.trim().toLowerCase()
+                    );
+                    const saved = matchedKey ? freshAttribution[matchedKey] : {};
+                    inputs[name] = {
+                      billWtd: saved.billWtd ?? "",
+                      valWtd:  saved.valWtd  ?? "",
+                      qtyWtd:  saved.qtyWtd  ?? "",
+                    };
+                  });
+                  setCustomizationInputs(inputs);
+                  setCustomizationModalOpen(true);
+                }}
+                className="flex items-center gap-2 bg-[#10b981] hover:bg-[#059669] text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+              >
+                Add Customization
               </button>
             )}
 
@@ -3734,7 +3933,7 @@ const DSRReport = () => {
                     : "opacity-0 scale-95 -translate-y-2 pointer-events-none"
                 }`}
               >
-                {["Revenue Vs Target", isAdminOrSuperAdmin && "Cluster DSR", "Sales Funnel", "Category Contribution"]
+                {["Revenue Vs Target", isAdminOrSuperAdmin && "Cluster DSR", "Sales Funnel", "Category Contribution", "Customization"]
                   .filter(Boolean)
                   .map((opt) => (
                   <button
@@ -4263,6 +4462,12 @@ const DSRReport = () => {
                     <th className="w-2 bg-white" rowSpan={3}></th>
                     
                     <th colSpan={6} className="bg-[#2e2e2e] text-white rounded-t-[16px] py-3 text-center border-b border-gray-600/50 border-none">
+                      Customization
+                    </th>
+                    {/* Spacer column margin between pills */}
+                    <th className="w-2 bg-white" rowSpan={3}></th>
+                    
+                    <th colSpan={6} className="bg-[#2e2e2e] text-white rounded-t-[16px] py-3 text-center border-b border-gray-600/50 border-none">
                       Sales Products
                     </th>
                   </tr>
@@ -4273,6 +4478,10 @@ const DSRReport = () => {
                     <th colSpan={2} className="px-4 py-2 border-r border-gray-200/50 text-center">Bill</th>
                     <th colSpan={2} className="px-4 py-2 text-center">Quantity</th>
                     
+                    <th colSpan={2} className="px-4 py-2 border-r border-gray-200/50 text-center">Value</th>
+                    <th colSpan={2} className="px-4 py-2 border-r border-gray-200/50 text-center">Bill</th>
+                    <th colSpan={2} className="px-4 py-2 text-center">Quantity</th>
+
                     <th colSpan={2} className="px-4 py-2 border-r border-gray-200/50 text-center">Value</th>
                     <th colSpan={2} className="px-4 py-2 border-r border-gray-200/50 text-center">Bill</th>
                     <th colSpan={2} className="px-4 py-2 text-center">Quantity</th>
@@ -4291,6 +4500,13 @@ const DSRReport = () => {
                     <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">FTD</th>
                     <th className="px-4 py-1.5 text-center">{activeTab}</th>
                     
+                    <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">FTD</th>
+                    <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">{activeTab}</th>
+                    <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">FTD</th>
+                    <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">{activeTab}</th>
+                    <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">FTD</th>
+                    <th className="px-4 py-1.5 text-center">{activeTab}</th>
+
                     <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">FTD</th>
                     <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">{activeTab}</th>
                     <th className="px-4 py-1.5 border-r border-gray-200/50 text-center">FTD</th>
@@ -4342,6 +4558,19 @@ const DSRReport = () => {
                       {/* Spacer cell */}
                       <td className="w-2 bg-white border-none"></td>
 
+                      {/* Customization Cells */}
+                      <td className={`px-4 py-3.5 border-r border-gray-100 font-medium ${!row.customValFtd && "text-red-500"}`}>{renderCellVal(formatIndianNumber(row.customValFtd))}</td>
+                      <td className={`px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium ${!row.customValWtd && "text-red-500"}`}>{renderCellVal(formatIndianNumber(row.customValWtd))}</td>
+                      
+                      <td className={`px-4 py-3.5 border-r border-gray-100 ${!row.customBillFtd && "text-red-500"}`}>{renderCellVal(row.customBillFtd)}</td>
+                      <td className={`px-4 py-3.5 border-r border-gray-100 text-gray-700 ${!row.customBillWtd && "text-red-500"}`}>{renderCellVal(row.customBillWtd)}</td>
+
+                      <td className={`px-4 py-3.5 border-r border-gray-100 ${!row.customQtyFtd && "text-red-500"}`}>{renderCellVal(row.customQtyFtd)}</td>
+                      <td className={`px-4 py-3.5 text-gray-700 ${!row.customQtyWtd && "text-red-500"}`}>{renderCellVal(row.customQtyWtd)}</td>
+
+                      {/* Spacer cell */}
+                      <td className="w-2 bg-white border-none"></td>
+
                       {/* Sales Products Cells */}
                       <td className={`px-4 py-3.5 border-r border-gray-100 font-medium ${!row.salesValFtd && "text-red-500"}`}>{renderCellVal(formatIndianNumber(row.salesValFtd))}</td>
                       <td className={`px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium ${!row.salesValWtd && "text-red-500"}`}>{renderCellVal(formatIndianNumber(row.salesValWtd))}</td>
@@ -4386,6 +4615,19 @@ const DSRReport = () => {
                     {/* Spacer cell */}
                     <td className="w-2 bg-white border-none"></td>
 
+                    {/* Customization Totals */}
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalCustomValFtd))}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalCustomValWtd))}</td>
+                    
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalCustomBillFtd))}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalCustomBillWtd))}</td>
+
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalCustomQtyFtd))}</td>
+                    <td className="px-4 py-3.5">{renderCellVal(formatIndianNumber(totalCustomQtyWtd))}</td>
+
+                    {/* Spacer cell */}
+                    <td className="w-2 bg-white border-none"></td>
+
                     {/* Sales Products Totals */}
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalSalesValFtd))}</td>
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalSalesValWtd))}</td>
@@ -4395,6 +4637,97 @@ const DSRReport = () => {
                     
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalSalesQtyFtd))}</td>
                     <td className="px-4 py-3.5">{renderCellVal(formatIndianNumber(totalSalesQtyWtd))}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {selectedReport === "Customization" && (
+          <div className="bg-white rounded-[20px] shadow-sm border border-gray-100 overflow-hidden">
+            <div className="px-6 py-5 flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <h2 className="text-[17px] font-bold text-gray-900">Customization Report</h2>
+                {isStoreAdmin && selectedStore !== "All" && (
+                  <span className="text-xs font-semibold text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">{selectedStore}</span>
+                )}
+                {isFetchingAny && (
+                  <span className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-[11px] font-bold px-2.5 py-0.5 rounded-full border border-emerald-200 shadow-sm animate-pulse">
+                    <svg className="animate-spin w-3 h-3 text-emerald-600" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                    </svg>
+                    Fetching data...
+                  </span>
+                )}
+              </div>
+              <p className="text-gray-400 text-xs font-semibold">
+                {activeTab === "MTD" 
+                  ? getMTDDateRangeString() 
+                  : activeTab === "WTD" 
+                    ? getWTDDateRangeString() 
+                    : getCustomDateRangeString()}
+              </p>
+            </div>
+
+            {/* Metric Summary Grid */}
+            <div className="grid grid-cols-3 border-t border-b border-gray-100 divide-x divide-gray-100">
+              <div className="p-6">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total Customization Value</span>
+                <h3 className="text-[22px] font-extrabold text-[#10b981] mt-1">₹{formatIndianNumber(totalCustomValWtd)}</h3>
+              </div>
+              <div className="p-6">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total Bills</span>
+                <h3 className="text-[22px] font-extrabold text-[#212121] mt-1">{totalCustomBillWtd}</h3>
+              </div>
+              <div className="p-6">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total Quantity</span>
+                <h3 className="text-[22px] font-extrabold text-[#212121] mt-1">{totalCustomQtyWtd}</h3>
+              </div>
+            </div>
+
+            {/* Customization Data Table */}
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-[#2e2e2e] text-white text-[11px] font-bold tracking-wider uppercase">
+                    <th className="px-6 py-3.5 text-center w-20">Sl No</th>
+                    <th className="px-6 py-3.5">
+                      {isStoreAdmin ? "Staff Name" : "Store Name"}
+                    </th>
+                    <th className="px-6 py-3.5 text-right">Value (₹ FTD)</th>
+                    <th className="px-6 py-3.5 text-right">Value (₹ {activeTab})</th>
+                    <th className="px-6 py-3.5 text-right">Bill (FTD)</th>
+                    <th className="px-6 py-3.5 text-right">Bill ({activeTab})</th>
+                    <th className="px-6 py-3.5 text-right">Quantity (FTD)</th>
+                    <th className="px-6 py-3.5 text-right">Quantity ({activeTab})</th>
+                  </tr>
+                </thead>
+                <tbody className="text-xs text-gray-700 divide-y divide-gray-100">
+                  {filteredCategoryRows.map((row, index) => (
+                    <tr key={row.name || index} className="odd:bg-white even:bg-[#f9fafb] hover:bg-gray-50/50 transition-colors">
+                      <td className="px-6 py-3.5 text-center text-gray-400 font-medium">{index + 1}</td>
+                      <td className="px-6 py-3.5 font-bold text-gray-800">{row.name}</td>
+                      <td className="px-6 py-3.5 text-right font-medium">{renderCellVal(formatIndianNumber(row.customValFtd))}</td>
+                      <td className="px-6 py-3.5 text-right font-bold text-[#10b981]">{renderCellVal(formatIndianNumber(row.customValWtd))}</td>
+                      <td className="px-6 py-3.5 text-right font-medium">{renderCellVal(row.customBillFtd)}</td>
+                      <td className="px-6 py-3.5 text-right font-bold">{renderCellVal(row.customBillWtd)}</td>
+                      <td className="px-6 py-3.5 text-right font-medium">{renderCellVal(row.customQtyFtd)}</td>
+                      <td className="px-6 py-3.5 text-right font-bold">{renderCellVal(row.customQtyWtd)}</td>
+                    </tr>
+                  ))}
+
+                  {/* STORE TOTAL row */}
+                  <tr className="bg-[#dce9f5] font-bold text-gray-900">
+                    <td className="px-6 py-3.5 text-center text-gray-400 font-medium">—</td>
+                    <td className="px-6 py-3.5 font-extrabold text-[#18181b]">Store Total</td>
+                    <td className="px-6 py-3.5 text-right font-extrabold text-gray-900">{formatIndianNumber(totalCustomValFtd)}</td>
+                    <td className="px-6 py-3.5 text-right font-extrabold text-[#10b981]">{formatIndianNumber(totalCustomValWtd)}</td>
+                    <td className="px-6 py-3.5 text-right font-extrabold text-gray-900">{totalCustomBillFtd}</td>
+                    <td className="px-6 py-3.5 text-right font-extrabold text-gray-900">{totalCustomBillWtd}</td>
+                    <td className="px-6 py-3.5 text-right font-extrabold text-gray-900">{totalCustomQtyFtd}</td>
+                    <td className="px-6 py-3.5 text-right font-extrabold text-gray-900">{totalCustomQtyWtd}</td>
                   </tr>
                 </tbody>
               </table>
@@ -4549,9 +4882,10 @@ const DSRReport = () => {
                       
                       try {
                         const token = localStorage.getItem("token");
+                        const targetStore = (isStoreAdmin && branches.length > 0) ? displayBranchName(branches[0].workingBranch) : selectedStore;
                         const targetMonth = activeTab === "Custom" ? getMonthNameFromDateStr(customStartDate) : CURRENT_MONTH_LONG;
                         const targetYear = activeTab === "Custom" ? getYearFromDateStr(customStartDate) : CURRENT_YEAR;
-                        const currentWeek = getCurrentWeekId(selectedStore) || 1;
+                        const currentWeek = getCurrentWeekId(targetStore) || 1;
 
                         await fetch(`${baseUrl.baseUrl}api/dappr-attributions`, {
                           method: "POST",
@@ -4560,7 +4894,7 @@ const DSRReport = () => {
                             "Authorization": `Bearer ${token}`
                           },
                           body: JSON.stringify({
-                            storeName: selectedStore,
+                            storeName: targetStore,
                             month: targetMonth,
                             year: Number(targetYear),
                             week: Number(currentWeek),
@@ -4574,6 +4908,181 @@ const DSRReport = () => {
                       setDapprModalOpen(false);
                     }}
                     className="bg-[#18181b] hover:bg-black text-white text-xs font-bold py-2.5 px-6 rounded-xl"
+                  >
+                    Save & Apply
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Add Customization Attribution Modal — store_admin only */}
+        {customizationModalOpen && (() => {
+          const branch = branches[0];
+          const locId = branch ? getBranchLocationId(branch.workingBranch) : "1";
+          const staffList = Array.from(new Set([
+            ...(performanceData.period[locId] || []).map(x => x.bookingBy),
+            ...(performanceData.ftd[locId]    || []).map(x => x.bookingBy),
+          ])).filter(Boolean);
+
+          let allocatedValue = 0;
+          let allocatedBills = 0;
+          let allocatedQty = 0;
+
+          Object.values(customizationInputs).forEach(v => {
+            allocatedValue += Number(v.billWtd) || 0;
+            allocatedBills += Number(v.valWtd)  || 0;
+            allocatedQty   += Number(v.qtyWtd)  || 0;
+          });
+
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div className="fixed inset-0 bg-black/40 backdrop-blur-[6px]" onClick={() => setCustomizationModalOpen(false)} />
+
+              <div className="bg-white rounded-[28px] w-full max-w-[540px] shadow-2xl relative z-10 overflow-hidden border border-gray-100">
+                <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-gray-100">
+                  <div>
+                    <h2 className="text-[15px] font-extrabold text-gray-900 leading-tight">Add Customization</h2>
+                    <p className="text-[11px] text-gray-400 font-medium mt-0.5">
+                      Attribute Customization revenue to store staff
+                    </p>
+                  </div>
+                  <button onClick={() => setCustomizationModalOpen(false)} className="text-gray-400 hover:text-gray-700 text-xl font-bold">✕</button>
+                </div>
+
+                {/* Customization Store Total Card */}
+                <div className="mx-6 mt-4 mb-2 bg-emerald-50 border border-emerald-100 rounded-2xl px-4 py-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Customization Total (this store)</p>
+                    <p className="text-[18px] font-extrabold text-emerald-800 mt-0.5">
+                      ₹{allocatedValue.toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-5">
+                    <div className="text-right">
+                      <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Bills</p>
+                      <p className="text-[18px] font-extrabold text-emerald-800">{allocatedBills}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Qty</p>
+                      <p className="text-[18px] font-extrabold text-emerald-800">{allocatedQty}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Staff rows */}
+                <div className="px-6 pb-2 max-h-[340px] overflow-y-auto space-y-2 mt-3">
+                  {staffList.length === 0 && (
+                    <p className="text-center text-gray-400 text-xs py-6">No staff found for this store</p>
+                  )}
+                  {staffList.map(name => (
+                    <div key={name} className="flex items-center gap-3 bg-gray-50 rounded-xl px-3 py-2.5">
+                      <span className="flex-1 text-[12px] font-bold text-gray-800 truncate">{name}</span>
+                      <div className="flex items-center gap-2">
+                        <div className="flex flex-col items-center">
+                          <span className="text-[9px] font-bold text-gray-400 uppercase mb-0.5">Value (₹)</span>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                            value={customizationInputs[name]?.billWtd ?? ""}
+                            onChange={e => setCustomizationInputs(prev => ({
+                              ...prev,
+                              [name]: { ...prev[name], billWtd: e.target.value }
+                            }))}
+                            className="w-24 text-center text-xs font-semibold border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-emerald-400"
+                          />
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <span className="text-[9px] font-bold text-gray-400 uppercase mb-0.5">Bills</span>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                            value={customizationInputs[name]?.valWtd ?? ""}
+                            onChange={e => setCustomizationInputs(prev => ({
+                              ...prev,
+                              [name]: { ...prev[name], valWtd: e.target.value }
+                            }))}
+                            className="w-20 text-center text-xs font-semibold border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-emerald-400"
+                          />
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <span className="text-[9px] font-bold text-gray-400 uppercase mb-0.5">Qty</span>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                            value={customizationInputs[name]?.qtyWtd ?? ""}
+                            onChange={e => setCustomizationInputs(prev => ({
+                              ...prev,
+                              [name]: { ...prev[name], qtyWtd: e.target.value }
+                            }))}
+                            className="w-20 text-center text-xs font-semibold border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-emerald-400"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 py-4 border-t border-gray-100 flex justify-between items-center">
+                  <button
+                    onClick={() => {
+                      const cleared = {};
+                      staffList.forEach(n => { cleared[n] = { billWtd: "", valWtd: "", qtyWtd: "" }; });
+                      setCustomizationInputs(cleared);
+                    }}
+                    className="text-xs font-semibold text-gray-400 hover:text-gray-600"
+                  >
+                    Clear All
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const saved = {};
+                      const attributionsList = [];
+                      Object.entries(customizationInputs).forEach(([name, v]) => {
+                        const bv = Number(v.billWtd) || 0;
+                        const vv = Number(v.valWtd)  || 0;
+                        const qv = Number(v.qtyWtd)  || 0;
+                        if (bv > 0 || vv > 0 || qv > 0) {
+                          saved[name] = { billWtd: bv, valWtd: vv, qtyWtd: qv };
+                          attributionsList.push({ staffName: name, billWtd: bv, valWtd: vv, qtyWtd: qv });
+                        }
+                      });
+                      setCustomizationAttribution(saved);
+                      localStorage.setItem("customizationAttribution", JSON.stringify(saved));
+                      
+                      try {
+                        const token = localStorage.getItem("token");
+                        const targetStore = (isStoreAdmin && branches.length > 0) ? displayBranchName(branches[0].workingBranch) : selectedStore;
+                        const targetMonth = activeTab === "Custom" ? getMonthNameFromDateStr(customStartDate) : CURRENT_MONTH_LONG;
+                        const targetYear = activeTab === "Custom" ? getYearFromDateStr(customStartDate) : CURRENT_YEAR;
+                        const currentWeek = getCurrentWeekId(targetStore) || 1;
+
+                        await fetch(`${baseUrl.baseUrl}api/customization-attributions`, {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${token}`
+                          },
+                          body: JSON.stringify({
+                            storeName: targetStore,
+                            month: targetMonth,
+                            year: Number(targetYear),
+                            week: Number(currentWeek),
+                            attributions: attributionsList
+                          })
+                        });
+                      } catch (err) {
+                        console.error("Error saving Customization attribution to MongoDB:", err);
+                      }
+
+                      setCustomizationModalOpen(false);
+                    }}
+                    className="bg-[#10b981] hover:bg-[#059669] text-white text-xs font-bold py-2.5 px-6 rounded-xl cursor-pointer"
                   >
                     Save & Apply
                   </button>
