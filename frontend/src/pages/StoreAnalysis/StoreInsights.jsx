@@ -5,6 +5,8 @@ import ModileNav from "../../components/SideNav/ModileNav";
 import { 
   AreaChart, 
   Area, 
+  BarChart,
+  Bar,
   XAxis, 
   YAxis, 
   CartesianGrid, 
@@ -698,6 +700,9 @@ const StoreInsights = () => {
   // Dappr Squad & Customization attributions states
   const [dapprAttribution, setDapprAttribution] = useState({});
   const [customizationAttribution, setCustomizationAttribution] = useState({});
+  // Per-store totals keyed by normalizeForMatch(storeName) — used in admin all-stores view
+  const [storeDapprTotals, setStoreDapprTotals] = useState({});         // { [normStoreName]: { val, bills, qty } }
+  const [storeCustomizationTotals, setStoreCustomizationTotals] = useState({}); // { [normStoreName]: { val, bills, qty } }
 
   // Google Reviews real data from backend
   const [googleReviewData, setGoogleReviewData] = useState({});
@@ -1096,41 +1101,111 @@ const StoreInsights = () => {
   useEffect(() => {
     const fetchAttributions = async () => {
       const activeStore = isStoreAdmin && branches[0] ? displayBranchName(branches[0].workingBranch) : (storeFilter !== "All" ? storeFilter : (branches[0] ? displayBranchName(branches[0].workingBranch) : ""));
-      if (!activeStore) return;
+      if (!activeStore && storeFilter === "All" && !isStoreAdmin && branches.length === 0) return;
       try {
         const token = localStorage.getItem("token");
         const targetMonth = timeframe === "CUSTOM" ? (customStartDate ? new Date(customStartDate).toLocaleString("en-US", { month: "long" }) : CURRENT_MONTH_LONG) : CURRENT_MONTH_LONG;
         const targetYear = timeframe === "CUSTOM" ? (customStartDate ? new Date(customStartDate).getFullYear() : CURRENT_YEAR) : CURRENT_YEAR;
-        const currentWeek = getCurrentWeekId(activeStore, targetMonth) || 1;
 
-        // Fetch Dappr attributions
-        const dapprRes = await fetch(`${baseUrl.baseUrl}api/dappr-attributions?storeName=${encodeURIComponent(activeStore)}&month=${targetMonth}&year=${targetYear}&week=${currentWeek}`, {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        const dapprJson = await dapprRes.json();
-        if (dapprJson.success && dapprJson.data && dapprJson.data.attributions) {
-          const mapped = {};
-          dapprJson.data.attributions.forEach(attr => {
-            mapped[attr.staffName] = { billWtd: attr.billWtd, valWtd: attr.valWtd, qtyWtd: attr.qtyWtd };
-          });
-          setDapprAttribution(mapped);
-        } else {
-          setDapprAttribution({});
-        }
+        // Determine if we need all-store fetch (admin/cluster viewing all)
+        const isAllStoresView = !isStoreAdmin && storeFilter === "All";
 
-        // Fetch Customization attributions
-        const custRes = await fetch(`${baseUrl.baseUrl}api/customization-attributions?storeName=${encodeURIComponent(activeStore)}&month=${targetMonth}&year=${targetYear}&week=${currentWeek}`, {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        const custJson = await custRes.json();
-        if (custJson.success && custJson.data && custJson.data.attributions) {
-          const mapped = {};
-          custJson.data.attributions.forEach(attr => {
-            mapped[attr.staffName] = { billWtd: attr.billWtd, valWtd: attr.valWtd, qtyWtd: attr.qtyWtd };
+        if (isAllStoresView) {
+          // Fetch Dappr attributions for all stores (no storeName/week filter)
+          const dapprRes = await fetch(`${baseUrl.baseUrl}api/dappr-attributions?month=${targetMonth}&year=${targetYear}`, {
+            headers: { "Authorization": `Bearer ${token}` }
           });
-          setCustomizationAttribution(mapped);
+          const dapprJson = await dapprRes.json();
+          const dapprMapped = {};
+          const dapprByStore = {}; // { [normStoreName]: { val, bills, qty } }
+          if (dapprJson.success && dapprJson.data) {
+            const docs = Array.isArray(dapprJson.data) ? dapprJson.data : [dapprJson.data];
+            docs.forEach(doc => {
+              if (!doc?.storeName) return;
+              const storeKey = normalizeForMatch(doc.storeName);
+              if (!dapprByStore[storeKey]) dapprByStore[storeKey] = { val: 0, bills: 0, qty: 0 };
+              (doc.attributions || []).forEach(attr => {
+                if (!attr?.staffName) return;
+                const bv = Number(attr.billWtd) || 0;
+                const vv = Number(attr.valWtd) || 0;
+                const qv = Number(attr.qtyWtd) || 0;
+                dapprMapped[attr.staffName] = {
+                  billWtd: (dapprMapped[attr.staffName]?.billWtd || 0) + bv,
+                  valWtd:  (dapprMapped[attr.staffName]?.valWtd  || 0) + vv,
+                  qtyWtd:  (dapprMapped[attr.staffName]?.qtyWtd  || 0) + qv,
+                };
+                dapprByStore[storeKey].val   += bv;
+                dapprByStore[storeKey].bills += vv;
+                dapprByStore[storeKey].qty   += qv;
+              });
+            });
+          }
+          setDapprAttribution(dapprMapped);
+          setStoreDapprTotals(dapprByStore);
+
+          // Fetch Customization attributions for all stores
+          const custRes = await fetch(`${baseUrl.baseUrl}api/customization-attributions?month=${targetMonth}&year=${targetYear}`, {
+            headers: { "Authorization": `Bearer ${token}` }
+          });
+          const custJson = await custRes.json();
+          const custMapped = {};
+          const custByStore = {}; // { [normStoreName]: { val, bills, qty } }
+          if (custJson.success && custJson.data) {
+            const docs = Array.isArray(custJson.data) ? custJson.data : [custJson.data];
+            docs.forEach(doc => {
+              if (!doc?.storeName) return;
+              const storeKey = normalizeForMatch(doc.storeName);
+              if (!custByStore[storeKey]) custByStore[storeKey] = { val: 0, bills: 0, qty: 0 };
+              (doc.attributions || []).forEach(attr => {
+                if (!attr?.staffName) return;
+                const bv = Number(attr.billWtd) || 0;
+                const vv = Number(attr.valWtd) || 0;
+                const qv = Number(attr.qtyWtd) || 0;
+                custMapped[attr.staffName] = {
+                  billWtd: (custMapped[attr.staffName]?.billWtd || 0) + bv,
+                  valWtd:  (custMapped[attr.staffName]?.valWtd  || 0) + vv,
+                  qtyWtd:  (custMapped[attr.staffName]?.qtyWtd  || 0) + qv,
+                };
+                custByStore[storeKey].val   += bv;
+                custByStore[storeKey].bills += vv;
+                custByStore[storeKey].qty   += qv;
+              });
+            });
+          }
+          setCustomizationAttribution(custMapped);
+          setStoreCustomizationTotals(custByStore);
         } else {
-          setCustomizationAttribution({});
+          const currentWeek = getCurrentWeekId(activeStore, targetMonth) || 1;
+
+          // Fetch Dappr attributions (single store)
+          const dapprRes = await fetch(`${baseUrl.baseUrl}api/dappr-attributions?storeName=${encodeURIComponent(activeStore)}&month=${targetMonth}&year=${targetYear}&week=${currentWeek}`, {
+            headers: { "Authorization": `Bearer ${token}` }
+          });
+          const dapprJson = await dapprRes.json();
+          if (dapprJson.success && dapprJson.data && dapprJson.data.attributions) {
+            const mapped = {};
+            dapprJson.data.attributions.forEach(attr => {
+              mapped[attr.staffName] = { billWtd: attr.billWtd, valWtd: attr.valWtd, qtyWtd: attr.qtyWtd };
+            });
+            setDapprAttribution(mapped);
+          } else {
+            setDapprAttribution({});
+          }
+
+          // Fetch Customization attributions (single store)
+          const custRes = await fetch(`${baseUrl.baseUrl}api/customization-attributions?storeName=${encodeURIComponent(activeStore)}&month=${targetMonth}&year=${targetYear}&week=${currentWeek}`, {
+            headers: { "Authorization": `Bearer ${token}` }
+          });
+          const custJson = await custRes.json();
+          if (custJson.success && custJson.data && custJson.data.attributions) {
+            const mapped = {};
+            custJson.data.attributions.forEach(attr => {
+              mapped[attr.staffName] = { billWtd: attr.billWtd, valWtd: attr.valWtd, qtyWtd: attr.qtyWtd };
+            });
+            setCustomizationAttribution(mapped);
+          } else {
+            setCustomizationAttribution({});
+          }
         }
       } catch (err) {
         console.error("Error fetching attributions in StoreInsights:", err);
@@ -1860,7 +1935,7 @@ const StoreInsights = () => {
 
       const locPeriodList = performanceData[locId] || [];
       const dapprPeriodList = isConsolidated ? (performanceData["25"] || []) : [];
-      const dapprPeriodForStore = [];
+      const dapprPeriodForStore = isConsolidated ? getDapprSquadDataForStore(locId, dapprPeriodList) : [];
       const isGMGRoad = locId === "23";
       const unmappedDapprPeriodList = (isGMGRoad && isConsolidated)
         ? dapprPeriodList.filter(item => {
@@ -1881,13 +1956,17 @@ const StoreInsights = () => {
         const salesTotalValue = branchSales.totalValue || 0;
 
         let custTotalValue = 0;
-        let dapprTotalValue = 0;
+
         if (isStoreAdmin || storeFilter === name) {
+          // Store-admin or specific-store filter: use flat attribution map (all entries belong to this store)
           custTotalValue = Object.values(customizationAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
-          dapprTotalValue = Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
+        } else {
+          // Admin all-stores view: use per-store totals keyed by normalised store name
+          const storeKey = normalizeForMatch(name);
+          custTotalValue = storeCustomizationTotals[storeKey]?.val || 0;
         }
 
-        achieved = rentalValue + salesTotalValue + custTotalValue + dapprTotalValue;
+        achieved = rentalValue + salesTotalValue + custTotalValue;
       }
 
       const balance = target - achieved;
@@ -1904,7 +1983,7 @@ const StoreInsights = () => {
     }).filter(Boolean);
 
     return list;
-  }, [branches, isConsolidated, timeframe, customStartDate, customEndDate, weeklyTargets, performanceData, salesData, dapprAttribution, customizationAttribution, storeFilter, isStoreAdmin]);
+  }, [branches, isConsolidated, timeframe, customStartDate, customEndDate, weeklyTargets, performanceData, salesData, dapprAttribution, customizationAttribution, storeDapprTotals, storeCustomizationTotals, storeFilter, isStoreAdmin]);
 
   // Filter stores by cluster if selected
   const filteredStoresForKPIs = useMemo(() => {
@@ -1986,7 +2065,7 @@ const StoreInsights = () => {
 
     // If consolidated, also include Dappr Squad data for this location
     const dapprPeriodList = isConsolidated ? (performanceData["25"] || []) : [];
-    const dapprPeriodForStore = [];
+    const dapprPeriodForStore = isConsolidated ? getDapprSquadDataForStore(locId, dapprPeriodList) : [];
     const isGMGRoad = locId === "23";
     const unmappedDapprPeriodList = (isGMGRoad && isConsolidated)
       ? dapprPeriodList.filter(item => {
@@ -2169,7 +2248,7 @@ const StoreInsights = () => {
       // 1. Current Rental
       const locPeriodList = performanceData[locId] || [];
       const dapprPeriodList = isConsolidated ? (performanceData["25"] || []) : [];
-      const dapprPeriodForStore = [];
+      const dapprPeriodForStore = isConsolidated ? getDapprSquadDataForStore(locId, dapprPeriodList) : [];
       const isGMGRoad = locId === "23";
       const unmappedDapprPeriodList = (isGMGRoad && isConsolidated)
         ? dapprPeriodList.filter(item => {
@@ -2252,7 +2331,7 @@ const StoreInsights = () => {
       const locId = getBranchLocationId(name);
       if (!locId || locId === "25") return;
 
-      const dapprPeriodForStore = [];
+      const dapprPeriodForStore = isConsolidated ? getDapprSquadDataForStore(locId, squadPeriodList) : [];
       const isGMGRoad = locId === "23";
       const unmappedDapprPeriodList = isGMGRoad
         ? squadPeriodList.filter(item => {
@@ -2285,8 +2364,8 @@ const StoreInsights = () => {
       lyDapprSquadQty += lyMergedList.reduce((sum, item) => sum + (item.totalQuantity || item.total_Number_Of_Bill || 0), 0);
     });
 
-    // Database-wide Walkins override for consolidated cluster filter "All"
-    if (clusterFilter === "All" && !isStoreAdmin) {
+    // Database-wide Walkins override for consolidated cluster filter "All" AND no store filter
+    if (clusterFilter === "All" && storeFilter === "All" && !isStoreAdmin) {
       customerWalkins = walkins.filter(w => isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd)).length;
       lyCustomerWalkins = lyWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, lyPeriodStart, lyPeriodEnd)).length;
       convertedWalkinsCount = walkins.filter(w => 
@@ -2361,20 +2440,20 @@ const StoreInsights = () => {
 
     if (isConsolidated) {
       let custVal = 0, custBills = 0, custQty = 0;
+      // Only include customization attribution (not manual dappr) to match Sales Funnel logic
       Object.values(customizationAttribution).forEach(v => {
         custVal += Number(v.billWtd) || 0;
         custBills += Number(v.valWtd) || 0;
         custQty += Number(v.qtyWtd) || 0;
       });
-      Object.values(dapprAttribution).forEach(v => {
-        custVal += Number(v.billWtd) || 0;
-        custBills += Number(v.valWtd) || 0;
-        custQty += Number(v.qtyWtd) || 0;
-      });
 
+      // Use totalAchieved from chartData (filteredStoresForKPIs) as the single source of truth.
+      // chartData already computes each store's achieved as:
+      //   rental + Dappr Squad (POS) + customization + shoe/shirt sales
+      // using storeDapprTotals / storeCustomizationTotals per store — same logic as Sales Funnel.
       const consolidatedValue = ((isStoreAdmin || storeFilter !== "All") && employeeChartData.length > 0)
         ? employeeChartData.reduce((sum, emp) => sum + emp.achieved, 0)
-        : rentalValue + shoeValue + shirtValue + custVal;
+        : totalAchieved;
       const consolidatedBills = rentalBills + shoeBills + shirtBills + custBills;
       const consolidatedTotalQty = rentalQty + shoeQty + shirtQty + custQty;
 
@@ -3361,44 +3440,20 @@ const StoreInsights = () => {
             </div>
           </div>
 
-          {/* Recharts Area Graph */}
+          {/* Recharts Graph — BarChart for single store, AreaChart for multiple */}
           <div className="h-[300px] w-full mt-2">
             {isStoreAdmin && employeeChartData.length === 0 && !loadingPerformance && (
               <div className="flex items-center justify-center h-full text-gray-400 text-sm font-semibold">
                 No employee performance data available for this period.
               </div>
             )}
-            {(!isStoreAdmin || employeeChartData.length > 0 || loadingPerformance) && (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart 
-                data={isStoreAdmin ? employeeChartData : filteredChartData} 
-                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-              >
-                <defs>
-                  <linearGradient id="chartTargetGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#9333ea" stopOpacity={0.12} />
-                    <stop offset="100%" stopColor="#9333ea" stopOpacity={0.0} />
-                  </linearGradient>
-                  <linearGradient id="chartAchievedGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#eab308" stopOpacity={0.12} />
-                    <stop offset="100%" stopColor="#eab308" stopOpacity={0.0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                <XAxis 
-                  dataKey="abbr" 
-                  tickLine={false} 
-                  axisLine={false} 
-                  tick={{ fill: "#9ca3af", fontSize: 10, fontWeight: 700 }}
-                  interval={0}
-                />
-                <YAxis 
-                  tickLine={false} 
-                  axisLine={false} 
-                  tick={{ fill: "#9ca3af", fontSize: 10, fontWeight: 700 }}
-                  tickFormatter={(val) => val >= 1000 ? `${val / 1000}K` : val} 
-                />
-                <Tooltip 
+            {(!isStoreAdmin || employeeChartData.length > 0 || loadingPerformance) && (() => {
+              const chartPoints = isStoreAdmin ? employeeChartData : filteredChartData;
+              const useBarChart = chartPoints.length <= 2;
+
+              // Shared tooltip content
+              const sharedTooltip = (
+                <Tooltip
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
                       const data = payload[0].payload;
@@ -3429,27 +3484,77 @@ const StoreInsights = () => {
                     return null;
                   }}
                 />
-                <Area 
-                  type="monotone" 
-                  dataKey="target" 
-                  stroke="#9333ea" 
-                  strokeWidth={2.5} 
-                  fill="url(#chartTargetGrad)" 
-                  dot={{ r: 3, stroke: "#9333ea", strokeWidth: 1, fill: "#ffffff" }}
-                  activeDot={{ r: 6 }}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="achieved" 
-                  stroke="#eab308" 
-                  strokeWidth={2.5} 
-                  fill="url(#chartAchievedGrad)" 
-                  dot={{ r: 3, stroke: "#eab308", strokeWidth: 1, fill: "#ffffff" }}
-                  activeDot={{ r: 6 }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-            )}
+              );
+
+              const sharedAxes = (
+                <>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                  <XAxis
+                    dataKey="abbr"
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fill: "#9ca3af", fontSize: 10, fontWeight: 700 }}
+                    interval={0}
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fill: "#9ca3af", fontSize: 10, fontWeight: 700 }}
+                    tickFormatter={(val) => val >= 1000 ? `${val / 1000}K` : val}
+                  />
+                </>
+              );
+
+              if (useBarChart) {
+                return (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartPoints} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barCategoryGap="40%">
+                      {sharedAxes}
+                      {sharedTooltip}
+                      <Bar dataKey="target" name="Target" fill="#9333ea" fillOpacity={0.85} radius={[6, 6, 0, 0]} barSize={60} />
+                      <Bar dataKey="achieved" name="Achieved" fill="#eab308" fillOpacity={0.85} radius={[6, 6, 0, 0]} barSize={60} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                );
+              }
+
+              return (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartPoints} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="chartTargetGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#9333ea" stopOpacity={0.12} />
+                        <stop offset="100%" stopColor="#9333ea" stopOpacity={0.0} />
+                      </linearGradient>
+                      <linearGradient id="chartAchievedGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#eab308" stopOpacity={0.12} />
+                        <stop offset="100%" stopColor="#eab308" stopOpacity={0.0} />
+                      </linearGradient>
+                    </defs>
+                    {sharedAxes}
+                    {sharedTooltip}
+                    <Area
+                      type="monotone"
+                      dataKey="target"
+                      stroke="#9333ea"
+                      strokeWidth={2.5}
+                      fill="url(#chartTargetGrad)"
+                      dot={{ r: 3, stroke: "#9333ea", strokeWidth: 1, fill: "#ffffff" }}
+                      activeDot={{ r: 6 }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="achieved"
+                      stroke="#eab308"
+                      strokeWidth={2.5}
+                      fill="url(#chartAchievedGrad)"
+                      dot={{ r: 3, stroke: "#eab308", strokeWidth: 1, fill: "#ffffff" }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              );
+            })()}
           </div>
         </div>
 

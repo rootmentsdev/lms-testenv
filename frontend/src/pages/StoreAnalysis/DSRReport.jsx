@@ -1163,6 +1163,8 @@ const DSRReport = () => {
   // Customization attribution modal states
   const [customizationModalOpen, setCustomizationModalOpen] = useState(false);
   const [customizationAttribution, setCustomizationAttribution] = useState({});
+  const [storeCustomizationTotals, setStoreCustomizationTotals] = useState({});
+  const [storeDapprTotals, setStoreDapprTotals] = useState({}); // { [normalizedStoreName]: { val, bills, qty } }
   const [customizationInputs, setCustomizationInputs] = useState({});
 
   const [configWeek4, setConfigWeek4] = useState(defaultAutoWeeks[4]);
@@ -1546,69 +1548,116 @@ const DSRReport = () => {
 
   const fetchDapprAttribution = async () => {
     const targetStore = (isStoreAdmin && branches.length > 0) ? displayBranchName(branches[0].workingBranch) : selectedStore;
-    if (!targetStore || targetStore === "All") return;
     try {
       const token = localStorage.getItem("token");
       const targetMonth = activeTab === "Custom" ? getMonthNameFromDateStr(customStartDate) : CURRENT_MONTH_LONG;
       const targetYear = activeTab === "Custom" ? getYearFromDateStr(customStartDate) : CURRENT_YEAR;
-      const currentWeek = getCurrentWeekId(targetStore) || 1;
 
-      const res = await fetch(`${baseUrl.baseUrl}api/dappr-attributions?storeName=${encodeURIComponent(targetStore)}&month=${targetMonth}&year=${targetYear}&week=${currentWeek}`, {
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
-      const json = await res.json();
-      if (json.success && json.data && json.data.attributions && json.data.attributions.length > 0) {
-        const mapped = {};
-        json.data.attributions.forEach(attr => {
-          mapped[attr.staffName] = {
-            billWtd: attr.billWtd,
-            valWtd: attr.valWtd,
-            qtyWtd: attr.qtyWtd
-          };
-        });
-        setDapprAttribution(mapped);
+      const isAllStores = !targetStore || targetStore === "All";
+
+      // For a specific store: fetch only that store's current week
+      // For All stores: fetch all docs for the month (no week filter) so every store's data is included
+      let url;
+      if (isAllStores) {
+        url = `${baseUrl.baseUrl}api/dappr-attributions?storeName=All&month=${targetMonth}&year=${targetYear}`;
       } else {
-        setDapprAttribution({});
+        const currentWeek = getCurrentWeekId(targetStore) || 1;
+        url = `${baseUrl.baseUrl}api/dappr-attributions?storeName=${encodeURIComponent(targetStore)}&month=${targetMonth}&year=${targetYear}&week=${currentWeek}`;
       }
+
+      const res = await fetch(url, { headers: { "Authorization": `Bearer ${token}` } });
+      const json = await res.json();
+
+      const mapped = {};           // { [staffName]: { billWtd, valWtd, qtyWtd } }
+      const dapprByStore = {};     // { [normalizedStoreName]: { val, bills, qty } }
+
+      if (json.success && json.data) {
+        const docs = Array.isArray(json.data) ? json.data : (json.data ? [json.data] : []);
+        docs.forEach(doc => {
+          if (!doc || !doc.storeName) return;
+          const storeKey = normalizeForMatch(doc.storeName);
+          if (!dapprByStore[storeKey]) dapprByStore[storeKey] = { val: 0, bills: 0, qty: 0 };
+          (doc.attributions || []).forEach(attr => {
+            if (!attr || !attr.staffName) return;
+            const bv = Number(attr.billWtd) || 0;
+            const vv = Number(attr.valWtd) || 0;
+            const qv = Number(attr.qtyWtd) || 0;
+            mapped[attr.staffName] = {
+              billWtd: (mapped[attr.staffName]?.billWtd || 0) + bv,
+              valWtd:  (mapped[attr.staffName]?.valWtd  || 0) + vv,
+              qtyWtd:  (mapped[attr.staffName]?.qtyWtd  || 0) + qv
+            };
+            dapprByStore[storeKey].val   += bv;
+            dapprByStore[storeKey].bills += vv;
+            dapprByStore[storeKey].qty   += qv;
+          });
+        });
+      }
+
+      setDapprAttribution(mapped);
+      setStoreDapprTotals(dapprByStore);
     } catch (err) {
       console.error("Error loading Dappr attributions:", err);
       setDapprAttribution({});
+      setStoreDapprTotals({});
     }
   };
 
   const fetchCustomizationAttribution = async () => {
     const targetStore = (isStoreAdmin && branches.length > 0) ? displayBranchName(branches[0].workingBranch) : selectedStore;
-    if (!targetStore || targetStore === "All") return;
     try {
       const token = localStorage.getItem("token");
       const targetMonth = activeTab === "Custom" ? getMonthNameFromDateStr(customStartDate) : CURRENT_MONTH_LONG;
       const targetYear = activeTab === "Custom" ? getYearFromDateStr(customStartDate) : CURRENT_YEAR;
-      const currentWeek = getCurrentWeekId(targetStore) || 1;
+      const storeParam = (!targetStore || targetStore === "All") ? "All" : targetStore;
+      const currentWeek = storeParam !== "All" ? (getCurrentWeekId(storeParam) || "All") : "All";
 
-      const res = await fetch(`${baseUrl.baseUrl}api/customization-attributions?storeName=${encodeURIComponent(targetStore)}&month=${targetMonth}&year=${targetYear}&week=${currentWeek}`, {
+      const queryUrl = `${baseUrl.baseUrl}api/customization-attributions?storeName=${encodeURIComponent(storeParam)}&month=${targetMonth}&year=${targetYear}${currentWeek !== "All" ? `&week=${currentWeek}` : ''}`;
+      console.log("[Customization] Fetching:", queryUrl);
+      const res = await fetch(queryUrl, {
         headers: {
           "Authorization": `Bearer ${token}`
         }
       });
       const json = await res.json();
-      if (json.success && json.data && json.data.attributions && json.data.attributions.length > 0) {
-        const mapped = {};
-        json.data.attributions.forEach(attr => {
-          mapped[attr.staffName] = {
-            billWtd: attr.billWtd,
-            valWtd: attr.valWtd,
-            qtyWtd: attr.qtyWtd
-          };
+      console.log("[Customization] Response:", JSON.stringify(json).substring(0, 500));
+      const mappedStaff = {};
+      const storeTotals = {};
+
+      if (json.success && json.data) {
+        const docs = Array.isArray(json.data) ? json.data : [json.data];
+        console.log("[Customization] Docs count:", docs.length, "| Store keys:", docs.map(d => d?.storeName));
+        docs.forEach(doc => {
+          if (!doc || !doc.storeName) return;
+          const storeKey = normalizeForMatch(doc.storeName);
+          if (!storeTotals[storeKey]) {
+            storeTotals[storeKey] = { val: 0, bills: 0, qty: 0 };
+          }
+          (doc.attributions || []).forEach(attr => {
+            if (!attr || !attr.staffName) return;
+            const bv = Number(attr.billWtd) || 0;
+            const vv = Number(attr.valWtd) || 0;
+            const qv = Number(attr.qtyWtd) || 0;
+
+            mappedStaff[attr.staffName] = {
+              billWtd: (mappedStaff[attr.staffName]?.billWtd || 0) + bv,
+              valWtd: (mappedStaff[attr.staffName]?.valWtd || 0) + vv,
+              qtyWtd: (mappedStaff[attr.staffName]?.qtyWtd || 0) + qv
+            };
+
+            storeTotals[storeKey].val += bv;
+            storeTotals[storeKey].bills += vv;
+            storeTotals[storeKey].qty += qv;
+          });
         });
-        setCustomizationAttribution(mapped);
-      } else {
-        setCustomizationAttribution({});
+        console.log("[Customization] storeTotals keys:", Object.keys(storeTotals));
       }
+      setCustomizationAttribution(mappedStaff);
+      setStoreCustomizationTotals(storeTotals);
     } catch (err) {
       console.error("Error loading Customization attributions:", err);
       setCustomizationAttribution({});
+      setStoreCustomizationTotals({});
     }
   };
 
@@ -2362,12 +2411,11 @@ const DSRReport = () => {
       const defaultTarget = 0;
       const target = getStoreTarget(name, defaultTarget, activeTab, customFactor);
 
-      // Rental value (from rental API)
+      // Build achieved using the same formula as funnelRows so per-store numbers match.
       const locPeriodList = performanceData.period[locId] || [];
       const dapprPeriodList = funnelView === "Consolidated" ? (performanceData.period["25"] || []) : [];
       const dapprPeriodForStore = funnelView === "Consolidated" ? getDapprSquadDataForStore(locId, dapprPeriodList) : [];
 
-      // Also absorb unmapped Dappr Squad staff into G.MG Road (locId "23")
       const isGMGRoad = locId === "23";
       const unmappedDapprPeriodList = (isGMGRoad && funnelView === "Consolidated")
         ? dapprPeriodList.filter(item => {
@@ -2381,11 +2429,16 @@ const DSRReport = () => {
       const mergedPeriodList = [...locPeriodList, ...dapprPeriodForStore, ...unmappedDapprPeriodList];
       let achieved = mergedPeriodList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
 
-      // Add shoe/shirt sales when in Consolidated view
       if (funnelView === "Consolidated") {
         const locCode = b.locCode || getBranchLocCode(b.workingBranch, branches);
+        // Add shoe/shirt sales (same lookup as funnelRows)
         const salesPeriodItem = salesData.period[locCode] || salesData.period[storeKeyVal] || { value: 0 };
         achieved += salesPeriodItem.value || 0;
+
+        // Add customization attribution (same lookup as funnelRows)
+        const custKey = normalizeForMatch(name);
+        const custTotals = storeCustomizationTotals[custKey] || {};
+        achieved += custTotals.val || 0;
       }
 
       const balance = target - achieved;
@@ -2393,7 +2446,7 @@ const DSRReport = () => {
       return { sl, name, target, achieved, balance, pct };
     }).filter(Boolean);
     return list;
-  }, [branches, weeklyTargets, activeTab, customStartDate, customEndDate, performanceData, funnelView, salesData, dapprAttribution, customizationAttribution]);
+  }, [branches, weeklyTargets, activeTab, customStartDate, customEndDate, performanceData, funnelView, salesData, dapprAttribution, customizationAttribution, storeCustomizationTotals]);
 
   // Generate dynamic Sales Funnel data based on fetched branches (with mock fallback)
   const funnelRows = useMemo(() => {
@@ -2849,6 +2902,13 @@ const DSRReport = () => {
             billWtd += salesPeriodItem.bills || 0;
             qtyFtd += salesFtdItem.qty || 0;
             qtyWtd += salesPeriodItem.qty || 0;
+
+            // Include Customization attributions for this store
+            const custKey = normalizeForMatch(storeName);
+            const custTotals = storeCustomizationTotals[custKey] || {};
+            valWtd += custTotals.val || 0;
+            billWtd += custTotals.bills || 0;
+            qtyWtd += custTotals.qty || 0;
           }
 
           const createdValFtd = mergedFtdList.reduce((sum, item) => sum + (item.created_Number_Of_Bill || 0), 0);
@@ -2940,7 +3000,7 @@ const DSRReport = () => {
       });
       return allRows;
     }
-  }, [branches, isAdminOrSuperAdmin, isClusterAdmin, isStoreAdmin, walkins, performanceData, selectedStore, activeTab, customStartDate, customEndDate, funnelView, salesData, dapprAttribution, customizationAttribution, storeWeekRanges, week1Dates, week2Dates, week3Dates, week4Dates]);
+  }, [branches, isAdminOrSuperAdmin, isClusterAdmin, isStoreAdmin, walkins, performanceData, selectedStore, activeTab, customStartDate, customEndDate, funnelView, salesData, dapprAttribution, customizationAttribution, storeCustomizationTotals, storeWeekRanges, week1Dates, week2Dates, week3Dates, week4Dates]);
 
   // Populate dynamic store options for dropdown
   const storeOptions = useMemo(() => {
@@ -2987,8 +3047,14 @@ const DSRReport = () => {
   }, [filteredData]);
 
   const overallAchieved = useMemo(() => {
+    // In Consolidated mode, use the Sales Funnel valWtd total — it is the single source of truth
+    // that already includes rental + Dappr Squad + customization + shoe/shirt sales per store.
+    // In Rental mode, fall back to dsrData achieved (rental only).
+    if (funnelView === "Consolidated") {
+      return filteredFunnelRows.reduce((acc, row) => acc + (row.valWtd || 0), 0);
+    }
     return filteredData.reduce((acc, row) => acc + (row.achieved || 0), 0);
-  }, [filteredData]);
+  }, [filteredData, filteredFunnelRows, funnelView]);
 
   const overallBalance = useMemo(() => {
     return overallTarget - overallAchieved;
@@ -3410,15 +3476,22 @@ const DSRReport = () => {
       const salesQtyFtd = salesFtdItem.qty || 0;
       const salesQtyWtd = salesPeriodItem.qty || 0;
 
+      // Customization — look up by store's normalized name (storeCustomizationTotals keyed by normalizeForMatch(storeName))
+      const custStoreKey = normalizeForMatch(displayBranchName(workingBranch));
+      const custTotals = storeCustomizationTotals[custStoreKey] || {};
+      const customValWtd = custTotals.val || 0;
+      const customBillWtd = custTotals.bills || 0;
+      const customQtyWtd = custTotals.qty || 0;
+
       return {
         name,
         rentalValFtd, rentalValWtd, rentalBillFtd, rentalBillWtd, rentalQtyFtd, rentalQtyWtd,
         squadValFtd, squadValWtd, squadBillFtd, squadBillWtd, squadQtyFtd, squadQtyWtd,
-        customValFtd: 0, customValWtd: 0, customBillFtd: 0, customBillWtd: 0, customQtyFtd: 0, customQtyWtd: 0,
+        customValFtd: 0, customValWtd, customBillFtd: 0, customBillWtd, customQtyFtd: 0, customQtyWtd,
         salesValFtd, salesValWtd, salesBillFtd, salesBillWtd, salesQtyFtd, salesQtyWtd
       };
     }).filter(Boolean);
-  }, [branches, isStoreAdmin, performanceData, salesData, dapprAttribution, customizationAttribution]);
+  }, [branches, isStoreAdmin, performanceData, salesData, dapprAttribution, customizationAttribution, storeCustomizationTotals]);
 
   const filteredCategoryRows = useMemo(() => {
     return categoryRows.filter((item) => {

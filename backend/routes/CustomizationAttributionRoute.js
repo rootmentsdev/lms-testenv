@@ -4,22 +4,29 @@ import CustomizationAttribution from '../model/CustomizationAttribution.js';
 
 const router = express.Router();
 
-// GET attribution for specific store, week, month, year
+// GET attribution for specific store (or all stores), week, month, year
 router.get('/', MiddilWare, async (req, res) => {
   try {
     const { storeName, month, year, week } = req.query;
-    if (!storeName || !month || !year || !week) {
-      return res.status(400).json({ success: false, message: "storeName, month, year, and week are required" });
+    if (!month || !year) {
+      return res.status(400).json({ success: false, message: "month and year are required" });
     }
 
-    const doc = await CustomizationAttribution.findOne({
-      storeName,
-      month,
-      year: Number(year),
-      week: Number(week)
-    }).lean();
+    const query = { month, year: Number(year) };
+    if (storeName && storeName !== 'All') {
+      query.storeName = storeName;
+    }
+    if (week !== undefined && week !== null && week !== '' && week !== 'All') {
+      query.week = Number(week);
+    }
 
-    return res.status(200).json({ success: true, data: doc });
+    if (storeName && storeName !== 'All' && week !== undefined && week !== null && week !== '' && week !== 'All') {
+      const doc = await CustomizationAttribution.findOne(query).lean();
+      return res.status(200).json({ success: true, data: doc });
+    } else {
+      const docs = await CustomizationAttribution.find(query).lean();
+      return res.status(200).json({ success: true, data: docs });
+    }
   } catch (error) {
     console.error("Error fetching CustomizationAttribution:", error);
     return res.status(500).json({ success: false, message: "Internal server error" });
