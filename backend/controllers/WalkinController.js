@@ -261,6 +261,11 @@ export const checkCustomerExists = async (req, res) => {
  */
 export const saveWalkin = async (req, res) => {
     try {
+        const isNewWalkinStatus = (s) => {
+            if (!s) return true;
+            const norm = s.replace(/[^a-z0-9]/gi, '').toLowerCase();
+            return norm === 'newwalkin' || norm === 'newwalk';
+        };
         const source = req.body.source || (req.headers['x-source-app'] ? 'app' : (req.headers['x-source-web'] ? 'web' : 'manual'));
         if (req.admin && req.admin.role === 'telecaller') {
             return res.status(403).json({
@@ -463,7 +468,7 @@ export const saveWalkin = async (req, res) => {
             }
 
             const incomingStatus = status ? status.trim() : '';
-            if (incomingStatus === 'New Walkin' && walkinRecord.status !== 'New Walkin') {
+            if (isNewWalkinStatus(incomingStatus) && !isNewWalkinStatus(walkinRecord.status)) {
                 // Reset option: Keep existing walk-in with the same data, and create a brand new one with repeatCount = 1
                 const newWalkin = new Walkin({
                     customerName: customerName ? customerName.trim() : walkinRecord.customerName,
@@ -602,7 +607,7 @@ export const saveWalkin = async (req, res) => {
             (walkinRecord.storeId && finalStoreId && walkinRecord.storeId.toString() === finalStoreId.toString())
         );
 
-        if (walkinRecord && status !== 'New Walkin' && isSameStore) {
+        if (walkinRecord && !isNewWalkinStatus(status) && isSameStore) {
             let statusChanged = false;
             // Check if status was already changed today
             if (status && status.trim() !== walkinRecord.status) {
@@ -696,7 +701,7 @@ export const saveWalkin = async (req, res) => {
                     }).sort({ createdAt: -1 });
                 }
             }
-            const initialStatus = status ? status.trim() : 'New Walkin';
+            const initialStatus = isNewWalkinStatus(status) ? 'New Walkin' : (status ? status.trim() : 'New Walkin');
             const nextRepeatCount = initialStatus === 'New Walkin' ? 1 : (storeLatest ? (storeLatest.repeatCount || 1) + 1 : 1);
 
             const newWalkin = new Walkin({

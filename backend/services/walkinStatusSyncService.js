@@ -477,7 +477,7 @@ export const syncWalkinStatuses = async () => {
                                 // Extract available fields from the booking API response
                                 const autoCustomerName = String(bookingItemForCreate.customerName || '').trim() || 'Auto-Sync Customer';
                                 const autoStaff       = String(bookingItemForCreate.bookingBy    || '').trim() || 'None';
-                                const autoStore       = String(bookingItemForCreate.locName       || workingBranch || '').trim() || '-';
+                                const autoStore       = workingBranch || String(bookingItemForCreate.locName || '').trim() || '-';
 
                                 // Use booking date as the walkin date string (YYYY-MM-DD in IST)
                                 const autoBookingDate = extractDateValue(bookingItemForCreate, ['bookingDate', 'bookingdate', 'booking_date', 'bookeddate']);
