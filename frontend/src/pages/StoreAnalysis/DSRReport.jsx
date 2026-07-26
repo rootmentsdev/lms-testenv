@@ -4880,6 +4880,7 @@ const DSRReport = () => {
           const allocatedBills = Object.values(dapprInputs).reduce((s, v) => s + (Number(v.valWtd) || 0), 0);
           const allocatedValue = Object.values(dapprInputs).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
           const allocatedQty = Object.values(dapprInputs).reduce((s, v) => s + (Number(v.qtyWtd) || 0), 0);
+          const isOverLimit = allocatedValue > dapprTotalValue;
 
           return (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -4920,10 +4921,23 @@ const DSRReport = () => {
                 <div className="mx-6 mb-3 flex gap-2 text-[11px] font-semibold text-gray-500">
                   <span>Allocated: ₹{allocatedValue.toLocaleString()} / {allocatedBills} bills / {allocatedQty} qty</span>
                   <span className="text-gray-300">|</span>
-                  <span className={allocatedValue > dapprTotalValue ? "text-red-500" : "text-emerald-600"}>
+                  <span className={isOverLimit ? "text-red-500 font-bold" : "text-emerald-600"}>
                     Remaining: ₹{(dapprTotalValue - allocatedValue).toLocaleString()}
                   </span>
                 </div>
+
+                {/* Over-limit Warning Alert Banner */}
+                {isOverLimit && (
+                  <div className="mx-6 mb-3 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-bold flex items-center justify-between shadow-sm animate-pulse">
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4 text-red-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                      <span>Allocated amount (₹{allocatedValue.toLocaleString()}) exceeds total (₹{dapprTotalValue.toLocaleString()})</span>
+                    </div>
+                    <span className="text-[10px] font-black uppercase bg-red-100 text-red-800 px-2 py-0.5 rounded-full shrink-0">Exceeded</span>
+                  </div>
+                )}
 
                 {/* Staff rows */}
                 <div className="px-6 pb-2 max-h-[340px] overflow-y-auto space-y-2">
@@ -4940,12 +4954,15 @@ const DSRReport = () => {
                             type="number"
                             min="0"
                             placeholder="0"
+                            onWheel={(e) => e.target.blur()}
                             value={dapprInputs[name]?.billWtd ?? ""}
                             onChange={e => setDapprInputs(prev => ({
                               ...prev,
                               [name]: { ...prev[name], billWtd: e.target.value }
                             }))}
-                            className="w-24 text-center text-xs font-semibold border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-indigo-400"
+                            className={`w-24 text-center text-xs font-semibold border rounded-lg px-2 py-1.5 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                              isOverLimit ? "border-red-300 focus:border-red-500 bg-red-50/50" : "border-gray-200 focus:border-indigo-400"
+                            }`}
                           />
                         </div>
                         <div className="flex flex-col items-center">
@@ -4954,12 +4971,13 @@ const DSRReport = () => {
                             type="number"
                             min="0"
                             placeholder="0"
+                            onWheel={(e) => e.target.blur()}
                             value={dapprInputs[name]?.valWtd ?? ""}
                             onChange={e => setDapprInputs(prev => ({
                               ...prev,
                               [name]: { ...prev[name], valWtd: e.target.value }
                             }))}
-                            className="w-20 text-center text-xs font-semibold border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-indigo-400"
+                            className="w-20 text-center text-xs font-semibold border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-indigo-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
                         <div className="flex flex-col items-center">
@@ -4968,12 +4986,13 @@ const DSRReport = () => {
                             type="number"
                             min="0"
                             placeholder="0"
+                            onWheel={(e) => e.target.blur()}
                             value={dapprInputs[name]?.qtyWtd ?? ""}
                             onChange={e => setDapprInputs(prev => ({
                               ...prev,
                               [name]: { ...prev[name], qtyWtd: e.target.value }
                             }))}
-                            className="w-20 text-center text-xs font-semibold border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-indigo-400"
+                            className="w-20 text-center text-xs font-semibold border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-indigo-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
                       </div>
@@ -4994,7 +5013,12 @@ const DSRReport = () => {
                     Clear All
                   </button>
                   <button
+                    disabled={isOverLimit}
                     onClick={async () => {
+                      if (isOverLimit) {
+                        alert("Allocated amount cannot exceed the Dappr Squad total.");
+                        return;
+                      }
                       const saved = {};
                       const attributionsList = [];
                       Object.entries(dapprInputs).forEach(([name, v]) => {
@@ -5036,7 +5060,11 @@ const DSRReport = () => {
 
                       setDapprModalOpen(false);
                     }}
-                    className="bg-[#18181b] hover:bg-black text-white text-xs font-bold py-2.5 px-6 rounded-xl"
+                    className={`text-xs font-bold py-2.5 px-6 rounded-xl transition-all ${
+                      isOverLimit 
+                        ? "bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-300 opacity-70" 
+                        : "bg-[#18181b] hover:bg-black text-white cursor-pointer shadow-sm"
+                    }`}
                   >
                     Save & Apply
                   </button>
@@ -5115,12 +5143,13 @@ const DSRReport = () => {
                             type="number"
                             min="0"
                             placeholder="0"
+                            onWheel={(e) => e.target.blur()}
                             value={customizationInputs[name]?.billWtd ?? ""}
                             onChange={e => setCustomizationInputs(prev => ({
                               ...prev,
                               [name]: { ...prev[name], billWtd: e.target.value }
                             }))}
-                            className="w-24 text-center text-xs font-semibold border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-emerald-400"
+                            className="w-24 text-center text-xs font-semibold border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-emerald-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
                         <div className="flex flex-col items-center">
@@ -5129,12 +5158,13 @@ const DSRReport = () => {
                             type="number"
                             min="0"
                             placeholder="0"
+                            onWheel={(e) => e.target.blur()}
                             value={customizationInputs[name]?.valWtd ?? ""}
                             onChange={e => setCustomizationInputs(prev => ({
                               ...prev,
                               [name]: { ...prev[name], valWtd: e.target.value }
                             }))}
-                            className="w-20 text-center text-xs font-semibold border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-emerald-400"
+                            className="w-20 text-center text-xs font-semibold border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-emerald-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
                         <div className="flex flex-col items-center">
@@ -5143,12 +5173,13 @@ const DSRReport = () => {
                             type="number"
                             min="0"
                             placeholder="0"
+                            onWheel={(e) => e.target.blur()}
                             value={customizationInputs[name]?.qtyWtd ?? ""}
                             onChange={e => setCustomizationInputs(prev => ({
                               ...prev,
                               [name]: { ...prev[name], qtyWtd: e.target.value }
                             }))}
-                            className="w-20 text-center text-xs font-semibold border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-emerald-400"
+                            className="w-20 text-center text-xs font-semibold border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-emerald-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
                       </div>
