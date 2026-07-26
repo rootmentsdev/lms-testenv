@@ -3,12 +3,15 @@ import User from '../model/User.js';
 import TrainingProgress from '../model/Trainingprocessschema.js';
 import { Training } from '../model/Traning.js';
 import Admin from '../model/Admin.js';
+import Branch from '../model/Branch.js';
 import Task from '../model/Task.js';
 import {
   getExternalEmployeesNonBlocking,
   getProcessedCacheKey,
   getProcessedEmployees,
   setProcessedEmployees,
+  getProcessedAppUsers,
+  setProcessedAppUsers,
   refreshExternalEmployees,
   clearEmployeeCaches,
 } from '../lib/employeeCache.js';
@@ -637,98 +640,111 @@ export const getAllAppRegisteredEmployees = async (req, res) => {
     const allowedLocCodes = admin.branches.map((b) => b.locCode);
     const isGlobalAdmin   = ['super_admin', 'admin', 'hr_admin'].includes(admin.role) || allowedLocCodes.length === 0;
 
-    // ── 1. Build base query (branch-scoped for non-super admins) ──
-    // Include legacy/imported users saved from external sync so the employee page
-    // can show the full User collection, not just app/admin-created records.
-    const appUserSourceQuery = { source: { $in: ['app', 'admin', 'external-sync'] } };
-    const baseQuery = isGlobalAdmin
-      ? appUserSourceQuery
-      : { 
-          $and: [
-            { 
-              $or: [
-                { locCode: { $in: allowedLocCodes } },
-                { locCode: "All" }
-              ] 
-            }, 
-            appUserSourceQuery
-          ] 
-        };
+    const cacheKey = getProcessedCacheKey(admin._id.toString(), allowedLocCodes, isGlobalAdmin);
+    let employees = getProcessedAppUsers(cacheKey);
 
-    // ── 2. Load all matching users ──
-    const allUsers = await User.find(baseQuery)
-      .select('empID username designation workingBranch email phoneNumber locCode training assignedAssessments createdAt source')
-      .lean();
-
-    // ── 3. Load TrainingProgress for mandatory trainings ──
-    const userIds = allUsers.map((u) => u._id);
-    const allProgress = userIds.length
-      ? await TrainingProgress.find({ userId: { $in: userIds } })
-          .select('userId trainingId pass deadline')
-          .lean()
-      : [];
-
-    const progressMap = new Map();
-    allProgress.forEach((p) => {
-      const key = p.userId.toString();
-      if (!progressMap.has(key)) progressMap.set(key, []);
-      progressMap.get(key).push(p);
-    });
-
-    // ── 4. Load Tasks for these users ──
-    const empIDs = allUsers.map((u) => u.empID).filter(Boolean);
-    const usernames = allUsers.map((u) => u.username).filter(Boolean);
-    const allTasks = userIds.length || empIDs.length || usernames.length
-      ? await Task.find({
-          assignedTo: { $in: [...userIds.map(id => id.toString()), ...empIDs, ...usernames] }
-        }).lean()
-      : [];
-
-    const tasksByAssigneeMap = new Map();
-    allTasks.forEach(task => {
-      if (task.assignedTo) {
-        const assigneeKey = String(task.assignedTo).toLowerCase();
-        if (!tasksByAssigneeMap.has(assigneeKey)) {
-          tasksByAssigneeMap.set(assigneeKey, []);
-        }
-        tasksByAssigneeMap.get(assigneeKey).push(task);
-      }
-    });
-
-    // ── 5. Build enriched employee list ──
-    const employees = allUsers.map((user) => {
-      const userProgress = progressMap.get(user._id.toString()) || [];
-      
-      let userTasks = [];
-      userTasks.push(...(tasksByAssigneeMap.get(user._id.toString().toLowerCase()) || []));
-      if (user.empID) {
-        userTasks.push(...(tasksByAssigneeMap.get(String(user.empID).toLowerCase()) || []));
-      }
-      if (user.username) {
-        userTasks.push(...(tasksByAssigneeMap.get(String(user.username).toLowerCase()) || []));
-      }
-
-      // Deduplicate tasks
-      const uniqueTasksMap = new Map();
-      userTasks.forEach(t => {
-        uniqueTasksMap.set(t._id.toString(), t);
-      });
-      const uniqueTasks = Array.from(uniqueTasksMap.values());
-
-      const stats = buildEmployeeStats(user, userProgress, uniqueTasks);
-
-      return {
-        empID:      user.empID,
-        username:   user.username,
-        designation: user.designation,
-        workingBranch: user.workingBranch,
-        email:      user.email,
-        phoneNumber: user.phoneNumber,
-        locCode:    user.locCode,
-        joinedAt:   user.createdAt,
-        ...stats,
+    if (!employees) {
+      // ── 1. Build base query (branch-scoped for non-super admins) ──
+      // Include legacy/imported users saved from external sync or users without explicit source field
+      const appUserSourceQuery = {
+        $or: [
+          { source: { $in: ['app', 'admin', 'external-sync'] } },
+          { source: { $exists: false } }
+        ]
       };
-    });
+      const baseQuery = isGlobalAdmin
+        ? appUserSourceQuery
+        : { 
+            $and: [
+              { 
+                $or: [
+                  { locCode: { $in: allowedLocCodes } },
+                  { locCode: "All" }
+                ] 
+              }, 
+              appUserSourceQuery
+            ] 
+          };
+
+      // ── 2. Load all matching users ──
+      const allUsers = await User.find(baseQuery)
+        .select('empID username designation workingBranch email phoneNumber locCode training assignedAssessments createdAt source')
+        .lean();
+
+      // ── 3. Load TrainingProgress for mandatory trainings ──
+      const userIds = allUsers.map((u) => u._id);
+      const allProgress = userIds.length
+        ? await TrainingProgress.find({ userId: { $in: userIds } })
+            .select('userId trainingId pass status deadline')
+            .lean()
+        : [];
+
+      const progressMap = new Map();
+      allProgress.forEach((p) => {
+        const key = p.userId.toString();
+        if (!progressMap.has(key)) progressMap.set(key, []);
+        progressMap.get(key).push(p);
+      });
+
+      // ── 4. Load Tasks for these users ──
+      const empIDs = allUsers.map((u) => u.empID).filter(Boolean);
+      const usernames = allUsers.map((u) => u.username).filter(Boolean);
+      const allTasks = userIds.length || empIDs.length || usernames.length
+        ? await Task.find({
+            assignedTo: { $in: [...userIds.map(id => id.toString()), ...empIDs, ...usernames] }
+          })
+          .select('assignedTo status endDate')
+          .lean()
+        : [];
+
+      const tasksByAssigneeMap = new Map();
+      allTasks.forEach(task => {
+        if (task.assignedTo) {
+          const assigneeKey = String(task.assignedTo).toLowerCase();
+          if (!tasksByAssigneeMap.has(assigneeKey)) {
+            tasksByAssigneeMap.set(assigneeKey, []);
+          }
+          tasksByAssigneeMap.get(assigneeKey).push(task);
+        }
+      });
+
+      // ── 5. Build enriched employee list ──
+      employees = allUsers.map((user) => {
+        const userProgress = progressMap.get(user._id.toString()) || [];
+        
+        let userTasks = [];
+        userTasks.push(...(tasksByAssigneeMap.get(user._id.toString().toLowerCase()) || []));
+        if (user.empID) {
+          userTasks.push(...(tasksByAssigneeMap.get(String(user.empID).toLowerCase()) || []));
+        }
+        if (user.username) {
+          userTasks.push(...(tasksByAssigneeMap.get(String(user.username).toLowerCase()) || []));
+        }
+
+        // Deduplicate tasks
+        const uniqueTasksMap = new Map();
+        userTasks.forEach(t => {
+          uniqueTasksMap.set(t._id.toString(), t);
+        });
+        const uniqueTasks = Array.from(uniqueTasksMap.values());
+
+        const stats = buildEmployeeStats(user, userProgress, uniqueTasks);
+
+        return {
+          empID:      user.empID,
+          username:   user.username,
+          designation: user.designation,
+          workingBranch: user.workingBranch,
+          email:      user.email,
+          phoneNumber: user.phoneNumber,
+          locCode:    user.locCode,
+          joinedAt:   user.createdAt,
+          ...stats,
+        };
+      });
+
+      setProcessedAppUsers(cacheKey, employees);
+    }
 
     // ── 6. Apply search / store / role filters ──
     const cleanSearch = search.replace(/\s+/g, '');

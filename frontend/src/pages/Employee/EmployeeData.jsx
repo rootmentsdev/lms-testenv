@@ -138,7 +138,7 @@ const EmployeeData = () => {
         }) : sorted;
 
         setData(filtered);
-        setTotalEmployees(isRestrictedRole ? filtered.length : (json.totalEmployees ?? json.data.length));
+        setTotalEmployees(json.totalEmployees ?? json.data.length);
         setTotalPages(json.totalPages ?? 1);
         if (json.filters?.stores?.length) setStores(json.filters.stores);
         

@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { useSelector } from "react-redux";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Cell, AreaChart, Area
@@ -120,6 +121,130 @@ function getLocalDateString(date) {
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+const STAFF_ALIAS_MAPPING = {
+  "niyas dinu nasar k": "NIYAS",
+  "niyas dinu nasar": "NIYAS",
+  "niyasdinunasark": "NIYAS",
+  "niyasdinunasar": "NIYAS",
+  "niyas": "NIYAS",
+  "m shamil k p": "M SHAMIL K P",
+  "mshamilkp": "M SHAMIL K P",
+  "muhammed shamil k p": "M SHAMIL K P",
+  "muhammedshamilkp": "M SHAMIL K P",
+  "shamil k p": "M SHAMIL K P",
+  "shamilkp": "M SHAMIL K P",
+  "shamil": "M SHAMIL K P",
+  "shahil shan v": "SHAHIL SHAN",
+  "shahilshanv": "SHAHIL SHAN",
+  "shahil shan": "SHAHIL SHAN",
+  "shahilshan": "SHAHIL SHAN",
+  "m riswan": "MOHAMMAD RISWAN",
+  "mriswan": "MOHAMMAD RISWAN",
+  "riswan": "MOHAMMAD RISWAN",
+  "m shan k": "M SHAN K",
+  "mshank": "M SHAN K",
+  "muhammed shan k": "M SHAN K",
+  "muhammedshank": "M SHAN K",
+  "shan k": "M SHAN K",
+  "shank": "M SHAN K",
+  "shan": "M SHAN K",
+  "s faris vk": "S FARIS VK",
+  "sfarisvk": "S FARIS VK",
+  "salmanul faris v k": "S FARIS VK",
+  "salmanulfarisvk": "S FARIS VK",
+  "salman faris v k": "S FARIS VK",
+  "salmanfarisvk": "S FARIS VK",
+  "salman faris": "S FARIS VK",
+  "salmanfaris": "S FARIS VK",
+  "faris": "S FARIS VK",
+  "salman muhammed v": "SALMAN MUHAMMED.V",
+  "salmanmuhammedv": "SALMAN MUHAMMED.V",
+  "salman muhammed": "SALMAN MUHAMMED.V",
+  "salmanmuhammed": "SALMAN MUHAMMED.V",
+  "muhammed basil p k": "Muhammed Basil P K",
+  "muhammedbasilpk": "Muhammed Basil P K",
+  "muhammed basil": "Muhammed Basil P K",
+  "muhammedbasil": "Muhammed Basil P K",
+  "basil": "Muhammed Basil P K",
+  "muhammad shabir vt": "SHABIR VT",
+  "muhammadshabirvt": "SHABIR VT",
+  "shabir vt": "SHABIR VT",
+  "shabirvt": "SHABIR VT",
+  "shabir": "SHABIR VT",
+};
+
+function getCanonicalStaffName(rawName) {
+  if (!rawName) return "";
+  const str = String(rawName).trim();
+  const lower = str.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ");
+  if (STAFF_ALIAS_MAPPING[lower]) {
+    return STAFF_ALIAS_MAPPING[lower];
+  }
+  return str;
+}
+
+function normalizeForMatch(str) {
+  if (!str) return "";
+  return String(str)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+    .replace(/^sg/, "g")
+    .replace(/^dapper/, "dappr");
+}
+
+const isDapprSquadName = (name) => {
+  if (!name) return false;
+  const lower = String(name).toLowerCase().trim();
+  const normalized = lower.replace(/[^a-z0-9]/g, "");
+  return lower.startsWith("sg.") || 
+         lower.startsWith("sg ") || 
+         lower === "dappr squad";
+};
+
+function isStaffNameMatch(strA, strB) {
+  if (!strA || !strB) return false;
+  if (isDapprSquadName(strA) || isDapprSquadName(strB)) return false;
+  const canonA = getCanonicalStaffName(strA);
+  const canonB = getCanonicalStaffName(strB);
+  if (canonA === canonB) return true;
+
+  const normA = normalizeForMatch(canonA);
+  const normB = normalizeForMatch(canonB);
+  if (!normA || !normB) return false;
+  if (normA === normB) return true;
+
+  if (normA.length >= 4 && normB.length >= 4) {
+    if (normA.startsWith(normB) || normB.startsWith(normA) ||
+        normA.endsWith(normB) || normB.endsWith(normA) ||
+        normA.includes(normB) || normB.includes(normA)) {
+      return true;
+    }
+  }
+
+  const cleanTokens = (str) => String(str).toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/).filter(Boolean);
+  const tokensA = cleanTokens(canonA);
+  const tokensB = cleanTokens(canonB);
+
+  const subA = tokensA.filter(t => t.length >= 3);
+  const subB = tokensB.filter(t => t.length >= 3);
+
+  if (subA.length > 0 && subB.length > 0) {
+    const common = subA.filter(t => subB.includes(t));
+    const unsharedA = subA.filter(t => !subB.includes(t));
+    const unsharedB = subB.filter(t => !subA.includes(t));
+
+    if (common.length === Math.min(subA.length, subB.length)) {
+      const conflictA = unsharedA.filter(t => t.length > 3 && !["muhammed", "mohammad", "mohammed"].includes(t));
+      const conflictB = unsharedB.filter(t => t.length > 3 && !["muhammed", "mohammad", "mohammed"].includes(t));
+      if (conflictA.length === 0 && conflictB.length === 0) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 const runWithConcurrencyLimit = async (tasks, limit) => {
@@ -501,6 +626,10 @@ const TimeframeTab = ({ label, active, onClick }) => (
 
 /* ── Main component ──────────────────────────────────────────────────────── */
 const HomeBar = () => {
+  const user = useSelector((state) => state.auth.user);
+  const isStoreAdmin = user?.role === "store_admin";
+  const isClusterAdmin = user?.role === "cluster_admin";
+
   const [activeGraph, setActiveGraph] = useState("revenue"); // "training" or "revenue"
   const [filter, setFilter] = useState("all");
   const [timeframe, setTimeframe] = useState("MTD");
@@ -515,6 +644,7 @@ const HomeBar = () => {
 
   const [weeklyTargets, setWeeklyTargets] = useState({});
   const [storeWeekRanges, setStoreWeekRanges] = useState({});
+  const [employeeTargets, setEmployeeTargets] = useState({});
   const [performanceData, setPerformanceData] = useState({});
   const [salesData, setSalesData] = useState({});  // byBranch locCode → { totalValue, totalQty, totalBills }
   const [branches, setBranches] = useState([]);
@@ -576,6 +706,12 @@ const HomeBar = () => {
           const json = await bRes.json();
           const list = Array.isArray(json?.data) ? json.data : [];
           visibleBranches = list.filter((b) => !isHiddenBranch(b?.workingBranch));
+          if (isStoreAdmin || isClusterAdmin) {
+            const assignedBranchIds = (user?.branches || []).map(b => String(b._id || b));
+            if (assignedBranchIds.length > 0) {
+              visibleBranches = visibleBranches.filter(b => assignedBranchIds.includes(String(b._id)));
+            }
+          }
           if (alive) setBranches(visibleBranches);
         }
 
@@ -590,17 +726,21 @@ const HomeBar = () => {
           // Nested structure: map[storeName][monthName] = weeklyTargets — matches StoreInsights
           const targetsMap = {};
           const rangesMap = {};
+          const empTargetsMap = {};
           list.forEach(t => {
             const store = t.storeName;
             const month = t.month;
             if (!targetsMap[store]) targetsMap[store] = {};
             if (!rangesMap[store]) rangesMap[store] = {};
+            if (!empTargetsMap[store]) empTargetsMap[store] = {};
             targetsMap[store][month] = t.weeklyTargets || {};
             rangesMap[store][month] = t.weekRanges || {};
+            empTargetsMap[store][month] = t.employeeTargets || [];
           });
           if (alive) {
             setWeeklyTargets(targetsMap);
             setStoreWeekRanges(rangesMap);
+            setEmployeeTargets(empTargetsMap);
           }
         }
 
@@ -639,7 +779,7 @@ const HomeBar = () => {
       mountedRef.current = false;
       window.removeEventListener("dashboard:refresh", refresh);
     };
-  }, []);
+  }, [isStoreAdmin, isClusterAdmin, user]);
 
   // Re-fetch performance and sales when timeframe or custom range changes
   useEffect(() => {
@@ -704,6 +844,8 @@ const HomeBar = () => {
     return chartData;
   }, [chartData, filter]);
 
+  const isSingleStoreView = isStoreAdmin || branches.length === 1;
+
   /* ── Generate dynamic target vs achieved data for line chart ── */
   const revenueChartData = useMemo(() => {
     const today = new Date();
@@ -711,6 +853,129 @@ const HomeBar = () => {
       ? new Date(customStart + "T00:00:00").toLocaleString("en-US", { month: "long" })
       : CURRENT_MONTH_LONG;
 
+    // ── Single Store View (Store Admin login or 1 store selected): Show Employee Names ──
+    if (isSingleStoreView && branches.length > 0) {
+      const singleBranch = branches[0];
+      const storeName = displayBranchName(singleBranch?.workingBranch);
+      const locId = getBranchLocationId(singleBranch?.workingBranch);
+      const locCode = singleBranch?.locCode;
+
+      const locPeriodList = performanceData[locId] || [];
+      const dapprList = performanceData["25"] || [];
+      const dapprForStore = dapprList.filter(item => {
+        const raw = String(item.bookingBy || "").trim().toLowerCase();
+        const alphaOnly = raw.replace(/[^a-z0-9]/g, "");
+        const dotted = alphaOnly.startsWith("sg") ? "sg." + alphaOnly.slice(2) : raw;
+        const DAPPR_MAP = {
+          "sg.edappally":"3","sg.perumbavoor":"10","sg.thrissur":"11","sg.chavakkad":"12",
+          "sg.calicut":"13","sg.vadakara":"14","sg.edappal":"15","sg.perinthalmanna":"16",
+          "sg.kottakkal":"17","sg.manjeri":"18","sg.palakkad":"19","sg.kalpetta":"20",
+          "sg.kannur":"21","sg.trivandrum":"5","sg.kottayam":"9","sg.mg road":"23","sg.edapally1":"1"
+        };
+        return DAPPR_MAP[raw] === locId || DAPPR_MAP[dotted] === locId;
+      });
+
+      const mergedPeriodList = [...locPeriodList, ...dapprForStore];
+      const storeEmpTargets = employeeTargets[storeName]?.[targetMonth] || [];
+
+      const rawStaffNames = [
+        ...mergedPeriodList.map(x => x && x.bookingBy),
+        ...storeEmpTargets.map(x => x && x.staffName)
+      ].filter(name => typeof name === "string" && name.trim() !== "" && !isDapprSquadName(name)).map(getCanonicalStaffName);
+
+      const staffNames = [];
+      const sortedStaffNames = Array.from(new Set(rawStaffNames)).sort((a, b) => {
+        const aUpper = /[A-Z]/.test(a);
+        const bUpper = /[A-Z]/.test(b);
+        if (aUpper && !bUpper) return -1;
+        if (!aUpper && bUpper) return 1;
+        return (b || "").length - (a || "").length;
+      });
+
+      sortedStaffNames.forEach(name => {
+        if (!name) return;
+        const canon = getCanonicalStaffName(name);
+        const existing = staffNames.find(existingName => isStaffNameMatch(existingName, canon));
+        if (!existing) {
+          staffNames.push(canon);
+        }
+      });
+
+      const resolveStaffTarget = (staffName) => {
+        const empT = storeEmpTargets.find(e => 
+          normalizeForMatch(e.staffName) === normalizeForMatch(staffName) || 
+          isStaffNameMatch(e.staffName, staffName)
+        );
+        if (!empT || !empT.weeklyTargets) return 0;
+        const wt = empT.weeklyTargets;
+
+        if (timeframe === "MTD" || timeframe === "CUSTOM") {
+          return [1, 2, 3, 4].reduce((s, wId) => s + (wt[wId] || 0), 0);
+        }
+        if (timeframe === "WTD") {
+          const monthName = today.toLocaleString("en-US", { month: "long" });
+          const storeRanges = weeklyTargets[storeName] ? storeWeekRanges[storeName]?.[monthName] : null;
+          const todayDate = today.getDate();
+          let weekId = 4;
+          for (const wId of [1, 2, 3, 4]) {
+            const defaultStarts = [1, 8, 15, 22];
+            const defaultEnds = [7, 14, 21, new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()];
+            let start = defaultStarts[wId - 1];
+            let end = defaultEnds[wId - 1];
+            if (storeRanges?.[wId]) {
+              const parts = storeRanges[wId].split("-");
+              if (parts.length >= 2) {
+                const s = parseInt(parts[0].trim(), 10);
+                const ePart = parts[1].trim().split(" ")[0];
+                const e = parseInt(ePart, 10);
+                if (!isNaN(s) && !isNaN(e)) { start = s; end = e; }
+              }
+            }
+            if (todayDate >= start && todayDate <= end) { weekId = wId; break; }
+          }
+          return wt[weekId] || 0;
+        }
+        if (timeframe === "YTD") {
+          const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+          const currentMonthIdx = today.getMonth();
+          let sum = 0;
+          for (let i = 0; i <= currentMonthIdx; i++) {
+            const mMonth = monthNames[i];
+            const empTargetForMonth = employeeTargets[storeName]?.[mMonth]?.find(e =>
+              normalizeForMatch(e.staffName) === normalizeForMatch(staffName) ||
+              isStaffNameMatch(e.staffName, staffName)
+            );
+            const mwt = empTargetForMonth?.weeklyTargets || {};
+            for (let wId = 1; wId <= 4; wId++) {
+              sum += mwt[wId] || 0;
+            }
+          }
+          return sum;
+        }
+        return 0;
+      };
+
+      return staffNames.map(staffName => {
+        const fullName = String(staffName || "").trim();
+        const firstName = fullName.split(/\s+/)[0] || fullName;
+        const staffKey = normalizeForMatch(fullName);
+        const staffRentalItems = mergedPeriodList.filter(x => x && (normalizeForMatch(x.bookingBy) === staffKey || isStaffNameMatch(x.bookingBy, fullName)));
+
+        let achieved = staffRentalItems.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+        const target = resolveStaffTarget(fullName);
+
+        return {
+          name: firstName.substring(0, 10).toUpperCase(),
+          fullName: fullName,
+          target,
+          achieved
+        };
+      })
+      .filter(item => item.achieved > 0 || item.target > 0)
+      .sort((a, b) => b.achieved - a.achieved);
+    }
+
+    // ── Multi-Store View (Admin / Cluster Admin viewing all stores): Show Store Names ──
     const list = branches.map((b) => {
       const name = displayBranchName(b.workingBranch);
       const shortName = name.replace(/^(Suitor Guy|SG|Z|G)\s+/i, "").substring(0, 5).toUpperCase();
@@ -770,7 +1035,6 @@ const HomeBar = () => {
         const raw = String(item.bookingBy || "").trim().toLowerCase();
         const alphaOnly = raw.replace(/[^a-z0-9]/g, "");
         const dotted = alphaOnly.startsWith("sg") ? "sg." + alphaOnly.slice(2) : raw;
-        // Simple locId match using the mapping
         const DAPPR_MAP = {
           "sg.edappally":"3","sg.perumbavoor":"10","sg.thrissur":"11","sg.chavakkad":"12",
           "sg.calicut":"13","sg.vadakara":"14","sg.edappal":"15","sg.perinthalmanna":"16",
@@ -787,7 +1051,7 @@ const HomeBar = () => {
       return { name: shortName, fullName: name, target, achieved };
     });
     return list;
-  }, [branches, weeklyTargets, storeWeekRanges, performanceData, salesData, timeframe, customStart, customEnd]);
+  }, [branches, isSingleStoreView, weeklyTargets, storeWeekRanges, employeeTargets, performanceData, salesData, timeframe, customStart, customEnd]);
 
   const filteredRevenue = useMemo(() => {
     if (filter === "on-track") return revenueChartData.filter(d => d.achieved >= d.target);
@@ -818,7 +1082,7 @@ const HomeBar = () => {
             <p className="text-[#9ca3af] dark:text-[#94a3b8]" style={{ fontSize: "12px", margin: "2px 0 0" }}>
               {activeGraph === "training"
                 ? `${getTimeframeLabel(timeframe, customStart, customEnd, storeWeekRanges)} | ${storeCount} Stores`
-                : `${getTimeframeLabel(timeframe, customStart, customEnd, storeWeekRanges)} | ${revenueChartData.length} stores`
+                : `${getTimeframeLabel(timeframe, customStart, customEnd, storeWeekRanges)} | ${revenueChartData.length} ${isSingleStoreView ? "employees" : "stores"}`
               }
               {loadingPerf && <span style={{ marginLeft: 8, color: "#a3a3a3" }}>updating…</span>}
             </p>
