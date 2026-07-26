@@ -1555,8 +1555,6 @@ const DSRReport = () => {
 
       const isAllStores = !targetStore || targetStore === "All";
 
-      // For a specific store: fetch only that store's current week
-      // For All stores: fetch all docs for the month (no week filter) so every store's data is included
       let url;
       if (isAllStores) {
         url = `${baseUrl.baseUrl}api/dappr-attributions?storeName=All&month=${targetMonth}&year=${targetYear}`;
@@ -1568,28 +1566,48 @@ const DSRReport = () => {
       const res = await fetch(url, { headers: { "Authorization": `Bearer ${token}` } });
       const json = await res.json();
 
-      const mapped = {};           // { [staffName]: { billWtd, valWtd, qtyWtd } }
-      const dapprByStore = {};     // { [normalizedStoreName]: { val, bills, qty } }
+      const mapped = {};           // { [staffName]: { billWtd, valWtd, qtyWtd, billFtd, valFtd, qtyFtd } }
+      const dapprByStore = {};     // { [normalizedStoreName]: { val, bills, qty, valFtd, billsFtd, qtyFtd } }
 
       if (json.success && json.data) {
         const docs = Array.isArray(json.data) ? json.data : (json.data ? [json.data] : []);
+        const todayStr = getLocalDateString(new Date());
+
         docs.forEach(doc => {
           if (!doc || !doc.storeName) return;
           const storeKey = normalizeForMatch(doc.storeName);
-          if (!dapprByStore[storeKey]) dapprByStore[storeKey] = { val: 0, bills: 0, qty: 0 };
+          if (!dapprByStore[storeKey]) dapprByStore[storeKey] = { val: 0, bills: 0, qty: 0, valFtd: 0, billsFtd: 0, qtyFtd: 0 };
+
+          const docDateStr = doc.updatedAt ? getLocalDateString(doc.updatedAt) : (doc.createdAt ? getLocalDateString(doc.createdAt) : "");
+          const isTodayDoc = docDateStr === todayStr;
+
           (doc.attributions || []).forEach(attr => {
             if (!attr || !attr.staffName) return;
             const bv = Number(attr.billWtd) || 0;
             const vv = Number(attr.valWtd) || 0;
             const qv = Number(attr.qtyWtd) || 0;
-            mapped[attr.staffName] = {
-              billWtd: (mapped[attr.staffName]?.billWtd || 0) + bv,
-              valWtd:  (mapped[attr.staffName]?.valWtd  || 0) + vv,
-              qtyWtd:  (mapped[attr.staffName]?.qtyWtd  || 0) + qv
-            };
-            dapprByStore[storeKey].val   += bv;
+
+            if (!mapped[attr.staffName]) {
+              mapped[attr.staffName] = { billWtd: 0, valWtd: 0, qtyWtd: 0, billFtd: 0, valFtd: 0, qtyFtd: 0 };
+            }
+
+            mapped[attr.staffName].billWtd += bv;
+            mapped[attr.staffName].valWtd += vv;
+            mapped[attr.staffName].qtyWtd += qv;
+
+            dapprByStore[storeKey].val += bv;
             dapprByStore[storeKey].bills += vv;
-            dapprByStore[storeKey].qty   += qv;
+            dapprByStore[storeKey].qty += qv;
+
+            if (isTodayDoc) {
+              mapped[attr.staffName].billFtd += bv;
+              mapped[attr.staffName].valFtd += vv;
+              mapped[attr.staffName].qtyFtd += qv;
+
+              dapprByStore[storeKey].valFtd += bv;
+              dapprByStore[storeKey].billsFtd += vv;
+              dapprByStore[storeKey].qtyFtd += qv;
+            }
           });
         });
       }
@@ -1627,27 +1645,45 @@ const DSRReport = () => {
       if (json.success && json.data) {
         const docs = Array.isArray(json.data) ? json.data : [json.data];
         console.log("[Customization] Docs count:", docs.length, "| Store keys:", docs.map(d => d?.storeName));
+        const todayStr = getLocalDateString(new Date());
+
         docs.forEach(doc => {
           if (!doc || !doc.storeName) return;
           const storeKey = normalizeForMatch(doc.storeName);
           if (!storeTotals[storeKey]) {
-            storeTotals[storeKey] = { val: 0, bills: 0, qty: 0 };
+            storeTotals[storeKey] = { val: 0, bills: 0, qty: 0, valFtd: 0, billsFtd: 0, qtyFtd: 0 };
           }
+
+          const docDateStr = doc.updatedAt ? getLocalDateString(doc.updatedAt) : (doc.createdAt ? getLocalDateString(doc.createdAt) : "");
+          const isTodayDoc = docDateStr === todayStr;
+
           (doc.attributions || []).forEach(attr => {
             if (!attr || !attr.staffName) return;
             const bv = Number(attr.billWtd) || 0;
             const vv = Number(attr.valWtd) || 0;
             const qv = Number(attr.qtyWtd) || 0;
 
-            mappedStaff[attr.staffName] = {
-              billWtd: (mappedStaff[attr.staffName]?.billWtd || 0) + bv,
-              valWtd: (mappedStaff[attr.staffName]?.valWtd || 0) + vv,
-              qtyWtd: (mappedStaff[attr.staffName]?.qtyWtd || 0) + qv
-            };
+            if (!mappedStaff[attr.staffName]) {
+              mappedStaff[attr.staffName] = { billWtd: 0, valWtd: 0, qtyWtd: 0, billFtd: 0, valFtd: 0, qtyFtd: 0 };
+            }
+
+            mappedStaff[attr.staffName].billWtd += bv;
+            mappedStaff[attr.staffName].valWtd += vv;
+            mappedStaff[attr.staffName].qtyWtd += qv;
 
             storeTotals[storeKey].val += bv;
             storeTotals[storeKey].bills += vv;
             storeTotals[storeKey].qty += qv;
+
+            if (isTodayDoc) {
+              mappedStaff[attr.staffName].billFtd += bv;
+              mappedStaff[attr.staffName].valFtd += vv;
+              mappedStaff[attr.staffName].qtyFtd += qv;
+
+              storeTotals[storeKey].valFtd += bv;
+              storeTotals[storeKey].billsFtd += vv;
+              storeTotals[storeKey].qtyFtd += qv;
+            }
           });
         });
         console.log("[Customization] storeTotals keys:", Object.keys(storeTotals));
@@ -2734,6 +2770,9 @@ const DSRReport = () => {
           );
           if (dapprKey) {
             const dAttr = dapprAttribution[dapprKey] || {};
+            valFtd += Number(dAttr.billFtd) || 0;
+            billFtd += Number(dAttr.valFtd) || 0;
+            qtyFtd += Number(dAttr.qtyFtd) || 0;
             valWtd += Number(dAttr.billWtd) || 0;
             billWtd += Number(dAttr.valWtd) || 0;
             qtyWtd += Number(dAttr.qtyWtd) || 0;
@@ -2747,6 +2786,9 @@ const DSRReport = () => {
           );
           if (custKey) {
             const cAttr = customizationAttribution[custKey] || {};
+            valFtd += Number(cAttr.billFtd) || 0;
+            billFtd += Number(cAttr.valFtd) || 0;
+            qtyFtd += Number(cAttr.qtyFtd) || 0;
             valWtd += Number(cAttr.billWtd) || 0;
             billWtd += Number(cAttr.valWtd) || 0;
             qtyWtd += Number(cAttr.qtyWtd) || 0;
@@ -2906,6 +2948,9 @@ const DSRReport = () => {
             // Include Customization attributions for this store
             const custKey = normalizeForMatch(storeName);
             const custTotals = storeCustomizationTotals[custKey] || {};
+            valFtd += custTotals.valFtd || 0;
+            billFtd += custTotals.billsFtd || 0;
+            qtyFtd += custTotals.qtyFtd || 0;
             valWtd += custTotals.val || 0;
             billWtd += custTotals.bills || 0;
             qtyWtd += custTotals.qty || 0;
@@ -3313,6 +3358,10 @@ const DSRReport = () => {
         );
         if (dapprKey) {
           const dAttr = dapprAttribution[dapprKey] || {};
+          squadValFtd += Number(dAttr.billFtd) || 0;
+          squadBillFtd += Number(dAttr.valFtd) || 0;
+          squadQtyFtd += Number(dAttr.qtyFtd) || 0;
+
           squadValWtd += Number(dAttr.billWtd) || 0;
           squadBillWtd += Number(dAttr.valWtd) || 0;
           squadQtyWtd += Number(dAttr.qtyWtd) || 0;
@@ -3333,6 +3382,10 @@ const DSRReport = () => {
         );
         if (custKey) {
           const cAttr = customizationAttribution[custKey] || {};
+          customValFtd += Number(cAttr.billFtd) || 0;
+          customBillFtd += Number(cAttr.valFtd) || 0;
+          customQtyFtd += Number(cAttr.qtyFtd) || 0;
+
           customValWtd += Number(cAttr.billWtd) || 0;
           customBillWtd += Number(cAttr.valWtd) || 0;
           customQtyWtd += Number(cAttr.qtyWtd) || 0;
@@ -3479,6 +3532,9 @@ const DSRReport = () => {
       // Customization — look up by store's normalized name (storeCustomizationTotals keyed by normalizeForMatch(storeName))
       const custStoreKey = normalizeForMatch(displayBranchName(workingBranch));
       const custTotals = storeCustomizationTotals[custStoreKey] || {};
+      const customValFtd = custTotals.valFtd || 0;
+      const customBillFtd = custTotals.billsFtd || 0;
+      const customQtyFtd = custTotals.qtyFtd || 0;
       const customValWtd = custTotals.val || 0;
       const customBillWtd = custTotals.bills || 0;
       const customQtyWtd = custTotals.qty || 0;
@@ -3487,7 +3543,7 @@ const DSRReport = () => {
         name,
         rentalValFtd, rentalValWtd, rentalBillFtd, rentalBillWtd, rentalQtyFtd, rentalQtyWtd,
         squadValFtd, squadValWtd, squadBillFtd, squadBillWtd, squadQtyFtd, squadQtyWtd,
-        customValFtd: 0, customValWtd, customBillFtd: 0, customBillWtd, customQtyFtd: 0, customQtyWtd,
+        customValFtd, customValWtd, customBillFtd, customBillWtd, customQtyFtd, customQtyWtd,
         salesValFtd, salesValWtd, salesBillFtd, salesBillWtd, salesQtyFtd, salesQtyWtd
       };
     }).filter(Boolean);
