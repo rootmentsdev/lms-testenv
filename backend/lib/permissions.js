@@ -368,16 +368,26 @@ export const buildTaskFilter = async (adminId, baseQuery = {}) => {
     }
 
     // ── Cluster Admin / Store Admin → Only creator, direct assignee, or active reviewer ─────
-    // If they have a linked employee profile, match it as well
+    // Check if they have a linked Employee or User profile mapping
     const employee = await Employee.findOne({
         $or: [
             { userId: admin._id },
             { employeeId: { $regex: `^${admin.EmpId || admin.employeeId}$`, $options: 'i' } }
         ]
     });
+    const user = await User.findOne({
+        $or: [
+            { email: admin.email },
+            { empID: { $regex: `^${admin.EmpId || admin.employeeId}$`, $options: 'i' } }
+        ]
+    });
+
     const assignedIds = [admin._id.toString()];
     if (employee) {
         assignedIds.push(employee._id.toString());
+    }
+    if (user) {
+        assignedIds.push(user._id.toString());
     }
 
     const restriction = {
