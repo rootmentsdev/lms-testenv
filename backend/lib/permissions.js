@@ -367,39 +367,11 @@ export const buildTaskFilter = async (adminId, baseQuery = {}) => {
         return { ...baseQuery, ...restriction };
     }
 
-    // ── Cluster Admin / Store Admin → creator OR assignee in their stores ─────
-    const accessibleStoreIds = await getAccessibleStoreIds(adminId);
-
-    // Resolve all employee/user IDs that belong to accessible stores
-    const accessibleEmployees = await Employee.find({
-        storeId: { $in: accessibleStoreIds },
-        status: 'Active'
-    }).select('_id').lean();
-
-    const accessibleBranches = await Branch.find({ _id: { $in: accessibleStoreIds } });
-    const locCodes = accessibleBranches.map(b => b.locCode);
-    const accessibleUsers = await User.find({ locCode: { $in: locCodes } }).select('_id').lean();
-
-    // Also include admins (store_admins) that belong to accessible stores
-    const accessibleAdmins = await Admin.find({
-        branches: { $in: accessibleStoreIds },
-        isActive: true
-    }).select('_id').lean();
-
-    const accessibleAssigneeIds = [
-        ...accessibleEmployees.map(e => e._id.toString()),
-        ...accessibleUsers.map(u => u._id.toString()),
-        ...accessibleAdmins.map(a => a._id.toString()),
-    ];
-
-    // A task is visible if:
-    //   1. The current admin created it (they are the assigner), OR
-    //   2. The task's assignedTo is someone within their accessible stores, OR
-    //   3. The current admin is the active approver in the approvalChain AND the status is PENDING REVIEW
+    // ── Cluster Admin / Store Admin → Only creator, direct assignee, or active reviewer ─────
     const restriction = {
         $or: [
             { createdBy: admin._id },
-            { assignedTo: { $in: accessibleAssigneeIds } },
+            { assignedTo: admin._id.toString() },
             { 
               $and: [
                 { status: 'PENDING REVIEW' },
@@ -423,4 +395,3 @@ export const buildTaskFilter = async (adminId, baseQuery = {}) => {
     }
     return { ...baseQuery, ...restriction };
 };
-

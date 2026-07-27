@@ -378,7 +378,19 @@ export const createTask = async (req, res) => {
     // Resolve all target assignees
     const targets = [];
 
-    if (resolvedAssignedTo === 'all_employees' || resolvedAssignedTo === 'all_store_admins') {
+    if (resolvedAssignedTo === 'all_employees') {
+      const storeIds = await getAccessibleStoreIds(creator._id);
+      const employeesList = await Employee.find({ storeId: { $in: storeIds }, isActive: true }).populate('storeId');
+      employeesList.forEach(emp => {
+        const empName = emp.firstName ? `${emp.firstName} ${emp.lastName || ''}`.trim() : (emp.username || 'Employee');
+        const storeNameVal = emp.storeId?.workingBranch || 'Store';
+        targets.push({
+          id: emp._id.toString(),
+          label: `${empName} - Staff - ${storeNameVal}`
+        });
+      });
+    }
+    else if (resolvedAssignedTo === 'all_store_admins') {
       const storeIds = await getAccessibleStoreIds(creator._id);
       const adminQuery = { role: 'store_admin', branches: { $in: storeIds }, isActive: true };
       const adminsList = await Admin.find(adminQuery).populate('branches');
