@@ -9,6 +9,7 @@ import User from '../model/User.js';
 import Branch from '../model/Branch.js';
 import { getAccessibleEmployeeIds, getAccessibleStoreIds, isFullAccessAdmin, validateEmployeeAccess } from '../lib/permissions.js';
 import { sendNotification } from '../utils/notificationHelper.js';
+import Cluster from '../model/Cluster.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -198,9 +199,39 @@ export const mapTaskForClient = (doc, overrideBranch, requesterInfo) => {
   const isEmployee = ['employee', 'user'].includes(requesterRole);
   const showAdminDetails = requesterId ? !isAssignee : !isEmployee;
 
-  const titleToShow = (showAdminDetails && task.adminTitle) ? task.adminTitle : (task.title || '');
-  const categoryToShow = (showAdminDetails && task.adminCategory) ? task.adminCategory : (task.category || '');
-  const subCategoryToShow = (showAdminDetails && task.adminSubCategory) ? task.adminSubCategory : (task.subCategory || '');
+  let titleToShow = task.title || '';
+  let categoryToShow = task.category || '';
+  let subCategoryToShow = task.subCategory || '';
+
+  // Custom role-based header title visibility logic:
+  // Show the header/title matching the user role who gave it to the tier below.
+  if (task.taskTitles && task.taskTitles.length > 0) {
+    // 1. Find the title assigned by the requester's supervisor
+    // e.g. If requester is Employee -> see title assigned by Store Admin or Cluster Admin or Creator
+    // If requester is Store Admin -> see title assigned by Cluster Admin or Creator
+    // If requester is Cluster Admin -> see title assigned by Creator/Admin
+    let matchingTitleDoc = null;
+    if (requesterRole === 'employee' || requesterRole === 'user') {
+      // Find latest title created by Store Admin or Cluster Admin or Creator
+      matchingTitleDoc = [...task.taskTitles].reverse().find(t => ['store_admin', 'cluster_admin', 'super_admin', 'admin', 'hr_admin'].includes(t.role));
+    } else if (requesterRole === 'store_admin') {
+      // Find latest title created by Cluster Admin or Creator
+      matchingTitleDoc = [...task.taskTitles].reverse().find(t => ['cluster_admin', 'super_admin', 'admin', 'hr_admin'].includes(t.role));
+    } else if (requesterRole === 'cluster_admin') {
+      // Find latest title created by Creator
+      matchingTitleDoc = [...task.taskTitles].reverse().find(t => ['super_admin', 'admin', 'hr_admin'].includes(t.role));
+    }
+
+    if (matchingTitleDoc) {
+      titleToShow = matchingTitleDoc.title;
+      categoryToShow = matchingTitleDoc.title; // Map category to display matching custom title
+    }
+  } else {
+    // Fallback if taskTitles not populated
+    titleToShow = (showAdminDetails && task.adminTitle) ? task.adminTitle : (task.title || '');
+    categoryToShow = (showAdminDetails && task.adminCategory) ? task.adminCategory : (task.category || '');
+    subCategoryToShow = (showAdminDetails && task.adminSubCategory) ? task.adminSubCategory : (task.subCategory || '');
+  }
 
   return {
     id: taskId,
@@ -249,6 +280,8 @@ export const mapTaskForClient = (doc, overrideBranch, requesterInfo) => {
     })),
     requestedExtensionDate: task.requestedExtensionDate || '',
     previousStatus: task.previousStatus || '',
+    approvalChain: task.approvalChain || [],
+    approvalChainIndex: task.approvalChainIndex ?? 0,
     workMap: (() => {
       const list = task.workMap || [];
       const filtered = [];
@@ -428,6 +461,80 @@ export const createTask = async (req, res) => {
         targetStoreCode = storeCode;
       }
 
+      // Dynamically resolve approval chain: Employee -> Store Admin -> Cluster Admin -> Creator
+      let resolvedApprovalChain = [];
+      try {
+        let currentAssigneeId = target.id;
+        let storeAdminId = null;
+        let clusterAdminId = null;
+        const creatorId = creator._id.toString();
+
+        // 1. Check if the assignee is an Employee / regular User / Admin
+        let assigneeAdmin = await Admin.findById(currentAssigneeId).populate('branches');
+        let assigneeUser = assigneeAdmin ? null : await User.findById(currentAssigneeId);
+        let assigneeEmployee = (assigneeAdmin || assigneeUser) ? null : await Employee.findById(currentAssigneeId).populate('storeId');
+
+        let targetBranchDoc = null;
+        if (assigneeAdmin && assigneeAdmin.branches && assigneeAdmin.branches.length > 0) {
+          targetBranchDoc = assigneeAdmin.branches[0];
+        } else if (assigneeEmployee && assigneeEmployee.storeId) {
+          targetBranchDoc = assigneeEmployee.storeId;
+        } else if (assigneeUser) {
+          const locCodeVal = assigneeUser.locCode || assigneeUser.LocCode;
+          if (locCodeVal) {
+            targetBranchDoc = await Branch.findOne({ locCode: String(locCodeVal).trim() });
+          }
+          if (!targetBranchDoc && assigneeUser.workingBranch) {
+            targetBranchDoc = await Branch.findOne({ workingBranch: { $regex: `^${assigneeUser.workingBranch.trim()}$`, $options: 'i' } });
+          }
+        }
+
+        // If target assignee is a regular employee/user under a store
+        if (targetBranchDoc) {
+          // Find Store Admin(s) for this branch
+          const storeAdmin = await Admin.findOne({ role: 'store_admin', branches: targetBranchDoc._id, isActive: true });
+          if (storeAdmin) {
+            storeAdminId = storeAdmin._id.toString();
+          }
+
+          // Find Cluster Admin for this branch (checking branches mapping since assignedClusters is empty)
+          const clusterAdmin = await Admin.findOne({ role: 'cluster_admin', branches: targetBranchDoc._id, isActive: true });
+          if (clusterAdmin) {
+            clusterAdminId = clusterAdmin._id.toString();
+          }
+        }
+
+        // If target assignee is already a store admin, skip store admin step
+        if (assigneeAdmin && assigneeAdmin.role === 'store_admin') {
+          storeAdminId = null;
+          if (targetBranchDoc) {
+            const clusterAdmin = await Admin.findOne({ role: 'cluster_admin', branches: targetBranchDoc._id, isActive: true });
+            if (clusterAdmin) {
+              clusterAdminId = clusterAdmin._id.toString();
+            }
+          }
+        }
+
+        // If target assignee is already a cluster admin, skip both store admin and cluster admin steps
+        if (assigneeAdmin && assigneeAdmin.role === 'cluster_admin') {
+          storeAdminId = null;
+          clusterAdminId = null;
+        }
+
+        // Build the unique, ordered chain, making sure not to add duplicate steps or Creator multiple times
+        if (storeAdminId && storeAdminId !== currentAssigneeId && storeAdminId !== creatorId) {
+          resolvedApprovalChain.push(storeAdminId);
+        }
+        if (clusterAdminId && clusterAdminId !== currentAssigneeId && clusterAdminId !== creatorId && !resolvedApprovalChain.includes(clusterAdminId)) {
+          resolvedApprovalChain.push(clusterAdminId);
+        }
+        if (!resolvedApprovalChain.includes(creatorId)) {
+          resolvedApprovalChain.push(creatorId);
+        }
+      } catch (err) {
+        console.error('Error constructing task approval chain:', err);
+      }
+
       const task = await Task.create({
         taskCode,
         title: title.trim(),
@@ -469,6 +576,13 @@ export const createTask = async (req, res) => {
           assignedAt: new Date(),
           action: 'ASSIGNED'
         }],
+        approvalChain: resolvedApprovalChain,
+        approvalChainIndex: 0,
+        taskTitles: [{
+          userId: creator._id.toString(),
+          role: isCreatorAdmin ? creator.role : 'user',
+          title: title.trim()
+        }]
       });
       createdTasks.push(task);
       
@@ -1078,7 +1192,7 @@ export const updateTaskStatus = async (req, res) => {
     if (normalizedStatus === 'REASSIGN') {
       normalizedStatus = 'REASSIGNED';
     }
-    const validStatuses = ['PENDING', 'IN PROGRESS', 'COMPLETED', 'OVERDUE', 'ON HOLD', 'UNDER REVIEW', 'REASSIGNED', 'EXTENSION REQUESTED'];
+    const validStatuses = ['PENDING', 'IN PROGRESS', 'COMPLETED', 'OVERDUE', 'ON HOLD', 'UNDER REVIEW', 'PENDING REVIEW', 'REASSIGNED', 'EXTENSION REQUESTED'];
     if (!validStatuses.includes(normalizedStatus)) {
       return res.status(400).json({
         success: false,
@@ -1262,6 +1376,84 @@ export const updateTaskStatus = async (req, res) => {
         });
       }
 
+      if (!task.taskTitles) {
+        task.taskTitles = [];
+      }
+      task.taskTitles.push({
+        userId: userId.toString(),
+        role: userRole || 'user',
+        title: reassignedCategory ? reassignedCategory.trim() : task.title
+      });
+
+      // Update approval chain on status reassign
+      let resolvedApprovalChain = [];
+      try {
+        let currentAssigneeId = resolvedAssignedTo;
+        let storeAdminId = null;
+        let clusterAdminId = null;
+        const creatorId = task.createdBy.toString();
+
+        let assigneeAdmin = await Admin.findById(currentAssigneeId).populate('branches');
+        let assigneeUser = assigneeAdmin ? null : await User.findById(currentAssigneeId);
+        let assigneeEmployee = (assigneeAdmin || assigneeUser) ? null : await Employee.findById(currentAssigneeId).populate('storeId');
+
+        let targetBranchDoc = null;
+        if (assigneeAdmin && assigneeAdmin.branches && assigneeAdmin.branches.length > 0) {
+          targetBranchDoc = assigneeAdmin.branches[0];
+        } else if (assigneeEmployee && assigneeEmployee.storeId) {
+          targetBranchDoc = assigneeEmployee.storeId;
+        } else if (assigneeUser) {
+          const locCodeVal = assigneeUser.locCode || assigneeUser.LocCode;
+          if (locCodeVal) {
+            targetBranchDoc = await Branch.findOne({ locCode: String(locCodeVal).trim() });
+          }
+          if (!targetBranchDoc && assigneeUser.workingBranch) {
+            targetBranchDoc = await Branch.findOne({ workingBranch: { $regex: `^${assigneeUser.workingBranch.trim()}$`, $options: 'i' } });
+          }
+        }
+
+        if (targetBranchDoc) {
+          const storeAdmin = await Admin.findOne({ role: 'store_admin', branches: targetBranchDoc._id, isActive: true });
+          if (storeAdmin) {
+            storeAdminId = storeAdmin._id.toString();
+          }
+          const clusterAdmin = await Admin.findOne({ role: 'cluster_admin', branches: targetBranchDoc._id, isActive: true });
+          if (clusterAdmin) {
+            clusterAdminId = clusterAdmin._id.toString();
+          }
+        }
+
+        if (assigneeAdmin && assigneeAdmin.role === 'store_admin') {
+          storeAdminId = null;
+          if (targetBranchDoc) {
+            const clusterAdmin = await Admin.findOne({ role: 'cluster_admin', branches: targetBranchDoc._id, isActive: true });
+            if (clusterAdmin) {
+              clusterAdminId = clusterAdmin._id.toString();
+            }
+          }
+        }
+
+        if (assigneeAdmin && assigneeAdmin.role === 'cluster_admin') {
+          storeAdminId = null;
+          clusterAdminId = null;
+        }
+
+        if (storeAdminId && storeAdminId !== currentAssigneeId && storeAdminId !== creatorId) {
+          resolvedApprovalChain.push(storeAdminId);
+        }
+        if (clusterAdminId && clusterAdminId !== currentAssigneeId && clusterAdminId !== creatorId && !resolvedApprovalChain.includes(clusterAdminId)) {
+          resolvedApprovalChain.push(clusterAdminId);
+        }
+        if (!resolvedApprovalChain.includes(creatorId)) {
+          resolvedApprovalChain.push(creatorId);
+        }
+      } catch (err) {
+        console.error('Error rebuilding approval chain in status-reassign:', err);
+      }
+
+      task.approvalChain = resolvedApprovalChain;
+      task.approvalChainIndex = 0;
+
       // Update store details
       try {
         const targetAdmin = await Admin.findById(resolvedAssignedTo).populate('branches');
@@ -1293,13 +1485,30 @@ export const updateTaskStatus = async (req, res) => {
         assignedAt: new Date(),
         action: 'COMPLETED'
       });
-    } else if (normalizedStatus === 'UNDER REVIEW') {
+    } else if (normalizedStatus === 'UNDER REVIEW' || normalizedStatus === 'PENDING REVIEW') {
+      // Save proofs to attachments
+      if (fileAttachment && fileAttachment.base64) {
+        task.reviewAttachment = fileAttachment.base64;
+        task.reviewAttachmentName = fileAttachment.name;
+        if (!task.attachments) {
+          task.attachments = [];
+        }
+        task.attachments.push({
+          name: fileAttachment.name,
+          file: fileAttachment.base64,
+          uploadedBy: userId.toString(),
+          uploadedByName: executorName,
+          uploadedAt: new Date(),
+          step: normalizedStatus
+        });
+      }
+
       task.workMap.push({
         assignedTo: task.assignedTo,
         assignedToLabel: task.assignedToLabel,
         assignedBy: executorName,
         assignedAt: new Date(),
-        action: 'UNDER REVIEW'
+        action: normalizedStatus
       });
     } else if (normalizedStatus === 'IN PROGRESS') {
       task.workMap.push({
@@ -1354,6 +1563,21 @@ export const updateTaskStatus = async (req, res) => {
         title: 'Task Submitted for Review',
         body: `Task "${task.title}" has been submitted for review by ${executorName}`,
         userIds: [task.createdBy],
+        senderName: executorName,
+        category: 'Task'
+      });
+    } else if (normalizedStatus === 'PENDING REVIEW') {
+      let targetApprover = task.createdBy;
+      task.approvalChainIndex = 0;
+      if (task.approvalChain && task.approvalChain.length > 0) {
+        targetApprover = task.approvalChain[0];
+      }
+      await task.save();
+
+      await sendNotification({
+        title: 'Task Pending Approval',
+        body: `Task "${task.title}" has been submitted for approval by ${executorName}`,
+        userIds: [targetApprover],
         senderName: executorName,
         category: 'Task'
       });
@@ -1472,6 +1696,86 @@ export const reassignTask = async (req, res) => {
       task.reassignedSubCategory = subCategory;
     }
 
+    if (!task.taskTitles) {
+      task.taskTitles = [];
+    }
+    
+    // Store title for this reassigner
+    task.taskTitles.push({
+      userId: userId.toString(),
+      role: userRole || 'user',
+      title: category ? category.trim() : task.title
+    });
+
+    // Rebuild/Update approvalChain to reflect that the assignee has changed
+    let resolvedApprovalChain = [];
+    try {
+      let currentAssigneeId = resolvedAssignedTo;
+      let storeAdminId = null;
+      let clusterAdminId = null;
+      const creatorId = task.createdBy.toString();
+
+      let assigneeAdmin = await Admin.findById(currentAssigneeId).populate('branches');
+      let assigneeUser = assigneeAdmin ? null : await User.findById(currentAssigneeId);
+      let assigneeEmployee = (assigneeAdmin || assigneeUser) ? null : await Employee.findById(currentAssigneeId).populate('storeId');
+
+      let targetBranchDoc = null;
+      if (assigneeAdmin && assigneeAdmin.branches && assigneeAdmin.branches.length > 0) {
+        targetBranchDoc = assigneeAdmin.branches[0];
+      } else if (assigneeEmployee && assigneeEmployee.storeId) {
+        targetBranchDoc = assigneeEmployee.storeId;
+      } else if (assigneeUser) {
+        const locCodeVal = assigneeUser.locCode || assigneeUser.LocCode;
+        if (locCodeVal) {
+          targetBranchDoc = await Branch.findOne({ locCode: String(locCodeVal).trim() });
+        }
+        if (!targetBranchDoc && assigneeUser.workingBranch) {
+          targetBranchDoc = await Branch.findOne({ workingBranch: { $regex: `^${assigneeUser.workingBranch.trim()}$`, $options: 'i' } });
+        }
+      }
+
+      if (targetBranchDoc) {
+        const storeAdmin = await Admin.findOne({ role: 'store_admin', branches: targetBranchDoc._id, isActive: true });
+        if (storeAdmin) {
+          storeAdminId = storeAdmin._id.toString();
+        }
+        const clusterAdmin = await Admin.findOne({ role: 'cluster_admin', branches: targetBranchDoc._id, isActive: true });
+        if (clusterAdmin) {
+          clusterAdminId = clusterAdmin._id.toString();
+        }
+      }
+
+      if (assigneeAdmin && assigneeAdmin.role === 'store_admin') {
+        storeAdminId = null;
+        if (targetBranchDoc) {
+          const clusterAdmin = await Admin.findOne({ role: 'cluster_admin', branches: targetBranchDoc._id, isActive: true });
+          if (clusterAdmin) {
+            clusterAdminId = clusterAdmin._id.toString();
+          }
+        }
+      }
+
+      if (assigneeAdmin && assigneeAdmin.role === 'cluster_admin') {
+        storeAdminId = null;
+        clusterAdminId = null;
+      }
+
+      if (storeAdminId && storeAdminId !== currentAssigneeId && storeAdminId !== creatorId) {
+        resolvedApprovalChain.push(storeAdminId);
+      }
+      if (clusterAdminId && clusterAdminId !== currentAssigneeId && clusterAdminId !== creatorId && !resolvedApprovalChain.includes(clusterAdminId)) {
+        resolvedApprovalChain.push(clusterAdminId);
+      }
+      if (!resolvedApprovalChain.includes(creatorId)) {
+        resolvedApprovalChain.push(creatorId);
+      }
+    } catch (err) {
+      console.error('Error rebuilding approval chain in reassignTask:', err);
+    }
+
+    task.approvalChain = resolvedApprovalChain;
+    task.approvalChainIndex = 0;
+
     task.workMap.push({
       assignedTo: resolvedAssignedTo,
       assignedToLabel: resolvedAssignedToLabel,
@@ -1545,6 +1849,150 @@ export const reassignTask = async (req, res) => {
       success: false,
       message: 'Failed to reassign task',
       error: error.message,
+    });
+  }
+};
+
+export const approveTaskStep = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { action } = req.body; // 'APPROVE' or 'REJECT'
+    const userId = req.admin.userId;
+
+    if (!action || !['APPROVE', 'REJECT'].includes(action)) {
+      return res.status(400).json({ success: false, message: 'action must be APPROVE or REJECT' });
+    }
+
+    const task = await Task.findOne({
+      $or: [{ taskCode: id }, ...(id.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: id }] : [])],
+    });
+
+    if (!task) {
+      return res.status(404).json({ success: false, message: 'Task not found' });
+    }
+
+    if (task.status !== 'PENDING REVIEW') {
+      return res.status(400).json({ success: false, message: 'Task is not pending approval review.' });
+    }
+
+    // Determine current expected approver from the chain
+    let expectedApprover = task.createdBy.toString();
+    const hasChain = task.approvalChain && task.approvalChain.length > 0;
+    if (hasChain) {
+      expectedApprover = task.approvalChain[task.approvalChainIndex];
+    }
+
+    if (userId.toString() !== expectedApprover) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: You are not the authorized approver for the current step.',
+      });
+    }
+
+    // Resolve executor's display name
+    let executorName = 'Approver';
+    const executorAdmin = await Admin.findById(userId);
+    if (executorAdmin) {
+      executorName = executorAdmin.name;
+    } else {
+      const executorUser = await User.findById(userId);
+      if (executorUser) {
+        executorName = executorUser.username;
+      }
+    }
+
+    if (action === 'REJECT') {
+      // Send task back to IN PROGRESS
+      task.status = 'IN PROGRESS';
+      task.workMap.push({
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignedToLabel,
+        assignedBy: executorName,
+        assignedAt: new Date(),
+        action: 'IN PROGRESS',
+        details: 'Review Rejected - Sent back to IN PROGRESS'
+      });
+      await task.save();
+
+      // Notify Assignee of rejection
+      await sendNotification({
+        title: 'Task Submission Rejected',
+        body: `Your submission for task "${task.title}" has been rejected by ${executorName}`,
+        userIds: [task.assignedTo],
+        senderName: executorName,
+        category: 'Task'
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Task submission rejected and returned to IN PROGRESS.',
+        data: mapTaskForClient(task, null, req.admin)
+      });
+    }
+
+    // action === 'APPROVE'
+    if (hasChain && task.approvalChainIndex < task.approvalChain.length - 1) {
+      // Advance to next step in the chain
+      task.approvalChainIndex += 1;
+      const nextApprover = task.approvalChain[task.approvalChainIndex];
+      task.workMap.push({
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignedToLabel,
+        assignedBy: executorName,
+        assignedAt: new Date(),
+        action: 'PENDING REVIEW',
+        details: `Approved by ${executorName}. Sent to next approval stage.`
+      });
+      await task.save();
+
+      // Notify next approver
+      await sendNotification({
+        title: 'Task Pending Approval',
+        body: `Task "${task.title}" has been approved by ${executorName} and requires your review.`,
+        userIds: [nextApprover],
+        senderName: executorName,
+        category: 'Task'
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Approved step successfully. Forwarded to the next level.',
+        data: mapTaskForClient(task, null, req.admin)
+      });
+    } else {
+      // Final approval in the chain -> Complete task
+      task.status = 'COMPLETED';
+      task.workMap.push({
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignedToLabel,
+        assignedBy: executorName,
+        assignedAt: new Date(),
+        action: 'COMPLETED',
+        details: 'Approved completely and finalized.'
+      });
+      await task.save();
+
+      // Notify assignee of completion
+      await sendNotification({
+        title: 'Task Completed',
+        body: `Great job! Your task "${task.title}" has been fully approved and completed.`,
+        userIds: [task.assignedTo],
+        senderName: executorName,
+        category: 'Task'
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Task fully approved and completed.',
+        data: mapTaskForClient(task, null, req.admin)
+      });
+    }
+  } catch (error) {
+    console.error('Error in approveTaskStep:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to process approval step',
+      error: error.message
     });
   }
 };

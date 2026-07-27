@@ -24,6 +24,7 @@ const STATUS_CLASS = {
   OVERDUE: 'task-mgmt-status--overdue',
   'ON HOLD': 'task-mgmt-status--on-hold',
   'UNDER REVIEW': 'task-mgmt-status--under-review',
+  'PENDING REVIEW': 'task-mgmt-status--under-review',
   REASSIGNED: 'task-mgmt-status--reassigned',
 };
 
@@ -41,7 +42,7 @@ const DateCell = ({ date, time }) => (
   </div>
 );
 
-const SlideToComplete = ({ onComplete }) => {
+const SlideToComplete = ({ onComplete, label }) => {
   const [position, setPosition] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [completed, setCompleted] = useState(false);
@@ -147,7 +148,7 @@ const SlideToComplete = ({ onComplete }) => {
         )}
       </div>
       <span className="slide-to-complete-text">
-        {completed ? 'Completed' : 'Slide to Complete'}
+        {completed ? 'Completed' : (label || 'Slide to Complete')}
       </span>
     </div>
   );
@@ -191,8 +192,14 @@ const TaskManagement = () => {
           priority: priorityFilter,
           status: statusFilter,
         }),
-        fetchTasks({
-          status: 'UNDER REVIEW',
+        // Fetch both UNDER REVIEW and PENDING REVIEW status options for the requests section
+        Promise.all([
+          fetchTasks({ status: 'UNDER REVIEW' }),
+          fetchTasks({ status: 'PENDING REVIEW' })
+        ]).then(([underRes, pendingRes]) => {
+          return {
+            data: [...(underRes.data || []), ...(pendingRes.data || [])]
+          };
         }),
         fetchTasks({
           status: 'EXTENSION REQUESTED',
@@ -203,10 +210,14 @@ const TaskManagement = () => {
 
       setTasks(tasksRes.data || []);
       const allRequests = requestsRes.data || [];
+      
       setRequests(
-        isGlobalAdmin
-          ? allRequests
-          : allRequests.filter((t) => t.createdBy === user?.userId)
+        allRequests.filter((t) => {
+          // A task should only show up in the Review Requests tab of a user if they are the current active approver in the approvalChain
+          const hasChain = t.approvalChain && t.approvalChain.length > 0;
+          const currentApprover = hasChain ? t.approvalChain[t.approvalChainIndex] : t.createdBy;
+          return String(currentApprover) === String(user?.userId);
+        })
       );
 
       const allExtensions = extensionsRes.data || [];
@@ -302,22 +313,32 @@ const TaskManagement = () => {
     if (page > totalPages) setPage(1);
   }, [page, totalPages]);
 
-  const handleCompleteTask = async (taskId) => {
+  const handleCompleteTask = async (taskObj) => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${baseUrl.baseUrl}api/task/${taskId}/status`, {
+      const hasChain = taskObj.approvalChain && taskObj.approvalChain.length > 0;
+      
+      let url = `${baseUrl.baseUrl}api/task/${taskObj._id || taskObj.id}/status`;
+      let body = { status: 'COMPLETED' };
+
+      if (hasChain) {
+        url = `${baseUrl.baseUrl}api/task/${taskObj._id || taskObj.id}/approve`;
+        body = { action: 'APPROVE' };
+      }
+
+      const res = await fetch(url, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           ...(token && { Authorization: `Bearer ${token}` }),
         },
-        body: JSON.stringify({ status: 'COMPLETED' }),
+        body: JSON.stringify(body),
       });
       const json = await res.json();
       if (!res.ok) {
         throw new Error(json.message || 'Failed to complete task');
       }
-      toast.success('Task marked as COMPLETED!');
+      toast.success(hasChain ? 'Approved task step successfully!' : 'Task marked as COMPLETED!');
       loadTasks();
     } catch (err) {
       toast.error(err.message || 'Failed to update task status');
@@ -587,11 +608,19 @@ const TaskManagement = () => {
                               <span style={{ color: '#9ca3af' }}>No proof</span>
                             )}
                           </td>
-                          <td>
+                           <td>
                             <div className="slide-to-complete-wrapper">
-                              <SlideToComplete
-                                onComplete={() => handleCompleteTask(task.id)}
-                              />
+                              {(() => {
+                                // The final step is when the current logged in user is the original creator of the task (the Admin who first created/assigned it)
+                                const isFinalStep = String(task.createdBy) === String(user?.userId);
+                                const labelText = isFinalStep ? 'Slide to Complete' : 'Slide to Approve';
+                                return (
+                                  <SlideToComplete
+                                    onComplete={() => handleCompleteTask(task)}
+                                    label={labelText}
+                                  />
+                                );
+                              })()}
                             </div>
                           </td>
                         </>

@@ -20,9 +20,20 @@ const taskSchema = new mongoose.Schema({
   priority: { type: String, required: true, trim: true },
   status: {
     type: String,
-    enum: ['PENDING', 'IN PROGRESS', 'COMPLETED', 'OVERDUE', 'ON HOLD', 'UNDER REVIEW', 'REASSIGNED', 'EXTENSION REQUESTED'],
+    enum: ['PENDING', 'IN PROGRESS', 'COMPLETED', 'OVERDUE', 'ON HOLD', 'UNDER REVIEW', 'PENDING REVIEW', 'REASSIGNED', 'EXTENSION REQUESTED'],
     default: 'IN PROGRESS',
   },
+
+  // Hierarchical approval chain — ordered list of approver IDs (store admin → cluster admin → creator)
+  approvalChain: [{ type: String }],
+  // Index of the current pending approver in approvalChain (0 = store admin, 1 = cluster admin, 2 = creator)
+  approvalChainIndex: { type: Number, default: 0 },
+  // Store the custom title/header specified at each tier or reassignment step
+  taskTitles: [{
+    userId: { type: String },
+    role: { type: String },
+    title: { type: String }
+  }],
   requestedExtensionDate: { type: String, default: '' },
   previousStatus: { type: String, default: '' },
   reassignedCategory: { type: String, default: '' },
@@ -49,7 +60,7 @@ const taskSchema = new mongoose.Schema({
     assignedToLabel: { type: String },
     assignedBy: { type: String },
     assignedAt: { type: Date, default: Date.now },
-    action: { type: String, enum: ['ASSIGNED', 'REASSIGNED', 'COMPLETED', 'UNDER REVIEW', 'IN PROGRESS', 'ON HOLD', 'EXTENSION REQUESTED', 'EXTENSION APPROVED', 'EXTENSION REJECTED'], default: 'ASSIGNED' },
+    action: { type: String, enum: ['ASSIGNED', 'REASSIGNED', 'COMPLETED', 'UNDER REVIEW', 'PENDING REVIEW', 'IN PROGRESS', 'ON HOLD', 'EXTENSION REQUESTED', 'EXTENSION APPROVED', 'EXTENSION REJECTED'], default: 'ASSIGNED' },
     details: { type: String, default: '' }
   }],
 
