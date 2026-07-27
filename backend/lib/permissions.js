@@ -394,11 +394,26 @@ export const buildTaskFilter = async (adminId, baseQuery = {}) => {
 
     // A task is visible if:
     //   1. The current admin created it (they are the assigner), OR
-    //   2. The task's assignedTo is someone within their accessible stores
+    //   2. The task's assignedTo is someone within their accessible stores, OR
+    //   3. The current admin is the active approver in the approvalChain AND the status is PENDING REVIEW
     const restriction = {
         $or: [
             { createdBy: admin._id },
             { assignedTo: { $in: accessibleAssigneeIds } },
+            { 
+              $and: [
+                { status: 'PENDING REVIEW' },
+                { approvalChain: admin._id.toString() },
+                { 
+                  $expr: {
+                    $eq: [
+                      { $arrayElemAt: ["$approvalChain", "$approvalChainIndex"] },
+                      admin._id.toString()
+                    ]
+                  }
+                }
+              ]
+            }
         ]
     };
 

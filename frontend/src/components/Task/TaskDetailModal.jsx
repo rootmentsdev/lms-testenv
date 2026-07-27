@@ -68,6 +68,7 @@ const STATUS_CLASS = {
   OVERDUE: 'task-detail-status--overdue',
   'ON HOLD': 'task-detail-status--on-hold',
   'UNDER REVIEW': 'task-detail-status--under-review',
+  'PENDING REVIEW': 'task-detail-status--under-review',
   REASSIGNED: 'task-detail-status--reassigned',
 };
 
@@ -312,7 +313,8 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
     setUpdating(true);
     try {
       const token = localStorage.getItem('token');
-      const body = { status: 'UNDER REVIEW' };
+      const hasChain = task.approvalChain && task.approvalChain.length > 0;
+      const body = { status: hasChain ? 'PENDING REVIEW' : 'UNDER REVIEW' };
 
       if (selectedFile) {
         const base64 = await getBase64(selectedFile);
@@ -331,7 +333,7 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
       if (!res.ok) {
         throw new Error(json.message || 'Failed to submit review');
       }
-      toast.success('Task submitted for review successfully!');
+      toast.success(hasChain ? 'Task submitted for approval successfully!' : 'Task submitted for review successfully!');
       if (onRefresh) onRefresh();
       onClose();
     } catch (err) {
@@ -563,6 +565,8 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
         step.action !== 'ASSIGNED' &&
         step.action !== 'REASSIGNED' &&
         step.action !== 'COMPLETED' &&
+        step.action !== 'PENDING REVIEW' &&
+        step.action !== 'UNDER REVIEW' &&
         step.action !== 'EXTENSION REQUESTED' &&
         step.action !== 'EXTENSION APPROVED' &&
         step.action !== 'EXTENSION REJECTED'
@@ -581,6 +585,8 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
         }
       } else if (
         step.action === 'COMPLETED' ||
+        step.action === 'PENDING REVIEW' ||
+        step.action === 'UNDER REVIEW' ||
         step.action === 'EXTENSION REQUESTED' ||
         step.action === 'EXTENSION APPROVED' ||
         step.action === 'EXTENSION REJECTED'
@@ -749,11 +755,13 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
                 {getWorkMapForDisplay().map((step, idx) => (
                   <div key={idx} className="task-detail-workmap-step">
                     <div className="task-detail-workmap-connector" />
-                    <div className={`task-detail-workmap-node ${step.action.toLowerCase().replace(/\s+/g, '-')}`}>
+                     <div className={`task-detail-workmap-node ${step.action.toLowerCase().replace(/\s+/g, '-')}`}>
                       <span className="task-detail-workmap-icon">
                         {step.action === 'ASSIGNED' ? '📌' :
                          step.action === 'REASSIGNED' ? '🔄' :
                          step.action === 'COMPLETED' ? '✅' :
+                         step.action === 'PENDING REVIEW' ? '⏳' :
+                         step.action === 'UNDER REVIEW' ? '🔍' :
                          step.action === 'EXTENSION REQUESTED' ? '⏳' :
                          step.action === 'EXTENSION APPROVED' ? '👍' : '❌'}
                       </span>
@@ -763,12 +771,18 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
                         {step.action === 'ASSIGNED' ? 'First Assigned' :
                          step.action === 'REASSIGNED' ? 'Reassigned' :
                          step.action === 'COMPLETED' ? 'Completed' :
+                         step.action === 'PENDING REVIEW' ? 'Submitted for Approval' :
+                         step.action === 'UNDER REVIEW' ? 'Under Final Review' :
                          step.action === 'EXTENSION REQUESTED' ? 'Extension Requested' :
                          step.action === 'EXTENSION APPROVED' ? 'Extension Approved' : 'Extension Rejected'}
                       </div>
                       <div className="task-detail-workmap-details">
                         {step.action === 'COMPLETED' ? (
                           <>Completed by <strong>{step.assignedToLabel || 'Unknown User'}</strong></>
+                        ) : step.action === 'PENDING REVIEW' ? (
+                          <>Submitted for approval by <strong>{step.assignedToLabel || 'Unknown User'}</strong></>
+                        ) : step.action === 'UNDER REVIEW' ? (
+                          <>Submitted for final review by <strong>{step.assignedToLabel || 'Unknown User'}</strong></>
                         ) : step.action === 'REASSIGNED' ? (
                           <>Reassigned to <strong>{step.assignedToLabel}</strong> by <strong>{step.assignedBy}</strong></>
                         ) : step.action === 'EXTENSION REQUESTED' ? (
@@ -918,6 +932,97 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
             <div className="task-detail-actions-panel">
               <h3 className="task-detail-actions-title">Task Action Control Panel</h3>
               
+              {(() => {
+                const hasChain = task.approvalChain && task.approvalChain.length > 0;
+                const currentApprover = hasChain ? task.approvalChain[task.approvalChainIndex] : task.createdBy;
+                const isCurrentApprover = user?.userId?.toString() === currentApprover?.toString();
+
+                if (task.status === 'PENDING REVIEW' && isCurrentApprover) {
+                  const isFinalStep = !hasChain || (task.approvalChainIndex === task.approvalChain.length - 1);
+
+                  const handleApprove = async () => {
+                    setUpdating(true);
+                    try {
+                      const token = localStorage.getItem('token');
+                      const res = await fetch(`${baseUrl.baseUrl}api/task/${task.id}/approve`, {
+                        method: 'PUT',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          ...(token && { Authorization: `Bearer ${token}` }),
+                        },
+                        body: JSON.stringify({ action: 'APPROVE' }),
+                      });
+                      const json = await res.json();
+                      if (!res.ok) {
+                        throw new Error(json.message || 'Failed to approve task step');
+                      }
+                      toast.success(isFinalStep ? 'Task fully approved and completed!' : 'Task step approved!');
+                      if (onRefresh) onRefresh();
+                      onClose();
+                    } catch (err) {
+                      toast.error(err.message || 'Failed to approve step');
+                    } finally {
+                      setUpdating(false);
+                    }
+                  };
+
+                  const handleReject = async () => {
+                    setUpdating(true);
+                    try {
+                      const token = localStorage.getItem('token');
+                      const res = await fetch(`${baseUrl.baseUrl}api/task/${task.id}/approve`, {
+                        method: 'PUT',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          ...(token && { Authorization: `Bearer ${token}` }),
+                        },
+                        body: JSON.stringify({ action: 'REJECT' }),
+                      });
+                      const json = await res.json();
+                      if (!res.ok) {
+                        throw new Error(json.message || 'Failed to reject task step');
+                      }
+                      toast.success('Task submission rejected.');
+                      if (onRefresh) onRefresh();
+                      onClose();
+                    } catch (err) {
+                      toast.error(err.message || 'Failed to reject step');
+                    } finally {
+                      setUpdating(false);
+                    }
+                  };
+
+                  return (
+                    <div className="task-detail-actions-row">
+                      <div className="task-detail-action-group">
+                        <div className="task-detail-field__label">Review Submission</div>
+                        <div className="task-detail-status-buttons">
+                          <button
+                            type="button"
+                            className="task-detail-action-btn task-detail-btn-submit-review"
+                            style={{ background: '#10b981', color: '#fff' }}
+                            onClick={handleApprove}
+                            disabled={updating}
+                          >
+                            {isFinalStep ? 'Approve & Complete' : 'Approve Step'}
+                          </button>
+                          <button
+                            type="button"
+                            className="task-detail-action-btn"
+                            style={{ background: '#ef4444', color: '#fff', marginLeft: '8px' }}
+                            onClick={handleReject}
+                            disabled={updating}
+                          >
+                            Reject & Send Back
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
               <div className="task-detail-actions-row">
                 {canUpdateStatus && (
                   <div className="task-detail-action-group">
@@ -1009,7 +1114,9 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
  
                 {isAssignedToMe && (
                   <div className="task-detail-action-group">
-                    <div className="task-detail-field__label">Submit for Review</div>
+                    <div className="task-detail-field__label">
+                      {task.approvalChain && task.approvalChain.length > 0 ? 'Submit for Approval' : 'Submit for Review'}
+                    </div>
                     <div className="task-detail-review-form">
                       <input
                         type="file"
@@ -1026,7 +1133,7 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
                         onClick={handleSubmitForReview}
                         disabled={updating || !selectedFile}
                       >
-                        Submit for Review
+                        {task.approvalChain && task.approvalChain.length > 0 ? 'Submit for Approval' : 'Submit for Review'}
                       </button>
                     </div>
                   </div>

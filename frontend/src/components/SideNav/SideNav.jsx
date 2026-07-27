@@ -209,6 +209,23 @@ const SideNav = () => {
 
           <NavItem to="/"            icon="dashboard"  label="Dashboard"   active={is('/')} />
 
+          {user?.role !== 'telecaller' && (
+            <FlyoutNavItem
+              icon="storeAnalysis"
+              label="Store Analysis"
+              active={location.pathname.startsWith('/store-analysis/')}
+              items={[
+                { to: '/store-analysis/dsr-report', label: 'DSR Report', active: is('/store-analysis/dsr-report') },
+                { to: '/store-analysis/growth-comparison', label: 'Growth Comparison', active: is('/store-analysis/growth-comparison') },
+                { to: '/store-analysis/google-review-task', label: 'Google Review', active: is('/store-analysis/google-review-task') },
+                { to: '/store-analysis/store-rating', label: user?.role === 'store_admin' ? 'Staff Rating' : 'Store Rating', active: is('/store-analysis/store-rating') || is('/store-analysis/store-rating/create') || location.pathname.startsWith('/store-analysis/store-rating/') }
+              ]}
+            />
+          )}
+          {user?.role !== 'telecaller' && (
+            <NavItem to="/store-insights" icon="storeInsights" label="Store Insights" active={is('/store-insights')} />
+          )}
+
           {/* Walk-In — portal flyout on hover */}
           <FlyoutNavItem
             icon="walkin"
@@ -254,22 +271,7 @@ const SideNav = () => {
           {user?.role !== 'telecaller' && (
             <NavItem to="/branch"      icon="branch"     label="Branches"    active={is('/branch') || is('/Addbranch')} />
           )}
-          {user?.role !== 'telecaller' && (
-            <FlyoutNavItem
-              icon="storeAnalysis"
-              label="Store Analysis"
-              active={location.pathname.startsWith('/store-analysis/')}
-              items={[
-                { to: '/store-analysis/dsr-report', label: 'DSR Report', active: is('/store-analysis/dsr-report') },
-                { to: '/store-analysis/growth-comparison', label: 'Growth Comparison', active: is('/store-analysis/growth-comparison') },
-                { to: '/store-analysis/google-review-task', label: 'Google Review', active: is('/store-analysis/google-review-task') },
-                { to: '/store-analysis/store-rating', label: user?.role === 'store_admin' ? 'Staff Rating' : 'Store Rating', active: is('/store-analysis/store-rating') || is('/store-analysis/store-rating/create') || location.pathname.startsWith('/store-analysis/store-rating/') }
-              ]}
-            />
-          )}
-          {user?.role !== 'telecaller' && (
-            <NavItem to="/store-insights" icon="storeInsights" label="Store Insights" active={is('/store-insights')} />
-          )}
+
           {user?.role !== 'telecaller' && (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'cluster_admin') && (
             <FlyoutNavItem
               icon="settings"
