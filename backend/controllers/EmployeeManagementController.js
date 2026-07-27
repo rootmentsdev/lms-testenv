@@ -330,7 +330,7 @@ async function buildProcessedEmployees(admin) {
   const allTasks = allUserIds.length || empIDs.length || usernames.length
     ? await Task.find({
         assignedTo: { $in: [...allUserIds.map(id => id.toString()), ...empIDs, ...usernames] }
-      }).lean()
+      }).select('assignedTo status endDate').lean()
     : [];
 
   const tasksByAssigneeMap = new Map();
