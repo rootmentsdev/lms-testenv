@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import { MiddilWare } from '../lib/middilWare.js';
 import DapprAttribution from '../model/DapprAttribution.js';
 
@@ -120,8 +121,8 @@ router.get('/mobile-dappr', MiddilWare, async (req, res) => {
             week: doc.week,
             month: doc.month,
             year: doc.year,
-            billWtd: attr.billWtd ?? 0,
-            valWtd: attr.valWtd ?? 0,
+            billWtd: attr.valWtd ?? 0,
+            valWtd: attr.billWtd ?? 0,
             qtyWtd: attr.qtyWtd ?? 0
           });
         });
