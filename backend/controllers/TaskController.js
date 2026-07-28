@@ -534,10 +534,10 @@ export const createTask = async (req, res) => {
         }
 
         // Build the unique, ordered chain, making sure not to add duplicate steps or Creator multiple times
-        if (storeAdminId && storeAdminId !== currentAssigneeId && storeAdminId !== creatorId) {
+        if (storeAdminId && storeAdminId !== currentAssigneeId) {
           resolvedApprovalChain.push(storeAdminId);
         }
-        if (clusterAdminId && clusterAdminId !== currentAssigneeId && clusterAdminId !== creatorId && !resolvedApprovalChain.includes(clusterAdminId)) {
+        if (clusterAdminId && clusterAdminId !== currentAssigneeId && !resolvedApprovalChain.includes(clusterAdminId)) {
           resolvedApprovalChain.push(clusterAdminId);
         }
         if (!resolvedApprovalChain.includes(creatorId)) {
@@ -1450,10 +1450,10 @@ export const updateTaskStatus = async (req, res) => {
           clusterAdminId = null;
         }
 
-        if (storeAdminId && storeAdminId !== currentAssigneeId && storeAdminId !== creatorId) {
+        if (storeAdminId && storeAdminId !== currentAssigneeId) {
           resolvedApprovalChain.push(storeAdminId);
         }
-        if (clusterAdminId && clusterAdminId !== currentAssigneeId && clusterAdminId !== creatorId && !resolvedApprovalChain.includes(clusterAdminId)) {
+        if (clusterAdminId && clusterAdminId !== currentAssigneeId && !resolvedApprovalChain.includes(clusterAdminId)) {
           resolvedApprovalChain.push(clusterAdminId);
         }
         if (!resolvedApprovalChain.includes(creatorId)) {
@@ -1772,10 +1772,10 @@ export const reassignTask = async (req, res) => {
         clusterAdminId = null;
       }
 
-      if (storeAdminId && storeAdminId !== currentAssigneeId && storeAdminId !== creatorId) {
+      if (storeAdminId && storeAdminId !== currentAssigneeId) {
         resolvedApprovalChain.push(storeAdminId);
       }
-      if (clusterAdminId && clusterAdminId !== currentAssigneeId && clusterAdminId !== creatorId && !resolvedApprovalChain.includes(clusterAdminId)) {
+      if (clusterAdminId && clusterAdminId !== currentAssigneeId && !resolvedApprovalChain.includes(clusterAdminId)) {
         resolvedApprovalChain.push(clusterAdminId);
       }
       if (!resolvedApprovalChain.includes(creatorId)) {
