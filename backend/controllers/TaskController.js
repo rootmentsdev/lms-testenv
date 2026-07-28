@@ -473,79 +473,8 @@ export const createTask = async (req, res) => {
         targetStoreCode = storeCode;
       }
 
-      // Dynamically resolve approval chain: Employee -> Store Admin -> Cluster Admin -> Creator
-      let resolvedApprovalChain = [];
-      try {
-        let currentAssigneeId = target.id;
-        let storeAdminId = null;
-        let clusterAdminId = null;
-        const creatorId = creator._id.toString();
-
-        // 1. Check if the assignee is an Employee / regular User / Admin
-        let assigneeAdmin = await Admin.findById(currentAssigneeId).populate('branches');
-        let assigneeUser = assigneeAdmin ? null : await User.findById(currentAssigneeId);
-        let assigneeEmployee = (assigneeAdmin || assigneeUser) ? null : await Employee.findById(currentAssigneeId).populate('storeId');
-
-        let targetBranchDoc = null;
-        if (assigneeAdmin && assigneeAdmin.branches && assigneeAdmin.branches.length > 0) {
-          targetBranchDoc = assigneeAdmin.branches[0];
-        } else if (assigneeEmployee && assigneeEmployee.storeId) {
-          targetBranchDoc = assigneeEmployee.storeId;
-        } else if (assigneeUser) {
-          const locCodeVal = assigneeUser.locCode || assigneeUser.LocCode;
-          if (locCodeVal) {
-            targetBranchDoc = await Branch.findOne({ locCode: String(locCodeVal).trim() });
-          }
-          if (!targetBranchDoc && assigneeUser.workingBranch) {
-            targetBranchDoc = await Branch.findOne({ workingBranch: { $regex: `^${assigneeUser.workingBranch.trim()}$`, $options: 'i' } });
-          }
-        }
-
-        // If target assignee is a regular employee/user under a store
-        if (targetBranchDoc) {
-          // Find Store Admin(s) for this branch
-          const storeAdmin = await Admin.findOne({ role: 'store_admin', branches: targetBranchDoc._id, isActive: true });
-          if (storeAdmin) {
-            storeAdminId = storeAdmin._id.toString();
-          }
-
-          // Find Cluster Admin for this branch (checking branches mapping since assignedClusters is empty)
-          const clusterAdmin = await Admin.findOne({ role: 'cluster_admin', branches: targetBranchDoc._id, isActive: true });
-          if (clusterAdmin) {
-            clusterAdminId = clusterAdmin._id.toString();
-          }
-        }
-
-        // If target assignee is already a store admin, skip store admin step
-        if (assigneeAdmin && assigneeAdmin.role === 'store_admin') {
-          storeAdminId = null;
-          if (targetBranchDoc) {
-            const clusterAdmin = await Admin.findOne({ role: 'cluster_admin', branches: targetBranchDoc._id, isActive: true });
-            if (clusterAdmin) {
-              clusterAdminId = clusterAdmin._id.toString();
-            }
-          }
-        }
-
-        // If target assignee is already a cluster admin, skip both store admin and cluster admin steps
-        if (assigneeAdmin && assigneeAdmin.role === 'cluster_admin') {
-          storeAdminId = null;
-          clusterAdminId = null;
-        }
-
-        // Build the unique, ordered chain, making sure not to add duplicate steps or Creator multiple times
-        if (storeAdminId && storeAdminId !== currentAssigneeId) {
-          resolvedApprovalChain.push(storeAdminId);
-        }
-        if (clusterAdminId && clusterAdminId !== currentAssigneeId && !resolvedApprovalChain.includes(clusterAdminId)) {
-          resolvedApprovalChain.push(clusterAdminId);
-        }
-        if (!resolvedApprovalChain.includes(creatorId)) {
-          resolvedApprovalChain.push(creatorId);
-        }
-      } catch (err) {
-        console.error('Error constructing task approval chain:', err);
-      }
+      // Approval chain for task completion: Assignee -> Creator (Assigner)
+      let resolvedApprovalChain = [creator._id.toString()];
 
       const task = await Task.create({
         taskCode,
@@ -1398,70 +1327,8 @@ export const updateTaskStatus = async (req, res) => {
       });
 
       // Update approval chain on status reassign
-      let resolvedApprovalChain = [];
-      try {
-        let currentAssigneeId = resolvedAssignedTo;
-        let storeAdminId = null;
-        let clusterAdminId = null;
-        const creatorId = task.createdBy.toString();
-
-        let assigneeAdmin = await Admin.findById(currentAssigneeId).populate('branches');
-        let assigneeUser = assigneeAdmin ? null : await User.findById(currentAssigneeId);
-        let assigneeEmployee = (assigneeAdmin || assigneeUser) ? null : await Employee.findById(currentAssigneeId).populate('storeId');
-
-        let targetBranchDoc = null;
-        if (assigneeAdmin && assigneeAdmin.branches && assigneeAdmin.branches.length > 0) {
-          targetBranchDoc = assigneeAdmin.branches[0];
-        } else if (assigneeEmployee && assigneeEmployee.storeId) {
-          targetBranchDoc = assigneeEmployee.storeId;
-        } else if (assigneeUser) {
-          const locCodeVal = assigneeUser.locCode || assigneeUser.LocCode;
-          if (locCodeVal) {
-            targetBranchDoc = await Branch.findOne({ locCode: String(locCodeVal).trim() });
-          }
-          if (!targetBranchDoc && assigneeUser.workingBranch) {
-            targetBranchDoc = await Branch.findOne({ workingBranch: { $regex: `^${assigneeUser.workingBranch.trim()}$`, $options: 'i' } });
-          }
-        }
-
-        if (targetBranchDoc) {
-          const storeAdmin = await Admin.findOne({ role: 'store_admin', branches: targetBranchDoc._id, isActive: true });
-          if (storeAdmin) {
-            storeAdminId = storeAdmin._id.toString();
-          }
-          const clusterAdmin = await Admin.findOne({ role: 'cluster_admin', branches: targetBranchDoc._id, isActive: true });
-          if (clusterAdmin) {
-            clusterAdminId = clusterAdmin._id.toString();
-          }
-        }
-
-        if (assigneeAdmin && assigneeAdmin.role === 'store_admin') {
-          storeAdminId = null;
-          if (targetBranchDoc) {
-            const clusterAdmin = await Admin.findOne({ role: 'cluster_admin', branches: targetBranchDoc._id, isActive: true });
-            if (clusterAdmin) {
-              clusterAdminId = clusterAdmin._id.toString();
-            }
-          }
-        }
-
-        if (assigneeAdmin && assigneeAdmin.role === 'cluster_admin') {
-          storeAdminId = null;
-          clusterAdminId = null;
-        }
-
-        if (storeAdminId && storeAdminId !== currentAssigneeId) {
-          resolvedApprovalChain.push(storeAdminId);
-        }
-        if (clusterAdminId && clusterAdminId !== currentAssigneeId && !resolvedApprovalChain.includes(clusterAdminId)) {
-          resolvedApprovalChain.push(clusterAdminId);
-        }
-        if (!resolvedApprovalChain.includes(creatorId)) {
-          resolvedApprovalChain.push(creatorId);
-        }
-      } catch (err) {
-        console.error('Error rebuilding approval chain in status-reassign:', err);
-      }
+      // Approval chain for task completion: Assignee -> Creator (Assigner)
+      let resolvedApprovalChain = [task.createdBy.toString()];
 
       task.approvalChain = resolvedApprovalChain;
       task.approvalChainIndex = 0;
@@ -1719,70 +1586,12 @@ export const reassignTask = async (req, res) => {
       title: category ? category.trim() : task.title
     });
 
-    // Rebuild/Update approvalChain to reflect that the assignee has changed
-    let resolvedApprovalChain = [];
-    try {
-      let currentAssigneeId = resolvedAssignedTo;
-      let storeAdminId = null;
-      let clusterAdminId = null;
-      const creatorId = task.createdBy.toString();
-
-      let assigneeAdmin = await Admin.findById(currentAssigneeId).populate('branches');
-      let assigneeUser = assigneeAdmin ? null : await User.findById(currentAssigneeId);
-      let assigneeEmployee = (assigneeAdmin || assigneeUser) ? null : await Employee.findById(currentAssigneeId).populate('storeId');
-
-      let targetBranchDoc = null;
-      if (assigneeAdmin && assigneeAdmin.branches && assigneeAdmin.branches.length > 0) {
-        targetBranchDoc = assigneeAdmin.branches[0];
-      } else if (assigneeEmployee && assigneeEmployee.storeId) {
-        targetBranchDoc = assigneeEmployee.storeId;
-      } else if (assigneeUser) {
-        const locCodeVal = assigneeUser.locCode || assigneeUser.LocCode;
-        if (locCodeVal) {
-          targetBranchDoc = await Branch.findOne({ locCode: String(locCodeVal).trim() });
-        }
-        if (!targetBranchDoc && assigneeUser.workingBranch) {
-          targetBranchDoc = await Branch.findOne({ workingBranch: { $regex: `^${assigneeUser.workingBranch.trim()}$`, $options: 'i' } });
-        }
-      }
-
-      if (targetBranchDoc) {
-        const storeAdmin = await Admin.findOne({ role: 'store_admin', branches: targetBranchDoc._id, isActive: true });
-        if (storeAdmin) {
-          storeAdminId = storeAdmin._id.toString();
-        }
-        const clusterAdmin = await Admin.findOne({ role: 'cluster_admin', branches: targetBranchDoc._id, isActive: true });
-        if (clusterAdmin) {
-          clusterAdminId = clusterAdmin._id.toString();
-        }
-      }
-
-      if (assigneeAdmin && assigneeAdmin.role === 'store_admin') {
-        storeAdminId = null;
-        if (targetBranchDoc) {
-          const clusterAdmin = await Admin.findOne({ role: 'cluster_admin', branches: targetBranchDoc._id, isActive: true });
-          if (clusterAdmin) {
-            clusterAdminId = clusterAdmin._id.toString();
-          }
-        }
-      }
-
-      if (assigneeAdmin && assigneeAdmin.role === 'cluster_admin') {
-        storeAdminId = null;
-        clusterAdminId = null;
-      }
-
-      if (storeAdminId && storeAdminId !== currentAssigneeId) {
-        resolvedApprovalChain.push(storeAdminId);
-      }
-      if (clusterAdminId && clusterAdminId !== currentAssigneeId && !resolvedApprovalChain.includes(clusterAdminId)) {
-        resolvedApprovalChain.push(clusterAdminId);
-      }
-      if (!resolvedApprovalChain.includes(creatorId)) {
-        resolvedApprovalChain.push(creatorId);
-      }
-    } catch (err) {
-      console.error('Error rebuilding approval chain in reassignTask:', err);
+    // Approval chain for reassigned task completion: Reassigner -> Creator (if different)
+    const reassignerId = userId.toString();
+    const creatorId = task.createdBy.toString();
+    let resolvedApprovalChain = [reassignerId];
+    if (reassignerId !== creatorId) {
+      resolvedApprovalChain.push(creatorId);
     }
 
     task.approvalChain = resolvedApprovalChain;
