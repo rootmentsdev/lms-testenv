@@ -700,10 +700,10 @@ const WalkinReport = () => {
     if (token) load();
   }, [token, user?.role]);
 
-  // Load all employees once to filter client-side
+  // Load all employees once to filter client-side (excluding office staff for walkin reports)
   const loadAllEmployees = async () => {
     try {
-      const url = `${baseUrl.baseUrl}api/admin/accessible-employees`;
+      const url = `${baseUrl.baseUrl}api/admin/accessible-employees?excludeOffice=true`;
       const res = await fetch(url, {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
       });
@@ -721,17 +721,49 @@ const WalkinReport = () => {
     }
   }, [token, branches.length]);
 
-  // Cascading client-side employee filtering based on selected store(s)
+  // Cascading client-side employee filtering based on selected store(s) and accessible store scope
   const filteredEmployees = React.useMemo(() => {
-    if (selectedStores.length === 0) return employees;
-    return employees.filter(e => {
-      if (!e.workingBranch) return false;
-      const eBranches = e.workingBranch.split(',').map(b => b.trim());
-      return eBranches.some(eb =>
-        selectedStores.some(selStore => locationKey(eb) === locationKey(selStore))
-      );
-    });
-  }, [employees, selectedStores]);
+    const isOfficeStaff = (emp) => {
+      if (!emp) return true;
+      const branchStr = (emp.workingBranch || emp.store || '').toLowerCase();
+      const deptStr = (emp.department || '').toLowerCase();
+      const desigStr = (emp.designation || emp.role || '').toLowerCase();
+      const locStr = String(emp.locCode || '').trim();
+
+      const nonSalesKeywords = ['office', 'production', 'warehouse', 'dappr squad', 'no store', 'telecaller'];
+      if (['101', '102', '103', '555'].includes(locStr)) return true;
+      if (nonSalesKeywords.some(k => branchStr.includes(k) || deptStr.includes(k) || desigStr.includes(k))) return true;
+
+      return false;
+    };
+
+    const storeEmps = employees.filter(e => !isOfficeStaff(e));
+
+    if (selectedStores.length > 0) {
+      return storeEmps.filter(e => {
+        if (!e.workingBranch) return false;
+        const eBranches = e.workingBranch.split(',').map(b => b.trim());
+        return eBranches.some(eb =>
+          selectedStores.some(selStore => locationKey(eb) === locationKey(selStore))
+        );
+      });
+    }
+
+    if (branches.length > 0) {
+      const storeBranches = branches.filter(b => !isOfficeStaff({ workingBranch: b.workingBranch }));
+      const allowedKeys = new Set(storeBranches.map(b => locationKey(b.workingBranch)).filter(Boolean));
+      
+      if (allowedKeys.size > 0) {
+        return storeEmps.filter(e => {
+          if (!e.workingBranch) return false;
+          const eBranches = e.workingBranch.split(',').map(b => b.trim());
+          return eBranches.some(eb => allowedKeys.has(locationKey(eb)));
+        });
+      }
+    }
+
+    return storeEmps;
+  }, [employees, selectedStores, branches]);
 
   const handleGenerate = async (e) => {
     e.preventDefault();

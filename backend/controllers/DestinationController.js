@@ -981,6 +981,27 @@ export const getAccessibleEmployees = async (req, res) => {
         let allowedAdminRoles = ['store_admin', 'cluster_admin', 'telecaller'];
         let excludedAdminRoles = ['super_admin', 'admin', 'hr_admin'];
         
+        const excludeOffice = req.query.excludeOffice === 'true';
+
+        const isOfficeStaff = (emp) => {
+            if (!emp) return false;
+            const branchStr = (emp.workingBranch || emp.store || '').toLowerCase();
+            const deptStr = (emp.department || '').toLowerCase();
+            const desigStr = (emp.designation || emp.role || '').toLowerCase();
+            const locStr = String(emp.locCode || '').trim();
+
+            const nonSalesKeywords = ['office', 'production', 'warehouse', 'dappr squad', 'no store', 'telecaller'];
+            if (['101', '102', '103', '555'].includes(locStr)) return true;
+            if (nonSalesKeywords.some(k => branchStr.includes(k) || deptStr.includes(k) || desigStr.includes(k))) return true;
+
+            return false;
+        };
+
+        if (excludeOffice) {
+            excludedAdminRoles.push('telecaller');
+            allowedAdminRoles = allowedAdminRoles.filter(role => role !== 'telecaller');
+        }
+
         if (req.admin.role === 'store_admin' || req.admin.role === 'telecaller') {
             allowedAdminRoles = ['store_admin', 'telecaller'];
             excludedAdminRoles = ['super_admin', 'admin', 'hr_admin', 'cluster_admin'];
@@ -1055,7 +1076,13 @@ export const getAccessibleEmployees = async (req, res) => {
             
             // Exclude if the email or employee ID matches any non-store admin record
             const isMatch = adminEmails.has(empEmail) || adminEmpIds.has(empId);
-            return !isMatch;
+            if (isMatch) return false;
+
+            if (excludeOffice && isOfficeStaff(emp)) {
+                return false;
+            }
+
+            return true;
         });
 
         res.status(200).json({ employees: filteredEmployees });
