@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
-import { FaEye, FaEyeSlash, FaLock, FaKey, FaTimes, FaCheckCircle } from 'react-icons/fa';
+import { FaEye, FaEyeSlash, FaLock, FaKey, FaTimes, FaCheckCircle, FaCircle } from 'react-icons/fa';
 import { toast } from 'react-toastify';
+import { useDispatch } from 'react-redux';
+import { logout } from '../../features/auth/authSlice';
 import baseUrl from '../../api/api';
 
 const ResetPasswordModal = ({ isOpen, onClose }) => {
+  const dispatch = useDispatch();
+
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword]         = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -31,14 +35,29 @@ const ResetPasswordModal = ({ isOpen, onClose }) => {
     onClose();
   };
 
+  // Password validation checks
+  const hasMinLength = newPassword.length >= 6;
+  const hasUppercase = /[A-Z]/.test(newPassword);
+  const hasNumber    = /[0-9]/.test(newPassword);
+  const isPasswordValid = hasMinLength && hasUppercase && hasNumber;
+  const isPasswordMatch = confirmPassword.length > 0 && newPassword === confirmPassword;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!currentPassword) {
       toast.error('Please enter your current password.');
       return;
     }
-    if (!newPassword || newPassword.length < 6) {
+    if (!hasMinLength) {
       toast.error('New password must be at least 6 characters long.');
+      return;
+    }
+    if (!hasUppercase) {
+      toast.error('New password must contain at least one uppercase letter (A-Z).');
+      return;
+    }
+    if (!hasNumber) {
+      toast.error('New password must contain at least one number (0-9).');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -64,8 +83,16 @@ const ResetPasswordModal = ({ isOpen, onClose }) => {
 
       const data = await res.json();
       if (res.ok && data.success !== false) {
-        toast.success(data.message || 'Password updated successfully!');
+        toast.success(data.message || 'Password updated successfully! Please log in again.');
+        
+        // Log out & Redirect to Login Page
+        localStorage.removeItem('token');
+        dispatch(logout());
         handleClose();
+
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 500);
       } else {
         toast.error(data.message || 'Failed to update password. Please check your current password.');
       }
@@ -76,9 +103,6 @@ const ResetPasswordModal = ({ isOpen, onClose }) => {
       setLoading(false);
     }
   };
-
-  const isPasswordMatch = confirmPassword.length > 0 && newPassword === confirmPassword;
-  const isPasswordValid = newPassword.length >= 6;
 
   return (
     <div
@@ -126,7 +150,7 @@ const ResetPasswordModal = ({ isOpen, onClose }) => {
                 required
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
-                placeholder="Enter current password (e.g. 123456)"
+                placeholder="Enter current password"
                 className="w-full pl-9 pr-10 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:bg-white dark:focus:bg-gray-900 focus:border-blue-500 dark:focus:border-blue-500 focus:outline-none transition-all"
               />
               <button
@@ -153,7 +177,7 @@ const ResetPasswordModal = ({ isOpen, onClose }) => {
                 required
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Enter new password (min. 6 chars)"
+                placeholder="Enter new password"
                 className="w-full pl-9 pr-10 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:bg-white dark:focus:bg-gray-900 focus:border-blue-500 dark:focus:border-blue-500 focus:outline-none transition-all"
               />
               <button
@@ -164,12 +188,44 @@ const ResetPasswordModal = ({ isOpen, onClose }) => {
                 {showNew ? <FaEyeSlash size={14} /> : <FaEye size={14} />}
               </button>
             </div>
-            {newPassword.length > 0 && (
-              <p className={`text-[11px] mt-1 flex items-center gap-1 ${isPasswordValid ? 'text-green-600' : 'text-amber-500'}`}>
-                {isPasswordValid ? <FaCheckCircle size={10} /> : '⚠️'}
-                {isPasswordValid ? 'Password meets minimum length' : 'Must be at least 6 characters long'}
-              </p>
-            )}
+
+            {/* Password Validation Requirements */}
+            <div className="mt-2.5 p-2.5 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-800 space-y-1">
+              <p className="text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">Password must contain:</p>
+              
+              <div className="flex items-center gap-1.5 text-[11px]">
+                {hasMinLength ? (
+                  <FaCheckCircle className="text-emerald-500 flex-shrink-0" size={12} />
+                ) : (
+                  <FaCircle className="text-gray-300 dark:text-gray-600 flex-shrink-0" size={8} />
+                )}
+                <span className={hasMinLength ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-gray-500 dark:text-gray-400'}>
+                  At least 6 characters
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5 text-[11px]">
+                {hasUppercase ? (
+                  <FaCheckCircle className="text-emerald-500 flex-shrink-0" size={12} />
+                ) : (
+                  <FaCircle className="text-gray-300 dark:text-gray-600 flex-shrink-0" size={8} />
+                )}
+                <span className={hasUppercase ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-gray-500 dark:text-gray-400'}>
+                  At least 1 uppercase letter (A-Z)
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5 text-[11px]">
+                {hasNumber ? (
+                  <FaCheckCircle className="text-emerald-500 flex-shrink-0" size={12} />
+                ) : (
+                  <FaCircle className="text-gray-300 dark:text-gray-600 flex-shrink-0" size={8} />
+                )}
+                <span className={hasNumber ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-gray-500 dark:text-gray-400'}>
+                  At least 1 number (0-9)
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Confirm New Password */}
@@ -186,7 +242,7 @@ const ResetPasswordModal = ({ isOpen, onClose }) => {
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Re-enter new password"
+                placeholder="Confirm new password"
                 className="w-full pl-9 pr-10 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:bg-white dark:focus:bg-gray-900 focus:border-blue-500 dark:focus:border-blue-500 focus:outline-none transition-all"
               />
               <button
@@ -198,7 +254,7 @@ const ResetPasswordModal = ({ isOpen, onClose }) => {
               </button>
             </div>
             {confirmPassword.length > 0 && (
-              <p className={`text-[11px] mt-1 flex items-center gap-1 ${isPasswordMatch ? 'text-green-600' : 'text-red-500'}`}>
+              <p className={`text-[11px] mt-1 flex items-center gap-1 ${isPasswordMatch ? 'text-emerald-600' : 'text-red-500'}`}>
                 {isPasswordMatch ? <FaCheckCircle size={10} /> : '✖'}
                 {isPasswordMatch ? 'Passwords match' : 'Passwords do not match'}
               </p>
@@ -216,7 +272,7 @@ const ResetPasswordModal = ({ isOpen, onClose }) => {
             </button>
             <button
               type="submit"
-              disabled={loading || !currentPassword || newPassword.length < 6 || newPassword !== confirmPassword}
+              disabled={loading || !currentPassword || !isPasswordValid || !isPasswordMatch}
               className="px-5 py-2 text-xs font-semibold text-white bg-gray-900 hover:bg-black dark:bg-blue-600 dark:hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all shadow-md flex items-center gap-2"
             >
               {loading ? (

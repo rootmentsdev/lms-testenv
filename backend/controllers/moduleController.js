@@ -626,6 +626,14 @@ export const changeAdminPassword = async (req, res) => {
             return res.status(400).json({ success: false, message: 'New password must be at least 6 characters long' });
         }
 
+        if (!/[A-Z]/.test(trimmedNew)) {
+            return res.status(400).json({ success: false, message: 'New password must contain at least one uppercase letter (A-Z)' });
+        }
+
+        if (!/[0-9]/.test(trimmedNew)) {
+            return res.status(400).json({ success: false, message: 'New password must contain at least one number (0-9)' });
+        }
+
         if (confirmPassword && trimmedNew !== String(confirmPassword).trim()) {
             return res.status(400).json({ success: false, message: 'New password and confirm password do not match' });
         }

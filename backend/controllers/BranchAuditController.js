@@ -109,6 +109,25 @@ export const createBranchAudit = async (req, res) => {
       if (hasEmptyRemarks) {
         return res.status(400).json({ success: false, message: "Overall remarks are mandatory for staff rating." });
       }
+    } else {
+      // Check Store Rating mandatory fields
+      const hasUnscoredStoreItems = normalizedSections.some(sec =>
+        (sec.items || []).some(item => !item.score || item.score <= 0)
+      );
+      if (hasUnscoredStoreItems) {
+        return res.status(400).json({ success: false, message: "All store rating criteria star ratings are mandatory." });
+      }
+
+      const hasEmptyStoreSectionRemarks = normalizedSections.some(sec => !sec.remarks || !sec.remarks.trim());
+      if (hasEmptyStoreSectionRemarks) {
+        return res.status(400).json({ success: false, message: "Remarks for each store rating section are mandatory." });
+      }
+
+      const obs = auditorRemarks?.observationAcknowledged || auditorObservation;
+      const plan = auditorRemarks?.actionPlanForShortfalls || actionPlanForShortfalls;
+      if (!obs || !String(obs).trim() || !plan || !String(plan).trim()) {
+        return res.status(400).json({ success: false, message: "Observation Acknowledged and Action Plan for Shortfalls are mandatory." });
+      }
     }
 
     const overallRating = computeOverallRating(normalizedSections);

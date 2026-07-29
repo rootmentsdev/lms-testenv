@@ -107,9 +107,15 @@ const AuditStar = ({ value, onChange, label, error }) => (
 /* ─────────────────────────────────────────────────────────────────────────── */
 /* SECTION BLOCK (for cluster/admin view)                                       */
 /* ─────────────────────────────────────────────────────────────────────────── */
-const SectionBlock = ({ title, items, values, setValues }) => (
-  <section className="rounded-[8px] bg-white px-6 py-8 shadow-sm">
-    <h2 className="mb-6 text-[16px] font-bold text-black border-b border-gray-100 pb-3">{title}</h2>
+const SectionBlock = ({ title, items, values, setValues, errors }) => (
+  <section className="rounded-[8px] bg-white px-6 py-8 shadow-sm border border-gray-100">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6 border-b border-gray-100 pb-3">
+      <h2 className="text-[16px] font-bold text-black">{title}</h2>
+      <span className="text-xs font-semibold text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-200 self-start sm:self-auto flex items-center gap-1.5">
+        <FaExclamationTriangle className="text-red-500 text-[10px]" />
+        All ratings & section remarks mandatory *
+      </span>
+    </div>
     <div className="grid grid-cols-1 gap-y-8 sm:grid-cols-2 lg:grid-cols-4 lg:gap-x-6">
       {items.map((label, idx) => {
         const key = `${title}-${idx}`;
@@ -118,6 +124,7 @@ const SectionBlock = ({ title, items, values, setValues }) => (
             key={key}
             label={label}
             value={values[key] || 0}
+            error={errors?.[key]}
             onChange={(next) => setValues((prev) => ({ ...prev, [key]: next }))}
           />
         );
@@ -125,7 +132,7 @@ const SectionBlock = ({ title, items, values, setValues }) => (
     </div>
     <div className="mt-8">
       <label className="mb-2 block text-[14px] font-semibold text-[#30343b]">
-        Remarks
+        Remarks for {title} <span className="text-red-500">*</span>
       </label>
       <textarea
         rows={2}
@@ -133,9 +140,14 @@ const SectionBlock = ({ title, items, values, setValues }) => (
         onChange={(e) =>
           setValues((prev) => ({ ...prev, [`${title}-remarks`]: e.target.value }))
         }
-        placeholder={`Observations on ${title}...`}
-        className="w-full rounded-[6px] border border-gray-200 px-3 py-2 text-[14px] outline-none focus:border-gray-500 resize-none"
+        placeholder={`Observations on ${title} (Required)...`}
+        className={`w-full rounded-[6px] border px-3 py-2 text-[14px] outline-none focus:border-gray-500 resize-none ${
+          errors?.[`${title}-remarks`] ? "border-red-500 bg-red-50/40" : "border-gray-200"
+        }`}
       />
+      {errors?.[`${title}-remarks`] && (
+        <p className="text-xs text-red-600 font-semibold mt-1">Section remarks are required.</p>
+      )}
     </div>
   </section>
 );
@@ -391,8 +403,10 @@ const BranchAuditForm = () => {
         return;
       }
     } else {
-      // Cluster / Admin validation
+      // Cluster / Admin Store Rating validation
       const unrated = [];
+      const missingSectionRemarks = [];
+
       STORE_SECTIONS.forEach((section) => {
         section.items.forEach((label, idx) => {
           const key = `${section.title}-${idx}`;
@@ -401,10 +415,41 @@ const BranchAuditForm = () => {
             newErrors[key] = true;
           }
         });
+
+        const remKey = `${section.title}-remarks`;
+        if (!values[remKey] || !values[remKey].trim()) {
+          missingSectionRemarks.push(section.title);
+          newErrors[remKey] = true;
+        }
       });
+
+      if (!values["audit-observation"] || !values["audit-observation"].trim()) {
+        newErrors["audit-observation"] = true;
+      }
+      if (!values["audit-action-plan"] || !values["audit-action-plan"].trim()) {
+        newErrors["audit-action-plan"] = true;
+      }
 
       if (unrated.length > 0) {
         toast.error(`Please rate all store audit criteria. (${unrated.length} item(s) unrated)`);
+        setErrors(newErrors);
+        return;
+      }
+
+      if (missingSectionRemarks.length > 0) {
+        toast.error(`Please enter remarks for all store rating sections.`);
+        setErrors(newErrors);
+        return;
+      }
+
+      if (!values["audit-observation"] || !values["audit-observation"].trim()) {
+        toast.error("Auditor Observation Acknowledged is required.");
+        setErrors(newErrors);
+        return;
+      }
+
+      if (!values["audit-action-plan"] || !values["audit-action-plan"].trim()) {
+        toast.error("Action Plan for Shortfalls is required.");
         setErrors(newErrors);
         return;
       }
@@ -565,19 +610,26 @@ const BranchAuditForm = () => {
                   items={section.items}
                   values={values}
                   setValues={setValues}
+                  errors={errors}
                 />
               ))}
 
             {/* Auditor Remarks (only for non-store admins) */}
             {!isStoreAdmin && (
-              <section className="rounded-[8px] bg-white px-6 py-8 shadow-sm">
-                <h2 className="mb-6 text-[16px] font-bold text-black border-b border-gray-100 pb-3">
-                  Auditor Remarks
-                </h2>
+              <section className="rounded-[8px] bg-white px-6 py-8 shadow-sm border border-gray-100">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6 border-b border-gray-100 pb-3">
+                  <h2 className="text-[16px] font-bold text-black">
+                    Auditor Remarks
+                  </h2>
+                  <span className="text-xs font-semibold text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-200 self-start sm:self-auto flex items-center gap-1.5">
+                    <FaExclamationTriangle className="text-red-500 text-[10px]" />
+                    Both remarks are mandatory *
+                  </span>
+                </div>
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                   <div>
                     <label className="mb-2 block text-[14px] font-semibold text-[#30343b]">
-                      Observation Acknowledged
+                      Observation Acknowledged <span className="text-red-500">*</span>
                     </label>
                     <textarea
                       rows={3}
@@ -585,13 +637,18 @@ const BranchAuditForm = () => {
                       onChange={(e) =>
                         setValues((prev) => ({ ...prev, "audit-observation": e.target.value }))
                       }
-                      placeholder="Key observations noted during this rating..."
-                      className="w-full rounded-[6px] border border-gray-200 px-3 py-2 text-[14px] outline-none focus:border-gray-500 resize-none"
+                      placeholder="Key observations noted during this rating (Required)..."
+                      className={`w-full rounded-[6px] border px-3 py-2 text-[14px] outline-none focus:border-gray-500 resize-none ${
+                        errors?.["audit-observation"] ? "border-red-500 bg-red-50/40" : "border-gray-200"
+                      }`}
                     />
+                    {errors?.["audit-observation"] && (
+                      <p className="text-xs text-red-600 font-semibold mt-1">Observation Acknowledged is required.</p>
+                    )}
                   </div>
                   <div>
                     <label className="mb-2 block text-[14px] font-semibold text-[#30343b]">
-                      Action Plan for Shortfalls
+                      Action Plan for Shortfalls <span className="text-red-500">*</span>
                     </label>
                     <textarea
                       rows={3}
@@ -599,9 +656,14 @@ const BranchAuditForm = () => {
                       onChange={(e) =>
                         setValues((prev) => ({ ...prev, "audit-action-plan": e.target.value }))
                       }
-                      placeholder="Steps to address identified shortfalls..."
-                      className="w-full rounded-[6px] border border-gray-200 px-3 py-2 text-[14px] outline-none focus:border-gray-500 resize-none"
+                      placeholder="Steps to address identified shortfalls (Required)..."
+                      className={`w-full rounded-[6px] border px-3 py-2 text-[14px] outline-none focus:border-gray-500 resize-none ${
+                        errors?.["audit-action-plan"] ? "border-red-500 bg-red-50/40" : "border-gray-200"
+                      }`}
                     />
+                    {errors?.["audit-action-plan"] && (
+                      <p className="text-xs text-red-600 font-semibold mt-1">Action Plan for Shortfalls is required.</p>
+                    )}
                   </div>
                 </div>
               </section>
