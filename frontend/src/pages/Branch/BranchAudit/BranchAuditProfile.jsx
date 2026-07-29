@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useLocation } from "react-router-dom";
 import SideNav from "../../../components/SideNav/SideNav";
 import { FaArrowLeft } from "react-icons/fa";
 import baseUrl from "../../../api/api";
 
 const BranchAuditProfile = () => {
   const { id } = useParams();
+  const location = useLocation();
+  const basePath = location.pathname.startsWith('/store-analysis/store-rating') ? '/store-analysis/store-rating' : '/branch/audit';
   const [audit, setAudit] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -53,7 +55,7 @@ const BranchAuditProfile = () => {
       <div className="min-h-screen bg-[#f4f4fb]">
         <SideNav />
         <div className="md:ml-[120px] px-4 py-8">
-          <Link to="/branch/audit" className="inline-flex items-center gap-2 text-sm font-semibold text-gray-500">
+          <Link to={basePath} className="inline-flex items-center gap-2 text-sm font-semibold text-gray-500">
             <FaArrowLeft />
             Back to audits
           </Link>
@@ -68,7 +70,7 @@ const BranchAuditProfile = () => {
       <SideNav />
       <div className="md:ml-[120px] px-4 sm:px-6 lg:px-8 py-6">
         <div className="mx-auto max-w-[1600px]">
-          <Link to="/branch/audit" className="mb-5 inline-flex items-center gap-2 text-[14px] font-semibold text-gray-400">
+          <Link to={basePath} className="mb-5 inline-flex items-center gap-2 text-[14px] font-semibold text-gray-400">
             <FaArrowLeft />
             Back
           </Link>
@@ -80,13 +82,15 @@ const BranchAuditProfile = () => {
               <AuditCard key={section.title} title={section.title} items={section.items || []} remarks={section.remarks || ""} />
             ))}
 
-            <AuditCard
-              title="Auditor Remarks"
-              items={[]}
-              remarks={audit.auditorRemarks?.observationAcknowledged || ""}
-              extraTitle="Action Plan for Shortfalls"
-              extraRemarks={audit.auditorRemarks?.actionPlanForShortfalls || ""}
-            />
+            {(audit.auditorRemarks?.observationAcknowledged || audit.auditorRemarks?.actionPlanForShortfalls) && (
+              <AuditCard
+                title="Auditor Remarks"
+                items={[]}
+                remarks={audit.auditorRemarks?.observationAcknowledged || ""}
+                extraTitle="Action Plan for Shortfalls"
+                extraRemarks={audit.auditorRemarks?.actionPlanForShortfalls || ""}
+              />
+            )}
 
             <div className="rounded-[4px] border border-gray-300 bg-white p-4">
               <h3 className="text-[14px] font-semibold text-black">Average Rating</h3>

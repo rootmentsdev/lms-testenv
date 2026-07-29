@@ -92,6 +92,8 @@ const ExistingUsers = () => {
                 return "Cluster Admin";
             case "store_admin":
                 return "Store Admin";
+            case "telecaller":
+                return "Telecaller";
             case "employee":
                 return "Employee";
             default:
@@ -378,6 +380,7 @@ const ExistingUsers = () => {
                                         <option value="hr_admin">HR Admin</option>
                                         <option value="cluster_admin">Cluster Admin</option>
                                         <option value="store_admin">Store Admin</option>
+                                        <option value="telecaller">Telecaller</option>
                                         <option value="employee">Employee</option>
                                     </select>
                                     <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" size={10} />
@@ -783,6 +786,7 @@ const ExistingUsers = () => {
                                             <option value="hr_admin">HR Admin</option>
                                             <option value="cluster_admin">Cluster Admin</option>
                                             <option value="store_admin">Store Admin</option>
+                                            <option value="telecaller">Telecaller</option>
                                             <option value="employee">Employee</option>
                                         </>
                                     )}

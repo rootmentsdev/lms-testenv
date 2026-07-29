@@ -7,6 +7,7 @@ const PROCESSED_TTL_MS = 3 * 60 * 1000;  // 3 minutes
 let externalCache = { data: [], ts: 0 };
 let externalFetchPromise = null;
 const processedCache = new Map();
+const appUsersProcessedCache = new Map();
 
 export const isExternalCacheFresh = () =>
   externalCache.data.length > 0 && Date.now() - externalCache.ts < EXTERNAL_TTL_MS;
@@ -31,6 +32,7 @@ export async function refreshExternalEmployees(force = false) {
     .then((response) => {
       externalCache = { data: response.data?.data || [], ts: Date.now() };
       processedCache.clear();
+      appUsersProcessedCache.clear();
       return externalCache.data;
     })
     .catch(() => externalCache.data || [])
@@ -67,7 +69,23 @@ export function setProcessedEmployees(cacheKey, data) {
   processedCache.set(cacheKey, { data, ts: Date.now() });
 }
 
+export function getProcessedAppUsers(cacheKey) {
+  const entry = appUsersProcessedCache.get(cacheKey);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > PROCESSED_TTL_MS) {
+    appUsersProcessedCache.delete(cacheKey);
+    return null;
+  }
+  return entry.data;
+}
+
+export function setProcessedAppUsers(cacheKey, data) {
+  appUsersProcessedCache.set(cacheKey, { data, ts: Date.now() });
+}
+
 export function clearEmployeeCaches() {
   externalCache = { data: [], ts: 0 };
   processedCache.clear();
+  appUsersProcessedCache.clear();
 }
+

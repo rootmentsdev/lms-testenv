@@ -1,4 +1,4 @@
-import { Component, useEffect } from 'react';
+import { Component, useEffect, useState } from 'react';
 import { Route, Routes, useNavigate, Navigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import './App.css';
@@ -42,12 +42,17 @@ const Profile = lazy(() => import('./pages/profile/Profile.jsx'))
 const LoginAnalytics = lazy(() => import('./pages/Setting/LoginAnalytics.jsx'))
 const WalkinList = lazy(() => import('./pages/Walkin/WalkinList.jsx'))
 const WalkinReport = lazy(() => import('./pages/Walkin/WalkinReport.jsx'))
+const WalkinCount = lazy(() => import('./pages/Walkin/WalkinCount.jsx'))
 const TaskManagement = lazy(() => import('./pages/Task/TaskManagement.jsx'))
 const CreateTask = lazy(() => import('./pages/Task/CreateTask.jsx'))
 const AutoTask = lazy(() => import('./pages/Task/AutoTask.jsx'))
 const ExistingUsers = lazy(() => import('./pages/Setting/UserManagement/ExistingUsers.jsx'))
 const CreateNewUser = lazy(() => import('./pages/Setting/UserManagement/CreateNewUser.jsx'))
 const CreateNotificationPage = lazy(() => import('./pages/Setting/CreateNotificationPage.jsx'))
+const DSRReport = lazy(() => import('./pages/StoreAnalysis/DSRReport.jsx'))
+const GrowthComparison = lazy(() => import('./pages/StoreAnalysis/GrowthComparison.jsx'))
+const GoogleReviewTask = lazy(() => import('./pages/StoreAnalysis/GoogleReviewTask.jsx'))
+const StoreInsights = lazy(() => import('./pages/StoreAnalysis/StoreInsights.jsx'))
 
 import { setUser, logout } from './features/auth/authSlice.js';
 
@@ -168,6 +173,10 @@ const preloadProtectedRoutes = () => {
     () => import('./pages/Setting/UserManagement/ExistingUsers.jsx'),
     () => import('./pages/Setting/UserManagement/CreateNewUser.jsx'),
     () => import('./pages/Setting/CreateNotificationPage.jsx'),
+    () => import('./pages/StoreAnalysis/DSRReport.jsx'),
+    () => import('./pages/StoreAnalysis/GrowthComparison.jsx'),
+    () => import('./pages/StoreAnalysis/GoogleReviewTask.jsx'),
+    () => import('./pages/StoreAnalysis/StoreInsights.jsx'),
   ];
 
   const run = () => {
@@ -189,6 +198,18 @@ const preloadProtectedRoutes = () => {
 function App() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const user = useSelector((state) => state.auth.user);
+
+  const [showSplash, setShowSplash] = useState(true);
+  const [splashFade, setSplashFade] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSplashFade(true);
+      setTimeout(() => setShowSplash(false), 600);
+    }, 2200);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -217,6 +238,7 @@ function App() {
               userId: request.user.userId,
               role: request.user.role,
               username: request.user.username,
+              branches: request.user.branches || [],
             }));
           } else {
             console.error('No user data in token verification response');
@@ -237,8 +259,93 @@ function App() {
     preloadProtectedRoutes();
   }, [dispatch, navigate]);
 
+  // C + S and C + W keyboard shortcut listener to open Store Insights / Add Walkin
+  useEffect(() => {
+    const pressedKeys = new Set();
+    let lastKey = "";
+    let lastKeyTime = 0;
+
+    const handleKeyDown = (e) => {
+      const activeEl = document.activeElement;
+      if (activeEl && (
+        activeEl.tagName === "INPUT" ||
+        activeEl.tagName === "TEXTAREA" ||
+        activeEl.isContentEditable
+      )) {
+        return;
+      }
+
+      const key = (e.key || "").toLowerCase();
+      if (!key) return;
+      pressedKeys.add(key);
+
+      const isCAndS = pressedKeys.has("c") && pressedKeys.has("s");
+      const isCAndW = pressedKeys.has("c") && pressedKeys.has("w");
+      const isCAndD = pressedKeys.has("c") && pressedKeys.has("d");
+
+      const now = Date.now();
+      const isSeqCAndS = (lastKey === "c" && key === "s" && (now - lastKeyTime < 500));
+      const isSeqCAndW = (lastKey === "c" && key === "w" && (now - lastKeyTime < 500));
+      const isSeqCAndD = (lastKey === "c" && key === "d" && (now - lastKeyTime < 500));
+
+      if (isCAndS || isSeqCAndS) {
+        navigate("/store-insights");
+        pressedKeys.clear();
+        lastKey = "";
+      } else if (isCAndW || isSeqCAndW) {
+        // Prevent default browser behavior if needed
+        e.preventDefault();
+        navigate("/walkin/list", { state: { openAdd: true } });
+        pressedKeys.clear();
+        lastKey = "";
+      } else if (isCAndD || isSeqCAndD) {
+        e.preventDefault();
+        navigate("/store-analysis/dsr-report");
+        pressedKeys.clear();
+        lastKey = "";
+      } else {
+        lastKey = key;
+        lastKeyTime = now;
+      }
+    };
+
+    const handleKeyUp = (e) => {
+      if (e.key) {
+        pressedKeys.delete(e.key.toLowerCase());
+      }
+    };
+
+    const handleBlur = () => {
+      pressedKeys.clear();
+      lastKey = "";
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", handleBlur);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, [navigate]);
+
   return (
     <>
+      {showSplash && (
+        <div className={`brynex-splash-overlay ${splashFade ? 'fade-out' : ''}`}>
+          <div className="brynex-splash-logo-container">
+            <div className="brynex-neon-ring" />
+            <img src="/logo.png" className="brynex-splash-logo select-none" alt="Logo" />
+          </div>
+          <h1 className="brynex-splash-title">BRYNEX ONE</h1>
+          <span className="brynex-splash-subtitle">Brynex Apparel Pvt.Ltd</span>
+          <div className="brynex-splash-progress-track">
+            <div className="brynex-splash-progress-bar" />
+          </div>
+        </div>
+      )}
       <AppErrorBoundary>
         <Suspense fallback={<div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
           <HashLoader color="#016E5B" size={50} />
@@ -256,50 +363,58 @@ function App() {
 
             {/* Protected Routes */}
             <Route path="/" element={<ProtectedLayout><Home /></ProtectedLayout>} />
-            <Route path="/assessments" element={<ProtectedLayout hideForRoles={['store_admin']}><Assessments /></ProtectedLayout>} />
+            <Route path="/assessments" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><Assessments /></ProtectedLayout>} />
 
-            <Route path="/branch" element={<ProtectedLayout><Branch /></ProtectedLayout>} />
-            <Route path="/branch/audit" element={<ProtectedLayout><BranchAudit /></ProtectedLayout>} />
-            <Route path="/branch/audit/create" element={<ProtectedLayout><BranchAuditForm /></ProtectedLayout>} />
-            <Route path="/branch/audit/:id" element={<ProtectedLayout><BranchAuditProfile /></ProtectedLayout>} />
-            <Route path="/Addbranch" element={<ProtectedLayout><AddBranch /></ProtectedLayout>} />
+            <Route path="/branch" element={<ProtectedLayout hideForRoles={['telecaller']}><Branch /></ProtectedLayout>} />
+            <Route path="/branch/audit" element={<ProtectedLayout hideForRoles={['telecaller']}><BranchAudit /></ProtectedLayout>} />
+            <Route path="/branch/audit/create" element={<ProtectedLayout hideForRoles={['telecaller']}><BranchAuditForm /></ProtectedLayout>} />
+            <Route path="/branch/audit/:id" element={<ProtectedLayout hideForRoles={['telecaller']}><BranchAuditProfile /></ProtectedLayout>} />
+            <Route path="/Addbranch" element={<ProtectedLayout hideForRoles={['telecaller']}><AddBranch /></ProtectedLayout>} />
 
-            <Route path="/employee" element={<ProtectedLayout><Employee /></ProtectedLayout>} />
-            <Route path="/employee/create" element={<ProtectedLayout><CreateEmployee /></ProtectedLayout>} />
-            <Route path="/module" element={<ProtectedLayout><Module /></ProtectedLayout>} />
-            <Route path="/settings" element={<ProtectedLayout><Setting /></ProtectedLayout>} />
-            <Route path="/settings/users" element={<ProtectedLayout><ExistingUsers /></ProtectedLayout>} />
-            <Route path="/settings/create-user" element={<ProtectedLayout><CreateNewUser /></ProtectedLayout>} />
-            <Route path="/settings/create-notification" element={<ProtectedLayout><CreateNotificationPage /></ProtectedLayout>} />
-            <Route path="/alltraining" element={<ProtectedLayout hideForRoles={['store_admin']}><Training /></ProtectedLayout>} />
-            <Route path="/training" element={<ProtectedLayout hideForRoles={['store_admin']}><CreateTraining /></ProtectedLayout>} />
-            <Route path="/assigdata" element={<ProtectedLayout hideForRoles={['store_admin']}><AssignedTrainings /></ProtectedLayout>} />
-            <Route path="/assigtraining/:id" element={<ProtectedLayout hideForRoles={['store_admin']}><AssingOrdelete /></ProtectedLayout>} />
-            <Route path="/createmodule" element={<ProtectedLayout><CreateModule /></ProtectedLayout>} />
-            <Route path="/createmodule/:id" element={<ProtectedLayout><CreateModule /></ProtectedLayout>} />
-            <Route path="/createnewtraining" element={<ProtectedLayout hideForRoles={['store_admin']}><CreateTrainings /></ProtectedLayout>} />
-            <Route path="/createnewtraining/:id" element={<ProtectedLayout hideForRoles={['store_admin']}><CreateTrainings /></ProtectedLayout>} />
-            <Route path="/reassign/:id" element={<ProtectedLayout hideForRoles={['store_admin']}><Reassign /></ProtectedLayout>} />
-            <Route path="/create/mandatorytraining" element={<ProtectedLayout hideForRoles={['store_admin']}><MandatoryTraining /></ProtectedLayout>} />
-            <Route path="/trainingdetails/:id" element={<ProtectedLayout hideForRoles={['store_admin']}><UserTrainingProgress /></ProtectedLayout>} />
-            <Route path="/create/assessment" element={<ProtectedLayout hideForRoles={['store_admin']}><CreateAssessment /></ProtectedLayout>} />
-            <Route path="/assessment/assign/:id" element={<ProtectedLayout hideForRoles={['store_admin']}><AssessmentsAssign /></ProtectedLayout>} />
-            <Route path="/assign/assessment" element={<ProtectedLayout hideForRoles={['store_admin']}><AssignAssessment /></ProtectedLayout>} />
+            <Route path="/employee" element={<ProtectedLayout hideForRoles={['telecaller']}><Employee /></ProtectedLayout>} />
+            <Route path="/employee/create" element={<ProtectedLayout hideForRoles={['telecaller']}><CreateEmployee /></ProtectedLayout>} />
+            <Route path="/module" element={<ProtectedLayout hideForRoles={['telecaller']}><Module /></ProtectedLayout>} />
+            <Route path="/settings" element={<ProtectedLayout hideForRoles={['telecaller']}><Setting /></ProtectedLayout>} />
+            <Route path="/settings/users" element={<ProtectedLayout hideForRoles={['telecaller']}><ExistingUsers /></ProtectedLayout>} />
+            <Route path="/settings/create-user" element={<ProtectedLayout hideForRoles={['telecaller']}><CreateNewUser /></ProtectedLayout>} />
+            <Route path="/settings/create-notification" element={<ProtectedLayout hideForRoles={['telecaller']}><CreateNotificationPage /></ProtectedLayout>} />
+            <Route path="/alltraining" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><Training /></ProtectedLayout>} />
+            <Route path="/training" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><CreateTraining /></ProtectedLayout>} />
+            <Route path="/assigdata" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><AssignedTrainings /></ProtectedLayout>} />
+            <Route path="/assigtraining/:id" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><AssingOrdelete /></ProtectedLayout>} />
+            <Route path="/createmodule" element={<ProtectedLayout hideForRoles={['telecaller']}><CreateModule /></ProtectedLayout>} />
+            <Route path="/createmodule/:id" element={<ProtectedLayout hideForRoles={['telecaller']}><CreateModule /></ProtectedLayout>} />
+            <Route path="/createnewtraining" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><CreateTrainings /></ProtectedLayout>} />
+            <Route path="/createnewtraining/:id" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><CreateTrainings /></ProtectedLayout>} />
+            <Route path="/reassign/:id" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><Reassign /></ProtectedLayout>} />
+            <Route path="/create/mandatorytraining" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><MandatoryTraining /></ProtectedLayout>} />
+            <Route path="/trainingdetails/:id" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><UserTrainingProgress /></ProtectedLayout>} />
+            <Route path="/create/assessment" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><CreateAssessment /></ProtectedLayout>} />
+            <Route path="/assessment/assign/:id" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><AssessmentsAssign /></ProtectedLayout>} />
+            <Route path="/assign/assessment" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><AssignAssessment /></ProtectedLayout>} />
             {/* Test route removed - no longer needed */}
-            <Route path="/admin/Notification" element={<ProtectedLayout><Notifications /></ProtectedLayout>} />
+            <Route path="/admin/Notification" element={<ProtectedLayout hideForRoles={['telecaller']}><Notifications /></ProtectedLayout>} />
 
-            <Route path="/admin/overdue/assessment" element={<ProtectedLayout hideForRoles={['store_admin']}><AssessmentOverDuedata /></ProtectedLayout>} />
-            <Route path="/admin/overdue/training" element={<ProtectedLayout hideForRoles={['store_admin']}><TraningOverDuedata /></ProtectedLayout>} />
-            <Route path="/detailed/:id" element={<ProtectedLayout><EmployeeDetaile /></ProtectedLayout>} />
+            <Route path="/admin/overdue/assessment" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><AssessmentOverDuedata /></ProtectedLayout>} />
+            <Route path="/admin/overdue/training" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><TraningOverDuedata /></ProtectedLayout>} />
+            <Route path="/detailed/:id" element={<ProtectedLayout hideForRoles={['telecaller']}><EmployeeDetaile /></ProtectedLayout>} />
 
-            <Route path="/branch/detailed/:id" element={<ProtectedLayout><BranchDetails /></ProtectedLayout>} />
+            <Route path="/branch/detailed/:id" element={<ProtectedLayout hideForRoles={['telecaller']}><BranchDetails /></ProtectedLayout>} />
             <Route path="/admin/profile" element={<ProtectedLayout><Profile /></ProtectedLayout>} />
-            <Route path="/admin/login-analytics" element={<ProtectedLayout><LoginAnalytics /></ProtectedLayout>} />
+            <Route path="/admin/login-analytics" element={<ProtectedLayout hideForRoles={['telecaller']}><LoginAnalytics /></ProtectedLayout>} />
             <Route path="/walkin/list" element={<ProtectedLayout><WalkinList /></ProtectedLayout>} />
             <Route path="/walkin/report" element={<ProtectedLayout><WalkinReport /></ProtectedLayout>} />
+            <Route path="/walkin/count" element={<ProtectedLayout><WalkinCount /></ProtectedLayout>} />
             <Route path="/task" element={<ProtectedLayout><TaskManagement /></ProtectedLayout>} />
-            <Route path="/task/create" element={<ProtectedLayout><CreateTask /></ProtectedLayout>} />
-            <Route path="/task/auto-schedule" element={<ProtectedLayout><AutoTask /></ProtectedLayout>} />
+            <Route path="/task/create" element={<ProtectedLayout hideForRoles={['telecaller']}><CreateTask /></ProtectedLayout>} />
+            <Route path="/task/auto-schedule" element={<ProtectedLayout hideForRoles={['telecaller']}><AutoTask /></ProtectedLayout>} />
+            <Route path="/store-analysis/dsr-report" element={<ProtectedLayout hideForRoles={['telecaller']}><DSRReport /></ProtectedLayout>} />
+            <Route path="/store-analysis/growth-comparison" element={<ProtectedLayout hideForRoles={['telecaller']}><GrowthComparison /></ProtectedLayout>} />
+            <Route path="/store-analysis/google-review-task" element={<ProtectedLayout hideForRoles={['telecaller']}><GoogleReviewTask /></ProtectedLayout>} />
+            <Route path="/store-analysis/store-rating" element={<ProtectedLayout hideForRoles={['telecaller']}><BranchAudit /></ProtectedLayout>} />
+            <Route path="/store-analysis/store-rating/create" element={<ProtectedLayout hideForRoles={['telecaller']}><BranchAuditForm /></ProtectedLayout>} />
+            <Route path="/store-analysis/store-rating/:id" element={<ProtectedLayout hideForRoles={['telecaller']}><BranchAuditProfile /></ProtectedLayout>} />
+            <Route path="/store-insights" element={<ProtectedLayout hideForRoles={['telecaller']}><StoreInsights /></ProtectedLayout>} />
 
           </Routes>
         </Suspense>

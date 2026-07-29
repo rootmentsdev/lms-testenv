@@ -80,7 +80,7 @@ export const createAutoTask = async (req, res) => {
       });
     }
 
-    const validRepeatTypes = ['daily', 'weekly', 'monthly', 'custom'];
+    const validRepeatTypes = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly', 'custom'];
     if (!validRepeatTypes.includes(repeatType.toLowerCase())) {
       return res.status(400).json({
         success: false,

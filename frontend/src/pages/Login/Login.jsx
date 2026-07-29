@@ -168,7 +168,8 @@ const Login = () => {
         dispatch(setUser({
           userId: data.user?.userId,
           role: data.user?.role,
-          username: data.user?.username
+          username: data.user?.username,
+          branches: data.user?.branches || [],
         }));
         localStorage.setItem('token', data.token);
         toast.success('Login successful');

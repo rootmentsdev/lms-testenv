@@ -9,6 +9,7 @@ import User from '../model/User.js';
 import Branch from '../model/Branch.js';
 import { getAccessibleEmployeeIds, getAccessibleStoreIds, isFullAccessAdmin, validateEmployeeAccess } from '../lib/permissions.js';
 import { sendNotification } from '../utils/notificationHelper.js';
+import Cluster from '../model/Cluster.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -61,6 +62,7 @@ const ASSIGNED_TO_LABELS = {
   store_admin: 'Store Admin',
   cluster_admin: 'Cluster Admin',
   all_stores: 'All Stores',
+  telecaller: 'Telecaller',
 };
 
 const ROLE_LABELS = {
@@ -68,6 +70,7 @@ const ROLE_LABELS = {
   admin: 'Admin',
   cluster_admin: 'Cluster Admin',
   store_admin: 'Store Admin',
+  telecaller: 'Telecaller',
 };
 
 /** Map form priority to table display priority */
@@ -156,31 +159,93 @@ const normalizeAttachmentToDataUri = (str) => {
   return str;
 };
 
-const mapTaskForClient = (doc, overrideBranch) => {
+export const mapTaskForClient = (doc, overrideBranch, requesterInfo) => {
   const task = doc.toObject ? doc.toObject() : doc;
   const status = computeStatus(task);
   const priority = normalizePriority(task.priority);
   const taskId = task.taskCode || task._id?.toString();
 
-  let attachmentVal = task.attachment || '';
-  attachmentVal = normalizeAttachmentToDataUri(attachmentVal);
-  if (attachmentVal.startsWith('data:')) {
+  let attachmentVal = '';
+  if (task.attachmentName) {
     attachmentVal = `/api/task/${taskId}/attachment`;
+  } else if (task.attachment) {
+    attachmentVal = normalizeAttachmentToDataUri(task.attachment);
+    if (attachmentVal.startsWith('data:')) {
+      attachmentVal = `/api/task/${taskId}/attachment`;
+    }
   }
 
-  let reviewAttachmentVal = task.reviewAttachment || '';
-  reviewAttachmentVal = normalizeAttachmentToDataUri(reviewAttachmentVal);
-  if (reviewAttachmentVal.startsWith('data:')) {
+  let reviewAttachmentVal = '';
+  if (task.reviewAttachmentName) {
     reviewAttachmentVal = `/api/task/${taskId}/review-attachment`;
+  } else if (task.reviewAttachment) {
+    reviewAttachmentVal = normalizeAttachmentToDataUri(task.reviewAttachment);
+    if (reviewAttachmentVal.startsWith('data:')) {
+      reviewAttachmentVal = `/api/task/${taskId}/review-attachment`;
+    }
+  }
+
+  let requesterRole = '';
+  let requesterId = '';
+
+  if (typeof requesterInfo === 'object' && requesterInfo !== null) {
+    requesterRole = requesterInfo.role || '';
+    requesterId = requesterInfo.userId || '';
+  } else {
+    requesterRole = requesterInfo || '';
+  }
+
+  const isAssignee = requesterId && task.assignedTo === requesterId.toString();
+  const isEmployee = ['employee', 'user'].includes(requesterRole);
+  const showAdminDetails = requesterId ? !isAssignee : !isEmployee;
+
+  let titleToShow = task.title || '';
+  let categoryToShow = task.category || '';
+  let subCategoryToShow = task.subCategory || '';
+
+  // Custom role-based header title visibility logic:
+  // Show the header/title matching the user role who gave it to the tier below.
+  if (task.taskTitles && task.taskTitles.length > 0) {
+    // 1. Find the title assigned by the requester's supervisor
+    // e.g. If requester is Employee -> see title assigned by Store Admin or Cluster Admin or Creator
+    // If requester is Store Admin -> see title assigned by Cluster Admin or Creator
+    // If requester is Cluster Admin -> see title assigned by Creator/Admin
+    let matchingTitleDoc = null;
+    if (requesterRole === 'employee' || requesterRole === 'user') {
+      // Find latest title created by Store Admin or Cluster Admin or Creator
+      matchingTitleDoc = [...task.taskTitles].reverse().find(t => ['store_admin', 'cluster_admin', 'super_admin', 'admin', 'hr_admin'].includes(t.role));
+    } else if (requesterRole === 'store_admin') {
+      // Find latest title created by Cluster Admin or Creator
+      matchingTitleDoc = [...task.taskTitles].reverse().find(t => ['cluster_admin', 'super_admin', 'admin', 'hr_admin'].includes(t.role));
+    } else if (requesterRole === 'cluster_admin') {
+      // Find latest title created by Creator
+      matchingTitleDoc = [...task.taskTitles].reverse().find(t => ['super_admin', 'admin', 'hr_admin'].includes(t.role));
+    }
+
+    if (matchingTitleDoc) {
+      titleToShow = matchingTitleDoc.title;
+      categoryToShow = matchingTitleDoc.title; // Map category to display matching custom title
+    }
+  } else {
+    // Fallback if taskTitles not populated
+    titleToShow = (showAdminDetails && task.adminTitle) ? task.adminTitle : (task.title || '');
+    categoryToShow = (showAdminDetails && task.adminCategory) ? task.adminCategory : (task.category || '');
+    subCategoryToShow = (showAdminDetails && task.adminSubCategory) ? task.adminSubCategory : (task.subCategory || '');
   }
 
   return {
     id: taskId,
     _id: task._id?.toString(),
-    title: task.title,
-    category: task.category,
-    categorySub: task.storeName || task.storeCode || task.subCategory,
-    categoryDetail: task.subCategory,
+    title: titleToShow,
+    category: categoryToShow,
+    categorySub: task.storeName || task.storeCode || subCategoryToShow,
+    categoryDetail: subCategoryToShow,
+    adminTitle: task.adminTitle || '',
+    adminCategory: task.adminCategory || '',
+    adminSubCategory: task.adminSubCategory || '',
+    reassignedTitle: task.title || '',
+    reassignedCategory: task.category || '',
+    reassignedSubCategory: task.subCategory || '',
     assignedTo: task.assignedTo,
     createdBy: task.createdBy?.toString() || '',
     assignee: task.assignedToLabel || ASSIGNED_TO_LABELS[task.assignedTo] || task.assignedTo,
@@ -205,8 +270,18 @@ const mapTaskForClient = (doc, overrideBranch) => {
     attachmentName: task.attachmentName || '',
     reviewAttachment: reviewAttachmentVal,
     reviewAttachmentName: task.reviewAttachmentName || '',
+    attachments: (task.attachments || []).map((att, idx) => ({
+      id: att._id?.toString() || idx,
+      name: att.name || 'attachment',
+      uploadedByName: att.uploadedByName || 'Unknown',
+      uploadedAt: att.uploadedAt,
+      step: att.step || 'ASSIGNED',
+      url: `/api/task/${taskId}/attachment/${idx}`
+    })),
     requestedExtensionDate: task.requestedExtensionDate || '',
     previousStatus: task.previousStatus || '',
+    approvalChain: task.approvalChain || [],
+    approvalChainIndex: task.approvalChainIndex ?? 0,
     workMap: (() => {
       const list = task.workMap || [];
       const filtered = [];
@@ -305,34 +380,16 @@ export const createTask = async (req, res) => {
 
     if (resolvedAssignedTo === 'all_employees') {
       const storeIds = await getAccessibleStoreIds(creator._id);
-      let employeeIds = await getAccessibleEmployeeIds(creator._id);
-      
-      const dbEmployees = await Employee.find({ _id: { $in: employeeIds }, storeId: { $in: storeIds }, status: 'Active' }).populate('storeId');
-      const branchesList = await Branch.find({ _id: { $in: storeIds } });
-      const locCodes = branchesList.map(b => b.locCode);
-      const users = await User.find({ locCode: { $in: locCodes } }).lean();
-
-      const combinedList = [];
-      dbEmployees.forEach(emp => {
-        const name = emp.firstName ? `${emp.firstName} ${emp.lastName || ''}`.trim() : (emp.username || 'Employee');
-        const designation = emp.designation || 'Staff';
-        const storeNameVal = (emp.storeId && emp.storeId.workingBranch) || emp.workingBranch || 'Store';
-        combinedList.push({
+      const employeesList = await Employee.find({ storeId: { $in: storeIds }, isActive: true }).populate('storeId');
+      employeesList.forEach(emp => {
+        const empName = emp.firstName ? `${emp.firstName} ${emp.lastName || ''}`.trim() : (emp.username || 'Employee');
+        const storeNameVal = emp.storeId?.workingBranch || 'Store';
+        targets.push({
           id: emp._id.toString(),
-          label: `${name} - ${designation} - ${storeNameVal}`
+          label: `${empName} - Staff - ${storeNameVal}`
         });
       });
-      users.forEach(u => {
-        if (!combinedList.some(item => item.id === u._id.toString())) {
-          combinedList.push({
-            id: u._id.toString(),
-            label: `${u.username || 'Employee'} - ${u.designation || 'Staff'} - ${u.workingBranch || 'Store'}`
-          });
-        }
-      });
-
-      targets.push(...combinedList);
-    } 
+    }
     else if (resolvedAssignedTo === 'all_store_admins') {
       const storeIds = await getAccessibleStoreIds(creator._id);
       const adminQuery = { role: 'store_admin', branches: { $in: storeIds }, isActive: true };
@@ -344,7 +401,7 @@ export const createTask = async (req, res) => {
           label: `${ad.name} - Store Admin - ${storeNameVal}`
         });
       });
-    }
+    } 
     else if (resolvedAssignedTo === 'all_cluster_admins') {
       const adminsList = await Admin.find({ role: 'cluster_admin', isActive: true });
       adminsList.forEach(ad => {
@@ -416,11 +473,17 @@ export const createTask = async (req, res) => {
         targetStoreCode = storeCode;
       }
 
+      // Approval chain for task completion: Assignee -> Creator (Assigner)
+      let resolvedApprovalChain = [creator._id.toString()];
+
       const task = await Task.create({
         taskCode,
         title: title.trim(),
         category: category.trim(),
         subCategory: subCategory.trim(),
+        adminTitle: title.trim(),
+        adminCategory: category.trim(),
+        adminSubCategory: subCategory.trim(),
         assignedTo: target.id,
         assignedToLabel: target.label,
         mode,
@@ -431,7 +494,7 @@ export const createTask = async (req, res) => {
         description,
         additionalInfo,
         priority,
-        status: 'PENDING',
+        status: 'IN PROGRESS',
         storeName: targetStoreName,
         storeCode: targetStoreCode,
         createdBy: creator._id,
@@ -439,6 +502,14 @@ export const createTask = async (req, res) => {
         assignedByRole: subRole ? `${roleLabel} · ${subRole}` : roleLabel,
         attachment,
         attachmentName,
+        attachments: attachment ? [{
+          name: attachmentName,
+          file: attachment,
+          uploadedBy: creator._id.toString(),
+          uploadedByName: isCreatorAdmin ? creator.name : creator.username,
+          uploadedAt: new Date(),
+          step: 'ASSIGNED'
+        }] : [],
         workMap: [{
           assignedTo: target.id,
           assignedToLabel: target.label,
@@ -446,6 +517,13 @@ export const createTask = async (req, res) => {
           assignedAt: new Date(),
           action: 'ASSIGNED'
         }],
+        approvalChain: resolvedApprovalChain,
+        approvalChainIndex: 0,
+        taskTitles: [{
+          userId: creator._id.toString(),
+          role: isCreatorAdmin ? creator.role : 'user',
+          title: title.trim()
+        }]
       });
       createdTasks.push(task);
       
@@ -465,7 +543,7 @@ export const createTask = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: 'Task created successfully',
-      data: mapTaskForClient(createdTasks[0]),
+      data: mapTaskForClient(createdTasks[0], null, req.admin),
     });
   } catch (error) {
     console.error('Error creating task:', error);
@@ -492,7 +570,7 @@ export const getTasks = async (req, res) => {
     if (employeeId) {
       // 1. Determine caller identity and role
       const callerAdmin = await Admin.findById(adminId);
-      if (callerAdmin) {
+      if (callerAdmin && callerAdmin.role !== 'employee') {
         // If they are not full access (Super/HR Admin), validate they have store/cluster access to this employee
         if (!isFullAccessAdmin(callerAdmin.role)) {
           const accessibleStoreIds = await getAccessibleStoreIds(adminId);
@@ -523,7 +601,7 @@ export const getTasks = async (req, res) => {
         }
       } else {
         // Regular user/employee: can only view their own tasks
-        const callerUser = await User.findById(adminId);
+        const callerUser = callerAdmin || await User.findById(adminId);
         if (!callerUser) {
           return res.status(404).json({ success: false, message: 'User not found' });
         }
@@ -531,8 +609,8 @@ export const getTasks = async (req, res) => {
         const callerEmployee = await Employee.findOne({
           $or: [
             { email: callerUser.email },
-            { contactNo: callerUser.contactNo },
-            { username: callerUser.username }
+            { contactNo: callerUser.contactNo || callerUser.phoneNumber },
+            { username: callerUser.username || callerUser.name }
           ]
         });
         const allowedIds = [callerUser._id.toString()];
@@ -635,7 +713,10 @@ export const getTasks = async (req, res) => {
 
 
     // 3. Fetch filtered tasks directly from MongoDB
-    let tasks = await Task.find(secureQuery).sort({ createdAt: -1 }).lean();
+    let tasks = await Task.find(secureQuery)
+      .select({ attachment: 0, reviewAttachment: 0, 'attachments.file': 0 })
+      .sort({ createdAt: -1 })
+      .lean();
 
     // 4. Batch-resolve assignee working branches (2 queries total)
     const assigneeIds = [...new Set(tasks.map(t => t.assignedTo?.toString()).filter(Boolean))];
@@ -655,7 +736,7 @@ export const getTasks = async (req, res) => {
       branchByAssignee[u._id.toString()] = u.workingBranch || '';
     });
 
-    let mapped = tasks.map((t) => mapTaskForClient(t, branchByAssignee[t.assignedTo?.toString()] || null));
+    let mapped = tasks.map((t) => mapTaskForClient(t, branchByAssignee[t.assignedTo?.toString()] || null, req.admin));
 
     if (search) {
       const q = search.toLowerCase();
@@ -675,6 +756,18 @@ export const getTasks = async (req, res) => {
     if (status && status !== 'All') {
       mapped = mapped.filter((t) => t.status === status);
     }
+
+    // Sort by OVERDUE tasks first, then by newest created first
+    mapped.sort((a, b) => {
+      const aOverdue = a.status === 'OVERDUE' ? 1 : 0;
+      const bOverdue = b.status === 'OVERDUE' ? 1 : 0;
+      if (aOverdue !== bOverdue) {
+        return bOverdue - aOverdue;
+      }
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
 
     return res.status(200).json({
       success: true,
@@ -706,7 +799,7 @@ export const getTaskById = async (req, res) => {
     const { id } = req.params;
     const task = await Task.findOne({
       $or: [{ taskCode: id }, ...(id.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: id }] : [])],
-    });
+    }).select({ attachment: 0, reviewAttachment: 0, 'attachments.file': 0 });
 
     if (!task) {
       return res.status(404).json({ success: false, message: 'Task not found' });
@@ -731,7 +824,7 @@ export const getTaskById = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      data: mapTaskForClient(task, assigneeBranch),
+      data: mapTaskForClient(task, assigneeBranch, req.admin),
     });
   } catch (error) {
     console.error('Error fetching task:', error);
@@ -754,8 +847,8 @@ export const getTaskAssignees = async (req, res) => {
     let role = user ? user.role : '';
     let isUserAdmin = true;
 
-    if (!user) {
-      user = await User.findById(adminId);
+    if (!user || user.role === 'employee') {
+      user = user || await User.findById(adminId);
       if (!user) {
         return res.status(404).json({ success: false, message: 'User or Admin not found' });
       }
@@ -771,11 +864,11 @@ export const getTaskAssignees = async (req, res) => {
       const hasAllStoreRole = ['super_admin', 'admin', 'hr_admin'].includes(design) || 
                               design.includes('hr admin') || 
                               design.includes('super admin') || 
-                              design.includes('admin');
+                              (design.includes('admin') && !design.includes('store') && !design.includes('cluster'));
       
       const hasAllStoreBranch = workingBranch.includes(',') || 
-                                workingBranch.includes('all store') || 
-                                workingBranch.includes('office');
+                              workingBranch.includes('all store') || 
+                              workingBranch.includes('office');
                                 
       const hasManyLocCodes = Array.isArray(item.locCode) && item.locCode.length > 3;
       const hasManyBranches = Array.isArray(item.branches) && item.branches.length > 3;
@@ -827,7 +920,7 @@ export const getTaskAssignees = async (req, res) => {
         { value: 'all_employees', label: 'All Employees', type: 'group' },
         { value: 'all_store_admins', label: 'All Store Admins', type: 'group' }
       );
-    } else if (role === 'store_admin') {
+    } else if (role === 'store_admin' || role === 'user') {
       genericOptions.push(
         { value: 'all_employees', label: 'All Employees', type: 'group' }
       );
@@ -848,27 +941,13 @@ export const getTaskAssignees = async (req, res) => {
     // 4. Get Accessible Employees under these stores
     let employeeIds = await getAccessibleEmployeeIds(adminId, targetBranchId || null);
 
-    // 5. Fetch Accessible Admins based on logged-in user's role
-    let adminQuery = { isActive: true };
-    if (role === 'super_admin' || role === 'admin') {
-      adminQuery.role = { $in: ['hr_admin', 'cluster_admin', 'store_admin', 'super_admin', 'admin'] };
-    } else if (role === 'hr_admin') {
-      adminQuery.role = { $in: ['cluster_admin', 'store_admin', 'hr_admin'] };
-    } else if (role === 'cluster_admin') {
-      adminQuery.role = 'store_admin';
-      adminQuery.branches = { $in: accessibleStoreIds };
-    } else if (role === 'store_admin') {
-      adminQuery = null;
-    } else if (role === 'user') {
-      // Regular employees can assign to their store admin
-      adminQuery.role = 'store_admin';
+    // 5. Fetch Accessible Store Admins
+    let adminQuery = { role: 'store_admin', isActive: true };
+    if (['cluster_admin', 'store_admin', 'user'].includes(role)) {
       adminQuery.branches = { $in: accessibleStoreIds };
     }
 
-    let admins = [];
-    if (adminQuery) {
-      admins = await Admin.find(adminQuery).populate('branches');
-    }
+    const admins = await Admin.find(adminQuery).populate('branches');
 
     // 6. Format individual lists
     const individualAssignees = [];
@@ -877,11 +956,9 @@ export const getTaskAssignees = async (req, res) => {
     admins.forEach(ad => {
       const designation = ad.subRole && ad.subRole !== 'NR' 
         ? ad.subRole 
-        : (ad.role === 'super_admin' ? 'Super Admin' : (ad.role === 'admin' ? 'Admin' : (ad.role === 'hr_admin' ? 'HR Admin' : (ad.role === 'cluster_admin' ? 'Cluster Admin' : 'Store Admin'))));
+        : 'Store Admin';
       
-      let storeName = (ad.role === 'super_admin' || ad.role === 'admin' || ad.role === 'hr_admin')
-        ? 'All Store'
-        : (ad.branches && ad.branches.length > 0 ? ad.branches[0].workingBranch : 'Store');
+      let storeName = ad.branches && ad.branches.length > 0 ? ad.branches[0].workingBranch : 'Store';
 
       const isAllStore = isAllStoreEmployee(ad, ad.role);
       if (isAllStore) {
@@ -898,14 +975,12 @@ export const getTaskAssignees = async (req, res) => {
       });
     });
 
-    // Make sure logged-in admin is in the list
-    if (isUserAdmin && !individualAssignees.some(ad => ad.value === adminId.toString())) {
+    // Make sure logged-in admin is in the list if they are a store admin
+    if (isUserAdmin && role === 'store_admin' && !individualAssignees.some(ad => ad.value === adminId.toString())) {
       const designation = user.subRole && user.subRole !== 'NR'
         ? user.subRole
-        : (user.role === 'super_admin' ? 'Super Admin' : (user.role === 'admin' ? 'Admin' : (user.role === 'hr_admin' ? 'HR Admin' : (user.role === 'cluster_admin' ? 'Cluster Admin' : 'Store Admin'))));
-      let storeName = (user.role === 'super_admin' || user.role === 'admin' || user.role === 'hr_admin')
-        ? 'All Store'
-        : (user.branches && user.branches.length > 0 ? user.branches[0].workingBranch : 'Store');
+        : 'Store Admin';
+      let storeName = user.branches && user.branches.length > 0 ? user.branches[0].workingBranch : 'Store';
 
       const isAllStore = isAllStoreEmployee(user, user.role);
       if (isAllStore) {
@@ -988,7 +1063,7 @@ export const getTaskAssignees = async (req, res) => {
       });
     }
 
-    // 7. Filter individual options
+    // 6. Filter individual options
     let filteredAssignees = individualAssignees;
 
     if (role === 'user' || role === 'store_admin') {
@@ -1058,7 +1133,7 @@ export const updateTaskStatus = async (req, res) => {
     if (normalizedStatus === 'REASSIGN') {
       normalizedStatus = 'REASSIGNED';
     }
-    const validStatuses = ['PENDING', 'IN PROGRESS', 'COMPLETED', 'OVERDUE', 'ON HOLD', 'UNDER REVIEW', 'REASSIGNED', 'EXTENSION REQUESTED'];
+    const validStatuses = ['PENDING', 'IN PROGRESS', 'COMPLETED', 'OVERDUE', 'ON HOLD', 'UNDER REVIEW', 'PENDING REVIEW', 'REASSIGNED', 'EXTENSION REQUESTED'];
     if (!validStatuses.includes(normalizedStatus)) {
       return res.status(400).json({
         success: false,
@@ -1130,6 +1205,22 @@ export const updateTaskStatus = async (req, res) => {
       }
     }
 
+    // Resolve executor's display name
+    let executorName = 'Unknown';
+    try {
+      const executorAdmin = await Admin.findById(userId);
+      if (executorAdmin) {
+        executorName = executorAdmin.name;
+      } else {
+        const executorUser = await User.findById(userId);
+        if (executorUser) {
+          executorName = executorUser.username;
+        }
+      }
+    } catch (err) {
+      console.error('Error resolving executor details:', err);
+    }
+
     // Only the creator (assigner) can mark a task as COMPLETED.
     const isTaskCreator = task.createdBy.toString() === userId.toString();
 
@@ -1152,22 +1243,18 @@ export const updateTaskStatus = async (req, res) => {
 
       task.reviewAttachment = fileAttachment.base64;
       task.reviewAttachmentName = fileAttachment.name;
-    }
 
-    // Resolve executor's display name
-    let executorName = 'Unknown';
-    try {
-      const executorAdmin = await Admin.findById(userId);
-      if (executorAdmin) {
-        executorName = executorAdmin.name;
-      } else {
-        const executorUser = await User.findById(userId);
-        if (executorUser) {
-          executorName = executorUser.username;
-        }
+      if (!task.attachments) {
+        task.attachments = [];
       }
-    } catch (err) {
-      console.error('Error resolving executor details:', err);
+      task.attachments.push({
+        name: fileAttachment.name,
+        file: fileAttachment.base64,
+        uploadedBy: userId.toString(),
+        uploadedByName: executorName,
+        uploadedAt: new Date(),
+        step: 'UNDER REVIEW'
+      });
     }
 
     if (!task.workMap) {
@@ -1184,7 +1271,7 @@ export const updateTaskStatus = async (req, res) => {
     }
 
     if (normalizedStatus === 'REASSIGNED') {
-      const { assignedTo, assignedToLabel } = req.body;
+      const { assignedTo, assignedToLabel, reassignedCategory, reassignedSubCategory } = req.body;
       if (!assignedTo) {
         return res.status(400).json({
           success: false,
@@ -1198,6 +1285,16 @@ export const updateTaskStatus = async (req, res) => {
       task.assignedTo = resolvedAssignedTo;
       task.assignedToLabel = resolvedAssignedToLabel;
 
+      if (reassignedCategory) {
+        task.category = reassignedCategory;
+        task.reassignedCategory = reassignedCategory;
+        task.title = reassignedCategory;
+      }
+      if (reassignedSubCategory) {
+        task.subCategory = reassignedSubCategory;
+        task.reassignedSubCategory = reassignedSubCategory;
+      }
+
       task.workMap.push({
         assignedTo: resolvedAssignedTo,
         assignedToLabel: resolvedAssignedToLabel,
@@ -1205,6 +1302,36 @@ export const updateTaskStatus = async (req, res) => {
         assignedAt: new Date(),
         action: 'REASSIGNED'
       });
+
+      if (fileAttachment && fileAttachment.base64) {
+        if (!task.attachments) {
+          task.attachments = [];
+        }
+        task.attachments.push({
+          name: fileAttachment.name,
+          file: fileAttachment.base64,
+          uploadedBy: userId.toString(),
+          uploadedByName: executorName,
+          uploadedAt: new Date(),
+          step: 'REASSIGNED'
+        });
+      }
+
+      if (!task.taskTitles) {
+        task.taskTitles = [];
+      }
+      task.taskTitles.push({
+        userId: userId.toString(),
+        role: userRole || 'user',
+        title: reassignedCategory ? reassignedCategory.trim() : task.title
+      });
+
+      // Update approval chain on status reassign
+      // Approval chain for task completion: Assignee -> Creator (Assigner)
+      let resolvedApprovalChain = [task.createdBy.toString()];
+
+      task.approvalChain = resolvedApprovalChain;
+      task.approvalChainIndex = 0;
 
       // Update store details
       try {
@@ -1237,13 +1364,30 @@ export const updateTaskStatus = async (req, res) => {
         assignedAt: new Date(),
         action: 'COMPLETED'
       });
-    } else if (normalizedStatus === 'UNDER REVIEW') {
+    } else if (normalizedStatus === 'UNDER REVIEW' || normalizedStatus === 'PENDING REVIEW') {
+      // Save proofs to attachments
+      if (fileAttachment && fileAttachment.base64) {
+        task.reviewAttachment = fileAttachment.base64;
+        task.reviewAttachmentName = fileAttachment.name;
+        if (!task.attachments) {
+          task.attachments = [];
+        }
+        task.attachments.push({
+          name: fileAttachment.name,
+          file: fileAttachment.base64,
+          uploadedBy: userId.toString(),
+          uploadedByName: executorName,
+          uploadedAt: new Date(),
+          step: normalizedStatus
+        });
+      }
+
       task.workMap.push({
         assignedTo: task.assignedTo,
         assignedToLabel: task.assignedToLabel,
         assignedBy: executorName,
         assignedAt: new Date(),
-        action: 'UNDER REVIEW'
+        action: normalizedStatus
       });
     } else if (normalizedStatus === 'IN PROGRESS') {
       task.workMap.push({
@@ -1282,30 +1426,60 @@ export const updateTaskStatus = async (req, res) => {
     }
 
     task.status = normalizedStatus;
+    if (normalizedStatus === 'PENDING REVIEW') {
+      let targetApprover = task.createdBy;
+      task.approvalChainIndex = 0;
+      if (task.approvalChain && task.approvalChain.length > 0) {
+        targetApprover = task.approvalChain[0];
+      }
+    }
     await task.save();
 
-    // Trigger status-change notifications
-    if (normalizedStatus === 'REASSIGNED') {
+    // Trigger status-change notifications to relevant party (creator, assignee, or both)
+    const statusRecipientsSet = new Set();
+    if (task.assignedTo && task.assignedTo.toString() !== userId.toString()) {
+      statusRecipientsSet.add(task.assignedTo.toString());
+    }
+    if (task.createdBy && task.createdBy.toString() !== userId.toString()) {
+      statusRecipientsSet.add(task.createdBy.toString());
+    }
+    const statusNotifyUserIds = Array.from(statusRecipientsSet);
+
+    if (statusNotifyUserIds.length > 0) {
+      let notifTitle = `Task Status: ${normalizedStatus}`;
+      let notifBody = `Task "${task.title}" status was updated to ${normalizedStatus} by ${executorName}`;
+
+      if (normalizedStatus === 'REASSIGNED') {
+        notifTitle = 'Task Reassigned';
+        notifBody = `Task "${task.title}" has been reassigned to you by ${executorName}`;
+      } else if (normalizedStatus === 'UNDER REVIEW') {
+        notifTitle = 'Task Submitted for Review';
+        notifBody = `Task "${task.title}" has been submitted for review by ${executorName}`;
+      } else if (normalizedStatus === 'PENDING REVIEW') {
+        notifTitle = 'Task Pending Approval';
+        notifBody = `Task "${task.title}" has been submitted for approval by ${executorName}`;
+      } else if (normalizedStatus === 'EXTENSION REQUESTED') {
+        const extDate = req.body?.requestedExtensionDate || task.requestedExtensionDate || '';
+        notifTitle = 'Task Extension Requested';
+        notifBody = `Task "${task.title}" has an extension requested ${extDate ? `to ${extDate} ` : ''}by ${executorName}`;
+      } else if (normalizedStatus === 'COMPLETED') {
+        notifTitle = 'Task Completed';
+        notifBody = `Task "${task.title}" has been marked as COMPLETED by ${executorName}`;
+      } else if (normalizedStatus === 'IN PROGRESS') {
+        notifTitle = 'Task In Progress';
+        notifBody = `Task "${task.title}" is now IN PROGRESS by ${executorName}`;
+      } else if (normalizedStatus === 'ON HOLD') {
+        notifTitle = 'Task Put On Hold';
+        notifBody = `Task "${task.title}" was put ON HOLD by ${executorName}`;
+      } else if (normalizedStatus === 'OVERDUE') {
+        notifTitle = 'Task Overdue';
+        notifBody = `Task "${task.title}" status changed to OVERDUE by ${executorName}`;
+      }
+
       await sendNotification({
-        title: 'Task Reassigned',
-        body: `Task "${task.title}" has been reassigned to you by ${executorName}`,
-        userIds: [task.assignedTo],
-        senderName: executorName,
-        category: 'Task'
-      });
-    } else if (normalizedStatus === 'UNDER REVIEW') {
-      await sendNotification({
-        title: 'Task Submitted for Review',
-        body: `Task "${task.title}" has been submitted for review by ${executorName}`,
-        userIds: [task.createdBy],
-        senderName: executorName,
-        category: 'Task'
-      });
-    } else if (normalizedStatus === 'EXTENSION REQUESTED') {
-      await sendNotification({
-        title: 'Task Extension Requested',
-        body: `Task "${task.title}" has an extension requested to ${requestedExtensionDate} by ${executorName}`,
-        userIds: [task.createdBy],
+        title: notifTitle,
+        body: notifBody,
+        userIds: statusNotifyUserIds,
         senderName: executorName,
         category: 'Task'
       });
@@ -1314,7 +1488,7 @@ export const updateTaskStatus = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: 'Task status updated successfully',
-      data: mapTaskForClient(task),
+      data: mapTaskForClient(task, null, req.admin),
     });
   } catch (error) {
     console.error('Error updating task status:', error);
@@ -1329,9 +1503,12 @@ export const updateTaskStatus = async (req, res) => {
 export const reassignTask = async (req, res) => {
   try {
     const { id } = req.params;
-    const { assignedTo, assignedToLabel } = req.body;
+    const { assignedTo, assignedToLabel, category, subCategory, fileAttachment } = req.body;
     if (!assignedTo) {
       return res.status(400).json({ success: false, message: 'assignedTo is required' });
+    }
+    if (!fileAttachment || !fileAttachment.base64) {
+      return res.status(400).json({ success: false, message: 'Task completion attachment is required for reassignment' });
     }
 
     const resolvedAssignedTo = await resolveAssigneeId(assignedTo);
@@ -1403,6 +1580,38 @@ export const reassignTask = async (req, res) => {
     task.assignedToLabel = resolvedAssignedToLabel;
     task.status = 'REASSIGNED'; // Reset status to REASSIGNED
 
+    if (category) {
+      task.category = category;
+      task.reassignedCategory = category;
+      task.title = category; // Dynamically set category as the title
+    }
+    if (subCategory) {
+      task.subCategory = subCategory;
+      task.reassignedSubCategory = subCategory;
+    }
+
+    if (!task.taskTitles) {
+      task.taskTitles = [];
+    }
+    
+    // Store title for this reassigner
+    task.taskTitles.push({
+      userId: userId.toString(),
+      role: userRole || 'user',
+      title: category ? category.trim() : task.title
+    });
+
+    // Approval chain for reassigned task completion: Reassigner -> Creator (if different)
+    const reassignerId = userId.toString();
+    const creatorId = task.createdBy.toString();
+    let resolvedApprovalChain = [reassignerId];
+    if (reassignerId !== creatorId) {
+      resolvedApprovalChain.push(creatorId);
+    }
+
+    task.approvalChain = resolvedApprovalChain;
+    task.approvalChainIndex = 0;
+
     task.workMap.push({
       assignedTo: resolvedAssignedTo,
       assignedToLabel: resolvedAssignedToLabel,
@@ -1410,6 +1619,20 @@ export const reassignTask = async (req, res) => {
       assignedAt: new Date(),
       action: 'REASSIGNED'
     });
+
+    if (fileAttachment && fileAttachment.base64) {
+      if (!task.attachments) {
+        task.attachments = [];
+      }
+      task.attachments.push({
+        name: fileAttachment.name,
+        file: fileAttachment.base64,
+        uploadedBy: userId.toString(),
+        uploadedByName: reassignerName,
+        uploadedAt: new Date(),
+        step: 'REASSIGNED'
+      });
+    }
 
     // Update storeName and storeCode to the new assignee's store dynamically
     try {
@@ -1454,7 +1677,7 @@ export const reassignTask = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: 'Task reassigned successfully',
-      data: mapTaskForClient(task),
+      data: mapTaskForClient(task, null, req.admin),
     });
   } catch (error) {
     console.error('Error reassigning task:', error);
@@ -1462,6 +1685,150 @@ export const reassignTask = async (req, res) => {
       success: false,
       message: 'Failed to reassign task',
       error: error.message,
+    });
+  }
+};
+
+export const approveTaskStep = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { action } = req.body; // 'APPROVE' or 'REJECT'
+    const userId = req.admin.userId;
+
+    if (!action || !['APPROVE', 'REJECT'].includes(action)) {
+      return res.status(400).json({ success: false, message: 'action must be APPROVE or REJECT' });
+    }
+
+    const task = await Task.findOne({
+      $or: [{ taskCode: id }, ...(id.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: id }] : [])],
+    });
+
+    if (!task) {
+      return res.status(404).json({ success: false, message: 'Task not found' });
+    }
+
+    if (task.status !== 'PENDING REVIEW') {
+      return res.status(400).json({ success: false, message: 'Task is not pending approval review.' });
+    }
+
+    // Determine current expected approver from the chain
+    let expectedApprover = task.createdBy.toString();
+    const hasChain = task.approvalChain && task.approvalChain.length > 0;
+    if (hasChain) {
+      expectedApprover = task.approvalChain[task.approvalChainIndex];
+    }
+
+    if (userId.toString() !== expectedApprover) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: You are not the authorized approver for the current step.',
+      });
+    }
+
+    // Resolve executor's display name
+    let executorName = 'Approver';
+    const executorAdmin = await Admin.findById(userId);
+    if (executorAdmin) {
+      executorName = executorAdmin.name;
+    } else {
+      const executorUser = await User.findById(userId);
+      if (executorUser) {
+        executorName = executorUser.username;
+      }
+    }
+
+    if (action === 'REJECT') {
+      // Send task back to IN PROGRESS
+      task.status = 'IN PROGRESS';
+      task.workMap.push({
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignedToLabel,
+        assignedBy: executorName,
+        assignedAt: new Date(),
+        action: 'IN PROGRESS',
+        details: 'Review Rejected - Sent back to IN PROGRESS'
+      });
+      await task.save();
+
+      // Notify Assignee of rejection
+      await sendNotification({
+        title: 'Task Submission Rejected',
+        body: `Your submission for task "${task.title}" has been rejected by ${executorName}`,
+        userIds: [task.assignedTo],
+        senderName: executorName,
+        category: 'Task'
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Task submission rejected and returned to IN PROGRESS.',
+        data: mapTaskForClient(task, null, req.admin)
+      });
+    }
+
+    // action === 'APPROVE'
+    if (hasChain && task.approvalChainIndex < task.approvalChain.length - 1) {
+      // Advance to next step in the chain
+      task.approvalChainIndex += 1;
+      const nextApprover = task.approvalChain[task.approvalChainIndex];
+      task.workMap.push({
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignedToLabel,
+        assignedBy: executorName,
+        assignedAt: new Date(),
+        action: 'PENDING REVIEW',
+        details: `Approved by ${executorName}. Sent to next approval stage.`
+      });
+      await task.save();
+
+      // Notify next approver
+      await sendNotification({
+        title: 'Task Pending Approval',
+        body: `Task "${task.title}" has been approved by ${executorName} and requires your review.`,
+        userIds: [nextApprover],
+        senderName: executorName,
+        category: 'Task'
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Approved step successfully. Forwarded to the next level.',
+        data: mapTaskForClient(task, null, req.admin)
+      });
+    } else {
+      // Final approval in the chain -> Complete task
+      task.status = 'COMPLETED';
+      task.workMap.push({
+        assignedTo: task.assignedTo,
+        assignedToLabel: task.assignedToLabel,
+        assignedBy: executorName,
+        assignedAt: new Date(),
+        action: 'COMPLETED',
+        details: 'Approved completely and finalized.'
+      });
+      await task.save();
+
+      // Notify assignee of completion
+      await sendNotification({
+        title: 'Task Completed',
+        body: `Great job! Your task "${task.title}" has been fully approved and completed.`,
+        userIds: [task.assignedTo],
+        senderName: executorName,
+        category: 'Task'
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Task fully approved and completed.',
+        data: mapTaskForClient(task, null, req.admin)
+      });
+    }
+  } catch (error) {
+    console.error('Error in approveTaskStep:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to process approval step',
+      error: error.message
     });
   }
 };
@@ -1548,6 +1915,41 @@ export const getTaskReviewAttachment = async (req, res) => {
   }
 };
 
+export const getTaskAttachmentByIndex = async (req, res) => {
+  try {
+    const { id, index } = req.params;
+    const task = await Task.findOne({
+      $or: [{ taskCode: id }, ...(id.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: id }] : [])],
+    });
+
+    if (!task || !task.attachments || !task.attachments[index]) {
+      return res.status(404).send('Attachment not found');
+    }
+
+    const att = task.attachments[index];
+    const attachmentVal = normalizeAttachmentToDataUri(att.file);
+
+    if (attachmentVal.startsWith('data:')) {
+      const matches = attachmentVal.match(/^data:([^;]+);base64,(.*)$/i);
+      if (!matches) {
+        return res.status(400).send('Invalid data URI format');
+      }
+      const contentType = matches[1];
+      const base64Data = matches[2];
+      const buffer = Buffer.from(base64Data, 'base64');
+      
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `inline; filename="${att.name || 'attachment'}"`);
+      return res.send(buffer);
+    } else {
+      return res.status(400).send('Invalid attachment format');
+    }
+  } catch (error) {
+    console.error('Error fetching task attachment by index:', error);
+    return res.status(500).send('Failed to fetch task attachment');
+  }
+};
+
 // ─── REQUEST EXTENSION (called by mobile assignee) ───────────────────────────
 export const requestExtension = async (req, res) => {
   try {
@@ -1613,7 +2015,7 @@ export const requestExtension = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: 'Extension request submitted successfully',
-      data: mapTaskForClient(task),
+      data: mapTaskForClient(task, null, req.admin),
     });
   } catch (error) {
     console.error('Error requesting task extension:', error);
@@ -1722,7 +2124,7 @@ export const resolveExtensionRequest = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: `Extension request ${action.toLowerCase()}d successfully`,
-      data: mapTaskForClient(task),
+      data: mapTaskForClient(task, null, req.admin),
     });
   } catch (error) {
     console.error('Error resolving extension request:', error);
@@ -1782,9 +2184,18 @@ export const updateTaskDetails = async (req, res) => {
       console.error('Error resolving editor details:', err);
     }
 
-    if (title) task.title = title;
-    if (category) task.category = category;
-    if (subCategory) task.subCategory = subCategory;
+    if (title) {
+      task.title = title;
+      task.adminTitle = title;
+    }
+    if (category) {
+      task.category = category;
+      task.adminCategory = category;
+    }
+    if (subCategory) {
+      task.subCategory = subCategory;
+      task.adminSubCategory = subCategory;
+    }
 
     let assigneeChanged = false;
     let oldAssigneeLabel = task.assignedToLabel || task.assignedTo;
@@ -1819,10 +2230,29 @@ export const updateTaskDetails = async (req, res) => {
 
     await task.save();
 
+    // Send notifications for details edit / reassign
+    if (assigneeChanged && task.assignedTo) {
+      await sendNotification({
+        title: 'Task Reassigned',
+        body: `Task "${task.title}" has been reassigned to you by ${editorName}`,
+        userIds: [task.assignedTo.toString()],
+        senderName: editorName,
+        category: 'Task'
+      });
+    } else if (task.assignedTo && task.assignedTo.toString() !== userId.toString()) {
+      await sendNotification({
+        title: 'Task Details Updated',
+        body: `Task "${task.title}" details have been updated by ${editorName}`,
+        userIds: [task.assignedTo.toString()],
+        senderName: editorName,
+        category: 'Task'
+      });
+    }
+
     return res.status(200).json({
       success: true,
       message: 'Task details updated successfully',
-      data: mapTaskForClient(task),
+      data: mapTaskForClient(task, null, req.admin),
     });
   } catch (error) {
     console.error('Error updating task details:', error);

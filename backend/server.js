@@ -24,6 +24,10 @@ import TrainingRouter from './routes/TrainingRoute.js'
 import WalkinRouter from './routes/WalkinRoute.js'
 import TaskRouter from './routes/TaskRoute.js'
 import AutoTaskRouter from './routes/AutoTaskRoute.js'
+import CategoryRouter from './routes/CategoryRoute.js'
+import DapprAttributionRouter from './routes/DapprAttributionRoute.js'
+import { seedDefaultCategories } from './model/Category.js'
+import PerformanceRouter from './routes/PerformanceRoute.js'
 
 import { AlertNotification } from './lib/CornJob.js';
 import { startEmployeeAutoSync } from './lib/EmployeeAutoSync.js';
@@ -33,6 +37,8 @@ import { refreshExternalEmployees } from './lib/employeeCache.js';
 import setupSwagger from './swagger.js';
 import { MiddilWare } from './lib/middilWare.js';
 import Admin from './model/Admin.js';
+import User from './model/User.js';
+import bcrypt from 'bcrypt';
 
 const app = express();
 setupSwagger(app);
@@ -670,6 +676,71 @@ app.use('/api/training', TrainingRouter)
 app.use('/api/walkin', WalkinRouter)
 app.use('/api/task', TaskRouter)
 app.use('/api/auto-task', AutoTaskRouter)
+app.use('/api/task-category', CategoryRouter)
+
+import CustomizationAttributionRouter from './routes/CustomizationAttributionRoute.js'
+import StoreTargetRouter from './routes/StoreTargetRoute.js'
+app.use('/api/store-targets', StoreTargetRouter)
+app.use('/api/dappr-attributions', DapprAttributionRouter)
+app.use('/api/customization-attributions', CustomizationAttributionRouter)
+app.use('/api/performance', PerformanceRouter)
+
+/* =================================================
+   ✅ PROXY: GET /api/brynex/shoe-sales/summary
+   -> Forwards to https://backend.brynex.com/api/external/shoe-sales/summary
+   -> Returns pre-aggregated shoe/shirt data per store — no bookings/returns needed
+================================================== */
+app.get('/api/brynex/shoe-sales/summary', async (req, res) => {
+  try {
+    const { fromDate, toDate, locCode } = req.query;
+    let url = `https://backend.brynex.com/api/external/shoe-sales/summary?fromDate=${fromDate}&toDate=${toDate}`;
+    if (locCode) url += `&locCode=${locCode}`;
+    const { data } = await axios.get(url, { timeout: 15000 });
+    return res.status(200).json(data);
+  } catch (err) {
+    if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT') {
+      return res.status(200).json({ stores: [], grandTotal: {} });
+    }
+    const status = err?.response?.status || 500;
+    const payload = err?.response?.data || { message: err.message || 'Brynex summary proxy failed' };
+    console.error('❌ /api/brynex/shoe-sales/summary error:', status, payload);
+    return res.status(status).json(payload);
+  }
+});
+
+/* =================================================
+   ✅ PROXY: GET /api/brynex/shoe-sales/:type  (kept for backwards compat — bookings/returns)
+================================================== */
+app.get('/api/brynex/shoe-sales/:type', async (req, res) => {
+  try {
+    const { type } = req.params; // "bookings", "returns", or "by-salesperson"
+    const { fromDate, toDate, locCode } = req.query;
+
+    if (!['bookings', 'returns', 'by-salesperson'].includes(type)) {
+      return res.status(400).json({ message: 'Invalid type. Use bookings, returns, or by-salesperson.' });
+    }
+
+    let url = `https://backend.brynex.com/api/external/shoe-sales/${type}?fromDate=${fromDate}&toDate=${toDate}`;
+    if (locCode && locCode !== 'undefined') {
+      url += `&locCode=${locCode}`;
+    }
+
+    const { data } = await axios.get(url, { timeout: 15000 });
+    return res.status(200).json(data);
+  } catch (err) {
+    const { type } = req.params;
+    if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT') {
+      if (type === 'by-salesperson') {
+        return res.status(200).json({ salespersons: [], grandTotal: {} });
+      }
+      return res.status(200).json([]); // timeout → return empty, don't crash the page
+    }
+    const status = err?.response?.status || 500;
+    const payload = err?.response?.data || { message: err.message || 'Brynex proxy failed' };
+    console.error(`❌ /api/brynex/shoe-sales/${req.params.type} error:`, status, payload);
+    return res.status(status).json(payload);
+  }
+});
 
 // User Login Tracking Routes
 import UserLoginRouter from './routes/UserLoginRoute.js';
@@ -683,6 +754,10 @@ app.use('/api/lms-login', LMSLoginRouter)
 import GoogleFormRouter from './routes/GoogleFormRoute.js';
 app.use('/api/google-form', GoogleFormRouter)
 
+// Google Review Routes
+import GoogleReviewRouter from './routes/GoogleReviewRoute.js';
+app.use('/api/google-reviews', GoogleReviewRouter)
+
 console.log(new Date());
 
 cron.schedule("30 18 * * *", async () => {
@@ -695,7 +770,82 @@ cron.schedule("30 18 * * *", async () => {
   }
 }, { timezone: "Asia/Kolkata" });
 
-connectMongoDB().then(() => {
+async function seedTestEmployee() {
+  try {
+    const { default: Branch } = await import('./model/Branch.js');
+
+    // Find the Z-Edapally1 branch or fall back
+    const targetBranch = await Branch.findOne({ workingBranch: { $regex: '^z-edapally1$', $options: 'i' } })
+      || await Branch.findOne({ locCode: '144' })
+      || await Branch.findOne()
+      || { workingBranch: 'Office', locCode: '102' };
+
+    const locCodeVal = targetBranch.locCode || '102';
+    const workingBranchVal = targetBranch.workingBranch || 'Office';
+    const branchIdVal = targetBranch._id;
+
+    // Check if test employee user already exists in User collection
+    let existingUser = await User.findOne({ empID: 'emp8899' });
+    let existingAdmin = await Admin.findOne({ EmpId: 'Emp8899' });
+
+    const hashedPassword = await bcrypt.hash('password123', 10);
+    const sharedId = existingUser?._id || existingAdmin?._id || new mongoose.Types.ObjectId();
+
+    if (!existingUser) {
+      console.log('🌱 Seeding test employee Emp8899...');
+      const newUser = new User({
+        _id: sharedId,
+        username: 'Test Employee 8899',
+        email: 'emp8899@company.com',
+        password: hashedPassword,
+        empID: 'emp8899',
+        locCode: locCodeVal,
+        designation: 'Employee',
+        workingBranch: workingBranchVal,
+        source: 'app',
+      });
+      await newUser.save();
+      console.log('✅ Test employee Emp8899 seeded in User collection.');
+    } else {
+      // Update existing user branch/locCode
+      existingUser.locCode = locCodeVal;
+      existingUser.workingBranch = workingBranchVal;
+      await existingUser.save();
+      console.log('🔄 Updated existing test employee branch to ' + workingBranchVal + ' in User collection.');
+    }
+
+    if (!existingAdmin) {
+      const newAdmin = new Admin({
+        _id: sharedId,
+        name: 'Test Employee 8899',
+        email: 'emp8899@company.com',
+        EmpId: 'Emp8899',
+        role: 'employee',
+        subRole: 'NR',
+        password: hashedPassword,
+        isActive: true,
+        branches: branchIdVal ? [branchIdVal] : [],
+      });
+      await newAdmin.save();
+      console.log('✅ Test employee Emp8899 seeded in Admin collection.');
+    } else {
+      // Update existing admin branches
+      existingAdmin.branches = branchIdVal ? [branchIdVal] : [];
+      await existingAdmin.save();
+      console.log('🔄 Updated existing test employee branch to ' + workingBranchVal + ' in Admin collection.');
+    }
+  } catch (error) {
+    console.error('❌ Error seeding test employee:', error);
+  }
+}
+
+connectMongoDB().then(async () => {
+  // Seed categories
+  await seedDefaultCategories();
+
+  // Seed test employee Emp8899
+  await seedTestEmployee();
+
   app.listen(port, '0.0.0.0', () => {
     console.log(`✅ Server running on port ${port}`);
     

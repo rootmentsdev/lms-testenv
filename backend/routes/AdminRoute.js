@@ -1,8 +1,8 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import { handlePermissions, CreatingAdminUsers, getTopUsers, HomeBar, HomeProgressSummary, getAccessibleStores, getAccessibleEmployees, getAdminUsers, updateAdminUser, deleteAdminUser } from '../controllers/DestinationController.js';
-import { createBranchAudit, getBranchAudits, getBranchAuditById } from '../controllers/BranchAuditController.js';
-import { AdminLogin, ChangeVisibility, getAllNotifications, getEscalationLevel, getNotifications, GetSubroles, getVisibility, Subroles, upsertEscalationLevel } from '../controllers/moduleController.js';
+import { createBranchAudit, getBranchAudits, getBranchAuditById, getStaffRatingSummary } from '../controllers/BranchAuditController.js';
+import { AdminLogin, changeAdminPassword, ChangeVisibility, getAllNotifications, getEscalationLevel, getNotifications, GetSubroles, getVisibility, Subroles, upsertEscalationLevel } from '../controllers/moduleController.js';
 import { VerifyToken } from '../lib/VerifyJwt.js';
 import { CreateNotification, FindOverDueAssessment, FindOverDueTraining, SendNotification, SendNotificationAssessment } from '../controllers/AssessmentReassign.js';
 import { MiddilWare } from '../lib/middilWare.js';
@@ -178,6 +178,7 @@ router.get('/get/bestThreeUser', MiddilWare, getTopUsers);
  */
 router.get('/get/HomeProgressData', MiddilWare, HomeBar);
 router.get('/get/HomeProgressSummary', MiddilWare, HomeProgressSummary);
+router.get('/branch-audit/staff-rating-summary', MiddilWare, getStaffRatingSummary);
 router.get('/branch-audit', MiddilWare, getBranchAudits);
 router.get('/branch-audit/:id', MiddilWare, getBranchAuditById);
 
@@ -444,6 +445,45 @@ router.get('/get/setting/visibility', getVisibility);
  */
 
 router.post('/admin/login', AdminLogin);
+
+/**
+ * @swagger
+ * /api/admin/change-password:
+ *   post:
+ *     tags: [Admin]
+ *     summary: Reset / Change Password for logged-in admin
+ *     description: Allows authenticated admins to update their account password by verifying their current password.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *                 example: "123456"
+ *               newPassword:
+ *                 type: string
+ *                 example: "newPassword123"
+ *               confirmPassword:
+ *                 type: string
+ *                 example: "newPassword123"
+ *     responses:
+ *       200:
+ *         description: Password updated successfully
+ *       400:
+ *         description: Bad request
+ *       401:
+ *         description: Unauthorized
+ */
+router.post('/change-password', MiddilWare, changeAdminPassword);
+router.post('/reset-password', MiddilWare, changeAdminPassword);
 
 /**
  * @swagger

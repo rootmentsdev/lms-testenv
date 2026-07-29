@@ -32,6 +32,30 @@ const STATUS_OPTIONS = [
   'Bill Returned'
 ];
 
+const EVENT_TYPE_OPTIONS = [
+  'Hindu Function',
+  'Christian Function',
+  'Muslim Function',
+  'Grooms Men',
+  'Office or College',
+  'Other Functions'
+];
+
+const matchEventType = (actualValue, targetFilter) => {
+  if (!actualValue || actualValue === '-') return false;
+  if (!targetFilter || targetFilter === 'All') return true;
+  const normActual = String(actualValue).trim().toLowerCase();
+  const normTarget = String(targetFilter).trim().toLowerCase();
+
+  if (normActual === normTarget) return true;
+
+  if (normTarget.includes('groom') && normActual.includes('groom')) return true;
+  if ((normTarget.includes('office') || normTarget.includes('college')) && (normActual.includes('office') || normActual.includes('college'))) return true;
+  if ((normTarget.includes('other') || normTarget.includes('others')) && (normActual.includes('other') || normActual.includes('others'))) return true;
+
+  return false;
+};
+
 const NON_SALES_REASONS = new Set([
     'Product Already Booked',
     'Design and Colour Not Available',
@@ -47,7 +71,7 @@ const NON_SALES_REASONS = new Set([
 ]);
 
 const HARDCODED_STORES = [
-    'Z-Edapally1', 'G-Edappally', 'SG-Trivandrum', 'Z- Edappal', 'Z.Perinthalmanna',
+    'Z-Edapally1', 'G-Edappally', 'Z- Edappal', 'Z.Perinthalmanna',
     'Z.Kottakkal', 'G.Kottayam', 'G.Perumbavoor', 'G.Thrissur', 'G.Chavakkad',
     'G.Calicut', 'G.Vadakara', 'G.Edappal', 'G.Perinthalmanna', 'G.Kottakkal',
     'G.Manjeri', 'G.Palakkad', 'G.Kalpetta', 'G.Kannur', 'G.MG Road',
@@ -132,8 +156,146 @@ const handleDownloadAndView = (base64Data, filename = 'attachment') => {
   }
 };
 
+// Helper: format a date string as plain text for Excel (avoids ########)
+const fmtDate = (val) => {
+  if (!val) return '-';
+  try {
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return String(val).split('T')[0];
+    const yyyy = d.getFullYear();
+    const mm   = String(d.getMonth() + 1).padStart(2, '0');
+    const dd   = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  } catch { return '-'; }
+};
+
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+const parseYMD = (dateStr) => {
+    const parts = String(dateStr).split('-');
+    return {
+        year:  parseInt(parts[0], 10),
+        month: parseInt(parts[1], 10),
+        day:   parseInt(parts[2], 10)
+    };
+};
+const getISTDayRange = (dateStr) => {
+    const { year, month, day } = parseYMD(dateStr);
+    const startUTC       = new Date(Date.UTC(year, month - 1, day,     0, 0, 0, 0) - IST_OFFSET_MS);
+    const nextDayStartUTC = new Date(Date.UTC(year, month - 1, day + 1, 0, 0, 0, 0) - IST_OFFSET_MS);
+    return { startUTC, nextDayStartUTC };
+};
+
+const getCombinedStatus = (rental, shoe) => {
+  const r = (rental || 'New Walkin').trim();
+  const s = (shoe || '').trim();
+  if (!s || s === '-' || s === 'None') return r;
+  if (r === 'New Walkin' || r === '-') return s;
+  return `${r}, ${s}`;
+};
+
+const getCombinedStateAt = (w, endDateStr, startDateStr, statusFilterOrList) => {
+  if (!endDateStr) {
+    return {
+      status: w.status,
+      rentalStatus: w.rentalStatus || 'New Walkin',
+      shoeStatus: w.shoeStatus || '-',
+      date: w.updatedAt || w.date
+    };
+  }
+
+  // 1. Build chronological timeline of all states
+  const timeline = [];
+  let rentalStatus = 'New Walkin';
+  let shoeStatus = '-';
+  let initialDate = w.createdAt || w.date;
+  
+  timeline.push({
+    status: getCombinedStatus(rentalStatus, shoeStatus),
+    rentalStatus,
+    shoeStatus,
+    date: initialDate
+  });
+
+  const sortedHistory = [...(w.statusHistory || [])].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  const rentalStatuses = ['New Walkin', 'Booked', 'Rentout', 'Return', 'Cancelled', 'Cancel'];
+
+  sortedHistory.forEach(h => {
+    const s = String(h.status || '').trim();
+    const isRental = rentalStatuses.includes(s) || (h.category && h.category !== 'Sales');
+    if (isRental) {
+      rentalStatus = s;
+    } else {
+      shoeStatus = s;
+    }
+    timeline.push({
+      status: getCombinedStatus(rentalStatus, shoeStatus),
+      rentalStatus,
+      shoeStatus,
+      date: h.date
+    });
+  });
+
+  // 2. Filter states by the endDate cutoff
+  const { nextDayStartUTC } = getISTDayRange(endDateStr);
+  const cutoff = nextDayStartUTC.getTime();
+  const statesBeforeCutoff = timeline.filter(s => new Date(s.date).getTime() < cutoff);
+  
+  if (statesBeforeCutoff.length === 0) {
+    return null; // did not exist yet
+  }
+
+  // 3. Resolve status filters (if any are active)
+  let activeFilters = [];
+  if (Array.isArray(statusFilterOrList)) {
+    activeFilters = statusFilterOrList.filter(s => s && s !== 'All');
+  } else if (statusFilterOrList && statusFilterOrList !== 'All') {
+    activeFilters = [statusFilterOrList];
+  }
+
+  if (activeFilters.length > 0) {
+    // Determine startBoundary UTC
+    let startBoundary = 0;
+    if (startDateStr) {
+      const { startUTC } = getISTDayRange(startDateStr);
+      startBoundary = startUTC.getTime();
+    }
+
+    const normalizedFilters = activeFilters.map(f => f.trim().toLowerCase());
+
+    // Filter timeline states that fall within [startBoundary, cutoff) and match any filter
+    const matchingStates = statesBeforeCutoff.filter(s => {
+      const stateTime = new Date(s.date).getTime();
+      if (stateTime < startBoundary) return false;
+
+      const wStatus = String(s.status).trim().toLowerCase();
+      return normalizedFilters.some(target => {
+        if (target === 'cancelled' || target === 'cancel') {
+          return wStatus.includes('cancel') || wStatus.includes('cancelled') || 
+                 String(s.rentalStatus).toLowerCase().includes('cancel') || 
+                 String(s.shoeStatus).toLowerCase().includes('cancel');
+        } else {
+          const parts = wStatus.split(',').map(p => p.trim());
+          return parts.includes(target) || 
+                 String(s.rentalStatus).trim().toLowerCase() === target || 
+                 String(s.shoeStatus).trim().toLowerCase() === target;
+        }
+      });
+    });
+
+    if (matchingStates.length > 0) {
+      return matchingStates[matchingStates.length - 1];
+    } else {
+      return null; // Does not match filter in date range
+    }
+  }
+
+  // 4. Default: return the latest state before cutoff
+  return statesBeforeCutoff[statesBeforeCutoff.length - 1];
+};
+
 /* ── Export to CSV ───────────────────────────────────────────────────────── */
-const exportCSV = (data) => {
+const exportCSV = (data, getState) => {
   const headers = [
     '#', 
     'DATE', 
@@ -158,30 +320,20 @@ const exportCSV = (data) => {
     'RENTOUT DATE', 
     'RETURN DATE', 
     'BILLED DATE', 
-    'BILL RETURNED DATE'
+    'BILL RETURNED DATE',
+    'NEXT VISIT DATE'
   ];
 
-  // Helper: format a date string as plain text for Excel (avoids ########)
-  const fmtDate = (val) => {
-    if (!val) return '-';
-    try {
-      const d = new Date(val);
-      if (isNaN(d.getTime())) return String(val).split('T')[0];
-      const yyyy = d.getFullYear();
-      const mm   = String(d.getMonth() + 1).padStart(2, '0');
-      const dd   = String(d.getDate()).padStart(2, '0');
-      return `${yyyy}-${mm}-${dd}`;
-    } catch { return '-'; }
-  };
 
   const rows = data.map((w, i) => {
+    const itemState = getState(w) || w;
     const productType = w.lossProductType || '-';
     const notesText = w.notes || '-';
 
     let displayLossReason = '-';
     let displaySubCategory = '-';
 
-    if (w.status === 'Loss' || w.status === 'Revisit Loss') {
+    if (itemState.status === 'Loss' || itemState.status === 'Revisit Loss') {
       const isSales = (w.lossProductType || '').toLowerCase().trim() === 'sales';
 
       if (w.lossReason && w.lossReason !== '-' && w.lossReason !== '') {
@@ -205,8 +357,7 @@ const exportCSV = (data) => {
       displaySubCategory = w.subCategory || '-';
     }
 
-    // Use a raw date string for the walkin date (already YYYY-MM-DD or similar)
-    const walkinDate = w.date ? (w.date.includes('T') ? fmtDate(w.date) : w.date.split(' ')[0]) : '-';
+    const walkinDate = itemState.date ? fmtDate(itemState.date) : '-';
     const functionDate = w.functionDate ? fmtDate(w.functionDate) : '-';
 
     return [
@@ -215,7 +366,7 @@ const exportCSV = (data) => {
       w.customerName || '-',
       w.contact ? `+91 ${w.contact}` : '-',
       w.repeatCount || 1,
-      w.status || '-',
+      itemState.status || '-',
       functionDate,
       w.functionType || '-',
       w.category || '-',
@@ -233,7 +384,8 @@ const exportCSV = (data) => {
       fmtDate(w.rentoutDate),
       fmtDate(w.returnDate),
       fmtDate(w.billedDate),
-      fmtDate(w.billReturnedDate)
+      fmtDate(w.billReturnedDate),
+      w.lossEnquiryRevisitDate ? fmtDate(w.lossEnquiryRevisitDate) : '-'
     ];
   });
 
@@ -256,6 +408,245 @@ const exportCSV = (data) => {
   a.click();
   URL.revokeObjectURL(url);
 };
+/* ── CustomSelect Dropdown Component ────────────────────────────────────────── */
+const CustomSelect = ({
+  id,
+  label,
+  options,
+  value, // array of values (always multi)
+  onChange,
+  disabled,
+  placeholder
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const dropdownRef = React.useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+        setSearch('');
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filteredOptions = options.filter(opt =>
+    String(opt.label || opt.value || '').toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handleSelectOption = (optVal) => {
+    const currentValues = Array.isArray(value) ? value : [];
+    if (currentValues.includes(optVal)) {
+      onChange(currentValues.filter(v => v !== optVal));
+    } else {
+      onChange([...currentValues, optVal]);
+    }
+  };
+
+  const handleSelectAll = () => {
+    onChange(options.map(opt => opt.value));
+  };
+
+  const handleClearAll = () => {
+    onChange([]);
+  };
+
+  const getDisplayText = () => {
+    const currentValues = Array.isArray(value) ? value : [];
+    if (currentValues.length === 0) return placeholder || 'All Selected';
+    if (currentValues.length === options.length) return `All (${options.length}) Selected`;
+    if (currentValues.length <= 2) {
+      return options
+        .filter(opt => currentValues.includes(opt.value))
+        .map(opt => opt.label)
+        .join(', ');
+    }
+    return `${currentValues.length} Selected`;
+  };
+
+  const isSelected = (optVal) => {
+    const currentValues = Array.isArray(value) ? value : [];
+    return currentValues.includes(optVal);
+  };
+
+  return (
+    <div ref={dropdownRef} style={{ position: 'relative', width: '100%', fontFamily: "DM Sans, sans-serif" }}>
+      {/* Label */}
+      <span style={{ fontSize: '11px', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>
+        {label}
+      </span>
+
+      {/* Trigger or Search input */}
+      {isOpen ? (
+        <div style={{ position: 'relative' }}>
+          <input
+            id={id ? `${id}-search-input` : undefined}
+            autoFocus
+            type="text"
+            placeholder="Type to filter..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{
+              border: '1px solid #111827',
+              borderRadius: '8px',
+              padding: '7px 32px 7px 12px',
+              fontSize: '12px',
+              color: '#374151',
+              background: '#fff',
+              outline: 'none',
+              width: '100%',
+              boxSizing: 'border-box',
+              minHeight: '32px'
+            }}
+          />
+          <span
+            onClick={() => {
+              setIsOpen(false);
+              setSearch('');
+            }}
+            style={{
+              position: 'absolute',
+              right: '12px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              cursor: 'pointer',
+              color: '#9ca3af',
+              fontSize: '12px',
+              userSelect: 'none'
+            }}
+          >
+            ✕
+          </span>
+        </div>
+      ) : (
+        <div
+          id={id ? `${id}-trigger` : undefined}
+          onClick={() => !disabled && setIsOpen(true)}
+          style={{
+            border: '1px solid #e5e7eb',
+            borderRadius: '8px',
+            padding: '7px 12px',
+            fontSize: '12px',
+            color: disabled ? '#9ca3af' : '#374151',
+            background: disabled ? '#f3f4f6' : '#fff',
+            cursor: disabled ? 'not-allowed' : 'pointer',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            minHeight: '32px',
+            boxSizing: 'border-box',
+            position: 'relative',
+            userSelect: 'none'
+          }}
+        >
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '90%' }}>
+            {getDisplayText()}
+          </span>
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{
+              transition: 'transform 0.2s',
+              color: '#6b7280'
+            }}
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
+      )}
+
+      {/* Dropdown Panel */}
+      {isOpen && (
+        <div
+          id={id ? `${id}-panel` : undefined}
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            marginTop: '4px',
+            background: '#fff',
+            borderRadius: '8px',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05)',
+            border: '1px solid #e5e7eb',
+            zIndex: 1000,
+            padding: '8px',
+            boxSizing: 'border-box'
+          }}
+        >
+          {/* Header Controls (Select All / Clear All) */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', paddingBottom: '6px', borderBottom: '1px solid #f3f4f6' }}>
+            <span style={{ fontSize: '11px', color: '#6b7280' }}>
+              {options.length > 0 ? `${value.length}/${options.length} Selected` : '0 Selected'}
+            </span>
+            <div style={{ display: 'flex', gap: '12px', fontSize: '10px' }}>
+              <span id={id ? `${id}-select-all` : undefined} onClick={handleSelectAll} style={{ color: '#2563eb', cursor: 'pointer', fontWeight: 500, userSelect: 'none' }}>Select All</span>
+              <span id={id ? `${id}-clear-all` : undefined} onClick={handleClearAll} style={{ color: '#ef4444', cursor: 'pointer', fontWeight: 500, userSelect: 'none' }}>Clear All</span>
+            </div>
+          </div>
+
+          {/* Options List */}
+          <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            {filteredOptions.length === 0 ? (
+              <div style={{ padding: '8px', fontSize: '11px', color: '#9ca3af', textAlign: 'center' }}>No results found</div>
+            ) : (
+              filteredOptions.map((opt, optIdx) => {
+                const selected = isSelected(opt.value);
+                return (
+                  <div
+                    key={opt.value}
+                    id={id ? `${id}-opt-${optIdx}` : undefined}
+                    onClick={() => handleSelectOption(opt.value)}
+                    style={{
+                      padding: '6px 8px',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      color: selected ? '#111827' : '#4b5563',
+                      background: selected ? '#f3f4f6' : 'transparent',
+                      cursor: 'pointer',
+                      fontWeight: selected ? 600 : 400,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      justifyContent: 'space-between',
+                      userSelect: 'none'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        readOnly
+                        style={{
+                          width: '12px',
+                          height: '12px',
+                          cursor: 'pointer',
+                          accentColor: '#111827'
+                        }}
+                      />
+                      <span>{opt.label}</span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+
 
 const WalkinReport = () => {
   const user  = useSelector(s => s.auth.user);
@@ -267,13 +658,19 @@ const WalkinReport = () => {
   const [employees, setEmployees] = useState([]);
   const [loading,   setLoading]   = useState(true);
 
-  const [formData, setFormData] = useState({ startDate: today, endDate: today, store: 'All', employee: '' });
-  const [selectedStatus, setSelectedStatus] = useState('');
+  const [formData, setFormData] = useState({ startDate: today, endDate: today });
+  
+  // Selected values states
+  const [selectedStores, setSelectedStores] = useState([]);
+  const [selectedEmployees, setSelectedEmployees] = useState([]);
+  const [selectedStatuses, setSelectedStatuses] = useState([]);
+  const [selectedEventTypes, setSelectedEventTypes] = useState([]);
 
   const [reportGenerated, setReportGenerated] = useState(false);
   const [reportData,      setReportData]      = useState([]);
   const [tableSearch,     setTableSearch]     = useState('');
   const [tableStatus,     setTableStatus]     = useState('All');
+  const [tableEventType,  setTableEventType]  = useState('All');
   const [currentPage,     setCurrentPage]     = useState(1);
   const [itemsPerPage,    setItemsPerPage]    = useState(50);
   const [isDropdownOpen,  setIsDropdownOpen]  = useState(false);
@@ -287,32 +684,26 @@ const WalkinReport = () => {
         const json = await res.json();
         let list = Array.isArray(json?.stores) ? json.stores : (Array.isArray(json?.data) ? json.data : []);
         
-        if (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin') {
+        if (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'telecaller') {
           const existing = new Set(list.map(b => b.workingBranch));
           const missing = HARDCODED_STORES.filter(s => !existing.has(s));
           list = [...missing.map(name => ({ workingBranch: name })), ...list];
         }
         
         setBranches(list);
-        if (user?.role === 'store_admin' && list.length > 0) setFormData(p=>({...p, store: list[0].workingBranch}));
+        if (user?.role === 'store_admin' && list.length > 0) {
+          setSelectedStores([list[0].workingBranch]);
+        }
       } catch(e){ console.error(e); }
       finally { setLoading(false); }
     };
     if (token) load();
   }, [token, user?.role]);
 
-  // Load employees dynamically based on selected store
-  const loadEmployeesForStore = async (storeName) => {
+  // Load all employees once to filter client-side
+  const loadAllEmployees = async () => {
     try {
-      let url = `${baseUrl.baseUrl}api/admin/accessible-employees`;
-      if (storeName && storeName !== 'All') {
-        const selectedBranch = branches.find(b => b.workingBranch === storeName);
-        if (selectedBranch && selectedBranch._id) {
-          url += `?storeId=${selectedBranch._id}`;
-        } else {
-          url += `?store=${encodeURIComponent(storeName)}`;
-        }
-      }
+      const url = `${baseUrl.baseUrl}api/admin/accessible-employees`;
       const res = await fetch(url, {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
       });
@@ -326,67 +717,168 @@ const WalkinReport = () => {
 
   useEffect(() => {
     if (token && branches.length > 0) {
-      loadEmployeesForStore(formData.store);
+      loadAllEmployees();
     }
-  }, [token, formData.store, branches]);
+  }, [token, branches.length]);
 
-  const storeEmployees = employees;
+  // Cascading client-side employee filtering based on selected store(s)
+  const filteredEmployees = React.useMemo(() => {
+    if (selectedStores.length === 0) return employees;
+    return employees.filter(e => {
+      if (!e.workingBranch) return false;
+      const eBranches = e.workingBranch.split(',').map(b => b.trim());
+      return eBranches.some(eb =>
+        selectedStores.some(selStore => locationKey(eb) === locationKey(selStore))
+      );
+    });
+  }, [employees, selectedStores]);
 
   const handleGenerate = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const res  = await fetch(`${baseUrl.baseUrl}api/walkin/list?startDate=${formData.startDate}&endDate=${formData.endDate}`, { headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` } });
+      const params = new URLSearchParams({
+        sortBy: 'updatedAt'
+      });
+      if (formData.startDate) params.append('activityStartDate', formData.startDate);
+      if (formData.endDate) params.append('activityEndDate', formData.endDate);
+
+      const res  = await fetch(`${baseUrl.baseUrl}api/walkin/list?${params.toString()}`, { headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` } });
       const json = await res.json();
       if (json.success) {
         let data = json.data || [];
-        if (formData.store && formData.store !== 'All') data = data.filter(w => locationKey(w.store) === locationKey(formData.store));
-        if (formData.employee) data = data.filter(w => w.staff === formData.employee);
-        if (selectedStatus) {
+        
+        // Filter by store(s)
+        if (Array.isArray(selectedStores) && selectedStores.length > 0) {
+          const selectedKeys = selectedStores.map(locationKey);
+          data = data.filter(w => selectedKeys.includes(locationKey(w.store)));
+        }
+        
+        // Filter by employee(s)
+        if (Array.isArray(selectedEmployees) && selectedEmployees.length > 0) {
+          data = data.filter(w => selectedEmployees.includes(w.staff));
+        }
+        
+        if (Array.isArray(selectedStatuses) && selectedStatuses.length > 0) {
+          data = data.filter(w => selectedStatuses.some(status => matchStatusAndDate(w, status)));
+        }
+
+        // Filter by Event Type(s)
+        if (Array.isArray(selectedEventTypes) && selectedEventTypes.length > 0) {
           data = data.filter(w => {
-            if (!w.status) return false;
-            const wStatus = String(w.status).trim().toLowerCase();
-            const target = selectedStatus.trim().toLowerCase();
-            if (target === 'cancelled' || target === 'cancel') {
-              return wStatus.includes('cancel') || wStatus.includes('cancelled') || 
-                     String(w.rentalStatus).toLowerCase().includes('cancel') || 
-                     String(w.shoeStatus).toLowerCase().includes('cancel');
-            }
-            const parts = wStatus.split(',').map(p => p.trim());
-            return parts.includes(target) || 
-                   String(w.rentalStatus).trim().toLowerCase() === target || 
-                   String(w.shoeStatus).trim().toLowerCase() === target;
+            const ft = w.functionType || '-';
+            return selectedEventTypes.some(sel => matchEventType(ft, sel));
           });
         }
+
+        // Apply date range filter client-side to ensure no out-of-range walk-ins (e.g. matched by updatedAt only)
+        data = data.filter(hasActivityInRange);
+
+        // Sort descending by the reconstructed state date (latest activity first)
+        data.sort((a, b) => {
+          const getReportState = (item) => {
+            if (Array.isArray(selectedStatuses) && selectedStatuses.length > 0) {
+              return getCombinedStateAt(item, formData.endDate, formData.startDate, selectedStatuses) || item;
+            }
+            return getCombinedStateAt(item, formData.endDate) || item;
+          };
+          const stateA = getReportState(a);
+          const stateB = getReportState(b);
+          
+          const getSortDate = (item, state) => {
+            const rawDate = state?.date || item.createdAt;
+            const dStr = getISTDateString(rawDate);
+            return dStr || "1970-01-01";
+          };
+
+          const dateA = getSortDate(a, stateA);
+          const dateB = getSortDate(b, stateB);
+          
+          if (dateB !== dateA) {
+            return dateB.localeCompare(dateA); // Descending order (latest first)
+          }
+          
+          const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return timeB - timeA;
+        });
+
         setReportData(data);
         setReportGenerated(true);
         setCurrentPage(1);
         setTableSearch('');
         setTableStatus('All');
+        setTableEventType('All');
       }
     } catch(e){ console.error(e); }
     finally { setLoading(false); }
   };
 
+  // Helper to safely format any date format to an IST YYYY-MM-DD string
+  const getISTDateString = (dateVal) => {
+    if (!dateVal) return null;
+    try {
+      if (typeof dateVal === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateVal)) {
+        return dateVal;
+      }
+      if (typeof dateVal === 'string' && /^\d{4}-\d{2}-\d{2}\s/.test(dateVal)) {
+        return dateVal.split(' ')[0];
+      }
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return null;
+      
+      const istTime = d.getTime() + (5.5 * 60 * 60 * 1000);
+      const istDate = new Date(istTime);
+      const y = istDate.getUTCFullYear();
+      const m = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+      const dayStr = String(istDate.getUTCDate()).padStart(2, '0');
+      return `${y}-${m}-${dayStr}`;
+    } catch {
+      return null;
+    }
+  };
+
+  const isDateInFilterRange = (dateVal) => {
+    const dStr = getISTDateString(dateVal);
+    if (!dStr) return false;
+    return dStr >= formData.startDate && dStr <= formData.endDate;
+  };
+
+  const hasActivityInRange = (w) => {
+    if (isDateInFilterRange(w.createdAt)) return true;
+    if (isDateInFilterRange(w.date)) return true;
+    if (Array.isArray(w.statusHistory) && w.statusHistory.some(h => isDateInFilterRange(h.date))) return true;
+    if (isDateInFilterRange(w.bookingDate)) return true;
+    if (isDateInFilterRange(w.rentoutDate)) return true;
+    if (isDateInFilterRange(w.returnDate)) return true;
+    if (isDateInFilterRange(w.billedDate)) return true;
+    if (isDateInFilterRange(w.billReturnedDate)) return true;
+    if (isDateInFilterRange(w.cancelDate || w.cancellationDate)) return true;
+    return false;
+  };
+
+  const matchStatusAndDate = (w, targetStatus) => {
+    const state = getCombinedStateAt(w, formData.endDate, formData.startDate, targetStatus);
+    return state !== null;
+  };
+
+  const getDisplayedState = (w) => {
+    if (tableStatus && tableStatus !== 'All') {
+      return getCombinedStateAt(w, formData.endDate, formData.startDate, tableStatus) || w;
+    }
+    if (Array.isArray(selectedStatuses) && selectedStatuses.length > 0) {
+      return getCombinedStateAt(w, formData.endDate, formData.startDate, selectedStatuses) || w;
+    }
+    return getCombinedStateAt(w, formData.endDate) || w;
+  };
+
   /* table-level filter */
   const displayed = reportData.filter(w => {
     const q = tableSearch.toLowerCase();
-    const matchSearch = !q || w.customerName?.toLowerCase().includes(q) || w.contact?.includes(q) || w.staff?.toLowerCase().includes(q);
-    const matchStatus = tableStatus === 'All' || (() => {
-      if (!w.status) return false;
-      const wStatus = String(w.status).trim().toLowerCase();
-      const target = tableStatus.trim().toLowerCase();
-      if (target === 'cancelled' || target === 'cancel') {
-        return wStatus.includes('cancel') || wStatus.includes('cancelled') || 
-               String(w.rentalStatus).toLowerCase().includes('cancel') || 
-               String(w.shoeStatus).toLowerCase().includes('cancel');
-      }
-      const parts = wStatus.split(',').map(p => p.trim());
-      return parts.includes(target) || 
-             String(w.rentalStatus).trim().toLowerCase() === target || 
-             String(w.shoeStatus).trim().toLowerCase() === target;
-    })();
-    return matchSearch && matchStatus;
+    const matchSearch = !q || w.customerName?.toLowerCase().includes(q) || w.contact?.includes(q) || w.staff?.toLowerCase().includes(q) || w.functionType?.toLowerCase().includes(q);
+    const matchStatus = tableStatus === 'All' || matchStatusAndDate(w, tableStatus);
+    const matchEventTypeFilter = tableEventType === 'All' || matchEventType(w.functionType, tableEventType);
+    return matchSearch && matchStatus && matchEventTypeFilter;
   });
 
   const totalPages   = itemsPerPage === 'All' ? 1 : Math.ceil(displayed.length / Number(itemsPerPage));
@@ -423,28 +915,51 @@ const WalkinReport = () => {
                 <input type="date" name="endDate" required value={formData.endDate} onChange={e=>setFormData(p=>({...p,endDate:e.target.value}))} style={inp} />
               </div>
               <div>
-                <label style={lbl}>Store Name <span style={{color:'#ef4444'}}>*</span></label>
-                <select value={formData.store} disabled={user?.role==='store_admin'} onChange={e=>setFormData(p=>({...p,store:e.target.value,employee:''}))} style={{...inp,cursor:'pointer',appearance:'auto'}}>
-                  {user?.role !== 'store_admin' && <option value="All">All Store</option>}
-                  {branches.map((b,i)=><option key={i} value={b.workingBranch}>{b.workingBranch}</option>)}
-                </select>
+                <CustomSelect
+                  id="store-select"
+                  label={<span>Store Name <span style={{color:'#ef4444'}}>*</span></span>}
+                  options={branches.map(b => ({ value: b.workingBranch, label: b.workingBranch }))}
+                  value={selectedStores}
+                  onChange={(val) => {
+                    setSelectedStores(val);
+                    setSelectedEmployees([]);
+                  }}
+                  disabled={user?.role === 'store_admin'}
+                  placeholder="All Store"
+                />
               </div>
             </div>
             {/* Row 2 */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3" style={{}}>
               <div>
-                <label style={lbl}>Employee <span style={{color:'#9ca3af', fontWeight:400}}>(Optional)</span></label>
-                <select value={formData.employee} onChange={e=>setFormData(p=>({...p,employee:e.target.value}))} style={{...inp,cursor:'pointer',appearance:'auto'}}>
-                  <option value="">All Employees</option>
-                  {storeEmployees.map((e,i)=><option key={i} value={e.username}>{e.username}</option>)}
-                </select>
+                <CustomSelect
+                  id="employee-select"
+                  label={<span>Employee <span style={{color:'#9ca3af', fontWeight:400}}>(Optional)</span></span>}
+                  options={filteredEmployees.map(e => ({ value: e.username, label: e.username }))}
+                  value={selectedEmployees}
+                  onChange={setSelectedEmployees}
+                  placeholder="All Employees"
+                />
               </div>
               <div>
-                <label style={lbl}>Status <span style={{color:'#9ca3af', fontWeight:400}}>(Optional)</span></label>
-                <select value={selectedStatus} onChange={e=>setSelectedStatus(e.target.value)} style={{...inp,cursor:'pointer',appearance:'auto'}}>
-                  <option value="">All Status</option>
-                  {STATUS_OPTIONS.map(s=><option key={s} value={s}>{s}</option>)}
-                </select>
+                <CustomSelect
+                  id="status-select"
+                  label={<span>Status <span style={{color:'#9ca3af', fontWeight:400}}>(Optional)</span></span>}
+                  options={STATUS_OPTIONS.map(s => ({ value: s, label: s }))}
+                  value={selectedStatuses}
+                  onChange={setSelectedStatuses}
+                  placeholder="All Status"
+                />
+              </div>
+              <div>
+                <CustomSelect
+                  id="event-type-select"
+                  label={<span>Event Type <span style={{color:'#9ca3af', fontWeight:400}}>(Optional)</span></span>}
+                  options={EVENT_TYPE_OPTIONS.map(et => ({ value: et, label: et }))}
+                  value={selectedEventTypes}
+                  onChange={setSelectedEventTypes}
+                  placeholder="All Event Types"
+                />
               </div>
             </div>
             <button type="submit" style={{ background:'#111827', color:'#fff', border:'none', borderRadius:'8px', padding:'8px 20px', fontSize:'12px', fontWeight:600, cursor:'pointer' }}>
@@ -452,6 +967,8 @@ const WalkinReport = () => {
             </button>
           </form>
         </div>
+
+
 
         {/* Results table */}
         {reportGenerated && (
@@ -468,6 +985,14 @@ const WalkinReport = () => {
                     {STATUS_OPTIONS.map(s=><option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
+                {/* Event Type pill dropdown */}
+                <div style={{ display:'flex', alignItems:'center', gap:'6px', border:'1px solid #e5e7eb', borderRadius:'8px', padding:'6px 12px', fontSize:'13px', color:'#374151', background:'#fff', cursor:'pointer' }}>
+                  <span>Event Type : </span>
+                  <select value={tableEventType} onChange={e=>{setTableEventType(e.target.value);setCurrentPage(1);}} style={{ border:'none', outline:'none', fontSize:'13px', color:'#374151', background:'transparent', cursor:'pointer' }}>
+                    <option value="All">All</option>
+                    {EVENT_TYPE_OPTIONS.map(et=><option key={et} value={et}>{et}</option>)}
+                  </select>
+                </div>
                 {/* Search */}
                 <div style={{ display:'flex', alignItems:'center', gap:'8px', border:'1px solid #e5e7eb', borderRadius:'8px', padding:'6px 12px', background:'#fff' }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -476,7 +1001,7 @@ const WalkinReport = () => {
               </div>
               {/* Export button – single button only */}
               <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
-                <button onClick={()=>exportCSV(displayed)} style={{ display:'flex', alignItems:'center', gap:'6px', border:'1px solid #e5e7eb', borderRadius:'8px', padding:'7px 14px', fontSize:'13px', fontWeight:500, color:'#374151', background:'#f9fafb', cursor:'pointer' }}>
+                <button onClick={()=>exportCSV(displayed, getDisplayedState)} style={{ display:'flex', alignItems:'center', gap:'6px', border:'1px solid #e5e7eb', borderRadius:'8px', padding:'7px 14px', fontSize:'13px', fontWeight:500, color:'#374151', background:'#f9fafb', cursor:'pointer' }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                   Export CSV
                 </button>
@@ -492,14 +1017,15 @@ const WalkinReport = () => {
               <div style={{ textAlign:'center', padding:'48px', color:'#9ca3af', fontSize:'13px' }}>No records found.</div>
             ) : (
               <div style={{ overflowX:'auto' }}>
-                <table style={{ width: '3135px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
+                <table style={{ width: '3265px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
                   <thead>
                     <tr style={{ background:'#fafafa', borderBottom:'1px solid #f3f4f6' }}>
-                      {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'REPEAT COUNT', 'STATUS', 'FUNCTION DATE', 'FUNCTION TYPE', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'SIZE', 'COLOR', 'NOTES', 'STORE', 'STAFF', 'ATTACHMENT', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'BILLED DATE', 'BILL RETURNED DATE'].map((h, i) => {
+                      {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'REPEAT COUNT', 'STATUS', 'FUNCTION DATE', 'FUNCTION TYPE', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'SIZE', 'COLOR', 'NOTES', 'STORE', 'STAFF', 'ATTACHMENT', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'BILLED DATE', 'BILL RETURNED DATE', 'NEXT VISIT DATE'].map((h, i) => {
                           const getColWidth = (header) => {
                             const widths = {
                               '#': '50px',
                               'DATE': '100px',
+                              'NEXT VISIT DATE': '130px',
                               'CUSTOMER': '160px',
                               'CONTACT': '125px',
                               'REPEAT COUNT': '110px',
@@ -551,7 +1077,8 @@ const WalkinReport = () => {
                   </thead>
                   <tbody>
                     {currentItems.map((w,i)=>{
-                      const sc = getStatusColors(w.status);
+                      const itemState = getDisplayedState(w);
+                      const sc = getStatusColors(itemState.status);
                       
                       const productType = w.lossProductType || '–';
                       const notesText = w.notes || '–';
@@ -559,7 +1086,7 @@ const WalkinReport = () => {
                       let displayLossReason = '–';
                       let displaySubCategory = '–';
 
-                      if (w.status === 'Loss' || w.status === 'Revisit Loss') {
+                      if (itemState.status === 'Loss' || itemState.status === 'Revisit Loss') {
                           const isSales = (w.lossProductType || '').toLowerCase().trim() === 'sales';
                           
                           if (w.lossReason && w.lossReason !== '-' && w.lossReason !== '') {
@@ -591,7 +1118,7 @@ const WalkinReport = () => {
                           <td style={{ padding: '11px 12px', textAlign: 'center', color: '#9ca3af', boxSizing: 'border-box' }}>{indexFirst+i+1}</td>
                           <td style={{textAlign: 'center',  padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
                                 <div className="walkin-marquee-container">
-                                    <span className="walkin-marquee-text walkin-anim-scroll">{w.date ? w.date.split(' ')[0] : '–'}</span>
+                                    <span className="walkin-marquee-text walkin-anim-scroll">{itemState.date ? fmtDate(itemState.date) : '–'}</span>
                                 </div>
                               </td>
                           <td style={{textAlign: 'center',  padding: '11px 12px', color: '#111827', fontWeight: 500, boxSizing: 'border-box' }}>
@@ -626,7 +1153,7 @@ const WalkinReport = () => {
                                   textAlign: 'center'
                                 }}
                               >
-                                {w.status?.toUpperCase()}
+                                {itemState.status?.toUpperCase()}
                               </span>
                             </div>
                           </td>
@@ -745,6 +1272,13 @@ const WalkinReport = () => {
                           <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', boxSizing: 'border-box' }}>
                                 <div className="walkin-marquee-container">
                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.billReturnedDate ? new Date(w.billReturnedDate).toISOString().split('T')[0] : '–'}</span>
+                                </div>
+                              </td>
+                          <td style={{textAlign: 'center',  padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
+                                <div className="walkin-marquee-container">
+                                    <span className="walkin-marquee-text walkin-anim-scroll">
+                                        {(w.lossEnquiryRevisitDate && w.lossEnquiryRevisitDate !== '-') ? w.lossEnquiryRevisitDate.split(' ')[0].split('T')[0] : '–'}
+                                    </span>
                                 </div>
                               </td>
                         </tr>

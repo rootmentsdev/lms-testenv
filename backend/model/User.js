@@ -40,6 +40,7 @@ const userSchema = new mongoose.Schema({
         default: 'app',
         index: true,
     },
+    fcmToken: { type: String, default: '' },
     assignedModules: [assignedModuleSchema], // Array of assigned modules
     assignedAssessments: [assignedAssessmentSchema],
     training: [trainingSchema],// Array of assigned assessments

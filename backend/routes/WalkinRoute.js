@@ -1,5 +1,5 @@
 import express from 'express';
-import { checkCustomerExists, saveWalkin, getWalkins, getAllWalkinsPublic, getCronLogs } from '../controllers/WalkinController.js';
+import { checkCustomerExists, saveWalkin, getWalkins, getAllWalkinsPublic, getCronLogs, getWalkinCountPageData, saveWalkinCountPageData, saveCameraCheckEntry, getCameraCheckEntries, deleteCameraCheckEntry, getFlutterWalkinCount } from '../controllers/WalkinController.js';
 import { MiddilWare } from '../lib/middilWare.js';
 
 const router = express.Router();
@@ -61,6 +61,9 @@ const router = express.Router();
  *                     remarks:
  *                       type: string
  *                       example: "Prefers slim fit"
+ *                     functionType:
+ *                       type: string
+ *                       example: "Hindu Function"
  *                     status:
  *                       type: string
  *                       enum: [New Walkin, Revisit, Loss]
@@ -77,14 +80,24 @@ import jwt from 'jsonwebtoken';
 
 const OptionalMiddilWare = (req, res, next) => {
     try {
-        const token = req.headers['authorization']?.split(' ')[1];
-        if (token) {
+        const authHeader = req.headers['authorization'];
+        if (authHeader) {
+            const token = authHeader.split(' ')[1];
+            if (!token) {
+                return res.status(401).json({ 
+                    success: false, 
+                    message: 'Authentication token is invalid or expired. Please login again.' 
+                });
+            }
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
             req.admin = decoded;
         }
         next();
     } catch (error) {
-        next();
+        return res.status(401).json({ 
+            success: false, 
+            message: 'Authentication token is invalid or expired. Please login again.' 
+        });
     }
 };
 
@@ -133,13 +146,14 @@ router.get('/check/:contact', OptionalMiddilWare, checkCustomerExists);
  *                 example: "6a1fe984b7cd1be0b146e658"
  *               functionType:
  *                 type: string
+ *                 description: "The function type of the event. Required when status is 'New Walkin' (such as during lead creation in the mobile app/frontend). No longer used under 'Loss' status."
  *                 enum:
  *                   - "Hindu Function"
  *                   - "Christian Function"
  *                   - "Muslim Function"
  *                   - "Grooms Men"
  *                   - "Office or College"
- *                   - "Others functions"
+ *                   - "Other Functions"
  *                 example: "Hindu Function"
  *               category:
  *                 type: string
@@ -248,6 +262,16 @@ router.post('/save', OptionalMiddilWare, saveWalkin);
  *         schema:
  *           type: string
  *         description: Upper boundary date filter (YYYY-MM-DD)
+ *       - in: query
+ *         name: updatedStartDate
+ *         schema:
+ *           type: string
+ *         description: Lower boundary date filter based on updatedAt (ISO 8601 string)
+ *       - in: query
+ *         name: updatedEndDate
+ *         schema:
+ *           type: string
+ *         description: Upper boundary date filter based on updatedAt (ISO 8601 string)
  *     responses:
  *       200:
  *         description: Walk-ins retrieved successfully
@@ -520,5 +544,102 @@ router.get('/all', getAllWalkinsPublic);
  *         description: Internal server error
  */
 router.get('/cron-logs', MiddilWare, getCronLogs);
+
+/**
+ * @swagger
+ * /api/walkin/walkin-count:
+ *   get:
+ *     tags: [Walkin]
+ *     summary: Get comparison walk-in count page data
+ *     description: Returns in-app walk-in count metrics and saved camera check details for comparison.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: date
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Date formatted as YYYY-MM-DD
+ *       - in: query
+ *         name: store
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Store/branch name
+ *     responses:
+ *       200:
+ *         description: Counts retrieved successfully
+ */
+router.get('/walkin-count', MiddilWare, getWalkinCountPageData);
+
+/**
+ * @swagger
+ * /api/walkin/walkin-count/save:
+ *   post:
+ *     tags: [Walkin]
+ *     summary: Save comparison counts
+ *     description: Persists telecaller's camera counts, sales reports, time seen, and remarks.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - date
+ *               - store
+ *               - counts
+ *             properties:
+ *               date:
+ *                 type: string
+ *                 example: "2026-06-23"
+ *               store:
+ *                 type: string
+ *                 example: "G-Edappally"
+ *               counts:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *     responses:
+ *       200:
+ *         description: Saved successfully
+ */
+router.post('/walkin-count/save', MiddilWare, saveWalkinCountPageData);
+
+router.post('/camera-check', MiddilWare, saveCameraCheckEntry);
+router.get('/camera-check', MiddilWare, getCameraCheckEntries);
+router.delete('/camera-check/:id', MiddilWare, deleteCameraCheckEntry);
+
+/**
+ * @swagger
+ * /api/walkin/flutter/walkin-count:
+ *   get:
+ *     tags: [Walkin]
+ *     summary: Get walkin count for Flutter mobile app
+ *     description: Returns only the WALKIN count (new walk-ins) for the specified date and store.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: store
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Store/branch name (defaults to 'All' or user's assigned store)
+ *       - in: query
+ *         name: date
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Date formatted as YYYY-MM-DD (defaults to today's date in IST)
+ *     responses:
+ *       200:
+ *         description: "Returns { success: true, date, store, walkinCount }"
+ */
+router.get('/flutter/walkin-count', MiddilWare, getFlutterWalkinCount);
+router.get('/flutter-count', MiddilWare, getFlutterWalkinCount);
 
 export default router;

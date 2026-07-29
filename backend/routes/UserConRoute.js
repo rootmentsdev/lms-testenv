@@ -1,5 +1,6 @@
 import express from 'express';
-import { flutterLogin, loginUser } from '../controllers/CreateUser.js'; // Import the login controller
+import { flutterLogin, loginUser, saveFcmToken } from '../controllers/CreateUser.js'; // Import the login controller
+import { verifyJWT } from '../lib/JWT.js';
 
 const router = express.Router();
 
@@ -156,5 +157,40 @@ router.post('/logout', async (req, res) => {
     res.status(500).json({ message: 'Failed to track logout' });
   }
 });
+
+/**
+ * @swagger
+ * /api/auth/save-fcm-token:
+ *   post:
+ *     tags: [User Management]
+ *     summary: Save user FCM device token
+ *     description: Stores or updates the Firebase Cloud Messaging (FCM) device token for the currently logged-in user.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               fcmToken:
+ *                 type: string
+ *                 description: The FCM token generated on the client device.
+ *             required:
+ *               - fcmToken
+ *     responses:
+ *       200:
+ *         description: FCM token saved successfully
+ *       400:
+ *         description: FCM token is required
+ *       401:
+ *         description: Unauthorized, invalid token
+ *       404:
+ *         description: User or Admin not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/save-fcm-token', verifyJWT, saveFcmToken);
 
 export default router;

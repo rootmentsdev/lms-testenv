@@ -1,5 +1,5 @@
 import express from 'express';
-import { createTask, getTasks, getTaskById, getTaskAssignees, updateTaskStatus, reassignTask, getTaskAttachment, getTaskReviewAttachment, requestExtension, resolveExtensionRequest, updateTaskDetails } from '../controllers/TaskController.js';
+import { createTask, getTasks, getTaskById, getTaskAssignees, updateTaskStatus, reassignTask, getTaskAttachment, getTaskReviewAttachment, requestExtension, resolveExtensionRequest, updateTaskDetails, getTaskAttachmentByIndex, approveTaskStep } from '../controllers/TaskController.js';
 import { MiddilWare } from '../lib/middilWare.js';
 
 const router = express.Router();
@@ -307,6 +307,7 @@ router.put('/:id/reassign', MiddilWare, reassignTask);
 
 router.get('/:id/attachment', getTaskAttachment);
 router.get('/:id/review-attachment', getTaskReviewAttachment);
+router.get('/:id/attachment/:index', getTaskAttachmentByIndex);
 /**
  * @swagger
  * /api/task/{id}/request-extension:
@@ -414,5 +415,6 @@ router.put('/:id/request-extension', MiddilWare, requestExtension);
  */
 router.put('/:id/resolve-extension', MiddilWare, resolveExtensionRequest);
 router.put('/:id/details', MiddilWare, updateTaskDetails);
+router.put('/:id/approve', MiddilWare, approveTaskStep);
 
 export default router;

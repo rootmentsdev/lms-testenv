@@ -23,12 +23,13 @@ import { sendNotification }      from '../utils/notificationHelper.js';
 // Helpers
 // ─────────────────────────────────────────────────────────────────
 
-/** Returns today's date as YYYY-MM-DD in local server time */
+/** Returns today's date as YYYY-MM-DD in IST (Asia/Kolkata, UTC+5:30) */
 const todayStr = () => {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm   = String(d.getMonth() + 1).padStart(2, '0');
-  const dd   = String(d.getDate()).padStart(2, '0');
+  const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+  const now = new Date(Date.now() + IST_OFFSET_MS);
+  const yyyy = now.getUTCFullYear();
+  const mm   = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const dd   = String(now.getUTCDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
 };
 
@@ -51,7 +52,7 @@ const parseDate = (str) => {
  * @param {string} targetDate — YYYY-MM-DD
  * @returns {boolean}
  */
-const shouldGenerateToday = (template, targetDate) => {
+export const shouldGenerateToday = (template, targetDate) => {
   const target = parseDate(targetDate);
   const start  = parseDate(template.startDate);
   const end    = parseDate(template.endDate);
@@ -61,11 +62,9 @@ const shouldGenerateToday = (template, targetDate) => {
   // Must be on or after start date
   if (target < start) return false;
 
-  // Must be before or on end date (if set)
-  if (end) {
-    // Compare date-only (ignore time)
-    const endMidnight = new Date(end.getFullYear(), end.getMonth(), end.getDate(), 23, 59, 59);
-    if (target > endMidnight) return false;
+  // Must be before or on end date (if set) — compare YYYY-MM-DD strings directly
+  if (template.endDate && typeof template.endDate === 'string') {
+    if (targetDate > template.endDate) return false;
   }
 
   const type = template.repeatType;
@@ -98,6 +97,32 @@ const shouldGenerateToday = (template, targetDate) => {
     }
     // Same day of the month as startDate
     return target.getDate() === start.getDate();
+  }
+
+  if (type === 'quarterly') {
+    const monthDiff = (target.getFullYear() - start.getFullYear()) * 12 + (target.getMonth() - start.getMonth());
+    if (monthDiff >= 0 && monthDiff % 3 === 0) {
+      if (template.monthDays && template.monthDays.length > 0) {
+        return template.monthDays.includes(target.getDate());
+      }
+      const lastDayOfTargetMonth = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+      const expectedDay = Math.min(start.getDate(), lastDayOfTargetMonth);
+      return target.getDate() === expectedDay;
+    }
+    return false;
+  }
+
+  if (type === 'yearly') {
+    const monthDiff = (target.getFullYear() - start.getFullYear()) * 12 + (target.getMonth() - start.getMonth());
+    if (monthDiff >= 0 && monthDiff % 12 === 0) {
+      if (template.monthDays && template.monthDays.length > 0) {
+        return template.monthDays.includes(target.getDate());
+      }
+      const lastDayOfTargetMonth = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+      const expectedDay = Math.min(start.getDate(), lastDayOfTargetMonth);
+      return target.getDate() === expectedDay;
+    }
+    return false;
   }
 
   return false;
@@ -156,66 +181,24 @@ const resolveAssignees = async (template, creator) => {
   // ── all_employees ──────────────────────────────────────────────
   if (assignMode === 'all_employees') {
     const storeIds   = await getAccessibleStoreIds(creator._id);
-    const dbEmployees = await Employee.find({
-      storeId: { $in: storeIds },
-      status:  'Active',
-    }).populate('storeId');
-
-    const branches   = await Branch.find({ _id: { $in: storeIds } });
-    const locCodes   = branches.map(b => b.locCode);
-    const users      = await User.find({ locCode: { $in: locCodes } }).lean();
-
-    dbEmployees.forEach(emp => {
-      const name  = emp.firstName ? `${emp.firstName} ${emp.lastName || ''}`.trim() : (emp.username || 'Employee');
-      const desig = emp.designation || 'Staff';
-      const store = (emp.storeId && emp.storeId.workingBranch) || emp.workingBranch || 'Store';
-      targets.push({ id: emp._id.toString(), label: `${name} - ${desig} - ${store}` });
-    });
-
-    users.forEach(u => {
-      if (!targets.some(t => t.id === u._id.toString())) {
-        targets.push({
-          id:    u._id.toString(),
-          label: `${u.username || 'Employee'} - ${u.designation || 'Staff'} - ${u.workingBranch || 'Store'}`,
-        });
-      }
+    const admins = await Admin.find({ role: 'store_admin', branches: { $in: storeIds }, isActive: true }).populate('branches');
+    admins.forEach(ad => {
+      const storeName = ad.branches?.[0]?.workingBranch || 'Store';
+      targets.push({ id: ad._id.toString(), label: `${ad.name} - Store Admin - ${storeName}` });
     });
     return targets;
   }
 
   // ── store ──────────────────────────────────────────────────────
   if (assignMode === 'store' && selectedStores?.length) {
-    // Fetch all accessible employees then filter by store name
     const storeIds    = await getAccessibleStoreIds(creator._id);
-    const dbEmployees = await Employee.find({
-      storeId: { $in: storeIds },
-      status:  'Active',
-    }).populate('storeId');
-
-    const branches  = await Branch.find({ _id: { $in: storeIds } });
-    const locCodes  = branches.map(b => b.locCode);
-    const users     = await User.find({ locCode: { $in: locCodes } }).lean();
-
-    // Normalize selected store names for comparison
+    const admins = await Admin.find({ role: 'store_admin', branches: { $in: storeIds }, isActive: true }).populate('branches');
     const storeSet = new Set(selectedStores.map(s => s.toLowerCase().trim()));
 
-    dbEmployees.forEach(emp => {
-      const empStore = ((emp.storeId && emp.storeId.workingBranch) || emp.workingBranch || '').toLowerCase().trim();
-      if (storeSet.has(empStore)) {
-        const name  = emp.firstName ? `${emp.firstName} ${emp.lastName || ''}`.trim() : (emp.username || 'Employee');
-        const desig = emp.designation || 'Staff';
-        const store = (emp.storeId && emp.storeId.workingBranch) || emp.workingBranch || 'Store';
-        targets.push({ id: emp._id.toString(), label: `${name} - ${desig} - ${store}` });
-      }
-    });
-
-    users.forEach(u => {
-      const empStore = (u.workingBranch || '').toLowerCase().trim();
-      if (storeSet.has(empStore) && !targets.some(t => t.id === u._id.toString())) {
-        targets.push({
-          id:    u._id.toString(),
-          label: `${u.username || 'Employee'} - ${u.designation || 'Staff'} - ${u.workingBranch || 'Store'}`,
-        });
+    admins.forEach(ad => {
+      const storeName = ad.branches?.[0]?.workingBranch || '';
+      if (storeSet.has(storeName.toLowerCase().trim())) {
+        targets.push({ id: ad._id.toString(), label: `${ad.name} - Store Admin - ${storeName}` });
       }
     });
     return targets;
@@ -223,62 +206,12 @@ const resolveAssignees = async (template, creator) => {
 
   // ── role ───────────────────────────────────────────────────────
   if (assignMode === 'role' && selectedRoles?.length) {
-    const roleSet = new Set(selectedRoles.map(r => r.toLowerCase()));
-    // Map UI role keys to Admin.role values
-    const adminRoles = [];
-    const includeStaff = roleSet.has('employee') || roleSet.has('staff');
-    if (roleSet.has('super_admin'))   adminRoles.push('super_admin');
-    if (roleSet.has('admin'))         adminRoles.push('admin');
-    if (roleSet.has('hr_admin'))      adminRoles.push('hr_admin');
-    if (roleSet.has('cluster_admin')) adminRoles.push('cluster_admin');
-    if (roleSet.has('store_admin'))   adminRoles.push('store_admin');
-
-    if (adminRoles.length) {
-      const storeIds = await getAccessibleStoreIds(creator._id);
-      let adminQuery = { role: { $in: adminRoles }, isActive: true };
-
-      // Cluster/Store admins: scope to accessible stores
-      if (!['super_admin', 'admin', 'hr_admin'].includes(creator.role)) {
-        adminQuery.branches = { $in: storeIds };
-      }
-      const admins = await Admin.find(adminQuery).populate('branches');
-      admins.forEach(ad => {
-        const desig = ad.subRole && ad.subRole !== 'NR' ? ad.subRole : ad.role;
-        const store = (ad.role === 'super_admin' || ad.role === 'admin' || ad.role === 'hr_admin')
-          ? 'Office'
-          : (ad.branches?.[0]?.workingBranch || 'Store');
-        targets.push({ id: ad._id.toString(), label: `${ad.name} - ${desig} - ${store}` });
-      });
-    }
-
-    if (includeStaff) {
-      const storeIds    = await getAccessibleStoreIds(creator._id);
-      const dbEmployees = await Employee.find({
-        storeId: { $in: storeIds },
-        status:  'Active',
-      }).populate('storeId');
-
-      const branches = await Branch.find({ _id: { $in: storeIds } });
-      const locCodes = branches.map(b => b.locCode);
-      const users    = await User.find({ locCode: { $in: locCodes } }).lean();
-
-      dbEmployees.forEach(emp => {
-        if (!targets.some(t => t.id === emp._id.toString())) {
-          const name  = emp.firstName ? `${emp.firstName} ${emp.lastName || ''}`.trim() : (emp.username || 'Employee');
-          const desig = emp.designation || 'Staff';
-          const store = (emp.storeId && emp.storeId.workingBranch) || emp.workingBranch || 'Store';
-          targets.push({ id: emp._id.toString(), label: `${name} - ${desig} - ${store}` });
-        }
-      });
-      users.forEach(u => {
-        if (!targets.some(t => t.id === u._id.toString())) {
-          targets.push({
-            id:    u._id.toString(),
-            label: `${u.username || 'Employee'} - ${u.designation || 'Staff'} - ${u.workingBranch || 'Store'}`,
-          });
-        }
-      });
-    }
+    const storeIds = await getAccessibleStoreIds(creator._id);
+    const admins = await Admin.find({ role: 'store_admin', branches: { $in: storeIds }, isActive: true }).populate('branches');
+    admins.forEach(ad => {
+      const storeName = ad.branches?.[0]?.workingBranch || 'Store';
+      targets.push({ id: ad._id.toString(), label: `${ad.name} - Store Admin - ${storeName}` });
+    });
     return targets;
   }
 
@@ -367,6 +300,7 @@ export const generateAutoTasks = async (targetDate = null, specificTemplateId = 
       const roleLabels  = {
         super_admin: 'Super Admin', admin: 'Admin', hr_admin: 'HR Admin',
         cluster_admin: 'Cluster Admin', store_admin: 'Store Admin',
+        telecaller: 'Telecaller',
       };
       const roleLabel = roleLabels[creator.role] || creator.role;
       const subRole   = creator.subRole && creator.subRole !== 'NR' ? creator.subRole : '';
@@ -396,6 +330,9 @@ export const generateAutoTasks = async (targetDate = null, specificTemplateId = 
             title:        tmpl.title.trim(),
             category:     tmpl.category.trim(),
             subCategory:  tmpl.subCategory.trim(),
+            adminTitle:   tmpl.title.trim(),
+            adminCategory: tmpl.category.trim(),
+            adminSubCategory: tmpl.subCategory.trim(),
             assignedTo:   assignee.id,
             assignedToLabel: assignee.label,
             mode: 'auto',
@@ -405,7 +342,7 @@ export const generateAutoTasks = async (targetDate = null, specificTemplateId = 
             endTime:      tmpl.endTime || tmpl.startTime || '',
             description:  tmpl.description || '',
             priority:     tmpl.priority,
-            status:       'PENDING',
+            status:       'IN PROGRESS',
             storeName,
             storeCode,
             createdBy:    creator._id,

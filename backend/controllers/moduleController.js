@@ -325,11 +325,11 @@ export const AdminLogin = async (req, res) => {
         // Find user by EmpId (Employee ID) first
         let user = await Admin.findOne({
             EmpId: { $regex: `^${loginIdentifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' }
-        });
+        }).populate('branches');
 
         // Fallback to finding by email if not found
         if (!user) {
-            user = await Admin.findOne({ email: loginIdentifier.toLowerCase() });
+            user = await Admin.findOne({ email: loginIdentifier.toLowerCase() }).populate('branches');
         }
         
         if (!user) {
@@ -371,8 +371,8 @@ export const AdminLogin = async (req, res) => {
         const token = jwt.sign(payload, process.env.JWT_SECRET);
         console.log('✅ [LOGIN] Token generated for:', email);
 
-        // Send the token in the response
-        res.json({ token, user: payload });
+        // Send the token and user details in the response
+        res.json({ token, user: { ...payload, branches: user.branches || [] } });
     } catch (err) {
         console.error('❌ [LOGIN] Server error:', err.message);
         res.status(500).json({ message: 'Server error', error: err.message });
@@ -600,5 +600,80 @@ export const getEscalationLevel = async (req, res) => {
     } catch (error) {
         // Handle errors
         res.status(500).json({ message: "Failed to process escalation levels", error: error.message });
+    }
+};
+
+/**
+ * Change / Reset Password for Logged-In Admin
+ */
+export const changeAdminPassword = async (req, res) => {
+    try {
+        const userId = req.admin?.userId;
+        const { currentPassword, newPassword, confirmPassword } = req.body;
+
+        if (!userId) {
+            return res.status(401).json({ success: false, message: 'Unauthorized access' });
+        }
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ success: false, message: 'Current password and new password are required' });
+        }
+
+        const trimmedCurrent = String(currentPassword).trim();
+        const trimmedNew = String(newPassword).trim();
+
+        if (trimmedNew.length < 6) {
+            return res.status(400).json({ success: false, message: 'New password must be at least 6 characters long' });
+        }
+
+        if (!/[A-Z]/.test(trimmedNew)) {
+            return res.status(400).json({ success: false, message: 'New password must contain at least one uppercase letter (A-Z)' });
+        }
+
+        if (!/[0-9]/.test(trimmedNew)) {
+            return res.status(400).json({ success: false, message: 'New password must contain at least one number (0-9)' });
+        }
+
+        if (confirmPassword && trimmedNew !== String(confirmPassword).trim()) {
+            return res.status(400).json({ success: false, message: 'New password and confirm password do not match' });
+        }
+
+        const admin = await Admin.findById(userId);
+        if (!admin) {
+            return res.status(404).json({ success: false, message: 'Admin account not found' });
+        }
+
+        if (!admin.password) {
+            return res.status(400).json({ success: false, message: 'Password is not set for this account' });
+        }
+
+        const isMatch = await bcrypt.compare(trimmedCurrent, admin.password);
+        if (!isMatch) {
+            return res.status(400).json({ success: false, message: 'Current password is incorrect' });
+        }
+
+        const hashedPassword = await bcrypt.hash(trimmedNew, 10);
+        admin.password = hashedPassword;
+        await admin.save();
+
+        // Also sync corresponding User document if present
+        if (admin.EmpId || admin.email) {
+            await User.updateMany(
+                { $or: [{ empID: admin.EmpId }, { email: admin.email }] },
+                { password: hashedPassword }
+            );
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: 'Password updated successfully. You can now log in with your new password.'
+        });
+    } catch (error) {
+        console.error('Error changing admin password:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Internal server error while changing password',
+            error: error.message
+        });
     }
 };

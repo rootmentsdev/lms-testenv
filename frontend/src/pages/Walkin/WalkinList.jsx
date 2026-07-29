@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
+import { useLocation, useNavigate } from 'react-router-dom';
 import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
 import baseUrl from "../../api/api";
@@ -113,7 +114,7 @@ const UPDATE_STATUS_OPTIONS = [
 ];
 
 const HARDCODED_STORES = [
-    'Z-Edapally1', 'G-Edappally', 'SG-Trivandrum', 'Z- Edappal', 'Z.Perinthalmanna',
+    'Z-Edapally1', 'G-Edappally', 'Z- Edappal', 'Z.Perinthalmanna',
     'Z.Kottakkal', 'G.Kottayam', 'G.Perumbavoor', 'G.Thrissur', 'G.Chavakkad',
     'G.Calicut', 'G.Vadakara', 'G.Edappal', 'G.Perinthalmanna', 'G.Kottakkal',
     'G.Manjeri', 'G.Palakkad', 'G.Kalpetta', 'G.Kannur', 'G.MG Road',
@@ -264,7 +265,6 @@ const getStatusColors = (statusStr) => {
     }
     return { bg: '#f3f4f6', color: '#6b7280' };
 };
-
 const WalkinList = () => {
     const user = useSelector((state) => state.auth.user);
     const token = localStorage.getItem('token');
@@ -293,11 +293,25 @@ const WalkinList = () => {
     // Filters and UI State
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
+    const [functionTypeFilter, setFunctionTypeFilter] = useState('All');
     const [storeFilter, setStoreFilter] = useState('All');
+    const [filterStartDate, setFilterStartDate] = useState('');
+    const [filterEndDate, setFilterEndDate] = useState('');
 
     // Toggle state between Walkin List View and dynamic Add Walkin Form Page View matching screenshot
     const [showAddView, setShowAddView] = useState(false);
     const [showStatusModal, setShowStatusModal] = useState(false);
+
+    const location = useLocation();
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        if (location.state?.openAdd) {
+            setShowAddView(true);
+            // Clear location state to avoid opening on page reload
+            navigate(location.pathname, { replace: true, state: {} });
+        }
+    }, [location, navigate]);
     const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [selectedHistoryWalkin, setSelectedHistoryWalkin] = useState(null);
 
@@ -347,20 +361,21 @@ const WalkinList = () => {
         <>
             {formData.status === 'Loss' ? (
                 <>
-                    {/* 1. Function Type Dropdown (always visible first under Loss) */}
+                    {/* Category Dropdown (always visible first under Loss) */}
                     <div className="col-span-12 md:col-span-3">
                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                            Function Type<span className="text-red-500">*</span>
+                            Category<span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
                             <select
-                                name="functionType"
+                                name="category"
                                 required
-                                value={formData.functionType}
+                                value={formData.category}
                                 onChange={handleInputChange}
                                 className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
                             >
-                                {getFunctionTypeOptions().map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
+                                <option value="">Select Category</option>
+                                {getCategoryOptions().map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
                             </select>
                             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
                                 <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
@@ -369,32 +384,6 @@ const WalkinList = () => {
                             </div>
                         </div>
                     </div>
-
-                    {/* 2. Category Dropdown (appears once Function Type is selected) */}
-                    {formData.functionType && !['Select Function Type', 'Select function type', '-', ''].includes(formData.functionType) && (
-                        <div className="col-span-12 md:col-span-3">
-                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                Category<span className="text-red-500">*</span>
-                            </label>
-                            <div className="relative">
-                                <select
-                                    name="category"
-                                    required
-                                    value={formData.category}
-                                    onChange={handleInputChange}
-                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
-                                >
-                                    <option value="">Select Category</option>
-                                    {getCategoryOptions().map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
-                                </select>
-                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                                        <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                                    </svg>
-                                </div>
-                            </div>
-                        </div>
-                    )}
 
                     {/* 3. Fields based on Category Selection */}
                     {formData.category === 'Product' && (
@@ -494,9 +483,9 @@ const WalkinList = () => {
                                                     </div>
                                                     <div className="col-span-12">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -542,9 +531,9 @@ const WalkinList = () => {
                                                     </div>
                                                     <div className="col-span-12 md:col-span-9">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -559,9 +548,9 @@ const WalkinList = () => {
                                             {formData.lossReason === 'Price' && (
                                                 <div className="col-span-12">
                                                     <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                        Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                        Note <span className="text-red-500">*</span>
                                                     </label>
-                                                    <textarea
+                                                    <textarea required
                                                         name="lossNote"
                                                         rows={1}
                                                         placeholder="Product Category / Item Name"
@@ -600,9 +589,9 @@ const WalkinList = () => {
                                                     </div>
                                                     <div className="col-span-12 md:col-span-9">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -695,9 +684,9 @@ const WalkinList = () => {
                                                     </div>
                                                     <div className="col-span-12">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -764,9 +753,9 @@ const WalkinList = () => {
                                                     </div>
                                                     <div className="col-span-12">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -842,9 +831,9 @@ const WalkinList = () => {
                                             {((formData.lossReason || '').toLowerCase().trim() === 'enquiry without groom and bride' || (formData.lossReason || '').toLowerCase().trim() === 'enquiry without groom/bride') && (
                                                 <div className="col-span-12 md:col-span-6">
                                                     <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                        Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                        Note <span className="text-red-500">*</span>
                                                     </label>
-                                                    <textarea
+                                                    <textarea required
                                                         name="lossNote"
                                                         rows={1}
                                                         placeholder="Product Category / Item Name"
@@ -885,9 +874,9 @@ const WalkinList = () => {
                                                     {/* Note box */}
                                                     <div className="col-span-12 md:col-span-3">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -919,9 +908,9 @@ const WalkinList = () => {
                                                     {/* Note box */}
                                                     <div className="col-span-12 md:col-span-3">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -962,9 +951,9 @@ const WalkinList = () => {
                                             {((formData.subCategory || '').toLowerCase().trim() === 'shoe' || (formData.subCategory || '').toLowerCase().trim() === 'shirt') && (
                                                 <div className="col-span-12 md:col-span-9">
                                                     <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                        Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                        Note <span className="text-red-500">*</span>
                                                     </label>
-                                                    <textarea
+                                                    <textarea required
                                                         name="lossNote"
                                                         rows={1}
                                                         placeholder="Product Category / Item Name"
@@ -1078,9 +1067,9 @@ const WalkinList = () => {
                                                     </div>
                                                     <div className="col-span-12">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -1120,9 +1109,9 @@ const WalkinList = () => {
                                                     </div>
                                                     <div className="col-span-12 md:col-span-9">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -1161,9 +1150,9 @@ const WalkinList = () => {
                                                     </div>
                                                     <div className="col-span-12 md:col-span-9">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -1195,9 +1184,9 @@ const WalkinList = () => {
                                                     {/* Note box */}
                                                     <div className="col-span-12 md:col-span-3">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -1237,9 +1226,9 @@ const WalkinList = () => {
                                                     </div>
                                                     <div className="col-span-12 md:col-span-9">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -1332,9 +1321,9 @@ const WalkinList = () => {
                                                     </div>
                                                     <div className="col-span-12">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -1401,9 +1390,9 @@ const WalkinList = () => {
                                                     </div>
                                                     <div className="col-span-12">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Note <span className="text-red-500">*</span>
                                                         </label>
-                                                        <textarea
+                                                        <textarea required
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Category / Item Name"
@@ -1521,9 +1510,9 @@ const WalkinList = () => {
                                     {/* Note field */}
                                     <div className="col-span-12">
                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                            Note <span className="text-gray-400 font-normal">(Optional)</span>
+                                            Note <span className="text-red-500">*</span>
                                         </label>
-                                        <textarea
+                                        <textarea required
                                             name="lossNote"
                                             rows={1}
                                             placeholder="Product Category / Item Name"
@@ -1540,6 +1529,31 @@ const WalkinList = () => {
             ) : (
                 /* STANDARD FLOW (NOT 'Loss') */
                 <>
+                    {/* Function Type Dropdown (Visible only for New Walkin) */}
+                    {formData.status === 'New Walkin' && (
+                        <div className="col-span-12 md:col-span-3">
+                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                Function Type<span className="text-red-500">*</span>
+                            </label>
+                            <div className="relative">
+                                <select
+                                    name="functionType"
+                                    required
+                                    value={formData.functionType}
+                                    onChange={handleInputChange}
+                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                >
+                                    {getFunctionTypeOptions().map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
+                                </select>
+                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                        <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Category Select (Visible only for Revisit) */}
                     {formData.status === 'Revisit' && (
                         <div className="col-span-12 md:col-span-3">
@@ -1570,9 +1584,9 @@ const WalkinList = () => {
                     {formData.status !== 'New Walkin' && (
                         <div className={formData.status === 'Revisit' ? "col-span-12 md:col-span-6" : "col-span-12 md:col-span-9"}>
                             <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                Remarks <span className="text-gray-400 font-normal">(Optional)</span>
+                                Remarks <span className="text-red-500">*</span>
                             </label>
-                            <textarea
+                            <textarea required
                                 name="remarks"
                                 rows={1}
                                 placeholder="Enter your remarks..."
@@ -1799,17 +1813,37 @@ const WalkinList = () => {
         };
     };
 
+    const getCreatedDateRange = () => {
+        let createdAtStartDate = '';
+        let createdAtEndDate = '';
+
+        // Build ISO strings with explicit IST offset (+05:30) so the backend receives
+        // the correct UTC values regardless of the browser's local timezone.
+        if (filterStartDate) {
+            createdAtStartDate = `${filterStartDate}T00:00:00+05:30`;
+        }
+        if (filterEndDate) {
+            createdAtEndDate = `${filterEndDate}T23:59:59.999+05:30`;
+        }
+        return { createdAtStartDate, createdAtEndDate };
+    };
+
     // Fetch walkins dynamically from live API
     const loadWalkinsList = async (pageToLoad = 1) => {
         try {
             setWalkinsLoading(true);
+            const { createdAtStartDate, createdAtEndDate } = getCreatedDateRange();
             const params = new URLSearchParams({
                 search: searchQuery.trim(),
                 status: statusFilter,
+                functionType: functionTypeFilter,
                 store: storeFilter,
                 page: pageToLoad,
-                limit: itemsPerPage === 'All' ? 0 : itemsPerPage
+                limit: itemsPerPage === 'All' ? 0 : itemsPerPage,
+                sortBy: 'createdAt'
             });
+            if (createdAtStartDate) params.append('createdAtStartDate', createdAtStartDate);
+            if (createdAtEndDate) params.append('createdAtEndDate', createdAtEndDate);
             const walkinRes = await fetch(`${baseUrl.baseUrl}api/walkin/list?${params.toString()}`, {
                 headers: {
                     'Content-Type': 'application/json',
@@ -1853,7 +1887,7 @@ const WalkinList = () => {
                 const branchJson = await branchRes.json();
                 let branchList = Array.isArray(branchJson?.stores) ? branchJson.stores : (Array.isArray(branchJson?.data) ? branchJson.data : []);
 
-                if (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin') {
+                if (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'telecaller') {
                     // Force the dropdown to show the hardcoded stores to ensure it's not empty,
                     // and merge any DB ones to prevent duplicates.
                     const existing = new Set(branchList.map(b => b.workingBranch));
@@ -1914,7 +1948,7 @@ const WalkinList = () => {
     // Reset page to 1 when filters or page limit changes
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchQuery, statusFilter, storeFilter, itemsPerPage]);
+    }, [searchQuery, statusFilter, functionTypeFilter, storeFilter, itemsPerPage, filterStartDate, filterEndDate]);
 
     // Fetch walkins whenever page, limit, filters, or loading state changes
     // Debounce search-triggered fetches so we don't fire on every keystroke
@@ -1927,7 +1961,7 @@ const WalkinList = () => {
         } else {
             loadWalkinsList(currentPage);
         }
-    }, [currentPage, itemsPerPage, searchQuery, statusFilter, storeFilter, loading]);
+    }, [currentPage, itemsPerPage, searchQuery, statusFilter, functionTypeFilter, storeFilter, filterStartDate, filterEndDate, loading]);
 
     // Auto-refresh the list page data every 5 minutes
     useEffect(() => {
@@ -1938,7 +1972,7 @@ const WalkinList = () => {
         }, 5 * 60 * 1000);
 
         return () => clearInterval(intervalId);
-    }, [currentPage, itemsPerPage, searchQuery, statusFilter, storeFilter, token, loading, showAddView]);
+    }, [currentPage, itemsPerPage, searchQuery, statusFilter, functionTypeFilter, storeFilter, filterStartDate, filterEndDate, token, loading, showAddView]);
 
     const totalPages = itemsPerPage === 'All' ? 1 : Math.ceil(totalWalkins / itemsPerPage);
     const indexFirst = itemsPerPage === 'All' ? 0 : (currentPage - 1) * itemsPerPage;
@@ -2362,11 +2396,13 @@ const WalkinList = () => {
             alert('Please select a Walk-in Status.');
             return;
         }
-        if (formData.status === 'Loss') {
+        if (formData.status === 'New Walkin') {
             if (!formData.functionType || ['Select Function Type', 'Select function type', '-', ''].includes(formData.functionType)) {
                 alert('Please select a Function Type.');
                 return;
             }
+        }
+        if (formData.status === 'Loss') {
             if (!formData.category || formData.category === '-' || formData.category === '') {
                 alert('Please select a Category.');
                 return;
@@ -2595,11 +2631,11 @@ const WalkinList = () => {
 
     const currentStoreEmployees = employees; // Already filtered by loadEmployees API
 
-    const showCategory = formData.status === 'Revisit' || (formData.status === 'Loss' && formData.functionType && !['Select Function Type', 'Select function type', '-', ''].includes(formData.functionType));
+    const showCategory = formData.status === 'Revisit' || formData.status === 'Loss';
     const showSubCategory = formData.status === 'Loss' && (
         formData.category === 'Product' || formData.category === 'Enquiry' || formData.category === 'Dapper Squad'
     ) && formData.lossProductType && formData.lossProductType !== '';
-    const showFunctionType = formData.status === 'Loss';
+    const showFunctionType = formData.status === 'New Walkin';
     const showAttachmentInput = formData.status === 'Loss' && formData.category === 'Product' && ((formData.subCategory || '').toLowerCase().trim() === 'design and colour not available' || (formData.subCategory || '').toLowerCase().trim() === 'model, design and colour not available' || (formData.subCategory || '').toLowerCase().trim() === 'design and color unavailable');
 
     const getProductTypeOptions = () => {
@@ -2975,16 +3011,18 @@ const WalkinList = () => {
                         {/* Header */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '24px', marginBottom: '16px' }}>
                             <h1 style={{ fontSize: '22px', fontWeight: 700, lineHeight: 1.2, color: '#111827', margin: 0 }}>Walk In List</h1>
-                            <button
-                                onClick={() => {
-                                    setFormData(getResetFormData());
-                                    setSelectedFile(null);
-                                    setShowAddView(true);
-                                }}
-                                style={{ background: '#111827', color: '#fff', border: 'none', borderRadius: '10px', padding: '9px 18px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
-                            >
-                                + New Walk In
-                            </button>
+                            {user?.role !== 'telecaller' && (
+                                <button
+                                    onClick={() => {
+                                        setFormData(getResetFormData());
+                                        setSelectedFile(null);
+                                        setShowAddView(true);
+                                    }}
+                                    style={{ background: '#111827', color: '#fff', border: 'none', borderRadius: '10px', padding: '9px 18px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                >
+                                    + New Walk In
+                                </button>
+                            )}
                         </div>
 
                         {/* Filters */}
@@ -3000,7 +3038,50 @@ const WalkinList = () => {
                                 <option value="All">All Status</option>
                                 {FILTER_STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                             </select>
-                            {(user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'cluster_admin' || user?.role === 'store_admin') && (
+                            <select value={functionTypeFilter} onChange={e => setFunctionTypeFilter(e.target.value)} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '7px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer' }}>
+                                <option value="All">All Event Types</option>
+                                {['Hindu Function', 'Christian Function', 'Muslim Function', 'Grooms Men', 'Office or College', 'Other Functions'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                            </select>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <input
+                                    type="date"
+                                    value={filterStartDate}
+                                    onChange={e => setFilterStartDate(e.target.value)}
+                                    style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '7px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer' }}
+                                />
+                                <span style={{ fontSize: '13px', color: '#6b7280' }}>to</span>
+                                <input
+                                    type="date"
+                                    value={filterEndDate}
+                                    onChange={e => setFilterEndDate(e.target.value)}
+                                    style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '7px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer' }}
+                                />
+                                {(filterStartDate || filterEndDate) && (
+                                    <button
+                                        onClick={() => {
+                                            setFilterStartDate('');
+                                            setFilterEndDate('');
+                                        }}
+                                        style={{
+                                            background: '#f3f4f6',
+                                            border: '1px solid #e5e7eb',
+                                            borderRadius: '8px',
+                                            padding: '7px 12px',
+                                            fontSize: '13px',
+                                            color: '#374151',
+                                            cursor: 'pointer',
+                                            outline: 'none',
+                                            fontWeight: 500,
+                                            transition: 'all 0.2s'
+                                        }}
+                                        onMouseEnter={e => e.target.style.background = '#e5e7eb'}
+                                        onMouseLeave={e => e.target.style.background = '#f3f4f6'}
+                                    >
+                                        Clear Range
+                                    </button>
+                                )}
+                            </div>
+                            {(user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'cluster_admin' || user?.role === 'store_admin' || user?.role === 'telecaller') && (
                                 <select
                                     value={storeFilter}
                                     disabled={user?.role === 'store_admin'}
@@ -3034,14 +3115,15 @@ const WalkinList = () => {
                             ) : (
                                 <>
                                     <div style={{ overflowX: 'auto' }}>
-                                        <table style={{ width: '3305px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
+                                        <table style={{ width: user?.role === 'telecaller' ? '3355px' : '3435px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
                                             <thead>
                                                 <tr style={{ borderBottom: '1px solid #f3f4f6', background: '#fafafa' }}>
-                                                    {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'REPEAT COUNT', 'STATUS', 'HISTORY', 'FUNCTION DATE', 'FUNCTION TYPE', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'SIZE', 'COLOR', 'NOTES', 'STORE', 'STAFF', 'ATTACHMENT', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'BILLED DATE', 'BILL RETURNED DATE', 'EDIT'].map((h, i) => {
+                                                    {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'REPEAT COUNT', 'STATUS', 'HISTORY', 'FUNCTION DATE', 'FUNCTION TYPE', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'SIZE', 'COLOR', 'NOTES', 'STORE', 'STAFF', 'ATTACHMENT', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'BILLED DATE', 'BILL RETURNED DATE', 'NEXT VISIT DATE', 'EDIT'].filter(h => h !== 'EDIT' || user?.role !== 'telecaller').map((h, i) => {
                                                         const getColWidth = (header) => {
                                                             const widths = {
                                                               '#': '50px',
                                                               'DATE': '100px',
+                                                              'NEXT VISIT DATE': '130px',
                                                               'CUSTOMER': '160px',
                                                               'CONTACT': '125px',
                                                               'REPEAT COUNT': '110px',
@@ -3142,11 +3224,26 @@ const WalkinList = () => {
                                                             <td style={{ padding: '11px 12px', textAlign: 'center', color: '#9ca3af', boxSizing: 'border-box' }}>{indexFirst + index + 1}</td>
                                                             <td style={{ textAlign: 'center', padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
                                                                 <div className="walkin-marquee-container">
-                                                                    <span className="walkin-marquee-text walkin-anim-scroll">{safeDateOnly(w.date)}</span>
+                                                                    <span className="walkin-marquee-text walkin-anim-scroll">{safeDateOnly(w.createdAt || w.date)}</span>
                                                                 </div>
                                                             </td>
                                                             <td style={{ textAlign: 'center', padding: '11px 12px', color: '#111827', fontWeight: 500, boxSizing: 'border-box' }}>
-                                                                <div className="walkin-marquee-container">
+                                                                <div className="walkin-marquee-container" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
+                                                                    {w.legacyMeta?.autoCreated && (
+                                                                        <span
+                                                                            title="Auto-created by sync (employee missed walk-in entry)"
+                                                                            style={{
+                                                                                display: 'inline-block',
+                                                                                width: '8px',
+                                                                                height: '8px',
+                                                                                borderRadius: '50%',
+                                                                                background: '#ef4444',
+                                                                                flexShrink: 0,
+                                                                                boxShadow: '0 0 0 2px rgba(239,68,68,0.25)',
+                                                                                animation: 'walkin-pulse-red 1.8s ease-in-out infinite'
+                                                                            }}
+                                                                        />
+                                                                    )}
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.customerName || '–'}</span>
                                                                 </div>
                                                             </td>
@@ -3177,7 +3274,7 @@ const WalkinList = () => {
                                                                              className="walkin-marquee-text walkin-anim-scroll"
                                                                              style={{
                                                                                  padding: '4px 6px',
-                                                                                 paddingRight: '18px',
+                                                                                 paddingRight: user?.role === 'telecaller' ? '6px' : '18px',
                                                                                  fontSize: '11px',
                                                                                  fontWeight: 900,
                                                                                  borderRadius: '20px',
@@ -3185,7 +3282,7 @@ const WalkinList = () => {
                                                                                  color: sc.color,
                                                                                  whiteSpace: 'nowrap',
                                                                                  display: 'inline-block',
-                                                                                 backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='${sc.color}' stroke-width='2'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+                                                                                 backgroundImage: user?.role === 'telecaller' ? 'none' : `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='${sc.color}' stroke-width='2'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
                                                                                  backgroundRepeat: 'no-repeat',
                                                                                  backgroundPosition: 'right 4px center',
                                                                                  backgroundSize: '12px',
@@ -3202,7 +3299,7 @@ const WalkinList = () => {
                                                                      <select
                                                                          value={w.status || 'New Walkin'}
                                                                          onChange={(e) => handleStatusChange(w, e.target.value)}
-                                                                         disabled={statusChangedToday[w._id] || updatingStatus[w._id]}
+                                                                         disabled={statusChangedToday[w._id] || updatingStatus[w._id] || user?.role === 'telecaller'}
                                                                          style={{
                                                                              position: 'absolute',
                                                                              top: 0,
@@ -3210,10 +3307,10 @@ const WalkinList = () => {
                                                                              width: '100%',
                                                                              height: '100%',
                                                                              opacity: 0,
-                                                                             cursor: statusChangedToday[w._id] ? 'not-allowed' : 'pointer',
+                                                                             cursor: (statusChangedToday[w._id] || user?.role === 'telecaller') ? 'not-allowed' : 'pointer',
                                                                              boxSizing: 'border-box'
                                                                          }}
-                                                                         title={statusChangedToday[w._id] ? 'Status already changed today. Try again tomorrow.' : 'Change status'}
+                                                                         title={user?.role === 'telecaller' ? 'You do not have permission to change status.' : (statusChangedToday[w._id] ? 'Status already changed today. Try again tomorrow.' : 'Change status')}
                                                                      >
                                                                          {!['New Walkin', 'Loss', 'Revisit'].includes(w.status) && w.status && (
                                                                              <option value={w.status}>{w.status}</option>
@@ -3361,17 +3458,26 @@ const WalkinList = () => {
                                                             <td style={{ padding: '11px 12px', textAlign: 'center', color: '#6b7280', fontSize: '11px', boxSizing: 'border-box' }}>
                                                                 {w.billReturnedDate ? new Date(w.billReturnedDate).toISOString().split('T')[0] : '–'}
                                                             </td>
-                                                            <td style={{ padding: '11px 12px', textAlign: 'center', boxSizing: 'border-box' }}>
-                                                                <button
-                                                                    onClick={() => handleEditClick(w)}
-                                                                    style={{ background: 'none', border: 'none', color: '#4b5563', cursor: 'pointer', padding: '4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', transition: 'color 0.1s' }}
-                                                                    onMouseEnter={e => e.currentTarget.style.color = '#111827'}
-                                                                    onMouseLeave={e => e.currentTarget.style.color = '#4b5563'}
-                                                                    title="Edit Details"
-                                                                >
-                                                                    <FaPen size={12} />
-                                                                </button>
+                                                            <td style={{ textAlign: 'center', padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
+                                                                <div className="walkin-marquee-container">
+                                                                    <span className="walkin-marquee-text walkin-anim-scroll">
+                                                                        {(w.lossEnquiryRevisitDate && w.lossEnquiryRevisitDate !== '-') ? w.lossEnquiryRevisitDate.split(' ')[0].split('T')[0] : '–'}
+                                                                    </span>
+                                                                </div>
                                                             </td>
+                                                            {user?.role !== 'telecaller' && (
+                                                                <td style={{ padding: '11px 12px', textAlign: 'center', boxSizing: 'border-box' }}>
+                                                                    <button
+                                                                        onClick={() => handleEditClick(w)}
+                                                                        style={{ background: 'none', border: 'none', color: '#4b5563', cursor: 'pointer', padding: '4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', transition: 'color 0.1s' }}
+                                                                        onMouseEnter={e => e.currentTarget.style.color = '#111827'}
+                                                                        onMouseLeave={e => e.currentTarget.style.color = '#4b5563'}
+                                                                        title="Edit Details"
+                                                                    >
+                                                                        <FaPen size={12} />
+                                                                    </button>
+                                                                </td>
+                                                            )}
                                                         </tr>
                                                     );
                                                 })}
@@ -3557,6 +3663,10 @@ const WalkinList = () => {
                                 0%, 15% { transform: translateX(0); }
                                 85%, 100% { transform: translateX(calc(-100% + 100cqw)); }
                             }
+                            @keyframes walkin-pulse-red {
+                                0%, 100% { box-shadow: 0 0 0 2px rgba(239,68,68,0.25); }
+                                50%       { box-shadow: 0 0 0 5px rgba(239,68,68,0.0); }
+                            }
                         `}</style>
                     </>
                 )}
@@ -3642,16 +3752,14 @@ const WalkinList = () => {
                                     });
                                 }
 
-                                // Helper function to ensure actual DB date overrides sync/manual update date
+                                // Helper function to reconstruct missing status dates (e.g. for older walk-ins)
                                 const ensureOrUpdateStatusDate = (statusNames, targetDate, defaultCategory = null) => {
                                     if (!targetDate) return;
                                     const parsedTargetDate = new Date(targetDate);
                                     if (isNaN(parsedTargetDate.getTime())) return;
 
-                                    const existingIndex = history.findIndex(h => statusNames.map(s => s.toLowerCase()).includes(h.status.toLowerCase().trim()));
-                                    if (existingIndex !== -1) {
-                                        history[existingIndex].date = parsedTargetDate;
-                                    } else {
+                                    const hasStatusInHistory = history.some(h => statusNames.map(s => s.toLowerCase()).includes(h.status.toLowerCase().trim()));
+                                    if (!hasStatusInHistory) {
                                         history.push({
                                             status: statusNames[0],
                                             category: defaultCategory || selectedHistoryWalkin.category || 'Product',
@@ -3728,7 +3836,18 @@ const WalkinList = () => {
                                     status: item.status,
                                     category: item.category,
                                     date: item.date ? new Date(item.date) : new Date()
-                                })).sort((a, b) => a.date - b.date);
+                                })).sort((a, b) => {
+                                    const aTime = a.date.getTime();
+                                    const bTime = b.date.getTime();
+                                    // If dates are identical or within 10 seconds, 'New Walkin' goes first
+                                    if (Math.abs(aTime - bTime) < 10000) {
+                                        const aIsNew = String(a.status || '').toLowerCase().trim() === 'new walkin';
+                                        const bIsNew = String(b.status || '').toLowerCase().trim() === 'new walkin';
+                                        if (aIsNew && !bIsNew) return -1;
+                                        if (!aIsNew && bIsNew) return 1;
+                                    }
+                                    return aTime - bTime;
+                                });
 
                                 // Filter out consecutive equivalent statuses (no actual change)
                                 const filteredHistory = [];

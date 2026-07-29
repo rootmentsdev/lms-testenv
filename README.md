@@ -390,7 +390,7 @@ The Brynex LMS features a comprehensively documented backend. Swagger UI is avai
 
 ### 7. Walk-ins & Leads
 - `GET /api/walkin/check/:contact`: Checks if a customer exists by contact phone number (Mobile App lookup).
-- `POST /api/walkin/save`: Saves a new walk-in record (Mobile App lead generation & Web Dashboard updates). Requires only `customerName` and `contact` (phone) for creation; all other fields are optional.
+- `POST /api/walkin/save`: Saves a new walk-in record (Mobile App lead generation & Web Dashboard updates). Requires `customerName` and `contact` (phone) for creation, and `functionType` when creating with status `'New Walkin'`; all other fields are optional.
   - **Status Change Restriction:** Status can only be changed **once per calendar day** per walk-in record.
     - Both Flutter mobile app and web dashboard are subject to this restriction.
     - Attempting a status change on the same day returns HTTP 400: `"Status can only be changed once per day. Please try again tomorrow."`
@@ -518,7 +518,7 @@ The mobile app login system now securely authenticates users and auto-provisions
 
 ### Walk-In Role-Based Access & App Flow
 The Walk-in system integrates both mobile app lead capture and web dashboard management:
-- **Mobile App:** Submits leads via `/api/walkin/save`. Uses an optional auth middleware to identify the employee. If the user token is present, the backend securely overrides `store` and `staff` from the logged-in profile. The backend is also resilient to misformatted IDs (e.g. blank strings or string aliases sent instead of Mongoose ObjectIDs for `storeId` or `employeeId`), automatically resolving the correct IDs via credentials or store name lookup. If the status is "New Walkin", it ensures a fresh record is created rather than overwriting.
+- **Mobile App:** Submits leads via `/api/walkin/save`. Uses an optional auth middleware to identify the employee. If the user token is present, the backend securely overrides `store` and `staff` from the logged-in profile. Requires `functionType` selection when creating walk-ins with status "New Walkin" (which is the default status for mobile app lead submissions). The backend is also resilient to misformatted IDs (e.g. blank strings or string aliases sent instead of Mongoose ObjectIDs for `storeId` or `employeeId`), automatically resolving the correct IDs via credentials or store name lookup. If the status is "New Walkin", it ensures a fresh record is created rather than overwriting.
 - **Web Dashboard:** Managed via `WalkinList.jsx`. 
   - Dynamic store and employee dropdowns are governed by the `api/admin/accessible-stores` and `api/admin/accessible-employees` endpoints.
   - Passes explicit `storeId` and `employeeId` during save. The backend heavily validates these against the logged-in Admin's scope using `validateStoreAccess` and `validateEmployeeAccess`.
@@ -803,6 +803,30 @@ The **Enquiry** option has been enabled in the Dapper Squad category's "Select R
 - **Remarks format:** `[enquiry] Revisit Date: <date> | Note: <note>`
 - **Backend:** No API changes needed — `lossEnquiryRevisitDate` and `lossReason` fields were already handled generically by the controller
 
+| `frontend/src/pages/Walkin/WalkinList.jsx` | Enabled Enquiry option; added Next Visit Date picker; added validation |
+
+---
+
+### Decoupled Walkin List & Reports Dates & Function Type Relocation (July 2026)
+
+1. Decoupled sorting and date range filters between the Walkin List (sorted and filtered by creation date `createdAt`) and Walkin Reports (sorted and filtered by status update date `updatedAt`).
+2. Moved the **Function Type** dropdown from the `'Loss'` status flow to the `'New Walkin'` status flow.
+
+#### Changes
+
+- **Walk-in Creation/Lead Flow**:
+  - The **Function Type** dropdown is now rendered and required immediately when status is `'New Walkin'` (such as during fresh lead capture in mobile/frontend).
+  - The backend controller is updated to save and persist `functionType` on creation and during edits for `'New Walkin'` status.
+- **Loss Flow**:
+  - Removed **Function Type** requirement and dropdown from the `'Loss'` flow.
+  - The Category dropdown is now displayed immediately first when status is changed to `'Loss'`.
+- **Date Decoupling**:
+  - The Walkin List queries the database sorted by `createdAt` and filters by `createdAt` range.
+  - Walkin Reports query the database sorted by `updatedAt` and filter by `updatedAt` range.
+
 | File | Change |
 |---|---|
-| `frontend/src/pages/Walkin/WalkinList.jsx` | Enabled Enquiry option; added Next Visit Date picker; added validation |
+| `backend/controllers/WalkinController.js` | Extended `getWalkins`/`getAllWalkinsPublic` for `createdAt` range filters and sorting; updated `saveWalkin` to save `functionType` on `'New Walkin'` status. |
+| `backend/routes/WalkinRoute.js` | Updated Swagger documentation to specify `functionType` requirement on creation/New Walkin status, and returned in lookup. |
+| `frontend/src/pages/Walkin/WalkinList.jsx` | Updated query parameters to request sorted by `createdAt` and filter by creation range; added Function Type to New Walkin flow; removed from Loss flow; updated validation. |
+| `frontend/src/pages/Walkin/WalkinReport.jsx` | Updated query parameters to request sorted by `updatedAt` and filter by update range; fixed table format scope crash. |

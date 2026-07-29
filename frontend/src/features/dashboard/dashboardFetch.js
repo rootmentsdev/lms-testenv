@@ -20,8 +20,12 @@ async function fetchJson(path) {
 
 const pad2 = (n) => String(n).padStart(2, "0");
 
-const toDateOnly = (date) =>
-  `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+/** Extract YYYY-MM-DD as an IST calendar date (UTC+5:30), not browser-local time */
+const toISTDateOnly = (date) => {
+  const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+  const ist = new Date(date.getTime() + IST_OFFSET_MS);
+  return `${ist.getUTCFullYear()}-${pad2(ist.getUTCMonth() + 1)}-${pad2(ist.getUTCDate())}`;
+};
 
 const normalizeDate = (value) => {
   if (!value) return null;
@@ -30,27 +34,29 @@ const normalizeDate = (value) => {
 };
 
 const getPresetDateRange = (range) => {
-  const today = new Date();
+  // Compute 'today' in IST calendar date to avoid off-by-one errors after 18:30 IST
+  const todayIST = toISTDateOnly(new Date());
+  const todayDate = new Date(`${todayIST}T00:00:00`);
   const key = String(range || "7");
 
   if (key === "7") {
     // Current week: Sunday through today
-    const start = new Date(today);
-    start.setDate(today.getDate() - today.getDay());
-    return { startDate: toDateOnly(start), endDate: toDateOnly(today) };
+    const start = new Date(todayDate);
+    start.setDate(todayDate.getDate() - todayDate.getDay());
+    return { startDate: toISTDateOnly(start), endDate: todayIST };
   }
 
   if (key === "month") {
     // Current month: 1st of month through today
-    const start = new Date(today.getFullYear(), today.getMonth(), 1);
-    return { startDate: toDateOnly(start), endDate: toDateOnly(today) };
+    const start = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
+    return { startDate: toISTDateOnly(start), endDate: todayIST };
   }
 
   if (key === "14" || key === "30" || key === "45") {
     const totalDays = Number(key);
-    const start = new Date(today);
-    start.setDate(today.getDate() - (totalDays - 1));
-    return { startDate: toDateOnly(start), endDate: toDateOnly(today) };
+    const start = new Date(todayDate);
+    start.setDate(todayDate.getDate() - (totalDays - 1));
+    return { startDate: toISTDateOnly(start), endDate: todayIST };
   }
 
   return null;
@@ -59,8 +65,8 @@ const getPresetDateRange = (range) => {
 const buildWalkinChartPath = ({ range, startDate, endDate, chartOnly }) => {
   const useCustomRange = String(range) === "custom";
   const preset = getPresetDateRange(range);
-  const start = useCustomRange && normalizeDate(startDate) ? toDateOnly(normalizeDate(startDate)) : preset?.startDate;
-  const end = useCustomRange && normalizeDate(endDate) ? toDateOnly(normalizeDate(endDate)) : preset?.endDate;
+  const start = useCustomRange && normalizeDate(startDate) ? toISTDateOnly(normalizeDate(startDate)) : preset?.startDate;
+  const end = useCustomRange && normalizeDate(endDate) ? toISTDateOnly(normalizeDate(endDate)) : preset?.endDate;
 
   if (!start || !end) {
     throw new Error("A valid date range is required");
@@ -93,8 +99,8 @@ export function fetchDailyWalkinsChart({ range = "7", startDate, endDate } = {})
 export function fetchWeeklyWalkinCount({ range = "7", startDate, endDate } = {}) {
   const useCustomRange = String(range) === "custom";
   const preset = getPresetDateRange(range);
-  const start = useCustomRange && normalizeDate(startDate) ? toDateOnly(normalizeDate(startDate)) : preset?.startDate;
-  const end = useCustomRange && normalizeDate(endDate) ? toDateOnly(normalizeDate(endDate)) : preset?.endDate;
+  const start = useCustomRange && normalizeDate(startDate) ? toISTDateOnly(normalizeDate(startDate)) : preset?.startDate;
+  const end = useCustomRange && normalizeDate(endDate) ? toISTDateOnly(normalizeDate(endDate)) : preset?.endDate;
 
   if (!start || !end) {
     throw new Error("A valid date range is required");

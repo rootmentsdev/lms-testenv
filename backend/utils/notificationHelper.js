@@ -1,7 +1,10 @@
 import Notification from '../model/Notification.js';
+import User from '../model/User.js';
+import Admin from '../model/Admin.js';
+import { sendPushNotification } from '../lib/firebaseAdmin.js';
 
 /**
- * Utility to save a notification to the database.
+ * Utility to save a notification to the database and send push notifications via FCM.
  * 
  * @param {Object} params
  * @param {string} params.title - Title of the notification
@@ -22,6 +25,7 @@ export const sendNotification = async ({
   category = 'General'
 }) => {
   try {
+    // 1. Save notification to database first
     const notification = await Notification.create({
       title,
       body,
@@ -31,8 +35,57 @@ export const sendNotification = async ({
       useradmin: senderName,
       category
     });
+
+    // 2. Resolve FCM tokens
+    const fcmTokensSet = new Set();
+
+    // 2a. Direct UserIds
+    if (userIds && userIds.length > 0) {
+      const users = await User.find({ _id: { $in: userIds }, fcmToken: { $exists: true, $ne: '' } }, 'fcmToken');
+      const admins = await Admin.find({ _id: { $in: userIds }, fcmToken: { $exists: true, $ne: '' } }, 'fcmToken');
+      users.forEach(u => fcmTokensSet.add(u.fcmToken));
+      admins.forEach(a => fcmTokensSet.add(a.fcmToken));
+    }
+
+    // 2b. Roles/Designations
+    if (roles && roles.length > 0) {
+      const users = await User.find({ designation: { $in: roles }, fcmToken: { $exists: true, $ne: '' } }, 'fcmToken');
+      const admins = await Admin.find({ role: { $in: roles }, fcmToken: { $exists: true, $ne: '' } }, 'fcmToken');
+      users.forEach(u => fcmTokensSet.add(u.fcmToken));
+      admins.forEach(a => fcmTokensSet.add(a.fcmToken));
+    }
+
+    // 2c. Branches (match locCode or workingBranch)
+    if (branches && branches.length > 0) {
+      const users = await User.find({
+        $or: [
+          { locCode: { $in: branches } },
+          { workingBranch: { $in: branches } }
+        ],
+        fcmToken: { $exists: true, $ne: '' }
+      }, 'fcmToken');
+      users.forEach(u => fcmTokensSet.add(u.fcmToken));
+    }
+
+    // 3. Trigger Firebase Admin SDK Push Notifications in background
+    const tokens = Array.from(fcmTokensSet);
+    if (tokens.length > 0) {
+      console.log(`[Push Notification] Attempting to send notifications to ${tokens.length} target devices.`);
+      Promise.all(
+        tokens.map(token => 
+          sendPushNotification(token, {
+            title: title || 'Notification',
+            body: body || '',
+            data: { category, senderName }
+          })
+        )
+      ).catch(err => {
+        console.error('[Push Notification] Error sending batch push notifications:', err);
+      });
+    }
+
     return notification;
   } catch (err) {
-    console.error('Error creating notification:', err);
+    console.error('Error creating notification / sending push:', err);
   }
 };

@@ -62,12 +62,24 @@ export const createBranchAudit = async (req, res) => {
       storeId,
       sections = [],
       auditorRemarks = {},
+      auditorObservation,
+      actionPlanForShortfalls,
       ratedOn,
       metadata = {},
+      ratedBy: bodyRatedBy,
+      ratedById: bodyRatedById,
     } = req.body || {};
 
     if (!store) {
       return res.status(400).json({ success: false, message: "Store is required" });
+    }
+
+    const isEmployeeRating = req.body?.ratingType === "employee" || metadata?.employeeId || req.admin?.role === "store_admin";
+
+    if (isEmployeeRating) {
+      if (!metadata?.employeeId && !req.body?.employeeId) {
+        return res.status(400).json({ success: false, message: "Employee selection is mandatory for staff rating." });
+      }
     }
 
     const normalizedSections = Array.isArray(sections)
@@ -83,26 +95,65 @@ export const createBranchAudit = async (req, res) => {
         }))
       : [];
 
+    if (isEmployeeRating) {
+      // Check for any unrated items (score <= 0)
+      const hasUnscoredItems = normalizedSections.some(sec =>
+        (sec.items || []).some(item => !item.score || item.score <= 0)
+      );
+      if (hasUnscoredItems) {
+        return res.status(400).json({ success: false, message: "All performance criteria star ratings are mandatory." });
+      }
+
+      // Check for missing remarks
+      const hasEmptyRemarks = normalizedSections.some(sec => !sec.remarks || !sec.remarks.trim());
+      if (hasEmptyRemarks) {
+        return res.status(400).json({ success: false, message: "Overall remarks are mandatory for staff rating." });
+      }
+    } else {
+      // Check Store Rating mandatory fields
+      const hasUnscoredStoreItems = normalizedSections.some(sec =>
+        (sec.items || []).some(item => !item.score || item.score <= 0)
+      );
+      if (hasUnscoredStoreItems) {
+        return res.status(400).json({ success: false, message: "All store rating criteria star ratings are mandatory." });
+      }
+
+      const hasEmptyStoreSectionRemarks = normalizedSections.some(sec => !sec.remarks || !sec.remarks.trim());
+      if (hasEmptyStoreSectionRemarks) {
+        return res.status(400).json({ success: false, message: "Remarks for each store rating section are mandatory." });
+      }
+
+      const obs = auditorRemarks?.observationAcknowledged || auditorObservation;
+      const plan = auditorRemarks?.actionPlanForShortfalls || actionPlanForShortfalls;
+      if (!obs || !String(obs).trim() || !plan || !String(plan).trim()) {
+        return res.status(400).json({ success: false, message: "Observation Acknowledged and Action Plan for Shortfalls are mandatory." });
+      }
+    }
+
     const overallRating = computeOverallRating(normalizedSections);
     const totalRatingsCount = normalizedSections.reduce((sum, section) => sum + (section.items?.length || 0), 0);
 
-    const [branch, ratedBy] = await Promise.all([
+    const [branch, resolvedRatedBy] = await Promise.all([
       findBranchForAudit({ storeId, store }),
-      normalizeRatedBy(req.admin?.userId),
+      bodyRatedBy ? Promise.resolve(bodyRatedBy) : normalizeRatedBy(req.admin?.userId),
     ]);
+
+    const resolvedRatedById = bodyRatedById || req.admin?.userId || undefined;
 
     const audit = await BranchAudit.create({
       store: branch?.workingBranch || store,
       storeId: branch?._id || storeId || undefined,
-      ratedBy,
-      ratedById: req.admin?.userId || undefined,
+      ratedBy: resolvedRatedBy,
+      ratedById: resolvedRatedById,
       ratedOn: ratedOn || toISODate(),
       overallRating,
       sections: normalizedSections,
       auditorRemarks: {
-        observationAcknowledged: auditorRemarks?.observationAcknowledged || "",
-        actionPlanForShortfalls: auditorRemarks?.actionPlanForShortfalls || "",
+        observationAcknowledged: auditorRemarks?.observationAcknowledged || auditorObservation || "",
+        actionPlanForShortfalls: auditorRemarks?.actionPlanForShortfalls || actionPlanForShortfalls || "",
       },
+      auditorObservation: auditorObservation || auditorRemarks?.observationAcknowledged || "",
+      actionPlanForShortfalls: actionPlanForShortfalls || auditorRemarks?.actionPlanForShortfalls || "",
       totalRatingsCount,
       metadata,
     });
@@ -121,13 +172,40 @@ export const createBranchAudit = async (req, res) => {
 export const getBranchAudits = async (req, res) => {
   try {
     const { store, search = "", limit = 1000 } = req.query || {};
-    const query = {};
+    const isStoreAdmin = req.admin?.role === "store_admin";
+
+    // Base type filter — store admins see employee ratings, others see store-level ratings
+    let query = {};
+    if (isStoreAdmin) {
+      query = {
+        $or: [
+          { ratingType: "employee" },
+          { "metadata.employeeId": { $exists: true, $ne: null } },
+          { "metadata.employeeName": { $exists: true, $ne: "" } },
+          { "sections.title": "Employee Performance Rating" },
+        ],
+      };
+    } else {
+      query = {
+        $nor: [
+          { ratingType: "employee" },
+          { "metadata.employeeId": { $exists: true, $ne: null } },
+          { "metadata.employeeName": { $exists: true, $ne: "" } },
+          { "sections.title": "Employee Performance Rating" },
+        ],
+      };
+    }
 
     if (store && store !== "All") query.store = store;
     if (search.trim()) {
-      query.$or = [
-        { store: { $regex: search.trim(), $options: "i" } },
-        { ratedBy: { $regex: search.trim(), $options: "i" } },
+      query.$and = [
+        query.$and ? { $and: query.$and } : {},
+        {
+          $or: [
+            { store: { $regex: search.trim(), $options: "i" } },
+            { ratedBy: { $regex: search.trim(), $options: "i" } },
+          ],
+        },
       ];
     }
 
@@ -169,5 +247,67 @@ export const getBranchAuditById = async (req, res) => {
   } catch (error) {
     console.error("getBranchAuditById error:", error);
     return res.status(500).json({ success: false, message: "Failed to fetch branch audit", error: error.message });
+  }
+};
+
+export const getStaffRatingSummary = async (req, res) => {
+  try {
+    const isStoreAdmin = req.admin?.role === "store_admin";
+
+    let query = {};
+
+    if (isStoreAdmin) {
+      // Store admin sees only employee-type ratings scoped to their own store
+      query = {
+        $or: [
+          { ratingType: "employee" },
+          { "metadata.employeeId": { $exists: true, $ne: null } },
+          { "metadata.employeeName": { $exists: true, $ne: "" } },
+          { "sections.title": "Employee Performance Rating" },
+        ],
+      };
+
+      const admin = await Admin.findById(req.admin.userId).select("branches").lean();
+      const branchIds = admin?.branches || [];
+      if (branchIds.length > 0) {
+        const branches = await Branch.find({ _id: { $in: branchIds } }).select("workingBranch").lean();
+        const storeNames = branches.map((b) => b.workingBranch).filter(Boolean);
+        if (storeNames.length > 0) {
+          query.store = { $in: storeNames };
+        }
+      }
+    }
+    // Non-store-admin (cluster/admin): show only store-level audit records, exclude employee ratings
+    if (!isStoreAdmin) {
+      query = {
+        $nor: [
+          { ratingType: "employee" },
+          { "metadata.employeeId": { $exists: true, $ne: null } },
+          { "metadata.employeeName": { $exists: true, $ne: "" } },
+          { "sections.title": "Employee Performance Rating" },
+        ],
+      };
+    }
+
+    const audits = await BranchAudit.find(query).lean();
+
+    if (audits.length === 0) {
+      return res.status(200).json({
+        success: true,
+        data: { averageRating: 0, totalRatings: 0 },
+      });
+    }
+
+    const totalRatings = audits.length;
+    const sumRatings = audits.reduce((sum, a) => sum + (a.overallRating || 0), 0);
+    const averageRating = parseFloat((sumRatings / totalRatings).toFixed(1));
+
+    return res.status(200).json({
+      success: true,
+      data: { averageRating, totalRatings },
+    });
+  } catch (error) {
+    console.error("getStaffRatingSummary error:", error);
+    return res.status(500).json({ success: false, message: "Failed to get staff rating summary", error: error.message });
   }
 };

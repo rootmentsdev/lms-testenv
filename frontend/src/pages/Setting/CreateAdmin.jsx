@@ -38,7 +38,8 @@ const CreateUser = () => {
     const userRole =
       selectedOption === "user" ? "super_admin" :
         selectedOption === "admin" ? "admin" :
-          selectedOption === "designation" ? "cluster_admin" : "store_admin";
+          selectedOption === "designation" ? "cluster_admin" :
+            selectedOption === "telecaller" ? "telecaller" : "store_admin";
     const updatedForm = {
       ...form,
       userRole,
@@ -228,6 +229,15 @@ const CreateUser = () => {
                 />{" "}
                 Store Manager
               </label>
+              <label>
+                <input
+                  type="radio"
+                  value="telecaller"
+                  checked={selectedOption === "telecaller"}
+                  onChange={() => setSelectedOption("telecaller")}
+                />{" "}
+                Telecaller
+              </label>
             </div>
 
             {(selectedOption === "user" || selectedOption === "admin") && (
@@ -254,12 +264,12 @@ const CreateUser = () => {
               </div>
             )}
 
-            {(selectedOption === "designation" || selectedOption === "branch") && (
+            {(selectedOption === "designation" || selectedOption === "branch" || selectedOption === "telecaller") && (
               <Select
                 placeholder="Select the users"
                 id="assignToUsers"
                 options={users}
-                isMulti={selectedOption === "designation"} // Properly sets isMulti based on selectedOption
+                isMulti={selectedOption === "designation" || selectedOption === "telecaller"} // Properly sets isMulti based on selectedOption
                 value={assignedTo}
                 onChange={setAssignedTo}
                 className="w-full"

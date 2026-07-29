@@ -25,6 +25,38 @@ const getLocalDateStringIST = (date) => {
     return `${year}-${month}-${day}`;
 };
 
+const pushToStatusHistory = (walkin, entry) => {
+    if (!walkin.statusHistory) {
+        walkin.statusHistory = [];
+    }
+    const status = String(entry.status || '').trim();
+    const date = entry.date ? new Date(entry.date) : new Date();
+    const source = String(entry.source || 'auto_sync').trim();
+    const category = entry.category && entry.category !== '-' ? entry.category : 'Product';
+    const subCategory = entry.subCategory || '-';
+
+    // Duplicate check: same status + same IST date + same source
+    const targetIST = getLocalDateStringIST(date);
+    const isDuplicate = walkin.statusHistory.some(h => {
+        const hStatus = String(h.status || '').trim();
+        const hSource = String(h.source || '-').trim();
+        const hIST = getLocalDateStringIST(h.date);
+        return hStatus === status && hSource === source && hIST === targetIST;
+    });
+
+    if (!isDuplicate) {
+        walkin.statusHistory.push({
+            status,
+            category,
+            subCategory,
+            date,
+            source
+        });
+        return true;
+    }
+    return false;
+};
+
 /**
  * Helper to dynamically extract mobile/phone numbers case-insensitively from an item object
  */
@@ -92,7 +124,13 @@ const extractDateValue = (itm, priorityKeys) => {
         const val = itemKeyMap[key.toLowerCase()];
         if (val) {
             let dateStr = String(val).trim();
-            if (!dateStr.endsWith('Z') && !dateStr.includes('+') && !dateStr.includes('-') && dateStr.includes('T')) {
+            // If the date string lacks a timezone offset, treat it as India Standard Time (IST, +05:30)
+            const hasTimezoneOffset = /Z$|[\+\-]\d{2}:?\d{2}$/.test(dateStr);
+            if (!hasTimezoneOffset) {
+                // If it contains a space between date and time, replace it with 'T' for standard compliance
+                if (dateStr.includes(' ')) {
+                    dateStr = dateStr.replace(' ', 'T');
+                }
                 dateStr = dateStr + '+05:30';
             }
             const d = new Date(dateStr);
@@ -428,10 +466,94 @@ export const syncWalkinStatuses = async () => {
                         }
                     }
 
+                    // AUTO-CREATE: If still no walkin (unassigned list was empty or had no valid match),
+                    // and this invoice exists in bookingMap, auto-create a Walkin record from the booking data.
+                    // This handles the case where a returning customer books again but the employee forgot
+                    // to add a new walk-in entry in the LMS.
+                    if (!walkin) {
+                        const bookingItemForCreate = bookingMap.get(invoiceNo);
+                        if (bookingItemForCreate) {
+                            try {
+                                // Extract available fields from the booking API response
+                                const autoCustomerName = String(bookingItemForCreate.customerName || '').trim() || 'Auto-Sync Customer';
+                                const autoStaff       = String(bookingItemForCreate.bookingBy    || '').trim() || 'None';
+                                const autoStore       = String(workingBranch || bookingItemForCreate.locName || '').trim() || '-';
+
+                                // Use booking date as the walkin date string (YYYY-MM-DD in IST)
+                                const autoBookingDate = extractDateValue(bookingItemForCreate, ['bookingDate', 'bookingdate', 'booking_date', 'bookeddate']);
+                                const autoDateStr     = autoBookingDate
+                                    ? getLocalDateStringIST(autoBookingDate)
+                                    : getLocalDateStringIST(new Date());
+
+                                // The 'New Walkin' statusHistory entry is dated 5 minutes AFTER
+                                // the booking date so that when history is sorted by date,
+                                // 'Booked' (exact bookingDate) always appears before 'New Walkin'.
+                                // This reflects the real sequence: the booking existed first,
+                                // and the walkin was auto-created afterwards.
+                                const autoNewWalkinHistoryDate = autoBookingDate
+                                    ? new Date(autoBookingDate.getTime() + 5 * 60 * 1000)
+                                    : new Date();
+
+                                const newWalkin = new Walkin({
+                                    customerName:  autoCustomerName,
+                                    contact:       rentalInfo.phone,
+                                    invoiceNo:     invoiceNo,
+                                    storeId:       storeId,
+                                    store:         autoStore,
+                                    staff:         autoStaff,
+                                    date:          autoDateStr,
+                                    status:        'New Walkin',
+                                    rentalStatus:  'New Walkin',
+                                    repeatCount:   1,
+                                    statusHistory: [{
+                                        status:      'New Walkin',
+                                        category:    'Product',
+                                        subCategory: '-',
+                                        date:        autoNewWalkinHistoryDate,
+                                        source:      'auto_sync'
+                                    }],
+                                    legacyMeta: {
+                                        autoCreated:       true,
+                                        autoCreatedAt:     new Date(),
+                                        autoCreatedReason: 'missing_walkin_on_booking'
+                                    }
+                                });
+
+                                await newWalkin.save();
+
+                                // Backdate createdAt and updatedAt to the booking date so the
+                                // auto-created walkin appears under the correct date in the walkin
+                                // list and does not pollute today's manually-added new walkins.
+                                // Mongoose timestamps: true always stamps createdAt = now on save(),
+                                // so we override it immediately with a direct collection update.
+                                if (autoBookingDate) {
+                                    await Walkin.collection.updateOne(
+                                        { _id: newWalkin._id },
+                                        { $set: { createdAt: autoBookingDate, updatedAt: autoBookingDate } }
+                                    );
+                                    newWalkin.createdAt = autoBookingDate;
+                                    newWalkin.updatedAt = autoBookingDate;
+                                }
+
+                                walkin = newWalkin;
+                                invoiceToWalkinMap.set(invoiceNo, walkin);
+                                console.log(`🆕 [Walkin Status Sync] Auto-created walkin for invoiceNo '${invoiceNo}' | phone: ...${rentalInfo.phone.slice(-4)} | customer: '${autoCustomerName}' | staff: '${autoStaff}' | date: ${autoDateStr}`);
+                            } catch (autoCreateErr) {
+                                console.error(`❌ [Walkin Status Sync] Failed to auto-create walkin for invoiceNo '${invoiceNo}' (phone: ...${rentalInfo.phone.slice(-4)}):`, autoCreateErr.message);
+                            }
+                        }
+                    }
+
                     if (walkin) {
                         const tracker = getTracker(walkin);
                         const targetRentalStatus = rentalInfo.status;
-                        const currentRentalStatus = tracker.walkin.rentalStatus || tracker.walkin.status || 'New Walkin';
+                        const previousRentalStatus = tracker.walkin.rentalStatus || tracker.walkin.status || 'New Walkin';
+
+                        // Capture previous state BEFORE modifying the walk-in object
+                        const hadBookingDate = !!tracker.walkin.bookingDate;
+                        const hadRentoutDate = !!tracker.walkin.rentoutDate;
+                        const hadReturnDate = !!tracker.walkin.returnDate;
+                        const hadCancellationDate = !!(tracker.walkin.cancelDate || tracker.walkin.cancellationDate);
 
                         // Sourced dates strictly from specific API endpoints for this invoiceNo
                         const bookingItem = bookingMap.get(invoiceNo);
@@ -477,12 +599,41 @@ export const syncWalkinStatuses = async () => {
                             return val;
                         };
 
-                        if (normalizeStatusForCompare(currentRentalStatus) !== normalizeStatusForCompare(targetRentalStatus)) {
-                            const currentRank = getStatusRank(currentRentalStatus);
+                        if (normalizeStatusForCompare(previousRentalStatus) !== normalizeStatusForCompare(targetRentalStatus)) {
+                            let txDate = null;
+                            if (targetRentalStatus === 'Booked') {
+                                const item = bookingMap.get(invoiceNo);
+                                txDate = item ? extractDateValue(item, ['bookingDate', 'bookingdate', 'booking_date', 'bookeddate']) : null;
+                            } else if (targetRentalStatus === 'Rentout') {
+                                const item = rentoutMap.get(invoiceNo);
+                                txDate = item ? extractDateValue(item, ['rentOutDate', 'rentoutdate', 'rent_out_date', 'rentdate']) : null;
+                            } else if (targetRentalStatus === 'Return') {
+                                const item = returnMap.get(invoiceNo);
+                                txDate = item ? extractDateValue(item, ['returnedDate', 'returneddate', 'returndate', 'return_date']) : null;
+                            } else if (['Cancelled', 'Cancel'].includes(targetRentalStatus)) {
+                                const item = cancelMap.get(invoiceNo);
+                                txDate = item ? extractDateValue(item, ['cancelDate', 'canceldate', 'cancellationdate', 'cancelleddate']) : null;
+                            }
+
+                            const lastChange = tracker.walkin.lastStatusChangeDate || tracker.walkin.updatedAt || tracker.walkin.createdAt;
+
+                            if (txDate && lastChange && new Date(txDate).getTime() < new Date(lastChange).getTime()) {
+                                console.log(`ℹ️ [Walkin Status Sync] Skipping stale rental update for invoice ${invoiceNo}: txDate (${new Date(txDate).toISOString()}) is older than lastStatusChangeDate (${new Date(lastChange).toISOString()})`);
+                                continue;
+                            }
+
+                            // Check if this status transition has already occurred in the past (by checking captured date presence)
+                            let isAlreadyDone = false;
+                            if (targetRentalStatus === 'Booked' && hadBookingDate) isAlreadyDone = true;
+                            if (targetRentalStatus === 'Rentout' && hadRentoutDate) isAlreadyDone = true;
+                            if (targetRentalStatus === 'Return' && hadReturnDate) isAlreadyDone = true;
+                            if (['Cancelled', 'Cancel'].includes(targetRentalStatus) && hadCancellationDate) isAlreadyDone = true;
+
+                            const currentRank = getStatusRank(previousRentalStatus);
                             const targetRank = getStatusRank(targetRentalStatus);
 
-                            if (targetRank >= currentRank) {
-                                const oldRental = currentRentalStatus;
+                            if (targetRank >= currentRank && !isAlreadyDone) {
+                                const oldRental = previousRentalStatus;
                                 tracker.walkin.rentalStatus = targetRentalStatus;
                                 tracker.rentalStatusChanged = true;
                                 tracker.docUpdated = true;
@@ -498,19 +649,18 @@ export const syncWalkinStatuses = async () => {
                                     matchedDate = tracker.walkin.cancelDate;
                                 }
 
-                                if (!tracker.walkin.statusHistory) {
-                                    tracker.walkin.statusHistory = [];
-                                }
-                                tracker.walkin.statusHistory.push({
+                                pushToStatusHistory(tracker.walkin, {
                                     status: targetRentalStatus,
                                     category: tracker.walkin.category && tracker.walkin.category !== '-' ? tracker.walkin.category : 'Product',
-                                    date: matchedDate || new Date()
+                                    subCategory: tracker.walkin.subCategory || '-',
+                                    date: matchedDate || new Date(),
+                                    source: 'auto_sync'
                                 });
                                 console.log(`✅ [Walkin Status Sync] Rental Flow update for invoice ${invoiceNo} (...${rentalInfo.phone.slice(-4)}): ${oldRental} ➔ ${targetRentalStatus}`);
                             } else {
                                 branchWalkinsSkippedHierarchy++;
                                 totalWalkinsSkippedHierarchy++;
-                                console.log(`ℹ️ [Walkin Status Sync] Skipped rental update for invoice ${invoiceNo} (...${rentalInfo.phone.slice(-4)}): current '${currentRentalStatus}' >= target '${targetRentalStatus}'`);
+                                console.log(`ℹ️ [Walkin Status Sync] Skipped rental update for invoice ${invoiceNo} (...${rentalInfo.phone.slice(-4)}): current '${previousRentalStatus}' >= target '${targetRentalStatus}' (or isAlreadyDone: ${isAlreadyDone})`);
                             }
                         }
                     } else {
@@ -584,6 +734,10 @@ export const syncWalkinStatuses = async () => {
                         const targetShoeStatus = shoeInfo.status;
                         const currentShoeStatus = tracker.walkin.shoeStatus || '-';
 
+                        // Capture previous state BEFORE modifying the walk-in object
+                        const hadBilledDate = !!tracker.walkin.billedDate;
+                        const hadBillReturnedDate = !!tracker.walkin.billReturnedDate;
+
                         const billedItem = shoeBilledMap.get(shoeInvoiceNo);
                         if (billedItem) {
                             const bldDate = extractDateValue(billedItem, ['billedDate', 'billingDate', 'billeddate', 'billdate', 'billingdate']);
@@ -603,6 +757,26 @@ export const syncWalkinStatuses = async () => {
                         }
 
                         if (currentShoeStatus !== targetShoeStatus) {
+                            let txDate = null;
+                            if (targetShoeStatus === 'Billed') {
+                                const item = shoeBilledMap.get(shoeInvoiceNo);
+                                txDate = item ? extractDateValue(item, ['billedDate', 'billingDate', 'billeddate', 'billdate', 'billingdate']) : null;
+                            } else if (targetShoeStatus === 'Bill Returned') {
+                                const item = shoeBillReturnedMap.get(shoeInvoiceNo);
+                                txDate = item ? extractDateValue(item, ['billedReturnedDate', 'billedreturneddate', 'billReturnedDate', 'returnedDate', 'billreturneddate', 'returneddate', 'returndate']) : null;
+                            }
+
+                            const lastChange = tracker.walkin.lastStatusChangeDate || tracker.walkin.updatedAt || tracker.walkin.createdAt;
+
+                            if (txDate && lastChange && new Date(txDate).getTime() < new Date(lastChange).getTime()) {
+                                console.log(`ℹ️ [Walkin Status Sync] Skipping stale shoe update for shoeInvoice ${shoeInvoiceNo}: txDate (${new Date(txDate).toISOString()}) is older than lastStatusChangeDate (${new Date(lastChange).toISOString()})`);
+                                continue;
+                            }
+
+                            let isShoeAlreadyDone = false;
+                            if (targetShoeStatus === 'Billed' && hadBilledDate) isShoeAlreadyDone = true;
+                            if (targetShoeStatus === 'Bill Returned' && hadBillReturnedDate) isShoeAlreadyDone = true;
+
                             const getShoeStatusRank = (s) => {
                                 const ranks = { 'Billed': 1, 'Bill Returned': 2 };
                                 return ranks[s] || 0;
@@ -610,7 +784,7 @@ export const syncWalkinStatuses = async () => {
                             const currentShoeRank = getShoeStatusRank(currentShoeStatus);
                             const targetShoeRank = getShoeStatusRank(targetShoeStatus);
 
-                            if (targetShoeRank >= currentShoeRank) {
+                            if (targetShoeRank >= currentShoeRank && !isShoeAlreadyDone) {
                                 const oldShoe = currentShoeStatus;
                                 tracker.walkin.shoeStatus = targetShoeStatus;
                                 tracker.shoeStatusChanged = true;
@@ -623,17 +797,16 @@ export const syncWalkinStatuses = async () => {
                                     matchedShoeDate = tracker.walkin.billReturnedDate;
                                 }
 
-                                if (!tracker.walkin.statusHistory) {
-                                    tracker.walkin.statusHistory = [];
-                                }
-                                tracker.walkin.statusHistory.push({
+                                pushToStatusHistory(tracker.walkin, {
                                     status: targetShoeStatus,
                                     category: 'Sales',
-                                    date: matchedShoeDate || new Date()
+                                    subCategory: '-',
+                                    date: matchedShoeDate || new Date(),
+                                    source: 'auto_sync'
                                 });
                                 console.log(`✅ [Walkin Status Sync] Shoe Flow update for shoeInvoice ${shoeInvoiceNo} (...${shoeInfo.phone.slice(-4)}): ${oldShoe} ➔ ${targetShoeStatus}`);
                             } else {
-                                console.log(`ℹ️ [Walkin Status Sync] Skipped shoe update for shoeInvoice ${shoeInvoiceNo} (...${shoeInfo.phone.slice(-4)}): current '${currentShoeStatus}' >= target '${targetShoeStatus}'`);
+                                console.log(`ℹ️ [Walkin Status Sync] Skipped shoe update for shoeInvoice ${shoeInvoiceNo} (...${shoeInfo.phone.slice(-4)}): current '${currentShoeStatus}' >= target '${targetShoeStatus}' (or isShoeAlreadyDone: ${isShoeAlreadyDone})`);
                             }
                         }
                     } else {
@@ -683,9 +856,14 @@ export const syncWalkinStatuses = async () => {
                             // Update status change tracking fields
                             walkin.lastStatusChangeDate = new Date();
                             walkin.statusChangedToday = true;
+
+                            // Only overwrite the display status when an actual rental/shoe
+                            // status change occurred. This preserves manually-set statuses
+                            // (e.g. 'REVISIT (Reissue)') on date-only updates where
+                            // rentalStatus/shoeStatus haven't moved but a date field changed.
+                            walkin.status = getCombinedStatus(walkin.rentalStatus, walkin.shoeStatus);
                         }
 
-                        walkin.status = getCombinedStatus(walkin.rentalStatus, walkin.shoeStatus);
                         if (rentalStatusChanged || shoeStatusChanged) {
                             await walkin.save();
                         } else {
@@ -859,28 +1037,65 @@ export const expireWalkinsToLoss = async () => {
         // 2. createdAt < startOfToday
         // 3. updatedAt === createdAt (no updates occurred)
         // Set status to 'Loss' and update updatedAt to the current time.
-        const result = await Walkin.updateMany(
-            {
-                status: 'New Walkin',
-                $or: [
-                    { repeatCount: 1 },
-                    { repeatCount: { $exists: false } }
-                ],
-                createdAt: { $lt: startOfToday },
-                $expr: { $eq: ['$createdAt', '$updatedAt'] }
-            },
-            {
-                $set: {
-                    status: 'Loss',
-                    updatedAt: now
-                }
+        // Set the updatedAt to be 1 second before startOfToday (end of the previous IST day)
+        // so that the auto-loss is accounted for on the correct business day.
+        const lossUpdatedAt = new Date(startOfToday.getTime() - 1000);
+        const query = {
+            status: 'New Walkin',
+            $or: [
+                { repeatCount: 1 },
+                { repeatCount: { $exists: false } }
+            ],
+            createdAt: { $lt: startOfToday },
+            $expr: { $eq: ['$createdAt', '$updatedAt'] }
+        };
+
+        const matchingWalkins = await Walkin.find(query).lean();
+        let modifiedCount = 0;
+
+        for (const w of matchingWalkins) {
+            const history = w.statusHistory || [];
+            // Duplicate prevention: check same status (Loss) + same IST date (lossUpdatedAt) + same source (auto_loss_cron)
+            const targetIST = getLocalDateStringIST(lossUpdatedAt);
+            const isDuplicate = history.some(h => {
+                const hStatus = String(h.status || '').trim();
+                const hSource = String(h.source || '-').trim();
+                const hIST = getLocalDateStringIST(h.date);
+                return hStatus === 'Loss' && hSource === 'auto_loss_cron' && hIST === targetIST;
+            });
+
+            const newHistoryItem = {
+                status: 'Loss',
+                category: w.category && w.category !== '-' ? w.category : 'Product',
+                subCategory: w.subCategory || '-',
+                date: lossUpdatedAt,
+                source: 'auto_loss_cron'
+            };
+
+            const updatedHistory = [...history];
+            if (!isDuplicate) {
+                updatedHistory.push(newHistoryItem);
             }
-        );
+
+            const updateRes = await Walkin.collection.updateOne(
+                { _id: w._id },
+                {
+                    $set: {
+                        status: 'Loss',
+                        updatedAt: lossUpdatedAt,
+                        statusHistory: updatedHistory
+                    }
+                }
+            );
+            if (updateRes.modifiedCount > 0) {
+                modifiedCount++;
+            }
+        }
 
         const jobCompletedAt = new Date();
         const durationMs = jobCompletedAt - jobStartedAt;
 
-        console.log(`🏁 [Walkin Loss Expiry] Job completed. Updated ${result.modifiedCount} walk-ins to status 'Loss'. Duration: ${durationMs}ms`);
+        console.log(`🏁 [Walkin Loss Expiry] Job completed. Updated ${modifiedCount} walk-ins to status 'Loss'. Duration: ${durationMs}ms`);
 
         // ── Persist run log to DB ──
         try {
@@ -890,14 +1105,14 @@ export const expireWalkinsToLoss = async () => {
                 startedAt: jobStartedAt,
                 completedAt: jobCompletedAt,
                 durationMs,
-                expiredCount: result.modifiedCount,
+                expiredCount: modifiedCount,
             });
             console.log('💾 [Walkin Loss Expiry] Run log saved to DB.');
         } catch (logErr) {
             console.error('⚠️ [Walkin Loss Expiry] Failed to save run log to DB:', logErr.message);
         }
 
-        return { success: true, expiredCount: result.modifiedCount };
+        return { success: true, expiredCount: modifiedCount };
     } catch (error) {
         const jobCompletedAt = new Date();
         console.error('❌ [Walkin Loss Expiry] Error during daily expiry job:', error);

@@ -1,19 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useSelector } from "react-redux";
 import { normalizeBranchProgress } from "../../features/dashboard/dashboardUtils";
 import { fetchDashboardTasks, fetchHomeProgress, fetchHomeProgressChart, fetchWeeklyWalkinCount } from "../../features/dashboard/dashboardFetch";
+import baseUrl from "../../api/api";
 
 const StatCard = ({ title, value, subtitle, icon, iconBg }) => (
   <div
+    className="bg-white dark:bg-[#111c2a] border border-[#f0f0f0] dark:border-slate-800 shadow-sm"
     style={{
       flex: "1 1 0",
       minWidth: "0",
       height: "100px",
       borderRadius: "12px",
       padding: "14px 18px",
-      background: "#ffffff",
-      border: "1px solid #f0f0f0",
-      boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
       display: "flex",
       flexDirection: "column",
       justifyContent: "space-between",
@@ -22,10 +22,10 @@ const StatCard = ({ title, value, subtitle, icon, iconBg }) => (
   >
     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "8px" }}>
       <span
+        className="text-gray-500 dark:text-slate-400"
         style={{
           fontSize: "12px",
           fontWeight: 500,
-          color: "#6b7280",
           lineHeight: 1.3,
           whiteSpace: "nowrap",
           overflow: "hidden",
@@ -87,8 +87,8 @@ const EmployeeIcon = () => (
 
 const AssessmentIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9 11l3 3L22 4" />
-    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+    <polyline points="22 4 12 14.01 9 11.01" />
   </svg>
 );
 
@@ -101,10 +101,12 @@ const formatDateLabel = (value) => {
 };
 
 const DashboardOverview = ({ range = "7", customRange }) => {
+  const user = useSelector((state) => state.auth.user);
   const [summaryResponse, setSummaryResponse] = useState(null);
   const [chartResponse, setChartResponse] = useState(null);
   const [walkinCount, setWalkinCount] = useState(0);
   const [tasksResponse, setTasksResponse] = useState(null);
+  
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [chartLoading, setChartLoading] = useState(true);
   const [walkinLoading, setWalkinLoading] = useState(true);
@@ -282,9 +284,7 @@ const DashboardOverview = ({ range = "7", customRange }) => {
     {
       title: "Completed Assessments",
       value: summaryLoading ? "..." : (stats.completedAssessments || "0"),
-      subtitle: stats.totalAssessments
-        ? `${Math.round((stats.completedAssessments / stats.totalAssessments) * 100)}% of ${stats.totalAssessments} total`
-        : "No assessments yet",
+      subtitle: `Across ${stats.totalBranches} stores`,
       icon: <AssessmentIcon />,
       iconBg: "#DBEAFE",
     },
@@ -297,11 +297,13 @@ const DashboardOverview = ({ range = "7", customRange }) => {
           <h2 className="text-[22px] font-bold text-gray-900 leading-tight">Dashboard Overview</h2>
           <p className="text-[12px] text-gray-400 mt-0.5">Store walkings, tasks, and training progress across all locations</p>
         </div>
-        <Link to="/walkin/list">
-          <button className="bg-gray-900 text-white text-[13px] font-semibold px-5 py-2 rounded-xl hover:bg-gray-700 transition-colors flex-shrink-0">
-            + Add Walk In
-          </button>
-        </Link>
+        {user?.role !== 'telecaller' && (
+          <Link to="/walkin/list">
+            <button className="bg-gray-900 text-white text-[13px] font-semibold px-5 py-2 rounded-xl hover:bg-gray-700 transition-colors flex-shrink-0">
+              + Add Walk In
+            </button>
+          </Link>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-row gap-3 w-full" style={{}}>

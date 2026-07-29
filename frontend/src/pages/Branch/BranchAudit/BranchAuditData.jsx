@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSelector } from "react-redux";
 import SideNav from "../../../components/SideNav/SideNav";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { FaAngleDoubleLeft, FaAngleDoubleRight, FaAngleLeft, FaAngleRight, FaChevronDown, FaEye, FaSearch } from "react-icons/fa";
 import baseUrl from "../../../api/api";
 
@@ -21,6 +22,12 @@ const PaginationButton = ({ children, active = false, disabled = false, onClick 
 );
 
 const BranchAuditData = () => {
+  const location = useLocation();
+  const user = useSelector((s) => s.auth.user);
+  const isStoreAdmin = user?.role === "store_admin";
+  // store_admin's branch is the first in their branches list
+  const myStoreName = user?.branches?.[0]?.workingBranch || "";
+  const basePath = location.pathname.startsWith('/store-analysis/store-rating') ? '/store-analysis/store-rating' : '/branch/audit';
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
   const [page, setPage] = useState(1);
@@ -89,9 +96,13 @@ const BranchAuditData = () => {
         row.ratedBy.toLowerCase().includes(q) ||
         String(row.overallRating).includes(q);
       const matchesFilter = filter === "All" || row.storeName === filter;
-      return matchesSearch && matchesFilter;
+      // store_admin: only show their own store's ratings
+      const matchesRole = !isStoreAdmin || 
+        row.storeName.trim().toLowerCase().replace(/[.\-]/g, '-') === 
+        myStoreName.trim().toLowerCase().replace(/[.\-]/g, '-');
+      return matchesSearch && matchesFilter && matchesRole;
     });
-  }, [branches, filter, search]);
+  }, [branches, filter, search, isStoreAdmin, myStoreName]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
   const safePage = Math.min(page, totalPages);
@@ -109,12 +120,14 @@ const BranchAuditData = () => {
       <div className="md:ml-[120px] px-4 sm:px-6 lg:px-8 py-6">
         <div className="mx-auto max-w-[1600px]">
           <div className="mb-5 flex items-center justify-between gap-4">
-            <h1 className="text-[22px] font-bold leading-tight text-black">Store Audit List</h1>
+            <h1 className="text-[22px] font-bold leading-tight text-black">
+              {isStoreAdmin ? "Staff Rating" : "Store Rating"}
+            </h1>
             <Link
-            to="/branch/audit/create"
+            to={`${basePath}/create`}
               className="inline-flex items-center rounded-full bg-white px-5 py-3 text-[14px] font-semibold text-black shadow-[0_1px_4px_rgba(0,0,0,0.08)] transition hover:bg-gray-50"
             >
-              + Add Audit
+              {isStoreAdmin ? "+ Add Staff Rating" : (basePath === "/store-analysis/store-rating" ? "+ Add Store Rating" : "+ Add Staff Rating")}
             </Link>
           </div>
 
@@ -173,7 +186,7 @@ const BranchAuditData = () => {
                         <Td>{row.createdOn}</Td>
                         <Td center>
                           <Link
-                            to={`/branch/audit/${row.id}`}
+                            to={`${basePath}/${row.id}`}
                             className="inline-flex items-center justify-center rounded-full p-1 text-black transition hover:bg-gray-100"
                             aria-label={`View audit for ${row.storeName}`}
                           >

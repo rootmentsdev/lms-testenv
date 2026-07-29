@@ -12,49 +12,79 @@ export const isFullAccessAdmin = (adminRole) => {
 };
 
 /**
+ * Resolves a Branch document for a User/Employee by matching locCode and workingBranch robustly.
+ * Handles type differences (number/string) and case differences.
+ */
+async function findBranchForUser(user) {
+    if (!user) return null;
+    
+    const locCodeVal = user.locCode || user.LocCode;
+    const branchQuery = { $or: [] };
+    
+    if (user.workingBranch) {
+        branchQuery.$or.push({ workingBranch: { $regex: `^${user.workingBranch.trim()}$`, $options: 'i' } });
+    }
+    
+    if (locCodeVal !== undefined && locCodeVal !== null) {
+        const locCodeStr = String(locCodeVal).trim();
+        if (locCodeStr) {
+            branchQuery.$or.push({ locCode: locCodeStr });
+            branchQuery.$or.push({ locCode: locCodeVal });
+        }
+    }
+    
+    if (branchQuery.$or.length === 0) {
+        return null;
+    }
+    
+    return await Branch.findOne(branchQuery);
+}
+
+/**
  * Gets an array of accessible store ObjectIds based on admin role
  */
 export const getAccessibleStoreIds = async (adminId) => {
     const admin = await Admin.findById(adminId).populate('branches assignedClusters');
-    if (!admin) {
-        // Fallback: Check if this is a regular User (employee)
-        const user = await User.findById(adminId);
-        if (!user) return [];
-        
-        // Find the Branch matching the user's locCode/workingBranch
-        const branch = await Branch.findOne({ 
-            $or: [
-                { locCode: user.locCode },
-                { workingBranch: user.workingBranch }
-            ]
-        });
-        return branch ? [branch._id.toString()] : [];
+    
+    if (admin) {
+        if (isFullAccessAdmin(admin.role)) {
+            // Full access: return all branch IDs
+            const allBranches = await Branch.find({ isActive: true }).select('_id');
+            return allBranches.map(b => b._id.toString());
+        }
+
+        if (admin.role === 'cluster_admin') {
+            // Can access all stores in their assigned clusters, plus any individually assigned stores
+            const clusterIds = admin.assignedClusters.map(c => c._id);
+            const clusterBranches = await Branch.find({ clusterId: { $in: clusterIds }, isActive: true }).select('_id');
+
+            const branchIds = new Set([
+                ...clusterBranches.map(b => b._id.toString()),
+                ...admin.branches.map(b => (b._id || b).toString())
+            ]);
+            return Array.from(branchIds);
+        }
+
+        if (admin.role === 'telecaller') {
+            // Telecallers have access to all stores (even if assigned to office)
+            const allBranches = await Branch.find({ isActive: true }).select('_id');
+            return allBranches.map(b => b._id.toString());
+        }
+
+        if (admin.role === 'store_admin' || admin.role === 'employee') {
+            if (admin.branches && admin.branches.length > 0) {
+                return admin.branches.map(b => (b._id || b).toString());
+            }
+        }
     }
 
-    if (isFullAccessAdmin(admin.role)) {
-        // Full access: return all branch IDs
-        const allBranches = await Branch.find({ isActive: true }).select('_id');
-        return allBranches.map(b => b._id.toString());
-    }
-
-    if (admin.role === 'cluster_admin') {
-        // Can access all stores in their assigned clusters, plus any individually assigned stores
-        const clusterIds = admin.assignedClusters.map(c => c._id);
-        const clusterBranches = await Branch.find({ clusterId: { $in: clusterIds }, isActive: true }).select('_id');
-
-        const branchIds = new Set([
-            ...clusterBranches.map(b => b._id.toString()),
-            ...admin.branches.map(b => (b._id || b).toString())
-        ]);
-        return Array.from(branchIds);
-    }
-
-    if (admin.role === 'store_admin') {
-        // Can access only specifically assigned stores
-        return admin.branches.map(b => (b._id || b).toString());
-    }
-
-    return [];
+    // Fallback: Check if this is a regular User (employee in the User collection)
+    const user = admin ? admin : await User.findById(adminId);
+    if (!user) return [];
+    
+    // Find the Branch matching the user's locCode/workingBranch robustly
+    const branch = await findBranchForUser(user);
+    return branch ? [branch._id.toString()] : [];
 };
 
 /**
@@ -75,18 +105,17 @@ export const getAccessibleEmployeeIds = async (adminId, storeId = null) => {
     const admin = await Admin.findById(adminId);
     let accessibleStoreIds = [];
     
-    if (!admin) {
+    if (!admin || admin.role === 'employee') {
         // Fallback: Check if this is a regular User (employee)
-        const user = await User.findById(adminId);
+        const user = admin ? admin : await User.findById(adminId);
         if (!user) return [];
         
-        const branch = await Branch.findOne({ 
-            $or: [
-                { locCode: user.locCode },
-                { workingBranch: user.workingBranch }
-            ]
-        });
-        accessibleStoreIds = branch ? [branch._id.toString()] : [];
+        if (admin && admin.branches && admin.branches.length > 0) {
+            accessibleStoreIds = admin.branches.map(b => (b._id || b).toString());
+        } else {
+            const branch = await findBranchForUser(user);
+            accessibleStoreIds = branch ? [branch._id.toString()] : [];
+        }
     } else {
         if (isFullAccessAdmin(admin.role)) {
             // Full access: all stores are accessible
@@ -210,6 +239,38 @@ export const buildWalkinFilter = async (adminId, baseQuery = {}) => {
 };
 
 /**
+ * Builds a store-wide MongoDB query filter for walk-ins (irrespective of employee)
+ */
+export const buildStoreWideWalkinFilter = async (adminId, baseQuery = {}) => {
+    const admin = await Admin.findById(adminId);
+    
+    // Get accessible store IDs for this admin/user
+    const accessibleStoreIds = await getAccessibleStoreIds(adminId);
+    if (accessibleStoreIds.length === 0) {
+        return { _id: null };
+    }
+
+    if (admin && isFullAccessAdmin(admin.role)) {
+        return baseQuery;
+    }
+
+    const branches = await Branch.find({ _id: { $in: accessibleStoreIds } });
+    const locCodes = branches.map(b => b.locCode);
+    const workingBranches = branches.map(b => b.workingBranch).concat(locCodes);
+
+    const storeRestriction = [
+        { storeId: { $in: accessibleStoreIds } },
+        { store: { $in: workingBranches } }
+    ];
+
+    if (baseQuery.$or) {
+        const { $or: existingOr, ...rest } = baseQuery;
+        return { ...rest, $and: [{ $or: existingOr }, { $or: storeRestriction }] };
+    }
+    return { ...baseQuery, $or: storeRestriction };
+};
+
+/**
  * Builds a MongoDB query filter for tasks based on admin role.
  *
  * Visibility rules:
@@ -223,15 +284,15 @@ export const buildWalkinFilter = async (adminId, baseQuery = {}) => {
 export const buildTaskFilter = async (adminId, baseQuery = {}) => {
     const admin = await Admin.findById(adminId);
 
-    // ── Employee / User (not in Admin collection) ─────────────────────────────
-    if (!admin) {
-        const user = await User.findById(adminId);
+    // ── Employee / User ───────────────────────────────────────────────────────
+    if (!admin || admin.role === 'employee') {
+        const user = admin ? admin : await User.findById(adminId);
         if (!user) return { _id: null };
 
         const employee = await Employee.findOne({
             $or: [
                 { userId: user._id },
-                { employeeId: { $regex: `^${user.empID}$`, $options: 'i' } }
+                { employeeId: { $regex: `^${user.empID || user.EmpId}$`, $options: 'i' } }
             ]
         });
 
@@ -293,38 +354,60 @@ export const buildTaskFilter = async (adminId, baseQuery = {}) => {
         return { ...baseQuery, ...restriction };
     }
 
-    // ── Cluster Admin / Store Admin → creator OR assignee in their stores ─────
-    const accessibleStoreIds = await getAccessibleStoreIds(adminId);
+    // ── Telecaller → see only tasks assigned directly to them ──────────────────
+    if (admin.role === 'telecaller') {
+        const restriction = {
+            assignedTo: admin._id.toString()
+        };
 
-    // Resolve all employee/user IDs that belong to accessible stores
-    const accessibleEmployees = await Employee.find({
-        storeId: { $in: accessibleStoreIds },
-        status: 'Active'
-    }).select('_id').lean();
+        if (baseQuery.$or) {
+            const { $or: existingOr, ...rest } = baseQuery;
+            return { ...rest, $and: [{ $or: existingOr }, restriction] };
+        }
+        return { ...baseQuery, ...restriction };
+    }
 
-    const accessibleBranches = await Branch.find({ _id: { $in: accessibleStoreIds } });
-    const locCodes = accessibleBranches.map(b => b.locCode);
-    const accessibleUsers = await User.find({ locCode: { $in: locCodes } }).select('_id').lean();
+    // ── Cluster Admin / Store Admin → Only creator, direct assignee, or active reviewer ─────
+    // Check if they have a linked Employee or User profile mapping
+    const employee = await Employee.findOne({
+        $or: [
+            { userId: admin._id },
+            { employeeId: { $regex: `^${admin.EmpId || admin.employeeId}$`, $options: 'i' } }
+        ]
+    });
+    const user = await User.findOne({
+        $or: [
+            { email: admin.email },
+            { empID: { $regex: `^${admin.EmpId || admin.employeeId}$`, $options: 'i' } }
+        ]
+    });
 
-    // Also include admins (store_admins) that belong to accessible stores
-    const accessibleAdmins = await Admin.find({
-        branches: { $in: accessibleStoreIds },
-        isActive: true
-    }).select('_id').lean();
+    const assignedIds = [admin._id.toString()];
+    if (employee) {
+        assignedIds.push(employee._id.toString());
+    }
+    if (user) {
+        assignedIds.push(user._id.toString());
+    }
 
-    const accessibleAssigneeIds = [
-        ...accessibleEmployees.map(e => e._id.toString()),
-        ...accessibleUsers.map(u => u._id.toString()),
-        ...accessibleAdmins.map(a => a._id.toString()),
-    ];
-
-    // A task is visible if:
-    //   1. The current admin created it (they are the assigner), OR
-    //   2. The task's assignedTo is someone within their accessible stores
     const restriction = {
         $or: [
             { createdBy: admin._id },
-            { assignedTo: { $in: accessibleAssigneeIds } },
+            { assignedTo: { $in: assignedIds } },
+            { 
+              $and: [
+                { status: 'PENDING REVIEW' },
+                { approvalChain: admin._id.toString() },
+                { 
+                  $expr: {
+                    $eq: [
+                      { $arrayElemAt: ["$approvalChain", "$approvalChainIndex"] },
+                      admin._id.toString()
+                    ]
+                  }
+                }
+              ]
+            }
         ]
     };
 
@@ -334,4 +417,3 @@ export const buildTaskFilter = async (adminId, baseQuery = {}) => {
     }
     return { ...baseQuery, ...restriction };
 };
-

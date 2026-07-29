@@ -24,6 +24,7 @@ const STATUS_CLASS = {
   OVERDUE: 'task-mgmt-status--overdue',
   'ON HOLD': 'task-mgmt-status--on-hold',
   'UNDER REVIEW': 'task-mgmt-status--under-review',
+  'PENDING REVIEW': 'task-mgmt-status--under-review',
   REASSIGNED: 'task-mgmt-status--reassigned',
 };
 
@@ -41,7 +42,7 @@ const DateCell = ({ date, time }) => (
   </div>
 );
 
-const SlideToComplete = ({ onComplete }) => {
+const SlideToComplete = ({ onComplete, label }) => {
   const [position, setPosition] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [completed, setCompleted] = useState(false);
@@ -147,7 +148,7 @@ const SlideToComplete = ({ onComplete }) => {
         )}
       </div>
       <span className="slide-to-complete-text">
-        {completed ? 'Completed' : 'Slide to Complete'}
+        {completed ? 'Completed' : (label || 'Slide to Complete')}
       </span>
     </div>
   );
@@ -191,8 +192,14 @@ const TaskManagement = () => {
           priority: priorityFilter,
           status: statusFilter,
         }),
-        fetchTasks({
-          status: 'UNDER REVIEW',
+        // Fetch both UNDER REVIEW and PENDING REVIEW status options for the requests section
+        Promise.all([
+          fetchTasks({ status: 'UNDER REVIEW' }),
+          fetchTasks({ status: 'PENDING REVIEW' })
+        ]).then(([underRes, pendingRes]) => {
+          return {
+            data: [...(underRes.data || []), ...(pendingRes.data || [])]
+          };
         }),
         fetchTasks({
           status: 'EXTENSION REQUESTED',
@@ -203,10 +210,14 @@ const TaskManagement = () => {
 
       setTasks(tasksRes.data || []);
       const allRequests = requestsRes.data || [];
+      
       setRequests(
-        isGlobalAdmin
-          ? allRequests
-          : allRequests.filter((t) => t.createdBy === user?.userId)
+        allRequests.filter((t) => {
+          // A task should only show up in the Review Requests tab of a user if they are the current active approver in the approvalChain
+          const hasChain = t.approvalChain && t.approvalChain.length > 0;
+          const currentApprover = hasChain ? t.approvalChain[t.approvalChainIndex] : t.createdBy;
+          return String(currentApprover) === String(user?.userId);
+        })
       );
 
       const allExtensions = extensionsRes.data || [];
@@ -302,22 +313,32 @@ const TaskManagement = () => {
     if (page > totalPages) setPage(1);
   }, [page, totalPages]);
 
-  const handleCompleteTask = async (taskId) => {
+  const handleCompleteTask = async (taskObj) => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${baseUrl.baseUrl}api/task/${taskId}/status`, {
+      const hasChain = taskObj.approvalChain && taskObj.approvalChain.length > 0;
+      
+      let url = `${baseUrl.baseUrl}api/task/${taskObj._id || taskObj.id}/status`;
+      let body = { status: 'COMPLETED' };
+
+      if (hasChain) {
+        url = `${baseUrl.baseUrl}api/task/${taskObj._id || taskObj.id}/approve`;
+        body = { action: 'APPROVE' };
+      }
+
+      const res = await fetch(url, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           ...(token && { Authorization: `Bearer ${token}` }),
         },
-        body: JSON.stringify({ status: 'COMPLETED' }),
+        body: JSON.stringify(body),
       });
       const json = await res.json();
       if (!res.ok) {
         throw new Error(json.message || 'Failed to complete task');
       }
-      toast.success('Task marked as COMPLETED!');
+      toast.success(hasChain ? 'Approved task step successfully!' : 'Task marked as COMPLETED!');
       loadTasks();
     } catch (err) {
       toast.error(err.message || 'Failed to update task status');
@@ -359,41 +380,45 @@ const TaskManagement = () => {
             <h1 className="task-mgmt-title task-mgmt-title--heavy">Task Management</h1>
             <p className="task-mgmt-subtitle">Track and manage all operational tasks across stores</p>
           </div>
-          <Link to="/task/create" className="task-mgmt-new-btn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            New Task
-          </Link>
+          {user?.role !== 'telecaller' && (
+            <Link to="/task/create" className="task-mgmt-new-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              New Task
+            </Link>
+          )}
         </div>
 
-        <div className="task-mgmt-tabs">
-          <button
-            type="button"
-            className={`task-mgmt-tab-btn ${activeTab === 'tasks' ? 'active' : ''}`}
-            onClick={() => setActiveTab('tasks')}
-          >
-            All Tasks
-            <span className="task-mgmt-tab-count">{tasks.length}</span>
-          </button>
-          <button
-            type="button"
-            className={`task-mgmt-tab-btn ${activeTab === 'extensions' ? 'active' : ''}`}
-            onClick={() => setActiveTab('extensions')}
-          >
-            Extension Requests
-            <span className="task-mgmt-tab-count">{extensions.length}</span>
-          </button>
-          <button
-            type="button"
-            className={`task-mgmt-tab-btn ${activeTab === 'requests' ? 'active' : ''}`}
-            onClick={() => setActiveTab('requests')}
-          >
-            Review Requests
-            <span className="task-mgmt-tab-count">{requests.length}</span>
-          </button>
-        </div>
+        {user?.role !== 'telecaller' && (
+          <div className="task-mgmt-tabs">
+            <button
+              type="button"
+              className={`task-mgmt-tab-btn ${activeTab === 'tasks' ? 'active' : ''}`}
+              onClick={() => setActiveTab('tasks')}
+            >
+              All Tasks
+              <span className="task-mgmt-tab-count">{tasks.length}</span>
+            </button>
+            <button
+              type="button"
+              className={`task-mgmt-tab-btn ${activeTab === 'extensions' ? 'active' : ''}`}
+              onClick={() => setActiveTab('extensions')}
+            >
+              Extension Requests
+              <span className="task-mgmt-tab-count">{extensions.length}</span>
+            </button>
+            <button
+              type="button"
+              className={`task-mgmt-tab-btn ${activeTab === 'requests' ? 'active' : ''}`}
+              onClick={() => setActiveTab('requests')}
+            >
+              Review Requests
+              <span className="task-mgmt-tab-count">{requests.length}</span>
+            </button>
+          </div>
+        )}
 
         <div className="task-mgmt-toolbar">
           <div className="task-mgmt-search">
@@ -427,7 +452,11 @@ const TaskManagement = () => {
             <div className="task-mgmt-filter">
               <label>Status :</label>
               <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
-                {['All', 'COMPLETED', 'IN PROGRESS', 'PENDING', 'OVERDUE', 'ON HOLD', 'UNDER REVIEW', 'REASSIGNED', 'EXTENSION REQUESTED'].map((s) => <option key={s} value={s}>{s}</option>)}
+                {['All', 'COMPLETED', 'IN PROGRESS', 'PENDING', 'OVERDUE', 'ON HOLD', 'UNDER REVIEW', 'REASSIGNED', 'EXTENSION REQUESTED'].map((s) => (
+                  <option key={s} value={s}>
+                    {s === 'IN PROGRESS' ? 'TO DO' : s}
+                  </option>
+                ))}
               </select>
             </div>
           )}
@@ -508,7 +537,7 @@ const TaskManagement = () => {
                   (activeTab === 'tasks' ? pageItems : activeTab === 'requests' ? pageItemsRequests : pageItemsExtensions).map((task) => (
                     <tr key={task.id}>
                       <td className="task-mgmt-cell-title" onClick={() => setSelectedTask(task)} style={{ cursor: 'pointer' }}>{task.title}</td>
-                      <td><StackCell primary={task.category} secondary={task.categorySub} /></td>
+                      <td><StackCell primary={task.category} secondary={task.categoryDetail ? `${task.categoryDetail} · ${task.categorySub}` : task.categorySub} /></td>
                       <td><StackCell primary={task.assignee} secondary={task.assigneeSub} /></td>
                       <td>
                         <span className="task-mgmt-priority">
@@ -545,7 +574,7 @@ const TaskManagement = () => {
                         <>
                           <td>
                             <span className={`task-mgmt-status ${STATUS_CLASS[task.status] || ''}`}>
-                              {task.status}
+                              {task.status === 'IN PROGRESS' ? 'TO DO' : task.status}
                             </span>
                           </td>
                           <td>
@@ -579,11 +608,19 @@ const TaskManagement = () => {
                               <span style={{ color: '#9ca3af' }}>No proof</span>
                             )}
                           </td>
-                          <td>
+                           <td>
                             <div className="slide-to-complete-wrapper">
-                              <SlideToComplete
-                                onComplete={() => handleCompleteTask(task.id)}
-                              />
+                              {(() => {
+                                // The final step is when the current logged in user is the original creator of the task (the Admin who first created/assigned it)
+                                const isFinalStep = String(task.createdBy) === String(user?.userId);
+                                const labelText = isFinalStep ? 'Slide to Complete' : 'Slide to Approve';
+                                return (
+                                  <SlideToComplete
+                                    onComplete={() => handleCompleteTask(task)}
+                                    label={labelText}
+                                  />
+                                );
+                              })()}
                             </div>
                           </td>
                         </>

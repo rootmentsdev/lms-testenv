@@ -433,6 +433,8 @@ export const flutterLogin = async (req, res) => {
               'Z-EDAPALLY1': '144',
               'G-EDAPPALLY': '702',
               'SG-TRIVANDRUM': '700',
+              'G-TRIVANDRUM': '700',
+              'G.TRIVANDRUM': '700',
               'Z- EDAPPAL': '100',
               'Z.PERINTHALMANNA': '133',
               'Z.KOTTAKKAL': '122',
@@ -699,7 +701,7 @@ export const GetBranch = async (req, res) => {
   try {
     // Public access (no token) — return all branches for signup dropdown
     if (!req.admin?.userId) {
-      const allBranches = await Branch.find({}).select('locCode workingBranch location').lean();
+      const allBranches = await Branch.find({}).select('locCode workingBranch location clusterId').populate('clusterId').lean();
       return res.status(200).json({ message: 'Data found', data: allBranches });
     }
 
@@ -712,7 +714,7 @@ export const GetBranch = async (req, res) => {
 
     // Super admin, admin, or admin with no branches assigned — return all branches
     if (!AdminBranch.branches || AdminBranch.branches.length === 0 || ['super_admin', 'admin'].includes(AdminBranch.role)) {
-      const allBranches = await Branch.find({});
+      const allBranches = await Branch.find({}).populate('clusterId');
 
       const branchesWithCounts = await Promise.all(allBranches.map(async (branch) => {
         const branchLocCode = String(branch.locCode);
@@ -744,7 +746,7 @@ export const GetBranch = async (req, res) => {
       ...allowedLocCodes.map(c => Number(c)).filter(c => !isNaN(c))
     ];
 
-    const branches = await Branch.find({ locCode: { $in: allowedBoth } });
+    const branches = await Branch.find({ locCode: { $in: allowedBoth } }).populate('clusterId');
 
     if (branches.length === 0) {
       return res.status(404).json({ message: "No branches found matching admin's location codes" });
@@ -1447,3 +1449,31 @@ export const GetUserAllTrainings = async (req, res) => {
     res.status(500).json({ message: "Server error while fetching trainings" });
   }
 };
+
+export const saveFcmToken = async (req, res) => {
+  try {
+    const { fcmToken } = req.body;
+    if (!fcmToken) {
+      return res.status(400).json({ success: false, message: 'fcmToken is required' });
+    }
+
+    const { userId } = req.user;
+
+    // Update in User collection
+    let updated = await User.findByIdAndUpdate(userId, { fcmToken }, { new: true });
+    if (!updated) {
+      // If not found in User, try Admin collection
+      updated = await Admin.findByIdAndUpdate(userId, { fcmToken }, { new: true });
+    }
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'User or Admin not found' });
+    }
+
+    return res.status(200).json({ success: true, message: 'FCM token saved successfully' });
+  } catch (error) {
+    console.error('Error saving FCM token:', error);
+    return res.status(500).json({ success: false, message: 'Failed to save FCM token' });
+  }
+};
+

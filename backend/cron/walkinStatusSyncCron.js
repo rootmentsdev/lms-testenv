@@ -32,8 +32,8 @@ export const startWalkinStatusSyncCron = () => {
         }
     });
 
-    // Run daily at 12:00 AM IST (6:30 PM UTC server time)
-    cron.schedule('30 18 * * *', async () => {
+    // Run daily at 11:00 PM IST (5:30 PM UTC server time)
+    cron.schedule('30 17 * * *', async () => {
         if (isLossExpiryRunning) {
             console.log('⚠️ [Walkin Loss Expiry Cron] Previous loss expiry job is still running. Skipping this execution.');
             return;
@@ -50,6 +50,6 @@ export const startWalkinStatusSyncCron = () => {
         }
     });
 
-    console.log('✅ Walk-in Status Sync Scheduler started (runs every 15 minutes, loss expiry runs daily at 12:00 AM)');
+    console.log('✅ Walk-in Status Sync Scheduler started (runs every 15 minutes, loss expiry runs daily at 11:00 PM)');
 };
 

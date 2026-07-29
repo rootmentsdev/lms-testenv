@@ -3,21 +3,39 @@ import { useSelector, useDispatch } from "react-redux";
 import { useState, useEffect, useRef } from "react";
 import baseUrl from "../../api/api.js";
 import LogoutConfirmation from "../LogoutConfirmation/LogoutConfirmation";
+import ResetPasswordModal from "../ResetPasswordModal/ResetPasswordModal";
 import { logout } from "../../features/auth/authSlice";
 
 const Header = () => {
-    const navigate  = useNavigate();
-    const dispatch  = useDispatch();
-    const dropRef   = useRef(null);
+    const navigate = useNavigate();
+    const dispatch = useDispatch();
+    const dropRef = useRef(null);
 
-    const [search, setSearch]               = useState('');
+    const [search, setSearch] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [searchUsers, setSearchUsers]     = useState([]);
     const [isSearching, setIsSearching]     = useState(false);
     const [dropOpen, setDropOpen]           = useState(false);
     const [showLogout, setShowLogout]       = useState(false);
+    const [showResetPassword, setShowResetPassword] = useState(false);
 
-    const user  = useSelector((s) => s.auth.user);
+    const [darkMode, setDarkMode]           = useState(() => {
+        return localStorage.getItem('theme') === 'dark';
+    });
+
+    useEffect(() => {
+        if (darkMode) {
+            document.documentElement.classList.add('dark');
+            document.documentElement.setAttribute('data-theme', 'dark');
+            localStorage.setItem('theme', 'dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.setAttribute('data-theme', 'light');
+            localStorage.setItem('theme', 'light');
+        }
+    }, [darkMode]);
+
+    const user = useSelector((s) => s.auth.user);
     const token = localStorage.getItem('token');
 
     // Display name — prefer username, fall back to role label
@@ -89,12 +107,10 @@ const Header = () => {
             >
                 {/* ── Left: Logo + brand name ── */}
                 <Link to="/" className="flex items-center gap-3 no-underline select-none">
-                    <div className="w-14 h-14 overflow-hidden rounded-full border-4 shadow-sm">
-                        <img src="/Brynex.jpeg" alt="Brynex LMS" className="w-full h-full object-cover" />
-                    </div>
+                    <img src="/logo.png" alt="Brynex LMS" className="w-12 h-12 object-contain select-none" />
                     <div className="flex flex-col ml-3">
                         <h1 className="text-xl font-bold text-gray-800 tracking-wide">
-                            BRYNEX LMS
+                            BRYNEX ONE
                         </h1>
                         <span className="text-[9px] font-medium tracking-widest uppercase text-gray-400" style={{ letterSpacing: '0.18em' }}>
                             BRYNEX APPAREL PVT.LTD
@@ -105,7 +121,32 @@ const Header = () => {
                 {/* ── Right: bell + avatar ── */}
                 <div className="flex items-center gap-3">
 
-
+                    {/* Dark Mode Toggle */}
+                    <button 
+                        onClick={() => setDarkMode(p => !p)} 
+                        className="w-9 h-9 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors"
+                        title={darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                    >
+                        {darkMode ? (
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-500">
+                                <circle cx="12" cy="12" r="5" />
+                                <line x1="12" y1="1" x2="12" y2="3" />
+                                <line x1="12" y1="21" x2="12" y2="23" />
+                                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                                <line x1="1" y1="12" x2="3" y2="12" />
+                                <line x1="21" y1="12" x2="23" y2="12" />
+                                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                            </svg>
+                        ) : (
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                            </svg>
+                        )}
+                    </button>
 
                     {/* Bell */}
                     <Link to="/admin/Notification">
@@ -155,11 +196,23 @@ const Header = () => {
                                 <Link to="/admin/profile" onClick={() => setDropOpen(false)}>
                                     <div className="px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
                                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
                                         </svg>
                                         Profile
                                     </div>
                                 </Link>
+
+                                <button
+                                    type="button"
+                                    onClick={() => { setDropOpen(false); setShowResetPassword(true); }}
+                                    className="w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 text-left"
+                                >
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                                    </svg>
+                                    Reset Password
+                                </button>
 
                                 <div className="border-t border-gray-100" />
                                 <button
@@ -167,7 +220,7 @@ const Header = () => {
                                     className="w-full px-4 py-3 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2"
                                 >
                                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+                                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
                                     </svg>
                                     Logout
                                 </button>
@@ -207,6 +260,11 @@ const Header = () => {
                 isOpen={showLogout}
                 onClose={() => setShowLogout(false)}
                 onConfirm={handleLogoutConfirm}
+            />
+
+            <ResetPasswordModal
+                isOpen={showResetPassword}
+                onClose={() => setShowResetPassword(false)}
             />
         </>
     );

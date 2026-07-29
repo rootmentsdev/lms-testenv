@@ -498,3 +498,230 @@
   display: flex;
   justify-content: flex-end;
 }
+
+/* Category Management Modal styles */
+.cat-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.cat-modal-container {
+  background: #ffffff;
+  width: 90%;
+  max-width: 650px;
+  max-height: 85vh;
+  border-radius: 16px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cat-modal-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid #f3f4f6;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cat-modal-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+  font-family: "DM Sans", sans-serif;
+}
+
+.cat-modal-close-btn {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.cat-modal-close-btn:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.cat-modal-content {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.cat-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cat-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 4px 0;
+  border-bottom: 1.5px solid #f3f4f6;
+  padding-bottom: 6px;
+  font-family: "DM Sans", sans-serif;
+}
+
+.cat-item-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 14px;
+  background: #f9fafb;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.cat-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.cat-item-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: #111827;
+  font-family: "DM Sans", sans-serif;
+}
+
+.cat-item-roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.cat-role-tag {
+  background: #eff6ff;
+  color: #1e40af;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  font-family: "DM Sans", sans-serif;
+}
+
+.cat-item-subs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.cat-sub-tag {
+  background: #e5e7eb;
+  color: #374151;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "DM Sans", sans-serif;
+}
+
+.cat-sub-delete-btn {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cat-sub-delete-btn:hover {
+  color: #ef4444;
+}
+
+.cat-inline-add-sub {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.cat-input-small {
+  height: 32px;
+  font-size: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 0 8px;
+  outline: none;
+  flex: 1;
+  font-family: "DM Sans", sans-serif;
+}
+
+.cat-input-small:focus {
+  border-color: #111827;
+}
+
+.cat-btn-small {
+  height: 32px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #111827;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0 12px;
+  cursor: pointer;
+  font-family: "DM Sans", sans-serif;
+}
+
+.cat-delete-btn {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.cat-delete-btn:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
