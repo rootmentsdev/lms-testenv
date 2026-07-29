@@ -1340,28 +1340,48 @@ export const updateTaskStatus = async (req, res) => {
     task.status = normalizedStatus;
     await task.save();
 
-    // Trigger status-change notifications
-    if (normalizedStatus === 'REASSIGNED') {
+    // Trigger status-change notifications to relevant party (creator, assignee, or both)
+    const statusRecipientsSet = new Set();
+    if (task.assignedTo && task.assignedTo.toString() !== userId.toString()) {
+      statusRecipientsSet.add(task.assignedTo.toString());
+    }
+    if (task.createdBy && task.createdBy.toString() !== userId.toString()) {
+      statusRecipientsSet.add(task.createdBy.toString());
+    }
+    const statusNotifyUserIds = Array.from(statusRecipientsSet);
+
+    if (statusNotifyUserIds.length > 0) {
+      let notifTitle = `Task Status: ${normalizedStatus}`;
+      let notifBody = `Task "${task.title}" status was updated to ${normalizedStatus} by ${executorName}`;
+
+      if (normalizedStatus === 'REASSIGNED') {
+        notifTitle = 'Task Reassigned';
+        notifBody = `Task "${task.title}" has been reassigned to you by ${executorName}`;
+      } else if (normalizedStatus === 'UNDER REVIEW') {
+        notifTitle = 'Task Submitted for Review';
+        notifBody = `Task "${task.title}" has been submitted for review by ${executorName}`;
+      } else if (normalizedStatus === 'EXTENSION REQUESTED') {
+        const extDate = req.body?.requestedExtensionDate || task.requestedExtensionDate || '';
+        notifTitle = 'Task Extension Requested';
+        notifBody = `Task "${task.title}" has an extension requested ${extDate ? `to ${extDate} ` : ''}by ${executorName}`;
+      } else if (normalizedStatus === 'COMPLETED') {
+        notifTitle = 'Task Completed';
+        notifBody = `Task "${task.title}" has been marked as COMPLETED by ${executorName}`;
+      } else if (normalizedStatus === 'IN PROGRESS') {
+        notifTitle = 'Task In Progress';
+        notifBody = `Task "${task.title}" is now IN PROGRESS by ${executorName}`;
+      } else if (normalizedStatus === 'ON HOLD') {
+        notifTitle = 'Task Put On Hold';
+        notifBody = `Task "${task.title}" was put ON HOLD by ${executorName}`;
+      } else if (normalizedStatus === 'OVERDUE') {
+        notifTitle = 'Task Overdue';
+        notifBody = `Task "${task.title}" status changed to OVERDUE by ${executorName}`;
+      }
+
       await sendNotification({
-        title: 'Task Reassigned',
-        body: `Task "${task.title}" has been reassigned to you by ${executorName}`,
-        userIds: [task.assignedTo],
-        senderName: executorName,
-        category: 'Task'
-      });
-    } else if (normalizedStatus === 'UNDER REVIEW') {
-      await sendNotification({
-        title: 'Task Submitted for Review',
-        body: `Task "${task.title}" has been submitted for review by ${executorName}`,
-        userIds: [task.createdBy],
-        senderName: executorName,
-        category: 'Task'
-      });
-    } else if (normalizedStatus === 'EXTENSION REQUESTED') {
-      await sendNotification({
-        title: 'Task Extension Requested',
-        body: `Task "${task.title}" has an extension requested to ${requestedExtensionDate} by ${executorName}`,
-        userIds: [task.createdBy],
+        title: notifTitle,
+        body: notifBody,
+        userIds: statusNotifyUserIds,
         senderName: executorName,
         category: 'Task'
       });
@@ -1945,6 +1965,25 @@ export const updateTaskDetails = async (req, res) => {
     }
 
     await task.save();
+
+    // Send notifications for details edit / reassign
+    if (assigneeChanged && task.assignedTo) {
+      await sendNotification({
+        title: 'Task Reassigned',
+        body: `Task "${task.title}" has been reassigned to you by ${editorName}`,
+        userIds: [task.assignedTo.toString()],
+        senderName: editorName,
+        category: 'Task'
+      });
+    } else if (task.assignedTo && task.assignedTo.toString() !== userId.toString()) {
+      await sendNotification({
+        title: 'Task Details Updated',
+        body: `Task "${task.title}" details have been updated by ${editorName}`,
+        userIds: [task.assignedTo.toString()],
+        senderName: editorName,
+        category: 'Task'
+      });
+    }
 
     return res.status(200).json({
       success: true,
