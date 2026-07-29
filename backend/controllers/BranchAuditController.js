@@ -74,6 +74,14 @@ export const createBranchAudit = async (req, res) => {
       return res.status(400).json({ success: false, message: "Store is required" });
     }
 
+    const isEmployeeRating = req.body?.ratingType === "employee" || metadata?.employeeId || req.admin?.role === "store_admin";
+
+    if (isEmployeeRating) {
+      if (!metadata?.employeeId && !req.body?.employeeId) {
+        return res.status(400).json({ success: false, message: "Employee selection is mandatory for staff rating." });
+      }
+    }
+
     const normalizedSections = Array.isArray(sections)
       ? sections.map((section) => ({
           title: section.title || "",
@@ -86,6 +94,22 @@ export const createBranchAudit = async (req, res) => {
             : [],
         }))
       : [];
+
+    if (isEmployeeRating) {
+      // Check for any unrated items (score <= 0)
+      const hasUnscoredItems = normalizedSections.some(sec =>
+        (sec.items || []).some(item => !item.score || item.score <= 0)
+      );
+      if (hasUnscoredItems) {
+        return res.status(400).json({ success: false, message: "All performance criteria star ratings are mandatory." });
+      }
+
+      // Check for missing remarks
+      const hasEmptyRemarks = normalizedSections.some(sec => !sec.remarks || !sec.remarks.trim());
+      if (hasEmptyRemarks) {
+        return res.status(400).json({ success: false, message: "Overall remarks are mandatory for staff rating." });
+      }
+    }
 
     const overallRating = computeOverallRating(normalizedSections);
     const totalRatingsCount = normalizedSections.reduce((sum, section) => sum + (section.items?.length || 0), 0);

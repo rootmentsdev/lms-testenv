@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import SideNav from "../../../components/SideNav/SideNav";
-import { FaArrowLeft, FaChevronDown, FaStar, FaUser } from "react-icons/fa";
+import { FaArrowLeft, FaChevronDown, FaStar, FaUser, FaExclamationTriangle } from "react-icons/fa";
+import { toast } from "react-toastify";
 import baseUrl from "../../../api/api";
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -76,8 +77,8 @@ const STORE_SECTIONS = [
 /* ─────────────────────────────────────────────────────────────────────────── */
 /* STAR RATING COMPONENT                                                        */
 /* ─────────────────────────────────────────────────────────────────────────── */
-const AuditStar = ({ value, onChange, label }) => (
-  <div className="flex flex-col items-center gap-3 text-center">
+const AuditStar = ({ value, onChange, label, error }) => (
+  <div className={`flex flex-col items-center gap-3 text-center p-3 rounded-xl transition-all ${error ? 'bg-red-50/80 border border-red-200 shadow-sm' : ''}`}>
     <div className="text-[14px] font-semibold text-[#30343b] leading-snug">
       {label}
       <span className="text-red-500">*</span>
@@ -97,8 +98,8 @@ const AuditStar = ({ value, onChange, label }) => (
         </button>
       ))}
     </div>
-    <span className="text-[12px] text-gray-400">
-      {value === 0 ? "Not rated" : `${value} / 5`}
+    <span className={`text-[12px] font-medium ${value === 0 ? (error ? "text-red-600 font-semibold" : "text-amber-600") : "text-emerald-600"}`}>
+      {value === 0 ? (error ? "Rating Required *" : "Not rated *") : `${value} / 5`}
     </span>
   </div>
 );
@@ -142,17 +143,24 @@ const SectionBlock = ({ title, items, values, setValues }) => (
 /* ─────────────────────────────────────────────────────────────────────────── */
 /* EMPLOYEE RATING BLOCK (for store_admin view)                                 */
 /* ─────────────────────────────────────────────────────────────────────────── */
-const EmployeeRatingBlock = ({ criteria, values, setValues }) => (
-  <section className="rounded-[8px] bg-white px-6 py-8 shadow-sm">
-    <h2 className="mb-6 text-[16px] font-bold text-black border-b border-gray-100 pb-3">
-      Employee Performance Rating
-    </h2>
+const EmployeeRatingBlock = ({ criteria, values, setValues, errors }) => (
+  <section className="rounded-[8px] bg-white px-6 py-8 shadow-sm border border-gray-100">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6 border-b border-gray-100 pb-3">
+      <h2 className="text-[16px] font-bold text-black">
+        Employee Performance Rating
+      </h2>
+      <span className="text-xs font-semibold text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-200 self-start sm:self-auto flex items-center gap-1.5">
+        <FaExclamationTriangle className="text-red-500 text-[10px]" />
+        All 10 criteria & overall remarks are mandatory *
+      </span>
+    </div>
     <div className="grid grid-cols-1 gap-y-8 sm:grid-cols-2 lg:grid-cols-4 lg:gap-x-6">
       {criteria.map((label, idx) => (
         <AuditStar
           key={idx}
           label={label}
           value={values[`emp-${idx}`] || 0}
+          error={errors?.[`emp-${idx}`]}
           onChange={(next) =>
             setValues((prev) => ({ ...prev, [`emp-${idx}`]: next }))
           }
@@ -161,7 +169,7 @@ const EmployeeRatingBlock = ({ criteria, values, setValues }) => (
     </div>
     <div className="mt-8">
       <label className="mb-2 block text-[14px] font-semibold text-[#30343b]">
-        Overall Remarks<span className="text-red-500">*</span>
+        Overall Remarks <span className="text-red-500">*</span>
       </label>
       <textarea
         rows={3}
@@ -169,9 +177,14 @@ const EmployeeRatingBlock = ({ criteria, values, setValues }) => (
         onChange={(e) =>
           setValues((prev) => ({ ...prev, "emp-remarks": e.target.value }))
         }
-        placeholder="General observations about this employee's performance..."
-        className="w-full rounded-[6px] border border-gray-200 px-3 py-2 text-[14px] outline-none focus:border-gray-500 resize-none"
+        placeholder="General observations about this employee's performance (Required)..."
+        className={`w-full rounded-[6px] border px-3 py-2 text-[14px] outline-none focus:border-gray-500 resize-none ${
+          errors?.["emp-remarks"] ? "border-red-500 bg-red-50/40" : "border-gray-200"
+        }`}
       />
+      {errors?.["emp-remarks"] && (
+        <p className="text-xs text-red-600 font-semibold mt-1">Overall remarks are required.</p>
+      )}
     </div>
   </section>
 );
@@ -194,6 +207,7 @@ const BranchAuditForm = () => {
   const [employeeName, setEmployeeName] = useState("");
   const [employeeId, setEmployeeId] = useState("");
   const [values, setValues] = useState({});
+  const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [branchOptions, setBranchOptions] = useState([]);
   const [employeeOptions, setEmployeeOptions] = useState([]);
@@ -334,6 +348,69 @@ const BranchAuditForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const newErrors = {};
+
+    if (!store || !store.trim()) {
+      newErrors.store = true;
+      toast.error("Store selection is required.");
+      setErrors(newErrors);
+      return;
+    }
+
+    if (isStoreAdmin) {
+      if (!employeeId || !employeeId.trim()) {
+        newErrors.employeeId = true;
+        toast.error("Employee selection is required.");
+        setErrors(newErrors);
+        return;
+      }
+
+      const unratedIndices = [];
+      EMPLOYEE_CRITERIA.forEach((_, idx) => {
+        const val = Number(values[`emp-${idx}`] || 0);
+        if (val <= 0) {
+          unratedIndices.push(idx);
+          newErrors[`emp-${idx}`] = true;
+        }
+      });
+
+      const remarks = values["emp-remarks"] ? values["emp-remarks"].trim() : "";
+      if (!remarks) {
+        newErrors["emp-remarks"] = true;
+      }
+
+      if (unratedIndices.length > 0) {
+        toast.error(`Please rate all 10 performance criteria before saving. (${unratedIndices.length} criterion missing)`);
+        setErrors(newErrors);
+        return;
+      }
+
+      if (!remarks) {
+        toast.error("Overall remarks are required for staff rating.");
+        setErrors(newErrors);
+        return;
+      }
+    } else {
+      // Cluster / Admin validation
+      const unrated = [];
+      STORE_SECTIONS.forEach((section) => {
+        section.items.forEach((label, idx) => {
+          const key = `${section.title}-${idx}`;
+          if (!values[key] || Number(values[key]) <= 0) {
+            unrated.push(label);
+            newErrors[key] = true;
+          }
+        });
+      });
+
+      if (unrated.length > 0) {
+        toast.error(`Please rate all store audit criteria. (${unrated.length} item(s) unrated)`);
+        setErrors(newErrors);
+        return;
+      }
+    }
+
+    setErrors({});
     setSaving(true);
     try {
       const token = localStorage.getItem("token");
@@ -346,8 +423,16 @@ const BranchAuditForm = () => {
         },
         body: JSON.stringify(body),
       });
-      if (!response.ok) throw new Error("Failed to save audit");
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to save audit");
+      }
+
+      toast.success(isStoreAdmin ? "Staff Rating saved successfully!" : "Store Rating saved successfully!");
       navigate(basePath);
+    } catch (err) {
+      toast.error(err.message || "Failed to save rating audit");
     } finally {
       setSaving(false);
     }
@@ -467,6 +552,7 @@ const BranchAuditForm = () => {
                 criteria={EMPLOYEE_CRITERIA}
                 values={values}
                 setValues={setValues}
+                errors={errors}
               />
             )}
 
