@@ -3,6 +3,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { useState, useEffect, useRef } from "react";
 import baseUrl from "../../api/api.js";
 import LogoutConfirmation from "../LogoutConfirmation/LogoutConfirmation";
+import ResetPasswordModal from "../ResetPasswordModal/ResetPasswordModal";
 import { logout } from "../../features/auth/authSlice";
 
 const Header = () => {
@@ -16,6 +17,7 @@ const Header = () => {
     const [isSearching, setIsSearching]     = useState(false);
     const [dropOpen, setDropOpen]           = useState(false);
     const [showLogout, setShowLogout]       = useState(false);
+    const [showResetPassword, setShowResetPassword] = useState(false);
 
     const [darkMode, setDarkMode]           = useState(() => {
         return localStorage.getItem('theme') === 'dark';
@@ -200,6 +202,18 @@ const Header = () => {
                                     </div>
                                 </Link>
 
+                                <button
+                                    type="button"
+                                    onClick={() => { setDropOpen(false); setShowResetPassword(true); }}
+                                    className="w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 text-left"
+                                >
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                                    </svg>
+                                    Reset Password
+                                </button>
+
                                 <div className="border-t border-gray-100" />
                                 <button
                                     onClick={() => { setDropOpen(false); setShowLogout(true); }}
@@ -246,6 +260,11 @@ const Header = () => {
                 isOpen={showLogout}
                 onClose={() => setShowLogout(false)}
                 onConfirm={handleLogoutConfirm}
+            />
+
+            <ResetPasswordModal
+                isOpen={showResetPassword}
+                onClose={() => setShowResetPassword(false)}
             />
         </>
     );

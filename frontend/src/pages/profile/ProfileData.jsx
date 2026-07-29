@@ -3,16 +3,18 @@ import { FaRegIdCard } from "react-icons/fa";
 import { CiMail } from "react-icons/ci";
 import { IoPhonePortraitOutline } from "react-icons/io5";
 import { HiOutlinePencil } from "react-icons/hi2";
-import { FaRegSave } from "react-icons/fa";
+import { FaRegSave, FaKey } from "react-icons/fa";
 import { useEffect, useState } from "react";
 import baseUrl from "../../api/api";
 import { toast } from 'react-toastify';
+import ResetPasswordModal from "../../components/ResetPasswordModal/ResetPasswordModal";
 
 const ProfileData = () => {
     const token = localStorage.getItem("token");
     const [data, setData] = useState({});
     const [editData, setEditData] = useState({});
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isResetModalOpen, setIsResetModalOpen] = useState(false);
 
     const GETCurrentAdmin = async () => {
         try {
@@ -102,7 +104,14 @@ const ProfileData = () => {
                                 <p className="text-sm text-gray-700">{data?.phoneNumber}</p>
                             </div>
                         </div>
-                        <div className="flex w-full justify-end absolute bottom-3">
+                        <div className="flex w-full justify-end gap-2 absolute bottom-3">
+                            <button
+                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-300 rounded-lg flex items-center gap-2 transition-colors"
+                                onClick={() => setIsResetModalOpen(true)}
+                            >
+                                <FaKey className="text-gray-500" />
+                                Reset Password
+                            </button>
                             <button
                                 className="px-4 py-2 text-sm font-medium text-[#016E5B] border-[#016E5B] border rounded-lg flex items-center gap-2"
                                 onClick={() => setIsModalOpen(true)}
@@ -169,6 +178,11 @@ const ProfileData = () => {
                     </div>
                 </div>
             )}
+            {/* Reset Password Modal Popup */}
+            <ResetPasswordModal
+                isOpen={isResetModalOpen}
+                onClose={() => setIsResetModalOpen(false)}
+            />
         </div>
     );
 };
