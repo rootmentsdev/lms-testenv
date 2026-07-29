@@ -760,7 +760,7 @@ export const saveWalkin = async (req, res) => {
  */
 export const getWalkins = async (req, res) => {
     try {
-        const { startDate, endDate, updatedStartDate, updatedEndDate, createdAtStartDate, createdAtEndDate, activityStartDate, activityEndDate, storeId, employeeId, page, limit, search = '', status = '', store = '', dashboard = '', countOnly = '', chartOnly = '', sortBy } = req.query;
+        const { startDate, endDate, updatedStartDate, updatedEndDate, createdAtStartDate, createdAtEndDate, activityStartDate, activityEndDate, storeId, employeeId, page, limit, search = '', status = '', store = '', dashboard = '', countOnly = '', chartOnly = '', sortBy, functionType = '', eventType = '' } = req.query;
         const adminId = req.admin.userId;
 
         const pageNum = parseInt(page, 10) || 1;
@@ -868,6 +868,25 @@ export const getWalkins = async (req, res) => {
                 baseQuery.store = { $in: regexes };
             } else if (storeNames.length === 1) {
                 baseQuery.store = { $regex: `^${storeNames[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' };
+            }
+        }
+
+        const targetFunctionType = functionType || eventType;
+        if (targetFunctionType && targetFunctionType !== 'All') {
+            const types = targetFunctionType.split(',').map(t => t.trim()).filter(Boolean);
+            if (types.length > 0) {
+                const regexes = types.map(t => {
+                    const escaped = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    if (/^grooms?\s*men$/i.test(t)) {
+                        return new RegExp('^(Grooms?\\s*Men)$', 'i');
+                    } else if (/^office\s*(\/|or)\s*college$/i.test(t)) {
+                        return new RegExp('^(Office\\s*(\\/|or)\\s*College)$', 'i');
+                    } else if (/^(other\s*functions|others)$/i.test(t)) {
+                        return new RegExp('^(Other\\s*Functions|Others)$', 'i');
+                    }
+                    return new RegExp(`^${escaped}$`, 'i');
+                });
+                baseQuery.functionType = { $in: regexes };
             }
         }
 

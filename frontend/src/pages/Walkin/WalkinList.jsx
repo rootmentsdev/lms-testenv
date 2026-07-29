@@ -293,6 +293,7 @@ const WalkinList = () => {
     // Filters and UI State
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
+    const [functionTypeFilter, setFunctionTypeFilter] = useState('All');
     const [storeFilter, setStoreFilter] = useState('All');
     const [filterStartDate, setFilterStartDate] = useState('');
     const [filterEndDate, setFilterEndDate] = useState('');
@@ -1835,6 +1836,7 @@ const WalkinList = () => {
             const params = new URLSearchParams({
                 search: searchQuery.trim(),
                 status: statusFilter,
+                functionType: functionTypeFilter,
                 store: storeFilter,
                 page: pageToLoad,
                 limit: itemsPerPage === 'All' ? 0 : itemsPerPage,
@@ -1946,7 +1948,7 @@ const WalkinList = () => {
     // Reset page to 1 when filters or page limit changes
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchQuery, statusFilter, storeFilter, itemsPerPage, filterStartDate, filterEndDate]);
+    }, [searchQuery, statusFilter, functionTypeFilter, storeFilter, itemsPerPage, filterStartDate, filterEndDate]);
 
     // Fetch walkins whenever page, limit, filters, or loading state changes
     // Debounce search-triggered fetches so we don't fire on every keystroke
@@ -1959,7 +1961,7 @@ const WalkinList = () => {
         } else {
             loadWalkinsList(currentPage);
         }
-    }, [currentPage, itemsPerPage, searchQuery, statusFilter, storeFilter, filterStartDate, filterEndDate, loading]);
+    }, [currentPage, itemsPerPage, searchQuery, statusFilter, functionTypeFilter, storeFilter, filterStartDate, filterEndDate, loading]);
 
     // Auto-refresh the list page data every 5 minutes
     useEffect(() => {
@@ -1970,7 +1972,7 @@ const WalkinList = () => {
         }, 5 * 60 * 1000);
 
         return () => clearInterval(intervalId);
-    }, [currentPage, itemsPerPage, searchQuery, statusFilter, storeFilter, filterStartDate, filterEndDate, token, loading, showAddView]);
+    }, [currentPage, itemsPerPage, searchQuery, statusFilter, functionTypeFilter, storeFilter, filterStartDate, filterEndDate, token, loading, showAddView]);
 
     const totalPages = itemsPerPage === 'All' ? 1 : Math.ceil(totalWalkins / itemsPerPage);
     const indexFirst = itemsPerPage === 'All' ? 0 : (currentPage - 1) * itemsPerPage;
@@ -3035,6 +3037,10 @@ const WalkinList = () => {
                             <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '7px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer' }}>
                                 <option value="All">All Status</option>
                                 {FILTER_STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                            </select>
+                            <select value={functionTypeFilter} onChange={e => setFunctionTypeFilter(e.target.value)} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '7px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer' }}>
+                                <option value="All">All Event Types</option>
+                                {['Hindu Function', 'Christian Function', 'Muslim Function', 'Grooms Men', 'Office or College', 'Other Functions'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
                             </select>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <input

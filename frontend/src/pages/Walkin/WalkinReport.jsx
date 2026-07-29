@@ -32,6 +32,30 @@ const STATUS_OPTIONS = [
   'Bill Returned'
 ];
 
+const EVENT_TYPE_OPTIONS = [
+  'Hindu Function',
+  'Christian Function',
+  'Muslim Function',
+  'Grooms Men',
+  'Office or College',
+  'Other Functions'
+];
+
+const matchEventType = (actualValue, targetFilter) => {
+  if (!actualValue || actualValue === '-') return false;
+  if (!targetFilter || targetFilter === 'All') return true;
+  const normActual = String(actualValue).trim().toLowerCase();
+  const normTarget = String(targetFilter).trim().toLowerCase();
+
+  if (normActual === normTarget) return true;
+
+  if (normTarget.includes('groom') && normActual.includes('groom')) return true;
+  if ((normTarget.includes('office') || normTarget.includes('college')) && (normActual.includes('office') || normActual.includes('college'))) return true;
+  if ((normTarget.includes('other') || normTarget.includes('others')) && (normActual.includes('other') || normActual.includes('others'))) return true;
+
+  return false;
+};
+
 const NON_SALES_REASONS = new Set([
     'Product Already Booked',
     'Design and Colour Not Available',
@@ -640,11 +664,13 @@ const WalkinReport = () => {
   const [selectedStores, setSelectedStores] = useState([]);
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [selectedStatuses, setSelectedStatuses] = useState([]);
+  const [selectedEventTypes, setSelectedEventTypes] = useState([]);
 
   const [reportGenerated, setReportGenerated] = useState(false);
   const [reportData,      setReportData]      = useState([]);
   const [tableSearch,     setTableSearch]     = useState('');
   const [tableStatus,     setTableStatus]     = useState('All');
+  const [tableEventType,  setTableEventType]  = useState('All');
   const [currentPage,     setCurrentPage]     = useState(1);
   const [itemsPerPage,    setItemsPerPage]    = useState(50);
   const [isDropdownOpen,  setIsDropdownOpen]  = useState(false);
@@ -737,6 +763,14 @@ const WalkinReport = () => {
           data = data.filter(w => selectedStatuses.some(status => matchStatusAndDate(w, status)));
         }
 
+        // Filter by Event Type(s)
+        if (Array.isArray(selectedEventTypes) && selectedEventTypes.length > 0) {
+          data = data.filter(w => {
+            const ft = w.functionType || '-';
+            return selectedEventTypes.some(sel => matchEventType(ft, sel));
+          });
+        }
+
         // Apply date range filter client-side to ensure no out-of-range walk-ins (e.g. matched by updatedAt only)
         data = data.filter(hasActivityInRange);
 
@@ -774,6 +808,7 @@ const WalkinReport = () => {
         setCurrentPage(1);
         setTableSearch('');
         setTableStatus('All');
+        setTableEventType('All');
       }
     } catch(e){ console.error(e); }
     finally { setLoading(false); }
@@ -840,9 +875,10 @@ const WalkinReport = () => {
   /* table-level filter */
   const displayed = reportData.filter(w => {
     const q = tableSearch.toLowerCase();
-    const matchSearch = !q || w.customerName?.toLowerCase().includes(q) || w.contact?.includes(q) || w.staff?.toLowerCase().includes(q);
+    const matchSearch = !q || w.customerName?.toLowerCase().includes(q) || w.contact?.includes(q) || w.staff?.toLowerCase().includes(q) || w.functionType?.toLowerCase().includes(q);
     const matchStatus = tableStatus === 'All' || matchStatusAndDate(w, tableStatus);
-    return matchSearch && matchStatus;
+    const matchEventTypeFilter = tableEventType === 'All' || matchEventType(w.functionType, tableEventType);
+    return matchSearch && matchStatus && matchEventTypeFilter;
   });
 
   const totalPages   = itemsPerPage === 'All' ? 1 : Math.ceil(displayed.length / Number(itemsPerPage));
@@ -915,6 +951,16 @@ const WalkinReport = () => {
                   placeholder="All Status"
                 />
               </div>
+              <div>
+                <CustomSelect
+                  id="event-type-select"
+                  label={<span>Event Type <span style={{color:'#9ca3af', fontWeight:400}}>(Optional)</span></span>}
+                  options={EVENT_TYPE_OPTIONS.map(et => ({ value: et, label: et }))}
+                  value={selectedEventTypes}
+                  onChange={setSelectedEventTypes}
+                  placeholder="All Event Types"
+                />
+              </div>
             </div>
             <button type="submit" style={{ background:'#111827', color:'#fff', border:'none', borderRadius:'8px', padding:'8px 20px', fontSize:'12px', fontWeight:600, cursor:'pointer' }}>
               {loading ? 'Loading...' : 'Show Report'}
@@ -937,6 +983,14 @@ const WalkinReport = () => {
                   <select value={tableStatus} onChange={e=>{setTableStatus(e.target.value);setCurrentPage(1);}} style={{ border:'none', outline:'none', fontSize:'13px', color:'#374151', background:'transparent', cursor:'pointer' }}>
                     <option value="All">All</option>
                     {STATUS_OPTIONS.map(s=><option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                {/* Event Type pill dropdown */}
+                <div style={{ display:'flex', alignItems:'center', gap:'6px', border:'1px solid #e5e7eb', borderRadius:'8px', padding:'6px 12px', fontSize:'13px', color:'#374151', background:'#fff', cursor:'pointer' }}>
+                  <span>Event Type : </span>
+                  <select value={tableEventType} onChange={e=>{setTableEventType(e.target.value);setCurrentPage(1);}} style={{ border:'none', outline:'none', fontSize:'13px', color:'#374151', background:'transparent', cursor:'pointer' }}>
+                    <option value="All">All</option>
+                    {EVENT_TYPE_OPTIONS.map(et=><option key={et} value={et}>{et}</option>)}
                   </select>
                 </div>
                 {/* Search */}
