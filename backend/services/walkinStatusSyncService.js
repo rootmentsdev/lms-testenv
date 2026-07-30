@@ -124,6 +124,10 @@ const extractDateValue = (itm, priorityKeys) => {
         const val = itemKeyMap[key.toLowerCase()];
         if (val) {
             let dateStr = String(val).trim();
+            // Check if dateStr contains explicit non-zero time (e.g. 09:36:30)
+            const hasRealTime = /[T\s](?:0[1-9]|1[0-9]|2[0-3]):[0-5][0-9]|:00:[0-5][1-9]|:00:[1-5][0-9]/.test(dateStr) ||
+                                (/[T\s][0-2][0-9]:[0-5][0-9]/.test(dateStr) && !dateStr.includes('00:00:00'));
+
             // If the date string lacks a timezone offset, treat it as India Standard Time (IST, +05:30)
             const hasTimezoneOffset = /Z$|[\+\-]\d{2}:?\d{2}$/.test(dateStr);
             if (!hasTimezoneOffset) {
@@ -134,7 +138,27 @@ const extractDateValue = (itm, priorityKeys) => {
                 dateStr = dateStr + '+05:30';
             }
             const d = new Date(dateStr);
-            if (!isNaN(d.getTime())) return d;
+            if (!isNaN(d.getTime())) {
+                if (!hasRealTime) {
+                    // Combine API's YYYY-MM-DD date with current time of day to avoid 12:00 AM distortion
+                    const now = new Date();
+                    const istNow = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+                    
+                    const istD = new Date(d.getTime() + (5.5 * 60 * 60 * 1000));
+                    const year = istD.getUTCFullYear();
+                    const month = String(istD.getUTCMonth() + 1).padStart(2, '0');
+                    const day = String(istD.getUTCDate()).padStart(2, '0');
+                    
+                    const hours = String(istNow.getUTCHours()).padStart(2, '0');
+                    const mins = String(istNow.getUTCMinutes()).padStart(2, '0');
+                    const secs = String(istNow.getUTCSeconds()).padStart(2, '0');
+                    
+                    const combinedStr = `${year}-${month}-${day}T${hours}:${mins}:${secs}+05:30`;
+                    const combinedDate = new Date(combinedStr);
+                    if (!isNaN(combinedDate.getTime())) return combinedDate;
+                }
+                return d;
+            }
         }
     }
     return null;
@@ -617,17 +641,20 @@ export const syncWalkinStatuses = async () => {
 
                             const lastChange = tracker.walkin.lastStatusChangeDate || tracker.walkin.updatedAt || tracker.walkin.createdAt;
 
-                            if (txDate && lastChange && new Date(txDate).getTime() < new Date(lastChange).getTime()) {
+                            const isInitialStatus = !previousRentalStatus || previousRentalStatus === 'New Walkin' || previousRentalStatus === '-';
+                            if (!isInitialStatus && txDate && lastChange && new Date(txDate).getTime() < new Date(lastChange).getTime()) {
                                 console.log(`ℹ️ [Walkin Status Sync] Skipping stale rental update for invoice ${invoiceNo}: txDate (${new Date(txDate).toISOString()}) is older than lastStatusChangeDate (${new Date(lastChange).toISOString()})`);
                                 continue;
                             }
 
                             // Check if this status transition has already occurred in the past (by checking captured date presence)
                             let isAlreadyDone = false;
-                            if (targetRentalStatus === 'Booked' && hadBookingDate) isAlreadyDone = true;
-                            if (targetRentalStatus === 'Rentout' && hadRentoutDate) isAlreadyDone = true;
-                            if (targetRentalStatus === 'Return' && hadReturnDate) isAlreadyDone = true;
-                            if (['Cancelled', 'Cancel'].includes(targetRentalStatus) && hadCancellationDate) isAlreadyDone = true;
+                            if (!isInitialStatus) {
+                                if (targetRentalStatus === 'Booked' && hadBookingDate) isAlreadyDone = true;
+                                if (targetRentalStatus === 'Rentout' && hadRentoutDate) isAlreadyDone = true;
+                                if (targetRentalStatus === 'Return' && hadReturnDate) isAlreadyDone = true;
+                                if (['Cancelled', 'Cancel'].includes(targetRentalStatus) && hadCancellationDate) isAlreadyDone = true;
+                            }
 
                             const currentRank = getStatusRank(previousRentalStatus);
                             const targetRank = getStatusRank(targetRentalStatus);
@@ -768,7 +795,8 @@ export const syncWalkinStatuses = async () => {
 
                             const lastChange = tracker.walkin.lastStatusChangeDate || tracker.walkin.updatedAt || tracker.walkin.createdAt;
 
-                            if (txDate && lastChange && new Date(txDate).getTime() < new Date(lastChange).getTime()) {
+                            const isInitialShoeStatus = !currentShoeStatus || currentShoeStatus === '-' || currentShoeStatus === 'None';
+                            if (!isInitialShoeStatus && txDate && lastChange && new Date(txDate).getTime() < new Date(lastChange).getTime()) {
                                 console.log(`ℹ️ [Walkin Status Sync] Skipping stale shoe update for shoeInvoice ${shoeInvoiceNo}: txDate (${new Date(txDate).toISOString()}) is older than lastStatusChangeDate (${new Date(lastChange).toISOString()})`);
                                 continue;
                             }

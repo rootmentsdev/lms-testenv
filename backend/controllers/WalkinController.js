@@ -184,6 +184,9 @@ const updateStatusAndDates = (walkinRecord, statusInput, source = 'manual') => {
     return false;
 };
 
+// Lock set to prevent concurrent double-click/race condition submissions
+const activeSubmissions = new Set();
+
 
 
 /**
@@ -685,65 +688,147 @@ export const saveWalkin = async (req, res) => {
                 data: walkinRecord
             });
         } else {
-            // ALWAYS Create new record if status is 'New Walkin' or if it is a different store.
-            // Query the latest walk-in for this contact AT THE SAME STORE to base the repeatCount on the store-specific history.
-            let storeLatest = null;
+            // Check for rapid duplicate submission (created within 2 minutes) for same contact and store
             if (trimmedContact !== '-' && trimmedContact !== '') {
-                if (finalStoreId) {
-                    storeLatest = await Walkin.findOne({
-                        contact: trimmedContact,
-                        storeId: finalStoreId
-                    }).sort({ createdAt: -1 });
-                } else if (finalStore && finalStore !== '-') {
-                    storeLatest = await Walkin.findOne({
-                        contact: trimmedContact,
-                        store: finalStore
-                    }).sort({ createdAt: -1 });
+                const lockKey = `${finalStoreId || finalStore || 'store'}_${trimmedContact}`;
+                if (activeSubmissions.has(lockKey)) {
+                    console.log(`[saveWalkin] Concurrent request locked for key: "${lockKey}"`);
+                    return res.status(200).json({
+                        success: true,
+                        message: 'Walk-in submission is already being processed',
+                        isDuplicatePrevented: true
+                    });
                 }
-            }
-            const initialStatus = isNewWalkinStatus(status) ? 'New Walkin' : (status ? status.trim() : 'New Walkin');
-            const nextRepeatCount = initialStatus === 'New Walkin' ? 1 : (storeLatest ? (storeLatest.repeatCount || 1) + 1 : 1);
+                // Acquire lock synchronously before any async operations
+                activeSubmissions.add(lockKey);
 
-            const newWalkin = new Walkin({
-                customerName: customerName ? customerName.trim() : '-',
-                contact: trimmedContact,
-                functionDate: functionDate ? functionDate.trim() : '-',
-                store: finalStore,
-                staff: finalStaff,
-                storeId: finalStoreId || undefined,
-                employeeId: finalEmployeeId || undefined,
-                createdBy: createdBy || undefined,
-                category: category ? category.trim() : '-',
-                functionType: functionType ? functionType.trim() : '-',
-                attachment: (fileAttachment && fileAttachment.base64) ? fileAttachment.base64 : '',
-                attachmentName: (fileAttachment && fileAttachment.name) ? fileAttachment.name : '',
-                remarks: remarks ? remarks.trim() : '-',
-                notes: notesVal !== undefined ? String(notesVal).trim() : '',
-                lossProductType: lossProductTypeVal !== undefined ? String(lossProductTypeVal).trim() : '',
-                lossSize: lossSizeVal !== undefined ? String(lossSizeVal).trim() : '',
-                lossColour: lossColourVal !== undefined ? String(lossColourVal).trim() : '',
-                lossSalesPrice: lossSalesPriceVal !== undefined ? String(lossSalesPriceVal).trim() : '',
-                lossSelectRemarks: lossSelectRemarksVal !== undefined ? String(lossSelectRemarksVal).trim() : '',
-                lossEnquiryTrailOption: lossEnquiryTrailOptionVal !== undefined ? String(lossEnquiryTrailOptionVal).trim() : '',
-                lossEnquiryRevisitDate: lossEnquiryRevisitDateVal !== undefined ? String(lossEnquiryRevisitDateVal).trim() : '',
-                lossReason: lossReasonVal !== undefined ? String(lossReasonVal).trim() : '',
-                repeatCount: nextRepeatCount,
-                date: todayStr
-            });
-            updateStatusAndDates(newWalkin, initialStatus, source);
-            pushToStatusHistory(newWalkin, {
-                status: 'New Walkin',
-                category: newWalkin.category || '-',
-                subCategory: newWalkin.subCategory || '-',
-                date: newWalkin.createdAt || new Date(),
-                source
-            });
-            await newWalkin.save();
-            return res.status(201).json({
-                success: true,
-                message: 'New walk-in saved successfully',
-                data: newWalkin
-            });
+                try {
+                    // Deduplication check: check if a walk-in was created within the last 2 minutes
+                    const twoMinutesAgo = new Date(Date.now() - 120 * 1000);
+                    let recentDupQuery = {
+                        contact: trimmedContact,
+                        createdAt: { $gte: twoMinutesAgo }
+                    };
+                    if (finalStoreId) {
+                        recentDupQuery.storeId = finalStoreId;
+                    } else if (finalStore && finalStore !== '-') {
+                        recentDupQuery.store = finalStore;
+                    }
+
+                    const recentDup = await Walkin.findOne(recentDupQuery).sort({ createdAt: -1 });
+                    if (recentDup) {
+                        console.log(`[saveWalkin] Rapid duplicate prevented for contact "${trimmedContact}" at store "${finalStore}" (Existing ID: ${recentDup._id})`);
+                        return res.status(200).json({
+                            success: true,
+                            message: 'Walk-in record was already saved recently',
+                            isDuplicatePrevented: true,
+                            data: recentDup
+                        });
+                    }
+
+                    // Query the latest walk-in for this contact AT THE SAME STORE to base the repeatCount on the store-specific history.
+                    let storeLatest = null;
+                    if (finalStoreId) {
+                        storeLatest = await Walkin.findOne({
+                            contact: trimmedContact,
+                            storeId: finalStoreId
+                        }).sort({ createdAt: -1 });
+                    } else if (finalStore && finalStore !== '-') {
+                        storeLatest = await Walkin.findOne({
+                            contact: trimmedContact,
+                            store: finalStore
+                        }).sort({ createdAt: -1 });
+                    }
+                    const initialStatus = isNewWalkinStatus(status) ? 'New Walkin' : (status ? status.trim() : 'New Walkin');
+                    const nextRepeatCount = initialStatus === 'New Walkin' ? 1 : (storeLatest ? (storeLatest.repeatCount || 1) + 1 : 1);
+
+                    const newWalkin = new Walkin({
+                        customerName: customerName ? customerName.trim() : '-',
+                        contact: trimmedContact,
+                        functionDate: functionDate ? functionDate.trim() : '-',
+                        store: finalStore,
+                        staff: finalStaff,
+                        storeId: finalStoreId || undefined,
+                        employeeId: finalEmployeeId || undefined,
+                        createdBy: createdBy || undefined,
+                        category: category ? category.trim() : '-',
+                        functionType: functionType ? functionType.trim() : '-',
+                        attachment: (fileAttachment && fileAttachment.base64) ? fileAttachment.base64 : '',
+                        attachmentName: (fileAttachment && fileAttachment.name) ? fileAttachment.name : '',
+                        remarks: remarks ? remarks.trim() : '-',
+                        notes: notesVal !== undefined ? String(notesVal).trim() : '',
+                        lossProductType: lossProductTypeVal !== undefined ? String(lossProductTypeVal).trim() : '',
+                        lossSize: lossSizeVal !== undefined ? String(lossSizeVal).trim() : '',
+                        lossColour: lossColourVal !== undefined ? String(lossColourVal).trim() : '',
+                        lossSalesPrice: lossSalesPriceVal !== undefined ? String(lossSalesPriceVal).trim() : '',
+                        lossSelectRemarks: lossSelectRemarksVal !== undefined ? String(lossSelectRemarksVal).trim() : '',
+                        lossEnquiryTrailOption: lossEnquiryTrailOptionVal !== undefined ? String(lossEnquiryTrailOptionVal).trim() : '',
+                        lossEnquiryRevisitDate: lossEnquiryRevisitDateVal !== undefined ? String(lossEnquiryRevisitDateVal).trim() : '',
+                        lossReason: lossReasonVal !== undefined ? String(lossReasonVal).trim() : '',
+                        repeatCount: nextRepeatCount,
+                        date: todayStr
+                    });
+                    updateStatusAndDates(newWalkin, initialStatus, source);
+                    pushToStatusHistory(newWalkin, {
+                        status: 'New Walkin',
+                        category: newWalkin.category || '-',
+                        subCategory: newWalkin.subCategory || '-',
+                        date: newWalkin.createdAt || new Date(),
+                        source
+                    });
+                    await newWalkin.save();
+                    return res.status(201).json({
+                        success: true,
+                        message: 'New walk-in saved successfully',
+                        data: newWalkin
+                    });
+                } finally {
+                    activeSubmissions.delete(lockKey);
+                }
+            } else {
+                // Anonymous walk-in (no contact number provided)
+                const initialStatus = isNewWalkinStatus(status) ? 'New Walkin' : (status ? status.trim() : 'New Walkin');
+                const newWalkin = new Walkin({
+                    customerName: customerName ? customerName.trim() : '-',
+                    contact: trimmedContact,
+                    functionDate: functionDate ? functionDate.trim() : '-',
+                    store: finalStore,
+                    staff: finalStaff,
+                    storeId: finalStoreId || undefined,
+                    employeeId: finalEmployeeId || undefined,
+                    createdBy: createdBy || undefined,
+                    category: category ? category.trim() : '-',
+                    functionType: functionType ? functionType.trim() : '-',
+                    attachment: (fileAttachment && fileAttachment.base64) ? fileAttachment.base64 : '',
+                    attachmentName: (fileAttachment && fileAttachment.name) ? fileAttachment.name : '',
+                    remarks: remarks ? remarks.trim() : '-',
+                    notes: notesVal !== undefined ? String(notesVal).trim() : '',
+                    lossProductType: lossProductTypeVal !== undefined ? String(lossProductTypeVal).trim() : '',
+                    lossSize: lossSizeVal !== undefined ? String(lossSizeVal).trim() : '',
+                    lossColour: lossColourVal !== undefined ? String(lossColourVal).trim() : '',
+                    lossSalesPrice: lossSalesPriceVal !== undefined ? String(lossSalesPriceVal).trim() : '',
+                    lossSelectRemarks: lossSelectRemarksVal !== undefined ? String(lossSelectRemarksVal).trim() : '',
+                    lossEnquiryTrailOption: lossEnquiryTrailOptionVal !== undefined ? String(lossEnquiryTrailOptionVal).trim() : '',
+                    lossEnquiryRevisitDate: lossEnquiryRevisitDateVal !== undefined ? String(lossEnquiryRevisitDateVal).trim() : '',
+                    lossReason: lossReasonVal !== undefined ? String(lossReasonVal).trim() : '',
+                    repeatCount: 1,
+                    date: todayStr
+                });
+                updateStatusAndDates(newWalkin, initialStatus, source);
+                pushToStatusHistory(newWalkin, {
+                    status: 'New Walkin',
+                    category: newWalkin.category || '-',
+                    subCategory: newWalkin.subCategory || '-',
+                    date: newWalkin.createdAt || new Date(),
+                    source
+                });
+                await newWalkin.save();
+                return res.status(201).json({
+                    success: true,
+                    message: 'New walk-in saved successfully',
+                    data: newWalkin
+                });
+            }
         }
     } catch (error) {
         console.error('Error saving walk-in:', error);

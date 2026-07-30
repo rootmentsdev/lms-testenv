@@ -3837,15 +3837,13 @@ const WalkinList = () => {
                                     category: item.category,
                                     date: item.date ? new Date(item.date) : new Date()
                                 })).sort((a, b) => {
+                                    const aIsNew = String(a.status || '').toLowerCase().trim() === 'new walkin';
+                                    const bIsNew = String(b.status || '').toLowerCase().trim() === 'new walkin';
+                                    if (aIsNew && !bIsNew) return -1;
+                                    if (!aIsNew && bIsNew) return 1;
+
                                     const aTime = a.date.getTime();
                                     const bTime = b.date.getTime();
-                                    // If dates are identical or within 10 seconds, 'New Walkin' goes first
-                                    if (Math.abs(aTime - bTime) < 10000) {
-                                        const aIsNew = String(a.status || '').toLowerCase().trim() === 'new walkin';
-                                        const bIsNew = String(b.status || '').toLowerCase().trim() === 'new walkin';
-                                        if (aIsNew && !bIsNew) return -1;
-                                        if (!aIsNew && bIsNew) return 1;
-                                    }
                                     return aTime - bTime;
                                 });
 
