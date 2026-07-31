@@ -226,8 +226,13 @@ function App() {
           });
 
           if (!response.ok) {
-            dispatch(logout());
-            navigate('/login');
+            // Only force logout if server explicitly rejects token as invalid or forbidden
+            if (response.status === 401 || response.status === 403) {
+              dispatch(logout());
+              navigate('/login');
+            } else {
+              console.warn(`Token verification returned status ${response.status}. Session preserved.`);
+            }
             return;
           }
 
@@ -242,14 +247,11 @@ function App() {
             }));
           } else {
             console.error('No user data in token verification response');
-            dispatch(logout());
-            navigate('/login');
           }
 
         } catch (error) {
-          console.error('Error verifying token:', error);
-          dispatch(logout());
-          navigate('/login');
+          // Do not logout on network errors, CORS preflight blocks, or server cold-starts (e.g. 502 Bad Gateway)
+          console.error('Error verifying token (network or server error):', error);
         }
       };
 

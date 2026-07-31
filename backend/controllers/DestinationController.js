@@ -981,6 +981,27 @@ export const getAccessibleEmployees = async (req, res) => {
         let allowedAdminRoles = ['store_admin', 'cluster_admin', 'telecaller'];
         let excludedAdminRoles = ['super_admin', 'admin', 'hr_admin'];
         
+        const excludeOffice = req.query.excludeOffice === 'true';
+
+        const isOfficeStaff = (emp) => {
+            if (!emp) return false;
+            const branchStr = (emp.workingBranch || emp.store || '').toLowerCase();
+            const deptStr = (emp.department || '').toLowerCase();
+            const desigStr = (emp.designation || emp.role || '').toLowerCase();
+            const locStr = String(emp.locCode || '').trim();
+
+            const nonSalesKeywords = ['office', 'production', 'warehouse', 'dappr squad', 'no store', 'telecaller'];
+            if (['101', '102', '103', '555'].includes(locStr)) return true;
+            if (nonSalesKeywords.some(k => branchStr.includes(k) || deptStr.includes(k) || desigStr.includes(k))) return true;
+
+            return false;
+        };
+
+        if (excludeOffice) {
+            excludedAdminRoles.push('telecaller');
+            allowedAdminRoles = allowedAdminRoles.filter(role => role !== 'telecaller');
+        }
+
         if (req.admin.role === 'store_admin' || req.admin.role === 'telecaller') {
             allowedAdminRoles = ['store_admin', 'telecaller'];
             excludedAdminRoles = ['super_admin', 'admin', 'hr_admin', 'cluster_admin'];
@@ -1055,7 +1076,13 @@ export const getAccessibleEmployees = async (req, res) => {
             
             // Exclude if the email or employee ID matches any non-store admin record
             const isMatch = adminEmails.has(empEmail) || adminEmpIds.has(empId);
-            return !isMatch;
+            if (isMatch) return false;
+
+            if (excludeOffice && isOfficeStaff(emp)) {
+                return false;
+            }
+
+            return true;
         });
 
         res.status(200).json({ employees: filteredEmployees });
@@ -1180,163 +1207,18 @@ export const updateAdminUser = async (req, res) => {
             });
         }
 
-        // Check if this is an employee in User collection
-        const isEmployee = await User.findById(id);
-        if (isEmployee) {
-            if (role && role !== 'employee') {
-                // Transitioning from Employee (User collection) to Admin (Admin collection)
-                const hashedPassword = isEmployee.password;
-                const empId = isEmployee.empID;
-
-                // 1. Determine branches
-                let finalBranches = [];
-                if (role === 'super_admin' || role === 'admin' || role === 'hr_admin') {
-                    const allBranches = await Branch.find();
-                    finalBranches = allBranches.map((branch) => branch._id);
-                } else {
-                    finalBranches = branches || [];
-                }
-
-                // 2. Fetch/create permissions
-                let rolePermissions = await Permission.findOne({ role });
-                if (!rolePermissions) {
-                    const isSuper = (role === 'super_admin' || role === 'admin' || role === 'hr_admin');
-                    rolePermissions = new Permission({
-                        role: role,
-                        permissions: {
-                            canCreateTraining: isSuper,
-                            canCreateAssessment: isSuper,
-                            canReassignTraining: isSuper,
-                            canReassignAssessment: isSuper,
-                            canDeleteTraining: isSuper,
-                            canDeleteAssessment: isSuper
-                        }
-                    });
-                    await rolePermissions.save();
-                }
-
-                // 3. Delete from User
-                await User.findByIdAndDelete(id);
-
-                // 4. Create in Admin
-                const newAdmin = new Admin({
-                    _id: isEmployee._id, // preserve ID
-                    name,
-                    email,
-                    phoneNumber: phoneNumber || isEmployee.phoneNumber || "",
-                    EmpId: empId,
-                    subRole: "NR",
-                    password: password && password.trim() !== "" ? await bcrypt.hash(password, 10) : hashedPassword,
-                    role,
-                    permissions: rolePermissions._id,
-                    branches: finalBranches,
-                    assignedClusters: [],
-                });
-                const savedAdmin = await newAdmin.save();
-
-                // 5. Re-create matching User record (since some other schemas or components query User collection for designations or logins)
-                const userDesignation = role === 'super_admin' ? 'Super Admin' : (role === 'admin' ? 'Admin' : (role === 'hr_admin' ? 'HR Admin' : (role === 'cluster_admin' ? 'Cluster Admin' : 'Store Admin')));
-                let workingBranchStr = "";
-                let finalLocCodes = [];
-                if (finalBranches.length > 0) {
-                    const branchDocs = await Branch.find({ _id: { $in: finalBranches } });
-                    workingBranchStr = branchDocs.map(b => b.workingBranch).join(", ");
-                    finalLocCodes = branchDocs.map(b => b.locCode);
-                }
-                const newUserRecord = new User({
-                    _id: isEmployee._id,
-                    username: name,
-                    email,
-                    phoneNumber: phoneNumber || isEmployee.phoneNumber || "",
-                    password: password && password.trim() !== "" ? await bcrypt.hash(password.trim(), 10) : hashedPassword,
-                    empID: empId,
-                    designation: userDesignation,
-                    workingBranch: workingBranchStr,
-                    locCode: finalLocCodes,
-                    source: "admin"
-                });
-                await newUserRecord.save();
-
-                return res.status(200).json({ success: true, message: "User promoted to admin successfully", data: savedAdmin });
-            } else {
-                // role === 'employee' — but this User record might belong to a previously
-                // promoted admin (cluster_admin / store_admin), in which case a matching
-                // Admin document also exists and must be deleted to complete the demotion.
-                const parallelAdmin = await Admin.findById(id);
-                if (parallelAdmin) {
-                    // Full Admin → Employee demotion path
-                    const hashedPassword = parallelAdmin.password || isEmployee.password;
-                    const empId = parallelAdmin.EmpId || isEmployee.empID;
-
-                    let workingBranch = "No Store";
-                    let locCode = [];
-                    if (branches && branches.length > 0) {
-                        const branchDocs = await Branch.find({ _id: { $in: branches } });
-                        if (branchDocs && branchDocs.length > 0) {
-                            workingBranch = branchDocs.map(b => b.workingBranch).join(", ");
-                            locCode = branchDocs.map(b => b.locCode);
-                        }
-                    }
-
-                    // Delete both records first
-                    await Admin.findByIdAndDelete(id);
-                    await User.findByIdAndDelete(id);
-                    // Also clean up any stale duplicate records by email/empID
-                    await User.deleteOne({ $or: [{ empID: empId }, { email }], _id: { $ne: id } });
-
-                    // Re-create as pure Employee in User collection
-                    const newUser = new User({
-                        _id: parallelAdmin._id,
-                        username: name,
-                        email,
-                        phoneNumber: phoneNumber || parallelAdmin.phoneNumber || "",
-                        password: password && password.trim() !== "" ? await bcrypt.hash(password, 10) : hashedPassword,
-                        empID: empId,
-                        designation: "Employee",
-                        workingBranch,
-                        locCode,
-                        source: "admin"
-                    });
-                    const savedUser = await newUser.save();
-                    return res.status(200).json({ success: true, message: "Admin demoted to employee successfully", data: savedUser });
-                }
-
-                // Pure employee update (no Admin record exists)
-                const updateFields = {
-                    username: name,
-                    email,
-                    phoneNumber,
-                };
-                if (password && password.trim() !== "") {
-                    updateFields.password = await bcrypt.hash(password, 10);
-                }
-                if (branches && branches.length > 0) {
-                    const branchDocs = await Branch.find({ _id: { $in: branches } });
-                    if (branchDocs && branchDocs.length > 0) {
-                        updateFields.locCode = branchDocs.map(b => b.locCode);
-                        updateFields.workingBranch = branchDocs.map(b => b.workingBranch).join(", ");
-                    }
-                } else {
-                    updateFields.locCode = [];
-                    updateFields.workingBranch = "";
-                }
-                const updatedUser = await User.findByIdAndUpdate(id, updateFields, { new: true });
-                return res.status(200).json({ success: true, message: "Employee updated successfully", data: updatedUser });
-            }
-        }
-
-        // If not found in User, it must be an Admin. Let's verify transition from Admin to Employee
         const existingAdmin = await Admin.findById(id);
-        if (!existingAdmin) {
+        const isEmployee = await User.findById(id);
+
+        if (!existingAdmin && !isEmployee) {
             return res.status(404).json({ success: false, message: "User not found" });
         }
 
+        // 1. DEMOTION PATH: Changing role to 'employee'
         if (role === 'employee') {
-            // Transitioning from Admin to Employee (User collection)
-            const hashedPassword = existingAdmin.password;
-            const empId = existingAdmin.EmpId;
+            const hashedPassword = existingAdmin?.password || isEmployee?.password || "";
+            const empId = existingAdmin?.EmpId || isEmployee?.empID || "";
 
-            // Determine workingBranch and locCode
             let workingBranch = "No Store";
             let locCode = [];
             if (branches && branches.length > 0) {
@@ -1347,47 +1229,123 @@ export const updateAdminUser = async (req, res) => {
                 }
             }
 
-            // 1. Delete from Admin
-            await Admin.findByIdAndDelete(id);
+            if (existingAdmin) {
+                await Admin.findByIdAndDelete(id);
+            }
+            if (isEmployee) {
+                await User.findByIdAndDelete(id);
+            }
+            await User.deleteOne({ $or: [{ empID: empId }, { email }], _id: { $ne: id } });
 
-            // 2. Delete existing User record if it exists (to avoid duplicate key error before recreating)
-            await User.deleteOne({ $or: [{ empID: empId }, { email }] });
-
-            // 3. Create in User
-            const newUser = new User({
-                _id: existingAdmin._id, // preserve ID
+            const userFields = {
+                _id: id,
                 username: name,
                 email,
-                phoneNumber: phoneNumber || existingAdmin.phoneNumber || "",
-                password: password && password.trim() !== "" ? await bcrypt.hash(password, 10) : hashedPassword,
+                phoneNumber: phoneNumber || existingAdmin?.phoneNumber || isEmployee?.phoneNumber || "",
                 empID: empId,
                 designation: "Employee",
                 workingBranch,
                 locCode,
                 source: "admin"
-            });
-            const savedUser = await newUser.save();
+            };
+            if (password && password.trim() !== "") {
+                userFields.password = await bcrypt.hash(password.trim(), 10);
+            } else {
+                userFields.password = hashedPassword;
+            }
 
+            const newUser = new User(userFields);
+            const savedUser = await newUser.save();
             return res.status(200).json({ success: true, message: "Admin demoted to employee successfully", data: savedUser });
         }
 
-        // Standard update for admin remaining admin
-        const updateFields = { name, email, phoneNumber, role };
-        if (password && password.trim() !== "") {
-            updateFields.password = await bcrypt.hash(password, 10);
+        // 2. PROMOTION PATH: Pure Employee -> Admin (No Admin record exists yet)
+        if (!existingAdmin && isEmployee) {
+            const hashedPassword = isEmployee.password;
+            const empId = isEmployee.empID;
+
+            let finalBranches = [];
+            if (role === 'super_admin' || role === 'admin' || role === 'hr_admin') {
+                const allBranches = await Branch.find();
+                finalBranches = allBranches.map((branch) => branch._id);
+            } else {
+                finalBranches = branches || [];
+            }
+
+            let rolePermissions = await Permission.findOne({ role });
+            if (!rolePermissions) {
+                const isSuper = (role === 'super_admin' || role === 'admin' || role === 'hr_admin');
+                rolePermissions = new Permission({
+                    role: role,
+                    permissions: {
+                        canCreateTraining: isSuper,
+                        canCreateAssessment: isSuper,
+                        canReassignTraining: isSuper,
+                        canReassignAssessment: isSuper,
+                        canDeleteTraining: isSuper,
+                        canDeleteAssessment: isSuper
+                    }
+                });
+                await rolePermissions.save();
+            }
+
+            await User.findByIdAndDelete(id);
+
+            const newAdmin = new Admin({
+                _id: isEmployee._id,
+                name,
+                email,
+                phoneNumber: phoneNumber || isEmployee.phoneNumber || "",
+                EmpId: empId,
+                subRole: "NR",
+                password: password && password.trim() !== "" ? await bcrypt.hash(password.trim(), 10) : hashedPassword,
+                role,
+                permissions: rolePermissions._id,
+                branches: finalBranches,
+                assignedClusters: [],
+            });
+            const savedAdmin = await newAdmin.save();
+
+            const userDesignation = role === 'super_admin' ? 'Super Admin' : (role === 'admin' ? 'Admin' : (role === 'hr_admin' ? 'HR Admin' : (role === 'cluster_admin' ? 'Cluster Admin' : (role === 'telecaller' ? 'Telecaller' : 'Store Admin'))));
+            let workingBranchStr = "";
+            let finalLocCodes = [];
+            if (finalBranches.length > 0) {
+                const branchDocs = await Branch.find({ _id: { $in: finalBranches } });
+                workingBranchStr = branchDocs.map(b => b.workingBranch).join(", ");
+                finalLocCodes = branchDocs.map(b => b.locCode);
+            }
+            const newUserRecord = new User({
+                _id: isEmployee._id,
+                username: name,
+                email,
+                phoneNumber: phoneNumber || isEmployee.phoneNumber || "",
+                password: password && password.trim() !== "" ? await bcrypt.hash(password.trim(), 10) : hashedPassword,
+                empID: empId,
+                designation: userDesignation,
+                workingBranch: workingBranchStr,
+                locCode: finalLocCodes,
+                source: "admin"
+            });
+            await newUserRecord.save();
+
+            return res.status(200).json({ success: true, message: "User promoted to admin successfully", data: savedAdmin });
         }
 
-        // Handle branches/clusters based on role
+        // 3. UPDATE EXISTING ADMIN PATH (Admin record exists)
+        const updateFields = { name, email, phoneNumber, role };
+        if (password && password.trim() !== "") {
+            updateFields.password = await bcrypt.hash(password.trim(), 10);
+        }
+
         if (role === 'super_admin' || role === 'admin' || role === 'hr_admin') {
             const allBranches = await Branch.find();
             updateFields.branches = allBranches.map((branch) => branch._id);
             updateFields.assignedClusters = [];
-        } else if (role === 'store_admin' || role === 'cluster_admin' || role === 'telecaller') {
+        } else {
             updateFields.branches = branches || [];
             updateFields.assignedClusters = [];
         }
 
-        // Update permissions if role changed
         let rolePermissions = await Permission.findOne({ role });
         if (!rolePermissions) {
             const isSuper = (role === 'super_admin' || role === 'admin' || role === 'hr_admin');
@@ -1407,21 +1365,18 @@ export const updateAdminUser = async (req, res) => {
         updateFields.permissions = rolePermissions._id;
 
         const updatedAdmin = await Admin.findByIdAndUpdate(id, updateFields, { new: true }).populate('branches');
-        if (!updatedAdmin) {
-            return res.status(404).json({ success: false, message: "User not found" });
-        }
 
         // Also check and update the corresponding User record if it exists
         try {
-            const userRecord = await User.findOne({ $or: [{ empID: updatedAdmin.EmpId }, { email: updatedAdmin.email }] });
+            const userRecord = await User.findOne({ $or: [{ _id: id }, { empID: updatedAdmin.EmpId }, { email: updatedAdmin.email }] });
             if (userRecord) {
                 userRecord.username = name;
                 userRecord.email = email;
                 userRecord.phoneNumber = phoneNumber || userRecord.phoneNumber;
                 if (password && password.trim() !== "") {
-                    userRecord.password = await bcrypt.hash(password, 10);
+                    userRecord.password = await bcrypt.hash(password.trim(), 10);
                 }
-                const userDesignation = role === 'super_admin' ? 'Super Admin' : (role === 'admin' ? 'Admin' : (role === 'hr_admin' ? 'HR Admin' : (role === 'cluster_admin' ? 'Cluster Admin' : 'Store Admin')));
+                const userDesignation = role === 'super_admin' ? 'Super Admin' : (role === 'admin' ? 'Admin' : (role === 'hr_admin' ? 'HR Admin' : (role === 'cluster_admin' ? 'Cluster Admin' : (role === 'telecaller' ? 'Telecaller' : 'Store Admin'))));
                 userRecord.designation = userDesignation;
 
                 let workingBranchStr = "";
@@ -1443,6 +1398,7 @@ export const updateAdminUser = async (req, res) => {
 
         res.status(200).json({ success: true, message: "User updated successfully", data: updatedAdmin });
     } catch (error) {
+        console.error("Error in updateAdminUser:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
