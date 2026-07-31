@@ -1,7 +1,8 @@
-import jwt from 'jsonwebtoken'
+import jwt from 'jsonwebtoken';
+import Admin from '../model/Admin.js';
+
 export const VerifyToken = async (req, res) => {
     const token = req.header('Authorization')?.split(' ')[1];
-    console.log(token);
 
     if (!token) {
         return res.status(401).json({ message: 'No token provided' });
@@ -13,8 +14,6 @@ export const VerifyToken = async (req, res) => {
         }
         
         try {
-            // Import Admin model to fetch latest branches
-            const Admin = (await import('../model/Admin.js')).default;
             const adminUser = await Admin.findById(decoded.userId).populate('branches');
             
             res.json({ 

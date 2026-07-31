@@ -167,7 +167,7 @@ const extractDateValue = (itm, priorityKeys) => {
 /**
  * Automatically sync Walkin statuses with the external Rental APIs
  */
-export const syncWalkinStatuses = async () => {
+export const syncWalkinStatuses = async (overrideDateFrom = null, overrideDateTo = null) => {
     if (isSyncInProgress) {
         console.log('⚠️ [Walkin Status Sync] Sync Skipped (Already Running).');
         return {
@@ -180,8 +180,8 @@ export const syncWalkinStatuses = async () => {
     const jobStartedAt = new Date();
     console.log('🔄 [Walkin Status Sync] Sync Started at:', jobStartedAt.toISOString());
 
-    const dateFrom = getPastDateString(7); // Last 7 days (Today - 7)
-    const dateTo = getPastDateString(0);   // Today (Today - 0)
+    const dateFrom = overrideDateFrom || getPastDateString(7);
+    const dateTo = overrideDateTo || getPastDateString(0);
 
     console.log(`📅 [Walkin Status Sync] Range: ${dateFrom} to ${dateTo}`);
 
