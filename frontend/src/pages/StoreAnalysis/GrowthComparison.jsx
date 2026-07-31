@@ -459,6 +459,8 @@ const getStoreNameFromLocId = (locId) => {
 };
 
 const GrowthComparison = () => {
+  const { user } = useSelector((state) => state.auth || {});
+  const isStoreAdmin = user?.role === "store_admin";
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const STORES_PER_PAGE = 5;
@@ -1114,54 +1116,56 @@ const GrowthComparison = () => {
                   );
                 })}
 
-                {/* STORE TOTAL row */}
-                <tr className="bg-[#f1f5f9] border-t-2 border-zinc-300 font-bold text-gray-900">
-                  <td className="sticky left-0 z-10 bg-[#f1f5f9] px-6 py-4 text-left border-r border-zinc-300 uppercase tracking-wider shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)]">Store Total</td>
-                  
-                  <td className="px-4 py-4 border-r border-zinc-200">{renderCellVal(formatIndianNumber(totalTyVal))}</td>
-                  <td className="px-4 py-4 border-r border-zinc-200 text-gray-600">{renderCellVal(formatIndianNumber(totalLyVal))}</td>
-                  <td className="px-4 py-4 border-r border-zinc-200">
-                    <div className="flex flex-col items-center justify-center gap-0.5">
-                      <span className="text-[13px] font-bold text-gray-900">{totalLyVal > 0 ? ((totalTyVal / totalLyVal) * 100).toFixed(0) : "0"}%</span>
-                      <span className={`text-[10px] font-bold ${totalL2lVal >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
-                        {totalL2lVal >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(totalL2lVal))}
-                      </span>
-                    </div>
-                  </td>
-                  
-                  <td className="px-4 py-4 border-r border-zinc-200">{renderCellVal(formatIndianNumber(totalTyBill))}</td>
-                  <td className="px-4 py-4 border-r border-zinc-200 text-gray-600">{renderCellVal(formatIndianNumber(totalLyBill))}</td>
-                  <td className="px-4 py-4 border-r border-zinc-200">
-                    <div className="flex flex-col items-center justify-center gap-0.5">
-                      <span className="text-[13px] font-bold text-gray-900">{totalLyBill > 0 ? ((totalTyBill / totalLyBill) * 100).toFixed(0) : "0"}%</span>
-                      <span className={`text-[10px] font-bold ${totalL2lBill >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
-                        {totalL2lBill >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(totalL2lBill))}
-                      </span>
-                    </div>
-                  </td>
-                  
-                  <td className="px-4 py-4 border-r border-zinc-200">{renderCellVal(formatIndianNumber(totalTyQty))}</td>
-                  <td className="px-4 py-4 border-r border-zinc-200 text-gray-600">{renderCellVal(formatIndianNumber(totalLyQty))}</td>
-                  <td className="px-4 py-4 border-r border-zinc-200">
-                    <div className="flex flex-col items-center justify-center gap-0.5">
-                      <span className="text-[13px] font-bold text-gray-900">{totalLyQty > 0 ? ((totalTyQty / totalLyQty) * 100).toFixed(0) : "0"}%</span>
-                      <span className={`text-[10px] font-bold ${totalL2lQty >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
-                        {totalL2lQty >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(totalL2lQty))}
-                      </span>
-                    </div>
-                  </td>
+                {/* STORE TOTAL row (Hidden for Store Admin or when only 1 store is displayed) */}
+                {!isStoreAdmin && filteredRows.length > 1 && (
+                  <tr className="bg-[#f1f5f9] border-t-2 border-zinc-300 font-bold text-gray-900">
+                    <td className="sticky left-0 z-10 bg-[#f1f5f9] px-6 py-4 text-left border-r border-zinc-300 uppercase tracking-wider shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)]">Store Total</td>
+                    
+                    <td className="px-4 py-4 border-r border-zinc-200">{renderCellVal(formatIndianNumber(totalTyVal))}</td>
+                    <td className="px-4 py-4 border-r border-zinc-200 text-gray-600">{renderCellVal(formatIndianNumber(totalLyVal))}</td>
+                    <td className="px-4 py-4 border-r border-zinc-200">
+                      <div className="flex flex-col items-center justify-center gap-0.5">
+                        <span className="text-[13px] font-bold text-gray-900">{totalLyVal > 0 ? ((totalTyVal / totalLyVal) * 100).toFixed(0) : "0"}%</span>
+                        <span className={`text-[10px] font-bold ${totalL2lVal >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
+                          {totalL2lVal >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(totalL2lVal))}
+                        </span>
+                      </div>
+                    </td>
+                    
+                    <td className="px-4 py-4 border-r border-zinc-200">{renderCellVal(formatIndianNumber(totalTyBill))}</td>
+                    <td className="px-4 py-4 border-r border-zinc-200 text-gray-600">{renderCellVal(formatIndianNumber(totalLyBill))}</td>
+                    <td className="px-4 py-4 border-r border-zinc-200">
+                      <div className="flex flex-col items-center justify-center gap-0.5">
+                        <span className="text-[13px] font-bold text-gray-900">{totalLyBill > 0 ? ((totalTyBill / totalLyBill) * 100).toFixed(0) : "0"}%</span>
+                        <span className={`text-[10px] font-bold ${totalL2lBill >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
+                          {totalL2lBill >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(totalL2lBill))}
+                        </span>
+                      </div>
+                    </td>
+                    
+                    <td className="px-4 py-4 border-r border-zinc-200">{renderCellVal(formatIndianNumber(totalTyQty))}</td>
+                    <td className="px-4 py-4 border-r border-zinc-200 text-gray-600">{renderCellVal(formatIndianNumber(totalLyQty))}</td>
+                    <td className="px-4 py-4 border-r border-zinc-200">
+                      <div className="flex flex-col items-center justify-center gap-0.5">
+                        <span className="text-[13px] font-bold text-gray-900">{totalLyQty > 0 ? ((totalTyQty / totalLyQty) * 100).toFixed(0) : "0"}%</span>
+                        <span className={`text-[10px] font-bold ${totalL2lQty >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
+                          {totalL2lQty >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(totalL2lQty))}
+                        </span>
+                      </div>
+                    </td>
 
-                  <td className="px-4 py-4 border-r border-zinc-200">{renderCellVal(formatIndianNumber(totalTyWalk))}</td>
-                  <td className="px-4 py-4 border-r border-zinc-200 text-gray-600">{renderCellVal(formatIndianNumber(totalLyWalk))}</td>
-                  <td className="px-4 py-4">
-                    <div className="flex flex-col items-center justify-center gap-0.5">
-                      <span className="text-[13px] font-bold text-gray-900">{totalLyWalk > 0 ? ((totalTyWalk / totalLyWalk) * 100).toFixed(0) : "0"}%</span>
-                      <span className={`text-[10px] font-bold ${totalL2lWalk >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
-                        {totalL2lWalk >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(totalL2lWalk))}
-                      </span>
-                    </div>
-                  </td>
-                </tr>
+                    <td className="px-4 py-4 border-r border-zinc-200">{renderCellVal(formatIndianNumber(totalTyWalk))}</td>
+                    <td className="px-4 py-4 border-r border-zinc-200 text-gray-600">{renderCellVal(formatIndianNumber(totalLyWalk))}</td>
+                    <td className="px-4 py-4">
+                      <div className="flex flex-col items-center justify-center gap-0.5">
+                        <span className="text-[13px] font-bold text-gray-900">{totalLyWalk > 0 ? ((totalTyWalk / totalLyWalk) * 100).toFixed(0) : "0"}%</span>
+                        <span className={`text-[10px] font-bold ${totalL2lWalk >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
+                          {totalL2lWalk >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(totalL2lWalk))}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
