@@ -177,7 +177,10 @@ const Login = () => {
       } else {
         toast.error(data.message || 'Login failed');
       }
-    } catch { toast.error('An error occurred during login'); }
+    } catch (err) {
+      console.error('Login network error:', err);
+      toast.error('Unable to connect to server. Please check your connection or wait a moment if server is starting up.');
+    }
     finally   { setLoading(false); }
   };
 
