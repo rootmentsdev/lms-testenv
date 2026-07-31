@@ -10,6 +10,7 @@ const PermissionSettings = () => {
     admin: { training: [false, false, false], assessment: [false, false, false] },
     clusterManager: { training: [false, false, false], assessment: [false, false, false] },
     storeManager: { training: [false, false, false], assessment: [false, false, false] },
+    warehouseManager: { training: [false, false, false], assessment: [false, false, false] },
   });
 
   const togglePermission = (role, category, index) => {
@@ -50,6 +51,7 @@ const PermissionSettings = () => {
         const superAdminDoc = result.data.find(d => d.role === "super_admin" || d.role === "admin");
         const clusterAdminDoc = result.data.find(d => d.role === "cluster_admin");
         const storeAdminDoc = result.data.find(d => d.role === "store_admin");
+        const warehouseAdminDoc = result.data.find(d => d.role === "warehouse_admin");
 
         setPermissions({
           admin: {
@@ -86,6 +88,18 @@ const PermissionSettings = () => {
               storeAdminDoc?.permissions?.canCreateAssessment || false,
               storeAdminDoc?.permissions?.canReassignAssessment || false,
               storeAdminDoc?.permissions?.canDeleteAssessment || false,
+            ],
+          },
+          warehouseManager: {
+            training: [
+              warehouseAdminDoc?.permissions?.canCreateTraining || false,
+              warehouseAdminDoc?.permissions?.canReassignTraining || false,
+              warehouseAdminDoc?.permissions?.canDeleteTraining || false,
+            ],
+            assessment: [
+              warehouseAdminDoc?.permissions?.canCreateAssessment || false,
+              warehouseAdminDoc?.permissions?.canReassignAssessment || false,
+              warehouseAdminDoc?.permissions?.canDeleteAssessment || false,
             ],
           },
         });
@@ -139,6 +153,7 @@ const PermissionSettings = () => {
                 <th className="border border-gray-300 p-2">Admin</th>
                 <th className="border border-gray-300 p-2">Cluster Manager</th>
                 <th className="border border-gray-300 p-2">Store Manager</th>
+                <th className="border border-gray-300 p-2">Warehouse Manager</th>
               </tr>
             </thead>
             <tbody>
@@ -150,7 +165,7 @@ const PermissionSettings = () => {
                   {actions.map((action, idx) => (
                     <tr key={action}>
                       <td className="border border-gray-300 p-2">{action}</td>
-                      {["admin", "clusterManager", "storeManager"].map((role) => (
+                      {["admin", "clusterManager", "storeManager", "warehouseManager"].map((role) => (
                         <td key={role} className="border border-gray-300 text-center p-2">
                           <input
                             type="checkbox"

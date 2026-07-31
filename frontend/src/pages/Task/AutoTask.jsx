@@ -481,7 +481,7 @@ const AutoTask = () => {
   const [selectedIndividuals, setSelectedIndividuals] = useState([]);
 
   useEffect(() => {
-    if (user?.role === 'store_admin') {
+    if (user?.role === 'store_admin' || user?.role === 'warehouse_admin') {
       setAssignTo('individual');
     } else if (user?.role === 'cluster_admin') {
       setAssignTo('store');
@@ -1000,7 +1000,7 @@ const AutoTask = () => {
                 <label className="auto-task-label">Assign to<span className="auto-task-req">*</span></label>
                 <div className="assign-radio-group">
                   
-                  {user?.role !== 'store_admin' && user?.role !== 'cluster_admin' && (
+                  {user?.role !== 'store_admin' && user?.role !== 'warehouse_admin' && user?.role !== 'cluster_admin' && (
                     <label className="assign-radio-label">
                       <input 
                         type="radio" 
@@ -1014,7 +1014,7 @@ const AutoTask = () => {
                     </label>
                   )}
 
-                  {user?.role !== 'store_admin' && (
+                  {user?.role !== 'store_admin' && user?.role !== 'warehouse_admin' && (
                     <label className="assign-radio-label">
                       <input 
                         type="radio" 

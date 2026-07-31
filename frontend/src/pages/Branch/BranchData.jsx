@@ -686,7 +686,7 @@ const BranchData = () => {
         <div className="px-4 sm:px-6 lg:px-6">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mt-4 sm:mt-6 mb-6">
             <h1 className="text-[#212121] text-[22px] font-bold leading-tight">Branch Management</h1>
-            {user?.role !== "cluster_admin" && user?.role !== "store_admin" && (
+            {user?.role !== "cluster_admin" && user?.role !== "store_admin" && user?.role !== "warehouse_admin" && (
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
                 <Link
                   to={"/branch/audit"}

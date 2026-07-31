@@ -134,7 +134,7 @@ const BranchDetailsData = () => {
               {branchBrand && <p className="mt-1 text-[13px] text-[#2563eb]">{branchBrand}</p>}
             </div>
 
-            {user?.role !== "cluster_admin" && user?.role !== "store_admin" && (
+            {user?.role !== "cluster_admin" && user?.role !== "store_admin" && user?.role !== "warehouse_admin" && (
               <div className="flex flex-wrap gap-2 lg:mt-0 lg:self-start">
                 <button className="inline-flex h-9 items-center gap-2 rounded-xl border border-[#e5e7eb] bg-white px-3 text-[12px] font-medium text-gray-800 shadow-[0_1px_4px_rgba(0,0,0,0.08)]">
                   <FaCalendarCheck size={10} />

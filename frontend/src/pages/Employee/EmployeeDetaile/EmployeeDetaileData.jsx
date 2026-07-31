@@ -70,7 +70,7 @@ const deduplicateTrainings = (trainings) => {
 const EmployeeDetaileData = () => {
   const user = useSelector((state) => state.auth.user);
   const token = localStorage.getItem("token");
-  const isRestrictedRole = user?.role === 'cluster_admin' || user?.role === 'store_admin';
+  const isRestrictedRole = user?.role === 'cluster_admin' || user?.role === 'store_admin' || user?.role === 'warehouse_admin';
   const { id } = useParams();
   const navigate = useNavigate();
 

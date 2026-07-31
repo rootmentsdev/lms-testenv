@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const permissionSchema = new mongoose.Schema({
     role: {
         type: String,
-        enum: ['super_admin', 'admin', 'hr_admin', 'cluster_admin', 'store_admin', 'telecaller'],
+        enum: ['super_admin', 'admin', 'hr_admin', 'cluster_admin', 'store_admin', 'warehouse_admin', 'telecaller'],
         required: true,
         unique: true,
     },

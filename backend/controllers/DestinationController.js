@@ -637,10 +637,10 @@ export const CreatingAdminUsers = async (req, res) => {
         }
 
         // Check if role is valid
-        const validRoles = ['super_admin', 'admin', 'hr_admin', 'cluster_admin', 'store_admin', 'telecaller', 'employee'];
+        const validRoles = ['super_admin', 'admin', 'hr_admin', 'cluster_admin', 'store_admin', 'warehouse_admin', 'telecaller', 'employee'];
         if (!validRoles.includes(role)) {
             return res.status(400).json({
-                message: "Invalid role provided. Valid roles are: super_admin, admin, hr_admin, cluster_admin, store_admin, telecaller, employee.",
+                message: "Invalid role provided. Valid roles are: super_admin, admin, hr_admin, cluster_admin, store_admin, warehouse_admin, telecaller, employee.",
             });
         }
 
@@ -1235,7 +1235,7 @@ export const updateAdminUser = async (req, res) => {
                 const savedAdmin = await newAdmin.save();
 
                 // 5. Re-create matching User record (since some other schemas or components query User collection for designations or logins)
-                const userDesignation = role === 'super_admin' ? 'Super Admin' : (role === 'admin' ? 'Admin' : (role === 'hr_admin' ? 'HR Admin' : (role === 'cluster_admin' ? 'Cluster Admin' : 'Store Admin')));
+                const userDesignation = role === 'super_admin' ? 'Super Admin' : (role === 'admin' ? 'Admin' : (role === 'hr_admin' ? 'HR Admin' : (role === 'cluster_admin' ? 'Cluster Admin' : (role === 'warehouse_admin' ? 'Warehouse Admin' : 'Store Admin'))));
                 let workingBranchStr = "";
                 let finalLocCodes = [];
                 if (finalBranches.length > 0) {
@@ -1421,7 +1421,7 @@ export const updateAdminUser = async (req, res) => {
                 if (password && password.trim() !== "") {
                     userRecord.password = await bcrypt.hash(password, 10);
                 }
-                const userDesignation = role === 'super_admin' ? 'Super Admin' : (role === 'admin' ? 'Admin' : (role === 'hr_admin' ? 'HR Admin' : (role === 'cluster_admin' ? 'Cluster Admin' : 'Store Admin')));
+                const userDesignation = role === 'super_admin' ? 'Super Admin' : (role === 'admin' ? 'Admin' : (role === 'hr_admin' ? 'HR Admin' : (role === 'cluster_admin' ? 'Cluster Admin' : (role === 'warehouse_admin' ? 'Warehouse Admin' : 'Store Admin'))));
                 userRecord.designation = userDesignation;
 
                 let workingBranchStr = "";

@@ -378,7 +378,7 @@ const WalkinCount = () => {
                 }
 
                 setBranches(branchList);
-                if (['cluster_admin', 'store_admin'].includes(user?.role) && branchList.length > 0) {
+                if (['cluster_admin', 'store_admin', 'warehouse_admin'].includes(user?.role) && branchList.length > 0) {
                     setStoreFilter(branchList[0].workingBranch);
                 }
             } catch (err) {
@@ -395,7 +395,7 @@ const WalkinCount = () => {
             setLoading(false);
             return;
         }
-        if (['cluster_admin', 'store_admin'].includes(user?.role) && storeFilter === 'All') {
+        if (['cluster_admin', 'store_admin', 'warehouse_admin'].includes(user?.role) && storeFilter === 'All') {
             setLoading(false);
             return;
         }
@@ -694,7 +694,7 @@ const WalkinCount = () => {
             csvContent += `Selected Date: ${selectedDate}\r\n\r\n`;
         }
         
-        const showInCam = user?.role !== 'store_admin';
+        const showInCam = user?.role !== 'store_admin' && user?.role !== 'warehouse_admin';
 
         // Add table headers
         if (showInCam) {

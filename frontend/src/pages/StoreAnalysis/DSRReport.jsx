@@ -665,7 +665,7 @@ const getAutoWeekDates = (monthName, year = CURRENT_YEAR) => {
 const DSRReport = () => {
   const user = useSelector((state) => state.auth.user);
   const isAdminOrSuperAdmin = user?.role === "super_admin" || user?.role === "admin";
-  const isStoreAdmin = user?.role === "store_admin";
+  const isStoreAdmin = user?.role === "store_admin" || user?.role === "warehouse_admin";
   const isClusterAdmin = user?.role === "cluster_admin";
   const [branches, setBranches] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -5091,6 +5091,17 @@ const DSRReport = () => {
             allocatedValue += Number(v.billWtd) || 0;
             allocatedBills += Number(v.valWtd)  || 0;
             allocatedQty   += Number(v.qtyWtd)  || 0;
+          });
+
+          Object.entries(customizationAttribution || {}).forEach(([key, v]) => {
+            const isInInputs = Object.keys(customizationInputs || {}).some(
+              k => k.trim().toLowerCase() === key.trim().toLowerCase()
+            );
+            if (!isInInputs) {
+              allocatedValue += Number(v.billWtd) || 0;
+              allocatedBills += Number(v.valWtd)  || 0;
+              allocatedQty   += Number(v.qtyWtd)  || 0;
+            }
           });
 
           return (

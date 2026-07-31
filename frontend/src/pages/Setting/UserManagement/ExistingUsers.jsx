@@ -92,6 +92,8 @@ const ExistingUsers = () => {
                 return "Cluster Admin";
             case "store_admin":
                 return "Store Admin";
+            case "warehouse_admin":
+                return "Warehouse Admin";
             case "telecaller":
                 return "Telecaller";
             case "employee":
@@ -380,6 +382,7 @@ const ExistingUsers = () => {
                                         <option value="hr_admin">HR Admin</option>
                                         <option value="cluster_admin">Cluster Admin</option>
                                         <option value="store_admin">Store Admin</option>
+                                        <option value="warehouse_admin">Warehouse Admin</option>
                                         <option value="telecaller">Telecaller</option>
                                         <option value="employee">Employee</option>
                                     </select>
@@ -786,6 +789,7 @@ const ExistingUsers = () => {
                                             <option value="hr_admin">HR Admin</option>
                                             <option value="cluster_admin">Cluster Admin</option>
                                             <option value="store_admin">Store Admin</option>
+                                            <option value="warehouse_admin">Warehouse Admin</option>
                                             <option value="telecaller">Telecaller</option>
                                             <option value="employee">Employee</option>
                                         </>

@@ -300,7 +300,7 @@ const CreateTask = () => {
                 return true;
               }
               
-              if (['cluster_admin', 'store_admin', 'hr_admin'].includes(userRole)) {
+              if (['cluster_admin', 'store_admin', 'warehouse_admin', 'hr_admin'].includes(userRole)) {
                 const optRank = getOptionRank(opt);
                 if (optRank > userRank) return false;
               }

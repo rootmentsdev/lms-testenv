@@ -655,7 +655,7 @@ const StarRating = ({ rating }) => {
 // ── Component ────────────────────────────────────────────────────────────
 const StoreInsights = () => {
   const user = useSelector((state) => state.auth.user);
-  const isStoreAdmin = user?.role === "store_admin";
+  const isStoreAdmin = user?.role === "store_admin" || user?.role === "warehouse_admin";
   const isClusterAdmin = user?.role === "cluster_admin";
 
   // Page State
@@ -3776,7 +3776,7 @@ const StoreInsights = () => {
           <div className="bg-white rounded-[20px] shadow-sm border border-gray-100 p-5 h-[200px] flex flex-col justify-between font-sans">
             <div>
               <span className="text-[13px] font-bold text-gray-700 block">
-                {user?.role === "store_admin" ? "Staff Rating" : "Store Rating"}
+                {isStoreAdmin ? "Staff Rating" : "Store Rating"}
               </span>
             </div>
             <div className="flex-1 flex items-center justify-between min-h-0 mt-1">

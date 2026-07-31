@@ -9,6 +9,7 @@ const ROLES = [
   { value: 'super_admin',   label: 'Super Admin' },
   { value: 'admin',         label: 'Admin' },
   { value: 'hr_admin',      label: 'HR Admin' },
+  { value: 'warehouse_admin', label: 'Warehouse Admin' },
 ];
 
 /* ── Animated face SVG ─────────────────────────────────────────────────────── */
@@ -148,7 +149,7 @@ const Login = () => {
     }));
   };
 
-  const needsBranch  = signup.userRole === 'cluster_admin' || signup.userRole === 'store_admin';
+  const needsBranch  = signup.userRole === 'cluster_admin' || signup.userRole === 'store_admin' || signup.userRole === 'warehouse_admin';
   const singleBranch = signup.userRole === 'store_admin';
 
   // is the user actively typing in a password field?

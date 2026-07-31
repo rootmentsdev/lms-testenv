@@ -206,90 +206,94 @@ const SideNav = () => {
       >
         {/* Nav items */}
         <div className="flex flex-col items-center gap-1 w-full px-2 flex-1 overflow-y-auto">
-
-          <NavItem to="/"            icon="dashboard"  label="Dashboard"   active={is('/')} />
-
-          {user?.role !== 'telecaller' && (
-            <FlyoutNavItem
-              icon="storeAnalysis"
-              label="Store Analysis"
-              active={location.pathname.startsWith('/store-analysis/')}
-              items={[
-                { to: '/store-analysis/dsr-report', label: 'DSR Report', active: is('/store-analysis/dsr-report') },
-                { to: '/store-analysis/growth-comparison', label: 'Growth Comparison', active: is('/store-analysis/growth-comparison') },
-                { to: '/store-analysis/google-review-task', label: 'Google Review', active: is('/store-analysis/google-review-task') },
-                { to: '/store-analysis/store-rating', label: user?.role === 'store_admin' ? 'Staff Rating' : 'Store Rating', active: is('/store-analysis/store-rating') || is('/store-analysis/store-rating/create') || location.pathname.startsWith('/store-analysis/store-rating/') }
-              ]}
-            />
-          )}
-          {user?.role !== 'telecaller' && (
-            <NavItem to="/store-insights" icon="storeInsights" label="Store Insights" active={is('/store-insights')} />
-          )}
-
-          {/* Walk-In — portal flyout on hover */}
-          <FlyoutNavItem
-            icon="walkin"
-            label="Walk-In"
-            active={isWalkin}
-            items={[
-              { to: '/walkin/list',   label: 'Walkin List',   active: is('/walkin/list') },
-              { to: '/walkin/report', label: 'Walkin Report', active: is('/walkin/report') },
-              ...(['telecaller', 'super_admin', 'admin', 'hr_admin', 'cluster_admin', 'store_admin'].includes(user?.role)
-                ? [{ to: '/walkin/count', label: 'Walkin Count', active: is('/walkin/count') }]
-                : [])
-            ]}
-          />
-
-          {/* Task — portal flyout on hover */}
-          {user?.role === 'telecaller' ? (
-            <NavItem to="/task" icon="task" label="Task" active={is('/task')} />
+          {user?.role === 'warehouse_admin' ? (
+            <NavItem to="/dappr-squad" icon="employee" label="Customization" active={is('/') || is('/dappr-squad')} />
           ) : (
-            <FlyoutNavItem
-              icon="task"
-              label="Task"
-              active={is('/task') || is('/task/create') || is('/task/auto-schedule')}
-              items={[
-                { to: '/task/create', label: 'Create Task',     active: is('/task/create') },
-                { to: '/task',        label: 'Task Management', active: is('/task') },
-                { to: '/task/auto-schedule', label: 'Auto Task', active: is('/task/auto-schedule') },
-              ]}
-            />
-          )}
+            <>
+              <NavItem to="/"            icon="dashboard"  label="Dashboard"   active={is('/')} />
 
-          {user?.role !== 'telecaller' && (
-            <NavItem to="/employee"    icon="employee"   label="Employees"   active={is('/employee') || location.pathname.startsWith('/detailed/')} />
-          )}
-          {user?.role !== 'store_admin' && user?.role !== 'telecaller' && (
-            <NavItem to="/training"    icon="training"   label="Trainings"   active={is('/training') || is('/alltraining') || is('/createnewtraining')} />
-          )}
-          {user?.role !== 'store_admin' && user?.role !== 'telecaller' && (
-            <NavItem to="/assessments" icon="assessment" label="Assessments" active={is('/assessments')} />
-          )}
-          {user?.role !== "cluster_admin" && user?.role !== "store_admin" && user?.role !== 'telecaller' && (
-            <NavItem to="/module"      icon="module"     label="Modules"     active={is('/module')} />
-          )}
-          {user?.role !== 'telecaller' && (
-            <NavItem to="/branch"      icon="branch"     label="Branches"    active={is('/branch') || is('/Addbranch')} />
-          )}
+              {user?.role !== 'telecaller' && (
+                <FlyoutNavItem
+                  icon="storeAnalysis"
+                  label="Store Analysis"
+                  active={location.pathname.startsWith('/store-analysis/')}
+                  items={[
+                    { to: '/store-analysis/dsr-report', label: 'DSR Report', active: is('/store-analysis/dsr-report') },
+                    { to: '/store-analysis/growth-comparison', label: 'Growth Comparison', active: is('/store-analysis/growth-comparison') },
+                    { to: '/store-analysis/google-review-task', label: 'Google Review', active: is('/store-analysis/google-review-task') },
+                    { to: '/store-analysis/store-rating', label: user?.role === 'store_admin' ? 'Staff Rating' : 'Store Rating', active: is('/store-analysis/store-rating') || is('/store-analysis/store-rating/create') || location.pathname.startsWith('/store-analysis/store-rating/') }
+                  ]}
+                />
+              )}
+              {user?.role !== 'telecaller' && (
+                <NavItem to="/store-insights" icon="storeInsights" label="Store Insights" active={is('/store-insights')} />
+              )}
 
-          {user?.role !== 'telecaller' && (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'cluster_admin') && (
-            <FlyoutNavItem
-              icon="settings"
-              label="Settings"
-              active={is('/settings/users') || is('/settings/create-user') || is('/settings/create-notification')}
-              items={
-                user?.role === 'cluster_admin'
-                  ? [
-                      { to: '/settings/users', label: 'Create User', active: is('/settings/users') || is('/settings/create-user') }
-                    ]
-                  : [
-                      { to: '/settings/users', label: 'Create User', active: is('/settings/users') || is('/settings/create-user') },
-                      { to: '/settings/create-notification', label: 'Create Notification', active: is('/settings/create-notification') },
-                    ]
-              }
-            />
-          )}
+              {/* Walk-In — portal flyout on hover */}
+              <FlyoutNavItem
+                icon="walkin"
+                label="Walk-In"
+                active={isWalkin}
+                items={[
+                  { to: '/walkin/list',   label: 'Walkin List',   active: is('/walkin/list') },
+                  { to: '/walkin/report', label: 'Walkin Report', active: is('/walkin/report') },
+                  ...(['telecaller', 'super_admin', 'admin', 'hr_admin', 'cluster_admin', 'store_admin'].includes(user?.role)
+                    ? [{ to: '/walkin/count', label: 'Walkin Count', active: is('/walkin/count') }]
+                    : [])
+                ]}
+              />
 
+              {/* Task — portal flyout on hover */}
+              {user?.role === 'telecaller' ? (
+                <NavItem to="/task" icon="task" label="Task" active={is('/task')} />
+              ) : (
+                <FlyoutNavItem
+                  icon="task"
+                  label="Task"
+                  active={is('/task') || is('/task/create') || is('/task/auto-schedule')}
+                  items={[
+                    { to: '/task/create', label: 'Create Task',     active: is('/task/create') },
+                    { to: '/task',        label: 'Task Management', active: is('/task') },
+                    { to: '/task/auto-schedule', label: 'Auto Task', active: is('/task/auto-schedule') },
+                  ]}
+                />
+              )}
+
+              {user?.role !== 'telecaller' && (
+                <NavItem to="/employee"    icon="employee"   label="Employees"   active={is('/employee') || location.pathname.startsWith('/detailed/')} />
+              )}
+              {user?.role !== 'store_admin' && user?.role !== 'telecaller' && (
+                <NavItem to="/training"    icon="training"   label="Trainings"   active={is('/training') || is('/alltraining') || is('/createnewtraining')} />
+              )}
+              {user?.role !== 'store_admin' && user?.role !== 'telecaller' && (
+                <NavItem to="/assessments" icon="assessment" label="Assessments" active={is('/assessments')} />
+              )}
+              {user?.role !== "cluster_admin" && user?.role !== "store_admin" && user?.role !== 'telecaller' && (
+                <NavItem to="/module"      icon="module"     label="Modules"     active={is('/module')} />
+              )}
+              {user?.role !== 'telecaller' && (
+                <NavItem to="/branch"      icon="branch"     label="Branches"    active={is('/branch') || is('/Addbranch')} />
+              )}
+
+              {user?.role !== 'telecaller' && (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'cluster_admin') && (
+                <FlyoutNavItem
+                  icon="settings"
+                  label="Settings"
+                  active={is('/settings/users') || is('/settings/create-user') || is('/settings/create-notification')}
+                  items={
+                    user?.role === 'cluster_admin'
+                      ? [
+                          { to: '/settings/users', label: 'Create User', active: is('/settings/users') || is('/settings/create-user') }
+                        ]
+                      : [
+                          { to: '/settings/users', label: 'Create User', active: is('/settings/users') || is('/settings/create-user') },
+                          { to: '/settings/create-notification', label: 'Create Notification', active: is('/settings/create-notification') },
+                        ]
+                  }
+                />
+              )}
+            </>
+          )}
         </div>
       </div>
     </>

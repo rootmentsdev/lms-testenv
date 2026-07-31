@@ -92,7 +92,7 @@ const mapEmployee = (e) => ({
 
 const EmployeeData = () => {
   const user = useSelector((state) => state.auth.user);
-  const isRestrictedRole = user?.role === 'cluster_admin' || user?.role === 'store_admin';
+  const isRestrictedRole = user?.role === 'cluster_admin' || user?.role === 'store_admin' || user?.role === 'warehouse_admin';
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

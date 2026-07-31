@@ -61,6 +61,7 @@ const resolveAssigneeId = async (assignedTo) => {
 const ASSIGNED_TO_LABELS = {
   store_admin: 'Store Admin',
   cluster_admin: 'Cluster Admin',
+  warehouse_admin: 'Warehouse Admin',
   all_stores: 'All Stores',
   telecaller: 'Telecaller',
 };
@@ -70,6 +71,7 @@ const ROLE_LABELS = {
   admin: 'Admin',
   cluster_admin: 'Cluster Admin',
   store_admin: 'Store Admin',
+  warehouse_admin: 'Warehouse Admin',
   telecaller: 'Telecaller',
 };
 

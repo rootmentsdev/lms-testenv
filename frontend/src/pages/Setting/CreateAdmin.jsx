@@ -39,7 +39,8 @@ const CreateUser = () => {
       selectedOption === "user" ? "super_admin" :
         selectedOption === "admin" ? "admin" :
           selectedOption === "designation" ? "cluster_admin" :
-            selectedOption === "telecaller" ? "telecaller" : "store_admin";
+            selectedOption === "warehouse" ? "warehouse_admin" :
+              selectedOption === "telecaller" ? "telecaller" : "store_admin";
     const updatedForm = {
       ...form,
       userRole,
@@ -232,6 +233,15 @@ const CreateUser = () => {
               <label>
                 <input
                   type="radio"
+                  value="warehouse"
+                  checked={selectedOption === "warehouse"}
+                  onChange={() => setSelectedOption("warehouse")}
+                />{" "}
+                Warehouse Admin
+              </label>
+              <label>
+                <input
+                  type="radio"
                   value="telecaller"
                   checked={selectedOption === "telecaller"}
                   onChange={() => setSelectedOption("telecaller")}
@@ -264,7 +274,7 @@ const CreateUser = () => {
               </div>
             )}
 
-            {(selectedOption === "designation" || selectedOption === "branch" || selectedOption === "telecaller") && (
+            {(selectedOption === "designation" || selectedOption === "branch" || selectedOption === "warehouse" || selectedOption === "telecaller") && (
               <Select
                 placeholder="Select the users"
                 id="assignToUsers"

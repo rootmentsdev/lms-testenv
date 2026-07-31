@@ -460,7 +460,7 @@ const getStoreNameFromLocId = (locId) => {
 
 const GrowthComparison = () => {
   const { user } = useSelector((state) => state.auth || {});
-  const isStoreAdmin = user?.role === "store_admin";
+  const isStoreAdmin = user?.role === "store_admin" || user?.role === "warehouse_admin";
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const STORES_PER_PAGE = 5;

@@ -1601,8 +1601,8 @@ const WalkinList = () => {
         </>
     );
 
-    const isRestrictedEdit = (user?.role === 'cluster_admin' || user?.role === 'store_admin') && (formData._id || customerExistsNotification);
-    const isAdmin = ['super_admin', 'admin', 'hr_admin', 'cluster_admin', 'store_admin'].includes(user?.role);
+    const isRestrictedEdit = (user?.role === 'cluster_admin' || user?.role === 'store_admin' || user?.role === 'warehouse_admin') && (formData._id || customerExistsNotification);
+    const isAdmin = ['super_admin', 'admin', 'hr_admin', 'cluster_admin', 'store_admin', 'warehouse_admin'].includes(user?.role);
 
     const safeDateOnly = (dateStr) => {
         if (!dateStr || dateStr === '-') return new Date().toISOString().split('T')[0];
@@ -1776,7 +1776,7 @@ const WalkinList = () => {
             }
         }
 
-        const isStoreAdmin = user?.role === 'store_admin';
+        const isStoreAdmin = user?.role === 'store_admin' || user?.role === 'warehouse_admin';
 
         return {
             _id: '',
@@ -3081,10 +3081,10 @@ const WalkinList = () => {
                                     </button>
                                 )}
                             </div>
-                            {(user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'cluster_admin' || user?.role === 'store_admin' || user?.role === 'telecaller') && (
+                            {(user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'cluster_admin' || user?.role === 'store_admin' || user?.role === 'warehouse_admin' || user?.role === 'telecaller') && (
                                 <select
                                     value={storeFilter}
-                                    disabled={user?.role === 'store_admin'}
+                                    disabled={user?.role === 'store_admin' || user?.role === 'warehouse_admin'}
                                     onChange={e => setStoreFilter(e.target.value)}
                                     style={{
                                         border: '1px solid #e5e7eb',
@@ -3094,10 +3094,10 @@ const WalkinList = () => {
                                         color: '#374151',
                                         outline: 'none',
                                         background: '#fff',
-                                        cursor: user?.role === 'store_admin' ? 'not-allowed' : 'pointer'
+                                        cursor: (user?.role === 'store_admin' || user?.role === 'warehouse_admin') ? 'not-allowed' : 'pointer'
                                     }}
                                 >
-                                    {user?.role !== 'store_admin' && <option value="All">All Stores</option>}
+                                    {user?.role !== 'store_admin' && user?.role !== 'warehouse_admin' && <option value="All">All Stores</option>}
                                     {branches.map((b, i) => <option key={i} value={b.workingBranch}>{b.workingBranch}</option>)}
                                 </select>
                             )}

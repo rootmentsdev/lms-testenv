@@ -691,7 +691,7 @@ const WalkinReport = () => {
         }
         
         setBranches(list);
-        if (user?.role === 'store_admin' && list.length > 0) {
+        if ((user?.role === 'store_admin' || user?.role === 'warehouse_admin') && list.length > 0) {
           setSelectedStores([list[0].workingBranch]);
         }
       } catch(e){ console.error(e); }
@@ -924,7 +924,7 @@ const WalkinReport = () => {
                     setSelectedStores(val);
                     setSelectedEmployees([]);
                   }}
-                  disabled={user?.role === 'store_admin'}
+                  disabled={user?.role === 'store_admin' || user?.role === 'warehouse_admin'}
                   placeholder="All Store"
                 />
               </div>

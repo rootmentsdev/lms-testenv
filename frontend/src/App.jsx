@@ -53,6 +53,7 @@ const DSRReport = lazy(() => import('./pages/StoreAnalysis/DSRReport.jsx'))
 const GrowthComparison = lazy(() => import('./pages/StoreAnalysis/GrowthComparison.jsx'))
 const GoogleReviewTask = lazy(() => import('./pages/StoreAnalysis/GoogleReviewTask.jsx'))
 const StoreInsights = lazy(() => import('./pages/StoreAnalysis/StoreInsights.jsx'))
+const DapprSquadAdmin = lazy(() => import('./pages/DapprSquad/DapprSquadAdmin.jsx'))
 
 import { setUser, logout } from './features/auth/authSlice.js';
 
@@ -194,6 +195,14 @@ const preloadProtectedRoutes = () => {
 
 
 
+
+const HomePage = () => {
+  const user = useSelector((state) => state.auth.user);
+  if (user?.role === 'warehouse_admin') {
+    return <DapprSquadAdmin />;
+  }
+  return <Home />;
+};
 
 function App() {
   const navigate = useNavigate();
@@ -362,7 +371,8 @@ function App() {
             />
 
             {/* Protected Routes */}
-            <Route path="/" element={<ProtectedLayout><Home /></ProtectedLayout>} />
+            <Route path="/" element={<ProtectedLayout><HomePage /></ProtectedLayout>} />
+            <Route path="/dappr-squad" element={<ProtectedLayout><DapprSquadAdmin /></ProtectedLayout>} />
             <Route path="/assessments" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><Assessments /></ProtectedLayout>} />
 
             <Route path="/branch" element={<ProtectedLayout hideForRoles={['telecaller']}><Branch /></ProtectedLayout>} />
