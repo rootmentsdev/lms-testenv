@@ -3205,25 +3205,26 @@ const StoreInsights = () => {
     }
 
     // Add prefix/suffix
+    const sign = isUp ? "+" : "-";
     let text = "";
     if (unit === "currency") {
-      text = `${isUp ? "+" : "-"}${diffStr}`;
+      text = `${sign}${diffStr}`;
     } else if (unit === "pts") {
-      text = `${isUp ? "+" : "-"}${diffStr} pts`;
+      text = `${sign}${diffStr} pts`;
     } else if (unit === "Walk-ins") {
-      text = `${diffStr} Customers`;
+      text = `${sign}${diffStr} Customers`;
     } else if (unit === "Basket Size") {
-      text = `${diffStr} Items`;
+      text = `${sign}${diffStr} Items`;
     } else if (unit === "Shoes") {
-      text = `${diffStr} Pairs`;
+      text = `${sign}${diffStr} Pairs`;
     } else if (unit === "Shirts") {
-      text = `${diffStr} Shirts`;
+      text = `${sign}${diffStr} Shirts`;
     } else if (unit === "Bills") {
-      text = `${diffStr} Bills`;
+      text = `${sign}${diffStr} Bills`;
     } else if (unit === "Reviews") {
-      text = `${diffStr} Reviews`;
+      text = `${sign}${diffStr} Reviews`;
     } else {
-      text = `${isUp ? "+" : "-"}${diffStr}`;
+      text = `${sign}${diffStr}`;
     }
 
     const percentage = changeObj.display; // e.g. "+11.8%" or "-5.9%"
@@ -3235,7 +3236,7 @@ const StoreInsights = () => {
       <div className={`mt-3 py-1.5 px-3 rounded-xl flex items-center justify-center text-[11.5px] font-bold ${badgeBg}`}>
         <span className="flex items-center gap-1.5">
           <span>{arrow}</span>
-          <span>{text} ({percentage})</span>
+          <span>{text}</span>
         </span>
       </div>
     );
@@ -3245,13 +3246,15 @@ const StoreInsights = () => {
     const isUp = trend === "up" || (changeObj && changeObj.diff >= 0);
     const finalTrendColor = trendColor || (isUp ? "#00A36C" : "#e11d48");
     const finalTrend = trend || (isUp ? "up" : "down");
+    const isNegative = (typeof mainVal === "string" && mainVal.startsWith("-")) || (changeObj && changeObj.diff < 0);
+    const mainTextColor = isNegative ? "text-rose-600" : "text-emerald-600";
     return (
       <div className="bg-white rounded-[20px] shadow-sm border border-gray-100 p-5 flex flex-col justify-between h-[200px] w-full font-sans">
         <div>
           <span className="text-[13px] font-bold text-gray-700 block">{title}</span>
         </div>
         <div className="flex items-center justify-between mt-1">
-          <span className="text-[28px] xs:text-[30px] sm:text-[32px] font-extrabold text-gray-900 leading-none">{mainVal}</span>
+          <span className={`text-[28px] xs:text-[30px] sm:text-[32px] font-extrabold ${mainTextColor} leading-none`}>{mainVal}</span>
           <Sparkline type={finalTrend} color={finalTrendColor} />
         </div>
         <div className="flex flex-col gap-1.5 mt-3">
@@ -3649,7 +3652,7 @@ const StoreInsights = () => {
           {stats && (<>
           {renderKpiCard({
             title: "Achieved Target %",
-            mainVal: `${stats.achievedPct}%`,
+            mainVal: stats.valChange?.display || "+0%",
             tyVal: `₹${formatIndianNumber(stats.achievedValue, 0)}`,
             lyVal: `₹${formatIndianNumber(stats.valChange?.prev || 0, 0)}`,
             changeObj: stats.valChange,
@@ -3660,7 +3663,7 @@ const StoreInsights = () => {
 
           {renderKpiCard({
             title: "Bills Generated",
-            mainVal: `${stats.billsChange?.prev > 0 ? Math.round((stats.billsGenerated / stats.billsChange.prev) * 100) : 100}%`,
+            mainVal: stats.billsChange?.display || "+0%",
             tyVal: formatIndianNumber(stats.billsGenerated),
             lyVal: formatIndianNumber(stats.billsChange?.prev || 0),
             changeObj: stats.billsChange,
@@ -3671,7 +3674,7 @@ const StoreInsights = () => {
 
           {renderKpiCard({
             title: "Quantity Sold",
-            mainVal: `${stats.qtyChange?.prev > 0 ? Math.round((stats.quantitySold / stats.qtyChange.prev) * 100) : 100}%`,
+            mainVal: stats.qtyChange?.display || "+0%",
             tyVal: formatIndianNumber(stats.quantitySold),
             lyVal: formatIndianNumber(stats.qtyChange?.prev || 0),
             changeObj: stats.qtyChange,
@@ -3682,7 +3685,7 @@ const StoreInsights = () => {
 
           {renderKpiCard({
             title: "Customer Walk-ins",
-            mainVal: `${stats.walkChange?.prev > 0 ? Math.round((stats.customerWalkins / stats.walkChange.prev) * 100) : 100}%`,
+            mainVal: stats.walkChange?.display || "+0%",
             tyVal: formatIndianNumber(stats.customerWalkins),
             lyVal: formatIndianNumber(stats.walkChange?.prev || 0),
             changeObj: stats.walkChange,
@@ -3693,7 +3696,7 @@ const StoreInsights = () => {
 
           {renderKpiCard({
             title: "Average Basket Size",
-            mainVal: `${stats.absChange?.prev > 0 ? Math.round((parseFloat(stats.basketSize) / stats.absChange.prev) * 100) : 100}%`,
+            mainVal: stats.absChange?.display || "+0%",
             tyVal: `${parseFloat(stats.basketSize || 0).toFixed(1)} Items`,
             lyVal: `${(stats.absChange?.prev || 0).toFixed(1)} Items`,
             changeObj: stats.absChange,
@@ -3704,7 +3707,7 @@ const StoreInsights = () => {
 
           {renderKpiCard({
             title: "Average Basket Value",
-            mainVal: `${stats.abvChange?.prev > 0 ? Math.round((stats.basketValue / stats.abvChange.prev) * 100) : 100}%`,
+            mainVal: stats.abvChange?.display || "+0%",
             tyVal: `₹${formatIndianNumber(stats.basketValue, 0)}`,
             lyVal: `₹${formatIndianNumber(stats.abvChange?.prev || 0, 0)}`,
             changeObj: stats.abvChange,
@@ -3715,7 +3718,7 @@ const StoreInsights = () => {
 
           {renderKpiCard({
             title: "Conversion %",
-            mainVal: `${stats.conversionRate ?? 0}%`,
+            mainVal: stats.conversionChange?.display || "+0%",
             tyVal: `${stats.conversionRate ?? 0}%`,
             lyVal: `${stats.lyConversionRate ?? 0}%`,
             changeObj: stats.conversionChange,
@@ -3726,7 +3729,7 @@ const StoreInsights = () => {
 
           {renderKpiCard({
             title: "Shoe Sale",
-            mainVal: `${stats.shoeChange?.prev > 0 ? Math.round((stats.shoeSale / stats.shoeChange.prev) * 100) : 100}%`,
+            mainVal: stats.shoeChange?.display || "+0%",
             tyVal: formatIndianNumber(stats.shoeSale),
             lyVal: formatIndianNumber(stats.shoeChange?.prev || 0),
             changeObj: stats.shoeChange,
@@ -3737,7 +3740,7 @@ const StoreInsights = () => {
 
           {renderKpiCard({
             title: "Shirt Sale",
-            mainVal: `${stats.shirtChange?.prev > 0 ? Math.round((stats.shirtSales / stats.shirtChange.prev) * 100) : 100}%`,
+            mainVal: stats.shirtChange?.display || "+0%",
             tyVal: formatIndianNumber(stats.shirtSales),
             lyVal: formatIndianNumber(stats.shirtChange?.prev || 0),
             changeObj: stats.shirtChange,
@@ -3748,7 +3751,7 @@ const StoreInsights = () => {
 
           {renderKpiCard({
             title: "Dappr Squad Bills",
-            mainVal: `${stats.dapprChange?.prev > 0 ? Math.round((stats.dapprSquadBills / stats.dapprChange.prev) * 100) : 100}%`,
+            mainVal: stats.dapprChange?.display || "+0%",
             tyVal: formatIndianNumber(stats.dapprSquadBills),
             lyVal: formatIndianNumber(stats.dapprChange?.prev || 0),
             changeObj: stats.dapprChange,
@@ -3759,7 +3762,7 @@ const StoreInsights = () => {
 
           {renderKpiCard({
             title: "Google Reviews",
-            mainVal: `${stats.reviewsChange?.prev > 0 ? Math.round((stats.googleReviews / stats.reviewsChange.prev) * 100) : 100}%`,
+            mainVal: stats.reviewsChange?.display || "+0%",
             tyVal: formatIndianNumber(stats.googleReviews),
             lyVal: formatIndianNumber(stats.reviewsChange?.prev || 0),
             changeObj: stats.reviewsChange,
