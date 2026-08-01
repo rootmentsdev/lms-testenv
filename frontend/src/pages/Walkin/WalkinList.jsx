@@ -2045,22 +2045,22 @@ const WalkinList = () => {
         if (name === 'status') {
             let finalCategory = formData.category;
             let finalSubCategory = formData.subCategory;
-            let finalFunctionType = formData.functionType || '-';
+            let existingFuncType = formData.functionType || '';
+            let finalFunctionType = (existingFuncType && existingFuncType !== '-' && existingFuncType !== 'Select Function Type')
+                ? existingFuncType
+                : (value === 'Loss' ? 'Select Function Type' : '-');
 
             if (value === 'Loss') {
                 finalCategory = '';
                 finalSubCategory = 'Select Sub Category';
-                finalFunctionType = 'Select Function Type';
             } else if (value === 'Revisit') {
                 if (!['Trial', 'Reissue', 'Loss'].includes(formData.category)) {
                     finalCategory = 'Trial';
                 }
                 finalSubCategory = '-';
-                finalFunctionType = '-';
             } else {
                 finalCategory = '-';
                 finalSubCategory = '-';
-                finalFunctionType = '-';
             }
 
             setFormData(prev => ({
@@ -2253,18 +2253,19 @@ const WalkinList = () => {
 
             let finalCategory = walkinRecord.category || '';
             let finalSubCategory = walkinRecord.subCategory || '-';
-            let finalFunctionType = walkinRecord.functionType || '-';
+            let existingFuncType = walkinRecord.functionType || '';
+            let finalFunctionType = (existingFuncType && existingFuncType !== '-' && existingFuncType !== 'Select Function Type')
+                ? existingFuncType
+                : (newStatus === 'Loss' ? 'Select Function Type' : '-');
 
             if (newStatus === 'Loss') {
                 finalCategory = '';
                 finalSubCategory = 'Select Sub Category';
-                finalFunctionType = 'Select Function Type';
             } else if (newStatus === 'Revisit') {
                 if (!['Trial', 'Reissue', 'Loss'].includes(walkinRecord.category)) {
                     finalCategory = 'Trial';
                 }
                 finalSubCategory = '-';
-                finalFunctionType = '-';
             }
 
             setFormData({
