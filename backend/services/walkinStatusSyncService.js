@@ -500,7 +500,8 @@ export const syncWalkinStatuses = async (overrideDateFrom = null, overrideDateTo
                             try {
                                 // Extract available fields from the booking API response
                                 const autoCustomerName = String(bookingItemForCreate.customerName || '').trim() || 'Auto-Sync Customer';
-                                const autoStaff       = 'Auto';
+                                const rawStaff        = String(bookingItemForCreate.bookingBy || bookingItemForCreate.rentOutBy || bookingItemForCreate.rentoutBy || bookingItemForCreate.returnedBy || bookingItemForCreate.cancelledBy || '').trim();
+                                const autoStaff       = rawStaff || 'Auto';
                                 const autoStore       = String(workingBranch || bookingItemForCreate.locName || '').trim() || '-';
 
                                 // Use booking date to calculate 10:30 AM IST (store opening time) for system auto-created walk-in
