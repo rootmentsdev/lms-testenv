@@ -128,14 +128,14 @@ const extractDateValue = (itm, priorityKeys) => {
             const hasRealTime = /[T\s](?:0[1-9]|1[0-9]|2[0-3]):[0-5][0-9]|:00:[0-5][1-9]|:00:[1-5][0-9]/.test(dateStr) ||
                                 (/[T\s][0-2][0-9]:[0-5][0-9]/.test(dateStr) && !dateStr.includes('00:00:00'));
 
-            // If the date string lacks a timezone offset, treat it as India Standard Time (IST, +05:30)
+            // Rootments POS API provides timestamps in UTC (e.g. 06:12:56 UTC = 11:42:56 AM IST)
             const hasTimezoneOffset = /Z$|[\+\-]\d{2}:?\d{2}$/.test(dateStr);
             if (!hasTimezoneOffset) {
                 // If it contains a space between date and time, replace it with 'T' for standard compliance
                 if (dateStr.includes(' ')) {
                     dateStr = dateStr.replace(' ', 'T');
                 }
-                dateStr = dateStr + '+05:30';
+                dateStr = dateStr + 'Z';
             }
             const d = new Date(dateStr);
             if (!isNaN(d.getTime())) {
