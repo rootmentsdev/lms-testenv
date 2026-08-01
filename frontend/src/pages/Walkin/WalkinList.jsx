@@ -3732,12 +3732,16 @@ const WalkinList = () => {
                             {(() => {
                                 const history = [];
                                 
+                                const isAutoCreated = selectedHistoryWalkin.legacyMeta?.autoCreated === true ||
+                                                      (selectedHistoryWalkin.statusHistory && selectedHistoryWalkin.statusHistory.some(h => h.source === 'auto_sync' && h.status === 'New Walkin'));
+
                                 // Initial visit
                                 const initialDate = selectedHistoryWalkin.createdAt || selectedHistoryWalkin.date;
                                 history.push({
                                     status: 'New Walkin',
                                     category: selectedHistoryWalkin.category || '-',
-                                    date: initialDate
+                                    date: initialDate,
+                                    isAutoCreated: isAutoCreated
                                 });
 
                                 if (selectedHistoryWalkin.statusHistory && selectedHistoryWalkin.statusHistory.length > 0) {
@@ -3746,7 +3750,8 @@ const WalkinList = () => {
                                             history.push({
                                                 status: h.status,
                                                 category: h.category || '-',
-                                                date: h.date
+                                                date: h.date,
+                                                isAutoCreated: false
                                             });
                                         }
                                     });
@@ -3835,7 +3840,8 @@ const WalkinList = () => {
                                 const parsedHistory = history.map(item => ({
                                     status: item.status,
                                     category: item.category,
-                                    date: item.date ? new Date(item.date) : new Date()
+                                    date: item.date ? new Date(item.date) : new Date(),
+                                    isAutoCreated: item.isAutoCreated || false
                                 })).sort((a, b) => {
                                     const aIsNew = String(a.status || '').toLowerCase().trim() === 'new walkin';
                                     const bIsNew = String(b.status || '').toLowerCase().trim() === 'new walkin';
@@ -3880,8 +3886,8 @@ const WalkinList = () => {
                                             return (
                                                 <div key={idx} className="relative">
                                                     {/* Timeline marker */}
-                                                    <span className="absolute -left-[30px] top-1 flex h-3 w-3 items-center justify-center rounded-full bg-white border border-gray-300">
-                                                        <span className="h-1.5 w-1.5 rounded-full bg-gray-400" />
+                                                    <span className={`absolute -left-[30px] top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white border ${item.isAutoCreated ? 'border-red-500 shadow-xs' : 'border-gray-300'}`}>
+                                                        <span className={`h-2 w-2 rounded-full ${item.isAutoCreated ? 'bg-red-500' : 'bg-gray-400'}`} />
                                                     </span>
                                                     <div className="flex flex-col gap-1">
                                                         <div className="flex items-center gap-3">
@@ -3902,6 +3908,12 @@ const WalkinList = () => {
                                                                     return `${item.status.toUpperCase()}${shouldShowCat && hasValidCat ? ` (${item.category})` : ''}`;
                                                                 })()}
                                                             </span>
+                                                            {item.isAutoCreated && (
+                                                                <span className="inline-flex items-center gap-1.5 bg-red-50 border border-red-200 text-red-700 text-[9px] font-bold px-2 py-0.5 rounded-full" title="System Auto-Created Lead (POS Sync)">
+                                                                    <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                                                                    System Auto-Created
+                                                                </span>
+                                                            )}
                                                             {idx === filteredHistory.length - 1 && (
                                                                 <span className="text-[9px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded font-semibold">Active</span>
                                                             )}
