@@ -13,8 +13,8 @@ export const startWalkinStatusSyncCron = () => {
     isScheduled = true;
     console.log('🕐 Starting Walk-in Status Sync Scheduler...');
 
-    // Run every 15 minutes
-    cron.schedule('*/15 * * * *', async () => {
+    // Run every 5 minutes
+    cron.schedule('*/5 * * * *', async () => {
         if (isRunning) {
             console.log('⚠️ [Walkin Status Sync Cron] Sync Skipped (Already Running).');
             return;
@@ -50,6 +50,6 @@ export const startWalkinStatusSyncCron = () => {
         }
     }, { timezone: 'Asia/Kolkata' });
 
-    console.log('✅ Walk-in Status Sync Scheduler started (runs every 15 minutes, loss expiry runs daily at 11:00 PM)');
+    console.log('✅ Walk-in Status Sync Scheduler started (runs every 5 minutes, loss expiry runs daily at 11:00 PM)');
 };
 

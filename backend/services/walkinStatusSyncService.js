@@ -180,7 +180,7 @@ export const syncWalkinStatuses = async (overrideDateFrom = null, overrideDateTo
     const jobStartedAt = new Date();
     console.log('🔄 [Walkin Status Sync] Sync Started at:', jobStartedAt.toISOString());
 
-    const dateFrom = overrideDateFrom || getPastDateString(7);
+    const dateFrom = overrideDateFrom || getPastDateString(4);
     const dateTo = overrideDateTo || getPastDateString(0);
 
     console.log(`📅 [Walkin Status Sync] Range: ${dateFrom} to ${dateTo}`);
