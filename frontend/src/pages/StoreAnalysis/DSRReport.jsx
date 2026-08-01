@@ -2332,7 +2332,6 @@ const DSRReport = () => {
       let storeTotalRental = mergedPeriodList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
       if (funnelView === "Consolidated") {
         storeTotalRental += Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
-        storeTotalRental += Object.values(customizationAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
       }
 
       let storeTotalSales = 0;
@@ -2361,8 +2360,7 @@ const DSRReport = () => {
       const rawStaffNames = [
         ...mergedPeriodList.map(x => x && x.bookingBy),
         ...salesStaffNames,
-        ...(funnelView === "Consolidated" ? Object.keys(dapprAttribution) : []),
-        ...(funnelView === "Consolidated" ? Object.keys(customizationAttribution) : [])
+        ...(funnelView === "Consolidated" ? Object.keys(dapprAttribution) : [])
       ].filter(name => typeof name === "string" && name.trim() !== "");
 
       const staffNames = [];
@@ -2397,10 +2395,6 @@ const DSRReport = () => {
           const dapprKey = Object.keys(dapprAttribution).find(k => normalizeForMatch(getCanonicalStaffName(k)) === staffKey || normalizeForMatch(k) === staffKey);
           if (dapprKey) {
             rentalVal += Number(dapprAttribution[dapprKey]?.billWtd) || 0;
-          }
-          const custKey = Object.keys(customizationAttribution).find(k => normalizeForMatch(getCanonicalStaffName(k)) === staffKey || normalizeForMatch(k) === staffKey);
-          if (custKey) {
-            rentalVal += Number(customizationAttribution[custKey]?.billWtd) || 0;
           }
         }
 
@@ -2475,11 +2469,6 @@ const DSRReport = () => {
         // Add shoe/shirt sales (same lookup as funnelRows)
         const salesPeriodItem = salesData.period[locCode] || salesData.period[storeKeyVal] || { value: 0 };
         achieved += salesPeriodItem.value || 0;
-
-        // Add customization attribution (same lookup as funnelRows)
-        const custKey = normalizeForMatch(name);
-        const custTotals = storeCustomizationTotals[custKey] || {};
-        achieved += custTotals.val || 0;
       }
 
       const balance = target - achieved;
@@ -2783,21 +2772,7 @@ const DSRReport = () => {
             qtyWtd += Number(dAttr.qtyWtd) || 0;
           }
 
-          // Merge Customization attributions
-          const custKey = Object.keys(customizationAttribution).find(k => 
-            isStaffNameMatch(k, entry.displayName) || 
-            entry.rentalNames.some(rn => isStaffNameMatch(k, rn)) ||
-            normalizeForMatch(getCanonicalStaffName(k)) === normalizeForMatch(entry.displayName)
-          );
-          if (custKey) {
-            const cAttr = customizationAttribution[custKey] || {};
-            valFtd += Number(cAttr.billFtd) || 0;
-            billFtd += Number(cAttr.valFtd) || 0;
-            qtyFtd += Number(cAttr.qtyFtd) || 0;
-            valWtd += Number(cAttr.billWtd) || 0;
-            billWtd += Number(cAttr.valWtd) || 0;
-            qtyWtd += Number(cAttr.qtyWtd) || 0;
-          }
+
 
           const getSalesDataForStaff = (salesItem) => {
             if (!salesItem || !salesItem.byStaff) return {};
@@ -2950,15 +2925,7 @@ const DSRReport = () => {
             qtyFtd += salesFtdItem.qty || 0;
             qtyWtd += salesPeriodItem.qty || 0;
 
-            // Include Customization attributions for this store
-            const custKey = normalizeForMatch(storeName);
-            const custTotals = storeCustomizationTotals[custKey] || {};
-            valFtd += custTotals.valFtd || 0;
-            billFtd += custTotals.billsFtd || 0;
-            qtyFtd += custTotals.qtyFtd || 0;
-            valWtd += custTotals.val || 0;
-            billWtd += custTotals.bills || 0;
-            qtyWtd += custTotals.qty || 0;
+
           }
 
           const createdValFtd = mergedFtdList.reduce((sum, item) => sum + (item.created_Number_Of_Bill || 0), 0);

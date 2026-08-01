@@ -128,14 +128,14 @@ const extractDateValue = (itm, priorityKeys) => {
             const hasRealTime = /[T\s](?:0[1-9]|1[0-9]|2[0-3]):[0-5][0-9]|:00:[0-5][1-9]|:00:[1-5][0-9]/.test(dateStr) ||
                                 (/[T\s][0-2][0-9]:[0-5][0-9]/.test(dateStr) && !dateStr.includes('00:00:00'));
 
-            // If the date string lacks a timezone offset, treat it as India Standard Time (IST, +05:30)
+            // Rootments POS API: bookingDate, returnedDate, and cancelDate are in UTC (Z), while rentOutDate is in IST (+05:30)
             const hasTimezoneOffset = /Z$|[\+\-]\d{2}:?\d{2}$/.test(dateStr);
             if (!hasTimezoneOffset) {
-                // If it contains a space between date and time, replace it with 'T' for standard compliance
                 if (dateStr.includes(' ')) {
                     dateStr = dateStr.replace(' ', 'T');
                 }
-                dateStr = dateStr + '+05:30';
+                const isUtcKey = ['bookingdate', 'booking_date', 'bookeddate', 'returneddate', 'returndate', 'return_date', 'canceldate', 'cancellationdate', 'deleteddate'].includes(key.toLowerCase());
+                dateStr = isUtcKey ? dateStr + 'Z' : dateStr + '+05:30';
             }
             const d = new Date(dateStr);
             if (!isNaN(d.getTime())) {
@@ -180,7 +180,7 @@ export const syncWalkinStatuses = async (overrideDateFrom = null, overrideDateTo
     const jobStartedAt = new Date();
     console.log('🔄 [Walkin Status Sync] Sync Started at:', jobStartedAt.toISOString());
 
-    const dateFrom = overrideDateFrom || getPastDateString(7);
+    const dateFrom = overrideDateFrom || getPastDateString(4);
     const dateTo = overrideDateTo || getPastDateString(0);
 
     console.log(`📅 [Walkin Status Sync] Range: ${dateFrom} to ${dateTo}`);
@@ -500,23 +500,14 @@ export const syncWalkinStatuses = async (overrideDateFrom = null, overrideDateTo
                             try {
                                 // Extract available fields from the booking API response
                                 const autoCustomerName = String(bookingItemForCreate.customerName || '').trim() || 'Auto-Sync Customer';
-                                const autoStaff       = String(bookingItemForCreate.bookingBy    || '').trim() || 'None';
+                                const rawStaff        = String(bookingItemForCreate.bookingBy || bookingItemForCreate.rentOutBy || bookingItemForCreate.rentoutBy || bookingItemForCreate.returnedBy || bookingItemForCreate.cancelledBy || '').trim();
+                                const autoStaff       = rawStaff || 'Auto';
                                 const autoStore       = String(workingBranch || bookingItemForCreate.locName || '').trim() || '-';
 
-                                // Use booking date as the walkin date string (YYYY-MM-DD in IST)
+                                // Use booking date to calculate 10:30 AM IST (store opening time) for system auto-created walk-in
                                 const autoBookingDate = extractDateValue(bookingItemForCreate, ['bookingDate', 'bookingdate', 'booking_date', 'bookeddate']);
-                                const autoDateStr     = autoBookingDate
-                                    ? getLocalDateStringIST(autoBookingDate)
-                                    : getLocalDateStringIST(new Date());
-
-                                // The 'New Walkin' statusHistory entry is dated 5 minutes AFTER
-                                // the booking date so that when history is sorted by date,
-                                // 'Booked' (exact bookingDate) always appears before 'New Walkin'.
-                                // This reflects the real sequence: the booking existed first,
-                                // and the walkin was auto-created afterwards.
-                                const autoNewWalkinHistoryDate = autoBookingDate
-                                    ? new Date(autoBookingDate.getTime() + 5 * 60 * 1000)
-                                    : new Date();
+                                const storeOpeningTime = get1030AMIST(autoBookingDate || new Date());
+                                const autoDateStr     = getLocalDateStringIST(storeOpeningTime);
 
                                 const newWalkin = new Walkin({
                                     customerName:  autoCustomerName,
@@ -533,31 +524,26 @@ export const syncWalkinStatuses = async (overrideDateFrom = null, overrideDateTo
                                         status:      'New Walkin',
                                         category:    'Product',
                                         subCategory: '-',
-                                        date:        autoNewWalkinHistoryDate,
+                                        date:        storeOpeningTime,
                                         source:      'auto_sync'
                                     }],
                                     legacyMeta: {
                                         autoCreated:       true,
-                                        autoCreatedAt:     new Date(),
+                                        autoCreatedAt:     storeOpeningTime,
                                         autoCreatedReason: 'missing_walkin_on_booking'
                                     }
                                 });
 
                                 await newWalkin.save();
 
-                                // Backdate createdAt and updatedAt to the booking date so the
-                                // auto-created walkin appears under the correct date in the walkin
-                                // list and does not pollute today's manually-added new walkins.
-                                // Mongoose timestamps: true always stamps createdAt = now on save(),
-                                // so we override it immediately with a direct collection update.
-                                if (autoBookingDate) {
-                                    await Walkin.collection.updateOne(
-                                        { _id: newWalkin._id },
-                                        { $set: { createdAt: autoBookingDate, updatedAt: autoBookingDate } }
-                                    );
-                                    newWalkin.createdAt = autoBookingDate;
-                                    newWalkin.updatedAt = autoBookingDate;
-                                }
+                                // Set createdAt and updatedAt to 10:30 AM IST (store opening time) so the
+                                // auto-created walk-in appears at 10:30 AM on the target date.
+                                await Walkin.collection.updateOne(
+                                    { _id: newWalkin._id },
+                                    { $set: { createdAt: storeOpeningTime, updatedAt: storeOpeningTime } }
+                                );
+                                newWalkin.createdAt = storeOpeningTime;
+                                newWalkin.updatedAt = storeOpeningTime;
 
                                 walkin = newWalkin;
                                 invoiceToWalkinMap.set(invoiceNo, walkin);
@@ -1030,8 +1016,37 @@ export const syncWalkinStatuses = async (overrideDateFrom = null, overrideDateTo
 };
 
 /**
- * Automatically expire walk-ins to 'Loss' if they were created before today,
- * have status 'New Walkin', and have not been updated since creation.
+ * Helper to calculate 11:00 PM IST (23:00:00 IST) for a given date
+ */
+const get11PMIST = (date) => {
+    if (!date) return new Date();
+    const d = new Date(date);
+    const istDate = new Date(d.getTime() + (5.5 * 60 * 60 * 1000));
+    const year = istDate.getUTCFullYear();
+    const month = istDate.getUTCMonth();
+    const day = istDate.getUTCDate();
+    
+    // 23:00:00 IST corresponds to 17:30:00 UTC
+    return new Date(Date.UTC(year, month, day, 17, 30, 0, 0));
+};
+
+/**
+ * Helper to calculate 10:30 AM IST (10:30:00 IST - store opening time) for a given date
+ */
+const get1030AMIST = (date) => {
+    const d = date ? new Date(date) : new Date();
+    const istDate = new Date(d.getTime() + (5.5 * 60 * 60 * 1000));
+    const year = istDate.getUTCFullYear();
+    const month = istDate.getUTCMonth();
+    const day = istDate.getUTCDate();
+    
+    // 10:30:00 IST corresponds to 05:00:00 UTC (10:30 AM - 5:30 = 05:00 UTC)
+    return new Date(Date.UTC(year, month, day, 5, 0, 0, 0));
+};
+
+/**
+ * Automatically expire walk-ins to 'Loss' at 11:00 PM if they have status 'New Walkin'
+ * and have not been updated since creation (created today or earlier).
  */
 export const expireWalkinsToLoss = async () => {
     const jobStartedAt = new Date();
@@ -1039,42 +1054,20 @@ export const expireWalkinsToLoss = async () => {
     try {
         const now = new Date();
 
-        // Calculate the local start of today in Asia/Kolkata timezone (UTC+5:30)
-        const formatter = new Intl.DateTimeFormat('en-US', {
-            timeZone: 'Asia/Kolkata',
-            year: 'numeric',
-            month: 'numeric',
-            day: 'numeric'
-        });
-        const parts = formatter.formatToParts(now);
-        const dateObj = {};
-        parts.forEach(p => { dateObj[p.type] = p.value; });
-
-        const startOfToday = new Date(Date.UTC(
-            parseInt(dateObj.year, 10),
-            parseInt(dateObj.month, 10) - 1,
-            parseInt(dateObj.day, 10),
-            0, 0, 0, 0
-        ));
-        startOfToday.setTime(startOfToday.getTime() - (5.5 * 60 * 60 * 1000));
-
-        console.log(`📅 [Walkin Loss Expiry] Expiry threshold: walk-ins created before ${startOfToday.toISOString()} (IST midnight)`);
+        console.log(`📅 [Walkin Loss Expiry] Expiry check: converting un-updated 'New Walkin' entries created up to ${now.toISOString()} to 'Loss'`);
 
         // Perform bulk update of walk-ins that:
         // 1. status is 'New Walkin'
-        // 2. createdAt < startOfToday
-        // 3. updatedAt === createdAt (no updates occurred)
-        // Set status to 'Loss' and update updatedAt to the current time.
-        // Set the updatedAt to be 1 second before startOfToday (end of the previous IST day)
-        // so that the auto-loss is accounted for on the correct business day.
-        const lossUpdatedAt = new Date(startOfToday.getTime() - 1000);
+        // 2. repeatCount === 1 or not set
+        // 3. createdAt <= current time (created today or on previous days)
+        // 4. updatedAt === createdAt (no manual or POS status updates occurred)
         const query = {
             status: 'New Walkin',
             $or: [
                 { repeatCount: 1 },
                 { repeatCount: { $exists: false } }
             ],
-            createdAt: { $lt: startOfToday },
+            createdAt: { $lte: now },
             $expr: { $eq: ['$createdAt', '$updatedAt'] }
         };
 
@@ -1083,8 +1076,22 @@ export const expireWalkinsToLoss = async () => {
 
         for (const w of matchingWalkins) {
             const history = w.statusHistory || [];
-            // Duplicate prevention: check same status (Loss) + same IST date (lossUpdatedAt) + same source (auto_loss_cron)
-            const targetIST = getLocalDateStringIST(lossUpdatedAt);
+
+            // Explicit safety check: skip if status has been modified manually by staff or automatically by auto-sync
+            const hasNonNewStatus = history.some(h => {
+                const s = String(h.status || '').trim();
+                return s !== 'New Walkin';
+            });
+
+            if (hasNonNewStatus || w.invoiceNo || w.shoeInvoiceNo) {
+                continue;
+            }
+
+            // Use 11:00:00 PM IST of the day the walk-in was created as the loss date
+            const lossDate = get11PMIST(w.createdAt);
+
+            // Duplicate prevention: check same status (Loss) + same IST date + same source (auto_loss_cron)
+            const targetIST = getLocalDateStringIST(lossDate);
             const isDuplicate = history.some(h => {
                 const hStatus = String(h.status || '').trim();
                 const hSource = String(h.source || '-').trim();
@@ -1096,7 +1103,7 @@ export const expireWalkinsToLoss = async () => {
                 status: 'Loss',
                 category: w.category && w.category !== '-' ? w.category : 'Product',
                 subCategory: w.subCategory || '-',
-                date: lossUpdatedAt,
+                date: lossDate,
                 source: 'auto_loss_cron'
             };
 
@@ -1110,7 +1117,7 @@ export const expireWalkinsToLoss = async () => {
                 {
                     $set: {
                         status: 'Loss',
-                        updatedAt: lossUpdatedAt,
+                        updatedAt: lossDate,
                         statusHistory: updatedHistory
                     }
                 }

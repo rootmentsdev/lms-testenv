@@ -878,8 +878,8 @@ connectMongoDB().then(async () => {
       console.log('✅ All cron jobs are running');
       console.log('  • Walkin Status Sync: Every 15 minutes');
       console.log('  • Auto Task Generation: Every hour at :05 (staggered)');
-      console.log('  • Walkin Loss Expiry: Daily at 6:30 PM UTC');
-      console.log('  • AlertNotification: Daily at 6:30 PM UTC');
+      console.log('  • Walkin Loss Expiry: Daily at 11:00 PM IST');
+      console.log('  • AlertNotification: Daily at 6:30 PM IST');
       console.log(`${'='.repeat(60)}\n`);
     });
     
@@ -887,7 +887,7 @@ connectMongoDB().then(async () => {
     console.log('  • Every 15 min - Walkin Status Sync');
     console.log('  • :05 min - Auto Task Generation (staggered)');
     console.log('  • :30 min - Health Check');
-    console.log('  • 6:30 PM - AlertNotification & Loss Expiry\n');
+    console.log('  • 11:00 PM - Walkin Loss Expiry\n');
   });
 }).catch(err => {
   console.error('❌ MongoDB connection failed:', err);
