@@ -3909,9 +3909,9 @@ const WalkinList = () => {
                                                                 })()}
                                                             </span>
                                                             {item.isAutoCreated && (
-                                                                <span className="inline-flex items-center gap-1.5 bg-red-50 border border-red-200 text-red-700 text-[9px] font-bold px-2 py-0.5 rounded-full" title="System Auto-Created Lead (POS Sync)">
-                                                                    <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
-                                                                    System Auto-Created
+                                                                <span className="inline-flex items-center gap-1 bg-red-50 border border-red-200 text-red-600 text-[9px] font-bold px-2 py-0.5 rounded-full" title="System Auto-Created Lead (POS Sync)">
+                                                                    <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                                                                    Auto
                                                                 </span>
                                                             )}
                                                             {idx === filteredHistory.length - 1 && (
