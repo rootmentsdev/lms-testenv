@@ -1955,18 +1955,7 @@ const StoreInsights = () => {
         const branchSales = (locCode && salesData.byBranch?.[locCode]) || {};
         const salesTotalValue = branchSales.totalValue || 0;
 
-        let custTotalValue = 0;
-
-        if (isStoreAdmin || storeFilter === name) {
-          // Store-admin or specific-store filter: use flat attribution map (all entries belong to this store)
-          custTotalValue = Object.values(customizationAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
-        } else {
-          // Admin all-stores view: use per-store totals keyed by normalised store name
-          const storeKey = normalizeForMatch(name);
-          custTotalValue = storeCustomizationTotals[storeKey]?.val || 0;
-        }
-
-        achieved = rentalValue + salesTotalValue + custTotalValue;
+        achieved = rentalValue + salesTotalValue;
       }
 
       const balance = target - achieved;
@@ -2106,8 +2095,7 @@ const StoreInsights = () => {
     const rawStaffNames = [
       ...mergedPeriodList.map(x => x && x.bookingBy),
       ...salesStaffNames,
-      ...(isConsolidated ? Object.keys(dapprAttribution) : []),
-      ...(isConsolidated ? Object.keys(customizationAttribution) : [])
+      ...(isConsolidated ? Object.keys(dapprAttribution) : [])
     ].filter(name => typeof name === "string" && name.trim() !== "" && !isDapprSquadName(name)).map(getCanonicalStaffName);
 
     const staffNames = [];
@@ -2174,15 +2162,6 @@ const StoreInsights = () => {
           );
           if (dapprKey) {
             achieved += Number(dapprAttribution[dapprKey]?.billWtd) || 0;
-          }
-
-          const custKey = Object.keys(customizationAttribution).find(k => 
-            normalizeForMatch(getCanonicalStaffName(k)) === staffKey || 
-            normalizeForMatch(k) === staffKey ||
-            isStaffNameMatch(k, fullName)
-          );
-          if (custKey) {
-            achieved += Number(customizationAttribution[custKey]?.billWtd) || 0;
           }
         }
 
@@ -2439,14 +2418,6 @@ const StoreInsights = () => {
     })();
 
     if (isConsolidated) {
-      let custVal = 0, custBills = 0, custQty = 0;
-      // Only include customization attribution (not manual dappr) to match Sales Funnel logic
-      Object.values(customizationAttribution).forEach(v => {
-        custVal += Number(v.billWtd) || 0;
-        custBills += Number(v.valWtd) || 0;
-        custQty += Number(v.qtyWtd) || 0;
-      });
-
       // Use totalAchieved from chartData (filteredStoresForKPIs) as the single source of truth.
       // chartData already computes each store's achieved as:
       //   rental + Dappr Squad (POS) + customization + shoe/shirt sales
@@ -2454,8 +2425,8 @@ const StoreInsights = () => {
       const consolidatedValue = ((isStoreAdmin || storeFilter !== "All") && employeeChartData.length > 0)
         ? employeeChartData.reduce((sum, emp) => sum + emp.achieved, 0)
         : totalAchieved;
-      const consolidatedBills = rentalBills + shoeBills + shirtBills + custBills;
-      const consolidatedTotalQty = rentalQty + shoeQty + shirtQty + custQty;
+      const consolidatedBills = rentalBills + shoeBills + shirtBills;
+      const consolidatedTotalQty = rentalQty + shoeQty + shirtQty;
 
       const lyConsolidatedValue = lyRentalValue;
       const lyConsolidatedBills = lyRentalBills;
@@ -2705,8 +2676,7 @@ const StoreInsights = () => {
       const rawStaffNames = [
         ...locPeriodList.map(x => x && x.bookingBy),
         ...salesStaffNames,
-        ...(isConsolidated ? Object.keys(dapprAttribution) : []),
-        ...(isConsolidated ? Object.keys(customizationAttribution) : [])
+        ...(isConsolidated ? Object.keys(dapprAttribution) : [])
       ].filter(name => typeof name === "string" && name.trim() !== "").map(getCanonicalStaffName);
 
       const staffNames = [];
@@ -2741,7 +2711,6 @@ const StoreInsights = () => {
         const branchSales = salesData.byBranch?.[locCode] || {};
         storeTotalValue += branchSales.totalValue || 0;
         storeTotalValue += Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
-        storeTotalValue += Object.values(customizationAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
       }
 
       if (staffNames.length === 0) {
@@ -2776,16 +2745,6 @@ const StoreInsights = () => {
             value += Number(dAttr.billWtd) || 0;
             bills += Number(dAttr.valWtd)  || 0;
             qty   += Number(dAttr.qtyWtd)  || 0;
-          }
-
-          const custKey = Object.keys(customizationAttribution).find(k => 
-            isStaffNameMatch(k, staffName) || normalizeForMatch(getCanonicalStaffName(k)) === staffKey
-          );
-          if (custKey) {
-            const cAttr = customizationAttribution[custKey] || {};
-            value += Number(cAttr.billWtd) || 0;
-            bills += Number(cAttr.valWtd)  || 0;
-            qty   += Number(cAttr.qtyWtd)  || 0;
           }
         }
 
