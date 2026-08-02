@@ -19,6 +19,7 @@ const ICONS = {
   storeAnalysis: ["M21.21 15.89A10 10 0 1 1 8 2.83", "M22 12A10 10 0 0 0 12 2v10z"],
   storeInsights: ["M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z", "M8.5 14.5l2.5-2.5 3 3 4.5-4.5", "M15 11.5h3v3"],
   settings: ["M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"],
+  customization: ["M12 20h9", "M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"],
 };
 
 const MobileNavItem = ({ to, icon, label, active }) => (
@@ -48,31 +49,39 @@ const ModileNav = () => {
           msOverflowStyle: 'none'
         }}
       >
-        <MobileNavItem to="/" icon="dashboard" label="Dashboard" active={is('/')} />
-        <MobileNavItem to="/walkin/list" icon="walkin" label="WalkIn" active={isWalkin} />
-        {user?.role === 'telecaller' && (
-          <MobileNavItem to="/task" icon="task" label="Tasks" active={is('/task')} />
-        )}
-        {user?.role !== 'telecaller' && (
-          <MobileNavItem to="/employee" icon="employee" label="Employees" active={is('/employee')} />
-        )}
-        {user?.role !== 'store_admin' && user?.role !== 'telecaller' && (
-          <MobileNavItem to="/training" icon="training" label="Trainings" active={is('/training')} />
-        )}
-        {user?.role !== 'store_admin' && user?.role !== 'telecaller' && (
-          <MobileNavItem to="/assessments" icon="assessment" label="Assessments" active={is('/assessments')} />
-        )}
-        {user?.role !== 'telecaller' && (
-          <MobileNavItem to="/branch" icon="branch" label="Branches" active={is('/branch')} />
-        )}
-        {user?.role !== 'telecaller' && (
-          <MobileNavItem to="/store-analysis/dsr-report" icon="storeAnalysis" label="Store Analysis" active={location.pathname.startsWith('/store-analysis/')} />
-        )}
-        {user?.role !== 'telecaller' && (
-          <MobileNavItem to="/store-insights" icon="storeInsights" label="Store Insights" active={is('/store-insights')} />
-        )}
-        {user?.role !== 'telecaller' && (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'cluster_admin') && (
-          <MobileNavItem to="/settings/users" icon="settings" label="Settings" active={location.pathname.startsWith('/settings')} />
+        {user?.role === 'warehouse_admin' ? (
+          <>
+            <MobileNavItem to="/customization" icon="customization" label="Customization" active={is('/customization')} />
+          </>
+        ) : (
+          <>
+            <MobileNavItem to="/" icon="dashboard" label="Dashboard" active={is('/')} />
+            <MobileNavItem to="/walkin/list" icon="walkin" label="WalkIn" active={isWalkin} />
+            {user?.role === 'telecaller' && (
+              <MobileNavItem to="/task" icon="task" label="Tasks" active={is('/task')} />
+            )}
+            {user?.role !== 'telecaller' && (
+              <MobileNavItem to="/employee" icon="employee" label="Employees" active={is('/employee')} />
+            )}
+            {user?.role !== 'store_admin' && user?.role !== 'telecaller' && (
+              <MobileNavItem to="/training" icon="training" label="Trainings" active={is('/training')} />
+            )}
+            {user?.role !== 'store_admin' && user?.role !== 'telecaller' && (
+              <MobileNavItem to="/assessments" icon="assessment" label="Assessments" active={is('/assessments')} />
+            )}
+            {user?.role !== 'telecaller' && (
+              <MobileNavItem to="/branch" icon="branch" label="Branches" active={is('/branch')} />
+            )}
+            {user?.role !== 'telecaller' && (
+              <MobileNavItem to="/store-analysis/dsr-report" icon="storeAnalysis" label="Store Analysis" active={location.pathname.startsWith('/store-analysis/')} />
+            )}
+            {user?.role !== 'telecaller' && (
+              <MobileNavItem to="/store-insights" icon="storeInsights" label="Store Insights" active={is('/store-insights')} />
+            )}
+            {user?.role !== 'telecaller' && (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'cluster_admin') && (
+              <MobileNavItem to="/settings/users" icon="settings" label="Settings" active={location.pathname.startsWith('/settings')} />
+            )}
+          </>
         )}
       </div>
       <style>{`

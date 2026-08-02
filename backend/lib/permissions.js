@@ -71,7 +71,7 @@ export const getAccessibleStoreIds = async (adminId) => {
             return allBranches.map(b => b._id.toString());
         }
 
-        if (admin.role === 'store_admin' || admin.role === 'employee') {
+        if (admin.role === 'store_admin' || admin.role === 'warehouse_admin' || admin.role === 'employee') {
             if (admin.branches && admin.branches.length > 0) {
                 return admin.branches.map(b => (b._id || b).toString());
             }

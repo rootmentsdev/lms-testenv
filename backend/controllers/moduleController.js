@@ -345,6 +345,44 @@ export const AdminLogin = async (req, res) => {
             return res.status(403).json({ message: `Role mismatch: Cannot log in as ${role}` });
         }
 
+        // Designation restriction for Warehouse Admin
+        const targetRole = role || user.role;
+        if (targetRole === 'warehouse_admin') {
+            const empDoc = await Employee.findOne({
+                $or: [
+                    { employeeId: { $regex: `^${user.EmpId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' } },
+                    { email: user.email?.toLowerCase() }
+                ]
+            });
+            const userDoc = await User.findOne({
+                $or: [
+                    { empID: { $regex: `^${user.EmpId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' } },
+                    { email: user.email?.toLowerCase() }
+                ]
+            });
+
+            const designation = String(empDoc?.designation || userDoc?.designation || '').trim().toLowerCase();
+            const isWarehouseRole = user.role === 'warehouse_admin';
+            const isWarehouseDesignation = designation.includes('warehouse');
+
+            if (!isWarehouseRole && !isWarehouseDesignation) {
+                console.log('❌ [LOGIN] Designation mismatch for warehouse_admin. Found designation:', designation || 'None');
+                return res.status(403).json({
+                    message: "Access denied: Only employees with designation 'Warehouse Admin' can log in as Warehouse Admin."
+                });
+            }
+
+            // Sync userDoc / empDoc designation to 'Warehouse Admin' if needed
+            if (userDoc && userDoc.designation !== 'Warehouse Admin') {
+                userDoc.designation = 'Warehouse Admin';
+                await userDoc.save().catch(() => {});
+            }
+            if (empDoc && empDoc.designation !== 'Warehouse Admin') {
+                empDoc.designation = 'Warehouse Admin';
+                await empDoc.save().catch(() => {});
+            }
+        }
+
         // Compare entered EmpId (as password) with the stored hashed password
         if (!user.password) {
             console.log('❌ [LOGIN] Password not set in database for:', email);

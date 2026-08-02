@@ -150,6 +150,13 @@ const CreateNewUser = () => {
             if (name === "userRole") {
                 if (value === "super_admin" || value === "admin" || value === "hr_admin") {
                     setSelectedBranches([]);
+                } else if (value === "warehouse_admin") {
+                    const warehouseBranchOpt = branches.find(b => 
+                        b.label.toUpperCase() === "WAREHOUSE" || b.label.toLowerCase().includes("warehouse")
+                    );
+                    if (warehouseBranchOpt) {
+                        setSelectedBranches([warehouseBranchOpt]);
+                    }
                 } else if (value === "employee") {
                     setSelectedBranches((prevBranches) => prevBranches.slice(0, 1));
                 }
@@ -175,7 +182,7 @@ const CreateNewUser = () => {
         }
 
         // Validate role selection
-        if (!["super_admin", "admin", "hr_admin", "cluster_admin", "store_admin", "telecaller", "employee"].includes(form.userRole)) {
+        if (!["super_admin", "admin", "hr_admin", "cluster_admin", "store_admin", "warehouse_admin", "telecaller", "employee"].includes(form.userRole)) {
             toast.warning("Please select a valid user role.");
             return;
         }
@@ -400,6 +407,7 @@ const CreateNewUser = () => {
                                             <option value="hr_admin">HR Admin</option>
                                             <option value="cluster_admin">Cluster Admin</option>
                                             <option value="store_admin">Store Admin</option>
+                                            <option value="warehouse_admin">Warehouse Admin</option>
                                             <option value="telecaller">Telecaller</option>
                                             <option value="employee">Employee</option>
                                         </>
@@ -415,14 +423,17 @@ const CreateNewUser = () => {
                                 <Select
                                     placeholder={form.userRole === "employee" ? "Select Store user can access" : "Select Stores user can access"}
                                     options={branches}
-                                    isMulti={form.userRole !== "employee"}
-                                    value={form.userRole === "employee" ? (selectedBranches[0] || null) : selectedBranches}
+                                    isMulti={form.userRole !== "employee" && form.userRole !== "warehouse_admin"}
+                                    value={(form.userRole === "employee" || form.userRole === "warehouse_admin") ? (selectedBranches[0] || null) : selectedBranches}
                                     onChange={handleSelectBranches}
                                     styles={customSelectStyles}
-                                    isDisabled={form.userRole === "super_admin" || form.userRole === "admin" || form.userRole === "hr_admin"}
+                                    isDisabled={form.userRole === "super_admin" || form.userRole === "admin" || form.userRole === "hr_admin" || form.userRole === "warehouse_admin"}
                                 />
                                 {(form.userRole === "super_admin" || form.userRole === "admin" || form.userRole === "hr_admin") && (
                                     <span className="text-xs text-gray-400 mt-1 block">Full Access Admin has access to all stores.</span>
+                                )}
+                                {form.userRole === "warehouse_admin" && (
+                                    <span className="text-xs text-gray-500 mt-1 block font-medium text-amber-600">Warehouse Admin is automatically assigned to the WAREHOUSE store.</span>
                                 )}
                             </div>
                         </div>

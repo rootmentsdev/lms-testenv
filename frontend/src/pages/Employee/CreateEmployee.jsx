@@ -38,6 +38,7 @@ const DESIGNATIONS = [
   "Telecaller",
   "Training Manager",
   "Video Creator",
+  "Warehouse Admin",
   "Warehouse Incharge",
   "Warehouse Manager",
   "Warehouse Staff",

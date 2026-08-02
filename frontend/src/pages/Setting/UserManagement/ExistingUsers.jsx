@@ -92,6 +92,8 @@ const ExistingUsers = () => {
                 return "Cluster Admin";
             case "store_admin":
                 return "Store Admin";
+            case "warehouse_admin":
+                return "Warehouse Admin";
             case "telecaller":
                 return "Telecaller";
             case "employee":
@@ -380,6 +382,7 @@ const ExistingUsers = () => {
                                         <option value="hr_admin">HR Admin</option>
                                         <option value="cluster_admin">Cluster Admin</option>
                                         <option value="store_admin">Store Admin</option>
+                                        <option value="warehouse_admin">Warehouse Admin</option>
                                         <option value="telecaller">Telecaller</option>
                                         <option value="employee">Employee</option>
                                     </select>
@@ -768,6 +771,13 @@ const ExistingUsers = () => {
                                         // Clear stores when switching to full-access roles
                                         if (nextRole === "super_admin" || nextRole === "admin" || nextRole === "hr_admin") {
                                             setEditSelectedBranches([]);
+                                        } else if (nextRole === "warehouse_admin") {
+                                            const warehouseBranchOpt = branches.find(b => 
+                                                b.workingBranch?.toUpperCase() === "WAREHOUSE" || b.workingBranch?.toLowerCase().includes("warehouse")
+                                            );
+                                            if (warehouseBranchOpt) {
+                                                setEditSelectedBranches([{ value: warehouseBranchOpt._id, label: warehouseBranchOpt.workingBranch }]);
+                                            }
                                         } else if (nextRole === "employee") {
                                             setEditSelectedBranches((prev) => prev.slice(0, 1));
                                         }
@@ -786,6 +796,7 @@ const ExistingUsers = () => {
                                             <option value="hr_admin">HR Admin</option>
                                             <option value="cluster_admin">Cluster Admin</option>
                                             <option value="store_admin">Store Admin</option>
+                                            <option value="warehouse_admin">Warehouse Admin</option>
                                             <option value="telecaller">Telecaller</option>
                                             <option value="employee">Employee</option>
                                         </>
@@ -806,7 +817,7 @@ const ExistingUsers = () => {
                                 <label className="block text-[13px] font-medium text-gray-700">
                                     Stores<span className="text-red-500">*</span>
                                 </label>
-                            {editRole !== "super_admin" && editRole !== "admin" && editRole !== "hr_admin" && (
+                            {editRole !== "super_admin" && editRole !== "admin" && editRole !== "hr_admin" && editRole !== "warehouse_admin" && (
                                     <div className="flex gap-3 text-xs font-semibold">
                                         {editRole !== "employee" && (
                                             <>
@@ -839,6 +850,11 @@ const ExistingUsers = () => {
                                 <div className="flex items-center gap-2 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl">
                                     <span className="text-sm font-semibold text-gray-700">All Stores Assigned</span>
                                     <span className="ml-auto text-xs text-gray-400 italic">(auto-assigned for this role)</span>
+                                </div>
+                            ) : editRole === "warehouse_admin" ? (
+                                <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl">
+                                    <span className="text-sm font-semibold text-amber-900">WAREHOUSE Store Assigned</span>
+                                    <span className="ml-auto text-xs text-amber-700 italic">(auto-assigned for Warehouse Admin)</span>
                                 </div>
                             ) : (
                                 <Select
