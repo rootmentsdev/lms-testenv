@@ -43,6 +43,7 @@ const LoginAnalytics = lazy(() => import('./pages/Setting/LoginAnalytics.jsx'))
 const WalkinList = lazy(() => import('./pages/Walkin/WalkinList.jsx'))
 const WalkinReport = lazy(() => import('./pages/Walkin/WalkinReport.jsx'))
 const WalkinCount = lazy(() => import('./pages/Walkin/WalkinCount.jsx'))
+const Customization = lazy(() => import('./pages/Customization/Customization.jsx'));
 const TaskManagement = lazy(() => import('./pages/Task/TaskManagement.jsx'))
 const CreateTask = lazy(() => import('./pages/Task/CreateTask.jsx'))
 const AutoTask = lazy(() => import('./pages/Task/AutoTask.jsx'))
@@ -124,8 +125,14 @@ class AppErrorBoundary extends Component {
 // Layout wrapper that adds the global header to all protected pages
 const ProtectedLayout = ({ children, hideForRoles }) => {
   const user = useSelector((state) => state.auth.user);
+  if (user && user.role === 'warehouse_admin') {
+    if (window.location.pathname === '/') {
+      return <Navigate to="/task" replace />;
+    }
+  }
   if (user && hideForRoles && hideForRoles.includes(user.role)) {
-    return <Navigate to="/" replace />;
+    const defaultPath = user.role === 'warehouse_admin' ? '/task' : '/';
+    return <Navigate to={defaultPath} replace />;
   }
   return (
     <ProtectedRoute>
@@ -407,6 +414,7 @@ function App() {
             <Route path="/walkin/list" element={<ProtectedLayout><WalkinList /></ProtectedLayout>} />
             <Route path="/walkin/report" element={<ProtectedLayout><WalkinReport /></ProtectedLayout>} />
             <Route path="/walkin/count" element={<ProtectedLayout><WalkinCount /></ProtectedLayout>} />
+            <Route path="/customization" element={<ProtectedLayout><Customization /></ProtectedLayout>} />
             <Route path="/task" element={<ProtectedLayout><TaskManagement /></ProtectedLayout>} />
             <Route path="/task/create" element={<ProtectedLayout hideForRoles={['telecaller']}><CreateTask /></ProtectedLayout>} />
             <Route path="/task/auto-schedule" element={<ProtectedLayout hideForRoles={['telecaller']}><AutoTask /></ProtectedLayout>} />

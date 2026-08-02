@@ -9,6 +9,7 @@ const ROLES = [
   { value: 'super_admin',   label: 'Super Admin' },
   { value: 'admin',         label: 'Admin' },
   { value: 'hr_admin',      label: 'HR Admin' },
+  { value: 'warehouse_admin', label: 'Warehouse Admin' },
 ];
 
 /* ── Animated face SVG ─────────────────────────────────────────────────────── */
@@ -118,6 +119,7 @@ const Login = () => {
   // Login fields
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
+  const [loginRole, setLoginRole] = useState('');
 
   // Signup fields
   const [signup, setSignup] = useState({
@@ -159,9 +161,13 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     try {
+      const payload = { email, EmpId: password };
+      if (loginRole) {
+        payload.role = loginRole;
+      }
       const res  = await fetch(`${baseUrl.baseUrl}api/admin/admin/login`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, EmpId: password }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (res.ok) {

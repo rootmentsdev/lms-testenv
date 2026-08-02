@@ -1156,20 +1156,35 @@ const StoreInsights = () => {
               if (!doc?.storeName) return;
               const storeKey = normalizeForMatch(doc.storeName);
               if (!custByStore[storeKey]) custByStore[storeKey] = { val: 0, bills: 0, qty: 0 };
-              (doc.attributions || []).forEach(attr => {
-                if (!attr?.staffName) return;
-                const bv = Number(attr.billWtd) || 0;
-                const vv = Number(attr.valWtd) || 0;
-                const qv = Number(attr.qtyWtd) || 0;
-                custMapped[attr.staffName] = {
-                  billWtd: (custMapped[attr.staffName]?.billWtd || 0) + bv,
-                  valWtd:  (custMapped[attr.staffName]?.valWtd  || 0) + vv,
-                  qtyWtd:  (custMapped[attr.staffName]?.qtyWtd  || 0) + qv,
-                };
-                custByStore[storeKey].val   += bv;
-                custByStore[storeKey].bills += vv;
-                custByStore[storeKey].qty   += qv;
-              });
+
+              let valAdd = Number(doc.totalValue) || 0;
+              let billsAdd = Number(doc.totalBills) || 0;
+              let qtyAdd = Number(doc.totalQuantity) || 0;
+
+              if (doc.attributions && doc.attributions.length > 0) {
+                doc.attributions.forEach(attr => {
+                  if (!attr?.staffName) return;
+                  const bv = Number(attr.billWtd) || 0;
+                  const vv = Number(attr.valWtd) || 0;
+                  const qv = Number(attr.qtyWtd) || 0;
+
+                  custMapped[attr.staffName] = {
+                    billWtd: (custMapped[attr.staffName]?.billWtd || 0) + bv,
+                    valWtd:  (custMapped[attr.staffName]?.valWtd  || 0) + vv,
+                    qtyWtd:  (custMapped[attr.staffName]?.qtyWtd  || 0) + qv,
+                  };
+
+                  if (!valAdd && !billsAdd && !qtyAdd) {
+                    valAdd += bv;
+                    billsAdd += vv;
+                    qtyAdd += qv;
+                  }
+                });
+              }
+
+              custByStore[storeKey].val   += valAdd;
+              custByStore[storeKey].bills += billsAdd;
+              custByStore[storeKey].qty   += qtyAdd;
             });
           }
           setCustomizationAttribution(custMapped);

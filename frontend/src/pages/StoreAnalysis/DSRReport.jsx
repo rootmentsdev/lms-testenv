@@ -573,6 +573,27 @@ function isStoreAliasName(rawName) {
   return false;
 }
 
+function getStoreCustomizationTotal(storeName, storeCustomizationTotals) {
+  if (!storeName || !storeCustomizationTotals) return {};
+  const normTarget = normalizeForMatch(storeName).replace(/edappally/g, "edapally");
+  const targetLoc = getBranchLocationId(storeName);
+
+  if (storeCustomizationTotals[normTarget]) return storeCustomizationTotals[normTarget];
+  if (storeCustomizationTotals[normalizeForMatch(storeName)]) return storeCustomizationTotals[normalizeForMatch(storeName)];
+
+  const matchedKey = Object.keys(storeCustomizationTotals).find(k => {
+    if (!k) return false;
+    const normK = normalizeForMatch(k).replace(/edappally/g, "edapally");
+    if (normK === normTarget) return true;
+    if (normK.replace(/1$/, '') === normTarget.replace(/1$/, '')) return true;
+    const kLoc = getBranchLocationId(k);
+    if (kLoc && targetLoc && kLoc === targetLoc) return true;
+    return false;
+  });
+
+  return matchedKey ? storeCustomizationTotals[matchedKey] : {};
+}
+
 const CURRENT_MONTH_LONG = new Date().toLocaleString("en-US", { month: "long" });
 const CURRENT_MONTH_SHORT = new Date().toLocaleString("en-US", { month: "short" });
 const CURRENT_YEAR = new Date().getFullYear();
@@ -1654,37 +1675,52 @@ const DSRReport = () => {
             storeTotals[storeKey] = { val: 0, bills: 0, qty: 0, valFtd: 0, billsFtd: 0, qtyFtd: 0 };
           }
 
-          const docDateStr = doc.updatedAt ? getLocalDateString(doc.updatedAt) : (doc.createdAt ? getLocalDateString(doc.createdAt) : "");
+          const docDateStr = doc.date || (doc.updatedAt ? getLocalDateString(doc.updatedAt) : (doc.createdAt ? getLocalDateString(doc.createdAt) : ""));
           const isTodayDoc = docDateStr === todayStr;
 
-          (doc.attributions || []).forEach(attr => {
-            if (!attr || !attr.staffName) return;
-            const bv = Number(attr.billWtd) || 0;
-            const vv = Number(attr.valWtd) || 0;
-            const qv = Number(attr.qtyWtd) || 0;
+          let valAdd = Number(doc.totalValue) || 0;
+          let billsAdd = Number(doc.totalBills) || 0;
+          let qtyAdd = Number(doc.totalQuantity) || 0;
 
-            if (!mappedStaff[attr.staffName]) {
-              mappedStaff[attr.staffName] = { billWtd: 0, valWtd: 0, qtyWtd: 0, billFtd: 0, valFtd: 0, qtyFtd: 0 };
-            }
+          if (doc.attributions && doc.attributions.length > 0) {
+            doc.attributions.forEach(attr => {
+              if (!attr || !attr.staffName) return;
+              const bv = Number(attr.billWtd) || 0;
+              const vv = Number(attr.valWtd) || 0;
+              const qv = Number(attr.qtyWtd) || 0;
 
-            mappedStaff[attr.staffName].billWtd += bv;
-            mappedStaff[attr.staffName].valWtd += vv;
-            mappedStaff[attr.staffName].qtyWtd += qv;
+              if (!mappedStaff[attr.staffName]) {
+                mappedStaff[attr.staffName] = { billWtd: 0, valWtd: 0, qtyWtd: 0, billFtd: 0, valFtd: 0, qtyFtd: 0 };
+              }
 
-            storeTotals[storeKey].val += bv;
-            storeTotals[storeKey].bills += vv;
-            storeTotals[storeKey].qty += qv;
+              mappedStaff[attr.staffName].billWtd += bv;
+              mappedStaff[attr.staffName].valWtd += vv;
+              mappedStaff[attr.staffName].qtyWtd += qv;
 
-            if (isTodayDoc) {
-              mappedStaff[attr.staffName].billFtd += bv;
-              mappedStaff[attr.staffName].valFtd += vv;
-              mappedStaff[attr.staffName].qtyFtd += qv;
+              if (isTodayDoc) {
+                mappedStaff[attr.staffName].billFtd += bv;
+                mappedStaff[attr.staffName].valFtd += vv;
+                mappedStaff[attr.staffName].qtyFtd += qv;
+              }
 
-              storeTotals[storeKey].valFtd += bv;
-              storeTotals[storeKey].billsFtd += vv;
-              storeTotals[storeKey].qtyFtd += qv;
-            }
-          });
+              // If direct totalValue wasn't set, fallback to summing attributions
+              if (!valAdd && !billsAdd && !qtyAdd) {
+                valAdd += bv;
+                billsAdd += vv;
+                qtyAdd += qv;
+              }
+            });
+          }
+
+          storeTotals[storeKey].val += valAdd;
+          storeTotals[storeKey].bills += billsAdd;
+          storeTotals[storeKey].qty += qtyAdd;
+
+          if (isTodayDoc) {
+            storeTotals[storeKey].valFtd += valAdd;
+            storeTotals[storeKey].billsFtd += billsAdd;
+            storeTotals[storeKey].qtyFtd += qtyAdd;
+          }
         });
         console.log("[Customization] storeTotals keys:", Object.keys(storeTotals));
       }
@@ -5083,6 +5119,12 @@ const DSRReport = () => {
             ...(performanceData.ftd[locId]    || []).map(x => x.bookingBy),
           ])).filter(Boolean);
 
+          const targetStoreName = (isStoreAdmin && branches.length > 0) ? displayBranchName(branches[0].workingBranch) : selectedStore;
+          const storeCustObj = getStoreCustomizationTotal(targetStoreName, storeCustomizationTotals);
+          const customizationTotalValue = storeCustObj?.val || 0;
+          const customizationTotalBills = storeCustObj?.bills || 0;
+          const customizationTotalQty   = storeCustObj?.qty || 0;
+
           let allocatedValue = 0;
           let allocatedBills = 0;
           let allocatedQty = 0;
@@ -5092,6 +5134,8 @@ const DSRReport = () => {
             allocatedBills += Number(v.valWtd)  || 0;
             allocatedQty   += Number(v.qtyWtd)  || 0;
           });
+
+          const isOverLimit = customizationTotalValue > 0 && allocatedValue > customizationTotalValue;
 
           return (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -5113,23 +5157,45 @@ const DSRReport = () => {
                   <div>
                     <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Customization Total (this store)</p>
                     <p className="text-[18px] font-extrabold text-emerald-800 mt-0.5">
-                      ₹{allocatedValue.toLocaleString()}
+                      ₹{customizationTotalValue.toLocaleString()}
                     </p>
                   </div>
                   <div className="flex items-center gap-5">
                     <div className="text-right">
                       <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Bills</p>
-                      <p className="text-[18px] font-extrabold text-emerald-800">{allocatedBills}</p>
+                      <p className="text-[18px] font-extrabold text-emerald-800">{customizationTotalBills}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Qty</p>
-                      <p className="text-[18px] font-extrabold text-emerald-800">{allocatedQty}</p>
+                      <p className="text-[18px] font-extrabold text-emerald-800">{customizationTotalQty}</p>
                     </div>
                   </div>
                 </div>
 
+                {/* Allocated so far & Remaining */}
+                <div className="mx-6 mb-3 flex gap-2 text-[11px] font-semibold text-gray-500">
+                  <span>Allocated: ₹{allocatedValue.toLocaleString()} / {allocatedBills} bills / {allocatedQty} qty</span>
+                  <span className="text-gray-300">|</span>
+                  <span className={isOverLimit ? "text-red-500 font-bold" : "text-emerald-600"}>
+                    Remaining: ₹{(customizationTotalValue - allocatedValue).toLocaleString()}
+                  </span>
+                </div>
+
+                {/* Over-limit Warning Alert Banner */}
+                {isOverLimit && (
+                  <div className="mx-6 mb-3 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-bold flex items-center justify-between shadow-sm animate-pulse">
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4 text-red-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                      <span>Allocated amount (₹{allocatedValue.toLocaleString()}) exceeds total (₹{customizationTotalValue.toLocaleString()})</span>
+                    </div>
+                    <span className="text-[10px] font-black uppercase bg-red-100 text-red-800 px-2 py-0.5 rounded-full shrink-0">Exceeded</span>
+                  </div>
+                )}
+
                 {/* Staff rows */}
-                <div className="px-6 pb-2 max-h-[340px] overflow-y-auto space-y-2 mt-3">
+                <div className="px-6 pb-2 max-h-[340px] overflow-y-auto space-y-2">
                   {staffList.length === 0 && (
                     <p className="text-center text-gray-400 text-xs py-6">No staff found for this store</p>
                   )}
@@ -5149,7 +5215,9 @@ const DSRReport = () => {
                               ...prev,
                               [name]: { ...prev[name], billWtd: e.target.value }
                             }))}
-                            className="w-24 text-center text-xs font-semibold border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-emerald-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            className={`w-24 text-center text-xs font-semibold border rounded-lg px-2 py-1.5 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                              isOverLimit ? "border-red-300 focus:border-red-500 bg-red-50/50" : "border-gray-200 focus:border-emerald-400"
+                            }`}
                           />
                         </div>
                         <div className="flex flex-col items-center">
@@ -5200,7 +5268,12 @@ const DSRReport = () => {
                     Clear All
                   </button>
                   <button
+                    disabled={isOverLimit}
                     onClick={async () => {
+                      if (isOverLimit) {
+                        alert("Allocated amount cannot exceed the Customization total.");
+                        return;
+                      }
                       const saved = {};
                       const attributionsList = [];
                       Object.entries(customizationInputs).forEach(([name, v]) => {
@@ -5242,7 +5315,11 @@ const DSRReport = () => {
 
                       setCustomizationModalOpen(false);
                     }}
-                    className="bg-[#10b981] hover:bg-[#059669] text-white text-xs font-bold py-2.5 px-6 rounded-xl cursor-pointer"
+                    className={`text-xs font-bold py-2.5 px-6 rounded-xl transition-all ${
+                      isOverLimit 
+                        ? "bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-300 opacity-70" 
+                        : "bg-[#10b981] hover:bg-[#059669] text-white cursor-pointer shadow-sm"
+                    }`}
                   >
                     Save & Apply
                   </button>

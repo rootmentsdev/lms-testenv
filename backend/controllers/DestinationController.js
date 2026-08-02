@@ -637,10 +637,10 @@ export const CreatingAdminUsers = async (req, res) => {
         }
 
         // Check if role is valid
-        const validRoles = ['super_admin', 'admin', 'hr_admin', 'cluster_admin', 'store_admin', 'telecaller', 'employee'];
+        const validRoles = ['super_admin', 'admin', 'hr_admin', 'cluster_admin', 'store_admin', 'warehouse_admin', 'telecaller', 'employee'];
         if (!validRoles.includes(role)) {
             return res.status(400).json({
-                message: "Invalid role provided. Valid roles are: super_admin, admin, hr_admin, cluster_admin, store_admin, telecaller, employee.",
+                message: "Invalid role provided. Valid roles are: super_admin, admin, hr_admin, cluster_admin, store_admin, warehouse_admin, telecaller, employee.",
             });
         }
 
@@ -745,6 +745,18 @@ export const CreatingAdminUsers = async (req, res) => {
         if (role === 'super_admin' || role === 'admin' || role === 'hr_admin') {
             const allBranches = await Branch.find();
             finalBranches = allBranches.map((branch) => branch._id);
+        } else if (role === 'warehouse_admin') {
+            const warehouseBranch = await Branch.findOne({
+                $or: [
+                    { workingBranch: { $regex: /^warehouse$/i } },
+                    { locCode: '103' }
+                ]
+            });
+            if (warehouseBranch) {
+                finalBranches = [warehouseBranch._id];
+            } else if (branches && branches.length > 0) {
+                finalBranches = branches;
+            }
         } else {
             // For store_admin, cluster_admin and telecaller
             if (role === 'store_admin' || role === 'cluster_admin' || role === 'telecaller') {
@@ -1306,7 +1318,7 @@ export const updateAdminUser = async (req, res) => {
             });
             const savedAdmin = await newAdmin.save();
 
-            const userDesignation = role === 'super_admin' ? 'Super Admin' : (role === 'admin' ? 'Admin' : (role === 'hr_admin' ? 'HR Admin' : (role === 'cluster_admin' ? 'Cluster Admin' : (role === 'telecaller' ? 'Telecaller' : 'Store Admin'))));
+            const userDesignation = role === 'super_admin' ? 'Super Admin' : (role === 'admin' ? 'Admin' : (role === 'hr_admin' ? 'HR Admin' : (role === 'cluster_admin' ? 'Cluster Admin' : (role === 'warehouse_admin' ? 'Warehouse Admin' : (role === 'telecaller' ? 'Telecaller' : 'Store Admin')))));
             let workingBranchStr = "";
             let finalLocCodes = [];
             if (finalBranches.length > 0) {
@@ -1340,6 +1352,19 @@ export const updateAdminUser = async (req, res) => {
         if (role === 'super_admin' || role === 'admin' || role === 'hr_admin') {
             const allBranches = await Branch.find();
             updateFields.branches = allBranches.map((branch) => branch._id);
+            updateFields.assignedClusters = [];
+        } else if (role === 'warehouse_admin') {
+            const warehouseBranch = await Branch.findOne({
+                $or: [
+                    { workingBranch: { $regex: /^warehouse$/i } },
+                    { locCode: '103' }
+                ]
+            });
+            if (warehouseBranch) {
+                updateFields.branches = [warehouseBranch._id];
+            } else {
+                updateFields.branches = branches || [];
+            }
             updateFields.assignedClusters = [];
         } else {
             updateFields.branches = branches || [];
@@ -1376,7 +1401,7 @@ export const updateAdminUser = async (req, res) => {
                 if (password && password.trim() !== "") {
                     userRecord.password = await bcrypt.hash(password.trim(), 10);
                 }
-                const userDesignation = role === 'super_admin' ? 'Super Admin' : (role === 'admin' ? 'Admin' : (role === 'hr_admin' ? 'HR Admin' : (role === 'cluster_admin' ? 'Cluster Admin' : (role === 'telecaller' ? 'Telecaller' : 'Store Admin'))));
+                const userDesignation = role === 'super_admin' ? 'Super Admin' : (role === 'admin' ? 'Admin' : (role === 'hr_admin' ? 'HR Admin' : (role === 'cluster_admin' ? 'Cluster Admin' : (role === 'warehouse_admin' ? 'Warehouse Admin' : (role === 'telecaller' ? 'Telecaller' : 'Store Admin')))));
                 userRecord.designation = userDesignation;
 
                 let workingBranchStr = "";
@@ -1391,6 +1416,13 @@ export const updateAdminUser = async (req, res) => {
                 userRecord.locCode = finalLocCodes;
 
                 await userRecord.save();
+            }
+
+            // Also update Employee model if exists
+            const empRecord = await Employee.findOne({ $or: [{ employeeId: updatedAdmin.EmpId }, { email: updatedAdmin.email }] });
+            if (empRecord) {
+                empRecord.designation = role === 'warehouse_admin' ? 'Warehouse Admin' : empRecord.designation;
+                await empRecord.save();
             }
         } catch (syncErr) {
             console.error("Error syncing User record in updateAdminUser:", syncErr);

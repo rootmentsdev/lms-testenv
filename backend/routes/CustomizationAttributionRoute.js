@@ -5,45 +5,100 @@ import CustomizationAttribution from '../model/CustomizationAttribution.js';
 
 const router = express.Router();
 
-// GET attribution for specific store (or all stores), week, month, year
+// Helper to derive month name and year from date string (YYYY-MM-DD)
+const getMonthAndYearFromDate = (dateStr) => {
+  if (!dateStr) return { month: 'August', year: new Date().getFullYear(), week: 1 };
+  const d = new Date(dateStr);
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const month = months[d.getMonth()] || 'August';
+  const year = d.getFullYear() || new Date().getFullYear();
+  const day = d.getDate();
+  let week = 1;
+  if (day > 21) week = 4;
+  else if (day > 14) week = 3;
+  else if (day > 7) week = 2;
+  return { month, year, week };
+};
+
+// GET attribution entries by date, storeName, month, year, week
 router.get('/', MiddilWare, async (req, res) => {
   try {
-    const { storeName, month, year, week } = req.query;
-    if (!month || !year) {
-      return res.status(400).json({ success: false, message: "month and year are required" });
-    }
+    const { storeName, date, month, year, week } = req.query;
+    const query = {};
 
-    const query = { month, year: Number(year) };
+    if (date) {
+      query.date = date;
+    }
+    if (month && month !== 'All') {
+      query.month = month;
+    }
+    if (year && year !== 'All') {
+      query.year = Number(year);
+    }
     if (storeName && storeName !== 'All') {
-      query.storeName = storeName;
+      const clean = storeName.replace(/[^a-zA-Z0-9]/g, '');
+      const edaClean = clean.toLowerCase().replace(/edappally/g, 'edapally');
+      query.$or = [
+        { storeName: storeName },
+        { storeName: { $regex: new RegExp(`^${storeName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&")}$`, 'i') } },
+        { storeName: { $regex: new RegExp(clean.split('').join('[\\s-_.]*'), 'i') } },
+        { storeName: { $regex: new RegExp(edaClean.replace(/edapally/g, 'edap?p?ally?1?'), 'i') } }
+      ];
     }
     if (week !== undefined && week !== null && week !== '' && week !== 'All') {
       query.week = Number(week);
     }
 
-    if (storeName && storeName !== 'All' && week !== undefined && week !== null && week !== '' && week !== 'All') {
-      const doc = await CustomizationAttribution.findOne(query).lean();
-      return res.status(200).json({ success: true, data: doc });
-    } else {
-      const docs = await CustomizationAttribution.find(query).lean();
-      return res.status(200).json({ success: true, data: docs });
-    }
+    const docs = await CustomizationAttribution.find(query).sort({ date: -1, createdAt: -1 }).lean();
+    return res.status(200).json({ success: true, data: docs });
   } catch (error) {
     console.error("Error fetching CustomizationAttribution:", error);
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 });
 
-// POST save/update attribution
+// POST save/update customization value entry
 router.post('/', MiddilWare, async (req, res) => {
   try {
-    const { storeName, month, year, week, attributions } = req.body;
-    if (!storeName || !month || !year || week === undefined) {
-      return res.status(400).json({ success: false, message: "storeName, month, year, and week are required" });
+    const { storeName, date, totalValue, totalBills, totalQuantity, attributions } = req.body;
+    let { month, year, week } = req.body;
+
+    if (!storeName) {
+      return res.status(400).json({ success: false, message: "storeName is required" });
     }
 
-    const filter = { storeName, month, year: Number(year), week: Number(week) };
-    const update = { attributions };
+    const entryDate = date || new Date().toISOString().split('T')[0];
+    const derived = getMonthAndYearFromDate(entryDate);
+
+    month = month || derived.month;
+    year = year ? Number(year) : derived.year;
+    week = (week !== undefined && week !== null && week !== '') ? Number(week) : derived.week;
+
+    const val = Number(totalValue || 0);
+    const bills = Number(totalBills || 0);
+    const qty = Number(totalQuantity || 0);
+
+    const filter = { storeName, date: entryDate };
+    const finalAttributions = (attributions && Array.isArray(attributions) && attributions.length > 0) 
+      ? attributions 
+      : [{
+          staffName: 'Store Total',
+          billWtd: val,
+          valWtd: bills,
+          qtyWtd: qty
+        }];
+
+    const update = {
+      storeName,
+      date: entryDate,
+      month,
+      year: Number(year),
+      week: Number(week),
+      totalValue: val,
+      totalBills: bills,
+      totalQuantity: qty,
+      attributions: finalAttributions
+    };
 
     const doc = await CustomizationAttribution.findOneAndUpdate(filter, update, {
       new: true,
@@ -54,6 +109,18 @@ router.post('/', MiddilWare, async (req, res) => {
     return res.status(200).json({ success: true, data: doc });
   } catch (error) {
     console.error("Error saving CustomizationAttribution:", error);
+    return res.status(500).json({ success: false, message: "Internal server error", error: error.message });
+  }
+});
+
+// DELETE entry by ID
+router.delete('/:id', MiddilWare, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await CustomizationAttribution.findByIdAndDelete(id);
+    return res.status(200).json({ success: true, message: "Entry deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting CustomizationAttribution:", error);
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 });
@@ -71,13 +138,9 @@ router.get('/mobile-customization', MiddilWare, async (req, res) => {
       query.week = Number(week);
     }
 
-    // Fetch matching customization documents
     const customDocs = await CustomizationAttribution.find(query).lean();
 
-    // Helper map: staffName (lowercase) -> { fullName, empID, storeName }
     const staffResolutionMap = new Map();
-
-    // Fetch all Users to resolve details
     const usersList = await mongoose.model('User').find({}, { username: 1, empID: 1, workingBranch: 1 }).lean();
     usersList.forEach(u => {
       if (u.username) {
@@ -89,7 +152,6 @@ router.get('/mobile-customization', MiddilWare, async (req, res) => {
       }
     });
 
-    // Fetch all Employees to fallback details
     const employeesList = await mongoose.model('Employee').find({}, { firstName: 1, lastName: 1, employeeId: 1, storeId: 1 }).populate('storeId', 'workingBranch').lean();
     employeesList.forEach(e => {
       const fullNameStr = `${e.firstName} ${e.lastName}`.trim();
@@ -102,7 +164,6 @@ router.get('/mobile-customization', MiddilWare, async (req, res) => {
       }
     });
 
-    // Process Customization Attributions
     const formattedCustomization = [];
     customDocs.forEach(doc => {
       const store = doc.storeName;
