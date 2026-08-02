@@ -3544,48 +3544,52 @@ const StoreInsights = () => {
               </p>
             </div>
             
-            {!isStoreAdmin && !isClusterAdmin && (
+            {!isStoreAdmin && (
               <div className="flex items-center gap-4">
-                {/* Role Select Dropdown */}
-                <div className="relative">
-                  <select 
-                    value={roleFilter} 
-                    onChange={(e) => setRoleFilter(e.target.value)}
-                    className="appearance-none bg-white border border-gray-200 rounded-[14px] px-4 py-2 pr-10 text-[13px] font-bold text-gray-700 shadow-sm focus:outline-none cursor-pointer hover:border-gray-300"
-                  >
-                    <option value="Cluster">Role : Cluster</option>
-                    <option value="Store Admin">Role : Store Admin</option>
-                    <option value="Super Admin">Role : Super Admin</option>
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                    <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-                </div>
+                {!isClusterAdmin && (
+                  <>
+                    {/* Role Select Dropdown */}
+                    <div className="relative">
+                      <select 
+                        value={roleFilter} 
+                        onChange={(e) => setRoleFilter(e.target.value)}
+                        className="appearance-none bg-white border border-gray-200 rounded-[14px] px-4 py-2 pr-10 text-[13px] font-bold text-gray-700 shadow-sm focus:outline-none cursor-pointer hover:border-gray-300"
+                      >
+                        <option value="Cluster">Role : Cluster</option>
+                        <option value="Store Admin">Role : Store Admin</option>
+                        <option value="Super Admin">Role : Super Admin</option>
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                        <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
 
-                {/* Cluster Select Dropdown */}
-                <div className="relative">
-                  <select 
-                    value={clusterFilter} 
-                    onChange={(e) => { setClusterFilter(e.target.value); setStoreFilter("All"); }}
-                    className="appearance-none bg-white border border-gray-200 rounded-[14px] px-4 py-2 pr-10 text-[13px] font-bold text-gray-700 shadow-sm focus:outline-none cursor-pointer hover:border-gray-300"
-                  >
-                    <option value="All">Cluster : All</option>
-                    {clusters.map((c) => (
-                      <option key={c._id} value={c._id}>
-                        Cluster : {c.name}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                    <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-                </div>
+                    {/* Cluster Select Dropdown */}
+                    <div className="relative">
+                      <select 
+                        value={clusterFilter} 
+                        onChange={(e) => { setClusterFilter(e.target.value); setStoreFilter("All"); }}
+                        className="appearance-none bg-white border border-gray-200 rounded-[14px] px-4 py-2 pr-10 text-[13px] font-bold text-gray-700 shadow-sm focus:outline-none cursor-pointer hover:border-gray-300"
+                      >
+                        <option value="All">Cluster : All</option>
+                        {clusters.map((c) => (
+                          <option key={c._id} value={c._id}>
+                            Cluster : {c.name}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                        <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </>
+                )}
 
-                {/* Store Select Dropdown — visible only when stores are available */}
+                {/* Store Select Dropdown — visible to both Super Admin and Cluster Admin when stores are available */}
                 {storeOptionsForFilter.length > 0 && (
                   <div className="relative">
                     <select
