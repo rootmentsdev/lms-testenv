@@ -127,11 +127,11 @@ const ProtectedLayout = ({ children, hideForRoles }) => {
   const user = useSelector((state) => state.auth.user);
   if (user && user.role === 'warehouse_admin') {
     if (window.location.pathname === '/') {
-      return <Navigate to="/task" replace />;
+      return <Navigate to="/customization" replace />;
     }
   }
   if (user && hideForRoles && hideForRoles.includes(user.role)) {
-    const defaultPath = user.role === 'warehouse_admin' ? '/task' : '/';
+    const defaultPath = user.role === 'warehouse_admin' ? '/customization' : '/';
     return <Navigate to={defaultPath} replace />;
   }
   return (
