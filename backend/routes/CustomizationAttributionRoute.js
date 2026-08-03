@@ -36,17 +36,34 @@ router.get('/', MiddilWare, async (req, res) => {
       query.year = Number(year);
     }
     if (storeName && storeName !== 'All') {
+      const escaped = storeName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
       const clean = storeName.replace(/[^a-zA-Z0-9]/g, '');
-      const edaClean = clean.toLowerCase().replace(/edappally/g, 'edapally');
-      query.$or = [
+      const collapsed = clean.replace(/(.)\1+/gi, '$1');
+
+      let flexPattern = '^';
+      for (let i = 0; i < collapsed.length; i++) {
+        const c = collapsed[i];
+        const lower = c.toLowerCase();
+        if (lower === 'p' || lower === 'l' || lower === 'm' || lower === 't' || lower === 's' || lower === 'r') {
+          flexPattern += c + '+[\\s._-]*';
+        } else if (lower === 'y' || lower === 'i') {
+          flexPattern += '[yi]+[\\s._-]*';
+        } else {
+          flexPattern += c + '[\\s._-]*';
+        }
+      }
+      flexPattern += '$';
+
+      const conditions = [
         { storeName: storeName },
-        { storeName: { $regex: new RegExp(`^${storeName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&")}$`, 'i') } },
-        { storeName: { $regex: new RegExp(clean.split('').join('[\\s-_.]*'), 'i') } },
-        { storeName: { $regex: new RegExp(edaClean.replace(/edapally/g, 'edap?p?ally?1?'), 'i') } }
+        { storeName: { $regex: new RegExp(`^${escaped}$`, 'i') } },
+        { storeName: { $regex: new RegExp(flexPattern, 'i') } }
       ];
+
+      query.$or = conditions;
     }
     if (week !== undefined && week !== null && week !== '' && week !== 'All') {
-      query.week = Number(week);
+      query.week = { $in: [Number(week), String(week)] };
     }
 
     const docs = await CustomizationAttribution.find(query).sort({ date: -1, createdAt: -1 }).lean();
@@ -78,7 +95,24 @@ router.post('/', MiddilWare, async (req, res) => {
     const bills = Number(totalBills || 0);
     const qty = Number(totalQuantity || 0);
 
-    const filter = { storeName, date: entryDate };
+    // Look for an existing document for the same date and store (flexible store name matching)
+    let existingDoc = null;
+    if (storeName && entryDate) {
+      const isEdappally = /edap{1,2}a?l{1,3}/i.test(storeName);
+      const storeOr = [
+        { storeName: storeName },
+        { storeName: { $regex: new RegExp(`^${storeName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&")}$`, 'i') } }
+      ];
+      if (isEdappally) {
+        storeOr.push({ storeName: { $regex: /edap{1,2}a?l{1,3}[yi]?\d*/i } });
+      }
+      existingDoc = await CustomizationAttribution.findOne({
+        date: entryDate,
+        $or: storeOr
+      });
+    }
+
+    const filter = existingDoc ? { _id: existingDoc._id } : { storeName, date: entryDate };
     const finalAttributions = (attributions && Array.isArray(attributions) && attributions.length > 0) 
       ? attributions 
       : [{

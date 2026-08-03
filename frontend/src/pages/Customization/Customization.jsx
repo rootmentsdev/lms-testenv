@@ -150,6 +150,14 @@ const Customization = () => {
     fetchEntries();
   }, [selectedDate, selectedMonth, selectedYear, selectedWeek, selectedStore, token]);
 
+  const isStoreMatch = (a, b) => {
+    if (!a || !b) return false;
+    if (String(a).toLowerCase() === String(b).toLowerCase()) return true;
+    const cleanA = String(a).toLowerCase().replace(/[^a-z0-9]/g, '').replace(/edappally/g, 'edapally');
+    const cleanB = String(b).toLowerCase().replace(/[^a-z0-9]/g, '').replace(/edappally/g, 'edapally');
+    return cleanA === cleanB;
+  };
+
   // Pre-fill entry form when date or target store changes
   useEffect(() => {
     const storeToLookup = targetStoreForEntry || (selectedStore !== 'All' ? selectedStore : '');
@@ -162,7 +170,7 @@ const Customization = () => {
 
     const existing = entries.find(
       e => (e.date === selectedDate || e.createdAt?.split('T')[0] === selectedDate) && 
-      String(e.storeName).toLowerCase() === String(storeToLookup).toLowerCase()
+      isStoreMatch(e.storeName, storeToLookup)
     );
 
     if (existing) {
@@ -252,12 +260,6 @@ const Customization = () => {
     }
   };
 
-  // Aggregate totals for current filtered view
-  const aggregateValue = entries.reduce((sum, e) => sum + (Number(e.totalValue) || Number(e.attributions?.[0]?.billWtd) || 0), 0);
-  const aggregateBills = entries.reduce((sum, e) => sum + (Number(e.totalBills) || Number(e.attributions?.[0]?.valWtd) || 0), 0);
-  const aggregateQty = entries.reduce((sum, e) => sum + (Number(e.totalQuantity) || Number(e.attributions?.[0]?.qtyWtd) || 0), 0);
-  const uniqueStoresCount = new Set(entries.map(e => e.storeName)).size;
-
   // Deduplicated store branch options
   const uniqueStoreNames = Array.from(
     new Set(
@@ -267,8 +269,28 @@ const Customization = () => {
     )
   );
 
-  // Filtered table entries
+  const normalizeDateStr = (d) => {
+    if (!d) return '';
+    const str = String(d).split('T')[0];
+    const parts = str.split('-');
+    if (parts.length === 3) {
+      const y = parts[0];
+      const m = parts[1].padStart(2, '0');
+      const day = parts[2].padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+    return str;
+  };
+
+  // Filtered table entries strictly matching selectedStore, selectedDate, and searchTerm
   const filteredEntries = entries.filter(e => {
+    if (selectedStore && selectedStore !== 'All') {
+      if (!isStoreMatch(e.storeName, selectedStore)) return false;
+    }
+    if (selectedDate) {
+      const entryDateStr = normalizeDateStr(e.date || e.createdAt);
+      if (entryDateStr && entryDateStr !== normalizeDateStr(selectedDate)) return false;
+    }
     if (!searchTerm) return true;
     const q = searchTerm.toLowerCase();
     return (
@@ -278,6 +300,12 @@ const Customization = () => {
       String(e.year || '').toLowerCase().includes(q)
     );
   });
+
+  // Aggregate totals for current filtered view
+  const aggregateValue = filteredEntries.reduce((sum, e) => sum + (Number(e.totalValue) || Number(e.attributions?.[0]?.billWtd) || 0), 0);
+  const aggregateBills = filteredEntries.reduce((sum, e) => sum + (Number(e.totalBills) || Number(e.attributions?.[0]?.valWtd) || 0), 0);
+  const aggregateQty = filteredEntries.reduce((sum, e) => sum + (Number(e.totalQuantity) || Number(e.attributions?.[0]?.qtyWtd) || 0), 0);
+  const uniqueStoresCount = new Set(filteredEntries.map(e => e.storeName)).size;
 
   // Export filtered customization entries as CSV file
   const handleExportCSV = () => {
@@ -412,9 +440,21 @@ const Customization = () => {
 
             {/* Date Selector */}
             <div>
-              <label className="block text-[11px] font-extrabold text-gray-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                <FaCalendarAlt className="text-blue-500" /> Entry Date
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-[11px] font-extrabold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                  <FaCalendarAlt className="text-blue-500" /> Entry Date
+                </label>
+                {selectedDate && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDate('')}
+                    className="text-[10px] text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer"
+                    title="View entries across all dates"
+                  >
+                    All Dates
+                  </button>
+                )}
+              </div>
               <input
                 type="date"
                 value={selectedDate}
