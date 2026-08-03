@@ -1571,8 +1571,8 @@ const DSRReport = () => {
     const targetStore = (isStoreAdmin && branches.length > 0) ? displayBranchName(branches[0].workingBranch) : selectedStore;
     try {
       const token = localStorage.getItem("token");
-      const targetMonth = activeTab === "Custom" ? getMonthNameFromDateStr(customStartDate) : CURRENT_MONTH_LONG;
-      const targetYear = activeTab === "Custom" ? getYearFromDateStr(customStartDate) : CURRENT_YEAR;
+      const targetMonth = activeTab === "Custom" ? getMonthNameFromDateStr(appliedEndDate || customEndDate || customStartDate) : CURRENT_MONTH_LONG;
+      const targetYear = activeTab === "Custom" ? getYearFromDateStr(appliedEndDate || customEndDate || customStartDate) : CURRENT_YEAR;
 
       const isAllStores = !targetStore || targetStore === "All";
 
@@ -1593,6 +1593,7 @@ const DSRReport = () => {
       if (json.success && json.data) {
         const docs = Array.isArray(json.data) ? json.data : (json.data ? [json.data] : []);
         const todayStr = getLocalDateString(new Date());
+        const ftdTargetDate = (activeTab === "Custom" && (appliedEndDate || customEndDate)) ? (appliedEndDate || customEndDate) : todayStr;
 
         docs.forEach(doc => {
           if (!doc || !doc.storeName) return;
@@ -1600,7 +1601,7 @@ const DSRReport = () => {
           if (!dapprByStore[storeKey]) dapprByStore[storeKey] = { val: 0, bills: 0, qty: 0, valFtd: 0, billsFtd: 0, qtyFtd: 0 };
 
           const docDateStr = doc.updatedAt ? getLocalDateString(doc.updatedAt) : (doc.createdAt ? getLocalDateString(doc.createdAt) : "");
-          const isTodayDoc = docDateStr === todayStr;
+          const isTodayDoc = docDateStr === ftdTargetDate;
 
           (doc.attributions || []).forEach(attr => {
             if (!attr || !attr.staffName) return;
@@ -1646,8 +1647,8 @@ const DSRReport = () => {
     const targetStore = (isStoreAdmin && branches.length > 0) ? displayBranchName(branches[0].workingBranch) : selectedStore;
     try {
       const token = localStorage.getItem("token");
-      const targetMonth = activeTab === "Custom" ? getMonthNameFromDateStr(customStartDate) : CURRENT_MONTH_LONG;
-      const targetYear = activeTab === "Custom" ? getYearFromDateStr(customStartDate) : CURRENT_YEAR;
+      const targetMonth = activeTab === "Custom" ? getMonthNameFromDateStr(appliedEndDate || customEndDate || customStartDate) : CURRENT_MONTH_LONG;
+      const targetYear = activeTab === "Custom" ? getYearFromDateStr(appliedEndDate || customEndDate || customStartDate) : CURRENT_YEAR;
       const storeParam = (!targetStore || targetStore === "All") ? "All" : targetStore;
       const currentWeek = storeParam !== "All" ? (getCurrentWeekId(storeParam) || "All") : "All";
 
@@ -1667,6 +1668,7 @@ const DSRReport = () => {
         const docs = Array.isArray(json.data) ? json.data : [json.data];
         console.log("[Customization] Docs count:", docs.length, "| Store keys:", docs.map(d => d?.storeName));
         const todayStr = getLocalDateString(new Date());
+        const ftdTargetDate = (activeTab === "Custom" && (appliedEndDate || customEndDate)) ? (appliedEndDate || customEndDate) : todayStr;
 
         docs.forEach(doc => {
           if (!doc || !doc.storeName) return;
@@ -1676,7 +1678,7 @@ const DSRReport = () => {
           }
 
           const docDateStr = doc.date || (doc.updatedAt ? getLocalDateString(doc.updatedAt) : (doc.createdAt ? getLocalDateString(doc.createdAt) : ""));
-          const isTodayDoc = docDateStr === todayStr;
+          const isTodayDoc = docDateStr === ftdTargetDate;
 
           let valAdd = Number(doc.totalValue) || 0;
           let billsAdd = Number(doc.totalBills) || 0;
@@ -1738,7 +1740,7 @@ const DSRReport = () => {
       fetchDapprAttribution();
       fetchCustomizationAttribution();
     }
-  }, [isStoreAdmin, selectedStore, branches, activeTab, customStartDate]);
+  }, [isStoreAdmin, selectedStore, branches, activeTab, customStartDate, customEndDate, appliedStartDate, appliedEndDate]);
 
   // Dynamic branches state — declared at top of component
 
@@ -1967,18 +1969,16 @@ const DSRReport = () => {
           return displayBranchName(branchKey);
         };
 
-        // Reuse FTD data if already loaded (FTD is always for today)
-        let ftdMap = performanceData.ftd;
-        if (!ftdMap || Object.keys(ftdMap).length === 0) {
-          const ftdResults = await Promise.all(locationIds.map(async (locId) => {
-            const data = await getPerformanceCached(locId, todayStr, todayStr);
-            return { locId, data };
-          }));
-          ftdMap = {};
-          ftdResults.forEach(r => {
-            ftdMap[r.locId] = r.data;
-          });
-        }
+        const ftdTargetDate = (activeTab === "Custom" && (appliedEndDate || customEndDate)) ? (appliedEndDate || customEndDate) : todayStr;
+
+        const ftdResults = await Promise.all(locationIds.map(async (locId) => {
+          const data = await getPerformanceCached(locId, ftdTargetDate, ftdTargetDate);
+          return { locId, data };
+        }));
+        const ftdMap = {};
+        ftdResults.forEach(r => {
+          ftdMap[r.locId] = r.data;
+        });
 
         // Parallel fetch for Period (WTD, MTD, Custom) all locations simultaneously
         const periodResults = await Promise.all(locationIds.map(async (locId) => {
@@ -2144,10 +2144,12 @@ const DSRReport = () => {
           }
         };
 
+        const ftdTargetDate = (activeTab === "Custom" && (appliedEndDate || customEndDate)) ? (appliedEndDate || customEndDate) : todayStr;
+
         const [ftdMap, periodMap, ftdSalespersons, periodSalespersons] = await Promise.all([
-          fetchSummary(todayStr, todayStr),
+          fetchSummary(ftdTargetDate, ftdTargetDate),
           fetchSummary(periodStart, periodEnd),
-          fetchSalespersons(todayStr, todayStr),
+          fetchSalespersons(ftdTargetDate, ftdTargetDate),
           fetchSalespersons(periodStart, periodEnd)
         ]);
 
@@ -2769,7 +2771,8 @@ const DSRReport = () => {
           return isStaffNameMatch(entry.displayName, wStaff) || entry.rentalNames.some(rn => isStaffNameMatch(rn, wStaff)) || entry.siteNames.some(sn => isStaffNameMatch(sn, wStaff));
         });
 
-        const ftdWalkins = staffWalkinsList.filter(w => isWalkinCreatedInRange(w.createdAt, todayStr, todayStr));
+        const ftdTargetDate = (activeTab === "Custom" && (appliedEndDate || customEndDate)) ? (appliedEndDate || customEndDate) : todayStr;
+        const ftdWalkins = staffWalkinsList.filter(w => isWalkinCreatedInRange(w.createdAt, ftdTargetDate, ftdTargetDate));
         const periodWalkins = staffWalkinsList.filter(w => isWalkinCreatedInRange(w.createdAt, storePeriodStart, storePeriodEnd));
 
         const rentalValFtd = staffFtdList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
@@ -2933,7 +2936,8 @@ const DSRReport = () => {
             String(w.storeId || '') === String(b._id || '') || 
             locationKey(w.store) === storeKeyVal
           );
-          const ftdWalkins = storeWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, todayStr, todayStr));
+          const ftdTargetDate = (activeTab === "Custom" && (appliedEndDate || customEndDate)) ? (appliedEndDate || customEndDate) : todayStr;
+          const ftdWalkins = storeWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, ftdTargetDate, ftdTargetDate));
           const periodWalkins = storeWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, storePeriodStart, storePeriodEnd));
 
           // Performance API aggregations (includes Dappr Squad data merged in)
