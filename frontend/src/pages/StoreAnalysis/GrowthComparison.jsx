@@ -92,10 +92,17 @@ function locationKey(name) {
 }
 
 function displayBranchName(name) {
-  const raw = String(name || "");
+  const raw = String(name || "").trim();
   if (/^grooms\s+/i.test(raw)) {
-    return raw.replace(/^grooms\s+/i, "Suitor Guy ");
+    return raw.replace(/^grooms\s+/i, "SG ");
   }
+  if (/^suitor\s+guy\s+/i.test(raw)) {
+    return raw.replace(/^suitor\s+guy\s+/i, "SG ");
+  }
+  if (/^g[\.\-\s]+/i.test(raw)) {
+    return raw.replace(/^g[\.\-\s]+/i, "SG ");
+  }
+  if (raw === "G" || raw === "g") return "SG";
   return raw;
 }
 
@@ -458,6 +465,24 @@ const getStoreNameFromLocId = (locId) => {
   return displayBranchName(branchKey);
 };
 
+const sortStoresGThenZ = (a, b) => {
+  const getStoreStr = (val) => {
+    if (!val) return "";
+    if (typeof val === "string") return val.trim();
+    if (typeof val === "object") {
+      return (val.name || val.storeName || val.workingBranch || val.label || "").trim();
+    }
+    return String(val).trim();
+  };
+  const strA = getStoreStr(a);
+  const strB = getStoreStr(b);
+  const isZ_A = /^z/i.test(strA);
+  const isZ_B = /^z/i.test(strB);
+  if (!isZ_A && isZ_B) return -1;
+  if (isZ_A && !isZ_B) return 1;
+  return strA.localeCompare(strB, undefined, { numeric: true, sensitivity: 'base' });
+};
+
 const GrowthComparison = () => {
   const { user } = useSelector((state) => state.auth || {});
   const isStoreAdmin = user?.role === "store_admin";
@@ -591,7 +616,7 @@ const GrowthComparison = () => {
           const json = await res.json();
           const list = Array.isArray(json?.data) ? json.data : [];
           const visible = list.filter((b) => !isHiddenBranch(b?.workingBranch));
-          setBranches(visible);
+          setBranches([...visible].sort(sortStoresGThenZ));
         }
       } catch (err) {
         console.error("Error fetching branches for Store Rental Comparison:", err);
@@ -792,7 +817,7 @@ const GrowthComparison = () => {
         assignedBranchIds.has(String(b._id)) || assignedBranchIds.has(norm(b.workingBranch))
       );
     }
-    return list.map(b => displayBranchName(b.workingBranch)).filter(Boolean).sort();
+    return list.map(b => displayBranchName(b.workingBranch)).filter(Boolean).sort(sortStoresGThenZ);
   }, [branches, selectedClusters, clusters]);
 
   const filteredRows = useMemo(() => {
@@ -851,7 +876,7 @@ const GrowthComparison = () => {
       };
     });
 
-    return activeList.filter((row) =>
+    return activeList.sort(sortStoresGThenZ).filter((row) =>
       row.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [branches, selectedClusters, selectedStores, clusters, tyWalkinCounts, lyWalkinCounts, tyPerformance, lyPerformance, searchQuery, activeTab, customStartDate, customEndDate, storeWeekRanges]);

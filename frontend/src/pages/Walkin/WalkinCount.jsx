@@ -25,10 +25,11 @@ const CATEGORIES = [
 ];
 
 const HARDCODED_STORES = [
-    'Z-Edapally1', 'G-Edappally', 'Z- Edappal', 'Z.Perinthalmanna',
-    'Z.Kottakkal', 'G.Kottayam', 'G.Perumbavoor', 'G.Thrissur', 'G.Chavakkad',
-    'G.Calicut', 'G.Vadakara', 'G.Edappal', 'G.Perinthalmanna', 'G.Kottakkal',
-    'G.Manjeri', 'G.Palakkad', 'G.Kalpetta', 'G.Kannur', 'G.MG Road',
+    'SG Edappally', 'SG Calicut', 'SG Chavakkad', 'SG Edappal', 'SG Kalpetta',
+    'SG Kannur', 'SG Kottakkal', 'SG Kottayam', 'SG Manjeri', 'SG MG Road',
+    'SG Palakkad', 'SG Perinthalmanna', 'SG Perumbavoor', 'SG Thrissur', 'SG Trivandrum',
+    'SG Vadakara',
+    'Z-Edapally1', 'Z- Edappal', 'Z.Kottakkal', 'Z.Perinthalmanna',
     'Dappr Squad', 'office', 'production', 'WAREHOUSE'
 ];
 
@@ -62,6 +63,24 @@ const TIME_SLOTS = [
     "11:00 PM to 11:30 PM",
     "11:30 PM to 12:00 AM"
 ];
+
+const sortStoresGThenZ = (a, b) => {
+  const getStoreStr = (val) => {
+    if (!val) return "";
+    if (typeof val === "string") return val.trim();
+    if (typeof val === "object") {
+      return (val.name || val.storeName || val.workingBranch || val.label || "").trim();
+    }
+    return String(val).trim();
+  };
+  const strA = getStoreStr(a);
+  const strB = getStoreStr(b);
+  const isZ_A = /^z/i.test(strA);
+  const isZ_B = /^z/i.test(strB);
+  if (!isZ_A && isZ_B) return -1;
+  if (isZ_A && !isZ_B) return 1;
+  return strA.localeCompare(strB, undefined, { numeric: true, sensitivity: 'base' });
+};
 
 const TimeRangeSlider = ({ value, onChange }) => {
     const RANGE_TIMES = [
@@ -377,7 +396,7 @@ const WalkinCount = () => {
                     branchList = [...missing.map(name => ({ workingBranch: name })), ...branchList];
                 }
 
-                setBranches(branchList);
+                setBranches([...branchList].sort(sortStoresGThenZ));
                 if (['cluster_admin', 'store_admin'].includes(user?.role) && branchList.length > 0) {
                     setStoreFilter(branchList[0].workingBranch);
                 }

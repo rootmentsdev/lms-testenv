@@ -414,10 +414,17 @@ function normalizeForMatch(str) {
 }
 
 function displayBranchName(name) {
-  const raw = String(name || "");
+  const raw = String(name || "").trim();
   if (/^grooms\s+/i.test(raw)) {
-    return raw.replace(/^grooms\s+/i, "Suitor Guy ");
+    return raw.replace(/^grooms\s+/i, "SG ");
   }
+  if (/^suitor\s+guy\s+/i.test(raw)) {
+    return raw.replace(/^suitor\s+guy\s+/i, "SG ");
+  }
+  if (/^g[\.\-\s]+/i.test(raw)) {
+    return raw.replace(/^g[\.\-\s]+/i, "SG ");
+  }
+  if (raw === "G" || raw === "g") return "SG";
   return raw;
 }
 
@@ -653,6 +660,24 @@ const StarRating = ({ rating }) => {
 };
 
 // ── Component ────────────────────────────────────────────────────────────
+const sortStoresGThenZ = (a, b) => {
+  const getStoreStr = (val) => {
+    if (!val) return "";
+    if (typeof val === "string") return val.trim();
+    if (typeof val === "object") {
+      return (val.name || val.storeName || val.workingBranch || val.label || "").trim();
+    }
+    return String(val).trim();
+  };
+  const strA = getStoreStr(a);
+  const strB = getStoreStr(b);
+  const isZ_A = /^z/i.test(strA);
+  const isZ_B = /^z/i.test(strB);
+  if (!isZ_A && isZ_B) return -1;
+  if (isZ_A && !isZ_B) return 1;
+  return strA.localeCompare(strB, undefined, { numeric: true, sensitivity: 'base' });
+};
+
 const StoreInsights = () => {
   const user = useSelector((state) => state.auth.user);
   const isStoreAdmin = user?.role === "store_admin";
@@ -744,7 +769,7 @@ const StoreInsights = () => {
             console.log("[StoreInsights] filtered branches for store_admin:", visible.map(b => ({ id: b._id, workingBranch: b.workingBranch, locId: getBranchLocationId(b.workingBranch), locCode: b.locCode })));
           }
 
-          setBranches(visible);
+          setBranches([...visible].sort(sortStoresGThenZ));
         }
       } catch (err) {
         console.error("Error fetching branches for Store Insights:", err);
@@ -2024,7 +2049,7 @@ const StoreInsights = () => {
       });
       list = chartData.filter(s => assignedIds.has(String(s._id)));
     }
-    return list.map(s => s.name).filter(Boolean).sort();
+    return list.map(s => s.name).filter(Boolean).sort(sortStoresGThenZ);
   }, [chartData, selectedClusters, clusters]);
 
   // Filtered chart data based on classification (All, On Track, At Risk)

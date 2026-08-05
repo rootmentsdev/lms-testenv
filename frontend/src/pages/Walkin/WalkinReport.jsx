@@ -71,10 +71,11 @@ const NON_SALES_REASONS = new Set([
 ]);
 
 const HARDCODED_STORES = [
-    'Z-Edapally1', 'G-Edappally', 'Z- Edappal', 'Z.Perinthalmanna',
-    'Z.Kottakkal', 'G.Kottayam', 'G.Perumbavoor', 'G.Thrissur', 'G.Chavakkad',
-    'G.Calicut', 'G.Vadakara', 'G.Edappal', 'G.Perinthalmanna', 'G.Kottakkal',
-    'G.Manjeri', 'G.Palakkad', 'G.Kalpetta', 'G.Kannur', 'G.MG Road',
+    'SG Edappally', 'SG Calicut', 'SG Chavakkad', 'SG Edappal', 'SG Kalpetta',
+    'SG Kannur', 'SG Kottakkal', 'SG Kottayam', 'SG Manjeri', 'SG MG Road',
+    'SG Palakkad', 'SG Perinthalmanna', 'SG Perumbavoor', 'SG Thrissur', 'SG Trivandrum',
+    'SG Vadakara',
+    'Z-Edapally1', 'Z- Edappal', 'Z.Kottakkal', 'Z.Perinthalmanna',
     'Dappr Squad', 'office', 'production', 'WAREHOUSE'
 ];
 
@@ -648,6 +649,24 @@ const CustomSelect = ({
 
 
 
+const sortStoresGThenZ = (a, b) => {
+  const getStoreStr = (val) => {
+    if (!val) return "";
+    if (typeof val === "string") return val.trim();
+    if (typeof val === "object") {
+      return (val.name || val.storeName || val.workingBranch || val.label || "").trim();
+    }
+    return String(val).trim();
+  };
+  const strA = getStoreStr(a);
+  const strB = getStoreStr(b);
+  const isZ_A = /^z/i.test(strA);
+  const isZ_B = /^z/i.test(strB);
+  if (!isZ_A && isZ_B) return -1;
+  if (isZ_A && !isZ_B) return 1;
+  return strA.localeCompare(strB, undefined, { numeric: true, sensitivity: 'base' });
+};
+
 const WalkinReport = () => {
   const user  = useSelector(s => s.auth.user);
   const token = localStorage.getItem('token');
@@ -690,7 +709,7 @@ const WalkinReport = () => {
           list = [...missing.map(name => ({ workingBranch: name })), ...list];
         }
         
-        setBranches(list);
+        setBranches([...list].sort(sortStoresGThenZ));
         if (user?.role === 'store_admin' && list.length > 0) {
           setSelectedStores([list[0].workingBranch]);
         }
