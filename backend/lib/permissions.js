@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Admin from '../model/Admin.js';
 import Branch from '../model/Branch.js';
 import Employee from '../model/Employee.js';
@@ -281,6 +282,73 @@ export const buildStoreWideWalkinFilter = async (adminId, baseQuery = {}) => {
  *                              belongs to their store
  *  - Employee / User         → see only tasks assigned directly to them
  */
+export const resolveAllAssignedIds = async (adminDoc, userDoc = null, inputId = null) => {
+    const ids = new Set();
+    if (adminDoc) ids.add(adminDoc._id.toString());
+    if (userDoc) ids.add(userDoc._id.toString());
+    if (inputId) ids.add(inputId.toString());
+
+    let extraAdmin = null;
+    let extraUser = null;
+    let extraEmp = null;
+
+    if (inputId && mongoose.Types.ObjectId.isValid(inputId)) {
+        try {
+            [extraAdmin, extraUser, extraEmp] = await Promise.all([
+                Admin.findById(inputId).lean(),
+                User.findById(inputId).lean(),
+                Employee.findById(inputId).lean()
+            ]);
+        } catch (_) {}
+    }
+
+    const refAdmin = adminDoc || extraAdmin;
+    const refUser = userDoc || extraUser;
+    const refEmp = extraEmp;
+
+    const empCode = refAdmin?.EmpId || refAdmin?.employeeId || refUser?.empID || refUser?.EmpId || refEmp?.employeeId || inputId;
+    if (empCode) ids.add(empCode.toString());
+
+    const email = refAdmin?.email || refUser?.email || refEmp?.email;
+    const name = refAdmin?.name || refUser?.name || (refEmp?.firstName ? `${refEmp.firstName} ${refEmp.lastName || ''}`.trim() : refEmp?.username);
+    const username = refAdmin?.username || refUser?.username || refEmp?.username;
+
+    const orConditions = [];
+    if (adminDoc) orConditions.push({ _id: adminDoc._id }, { userId: adminDoc._id });
+    if (userDoc) orConditions.push({ _id: userDoc._id }, { userId: userDoc._id });
+    if (extraEmp) orConditions.push({ _id: extraEmp._id }, { userId: extraEmp._id });
+    if (email) orConditions.push({ email: { $regex: `^${email.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, $options: 'i' } });
+    if (empCode) {
+        orConditions.push(
+            { EmpId: { $regex: `^${empCode}$`, $options: 'i' } },
+            { employeeId: { $regex: `^${empCode}$`, $options: 'i' } },
+            { empID: { $regex: `^${empCode}$`, $options: 'i' } }
+        );
+    }
+    if (name) {
+        orConditions.push(
+            { name: { $regex: `^${name.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, $options: 'i' } },
+            { username: { $regex: `^${name.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, $options: 'i' } }
+        );
+    }
+
+    if (orConditions.length > 0) {
+        try {
+            const [matchedAdmins, matchedUsers, matchedEmps] = await Promise.all([
+                Admin.find({ $or: orConditions }).select('_id EmpId').lean(),
+                User.find({ $or: orConditions }).select('_id empID').lean(),
+                Employee.find({ $or: orConditions }).select('_id employeeId').lean()
+            ]);
+
+            matchedAdmins.forEach(a => { ids.add(a._id.toString()); if (a.EmpId) ids.add(a.EmpId.toString()); });
+            matchedUsers.forEach(u => { ids.add(u._id.toString()); if (u.empID) ids.add(u.empID.toString()); });
+            matchedEmps.forEach(e => { ids.add(e._id.toString()); if (e.employeeId) ids.add(e.employeeId.toString()); });
+        } catch (_) {}
+    }
+
+    return Array.from(ids);
+};
+
 export const buildTaskFilter = async (adminId, baseQuery = {}) => {
     const admin = await Admin.findById(adminId);
 
@@ -289,24 +357,18 @@ export const buildTaskFilter = async (adminId, baseQuery = {}) => {
         const user = admin ? admin : await User.findById(adminId);
         if (!user) return { _id: null };
 
-        const employee = await Employee.findOne({
-            $or: [
-                { userId: user._id },
-                { employeeId: { $regex: `^${user.empID || user.EmpId}$`, $options: 'i' } }
-            ]
+        const assignedIds = await resolveAllAssignedIds(admin, user);
+        const assignedQueryValues = [...assignedIds];
+        assignedIds.forEach(id => {
+            if (mongoose.Types.ObjectId.isValid(id)) {
+                assignedQueryValues.push(new mongoose.Types.ObjectId(id));
+            }
         });
-
-        // Employees only see tasks assigned directly to them (by their User ID
-        // or linked Employee ID). They do NOT see all store tasks.
-        const assignedIds = [user._id.toString()];
-        if (employee) {
-            assignedIds.push(employee._id.toString());
-        }
 
         const restriction = {
             $or: [
-                { assignedTo: { $in: assignedIds } },
-                { createdBy: user._id }
+                { assignedTo: { $in: assignedQueryValues } },
+                { createdBy: { $in: [user._id, user._id.toString()] } }
             ]
         };
 
@@ -317,17 +379,34 @@ export const buildTaskFilter = async (adminId, baseQuery = {}) => {
         return { ...baseQuery, ...restriction };
     }
 
-    // ── Super Admin → full access ─────────────────────────────────────
-    if (admin.role === 'super_admin') {
-        return baseQuery;
+    const assignedIds = await resolveAllAssignedIds(admin, null);
+    const assignedQueryValues = [...assignedIds];
+    assignedIds.forEach(id => {
+        if (mongoose.Types.ObjectId.isValid(id)) {
+            assignedQueryValues.push(new mongoose.Types.ObjectId(id));
+        }
+    });
+    const creatorIds = [admin._id, admin._id.toString()];
+
+    const adminName = admin?.name || admin?.username;
+    const nameRegex = adminName ? new RegExp(`^${adminName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}(\\s|-|$)`, 'i') : null;
+
+    const assignedMatchConditions = [
+        { assignedTo: { $in: assignedQueryValues } }
+    ];
+    if (nameRegex) {
+        assignedMatchConditions.push(
+            { assignedTo: { $regex: nameRegex } },
+            { assignedToLabel: { $regex: nameRegex } }
+        );
     }
 
-    // ── Admin → creator OR assignee (only tasks assigned to them or created by them) ─────
-    if (admin.role === 'admin') {
+    // ── Super Admin / Admin / HR Admin → creator OR assignee ─────
+    if (['super_admin', 'admin', 'hr_admin'].includes(admin.role)) {
         const restriction = {
             $or: [
-                { createdBy: admin._id },
-                { assignedTo: admin._id.toString() }
+                { createdBy: { $in: creatorIds } },
+                ...assignedMatchConditions
             ]
         };
 
@@ -342,8 +421,8 @@ export const buildTaskFilter = async (adminId, baseQuery = {}) => {
     if (admin.role === 'hr_admin') {
         const restriction = {
             $or: [
-                { createdBy: admin._id },
-                { assignedTo: admin._id.toString() }
+                { createdBy: { $in: creatorIds } },
+                ...assignedMatchConditions
             ]
         };
 
@@ -357,7 +436,7 @@ export const buildTaskFilter = async (adminId, baseQuery = {}) => {
     // ── Telecaller → see only tasks assigned directly to them ──────────────────
     if (admin.role === 'telecaller') {
         const restriction = {
-            assignedTo: admin._id.toString()
+            $or: assignedMatchConditions
         };
 
         if (baseQuery.$or) {
@@ -367,42 +446,28 @@ export const buildTaskFilter = async (adminId, baseQuery = {}) => {
         return { ...baseQuery, ...restriction };
     }
 
-    // ── Cluster Admin / Store Admin → Only creator, direct assignee, or active reviewer ─────
-    // Check if they have a linked Employee or User profile mapping
-    const employee = await Employee.findOne({
-        $or: [
-            { userId: admin._id },
-            { employeeId: { $regex: `^${admin.EmpId || admin.employeeId}$`, $options: 'i' } }
-        ]
-    });
-    const user = await User.findOne({
-        $or: [
-            { email: admin.email },
-            { empID: { $regex: `^${admin.EmpId || admin.employeeId}$`, $options: 'i' } }
-        ]
-    });
-
-    const assignedIds = [admin._id.toString()];
-    if (employee) {
-        assignedIds.push(employee._id.toString());
-    }
-    if (user) {
-        assignedIds.push(user._id.toString());
-    }
+    // ── Cluster Admin / Store Admin → Only creator, direct assignee, store tasks, or active reviewer ─────
+    const accessibleStoreIds = await getAccessibleStoreIds(admin._id);
+    const accessibleBranches = await Branch.find({ _id: { $in: accessibleStoreIds } }).lean();
+    const storeCodes = accessibleBranches.map(b => b.locCode).filter(Boolean);
+    const formattedStoreCodes = storeCodes.flatMap(c => [c, `Z-${c}`, `z-${c}`]);
+    const storeNames = accessibleBranches.map(b => b.workingBranch).filter(Boolean);
 
     const restriction = {
         $or: [
-            { createdBy: admin._id },
-            { assignedTo: { $in: assignedIds } },
+            { createdBy: { $in: creatorIds } },
+            ...assignedMatchConditions,
+            { storeCode: { $in: formattedStoreCodes } },
+            { storeName: { $in: storeNames } },
             { 
               $and: [
                 { status: 'PENDING REVIEW' },
-                { approvalChain: admin._id.toString() },
+                { approvalChain: { $in: assignedQueryValues } },
                 { 
                   $expr: {
-                    $eq: [
+                    $in: [
                       { $arrayElemAt: ["$approvalChain", "$approvalChainIndex"] },
-                      admin._id.toString()
+                      assignedQueryValues
                     ]
                   }
                 }

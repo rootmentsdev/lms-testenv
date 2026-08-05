@@ -265,15 +265,19 @@ const CreateTask = () => {
           const rawAssignees = json.data || [];
           const roleRanks = {
             super_admin: 5,
+            'super admin': 5,
             admin: 5,
             hr_admin: 4,
+            'hr admin': 4,
             cluster_admin: 3,
+            'cluster admin': 3,
             store_admin: 2,
+            'store admin': 2,
             employee: 1,
             user: 1
           };
-          const userRole = user?.role;
-          const userRank = roleRanks[userRole] || 1;
+          const userRole = String(user?.role || '').toLowerCase().replace(/\s+/g, '_');
+          const userRank = roleRanks[userRole] || roleRanks[user?.role] || 1;
 
           const getOptionRank = (opt) => {
             if (opt.role && roleRanks[opt.role]) {
@@ -630,8 +634,8 @@ const CreateTask = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const individualAssignees = (form.assignedTo || []).filter(assignee => assignee.type !== 'group');
-    if (individualAssignees.length === 0) {
+    const selectedAssignees = form.assignedTo || [];
+    if (selectedAssignees.length === 0) {
       toast.error('Please select at least one assignee.');
       return;
     }
@@ -656,7 +660,7 @@ const CreateTask = () => {
       const currentStart = getCurrentDate();
       const currentStartT = getCurrentTime();
 
-      for (const assignee of individualAssignees) {
+      for (const assignee of selectedAssignees) {
         for (const subCat of selectedSubCategories) {
           await createTask({
             mode: mode,

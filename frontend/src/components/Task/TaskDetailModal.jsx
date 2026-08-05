@@ -172,15 +172,19 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
             const rawAssignees = json.data || [];
             const roleRanks = {
               super_admin: 5,
+              'super admin': 5,
               admin: 5,
               hr_admin: 4,
+              'hr admin': 4,
               cluster_admin: 3,
+              'cluster admin': 3,
               store_admin: 2,
+              'store admin': 2,
               employee: 1,
               user: 1
             };
-            const userRole = user?.role;
-            const userRank = roleRanks[userRole] || 1;
+            const userRole = String(user?.role || '').toLowerCase().replace(/\s+/g, '_');
+            const userRank = roleRanks[userRole] || roleRanks[user?.role] || 1;
 
             const getOptionRank = (opt) => {
               if (opt.role && roleRanks[opt.role]) {

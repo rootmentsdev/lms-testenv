@@ -33,24 +33,40 @@ const resolveAssigneeId = async (assignedTo) => {
   if (assignedTo.toLowerCase() === 'all cluster admins') return 'all_cluster_admins';
   if (assignedTo.toLowerCase() === 'all hr admins') return 'all_hr_admins';
 
-  // 3. Parse formatted label, e.g. "Test Staff 1 - Fashion Stylist - G-Edappally"
+  // 3. Parse formatted label, e.g. "Rivas - Admin - All Stores"
   const parts = assignedTo.split(' - ');
   const namePart = parts[0]?.trim();
   if (!namePart) return assignedTo;
 
-  // Search Admin
-  const admin = await Admin.findOne({ name: { $regex: new RegExp('^' + namePart.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } });
+  const escapedName = namePart.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+
+  // Search Admin by name, username, or EmpId
+  const admin = await Admin.findOne({
+    $or: [
+      { name: { $regex: `^${escapedName}$`, $options: 'i' } },
+      { username: { $regex: `^${escapedName}$`, $options: 'i' } },
+      { EmpId: { $regex: `^${escapedName}$`, $options: 'i' } },
+      { name: { $regex: `^${escapedName}`, $options: 'i' } }
+    ]
+  });
   if (admin) return admin._id.toString();
 
-  // Search User
-  const user = await User.findOne({ username: { $regex: new RegExp('^' + namePart.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } });
+  // Search User by username, name, or empID
+  const user = await User.findOne({
+    $or: [
+      { username: { $regex: `^${escapedName}$`, $options: 'i' } },
+      { name: { $regex: `^${escapedName}$`, $options: 'i' } },
+      { empID: { $regex: `^${escapedName}$`, $options: 'i' } },
+      { username: { $regex: `^${escapedName}`, $options: 'i' } }
+    ]
+  });
   if (user) return user._id.toString();
 
-  // Search Employee (check firstName + lastName, or username)
-  const employees = await Employee.find({});
+  // Search Employee
+  const employees = await Employee.find({}).lean();
   for (const emp of employees) {
     const fullName = emp.firstName ? `${emp.firstName} ${emp.lastName || ''}`.trim() : (emp.username || '');
-    if (fullName.toLowerCase() === namePart.toLowerCase()) {
+    if (fullName.toLowerCase().startsWith(namePart.toLowerCase()) || emp.employeeId?.toLowerCase() === namePart.toLowerCase()) {
       return emp._id.toString();
     }
   }
@@ -159,6 +175,15 @@ const normalizeAttachmentToDataUri = (str) => {
   return str;
 };
 
+const formatStoreSubLabel = (str) => {
+  if (!str) return '—';
+  const val = String(str).trim();
+  if (val.includes(',') || val.length > 40 || val.toLowerCase().includes('all store')) {
+    return 'All Stores';
+  }
+  return val;
+};
+
 export const mapTaskForClient = (doc, overrideBranch, requesterInfo) => {
   const task = doc.toObject ? doc.toObject() : doc;
   const status = computeStatus(task);
@@ -204,41 +229,34 @@ export const mapTaskForClient = (doc, overrideBranch, requesterInfo) => {
   let subCategoryToShow = task.subCategory || '';
 
   // Custom role-based header title visibility logic:
-  // Show the header/title matching the user role who gave it to the tier below.
   if (task.taskTitles && task.taskTitles.length > 0) {
-    // 1. Find the title assigned by the requester's supervisor
-    // e.g. If requester is Employee -> see title assigned by Store Admin or Cluster Admin or Creator
-    // If requester is Store Admin -> see title assigned by Cluster Admin or Creator
-    // If requester is Cluster Admin -> see title assigned by Creator/Admin
     let matchingTitleDoc = null;
     if (requesterRole === 'employee' || requesterRole === 'user') {
-      // Find latest title created by Store Admin or Cluster Admin or Creator
       matchingTitleDoc = [...task.taskTitles].reverse().find(t => ['store_admin', 'cluster_admin', 'super_admin', 'admin', 'hr_admin'].includes(t.role));
     } else if (requesterRole === 'store_admin') {
-      // Find latest title created by Cluster Admin or Creator
       matchingTitleDoc = [...task.taskTitles].reverse().find(t => ['cluster_admin', 'super_admin', 'admin', 'hr_admin'].includes(t.role));
     } else if (requesterRole === 'cluster_admin') {
-      // Find latest title created by Creator
       matchingTitleDoc = [...task.taskTitles].reverse().find(t => ['super_admin', 'admin', 'hr_admin'].includes(t.role));
     }
 
     if (matchingTitleDoc) {
       titleToShow = matchingTitleDoc.title;
-      categoryToShow = matchingTitleDoc.title; // Map category to display matching custom title
+      categoryToShow = matchingTitleDoc.title;
     }
   } else {
-    // Fallback if taskTitles not populated
     titleToShow = (showAdminDetails && task.adminTitle) ? task.adminTitle : (task.title || '');
     categoryToShow = (showAdminDetails && task.adminCategory) ? task.adminCategory : (task.category || '');
     subCategoryToShow = (showAdminDetails && task.adminSubCategory) ? task.adminSubCategory : (task.subCategory || '');
   }
+
+  const rawAssigneeSub = overrideBranch ?? task.storeName ?? task.storeCode ?? '—';
 
   return {
     id: taskId,
     _id: task._id?.toString(),
     title: titleToShow,
     category: categoryToShow,
-    categorySub: task.storeName || task.storeCode || subCategoryToShow,
+    categorySub: formatStoreSubLabel(task.storeName || task.storeCode || subCategoryToShow),
     categoryDetail: subCategoryToShow,
     adminTitle: task.adminTitle || '',
     adminCategory: task.adminCategory || '',
@@ -249,7 +267,7 @@ export const mapTaskForClient = (doc, overrideBranch, requesterInfo) => {
     assignedTo: task.assignedTo,
     createdBy: task.createdBy?.toString() || '',
     assignee: task.assignedToLabel || ASSIGNED_TO_LABELS[task.assignedTo] || task.assignedTo,
-    assigneeSub: overrideBranch ?? task.storeName ?? task.storeCode ?? '—',
+    assigneeSub: formatStoreSubLabel(rawAssigneeSub),
     assigneeRole: task.assignedToLabel || ASSIGNED_TO_LABELS[task.assignedTo] || task.assignedTo,
     priority,
     startDate: formatDisplayDate(task.startDate),
@@ -462,6 +480,12 @@ export const createTask = async (req, res) => {
           if (targetUser) {
             targetStoreName = targetUser.workingBranch || '';
             targetStoreCode = targetUser.locCode ? (Array.isArray(targetUser.locCode) ? `Z-${targetUser.locCode[0]}` : `Z-${targetUser.locCode}`) : '';
+          } else {
+            const targetEmp = await Employee.findById(target.id).populate('storeId');
+            if (targetEmp) {
+              targetStoreName = targetEmp.storeId?.workingBranch || targetEmp.workingBranch || '';
+              targetStoreCode = targetEmp.storeId?.locCode ? `Z-${targetEmp.storeId.locCode}` : '';
+            }
           }
         }
       } catch (err) {
@@ -555,7 +579,7 @@ export const createTask = async (req, res) => {
   }
 };
 
-import { buildTaskFilter } from '../lib/permissions.js';
+import { buildTaskFilter, resolveAllAssignedIds } from '../lib/permissions.js';
 
 export const getTasks = async (req, res) => {
   try {
@@ -623,7 +647,8 @@ export const getTasks = async (req, res) => {
         }
       }
 
-      baseQuery.assignedTo = employeeId;
+      const linkedTargetIds = await resolveAllAssignedIds(null, null, employeeId);
+      baseQuery.assignedTo = { $in: linkedTargetIds };
     }
     if (category && category !== 'All') {
       baseQuery.category = { $regex: new RegExp(category, 'i') };
@@ -644,57 +669,11 @@ export const getTasks = async (req, res) => {
     //    For web: apply normal RBAC filtering
     let secureQuery;
     if (mobile === 'true') {
-      // Mobile app: only show tasks assigned to the user (every role admins and employees)
-      const assignedIds = [adminId.toString()];
-      
-      let empID = null;
-      
-      // Check if caller is Admin
-      const adminUser = await Admin.findById(adminId);
-      if (adminUser) {
-        empID = adminUser.EmpId;
-      } else {
-        // Check if caller is User
-        const user = await User.findById(adminId);
-        if (user) {
-          empID = user.empID;
-        }
-      }
-      
-      if (empID) {
-        // Add the raw employee ID string itself
-        assignedIds.push(empID.toString());
-        
-        // Find associated Employee ID
-        const employee = await Employee.findOne({
-          employeeId: { $regex: `^${empID}$`, $options: 'i' }
-        });
-        if (employee) {
-          assignedIds.push(employee._id.toString());
-        }
-        
-        // Find associated User ID
-        const userRecord = await User.findOne({
-          empID: { $regex: `^${empID}$`, $options: 'i' }
-        });
-        if (userRecord) {
-          assignedIds.push(userRecord._id.toString());
-        }
-        
-        // Find associated Admin ID
-        const adminRecord = await Admin.findOne({
-          EmpId: { $regex: `^${empID}$`, $options: 'i' }
-        });
-        if (adminRecord) {
-          assignedIds.push(adminRecord._id.toString());
-        }
-      }
-      
-      const uniqueAssignedIds = [...new Set(assignedIds)];
+      const assignedIds = await resolveAllAssignedIds(null, null, adminId);
       
       secureQuery = {
         ...baseQuery,
-        assignedTo: { $in: uniqueAssignedIds }
+        assignedTo: { $in: assignedIds }
       };
     } else if (mine === 'true') {
       secureQuery = {
@@ -941,10 +920,20 @@ export const getTaskAssignees = async (req, res) => {
     // 4. Get Accessible Employees under these stores
     let employeeIds = await getAccessibleEmployeeIds(adminId, targetBranchId || null);
 
-    // 5. Fetch Accessible Store Admins
-    let adminQuery = { role: 'store_admin', isActive: true };
-    if (['cluster_admin', 'store_admin', 'user'].includes(role)) {
+    // 5. Fetch Accessible Admins based on role hierarchy
+    let adminQuery = { isActive: true };
+    if (role === 'super_admin' || role === 'admin') {
+      adminQuery.role = { $in: ['super_admin', 'admin', 'hr_admin', 'cluster_admin', 'store_admin'] };
+    } else if (role === 'hr_admin') {
+      adminQuery.role = { $in: ['hr_admin', 'cluster_admin', 'store_admin'] };
+    } else if (role === 'cluster_admin') {
+      adminQuery.role = { $in: ['cluster_admin', 'store_admin'] };
       adminQuery.branches = { $in: accessibleStoreIds };
+    } else if (role === 'store_admin' || role === 'user') {
+      adminQuery.role = 'store_admin';
+      adminQuery.branches = { $in: accessibleStoreIds };
+    } else {
+      adminQuery.role = 'store_admin';
     }
 
     const admins = await Admin.find(adminQuery).populate('branches');
@@ -956,12 +945,12 @@ export const getTaskAssignees = async (req, res) => {
     admins.forEach(ad => {
       const designation = ad.subRole && ad.subRole !== 'NR' 
         ? ad.subRole 
-        : 'Store Admin';
+        : (ROLE_LABELS[ad.role] || ad.role || 'Admin');
       
       let storeName = ad.branches && ad.branches.length > 0 ? ad.branches[0].workingBranch : 'Store';
 
       const isAllStore = isAllStoreEmployee(ad, ad.role);
-      if (isAllStore) {
+      if (isAllStore || ['super_admin', 'admin', 'hr_admin'].includes(ad.role)) {
         storeName = 'All Store';
       }
 
@@ -975,7 +964,7 @@ export const getTaskAssignees = async (req, res) => {
       });
     });
 
-    // Make sure logged-in admin is in the list if they are a store admin
+    // Make sure logged-in admin is in the list if they are an admin
     if (isUserAdmin && role === 'store_admin' && !individualAssignees.some(ad => ad.value === adminId.toString())) {
       const designation = user.subRole && user.subRole !== 'NR'
         ? user.subRole
