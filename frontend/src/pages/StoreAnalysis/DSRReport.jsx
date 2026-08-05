@@ -691,7 +691,12 @@ const DSRReport = () => {
   const [branches, setBranches] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const targetInputRef = useRef(null);
-  const [selectedStore, setSelectedStore] = useState("All");
+  const [clusters, setClusters] = useState([]);
+  const [selectedClusters, setSelectedClusters] = useState(["All"]);
+  const [isClusterDropdownOpen, setIsClusterDropdownOpen] = useState(false);
+  const [selectedStores, setSelectedStores] = useState(["All"]);
+  const [isStoreDropdownOpen, setIsStoreDropdownOpen] = useState(false);
+  const selectedStore = selectedStores.length === 1 && !selectedStores.includes("All") ? selectedStores[0] : "All";
   const [selectedReport, setSelectedReport] = useState("Revenue Vs Target");
   const [activeTab, setActiveTab] = useState("MTD");
   const [customStartDate, setCustomStartDate] = useState(() => {
@@ -1799,6 +1804,26 @@ const DSRReport = () => {
     };
     fetchBranches();
   }, [isStoreAdmin, isClusterAdmin]);
+
+  useEffect(() => {
+    const fetchClusters = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${baseUrl.baseUrl}api/admin/admin/list`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const list = Array.isArray(json) ? json : json.data || [];
+          const clusterAdmins = list.filter(u => u.role === "cluster_admin");
+          setClusters(clusterAdmins);
+        }
+      } catch (err) {
+        console.error("Error fetching clusters for DSR Report:", err);
+      }
+    };
+    fetchClusters();
+  }, []);
 
   const [systemEmployees, setSystemEmployees] = useState([]);
 
@@ -3054,11 +3079,7 @@ const DSRReport = () => {
     }
   }, [branches, isAdminOrSuperAdmin, isClusterAdmin, isStoreAdmin, walkins, performanceData, selectedStore, activeTab, customStartDate, customEndDate, funnelView, salesData, dapprAttribution, customizationAttribution, storeCustomizationTotals, storeWeekRanges, week1Dates, week2Dates, week3Dates, week4Dates]);
 
-  // Populate dynamic store options for dropdown
-  const storeOptions = useMemo(() => {
-    const names = branches.map((b) => displayBranchName(b.workingBranch));
-    return ["All", ...Array.from(new Set(names))];
-  }, [branches]);
+
 
   const storeToClusterMap = useMemo(() => {
     const map = {};
@@ -3070,28 +3091,53 @@ const DSRReport = () => {
     return map;
   }, [branches]);
 
+  const storeOptions = useMemo(() => {
+    let list = branches;
+    if (selectedClusters.length > 0 && !selectedClusters.includes("All")) {
+      const assignedIds = new Set();
+      selectedClusters.forEach(clusterId => {
+        const selectedClusterAdmin = clusters.find(c => String(c._id) === String(clusterId));
+        if (selectedClusterAdmin && Array.isArray(selectedClusterAdmin.branches)) {
+          selectedClusterAdmin.branches.forEach(b => assignedIds.add(String(b._id || b)));
+        }
+      });
+      list = branches.filter(b => assignedIds.has(String(b._id)));
+    }
+    return list.map(b => displayBranchName(b.workingBranch)).filter(Boolean).sort();
+  }, [branches, selectedClusters, clusters]);
+
+  const isStoreSelected = (storeName) => {
+    if (!storeName) return false;
+    if (selectedClusters.length > 0 && !selectedClusters.includes("All")) {
+      const assignedIds = new Set();
+      selectedClusters.forEach(clusterId => {
+        const selectedClusterAdmin = clusters.find(c => String(c._id) === String(clusterId));
+        if (selectedClusterAdmin && Array.isArray(selectedClusterAdmin.branches)) {
+          selectedClusterAdmin.branches.forEach(b => assignedIds.add(String(b._id || b)));
+        }
+      });
+      const branch = branches.find(b => displayBranchName(b.workingBranch) === storeName || b.workingBranch === storeName);
+      if (branch && !assignedIds.has(String(branch._id))) return false;
+    }
+    if (selectedStores.includes("All") || selectedStores.length === 0) return true;
+    return selectedStores.includes(storeName);
+  };
+
   const filteredData = useMemo(() => {
     return dsrData.filter((item) => {
       const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-      // If the row represents staff, don't filter it out based on selectedStore
-      const matchesStore = item.isStaff || selectedStore === "All" || item.name === selectedStore;
+      const matchesStore = item.isStaff || (selectedClusters.includes("All") && selectedStores.includes("All")) || isStoreSelected(item.name);
       return matchesSearch && matchesStore;
     });
-  }, [dsrData, searchQuery, selectedStore]);
+  }, [dsrData, searchQuery, selectedStores, selectedClusters, clusters, branches]);
 
   const filteredFunnelRows = useMemo(() => {
     return funnelRows.filter((item) => {
       const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStore = selectedStore === "All" ||
-        (item.storeName && (
-          item.storeName === selectedStore ||
-          normalizeForMatch(item.storeName) === normalizeForMatch(selectedStore) ||
-          locationKey(item.storeName) === locationKey(selectedStore)
-        )) ||
-        (item.storeName === undefined && selectedStore === "G Thrissur");
+      const matchesStore = (selectedClusters.includes("All") && selectedStores.includes("All")) || isStoreSelected(item.storeName || item.name);
       return matchesSearch && matchesStore;
     });
-  }, [funnelRows, searchQuery, selectedStore]);
+  }, [funnelRows, searchQuery, selectedStores, selectedClusters, clusters, branches]);
 
   // Dynamic calculations for Revenue Vs Target metrics cards
   const overallTarget = useMemo(() => {
@@ -3560,10 +3606,10 @@ const DSRReport = () => {
     return categoryRows.filter((item) => {
       const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
       // store_admin rows are all staff for their store — no store filter needed
-      const matchesStore = isStoreAdmin || selectedStore === "All" || item.name === selectedStore;
+      const matchesStore = isStoreAdmin || (selectedClusters.includes("All") && selectedStores.includes("All")) || isStoreSelected(item.name);
       return matchesSearch && matchesStore;
     });
-  }, [categoryRows, searchQuery, selectedStore, isStoreAdmin]);
+  }, [categoryRows, searchQuery, selectedStores, selectedClusters, clusters, branches, isStoreAdmin]);
 
   // Dynamic calculations for category totals row
   const totalRentalValFtd = useMemo(() => filteredCategoryRows.reduce((acc, row) => acc + row.rentalValFtd, 0), [filteredCategoryRows]);
@@ -3625,10 +3671,10 @@ const DSRReport = () => {
       fileName = `Sales_Funnel_${activeTab}_${CURRENT_YEAR}.csv`;
       const headers = [
         selectedStore === "All" && !isStoreAdmin ? "Store Name" : "Staff Name",
-        "Bill (FTD)", `Bill (${activeTab})`,
-        "Value (FTD)", `Value (${activeTab})`,
-        "Qty (FTD)", `Qty (${activeTab})`,
         "Walk-In (FTD)", `Walk-In (${activeTab})`,
+        "Bill (FTD)", `Bill (${activeTab})`,
+        "Qty (FTD)", `Qty (${activeTab})`,
+        "Value (FTD)", `Value (${activeTab})`,
         "Loss (FTD)", `Loss (${activeTab})`,
         "ABV (FTD)", `ABV (${activeTab})`,
         "ABS (FTD)", `ABS (${activeTab})`,
@@ -3637,10 +3683,10 @@ const DSRReport = () => {
       ];
       const rows = filteredFunnelRows.map((row) => [
         row.name,
-        row.valFtd, row.valWtd,
+        row.walkFtd, row.walkWtd,
         row.billFtd, row.billWtd,
         row.qtyFtd, row.qtyWtd,
-        row.walkFtd, row.walkWtd,
+        row.valFtd, row.valWtd,
         row.lossFtd, row.lossWtd,
         row.abvFtd, row.abvWtd,
         row.absFtd, row.absWtd,
@@ -3649,10 +3695,10 @@ const DSRReport = () => {
       ]);
       rows.push([
         "Total",
-        totalValFtd, totalValWtd,
+        totalWalkFtd, totalWalkWtd,
         totalBillFtd, totalBillWtd,
         totalQtyFtd, totalQtyWtd,
-        totalWalkFtd, totalWalkWtd,
+        totalValFtd, totalValWtd,
         totalLossFtd, totalLossWtd,
         totalAbvFtd, totalAbvWtd,
         totalAbsFtd, totalAbsWtd,
@@ -3666,21 +3712,21 @@ const DSRReport = () => {
       fileName = `Category_Contribution_${CURRENT_YEAR}.csv`;
       const headers = [
         "Store Name",
-        "Rental Products - Value FTD", "Rental Products - Value WTD", "Rental Products - Bill FTD", "Rental Products - Bill WTD", "Rental Products - Qty FTD", "Rental Products - Qty WTD",
-        "Dappr Squad - Value FTD", "Dappr Squad - Value WTD", "Dappr Squad - Bill FTD", "Dappr Squad - Bill WTD", "Dappr Squad - Qty FTD", "Dappr Squad - Qty WTD",
-        "Sales Products - Value FTD", "Sales Products - Value WTD", "Sales Products - Bill FTD", "Sales Products - Bill WTD", "Sales Products - Qty FTD", "Sales Products - Qty WTD"
+        "Rental Products - Bill FTD", "Rental Products - Bill WTD", "Rental Products - Qty FTD", "Rental Products - Qty WTD", "Rental Products - Value FTD", "Rental Products - Value WTD",
+        "Dappr Squad - Bill FTD", "Dappr Squad - Bill WTD", "Dappr Squad - Qty FTD", "Dappr Squad - Qty WTD", "Dappr Squad - Value FTD", "Dappr Squad - Value WTD",
+        "Sales Products - Bill FTD", "Sales Products - Bill WTD", "Sales Products - Qty FTD", "Sales Products - Qty WTD", "Sales Products - Value FTD", "Sales Products - Value WTD"
       ];
       const rows = filteredCategoryRows.map((row) => [
         row.name,
-        row.rentalValFtd, row.rentalValWtd, row.rentalBillFtd, row.rentalBillWtd, row.rentalQtyFtd, row.rentalQtyWtd,
-        row.squadValFtd, row.squadValWtd, row.squadBillFtd, row.squadBillWtd, row.squadQtyFtd, row.squadQtyWtd,
-        row.salesValFtd, row.salesValWtd, row.salesBillFtd, row.salesBillWtd, row.salesQtyFtd, row.salesQtyWtd
+        row.rentalBillFtd, row.rentalBillWtd, row.rentalQtyFtd, row.rentalQtyWtd, row.rentalValFtd, row.rentalValWtd,
+        row.squadBillFtd, row.squadBillWtd, row.squadQtyFtd, row.squadQtyWtd, row.squadValFtd, row.squadValWtd,
+        row.salesBillFtd, row.salesBillWtd, row.salesQtyFtd, row.salesQtyWtd, row.salesValFtd, row.salesValWtd
       ]);
       rows.push([
         "Total",
-        totalRentalValFtd, totalRentalValWtd, totalRentalBillFtd, totalRentalBillWtd, totalRentalQtyFtd, totalRentalQtyWtd,
-        totalSquadValFtd, totalSquadValWtd, totalSquadBillFtd, totalSquadBillWtd, totalSquadQtyFtd, totalSquadQtyWtd,
-        totalSalesValFtd, totalSalesValWtd, totalSalesBillFtd, totalSalesBillWtd, totalSalesQtyFtd, totalSalesQtyWtd
+        totalRentalBillFtd, totalRentalBillWtd, totalRentalQtyFtd, totalRentalQtyWtd, totalRentalValFtd, totalRentalValWtd,
+        totalSquadBillFtd, totalSquadBillWtd, totalSquadQtyFtd, totalSquadQtyWtd, totalSquadValFtd, totalSquadValWtd,
+        totalSalesBillFtd, totalSalesBillWtd, totalSalesQtyFtd, totalSalesQtyWtd, totalSalesValFtd, totalSalesValWtd
       ]);
       
       csvContent = [headers, ...rows].map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -3689,21 +3735,21 @@ const DSRReport = () => {
       const storeColumnName = isStoreAdmin ? "Staff Name" : "Store Name";
       const headers = [
         storeColumnName,
-        "Value FTD (INR)", `Value ${activeTab} (INR)`,
         "Bill FTD", `Bill ${activeTab}`,
-        "Qty FTD", `Qty ${activeTab}`
+        "Qty FTD", `Qty ${activeTab}`,
+        "Value FTD (INR)", `Value ${activeTab} (INR)`
       ];
       const rows = filteredCategoryRows.map((row) => [
         row.name,
-        row.customValFtd, row.customValWtd,
         row.customBillFtd, row.customBillWtd,
-        row.customQtyFtd, row.customQtyWtd
+        row.customQtyFtd, row.customQtyWtd,
+        row.customValFtd, row.customValWtd
       ]);
       rows.push([
         "Store Total",
-        totalCustomValFtd, totalCustomValWtd,
         totalCustomBillFtd, totalCustomBillWtd,
-        totalCustomQtyFtd, totalCustomQtyWtd
+        totalCustomQtyFtd, totalCustomQtyWtd,
+        totalCustomValFtd, totalCustomValWtd
       ]);
       csvContent = [headers, ...rows].map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(",")).join("\n");
     }
@@ -3993,55 +4039,171 @@ const DSRReport = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {/* Custom Store Dropdown — hidden for store_admin (locked to their store) */}
+            {/* Multi-Select Cluster Dropdown — hidden for store_admin */}
             {!isStoreAdmin && (
-            <div className="relative">
-              <button 
-                onClick={() => setStoreDropdownOpen(!storeDropdownOpen)}
-                className="flex items-center gap-1.5 bg-white border border-gray-200/80 rounded-xl px-4 py-2.5 text-xs font-semibold text-gray-500 shadow-sm hover:bg-gray-50 transition-colors focus:outline-none"
-              >
-                <span>Store :</span>
-                <span className="text-gray-950 font-extrabold">{selectedStore}</span>
-                <svg className={`w-4 h-4 ml-1 text-gray-400 transition-transform duration-200 ${storeDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsClusterDropdownOpen(!isClusterDropdownOpen)}
+                  className="flex items-center justify-between gap-2 bg-white border border-gray-200/80 rounded-xl px-4 py-2.5 text-xs font-semibold text-gray-500 shadow-sm hover:bg-gray-50 focus:outline-none cursor-pointer min-w-[150px]"
+                >
+                  <span>
+                    {selectedClusters.includes("All") || selectedClusters.length === 0
+                      ? "Cluster : All"
+                      : selectedClusters.length === 1
+                        ? `Cluster : ${clusters.find(c => String(c._id) === String(selectedClusters[0]))?.name || "1 Selected"}`
+                        : `Clusters (${selectedClusters.length})`
+                    }
+                  </span>
+                  <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
 
-              {/* Backdrop closer when open */}
-              {storeDropdownOpen && (
-                <div className="fixed inset-0 z-40" onClick={() => setStoreDropdownOpen(false)} />
-              )}
-
-              <div 
-                className={`absolute right-0 mt-2 w-48 max-h-60 overflow-y-auto rounded-xl bg-white border border-gray-100 shadow-lg z-50 py-1.5 origin-top-right transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-                  storeDropdownOpen 
-                    ? "opacity-100 scale-100 translate-y-0 pointer-events-auto" 
-                    : "opacity-0 scale-95 -translate-y-2 pointer-events-none"
-                }`}
-              >
-                {storeOptions.map((opt) => (
-                  <button
-                    key={opt}
-                    onClick={() => {
-                      setSelectedStore(opt);
-                      setStoreDropdownOpen(false);
-                    }}
-                    className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors flex items-center justify-between ${
-                      selectedStore === opt 
-                        ? "bg-gray-50 text-gray-950" 
-                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-950"
-                    }`}
-                  >
-                    {opt}
-                    {selectedStore === opt && (
-                      <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </button>
-                ))}
+                {isClusterDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-100 z-50 p-2 text-xs font-sans">
+                    <div className="flex items-center justify-between px-2 py-1.5 border-b border-gray-100 mb-1">
+                      <span className="font-bold text-gray-500 text-[11px]">Select Cluster(s)</span>
+                      <div className="flex gap-2 text-[10px]">
+                        <button
+                          type="button"
+                          onClick={() => { setSelectedClusters(["All"]); setSelectedStores(["All"]); }}
+                          className="text-blue-600 font-bold hover:underline cursor-pointer"
+                        >
+                          Select All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setSelectedClusters([]); setSelectedStores(["All"]); }}
+                          className="text-red-500 font-bold hover:underline cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+                    <div className="max-h-48 overflow-y-auto flex flex-col gap-1">
+                      <label className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer font-semibold text-gray-800">
+                        <input
+                          type="checkbox"
+                          checked={selectedClusters.includes("All")}
+                          onChange={() => { setSelectedClusters(["All"]); setSelectedStores(["All"]); }}
+                          className="rounded border-gray-300 text-black focus:ring-black accent-black cursor-pointer"
+                        />
+                        <span>All Clusters</span>
+                      </label>
+                      {clusters.map((c) => {
+                        const isChecked = selectedClusters.includes(String(c._id));
+                        return (
+                          <label key={c._id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer text-gray-700 font-medium">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                setSelectedStores(["All"]);
+                                if (selectedClusters.includes("All")) {
+                                  setSelectedClusters([String(c._id)]);
+                                } else {
+                                  if (isChecked) {
+                                    const next = selectedClusters.filter(id => id !== String(c._id));
+                                    setSelectedClusters(next.length === 0 ? ["All"] : next);
+                                  } else {
+                                    setSelectedClusters([...selectedClusters, String(c._id)]);
+                                  }
+                                }
+                              }}
+                              className="rounded border-gray-300 text-black focus:ring-black accent-black cursor-pointer"
+                            />
+                            <span>{c.name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            )}
+
+            {/* Multi-Select Store Dropdown — hidden for store_admin */}
+            {!isStoreAdmin && storeOptions.length > 0 && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsStoreDropdownOpen(!isStoreDropdownOpen)}
+                  className="flex items-center justify-between gap-2 bg-white border border-gray-200/80 rounded-xl px-4 py-2.5 text-xs font-semibold text-gray-500 shadow-sm hover:bg-gray-50 focus:outline-none cursor-pointer min-w-[150px]"
+                >
+                  <span>
+                    {selectedStores.includes("All") || selectedStores.length === 0
+                      ? "Store : All"
+                      : selectedStores.length === 1
+                        ? `Store : ${selectedStores[0]}`
+                        : `Stores (${selectedStores.length})`
+                    }
+                  </span>
+                  <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {isStoreDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-100 z-50 p-2 text-xs font-sans">
+                    <div className="flex items-center justify-between px-2 py-1.5 border-b border-gray-100 mb-1">
+                      <span className="font-bold text-gray-500 text-[11px]">Select Store(s)</span>
+                      <div className="flex gap-2 text-[10px]">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedStores(["All"])}
+                          className="text-blue-600 font-bold hover:underline cursor-pointer"
+                        >
+                          Select All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedStores([])}
+                          className="text-red-500 font-bold hover:underline cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+                    <div className="max-h-56 overflow-y-auto flex flex-col gap-1">
+                      <label className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer font-semibold text-gray-800">
+                        <input
+                          type="checkbox"
+                          checked={selectedStores.includes("All")}
+                          onChange={() => setSelectedStores(["All"])}
+                          className="rounded border-gray-300 text-black focus:ring-black accent-black cursor-pointer"
+                        />
+                        <span>All Stores</span>
+                      </label>
+                      {storeOptions.map((name) => {
+                        const isChecked = selectedStores.includes(name);
+                        return (
+                          <label key={name} className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer text-gray-700 font-medium">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                if (selectedStores.includes("All")) {
+                                  setSelectedStores([name]);
+                                } else {
+                                  if (isChecked) {
+                                    const next = selectedStores.filter(s => s !== name);
+                                    setSelectedStores(next.length === 0 ? ["All"] : next);
+                                  } else {
+                                    setSelectedStores([...selectedStores, name]);
+                                  }
+                                }
+                              }}
+                              className="rounded border-gray-300 text-black focus:ring-black accent-black cursor-pointer"
+                            />
+                            <span>{name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Custom Report Dropdown */}
@@ -4404,10 +4566,10 @@ const DSRReport = () => {
                   {/* Primary header row */}
                   <tr className="bg-[#2e2e2e] text-white text-[11px] font-bold tracking-wider uppercase border-b border-gray-600">
                     <th rowSpan={2} className="sticky left-0 z-20 bg-[#2e2e2e] px-6 py-4 text-left border-r border-gray-600 w-60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]">{(selectedStore === "All" && !isStoreAdmin) ? "Store Name" : "Staff Name"}</th>
-                    <th colSpan={2} className="px-6 py-2 border-r border-gray-600 text-center">Bill</th>
-                    <th colSpan={2} className="px-6 py-2 border-r border-gray-600 text-center">Value</th>
-                    <th colSpan={2} className="px-6 py-2 border-r border-gray-600 text-center">Quantity</th>
                     <th colSpan={2} className="px-6 py-2 border-r border-gray-600 text-center">Walk In</th>
+                    <th colSpan={2} className="px-6 py-2 border-r border-gray-600 text-center">Bill</th>
+                    <th colSpan={2} className="px-6 py-2 border-r border-gray-600 text-center">Quantity</th>
+                    <th colSpan={2} className="px-6 py-2 border-r border-gray-600 text-center">Value</th>
                     <th colSpan={2} className="px-6 py-2 border-r border-gray-600 text-center">Loss</th>
                     <th colSpan={2} className="px-6 py-2 border-r border-gray-600 text-center">ABV</th>
                     <th colSpan={2} className="px-6 py-2 border-r border-gray-600 text-center">ABS</th>
@@ -4460,17 +4622,17 @@ const DSRReport = () => {
                     return (
                       <tr key={idx} className="odd:bg-white even:bg-[#f9fafb] hover:bg-gray-50/50 transition-colors">
                         <td className={`sticky left-0 z-10 px-6 py-3.5 text-left font-semibold text-gray-800 border-r border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)] ${idx % 2 === 0 ? "bg-white" : "bg-[#f9fafb]"}`}>{row.name}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(row.walkFtd)}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(row.walkWtd)}</td>
+
                         <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(formatIndianNumber(row.billFtd))}</td>
                         <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(formatIndianNumber(row.billWtd))}</td>
-                        
-                        <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(formatIndianNumber(row.valFtd))}</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(formatIndianNumber(row.valWtd))}</td>
                         
                         <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(row.qtyFtd)}</td>
                         <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(row.qtyWtd)}</td>
 
-                        <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(row.walkFtd)}</td>
-                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(row.walkWtd)}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(formatIndianNumber(row.valFtd))}</td>
+                        <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(formatIndianNumber(row.valWtd))}</td>
 
                         <td className="px-4 py-3.5 border-r border-gray-100">{renderCellVal(row.lossFtd)}</td>
                         <td className="px-4 py-3.5 border-r border-gray-100 text-gray-700">{renderCellVal(row.lossWtd)}</td>
@@ -4501,17 +4663,17 @@ const DSRReport = () => {
                   <tr className="bg-[#dce9f5] font-bold text-gray-900">
                     <td className="sticky left-0 z-10 bg-[#dce9f5] px-6 py-3.5 text-left border-r border-blue-200/50 uppercase tracking-wider shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)]">Store Total</td>
                     
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalWalkFtd))}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalWalkWtd))}</td>
+
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalBillFtd))}</td>
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalBillWtd))}</td>
-                    
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalValFtd))}</td>
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalValWtd))}</td>
                     
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalQtyFtd))}</td>
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalQtyWtd))}</td>
 
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalWalkFtd))}</td>
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalWalkWtd))}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalValFtd))}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalValWtd))}</td>
 
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalLossFtd))}</td>
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalLossWtd))}</td>
@@ -4610,21 +4772,21 @@ const DSRReport = () => {
                   
                   {/* Secondary header row */}
                   <tr className="bg-[#e5ecf6] text-gray-700 text-[10px] font-bold tracking-wider uppercase border-b border-gray-200">
-                    <th colSpan={2} className="px-4 py-2 border-r border-gray-200/50 text-center">Value</th>
                     <th colSpan={2} className="px-4 py-2 border-r border-gray-200/50 text-center">Bill</th>
-                    <th colSpan={2} className="px-4 py-2 text-center">Quantity</th>
+                    <th colSpan={2} className="px-4 py-2 border-r border-gray-200/50 text-center">Quantity</th>
+                    <th colSpan={2} className="px-4 py-2 text-center">Value</th>
                     
-                    <th colSpan={2} className="px-4 py-2 border-r border-gray-200/50 text-center">Value</th>
                     <th colSpan={2} className="px-4 py-2 border-r border-gray-200/50 text-center">Bill</th>
-                    <th colSpan={2} className="px-4 py-2 text-center">Quantity</th>
+                    <th colSpan={2} className="px-4 py-2 border-r border-gray-200/50 text-center">Quantity</th>
+                    <th colSpan={2} className="px-4 py-2 text-center">Value</th>
 
-                    <th colSpan={2} className="px-4 py-2 border-r border-gray-200/50 text-center">Value</th>
                     <th colSpan={2} className="px-4 py-2 border-r border-gray-200/50 text-center">Bill</th>
-                    <th colSpan={2} className="px-4 py-2 text-center">Quantity</th>
+                    <th colSpan={2} className="px-4 py-2 border-r border-gray-200/50 text-center">Quantity</th>
+                    <th colSpan={2} className="px-4 py-2 text-center">Value</th>
 
-                    <th colSpan={2} className="px-4 py-2 border-r border-gray-200/50 text-center">Value</th>
                     <th colSpan={2} className="px-4 py-2 border-r border-gray-200/50 text-center">Bill</th>
-                    <th colSpan={2} className="px-4 py-2 text-center">Quantity</th>
+                    <th colSpan={2} className="px-4 py-2 border-r border-gray-200/50 text-center">Quantity</th>
+                    <th colSpan={2} className="px-4 py-2 text-center">Value</th>
                   </tr>
                   
                   {/* Tertiary header row */}
@@ -4669,53 +4831,53 @@ const DSRReport = () => {
                       <td className="w-2 bg-white border-none"></td>
                       
                       {/* Rental Products Cells */}
-                      <td className={`px-4 py-3.5 border-r border-gray-100 font-medium ${!row.rentalValFtd && "text-red-500"}`}>{renderCellVal(formatIndianNumber(row.rentalValFtd))}</td>
-                      <td className={`px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium ${!row.rentalValWtd && "text-red-500"}`}>{renderCellVal(formatIndianNumber(row.rentalValWtd))}</td>
-                      
                       <td className={`px-4 py-3.5 border-r border-gray-100 ${!row.rentalBillFtd && "text-red-500"}`}>{renderCellVal(row.rentalBillFtd)}</td>
                       <td className={`px-4 py-3.5 border-r border-gray-100 text-gray-700 ${!row.rentalBillWtd && "text-red-500"}`}>{renderCellVal(row.rentalBillWtd)}</td>
                       
                       <td className={`px-4 py-3.5 border-r border-gray-100 ${!row.rentalQtyFtd && "text-red-500"}`}>{renderCellVal(row.rentalQtyFtd)}</td>
-                      <td className={`px-4 py-3.5 text-gray-700 ${!row.rentalQtyWtd && "text-red-500"}`}>{renderCellVal(row.rentalQtyWtd)}</td>
+                      <td className={`px-4 py-3.5 border-r border-gray-100 text-gray-700 ${!row.rentalQtyWtd && "text-red-500"}`}>{renderCellVal(row.rentalQtyWtd)}</td>
+                      
+                      <td className={`px-4 py-3.5 border-r border-gray-100 font-medium ${!row.rentalValFtd && "text-red-500"}`}>{renderCellVal(formatIndianNumber(row.rentalValFtd))}</td>
+                      <td className={`px-4 py-3.5 text-gray-700 font-medium ${!row.rentalValWtd && "text-red-500"}`}>{renderCellVal(formatIndianNumber(row.rentalValWtd))}</td>
                       
                       {/* Spacer cell */}
                       <td className="w-2 bg-white border-none"></td>
                       
                       {/* Dappr Squad Cells */}
-                      <td className={`px-4 py-3.5 border-r border-gray-100 font-medium ${!row.squadValFtd && "text-red-500"}`}>{renderCellVal(formatIndianNumber(row.squadValFtd))}</td>
-                      <td className={`px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium ${!row.squadValWtd && "text-red-500"}`}>{renderCellVal(formatIndianNumber(row.squadValWtd))}</td>
-                      
                       <td className={`px-4 py-3.5 border-r border-gray-100 ${!row.squadBillFtd && "text-red-500"}`}>{renderCellVal(row.squadBillFtd)}</td>
                       <td className={`px-4 py-3.5 border-r border-gray-100 text-gray-700 ${!row.squadBillWtd && "text-red-500"}`}>{renderCellVal(row.squadBillWtd)}</td>
 
                       <td className={`px-4 py-3.5 border-r border-gray-100 ${!row.squadQtyFtd && "text-red-500"}`}>{renderCellVal(row.squadQtyFtd)}</td>
-                      <td className={`px-4 py-3.5 text-gray-700 ${!row.squadQtyWtd && "text-red-500"}`}>{renderCellVal(row.squadQtyWtd)}</td>
+                      <td className={`px-4 py-3.5 border-r border-gray-100 text-gray-700 ${!row.squadQtyWtd && "text-red-500"}`}>{renderCellVal(row.squadQtyWtd)}</td>
+
+                      <td className={`px-4 py-3.5 border-r border-gray-100 font-medium ${!row.squadValFtd && "text-red-500"}`}>{renderCellVal(formatIndianNumber(row.squadValFtd))}</td>
+                      <td className={`px-4 py-3.5 text-gray-700 font-medium ${!row.squadValWtd && "text-red-500"}`}>{renderCellVal(formatIndianNumber(row.squadValWtd))}</td>
 
                       {/* Spacer cell */}
                       <td className="w-2 bg-white border-none"></td>
 
                       {/* Customization Cells */}
-                      <td className={`px-4 py-3.5 border-r border-gray-100 font-medium ${!row.customValFtd && "text-red-500"}`}>{renderCellVal(formatIndianNumber(row.customValFtd))}</td>
-                      <td className={`px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium ${!row.customValWtd && "text-red-500"}`}>{renderCellVal(formatIndianNumber(row.customValWtd))}</td>
-                      
                       <td className={`px-4 py-3.5 border-r border-gray-100 ${!row.customBillFtd && "text-red-500"}`}>{renderCellVal(row.customBillFtd)}</td>
                       <td className={`px-4 py-3.5 border-r border-gray-100 text-gray-700 ${!row.customBillWtd && "text-red-500"}`}>{renderCellVal(row.customBillWtd)}</td>
 
                       <td className={`px-4 py-3.5 border-r border-gray-100 ${!row.customQtyFtd && "text-red-500"}`}>{renderCellVal(row.customQtyFtd)}</td>
-                      <td className={`px-4 py-3.5 text-gray-700 ${!row.customQtyWtd && "text-red-500"}`}>{renderCellVal(row.customQtyWtd)}</td>
+                      <td className={`px-4 py-3.5 border-r border-gray-100 text-gray-700 ${!row.customQtyWtd && "text-red-500"}`}>{renderCellVal(row.customQtyWtd)}</td>
+
+                      <td className={`px-4 py-3.5 border-r border-gray-100 font-medium ${!row.customValFtd && "text-red-500"}`}>{renderCellVal(formatIndianNumber(row.customValFtd))}</td>
+                      <td className={`px-4 py-3.5 text-gray-700 font-medium ${!row.customValWtd && "text-red-500"}`}>{renderCellVal(formatIndianNumber(row.customValWtd))}</td>
 
                       {/* Spacer cell */}
                       <td className="w-2 bg-white border-none"></td>
 
                       {/* Sales Products Cells */}
-                      <td className={`px-4 py-3.5 border-r border-gray-100 font-medium ${!row.salesValFtd && "text-red-500"}`}>{renderCellVal(formatIndianNumber(row.salesValFtd))}</td>
-                      <td className={`px-4 py-3.5 border-r border-gray-100 text-gray-700 font-medium ${!row.salesValWtd && "text-red-500"}`}>{renderCellVal(formatIndianNumber(row.salesValWtd))}</td>
-                      
                       <td className={`px-4 py-3.5 border-r border-gray-100 ${!row.salesBillFtd && "text-red-500"}`}>{renderCellVal(row.salesBillFtd)}</td>
                       <td className={`px-4 py-3.5 border-r border-gray-100 text-gray-700 ${!row.salesBillWtd && "text-red-500"}`}>{renderCellVal(row.salesBillWtd)}</td>
                       
                       <td className={`px-4 py-3.5 border-r border-gray-100 ${!row.salesQtyFtd && "text-red-500"}`}>{renderCellVal(row.salesQtyFtd)}</td>
-                      <td className={`px-4 py-3.5 text-gray-700 ${!row.salesQtyWtd && "text-red-500"}`}>{renderCellVal(row.salesQtyWtd)}</td>
+                      <td className={`px-4 py-3.5 border-r border-gray-100 text-gray-700 ${!row.salesQtyWtd && "text-red-500"}`}>{renderCellVal(row.salesQtyWtd)}</td>
+
+                      <td className={`px-4 py-3.5 border-r border-gray-100 font-medium ${!row.salesValFtd && "text-red-500"}`}>{renderCellVal(formatIndianNumber(row.salesValFtd))}</td>
+                      <td className={`px-4 py-3.5 text-gray-700 font-medium ${!row.salesValWtd && "text-red-500"}`}>{renderCellVal(formatIndianNumber(row.salesValWtd))}</td>
                     </tr>
                   ))}
 
@@ -4726,53 +4888,53 @@ const DSRReport = () => {
                     <td className="w-2 bg-white border-none"></td>
                     
                     {/* Rental Products Totals */}
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalRentalValFtd))}</td>
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalRentalValWtd))}</td>
-                    
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalRentalBillFtd))}</td>
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalRentalBillWtd))}</td>
                     
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalRentalQtyFtd))}</td>
-                    <td className="px-4 py-3.5">{renderCellVal(formatIndianNumber(totalRentalQtyWtd))}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalRentalQtyWtd))}</td>
+
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalRentalValFtd))}</td>
+                    <td className="px-4 py-3.5">{renderCellVal(formatIndianNumber(totalRentalValWtd))}</td>
                     
                     {/* Spacer cell */}
                     <td className="w-2 bg-white border-none"></td>
                     
                     {/* Dappr Squad Totals */}
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalSquadValFtd))}</td>
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalSquadValWtd))}</td>
-                    
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalSquadBillFtd))}</td>
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalSquadBillWtd))}</td>
 
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalSquadQtyFtd))}</td>
-                    <td className="px-4 py-3.5">{renderCellVal(formatIndianNumber(totalSquadQtyWtd))}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalSquadQtyWtd))}</td>
+
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalSquadValFtd))}</td>
+                    <td className="px-4 py-3.5">{renderCellVal(formatIndianNumber(totalSquadValWtd))}</td>
 
                     {/* Spacer cell */}
                     <td className="w-2 bg-white border-none"></td>
 
                     {/* Customization Totals */}
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalCustomValFtd))}</td>
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalCustomValWtd))}</td>
-                    
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalCustomBillFtd))}</td>
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalCustomBillWtd))}</td>
 
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalCustomQtyFtd))}</td>
-                    <td className="px-4 py-3.5">{renderCellVal(formatIndianNumber(totalCustomQtyWtd))}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalCustomQtyWtd))}</td>
+
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalCustomValFtd))}</td>
+                    <td className="px-4 py-3.5">{renderCellVal(formatIndianNumber(totalCustomValWtd))}</td>
 
                     {/* Spacer cell */}
                     <td className="w-2 bg-white border-none"></td>
 
                     {/* Sales Products Totals */}
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalSalesValFtd))}</td>
-                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalSalesValWtd))}</td>
-                    
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalSalesBillFtd))}</td>
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalSalesBillWtd))}</td>
                     
                     <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalSalesQtyFtd))}</td>
-                    <td className="px-4 py-3.5">{renderCellVal(formatIndianNumber(totalSalesQtyWtd))}</td>
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalSalesQtyWtd))}</td>
+
+                    <td className="px-4 py-3.5 border-r border-blue-200/50">{renderCellVal(formatIndianNumber(totalSalesValFtd))}</td>
+                    <td className="px-4 py-3.5">{renderCellVal(formatIndianNumber(totalSalesValWtd))}</td>
                   </tr>
                 </tbody>
               </table>

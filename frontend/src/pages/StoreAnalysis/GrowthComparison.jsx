@@ -463,7 +463,12 @@ const GrowthComparison = () => {
   const isStoreAdmin = user?.role === "store_admin";
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const STORES_PER_PAGE = 5;
+  const STORES_PER_PAGE = 9999;
+  const [clusters, setClusters] = useState([]);
+  const [selectedClusters, setSelectedClusters] = useState(["All"]);
+  const [isClusterDropdownOpen, setIsClusterDropdownOpen] = useState(false);
+  const [selectedStores, setSelectedStores] = useState(["All"]);
+  const [isStoreDropdownOpen, setIsStoreDropdownOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("MTD");
   const [customStartDate, setCustomStartDate] = useState(() => {
     const d = new Date();
@@ -486,6 +491,32 @@ const GrowthComparison = () => {
   const [storeWeekRanges, setStoreWeekRanges] = useState(() => {
     try { return JSON.parse(localStorage.getItem("storeWeekRanges") || "{}"); } catch { return {}; }
   });
+
+  // Fetch active clusters dynamically
+  useEffect(() => {
+    const fetchClusters = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${baseUrl.baseUrl}api/admin/admin/list`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const list = Array.isArray(json?.data) 
+            ? json.data.filter(item => item.role === "cluster_admin") 
+            : [];
+          setClusters(list);
+        }
+      } catch (err) {
+        console.error("Error fetching cluster admins for GrowthComparison:", err);
+      }
+    };
+    fetchClusters();
+  }, []);
 
   // Fetch store target week ranges on mount
   useEffect(() => {
@@ -744,8 +775,49 @@ const GrowthComparison = () => {
     return (isNegative ? "-" : "") + res;
   };
 
+  const storeOptions = useMemo(() => {
+    let list = branches;
+    if (selectedClusters.length > 0 && !selectedClusters.includes("All")) {
+      const assignedBranchIds = new Set();
+      selectedClusters.forEach(clusterId => {
+        const selectedClusterAdmin = clusters.find(c => String(c._id) === String(clusterId));
+        if (selectedClusterAdmin && Array.isArray(selectedClusterAdmin.branches)) {
+          selectedClusterAdmin.branches.forEach(b => {
+            assignedBranchIds.add(String(b._id || b));
+            if (b.workingBranch) assignedBranchIds.add(norm(b.workingBranch));
+          });
+        }
+      });
+      list = branches.filter(b => 
+        assignedBranchIds.has(String(b._id)) || assignedBranchIds.has(norm(b.workingBranch))
+      );
+    }
+    return list.map(b => displayBranchName(b.workingBranch)).filter(Boolean).sort();
+  }, [branches, selectedClusters, clusters]);
+
   const filteredRows = useMemo(() => {
-    const activeList = branches.map((b, index) => {
+    let targetBranches = branches;
+    if (selectedClusters.length > 0 && !selectedClusters.includes("All")) {
+      const assignedBranchIds = new Set();
+      selectedClusters.forEach(clusterId => {
+        const selectedClusterAdmin = clusters.find(c => String(c._id) === String(clusterId));
+        if (selectedClusterAdmin && Array.isArray(selectedClusterAdmin.branches)) {
+          selectedClusterAdmin.branches.forEach(b => {
+            assignedBranchIds.add(String(b._id || b));
+            if (b.workingBranch) assignedBranchIds.add(norm(b.workingBranch));
+          });
+        }
+      });
+      targetBranches = branches.filter(b => 
+        assignedBranchIds.has(String(b._id)) || assignedBranchIds.has(norm(b.workingBranch))
+      );
+    }
+
+    if (selectedStores.length > 0 && !selectedStores.includes("All")) {
+      targetBranches = targetBranches.filter(b => selectedStores.includes(displayBranchName(b.workingBranch)));
+    }
+
+    const activeList = targetBranches.map((b, index) => {
       const name = displayBranchName(b.workingBranch);
       const locId = getBranchLocationId(b.workingBranch);
 
@@ -782,10 +854,10 @@ const GrowthComparison = () => {
     return activeList.filter((row) =>
       row.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [branches, tyWalkinCounts, lyWalkinCounts, tyPerformance, lyPerformance, searchQuery, activeTab, customStartDate, customEndDate, storeWeekRanges]);
+  }, [branches, selectedClusters, selectedStores, clusters, tyWalkinCounts, lyWalkinCounts, tyPerformance, lyPerformance, searchQuery, activeTab, customStartDate, customEndDate, storeWeekRanges]);
 
-  // Reset to page 1 when search or tab changes
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, activeTab]);
+  // Reset to page 1 when search, cluster, store, or tab changes
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, selectedClusters, selectedStores, activeTab]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / STORES_PER_PAGE));
   const paginatedRows = filteredRows.slice((currentPage - 1) * STORES_PER_PAGE, currentPage * STORES_PER_PAGE);
@@ -811,54 +883,63 @@ const GrowthComparison = () => {
     const scaleLabel = activeTab === "MTD" ? "MTD" : (activeTab === "WTD" ? "WTD" : "CUSTOM");
     const fileName = `Growth_Comparison_${scaleLabel}_2026.csv`;
     
+    // Metric order: Walk-In -> Bill -> Quantity -> Value
     const headers = [
       "Store Name",
-      `Value TY (${scaleLabel})`, `Value LY (${scaleLabel})`, "Value L2L", "Value L2L %",
+      `Walk-In TY (${scaleLabel})`, `Walk-In LY (${scaleLabel})`, "Walk-In L2L", "Walk-In L2L %",
       `Bill TY (${scaleLabel})`, `Bill LY (${scaleLabel})`, "Bill L2L", "Bill L2L %",
       `Qty TY (${scaleLabel})`, `Qty LY (${scaleLabel})`, "Qty L2L", "Qty L2L %",
-      `Walk-In TY (${scaleLabel})`, `Walk-In LY (${scaleLabel})`, "Walk-In L2L", "Walk-In L2L %"
+      `Value TY (${scaleLabel})`, `Value LY (${scaleLabel})`, "Value L2L", "Value L2L %"
     ];
     
     const rows = filteredRows.map((row) => {
-      const vL2l = row.tyVal - row.lyVal;
-      const vL2lPct = row.lyVal > 0 ? ((vL2l / row.lyVal) * 100).toFixed(1) + "%" : "0.0%";
-      
+      const wL2l = row.tyWalk - row.lyWalk;
+      const wL2lPctRaw = row.lyWalk > 0 ? (((row.tyWalk / row.lyWalk) - 1) * 100).toFixed(1) : "0.0";
+      const wL2lPct = row.lyWalk > 0 ? (Number(wL2lPctRaw) > 0 ? "+" : "") + wL2lPctRaw + "%" : "0.0%";
+
       const bL2l = row.tyBill - row.lyBill;
-      const bL2lPct = row.lyBill > 0 ? ((bL2l / row.lyBill) * 100).toFixed(1) + "%" : "0.0%";
+      const bL2lPctRaw = row.lyBill > 0 ? (((row.tyBill / row.lyBill) - 1) * 100).toFixed(1) : "0.0";
+      const bL2lPct = row.lyBill > 0 ? (Number(bL2lPctRaw) > 0 ? "+" : "") + bL2lPctRaw + "%" : "0.0%";
       
       const qL2l = row.tyQty - row.lyQty;
-      const qL2lPct = row.lyQty > 0 ? ((qL2l / row.lyQty) * 100).toFixed(1) + "%" : "0.0%";
+      const qL2lPctRaw = row.lyQty > 0 ? (((row.tyQty / row.lyQty) - 1) * 100).toFixed(1) : "0.0";
+      const qL2lPct = row.lyQty > 0 ? (Number(qL2lPctRaw) > 0 ? "+" : "") + qL2lPctRaw + "%" : "0.0%";
       
-      const wL2l = row.tyWalk - row.lyWalk;
-      const wL2lPct = row.lyWalk > 0 ? ((wL2l / row.lyWalk) * 100).toFixed(1) + "%" : "0.0%";
+      const vL2l = row.tyVal - row.lyVal;
+      const vL2lPctRaw = row.lyVal > 0 ? (((row.tyVal / row.lyVal) - 1) * 100).toFixed(1) : "0.0";
+      const vL2lPct = row.lyVal > 0 ? (Number(vL2lPctRaw) > 0 ? "+" : "") + vL2lPctRaw + "%" : "0.0%";
 
       return [
         row.name,
-        row.tyVal, row.lyVal, vL2l, vL2lPct,
+        row.tyWalk, row.lyWalk, wL2l, wL2lPct,
         row.tyBill, row.lyBill, bL2l, bL2lPct,
         row.tyQty, row.lyQty, qL2l, qL2lPct,
-        row.tyWalk, row.lyWalk, wL2l, wL2lPct
+        row.tyVal, row.lyVal, vL2l, vL2lPct
       ];
     });
     
-    const totalVL2l = totalTyVal - totalLyVal;
-    const totalVL2lPct = totalLyVal > 0 ? ((totalVL2l / totalLyVal) * 100).toFixed(1) + "%" : "0.0%";
-    
+    const totalWL2l = totalTyWalk - totalLyWalk;
+    const totalWL2lPctRaw = totalLyWalk > 0 ? (((totalTyWalk / totalLyWalk) - 1) * 100).toFixed(1) : "0.0";
+    const totalWL2lPct = totalLyWalk > 0 ? (Number(totalWL2lPctRaw) > 0 ? "+" : "") + totalWL2lPctRaw + "%" : "0.0%";
+
     const totalBL2l = totalTyBill - totalLyBill;
-    const totalBL2lPct = totalLyBill > 0 ? ((totalBL2l / totalLyBill) * 100).toFixed(1) + "%" : "0.0%";
+    const totalBL2lPctRaw = totalLyBill > 0 ? (((totalTyBill / totalLyBill) - 1) * 100).toFixed(1) : "0.0";
+    const totalBL2lPct = totalLyBill > 0 ? (Number(totalBL2lPctRaw) > 0 ? "+" : "") + totalBL2lPctRaw + "%" : "0.0%";
     
     const totalQL2l = totalTyQty - totalLyQty;
-    const totalQL2lPct = totalLyQty > 0 ? ((totalQL2l / totalLyQty) * 100).toFixed(1) + "%" : "0.0%";
+    const totalQL2lPctRaw = totalLyQty > 0 ? (((totalTyQty / totalLyQty) - 1) * 100).toFixed(1) : "0.0";
+    const totalQL2lPct = totalLyQty > 0 ? (Number(totalQL2lPctRaw) > 0 ? "+" : "") + totalQL2lPctRaw + "%" : "0.0%";
     
-    const totalWL2l = totalTyWalk - totalLyWalk;
-    const totalWL2lPct = totalLyWalk > 0 ? ((totalWL2l / totalLyWalk) * 100).toFixed(1) + "%" : "0.0%";
-    
+    const totalVL2l = totalTyVal - totalLyVal;
+    const totalVL2lPctRaw = totalLyVal > 0 ? (((totalTyVal / totalLyVal) - 1) * 100).toFixed(1) : "0.0";
+    const totalVL2lPct = totalLyVal > 0 ? (Number(totalVL2lPctRaw) > 0 ? "+" : "") + totalVL2lPctRaw + "%" : "0.0%";
+
     rows.push([
       "Total",
-      totalTyVal, totalLyVal, totalVL2l, totalVL2lPct,
+      totalTyWalk, totalLyWalk, totalWL2l, totalWL2lPct,
       totalTyBill, totalLyBill, totalBL2l, totalBL2lPct,
       totalTyQty, totalLyQty, totalQL2l, totalQL2lPct,
-      totalTyWalk, totalLyWalk, totalWL2l, totalWL2lPct
+      totalTyVal, totalLyVal, totalVL2l, totalVL2lPct
     ]);
     
     const csvContent = [headers, ...rows].map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -974,18 +1055,186 @@ const GrowthComparison = () => {
 
         {/* Filter Bar Row */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          {/* Search bar */}
-          <div className="relative w-full sm:max-w-xs">
-            <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-gray-400">
-              <FiSearch size={16} />
-            </span>
-            <input 
-              type="text" 
-              placeholder="Search Store name..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#eef1f6] border-none rounded-xl pl-10 pr-4 py-2.5 text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-black"
-            />
+          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+            {/* Search bar */}
+            <div className="relative w-full sm:w-64">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-gray-400">
+                <FiSearch size={16} />
+              </span>
+              <input 
+                type="text" 
+                placeholder="Search Store name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-[#eef1f6] border-none rounded-xl pl-10 pr-4 py-2.5 text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-black"
+              />
+            </div>
+
+            {/* Cluster Multi-Select Dropdown */}
+            {!isStoreAdmin && clusters.length > 0 && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsClusterDropdownOpen(!isClusterDropdownOpen)}
+                  className="flex items-center justify-between gap-2 bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-bold text-gray-700 shadow-sm hover:border-gray-300 focus:outline-none cursor-pointer min-w-[170px]"
+                >
+                  <span>
+                    {selectedClusters.includes("All") || selectedClusters.length === 0
+                      ? "Cluster : All"
+                      : selectedClusters.length === 1
+                        ? `Cluster : ${clusters.find(c => String(c._id) === String(selectedClusters[0]))?.name || "1 Selected"}`
+                        : `Clusters (${selectedClusters.length})`
+                    }
+                  </span>
+                  <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {isClusterDropdownOpen && (
+                  <div className="absolute left-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-gray-200 z-50 p-2 text-xs">
+                    <div className="flex items-center justify-between px-2 py-1.5 border-b border-gray-100 mb-1">
+                      <span className="font-bold text-gray-500 text-[11px]">Select Cluster(s)</span>
+                      <div className="flex gap-2 text-[10px]">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedClusters(["All"])}
+                          className="text-blue-600 font-bold hover:underline cursor-pointer"
+                        >
+                          Select All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedClusters([])}
+                          className="text-red-500 font-bold hover:underline cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+                    <div className="max-h-48 overflow-y-auto flex flex-col gap-1">
+                      <label className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer font-semibold text-gray-800">
+                        <input
+                          type="checkbox"
+                          checked={selectedClusters.includes("All")}
+                          onChange={() => setSelectedClusters(["All"])}
+                          className="rounded border-gray-300 text-black focus:ring-black accent-black cursor-pointer"
+                        />
+                        <span>All Clusters</span>
+                      </label>
+                      {clusters.map((c) => {
+                        const isChecked = selectedClusters.includes(String(c._id));
+                        return (
+                          <label key={c._id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer text-gray-700 font-medium">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                if (selectedClusters.includes("All")) {
+                                  setSelectedClusters([String(c._id)]);
+                                } else {
+                                  if (isChecked) {
+                                    const next = selectedClusters.filter(id => id !== String(c._id));
+                                    setSelectedClusters(next.length === 0 ? ["All"] : next);
+                                  } else {
+                                    setSelectedClusters([...selectedClusters, String(c._id)]);
+                                  }
+                                }
+                              }}
+                              className="rounded border-gray-300 text-black focus:ring-black accent-black cursor-pointer"
+                            />
+                            <span>{c.name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Store Multi-Select Dropdown */}
+            {!isStoreAdmin && storeOptions.length > 0 && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsStoreDropdownOpen(!isStoreDropdownOpen)}
+                  className="flex items-center justify-between gap-2 bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-bold text-gray-700 shadow-sm hover:border-gray-300 focus:outline-none cursor-pointer min-w-[170px]"
+                >
+                  <span>
+                    {selectedStores.includes("All") || selectedStores.length === 0
+                      ? "Store : All"
+                      : selectedStores.length === 1
+                        ? `Store : ${selectedStores[0]}`
+                        : `Stores (${selectedStores.length})`
+                    }
+                  </span>
+                  <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {isStoreDropdownOpen && (
+                  <div className="absolute left-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-gray-200 z-50 p-2 text-xs font-sans">
+                    <div className="flex items-center justify-between px-2 py-1.5 border-b border-gray-100 mb-1">
+                      <span className="font-bold text-gray-500 text-[11px]">Select Store(s)</span>
+                      <div className="flex gap-2 text-[10px]">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedStores(["All"])}
+                          className="text-blue-600 font-bold hover:underline cursor-pointer"
+                        >
+                          Select All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedStores([])}
+                          className="text-red-500 font-bold hover:underline cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+                    <div className="max-h-56 overflow-y-auto flex flex-col gap-1">
+                      <label className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer font-semibold text-gray-800">
+                        <input
+                          type="checkbox"
+                          checked={selectedStores.includes("All")}
+                          onChange={() => setSelectedStores(["All"])}
+                          className="rounded border-gray-300 text-black focus:ring-black accent-black cursor-pointer"
+                        />
+                        <span>All Stores</span>
+                      </label>
+                      {storeOptions.map((name) => {
+                        const isChecked = selectedStores.includes(name);
+                        return (
+                          <label key={name} className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer text-gray-700 font-medium">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                if (selectedStores.includes("All")) {
+                                  setSelectedStores([name]);
+                                } else {
+                                  if (isChecked) {
+                                    const next = selectedStores.filter(s => s !== name);
+                                    setSelectedStores(next.length === 0 ? ["All"] : next);
+                                  } else {
+                                    setSelectedStores([...selectedStores, name]);
+                                  }
+                                }
+                              }}
+                              className="rounded border-gray-300 text-black focus:ring-black accent-black cursor-pointer"
+                            />
+                            <span>{name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Export Button */}
@@ -1010,21 +1259,21 @@ const GrowthComparison = () => {
           <div className="overflow-x-auto w-full">
             <table className="w-full text-center border-collapse">
               <thead>
-                {/* Primary header row */}
+                {/* Primary header row — Metric order: Walk In -> Bill -> Quantity -> Value */}
                 <tr className="bg-[#18181b] text-white text-[11px] font-bold tracking-wider uppercase border-b border-zinc-700">
                   <th rowSpan={2} className="sticky left-0 z-20 bg-[#18181b] px-6 py-4 text-left border-r border-zinc-700 w-60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]">Store Name</th>
-                  <th colSpan={3} className="px-6 py-2 border-r border-zinc-700 text-center">Value</th>
+                  <th colSpan={3} className="px-6 py-2 border-r border-zinc-700 text-center">Walk In</th>
                   <th colSpan={3} className="px-6 py-2 border-r border-zinc-700 text-center">Bill</th>
                   <th colSpan={3} className="px-6 py-2 border-r border-zinc-700 text-center">Quantity</th>
-                  <th colSpan={3} className="px-6 py-2 text-center">Walk In</th>
+                  <th colSpan={3} className="px-6 py-2 text-center">Value</th>
                 </tr>
                 {/* Secondary header row */}
                 <tr className="bg-[#18181b] text-zinc-300 text-[10px] font-bold tracking-wider uppercase">
-                  {/* Value */}
+                  {/* Walk In */}
                   <th className="px-4 py-2 border-r border-zinc-700">{`TY ${scaleLabel}`}</th>
                   <th className="px-4 py-2 border-r border-zinc-700">{`LY ${scaleLabel}`}</th>
                   <th className="px-4 py-2 border-r border-zinc-700">L2L</th>
-                  
+
                   {/* Bill */}
                   <th className="px-4 py-2 border-r border-zinc-700">{`TY ${scaleLabel}`}</th>
                   <th className="px-4 py-2 border-r border-zinc-700">{`LY ${scaleLabel}`}</th>
@@ -1034,8 +1283,8 @@ const GrowthComparison = () => {
                   <th className="px-4 py-2 border-r border-zinc-700">{`TY ${scaleLabel}`}</th>
                   <th className="px-4 py-2 border-r border-zinc-700">{`LY ${scaleLabel}`}</th>
                   <th className="px-4 py-2 border-r border-zinc-700">L2L</th>
-
-                  {/* Walk In */}
+                  
+                  {/* Value */}
                   <th className="px-4 py-2 border-r border-zinc-700">{`TY ${scaleLabel}`}</th>
                   <th className="px-4 py-2 border-r border-zinc-700">{`LY ${scaleLabel}`}</th>
                   <th className="px-4 py-2">L2L</th>
@@ -1043,43 +1292,46 @@ const GrowthComparison = () => {
               </thead>
               <tbody className="text-xs text-gray-700 divide-y divide-gray-100">
                 {paginatedRows.map((row, idx) => {
-                  const calculatedL2lVal = row.tyVal - row.lyVal;
+                  const calculatedL2lWalk = row.tyWalk - row.lyWalk;
                   const calculatedL2lBill = row.tyBill - row.lyBill;
                   const calculatedL2lQty = row.tyQty - row.lyQty;
-                  const calculatedL2lWalk = row.tyWalk - row.lyWalk;
+                  const calculatedL2lVal = row.tyVal - row.lyVal;
 
-                  const valL2lPctVal = row.lyVal > 0 ? ((row.tyVal / row.lyVal) * 100).toFixed(0) : "0";
-                  const valL2lPctText = `${valL2lPctVal}%`;
+                  // Formula: ((TY / LY) - 1) * 100
+                  const walkL2lPctVal = row.lyWalk > 0 ? (((row.tyWalk / row.lyWalk) - 1) * 100).toFixed(0) : "0";
+                  const walkL2lPctText = `${Number(walkL2lPctVal) > 0 ? "+" : ""}${walkL2lPctVal}%`;
 
-                  const billL2lPctVal = row.lyBill > 0 ? ((row.tyBill / row.lyBill) * 100).toFixed(0) : "0";
-                  const billL2lPctText = `${billL2lPctVal}%`;
+                  const billL2lPctVal = row.lyBill > 0 ? (((row.tyBill / row.lyBill) - 1) * 100).toFixed(0) : "0";
+                  const billL2lPctText = `${Number(billL2lPctVal) > 0 ? "+" : ""}${billL2lPctVal}%`;
 
-                  const qtyL2lPctVal = row.lyQty > 0 ? ((row.tyQty / row.lyQty) * 100).toFixed(0) : "0";
-                  const qtyL2lPctText = `${qtyL2lPctVal}%`;
+                  const qtyL2lPctVal = row.lyQty > 0 ? (((row.tyQty / row.lyQty) - 1) * 100).toFixed(0) : "0";
+                  const qtyL2lPctText = `${Number(qtyL2lPctVal) > 0 ? "+" : ""}${qtyL2lPctVal}%`;
 
-                  const walkL2lPctVal = row.lyWalk > 0 ? ((row.tyWalk / row.lyWalk) * 100).toFixed(0) : "0";
-                  const walkL2lPctText = `${walkL2lPctVal}%`;
+                  const valL2lPctVal = row.lyVal > 0 ? (((row.tyVal / row.lyVal) - 1) * 100).toFixed(0) : "0";
+                  const valL2lPctText = `${Number(valL2lPctVal) > 0 ? "+" : ""}${valL2lPctVal}%`;
 
-                  const valL2lColor = calculatedL2lVal >= 0 ? "text-[#00A36C]" : "text-[#e05a47]";
+                  const walkL2lColor = calculatedL2lWalk >= 0 ? "text-[#00A36C]" : "text-[#e05a47]";
                   const billL2lColor = calculatedL2lBill >= 0 ? "text-[#00A36C]" : "text-[#e05a47]";
                   const qtyL2lColor = calculatedL2lQty >= 0 ? "text-[#00A36C]" : "text-[#e05a47]";
-                  const walkL2lColor = calculatedL2lWalk >= 0 ? "text-[#00A36C]" : "text-[#e05a47]";
+                  const valL2lColor = calculatedL2lVal >= 0 ? "text-[#00A36C]" : "text-[#e05a47]";
 
                   return (
                     <tr key={idx} className="odd:bg-white even:bg-[#f9fafb] hover:bg-gray-50/50 transition-colors" style={{ animationDelay: `${idx * 40}ms` }}>
                       <td className={`sticky left-0 z-10 px-6 py-4 text-left font-bold text-gray-800 border-r border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)] ${idx % 2 === 0 ? "bg-white" : "bg-[#f9fafb]"}`}>{row.name}</td>
                       
-                      <td className="px-4 py-4 font-medium border-r border-gray-100">{renderCellVal(formatIndianNumber(row.tyVal))}</td>
-                      <td className="px-4 py-4 font-medium border-r border-gray-100 text-gray-500">{renderCellVal(formatIndianNumber(row.lyVal))}</td>
+                      {/* 1. Walk In */}
+                      <td className="px-4 py-4 font-medium border-r border-gray-100">{renderCellVal(formatIndianNumber(row.tyWalk))}</td>
+                      <td className="px-4 py-4 font-medium border-r border-gray-100 text-gray-500">{renderCellVal(formatIndianNumber(row.lyWalk))}</td>
                       <td className="px-4 py-4 border-r border-gray-100">
                         <div className="flex flex-col items-center justify-center gap-0.5">
-                          <span className="text-[13px] font-bold text-gray-900">{valL2lPctText}</span>
-                          <span className={`text-[10px] font-semibold ${valL2lColor}`}>
-                            {calculatedL2lVal >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(calculatedL2lVal))}
+                          <span className="text-[13px] font-bold text-gray-900">{walkL2lPctText}</span>
+                          <span className={`text-[10px] font-semibold ${walkL2lColor}`}>
+                            {calculatedL2lWalk >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(calculatedL2lWalk))}
                           </span>
                         </div>
                       </td>
-                      
+
+                      {/* 2. Bill */}
                       <td className="px-4 py-4 font-medium border-r border-gray-100">{renderCellVal(row.tyBill)}</td>
                       <td className="px-4 py-4 font-medium border-r border-gray-100 text-gray-500">{renderCellVal(row.lyBill)}</td>
                       <td className="px-4 py-4 border-r border-gray-100">
@@ -1091,6 +1343,7 @@ const GrowthComparison = () => {
                         </div>
                       </td>
                       
+                      {/* 3. Quantity */}
                       <td className="px-4 py-4 font-medium border-r border-gray-100">{renderCellVal(row.tyQty)}</td>
                       <td className="px-4 py-4 font-medium border-r border-gray-100 text-gray-500">{renderCellVal(row.lyQty)}</td>
                       <td className="px-4 py-4 border-r border-gray-100">
@@ -1102,13 +1355,14 @@ const GrowthComparison = () => {
                         </div>
                       </td>
 
-                      <td className="px-4 py-4 font-medium border-r border-gray-100">{renderCellVal(formatIndianNumber(row.tyWalk))}</td>
-                      <td className="px-4 py-4 font-medium border-r border-gray-100 text-gray-500">{renderCellVal(formatIndianNumber(row.lyWalk))}</td>
+                      {/* 4. Value */}
+                      <td className="px-4 py-4 font-medium border-r border-gray-100">{renderCellVal(formatIndianNumber(row.tyVal))}</td>
+                      <td className="px-4 py-4 font-medium border-r border-gray-100 text-gray-500">{renderCellVal(formatIndianNumber(row.lyVal))}</td>
                       <td className="px-4 py-4">
                         <div className="flex flex-col items-center justify-center gap-0.5">
-                          <span className="text-[13px] font-bold text-gray-900">{walkL2lPctText}</span>
-                          <span className={`text-[10px] font-semibold ${walkL2lColor}`}>
-                            {calculatedL2lWalk >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(calculatedL2lWalk))}
+                          <span className="text-[13px] font-bold text-gray-900">{valL2lPctText}</span>
+                          <span className={`text-[10px] font-semibold ${valL2lColor}`}>
+                            {calculatedL2lVal >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(calculatedL2lVal))}
                           </span>
                         </div>
                       </td>
@@ -1117,55 +1371,73 @@ const GrowthComparison = () => {
                 })}
 
                 {/* STORE TOTAL row (Hidden for Store Admin or when only 1 store is displayed) */}
-                {!isStoreAdmin && filteredRows.length > 1 && (
-                  <tr className="bg-[#f1f5f9] border-t-2 border-zinc-300 font-bold text-gray-900">
-                    <td className="sticky left-0 z-10 bg-[#f1f5f9] px-6 py-4 text-left border-r border-zinc-300 uppercase tracking-wider shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)]">Store Total</td>
-                    
-                    <td className="px-4 py-4 border-r border-zinc-200">{renderCellVal(formatIndianNumber(totalTyVal))}</td>
-                    <td className="px-4 py-4 border-r border-zinc-200 text-gray-600">{renderCellVal(formatIndianNumber(totalLyVal))}</td>
-                    <td className="px-4 py-4 border-r border-zinc-200">
-                      <div className="flex flex-col items-center justify-center gap-0.5">
-                        <span className="text-[13px] font-bold text-gray-900">{totalLyVal > 0 ? ((totalTyVal / totalLyVal) * 100).toFixed(0) : "0"}%</span>
-                        <span className={`text-[10px] font-bold ${totalL2lVal >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
-                          {totalL2lVal >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(totalL2lVal))}
-                        </span>
-                      </div>
-                    </td>
-                    
-                    <td className="px-4 py-4 border-r border-zinc-200">{renderCellVal(formatIndianNumber(totalTyBill))}</td>
-                    <td className="px-4 py-4 border-r border-zinc-200 text-gray-600">{renderCellVal(formatIndianNumber(totalLyBill))}</td>
-                    <td className="px-4 py-4 border-r border-zinc-200">
-                      <div className="flex flex-col items-center justify-center gap-0.5">
-                        <span className="text-[13px] font-bold text-gray-900">{totalLyBill > 0 ? ((totalTyBill / totalLyBill) * 100).toFixed(0) : "0"}%</span>
-                        <span className={`text-[10px] font-bold ${totalL2lBill >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
-                          {totalL2lBill >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(totalL2lBill))}
-                        </span>
-                      </div>
-                    </td>
-                    
-                    <td className="px-4 py-4 border-r border-zinc-200">{renderCellVal(formatIndianNumber(totalTyQty))}</td>
-                    <td className="px-4 py-4 border-r border-zinc-200 text-gray-600">{renderCellVal(formatIndianNumber(totalLyQty))}</td>
-                    <td className="px-4 py-4 border-r border-zinc-200">
-                      <div className="flex flex-col items-center justify-center gap-0.5">
-                        <span className="text-[13px] font-bold text-gray-900">{totalLyQty > 0 ? ((totalTyQty / totalLyQty) * 100).toFixed(0) : "0"}%</span>
-                        <span className={`text-[10px] font-bold ${totalL2lQty >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
-                          {totalL2lQty >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(totalL2lQty))}
-                        </span>
-                      </div>
-                    </td>
+                {!isStoreAdmin && filteredRows.length > 1 && (() => {
+                  const totalWalkL2lPctVal = totalLyWalk > 0 ? (((totalTyWalk / totalLyWalk) - 1) * 100).toFixed(0) : "0";
+                  const totalWalkL2lPctText = `${Number(totalWalkL2lPctVal) > 0 ? "+" : ""}${totalWalkL2lPctVal}%`;
 
-                    <td className="px-4 py-4 border-r border-zinc-200">{renderCellVal(formatIndianNumber(totalTyWalk))}</td>
-                    <td className="px-4 py-4 border-r border-zinc-200 text-gray-600">{renderCellVal(formatIndianNumber(totalLyWalk))}</td>
-                    <td className="px-4 py-4">
-                      <div className="flex flex-col items-center justify-center gap-0.5">
-                        <span className="text-[13px] font-bold text-gray-900">{totalLyWalk > 0 ? ((totalTyWalk / totalLyWalk) * 100).toFixed(0) : "0"}%</span>
-                        <span className={`text-[10px] font-bold ${totalL2lWalk >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
-                          {totalL2lWalk >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(totalL2lWalk))}
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                )}
+                  const totalBillL2lPctVal = totalLyBill > 0 ? (((totalTyBill / totalLyBill) - 1) * 100).toFixed(0) : "0";
+                  const totalBillL2lPctText = `${Number(totalBillL2lPctVal) > 0 ? "+" : ""}${totalBillL2lPctVal}%`;
+
+                  const totalQtyL2lPctVal = totalLyQty > 0 ? (((totalTyQty / totalLyQty) - 1) * 100).toFixed(0) : "0";
+                  const totalQtyL2lPctText = `${Number(totalQtyL2lPctVal) > 0 ? "+" : ""}${totalQtyL2lPctVal}%`;
+
+                  const totalValL2lPctVal = totalLyVal > 0 ? (((totalTyVal / totalLyVal) - 1) * 100).toFixed(0) : "0";
+                  const totalValL2lPctText = `${Number(totalValL2lPctVal) > 0 ? "+" : ""}${totalValL2lPctVal}%`;
+
+                  return (
+                    <tr className="bg-[#f1f5f9] border-t-2 border-zinc-300 font-bold text-gray-900">
+                      <td className="sticky left-0 z-10 bg-[#f1f5f9] px-6 py-4 text-left border-r border-zinc-300 uppercase tracking-wider shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)]">Store Total</td>
+                      
+                      {/* 1. Walk In Total */}
+                      <td className="px-4 py-4 border-r border-zinc-200">{renderCellVal(formatIndianNumber(totalTyWalk))}</td>
+                      <td className="px-4 py-4 border-r border-zinc-200 text-gray-600">{renderCellVal(formatIndianNumber(totalLyWalk))}</td>
+                      <td className="px-4 py-4 border-r border-zinc-200">
+                        <div className="flex flex-col items-center justify-center gap-0.5">
+                          <span className="text-[13px] font-bold text-gray-900">{totalWalkL2lPctText}</span>
+                          <span className={`text-[10px] font-bold ${totalL2lWalk >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
+                            {totalL2lWalk >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(totalL2lWalk))}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* 2. Bill Total */}
+                      <td className="px-4 py-4 border-r border-zinc-200">{renderCellVal(formatIndianNumber(totalTyBill))}</td>
+                      <td className="px-4 py-4 border-r border-zinc-200 text-gray-600">{renderCellVal(formatIndianNumber(totalLyBill))}</td>
+                      <td className="px-4 py-4 border-r border-zinc-200">
+                        <div className="flex flex-col items-center justify-center gap-0.5">
+                          <span className="text-[13px] font-bold text-gray-900">{totalBillL2lPctText}</span>
+                          <span className={`text-[10px] font-bold ${totalL2lBill >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
+                            {totalL2lBill >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(totalL2lBill))}
+                          </span>
+                        </div>
+                      </td>
+                      
+                      {/* 3. Quantity Total */}
+                      <td className="px-4 py-4 border-r border-zinc-200">{renderCellVal(formatIndianNumber(totalTyQty))}</td>
+                      <td className="px-4 py-4 border-r border-zinc-200 text-gray-600">{renderCellVal(formatIndianNumber(totalLyQty))}</td>
+                      <td className="px-4 py-4 border-r border-zinc-200">
+                        <div className="flex flex-col items-center justify-center gap-0.5">
+                          <span className="text-[13px] font-bold text-gray-900">{totalQtyL2lPctText}</span>
+                          <span className={`text-[10px] font-bold ${totalL2lQty >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
+                            {totalL2lQty >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(totalL2lQty))}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* 4. Value Total */}
+                      <td className="px-4 py-4 border-r border-zinc-200">{renderCellVal(formatIndianNumber(totalTyVal))}</td>
+                      <td className="px-4 py-4 border-r border-zinc-200 text-gray-600">{renderCellVal(formatIndianNumber(totalLyVal))}</td>
+                      <td className="px-4 py-4">
+                        <div className="flex flex-col items-center justify-center gap-0.5">
+                          <span className="text-[13px] font-bold text-gray-900">{totalValL2lPctText}</span>
+                          <span className={`text-[10px] font-bold ${totalL2lVal >= 0 ? 'text-[#00A36C]' : 'text-[#e05a47]'}`}>
+                            {totalL2lVal >= 0 ? "" : "-"}{formatIndianNumber(Math.abs(totalL2lVal))}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })()}
               </tbody>
             </table>
           </div>

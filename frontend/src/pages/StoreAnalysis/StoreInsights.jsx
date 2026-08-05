@@ -663,8 +663,10 @@ const StoreInsights = () => {
   const [timeframe, setTimeframe] = useState("MTD"); // MTD, WTD, YTD, CUSTOM
   const [chartFilter, setChartFilter] = useState("All"); // All, On Track, At Risk
   const [roleFilter, setRoleFilter] = useState("Cluster");
-  const [clusterFilter, setClusterFilter] = useState("All");
-  const [storeFilter, setStoreFilter] = useState("All");
+  const [selectedClusters, setSelectedClusters] = useState(["All"]);
+  const [isClusterDropdownOpen, setIsClusterDropdownOpen] = useState(false);
+  const [selectedStores, setSelectedStores] = useState(["All"]);
+  const [isStoreDropdownOpen, setIsStoreDropdownOpen] = useState(false);
   const [clusters, setClusters] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [rankingSearch, setRankingSearch] = useState("");
@@ -1100,15 +1102,16 @@ const StoreInsights = () => {
 
   useEffect(() => {
     const fetchAttributions = async () => {
-      const activeStore = isStoreAdmin && branches[0] ? displayBranchName(branches[0].workingBranch) : (storeFilter !== "All" ? storeFilter : (branches[0] ? displayBranchName(branches[0].workingBranch) : ""));
-      if (!activeStore && storeFilter === "All" && !isStoreAdmin && branches.length === 0) return;
+      const singleStoreName = selectedStores.length === 1 && !selectedStores.includes("All") ? selectedStores[0] : "";
+      const activeStore = isStoreAdmin && branches[0] ? displayBranchName(branches[0].workingBranch) : (singleStoreName || (branches[0] ? displayBranchName(branches[0].workingBranch) : ""));
+      if (!activeStore && (selectedStores.includes("All") || selectedStores.length === 0) && !isStoreAdmin && branches.length === 0) return;
       try {
         const token = localStorage.getItem("token");
         const targetMonth = timeframe === "CUSTOM" ? (customStartDate ? new Date(customStartDate).toLocaleString("en-US", { month: "long" }) : CURRENT_MONTH_LONG) : CURRENT_MONTH_LONG;
         const targetYear = timeframe === "CUSTOM" ? (customStartDate ? new Date(customStartDate).getFullYear() : CURRENT_YEAR) : CURRENT_YEAR;
 
         // Determine if we need all-store fetch (admin/cluster viewing all)
-        const isAllStoresView = !isStoreAdmin && storeFilter === "All";
+        const isAllStoresView = !isStoreAdmin && (selectedStores.includes("All") || selectedStores.length === 0);
 
         if (isAllStoresView) {
           // Fetch Dappr attributions for all stores (no storeName/week filter)
@@ -1228,7 +1231,7 @@ const StoreInsights = () => {
     };
 
     fetchAttributions();
-  }, [branches, isStoreAdmin, storeFilter, timeframe, customStartDate]);
+  }, [branches, isStoreAdmin, selectedStores, timeframe, customStartDate]);
 
   const getCustomRangeTarget = (storeName, startDateStr, endDateStr, targetMonthName, overrideTargetObj = null) => {
     if (!startDateStr || !endDateStr) return 0;
@@ -1413,7 +1416,7 @@ const StoreInsights = () => {
 
   const getWTDDateRangeString = () => {
     const today = new Date();
-    const activeStore = isStoreAdmin && branches[0] ? displayBranchName(branches[0].workingBranch) : storeFilter;
+    const activeStore = isStoreAdmin && branches[0] ? displayBranchName(branches[0].workingBranch) : (selectedStores.length === 1 && !selectedStores.includes("All") ? selectedStores[0] : "All");
     const wtdRange = getStoreWTDDateRange(activeStore || "All");
     const startDate = new Date(wtdRange.start);
     const startMonth = startDate.toLocaleString("en-US", { month: "long" });
@@ -1987,40 +1990,42 @@ const StoreInsights = () => {
     }).filter(Boolean);
 
     return list;
-  }, [branches, isConsolidated, timeframe, customStartDate, customEndDate, weeklyTargets, performanceData, salesData, dapprAttribution, customizationAttribution, storeDapprTotals, storeCustomizationTotals, storeFilter, isStoreAdmin]);
+  }, [branches, isConsolidated, timeframe, customStartDate, customEndDate, weeklyTargets, performanceData, salesData, dapprAttribution, customizationAttribution, storeDapprTotals, storeCustomizationTotals, selectedStores, isStoreAdmin]);
 
-  // Filter stores by cluster if selected
+  // Filter stores by cluster & store if selected
   const filteredStoresForKPIs = useMemo(() => {
     let list = chartData;
-    if (clusterFilter !== "All") {
-      const selectedClusterAdmin = clusters.find(c => String(c._id) === clusterFilter);
-      if (selectedClusterAdmin) {
-        const assignedIds = (selectedClusterAdmin.branches || []).map(b => String(b._id || b));
-        list = chartData.filter(s => assignedIds.includes(String(s._id)));
-      } else {
-        list = [];
-      }
+    if (selectedClusters.length > 0 && !selectedClusters.includes("All")) {
+      const assignedIds = new Set();
+      selectedClusters.forEach(clusterId => {
+        const selectedClusterAdmin = clusters.find(c => String(c._id) === String(clusterId));
+        if (selectedClusterAdmin && Array.isArray(selectedClusterAdmin.branches)) {
+          selectedClusterAdmin.branches.forEach(b => assignedIds.add(String(b._id || b)));
+        }
+      });
+      list = chartData.filter(s => assignedIds.has(String(s._id)));
     }
-    if (storeFilter !== "All") {
-      list = list.filter(s => s.name === storeFilter);
+    if (selectedStores.length > 0 && !selectedStores.includes("All")) {
+      list = list.filter(s => selectedStores.includes(s.name));
     }
     return list;
-  }, [chartData, clusterFilter, clusters, storeFilter]);
+  }, [chartData, selectedClusters, clusters, selectedStores]);
 
-  // Stores available for the store filter dropdown — scoped to selected cluster
+  // Stores available for the store filter dropdown — scoped to selected cluster(s)
   const storeOptionsForFilter = useMemo(() => {
     let list = chartData;
-    if (clusterFilter !== "All") {
-      const selectedClusterAdmin = clusters.find(c => String(c._id) === clusterFilter);
-      if (selectedClusterAdmin) {
-        const assignedIds = (selectedClusterAdmin.branches || []).map(b => String(b._id || b));
-        list = chartData.filter(s => assignedIds.includes(String(s._id)));
-      } else {
-        list = [];
-      }
+    if (selectedClusters.length > 0 && !selectedClusters.includes("All")) {
+      const assignedIds = new Set();
+      selectedClusters.forEach(clusterId => {
+        const selectedClusterAdmin = clusters.find(c => String(c._id) === String(clusterId));
+        if (selectedClusterAdmin && Array.isArray(selectedClusterAdmin.branches)) {
+          selectedClusterAdmin.branches.forEach(b => assignedIds.add(String(b._id || b)));
+        }
+      });
+      list = chartData.filter(s => assignedIds.has(String(s._id)));
     }
     return list.map(s => s.name).filter(Boolean).sort();
-  }, [chartData, clusterFilter, clusters]);
+  }, [chartData, selectedClusters, clusters]);
 
   // Filtered chart data based on classification (All, On Track, At Risk)
   const filteredChartData = useMemo(() => {
@@ -2359,7 +2364,7 @@ const StoreInsights = () => {
     });
 
     // Database-wide Walkins override for consolidated cluster filter "All" AND no store filter
-    if (clusterFilter === "All" && storeFilter === "All" && !isStoreAdmin) {
+    if ((selectedClusters.includes("All") || selectedClusters.length === 0) && (selectedStores.includes("All") || selectedStores.length === 0) && !isStoreAdmin) {
       customerWalkins = walkins.filter(w => isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd)).length;
       lyCustomerWalkins = lyWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, lyPeriodStart, lyPeriodEnd)).length;
       convertedWalkinsCount = walkins.filter(w => 
@@ -2437,7 +2442,7 @@ const StoreInsights = () => {
       // chartData already computes each store's achieved as:
       //   rental + Dappr Squad (POS) + customization + shoe/shirt sales
       // using storeDapprTotals / storeCustomizationTotals per store — same logic as Sales Funnel.
-      const consolidatedValue = ((isStoreAdmin || storeFilter !== "All") && employeeChartData.length > 0)
+      const consolidatedValue = ((isStoreAdmin || (selectedStores.length === 1 && !selectedStores.includes("All"))) && employeeChartData.length > 0)
         ? employeeChartData.reduce((sum, emp) => sum + emp.achieved, 0)
         : totalAchieved;
       const consolidatedBills = rentalBills + shoeBills + shirtBills;
@@ -2643,15 +2648,15 @@ const StoreInsights = () => {
       console.error("[StoreInsights] Error computing stats:", err);
       return null;
     }
-  }, [chartData, filteredStoresForKPIs, isConsolidated, roleFilter, performanceData, lyPerformanceData, walkins, lyWalkins, timeframe, customStartDate, customEndDate, salesData, lySalesData, isStoreAdmin, isClusterAdmin, clusterFilter, storeFilter, branches, periodStart, periodEnd, lyPeriodStart, lyPeriodEnd, googleReviewData]);
+  }, [chartData, filteredStoresForKPIs, isConsolidated, roleFilter, performanceData, lyPerformanceData, walkins, lyWalkins, timeframe, customStartDate, customEndDate, salesData, lySalesData, isStoreAdmin, isClusterAdmin, selectedClusters, selectedStores, branches, periodStart, periodEnd, lyPeriodStart, lyPeriodEnd, googleReviewData]);
 
   // Store ranking data calculations
   const rankingData = useMemo(() => {
-    const showStaffRanking = isStoreAdmin || storeFilter !== "All";
+    const showStaffRanking = isStoreAdmin || (selectedStores.length === 1 && !selectedStores.includes("All"));
     if (showStaffRanking) {
       if (branches.length === 0) return [];
-      const singleBranch = storeFilter !== "All"
-        ? branches.find(b => displayBranchName(b.workingBranch) === storeFilter)
+      const singleBranch = (selectedStores.length === 1 && !selectedStores.includes("All"))
+        ? branches.find(b => displayBranchName(b.workingBranch) === selectedStores[0])
         : branches[0];
 
       if (!singleBranch) return [];
@@ -2802,13 +2807,17 @@ const StoreInsights = () => {
     const activeBranches = branches
       .filter(b => getBranchLocationId(b.workingBranch) !== "25")
       .filter(b => {
-        if (clusterFilter === "All") return true;
-        const selectedClusterAdmin = clusters.find(c => String(c._id) === clusterFilter);
-        if (!selectedClusterAdmin) return false;
-        const assignedIds = (selectedClusterAdmin.branches || []).map(br => String(br._id || br));
-        return assignedIds.includes(String(b._id));
+        if (selectedClusters.includes("All") || selectedClusters.length === 0) return true;
+        const assignedIds = new Set();
+        selectedClusters.forEach(clusterId => {
+          const selectedClusterAdmin = clusters.find(c => String(c._id) === String(clusterId));
+          if (selectedClusterAdmin && Array.isArray(selectedClusterAdmin.branches)) {
+            selectedClusterAdmin.branches.forEach(br => assignedIds.add(String(br._id || br)));
+          }
+        });
+        return assignedIds.has(String(b._id));
       })
-      .filter(b => storeFilter === "All" || displayBranchName(b.workingBranch) === storeFilter);
+      .filter(b => selectedStores.includes("All") || selectedStores.length === 0 || selectedStores.includes(displayBranchName(b.workingBranch)));
 
     if (isConsolidated) {
       // Calculate consolidated total value across all stores for contribution %
@@ -2931,7 +2940,7 @@ const StoreInsights = () => {
         };
       });
     }
-  }, [branches, chartData, isConsolidated, performanceData, walkins, isStoreAdmin, isClusterAdmin, salesData, salespersons, dapprAttribution, customizationAttribution, clusterFilter, storeFilter, clusters, periodStart, periodEnd]);
+  }, [branches, chartData, isConsolidated, performanceData, walkins, isStoreAdmin, isClusterAdmin, salesData, salespersons, dapprAttribution, customizationAttribution, selectedClusters, selectedStores, clusters, periodStart, periodEnd]);
 
   const processedRanking = useMemo(() => {
     let result = [...rankingData];
@@ -2956,7 +2965,7 @@ const StoreInsights = () => {
   const operationalHighlights = useMemo(() => {
     const highlights = [];
 
-    const showStaffRanking = isStoreAdmin || storeFilter !== "All";
+    const showStaffRanking = isStoreAdmin || (selectedStores.length === 1 && !selectedStores.includes("All"));
     if (showStaffRanking) {
       // 1. Lowest Performing Employee (target)
       const activeEmployeesData = [...employeeChartData];
@@ -3121,7 +3130,7 @@ const StoreInsights = () => {
     }
 
     return highlights;
-  }, [isStoreAdmin, storeFilter, branches, employees, employeeChartData, rankingData, filteredStoresForKPIs, performanceData]);
+  }, [isStoreAdmin, selectedStores, branches, employees, employeeChartData, rankingData, filteredStoresForKPIs, performanceData]);
 
   const itemsPerPageRanking = 6;
   const totalRankingItems = processedRanking.length;
@@ -3576,49 +3585,170 @@ const StoreInsights = () => {
                       </div>
                     </div>
 
-                    {/* Cluster Select Dropdown */}
+                    {/* Multi-Select Cluster Dropdown */}
                     <div className="relative">
-                      <select 
-                        value={clusterFilter} 
-                        onChange={(e) => { setClusterFilter(e.target.value); setStoreFilter("All"); }}
-                        className="appearance-none bg-white border border-gray-200 rounded-[14px] px-4 py-2 pr-10 text-[13px] font-bold text-gray-700 shadow-sm focus:outline-none cursor-pointer hover:border-gray-300"
+                      <button
+                        type="button"
+                        onClick={() => setIsClusterDropdownOpen(!isClusterDropdownOpen)}
+                        className="flex items-center justify-between gap-2 bg-white border border-gray-200 rounded-[14px] px-4 py-2 text-[13px] font-bold text-gray-700 shadow-sm hover:border-gray-300 focus:outline-none cursor-pointer min-w-[160px]"
                       >
-                        <option value="All">Cluster : All</option>
-                        {clusters.map((c) => (
-                          <option key={c._id} value={c._id}>
-                            Cluster : {c.name}
-                          </option>
-                        ))}
-                      </select>
-                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                        <span>
+                          {selectedClusters.includes("All") || selectedClusters.length === 0
+                            ? "Cluster : All"
+                            : selectedClusters.length === 1
+                              ? `Cluster : ${clusters.find(c => String(c._id) === String(selectedClusters[0]))?.name || "1 Selected"}`
+                              : `Clusters (${selectedClusters.length})`
+                          }
+                        </span>
                         <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
                         </svg>
-                      </div>
+                      </button>
+
+                      {isClusterDropdownOpen && (
+                        <div className="absolute right-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-gray-200 z-50 p-2 text-xs">
+                          <div className="flex items-center justify-between px-2 py-1.5 border-b border-gray-100 mb-1">
+                            <span className="font-bold text-gray-500 text-[11px]">Select Cluster(s)</span>
+                            <div className="flex gap-2 text-[10px]">
+                              <button
+                                type="button"
+                                onClick={() => { setSelectedClusters(["All"]); setSelectedStores(["All"]); }}
+                                className="text-blue-600 font-bold hover:underline cursor-pointer"
+                              >
+                                Select All
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setSelectedClusters([]); setSelectedStores(["All"]); }}
+                                className="text-red-500 font-bold hover:underline cursor-pointer"
+                              >
+                                Clear
+                              </button>
+                            </div>
+                          </div>
+                          <div className="max-h-48 overflow-y-auto flex flex-col gap-1">
+                            <label className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer font-semibold text-gray-800">
+                              <input
+                                type="checkbox"
+                                checked={selectedClusters.includes("All")}
+                                onChange={() => { setSelectedClusters(["All"]); setSelectedStores(["All"]); }}
+                                className="rounded border-gray-300 text-black focus:ring-black accent-black cursor-pointer"
+                              />
+                              <span>All Clusters</span>
+                            </label>
+                            {clusters.map((c) => {
+                              const isChecked = selectedClusters.includes(String(c._id));
+                              return (
+                                <label key={c._id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer text-gray-700 font-medium">
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={() => {
+                                      setSelectedStores(["All"]);
+                                      if (selectedClusters.includes("All")) {
+                                        setSelectedClusters([String(c._id)]);
+                                      } else {
+                                        if (isChecked) {
+                                          const next = selectedClusters.filter(id => id !== String(c._id));
+                                          setSelectedClusters(next.length === 0 ? ["All"] : next);
+                                        } else {
+                                          setSelectedClusters([...selectedClusters, String(c._id)]);
+                                        }
+                                      }
+                                    }}
+                                    className="rounded border-gray-300 text-black focus:ring-black accent-black cursor-pointer"
+                                  />
+                                  <span>{c.name}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </>
                 )}
 
-                {/* Store Select Dropdown — visible to both Super Admin and Cluster Admin when stores are available */}
+                {/* Multi-Select Store Dropdown — visible to both Super Admin and Cluster Admin when stores are available */}
                 {storeOptionsForFilter.length > 0 && (
                   <div className="relative">
-                    <select
-                      value={storeFilter}
-                      onChange={(e) => setStoreFilter(e.target.value)}
-                      className="appearance-none bg-white border border-gray-200 rounded-[14px] px-4 py-2 pr-10 text-[13px] font-bold text-gray-700 shadow-sm focus:outline-none cursor-pointer hover:border-gray-300"
+                    <button
+                      type="button"
+                      onClick={() => setIsStoreDropdownOpen(!isStoreDropdownOpen)}
+                      className="flex items-center justify-between gap-2 bg-white border border-gray-200 rounded-[14px] px-4 py-2 text-[13px] font-bold text-gray-700 shadow-sm hover:border-gray-300 focus:outline-none cursor-pointer min-w-[150px]"
                     >
-                      <option value="All">Store : All</option>
-                      {storeOptionsForFilter.map((name) => (
-                        <option key={name} value={name}>
-                          {name}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                      <span>
+                        {selectedStores.includes("All") || selectedStores.length === 0
+                          ? "Store : All"
+                          : selectedStores.length === 1
+                            ? `Store : ${selectedStores[0]}`
+                            : `Stores (${selectedStores.length})`
+                        }
+                      </span>
                       <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
                       </svg>
-                    </div>
+                    </button>
+
+                    {isStoreDropdownOpen && (
+                      <div className="absolute right-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-gray-200 z-50 p-2 text-xs font-sans">
+                        <div className="flex items-center justify-between px-2 py-1.5 border-b border-gray-100 mb-1">
+                          <span className="font-bold text-gray-500 text-[11px]">Select Store(s)</span>
+                          <div className="flex gap-2 text-[10px]">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedStores(["All"])}
+                              className="text-blue-600 font-bold hover:underline cursor-pointer"
+                            >
+                              Select All
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedStores([])}
+                              className="text-red-500 font-bold hover:underline cursor-pointer"
+                            >
+                              Clear
+                            </button>
+                          </div>
+                        </div>
+                        <div className="max-h-56 overflow-y-auto flex flex-col gap-1">
+                          <label className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer font-semibold text-gray-800">
+                            <input
+                              type="checkbox"
+                              checked={selectedStores.includes("All")}
+                              onChange={() => setSelectedStores(["All"])}
+                              className="rounded border-gray-300 text-black focus:ring-black accent-black cursor-pointer"
+                            />
+                            <span>All Stores</span>
+                          </label>
+                          {storeOptionsForFilter.map((name) => {
+                            const isChecked = selectedStores.includes(name);
+                            return (
+                              <label key={name} className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer text-gray-700 font-medium">
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => {
+                                    if (selectedStores.includes("All")) {
+                                      setSelectedStores([name]);
+                                    } else {
+                                      if (isChecked) {
+                                        const next = selectedStores.filter(s => s !== name);
+                                        setSelectedStores(next.length === 0 ? ["All"] : next);
+                                      } else {
+                                        setSelectedStores([...selectedStores, name]);
+                                      }
+                                    }
+                                  }}
+                                  className="rounded border-gray-300 text-black focus:ring-black accent-black cursor-pointer"
+                                />
+                                <span>{name}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -3629,14 +3759,14 @@ const StoreInsights = () => {
 
           {stats && (<>
           {renderKpiCard({
-            title: "Achieved Target %",
-            mainVal: stats.valChange?.display || "+0%",
-            tyVal: `₹${formatIndianNumber(stats.achievedValue, 0)}`,
-            lyVal: `₹${formatIndianNumber(stats.valChange?.prev || 0, 0)}`,
-            changeObj: stats.valChange,
-            unit: "currency",
-            trend: stats.valTrend,
-            trendColor: stats.valTrendColor
+            title: "Customer Walk-ins",
+            mainVal: stats.walkChange?.display || "+0%",
+            tyVal: formatIndianNumber(stats.customerWalkins),
+            lyVal: formatIndianNumber(stats.walkChange?.prev || 0),
+            changeObj: stats.walkChange,
+            unit: "Walk-ins",
+            trend: stats.walkTrend,
+            trendColor: stats.walkTrendColor
           })}
 
           {renderKpiCard({
@@ -3662,14 +3792,14 @@ const StoreInsights = () => {
           })}
 
           {renderKpiCard({
-            title: "Customer Walk-ins",
-            mainVal: stats.walkChange?.display || "+0%",
-            tyVal: formatIndianNumber(stats.customerWalkins),
-            lyVal: formatIndianNumber(stats.walkChange?.prev || 0),
-            changeObj: stats.walkChange,
-            unit: "Walk-ins",
-            trend: stats.walkTrend,
-            trendColor: stats.walkTrendColor
+            title: "Achieved Target %",
+            mainVal: stats.valChange?.display || "+0%",
+            tyVal: `₹${formatIndianNumber(stats.achievedValue, 0)}`,
+            lyVal: `₹${formatIndianNumber(stats.valChange?.prev || 0, 0)}`,
+            changeObj: stats.valChange,
+            unit: "currency",
+            trend: stats.valTrend,
+            trendColor: stats.valTrendColor
           })}
 
           {renderKpiCard({
@@ -3786,10 +3916,10 @@ const StoreInsights = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
               <div>
                 <h2 className="text-[18px] font-bold text-gray-900 leading-tight">
-                  {isStoreAdmin || storeFilter !== "All" ? "Staff Performance Ranking" : "Store Performance Ranking"}
+                  {isStoreAdmin || (selectedStores.length === 1 && !selectedStores.includes("All")) ? "Staff Performance Ranking" : "Store Performance Ranking"}
                 </h2>
                 <p className="text-gray-400 text-[12px] mt-0.5 font-medium">
-                  Best to least - {timeframe} - Showing all {totalRankingItems} {isStoreAdmin || storeFilter !== "All" ? "staff" : "stores"}
+                  Best to least - {timeframe} - Showing all {totalRankingItems} {isStoreAdmin || (selectedStores.length === 1 && !selectedStores.includes("All")) ? "staff" : "stores"}
                 </p>
               </div>
               
@@ -3826,7 +3956,7 @@ const StoreInsights = () => {
                 onChange={(e) => {
                   setRankingSearch(e.target.value);
                 }}
-                placeholder={isStoreAdmin || storeFilter !== "All" ? "Search by staff name..." : "Search by store name..."} 
+                placeholder={isStoreAdmin || (selectedStores.length === 1 && !selectedStores.includes("All")) ? "Search by staff name..." : "Search by store name..."} 
                 className="w-full bg-[#f3f4f6] text-gray-700 text-xs font-semibold rounded-[14px] pl-9 pr-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-gray-300"
               />
             </div>
@@ -3836,8 +3966,8 @@ const StoreInsights = () => {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-[#f3f4f6] rounded-xl text-gray-500 text-[10px] font-extrabold tracking-wider uppercase">
-                    <th className="py-3 px-4 rounded-l-xl">{isStoreAdmin || storeFilter !== "All" ? "Staff Name" : "Store Name"}</th>
-                    <th className="py-3 px-4 text-center">{isStoreAdmin || storeFilter !== "All" ? "Value" : "Target Achieved %"}</th>
+                    <th className="py-3 px-4 rounded-l-xl">{isStoreAdmin || (selectedStores.length === 1 && !selectedStores.includes("All")) ? "Staff Name" : "Store Name"}</th>
+                    <th className="py-3 px-4 text-center">{isStoreAdmin || (selectedStores.length === 1 && !selectedStores.includes("All")) ? "Value" : "Target Achieved %"}</th>
                     <th className="py-3 px-4 text-center">ABS</th>
                     <th className="py-3 px-4 text-center">ABV</th>
                     <th className="py-3 px-4 text-center">Contribution %</th>
@@ -3853,7 +3983,7 @@ const StoreInsights = () => {
                     return (
                       <tr key={idx} className="hover:bg-gray-50 transition-colors">
                         <td className="py-3 px-4">
-                          {isStoreAdmin || storeFilter !== "All" ? (
+                          {isStoreAdmin || (selectedStores.length === 1 && !selectedStores.includes("All")) ? (
                             <span className="block font-extrabold text-gray-900 text-[13px]">{s.name}</span>
                           ) : (
                             <>
@@ -3863,7 +3993,7 @@ const StoreInsights = () => {
                           )}
                         </td>
                         <td className="py-3 px-4 text-center text-gray-900 font-extrabold text-[13px]">
-                          {isStoreAdmin || storeFilter !== "All" ? `₹${formatIndianNumber(s.targetAchieved)}` : `${s.targetAchieved}%`}
+                          {isStoreAdmin || (selectedStores.length === 1 && !selectedStores.includes("All")) ? `₹${formatIndianNumber(s.targetAchieved)}` : `${s.targetAchieved}%`}
                         </td>
                         <td className="py-3 px-4 text-center text-gray-500">{s.abs}</td>
                         <td className="py-3 px-4 text-center text-gray-900 font-extrabold">₹{formatIndianNumber(s.abv)}</td>
@@ -3875,7 +4005,7 @@ const StoreInsights = () => {
                   {processedRanking.length === 0 && (
                     <tr>
                       <td colSpan={6} className="py-8 text-center text-gray-400 font-semibold">
-                        {isStoreAdmin || storeFilter !== "All" ? "No staff found matching search criteria." : "No stores found matching search criteria."}
+                        {isStoreAdmin || (selectedStores.length === 1 && !selectedStores.includes("All")) ? "No staff found matching search criteria." : "No stores found matching search criteria."}
                       </td>
                     </tr>
                   )}
