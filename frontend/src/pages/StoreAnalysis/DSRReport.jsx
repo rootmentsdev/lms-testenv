@@ -629,31 +629,31 @@ const getClusterForStoreName = (name) => {
   
   // South Cluster stores
   const southStores = [
-    "gedappally",
-    "gtrivandrum",
-    "gkottayam",
-    "gperumbavoor",
-    "gthrissur",
-    "gchavakkad",
-    "gmgroad"
+    "gedappally", "sgedappally", "edappally", "edapally",
+    "gtrivandrum", "sgtrivandrum", "trivandrum", "tvm",
+    "gkottayam", "sgkottayam", "kottayam", "ktm",
+    "gperumbavoor", "sgperumbavoor", "perumbavoor", "perumbavur",
+    "gthrissur", "sgthrissur", "thrissur", "tsr",
+    "gchavakkad", "sgchavakkad", "chavakkad", "chavakad",
+    "gpalakkad", "sgpalakkad", "palakkad", "palakad", "pkd",
+    "gmgroad", "sgmgroad", "mgroad"
   ];
-  if (southStores.some(s => norm.includes(s) || s.includes(norm))) {
+  if (southStores.some(s => norm === s || norm.includes(s))) {
     return "South Cluster";
   }
   
   // North Cluster stores
   const northStores = [
-    "gcalicut",
-    "gvadakara",
-    "gedappal",
-    "gperinthalmanna",
-    "gkottakkal",
-    "gmanjeri",
-    "gpalakkad",
-    "gkalpetta",
-    "gkannur"
+    "gcalicut", "sgcalicut", "calicut", "kozhikode",
+    "gvadakara", "sgvadakara", "vadakara",
+    "gedappal", "sgedappal", "edappal",
+    "gperinthalmanna", "sgperinthalmanna", "perinthalmanna", "perinthalmana", "pma",
+    "gkottakkal", "sgkottakkal", "kottakkal", "ktk",
+    "gmanjeri", "sgmanjeri", "manjeri",
+    "gkalpetta", "sgkalpetta", "kalpetta",
+    "gkannur", "sgkannur", "kannur", "knr"
   ];
-  if (northStores.some(s => norm.includes(s) || s.includes(norm))) {
+  if (northStores.some(s => norm === s || norm.includes(s))) {
     return "North Cluster";
   }
   
