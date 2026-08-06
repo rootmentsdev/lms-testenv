@@ -55,13 +55,16 @@ const ModileNav = () => {
           </>
         ) : (
           <>
-            <MobileNavItem to="/" icon="dashboard" label="Dashboard" active={is('/')} />
+            <MobileNavItem to="/" icon="dashboard" label="Dashboard" active={is('/') || is('/store-insights')} />
             <MobileNavItem to="/walkin/list" icon="walkin" label="WalkIn" active={isWalkin} />
             {user?.role === 'telecaller' && (
               <MobileNavItem to="/task" icon="task" label="Tasks" active={is('/task')} />
             )}
             {user?.role !== 'telecaller' && (
               <MobileNavItem to="/employee" icon="employee" label="Employees" active={is('/employee')} />
+            )}
+            {user?.role !== 'store_admin' && user?.role !== 'telecaller' && (
+              <MobileNavItem to="/training-dashboard" icon="training" label="Training Dash" active={is('/training-dashboard')} />
             )}
             {user?.role !== 'store_admin' && user?.role !== 'telecaller' && (
               <MobileNavItem to="/training" icon="training" label="Trainings" active={is('/training')} />
@@ -74,9 +77,6 @@ const ModileNav = () => {
             )}
             {user?.role !== 'telecaller' && (
               <MobileNavItem to="/store-analysis/dsr-report" icon="storeAnalysis" label="Store Analysis" active={location.pathname.startsWith('/store-analysis/')} />
-            )}
-            {user?.role !== 'telecaller' && (
-              <MobileNavItem to="/store-insights" icon="storeInsights" label="Store Insights" active={is('/store-insights')} />
             )}
             {user?.role !== 'telecaller' && (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'cluster_admin') && (
               <MobileNavItem to="/settings/users" icon="settings" label="Settings" active={location.pathname.startsWith('/settings')} />

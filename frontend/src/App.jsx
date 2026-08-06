@@ -371,7 +371,8 @@ function App() {
             />
 
             {/* Protected Routes */}
-            <Route path="/" element={<ProtectedLayout><Home /></ProtectedLayout>} />
+            <Route path="/" element={<ProtectedLayout><StoreInsights /></ProtectedLayout>} />
+            <Route path="/training-dashboard" element={<ProtectedLayout><Home /></ProtectedLayout>} />
             <Route path="/assessments" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><Assessments /></ProtectedLayout>} />
 
             <Route path="/branch" element={<ProtectedLayout hideForRoles={['telecaller']}><Branch /></ProtectedLayout>} />

@@ -1072,118 +1072,28 @@ const HomeBar = () => {
       gap: "14px",
     }}>
 
-      {/* ── Row 1: Title + Switcher ── */}
+      {/* ── Row 1: Title ── */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
           <div>
             <h3 className="text-[#111827] dark:text-[#f8fafc]" style={{ fontSize: "16px", fontWeight: 700, margin: 0 }}>
-              {activeGraph === "training" ? "Training Progress" : "Store Target Vs Achieved Target"}
+              Training Progress
             </h3>
             <p className="text-[#9ca3af] dark:text-[#94a3b8]" style={{ fontSize: "12px", margin: "2px 0 0" }}>
-              {activeGraph === "training"
-                ? `${getTimeframeLabel(timeframe, customStart, customEnd, storeWeekRanges)} | ${storeCount} Stores`
-                : `${getTimeframeLabel(timeframe, customStart, customEnd, storeWeekRanges)} | ${revenueChartData.length} ${isSingleStoreView ? "employees" : "stores"}`
-              }
+              {getTimeframeLabel(timeframe, customStart, customEnd, storeWeekRanges)} | {storeCount} Stores
               {loadingPerf && <span style={{ marginLeft: 8, color: "#a3a3a3" }}>updating…</span>}
             </p>
           </div>
-
-          {/* Training / Revenue toggle */}
-          <div className="bg-[#f3f4f6] dark:bg-[#162235]" style={{ display: "flex", borderRadius: "10px", padding: "2.5px" }}>
-            <button
-              onClick={() => setActiveGraph("training")}
-              className={activeGraph === "training" ? "bg-white dark:bg-[#111c2a] text-[#111827] dark:text-[#f8fafc] shadow-sm" : "bg-transparent text-[#6b7280] dark:text-[#94a3b8]"}
-              style={{ padding: "4px 12px", borderRadius: "8px", fontSize: "11px", fontWeight: 700, border: "none", cursor: "pointer", transition: "all 0.15s" }}
-            >
-              Training Progress
-            </button>
-            <button
-              onClick={() => setActiveGraph("revenue")}
-              className={activeGraph === "revenue" ? "bg-white dark:bg-[#111c2a] text-[#111827] dark:text-[#f8fafc] shadow-sm" : "bg-transparent text-[#6b7280] dark:text-[#94a3b8]"}
-              style={{ padding: "4px 12px", borderRadius: "8px", fontSize: "11px", fontWeight: 700, border: "none", cursor: "pointer", transition: "all 0.15s" }}
-            >
-              Store Target vs Achieved
-            </button>
-          </div>
         </div>
-
-        {/* ── Timeframe tabs (only for revenue graph) ── */}
-        {activeGraph === "revenue" && (
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-            <div style={{ display: "flex", background: "#f3f4f6", borderRadius: "10px", padding: "3px" }}>
-              {["MTD", "WTD", "YTD", "CUSTOM"].map((tf) => (
-                <TimeframeTab
-                  key={tf}
-                  label={tf}
-                  active={timeframe === tf}
-                  onClick={() => {
-                    setTimeframe(tf);
-                    if (tf !== "CUSTOM") setShowCustomPicker(false);
-                    else setShowCustomPicker(true);
-                  }}
-                />
-              ))}
-            </div>
-
-            {/* Custom date inputs — shown inline when CUSTOM selected */}
-            {timeframe === "CUSTOM" && showCustomPicker && (
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <input
-                  type="date"
-                  value={tempStart}
-                  onChange={(e) => setTempStart(e.target.value)}
-                  style={{
-                    border: "1px solid #e5e7eb", borderRadius: "8px", padding: "4px 8px",
-                    fontSize: "12px", color: "#374151", outline: "none", cursor: "pointer",
-                  }}
-                />
-                <span style={{ fontSize: "12px", color: "#9ca3af" }}>–</span>
-                <input
-                  type="date"
-                  value={tempEnd}
-                  onChange={(e) => setTempEnd(e.target.value)}
-                  style={{
-                    border: "1px solid #e5e7eb", borderRadius: "8px", padding: "4px 8px",
-                    fontSize: "12px", color: "#374151", outline: "none", cursor: "pointer",
-                  }}
-                />
-                <button
-                  onClick={() => {
-                    if (tempStart && tempEnd) {
-                      setCustomStart(tempStart);
-                      setCustomEnd(tempEnd);
-                    }
-                  }}
-                  style={{
-                    background: "#000", color: "#fff", border: "none", borderRadius: "8px",
-                    padding: "5px 12px", fontSize: "12px", fontWeight: "bold", cursor: "pointer",
-                    display: "flex", alignItems: "center", gap: "4px"
-                  }}
-                >
-                  Fetch
-                </button>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* ── Row 2: Legend + filter tabs + buttons ── */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
-          {activeGraph === "training" ? (
-            <>
-              <LegendPill color="#22c55e" label="≥85% On Track" />
-              <LegendPill color="#3b82f6" label="65–84% In Progress" />
-              <LegendPill color="#f59e0b" label="45–64% Needs Attention" />
-              <LegendPill color="#ef4444" label="<45% At Risk" />
-            </>
-          ) : (
-            <>
-              <LegendPill color="#a855f7" label="Target" />
-              <LegendPill color="#f59e0b" label="Achieved" />
-            </>
-          )}
+          <LegendPill color="#22c55e" label="≥85% On Track" />
+          <LegendPill color="#3b82f6" label="65–84% In Progress" />
+          <LegendPill color="#f59e0b" label="45–64% Needs Attention" />
+          <LegendPill color="#ef4444" label="<45% At Risk" />
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
           <div style={{ display: "flex", background: "#f3f4f6", borderRadius: "8px", padding: "3px" }}>
@@ -1191,33 +1101,31 @@ const HomeBar = () => {
             <Tab label="On Track" active={filter === "on-track"} onClick={() => setFilter("on-track")} />
             <Tab label="At Risk"  active={filter === "at-risk"}  onClick={() => setFilter("at-risk")} />
           </div>
-          {activeGraph === "training" && (
-            <button
-              onClick={async () => {
-                setIsLoading(false);
-                try {
-                  const data = await fetchHomeProgress();
-                  setResponseData(data);
-                } finally {
-                  // completed refresh
-                }
-              }}
-              style={{
-                display: "flex", alignItems: "center", gap: "5px",
-                border: "1px solid #e5e7eb", borderRadius: "8px",
-                padding: "5px 10px", fontSize: "12px", fontWeight: 500,
-                color: "#374151", background: "#fff", cursor: "pointer",
-              }}
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
-                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-              </svg>
-              Refresh
-            </button>
-          )}
+          <button
+            onClick={async () => {
+              setIsLoading(false);
+              try {
+                const data = await fetchHomeProgress();
+                setResponseData(data);
+              } finally {
+                // completed refresh
+              }
+            }}
+            style={{
+              display: "flex", alignItems: "center", gap: "5px",
+              border: "1px solid #e5e7eb", borderRadius: "8px",
+              padding: "5px 10px", fontSize: "12px", fontWeight: 500,
+              color: "#374151", background: "#fff", cursor: "pointer",
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+            </svg>
+            Refresh
+          </button>
           
-          <Link to={activeGraph === "training" ? "/training" : "/store-analysis/dsr-report"}>
+          <Link to="/training">
             <button style={{
               display: "flex", alignItems: "center", gap: "6px",
               background: "#111827", color: "#fff",
@@ -1235,102 +1143,43 @@ const HomeBar = () => {
 
       {/* ── Chart ── */}
       <div style={{ flex: 1, minHeight: "280px" }}>
-        {activeGraph === "training" ? (
-          isLoading ? (
-            <div style={{ width: "100%", height: "280px", background: "#f9fafb", borderRadius: "10px" }} />
-          ) : filtered.length === 0 ? (
-            <div style={{ width: "100%", height: "280px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <p style={{ color: "#9ca3af", fontSize: "14px" }}>No data available</p>
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart
-                data={filtered}
-                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-                barSize={filtered.length > 15 ? 16 : filtered.length > 8 ? 22 : 32}
-              >
-                <CartesianGrid strokeDasharray="4 4" stroke="#f0f0f0" vertical={false} />
-                <XAxis
-                  dataKey="branchName"
-                  tick={<BranchTick />}
-                  axisLine={false}
-                  tickLine={false}
-                  interval={0}
-                  height={70}
-                />
-                <YAxis
-                  tickFormatter={(v) => `${v}%`}
-                  domain={[0, 100]}
-                  ticks={[0, 25, 50, 75, 100]}
-                  tick={{ fontSize: 11, fill: "#9ca3af" }}
-                  axisLine={false} tickLine={false}
-                />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
-                <Bar dataKey="pct" radius={[4, 4, 0, 0]}>
-                  {filtered.map((entry, i) => (
-                    <Cell key={i} fill={entry.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          )
+        {isLoading ? (
+          <div style={{ width: "100%", height: "280px", background: "#f9fafb", borderRadius: "10px" }} />
+        ) : filtered.length === 0 ? (
+          <div style={{ width: "100%", height: "280px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <p style={{ color: "#9ca3af", fontSize: "14px" }}>No data available</p>
+          </div>
         ) : (
-          filteredRevenue.length === 0 ? (
-            <div style={{ width: "100%", height: "280px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <p style={{ color: "#9ca3af", fontSize: "14px" }}>No store comparison data matching filters</p>
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={280}>
-              <AreaChart data={filteredRevenue} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
-                <defs>
-                  <linearGradient id="colorTarget" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#a855f7" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#a855f7" stopOpacity={0.0}/>
-                  </linearGradient>
-                  <linearGradient id="colorAchieved" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                <XAxis 
-                  dataKey="name" 
-                  tick={<BranchTick />} 
-                  interval={0}
-                  axisLine={false}
-                  tickLine={false}
-                  height={60}
-                />
-                <YAxis 
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(tick) => `${tick / 1000}K`}
-                  tick={{ fill: "#9ca3af", fontSize: 10 }}
-                />
-                <Tooltip content={<RevenueTooltip />} />
-                <Area 
-                  type="monotone" 
-                  dataKey="target" 
-                  stroke="#a855f7" 
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#colorTarget)" 
-                  dot={{ r: 3, fill: "#fff", stroke: "#a855f7", strokeWidth: 2 }}
-                  activeDot={{ r: 6 }}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="achieved" 
-                  stroke="#f59e0b" 
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#colorAchieved)" 
-                  dot={{ r: 3, fill: "#fff", stroke: "#f59e0b", strokeWidth: 2 }}
-                  activeDot={{ r: 6 }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          )
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart
+              data={filtered}
+              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              barSize={filtered.length > 15 ? 16 : filtered.length > 8 ? 22 : 32}
+            >
+              <CartesianGrid strokeDasharray="4 4" stroke="#f0f0f0" vertical={false} />
+              <XAxis
+                dataKey="branchName"
+                tick={<BranchTick />}
+                axisLine={false}
+                tickLine={false}
+                interval={0}
+                height={70}
+              />
+              <YAxis
+                tickFormatter={(v) => `${v}%`}
+                domain={[0, 100]}
+                ticks={[0, 25, 50, 75, 100]}
+                tick={{ fontSize: 11, fill: "#9ca3af" }}
+                axisLine={false} tickLine={false}
+              />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+              <Bar dataKey="pct" radius={[0, 0, 0, 0]}>
+                {filtered.map((entry, i) => (
+                  <Cell key={i} fill={entry.color} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         )}
       </div>
     </div>

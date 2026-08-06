@@ -294,7 +294,7 @@ const DashboardOverview = ({ range = "7", customRange }) => {
     <div style={{ marginBottom: "24px" }}>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-5">
         <div>
-          <h2 className="text-[22px] font-bold text-gray-900 leading-tight">Dashboard Overview</h2>
+          <h2 className="text-[22px] font-bold text-gray-900 leading-tight">Training Dashboard Overview</h2>
           <p className="text-[12px] text-gray-400 mt-0.5">Store walkings, tasks, and training progress across all locations</p>
         </div>
         {user?.role !== 'telecaller' && (

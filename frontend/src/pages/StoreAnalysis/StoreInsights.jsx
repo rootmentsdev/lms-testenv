@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useSelector } from "react-redux";
 import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
@@ -261,6 +261,29 @@ const parseWeekDays = (val) => {
 };
 
 
+const fetchWithRetry = async (url, options, retries = 2, backoff = 200, timeoutMs = 4000) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const opts = { ...options, signal: controller.signal };
+
+  try {
+    const res = await fetch(url, opts);
+    clearTimeout(timer);
+    if (!res.ok && retries > 0 && res.status >= 500) {
+      await new Promise(r => setTimeout(r, backoff));
+      return fetchWithRetry(url, options, retries - 1, backoff * 1.5, timeoutMs);
+    }
+    return res;
+  } catch (err) {
+    clearTimeout(timer);
+    if (retries > 0) {
+      await new Promise(r => setTimeout(r, backoff));
+      return fetchWithRetry(url, options, retries - 1, backoff * 1.5, timeoutMs);
+    }
+    throw err;
+  }
+};
+
 const runWithConcurrencyLimit = async (tasks, limit) => {
   const results = [];
   const executing = new Set();
@@ -289,7 +312,7 @@ const getPerformanceCached = async (locId, startDate, endDate) => {
 
   const promise = (async () => {
     try {
-      const res = await fetch("https://rentalapi.rootments.live/api/Reports/GetPerformanceStaffReportWithCancel", {
+      const res = await fetchWithRetry("https://rentalapi.rootments.live/api/Reports/GetPerformanceStaffReportWithCancel", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -308,7 +331,7 @@ const getPerformanceCached = async (locId, startDate, endDate) => {
         return data;
       }
     } catch (err) {
-      console.error(`Error in getPerformanceCached for loc ${locId}:`, err);
+      console.warn(`Retry exhausted for getPerformanceCached (loc ${locId}):`, err);
     } finally {
       delete window.__performanceCache[cacheKey];
     }
@@ -678,20 +701,239 @@ const sortStoresGThenZ = (a, b) => {
   return strA.localeCompare(strB, undefined, { numeric: true, sensitivity: 'base' });
 };
 
+const SingleCalendarRangePicker = ({ initialStart, initialEnd, onApply, onClose }) => {
+  const parseDateLocal = (str) => {
+    if (!str) return new Date();
+    if (typeof str !== "string") return new Date(str);
+    const parts = str.split("-");
+    if (parts.length === 3) {
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const d = parseInt(parts[2], 10);
+      if (!isNaN(y) && !isNaN(m) && !isNaN(d)) return new Date(y, m, d);
+    }
+    return new Date(str);
+  };
+
+  const [rangeStart, setRangeStart] = useState(initialStart ? parseDateLocal(initialStart) : null);
+  const [rangeEnd, setRangeEnd] = useState(initialEnd ? parseDateLocal(initialEnd) : null);
+  const [hoverDate, setHoverDate] = useState(null);
+  const [viewDate, setViewDate] = useState(initialStart ? parseDateLocal(initialStart) : new Date());
+
+  const calendarRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (calendarRef.current && !calendarRef.current.contains(e.target)) {
+        onClose();
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [onClose]);
+
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+
+  const firstDayOfWeek = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const monthNames = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+
+  const handlePrevMonth = () => setViewDate(new Date(year, month - 1, 1));
+  const handleNextMonth = () => setViewDate(new Date(year, month + 1, 1));
+
+  const formatLocalYYYYMMDD = (d) => {
+    if (!d) return "";
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+
+  const formatDisplayDate = (d) => {
+    if (!d) return "--/--/----";
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    const y = d.getFullYear();
+    return `${m}/${day}/${y}`;
+  };
+
+  const handleDateSelect = (dayNum) => {
+    const selected = new Date(year, month, dayNum);
+    if (!rangeStart || (rangeStart && rangeEnd)) {
+      setRangeStart(selected);
+      setRangeEnd(null);
+    } else if (rangeStart && !rangeEnd) {
+      if (selected < rangeStart) {
+        setRangeStart(selected);
+        setRangeEnd(null);
+      } else {
+        setRangeEnd(selected);
+      }
+    }
+  };
+
+  const isSameDay = (d1, d2) => {
+    if (!d1 || !d2) return false;
+    return d1.getFullYear() === d2.getFullYear() &&
+           d1.getMonth() === d2.getMonth() &&
+           d1.getDate() === d2.getDate();
+  };
+
+  const isBetween = (d, start, end) => {
+    if (!d || !start || !end) return false;
+    return d > start && d < end;
+  };
+
+  return (
+    <div
+      ref={calendarRef}
+      className="absolute right-0 top-full mt-2 z-50 bg-white rounded-2xl shadow-2xl border border-gray-200/90 p-4 w-[310px] sm:w-[330px] font-sans text-gray-800 animate-popoverOpen origin-top-right"
+    >
+      {/* Month & Navigation Header */}
+      <div className="flex items-center justify-between mb-3 px-1">
+        <button
+          type="button"
+          onClick={handlePrevMonth}
+          className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors cursor-pointer"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+
+        <span className="font-extrabold text-gray-900 text-sm tracking-wide">
+          {monthNames[month]} {year}
+        </span>
+
+        <button
+          type="button"
+          onClick={handleNextMonth}
+          className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors cursor-pointer"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Weekday Labels */}
+      <div className="grid grid-cols-7 text-center text-[11px] font-bold text-gray-400 mb-2">
+        <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+      </div>
+
+      {/* Calendar Days Grid */}
+      <div className="grid grid-cols-7 gap-1 text-center text-xs">
+        {Array.from({ length: firstDayOfWeek }).map((_, idx) => (
+          <div key={`blank-${idx}`} />
+        ))}
+
+        {Array.from({ length: daysInMonth }).map((_, idx) => {
+          const dayNum = idx + 1;
+          const currentDayObj = new Date(year, month, dayNum);
+
+          const isStart = isSameDay(currentDayObj, rangeStart);
+          const isEnd = isSameDay(currentDayObj, rangeEnd);
+          const effectiveEnd = rangeEnd || (rangeStart && hoverDate && hoverDate >= rangeStart ? hoverDate : null);
+          const inRange = isBetween(currentDayObj, rangeStart, effectiveEnd);
+
+          return (
+            <button
+              key={dayNum}
+              type="button"
+              onClick={() => handleDateSelect(dayNum)}
+              onMouseEnter={() => setHoverDate(currentDayObj)}
+              className={`h-8 w-8 rounded-lg flex items-center justify-center font-bold text-[12px] transition-all cursor-pointer
+                ${isStart || isEnd
+                  ? "bg-black text-white shadow-md scale-105"
+                  : inRange
+                    ? "bg-gray-100 text-gray-900 rounded-none"
+                    : "text-gray-700 hover:bg-gray-100"
+                }
+              `}
+            >
+              {dayNum}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Selection Summary & Action Footer */}
+      <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
+        <div className="flex flex-col text-[11px]">
+          <span className="text-gray-400 font-bold uppercase tracking-wider text-[9px]">Selected Range</span>
+          <span className="text-gray-900 font-extrabold text-[11px]">
+            {formatDisplayDate(rangeStart)} – {formatDisplayDate(rangeEnd)}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-1.5 text-xs font-bold text-gray-500 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={!rangeStart || !rangeEnd}
+            onClick={() => {
+              if (rangeStart && rangeEnd) {
+                onApply(formatLocalYYYYMMDD(rangeStart), formatLocalYYYYMMDD(rangeEnd));
+              }
+            }}
+            className="px-3.5 py-1.5 bg-black hover:bg-gray-800 text-white font-bold text-xs rounded-lg shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer active:scale-95"
+          >
+            Apply Range
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const StoreInsights = () => {
   const user = useSelector((state) => state.auth.user);
   const isStoreAdmin = user?.role === "store_admin";
   const isClusterAdmin = user?.role === "cluster_admin";
+  const isSuperAdmin = user?.role === "super_admin" || user?.role === "admin" || (!isStoreAdmin && !isClusterAdmin);
 
   // Page State
   const [isConsolidated, setIsConsolidated] = useState(false); // Rental vs Consolidated (Rental is default)
   const [timeframe, setTimeframe] = useState("MTD"); // MTD, WTD, YTD, CUSTOM
+  const [graphType, setGraphType] = useState("TARGET_VS_ACHIEVED"); // TARGET_VS_ACHIEVED, LY_VS_TY
   const [chartFilter, setChartFilter] = useState("All"); // All, On Track, At Risk
   const [roleFilter, setRoleFilter] = useState("Cluster");
   const [selectedClusters, setSelectedClusters] = useState(["All"]);
   const [isClusterDropdownOpen, setIsClusterDropdownOpen] = useState(false);
   const [selectedStores, setSelectedStores] = useState(["All"]);
   const [isStoreDropdownOpen, setIsStoreDropdownOpen] = useState(false);
+  const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
+
+  const clusterDropdownRef = useRef(null);
+  const storeDropdownRef = useRef(null);
+  const roleDropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (clusterDropdownRef.current && !clusterDropdownRef.current.contains(e.target)) {
+        setIsClusterDropdownOpen(false);
+      }
+      if (storeDropdownRef.current && !storeDropdownRef.current.contains(e.target)) {
+        setIsStoreDropdownOpen(false);
+      }
+      if (roleDropdownRef.current && !roleDropdownRef.current.contains(e.target)) {
+        setIsRoleDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
   const [clusters, setClusters] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [rankingSearch, setRankingSearch] = useState("");
@@ -707,6 +949,7 @@ const StoreInsights = () => {
   const [customEndDate, setCustomEndDate] = useState(() => getLocalDateString(new Date()));
   const [tempStartDate, setTempStartDate] = useState(customStartDate);
   const [tempEndDate, setTempEndDate] = useState(customEndDate);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   // Target and performance fetch states
   const [weeklyTargets, setWeeklyTargets] = useState({});
@@ -1632,15 +1875,16 @@ const StoreInsights = () => {
           return { locId, data };
         });
 
-        const results = await runWithConcurrencyLimit(tasks, 4);
+        const results = await runWithConcurrencyLimit(tasks, 6);
         const map = {};
         results.forEach(r => {
           map[r.locId] = r.data;
         });
         setPerformanceData(map);
+        setLoadingPerformance(false);
         setLastRefreshed(new Date());
 
-        // Fetch last year performance data shifted by exactly 1 year
+        // Fetch last year performance data shifted by exactly 1 year in background
         const shiftDateYear = (dateStr, years = -1) => {
           if (!dateStr) return "";
           const d = new Date(dateStr);
@@ -1666,16 +1910,18 @@ const StoreInsights = () => {
           return { locId, data };
         });
 
-        const lyResults = await runWithConcurrencyLimit(lyTasks, 4);
-        const lyMap = {};
-        lyResults.forEach(r => {
-          lyMap[r.locId] = r.data;
+        runWithConcurrencyLimit(lyTasks, 6).then(lyResults => {
+          const lyMap = {};
+          lyResults.forEach(r => {
+            lyMap[r.locId] = r.data;
+          });
+          setLyPerformanceData(lyMap);
+        }).catch(err => {
+          console.warn("LY background fetch error:", err);
         });
-        setLyPerformanceData(lyMap);
 
       } catch (err) {
         console.error("Error in fetchPerformance for StoreInsights:", err);
-      } finally {
         setLoadingPerformance(false);
       }
     };
@@ -2001,12 +2247,36 @@ const StoreInsights = () => {
         achieved = rentalValue + salesTotalValue;
       }
 
+      // Last Year value calculation for store
+      const lyLocPeriodList = lyPerformanceData[locId] || [];
+      const lyDapprPeriodList = isConsolidated ? (lyPerformanceData["25"] || []) : [];
+      const lyDapprPeriodForStore = isConsolidated ? getDapprSquadDataForStore(locId, lyDapprPeriodList) : [];
+      const lyUnmappedDapprPeriodList = (isGMGRoad && isConsolidated)
+        ? lyDapprPeriodList.filter(item => {
+            const raw = String(item.bookingBy || "").trim().toLowerCase();
+            const alphaOnly = raw.replace(/[^a-z0-9]/g, "");
+            const dotted = alphaOnly.startsWith("sg") ? "sg." + alphaOnly.slice(2) : raw;
+            return !DAPPR_SQUAD_STORE_MAPPING[raw] && !DAPPR_SQUAD_STORE_MAPPING[dotted];
+          })
+        : [];
+      const lyMergedPeriodList = [...lyLocPeriodList, ...lyDapprPeriodForStore, ...lyUnmappedDapprPeriodList];
+      const lyRentalValue = lyMergedPeriodList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+
+      let lyValue = lyRentalValue;
+      if (isConsolidated) {
+        const lyBranchSales = (locCode && lySalesData.byBranch?.[locCode]) || {};
+        const lySalesTotalValue = lyBranchSales.totalValue || 0;
+        lyValue = lyRentalValue + lySalesTotalValue;
+      }
+
       const balance = target - achieved;
       const pct = target > 0 ? Math.round((achieved / target) * 100) : 0;
       return { 
         name, 
         target, 
         achieved, 
+        ty: achieved,
+        ly: lyValue,
         balance, 
         pct, 
         abbr: getAbbreviation(name),
@@ -2015,7 +2285,7 @@ const StoreInsights = () => {
     }).filter(Boolean);
 
     return list;
-  }, [branches, isConsolidated, timeframe, customStartDate, customEndDate, weeklyTargets, performanceData, salesData, dapprAttribution, customizationAttribution, storeDapprTotals, storeCustomizationTotals, selectedStores, isStoreAdmin]);
+  }, [branches, isConsolidated, timeframe, customStartDate, customEndDate, weeklyTargets, performanceData, lyPerformanceData, salesData, lySalesData, dapprAttribution, customizationAttribution, storeDapprTotals, storeCustomizationTotals, selectedStores, isStoreAdmin]);
 
   // Filter stores by cluster & store if selected
   const filteredStoresForKPIs = useMemo(() => {
@@ -2188,6 +2458,20 @@ const StoreInsights = () => {
       return 0;
     };
 
+    // Last year merged period list for employee view
+    const lyLocPeriodList = isStoreAdmin && singleBranch ? (lyPerformanceData[locId] || []) : [];
+    const lyDapprPeriodList = (isStoreAdmin && isConsolidated) ? (lyPerformanceData["25"] || []) : [];
+    const lyDapprPeriodForStore = (isStoreAdmin && isConsolidated) ? getDapprSquadDataForStore(locId, lyDapprPeriodList) : [];
+    const lyUnmappedDapprPeriodList = (isGMGRoad && isConsolidated)
+      ? lyDapprPeriodList.filter(item => {
+          const raw = String(item.bookingBy || "").trim().toLowerCase();
+          const alphaOnly = raw.replace(/[^a-z0-9]/g, "");
+          const dotted = alphaOnly.startsWith("sg") ? "sg." + alphaOnly.slice(2) : raw;
+          return !DAPPR_SQUAD_STORE_MAPPING[raw] && !DAPPR_SQUAD_STORE_MAPPING[dotted];
+        })
+      : [];
+    const lyMergedPeriodList = [...lyLocPeriodList, ...lyDapprPeriodForStore, ...lyUnmappedDapprPeriodList];
+
     return staffNames
       .map(staffName => {
         const fullName = String(staffName || "").trim();
@@ -2210,14 +2494,17 @@ const StoreInsights = () => {
           }
         }
 
+        const staffLyRentalItems = lyMergedPeriodList.filter(x => x && (normalizeForMatch(x.bookingBy) === staffKey || isStaffNameMatch(x.bookingBy, fullName)));
+        const lyValue = staffLyRentalItems.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+
         const target = resolveStaffTarget(fullName);
         const balance = target - achieved;
         const pct = target > 0 ? Math.round((achieved / target) * 100) : 0;
-        return { name: fullName, abbr: firstName, achieved, target, balance, pct };
+        return { name: fullName, abbr: firstName, achieved, ty: achieved, ly: lyValue, target, balance, pct };
       })
-      .filter(item => item.achieved > 0 || item.target > 0)
+      .filter(item => item.achieved > 0 || item.target > 0 || item.ly > 0)
       .sort((a, b) => b.achieved - a.achieved);
-  }, [isStoreAdmin, branches, performanceData, employeeTargets, timeframe, customStartDate, customEndDate, isConsolidated, salespersons, salesData, dapprAttribution, customizationAttribution]);
+  }, [isStoreAdmin, branches, performanceData, lyPerformanceData, employeeTargets, timeframe, customStartDate, customEndDate, isConsolidated, salespersons, salesData, dapprAttribution, customizationAttribution]);
 
 
 
@@ -2401,8 +2688,7 @@ const StoreInsights = () => {
         w.status?.toLowerCase() === "booked"
       ).length;
     }
-
-    const getChangeStats = (curr, prev) => {
+        const getChangeStats = (curr, prev) => {
       const change = prev > 0 ? Math.round(((curr - prev) / prev) * 100) : 0;
       return {
         display: change >= 0 ? `+${change}%` : `${change}%`,
@@ -2415,50 +2701,97 @@ const StoreInsights = () => {
       };
     };
 
+    const activeReviewField = timeframe === "WTD" ? "thisWeek" : (timeframe === "FTD" ? "today" : (timeframe === "YTD" ? "total" : "thisMonth"));
+
     const googleReviews = (() => {
-      // Sum thisMonth counts for all stores in the current filter
-      const storeNames = filteredStoresForKPIs.map(s => s.name);
-      if (storeNames.length === 0) {
-        // "All" — sum everything
-        return Object.values(googleReviewData).reduce((sum, d) => sum + (d?.thisMonth || 0), 0);
-      }
-      return storeNames.reduce((sum, name) => {
-        const entry = googleReviewData[name];
-        return sum + (entry?.thisMonth || 0);
+      if (!googleReviewData || Object.keys(googleReviewData).length === 0) return 0;
+      const isAllSelected = (selectedStores.includes("All") || selectedStores.length === 0) && (selectedClusters.includes("All") || selectedClusters.length === 0);
+
+      return Object.entries(googleReviewData).reduce((sum, [branchKey, d]) => {
+        if (!d) return sum;
+        if (isAllSelected) {
+          return sum + (d[activeReviewField] ?? d.thisMonth ?? 0);
+        }
+        const normKey = normalizeForMatch(branchKey);
+        const bObj = branches.find(b => normalizeForMatch(b.workingBranch) === normKey);
+        const displayName = bObj ? displayBranchName(bObj.workingBranch) : branchKey;
+        const normDisplay = normalizeForMatch(displayName);
+
+        const matchesFilter = filteredStoresForKPIs.some(s => {
+          const normS = normalizeForMatch(s.name);
+          return normS === normKey || normS === normDisplay || normKey.includes(normS) || normDisplay.includes(normS);
+        });
+
+        return matchesFilter ? sum + (d[activeReviewField] ?? d.thisMonth ?? 0) : sum;
       }, 0);
     })();
 
     const lyGoogleReviews = (() => {
-      const storeNames = filteredStoresForKPIs.map(s => s.name);
-      if (storeNames.length === 0) {
-        return Object.values(googleReviewData).reduce((sum, d) => sum + (d?.lyThisMonth || 0), 0);
-      }
-      return storeNames.reduce((sum, name) => {
-        const entry = googleReviewData[name];
-        return sum + (entry?.lyThisMonth || 0);
+      if (!googleReviewData || Object.keys(googleReviewData).length === 0) return 0;
+      const isAllSelected = (selectedStores.includes("All") || selectedStores.length === 0) && (selectedClusters.includes("All") || selectedClusters.length === 0);
+
+      return Object.entries(googleReviewData).reduce((sum, [branchKey, d]) => {
+        if (!d) return sum;
+        if (isAllSelected) {
+          return sum + (d.lyThisMonth || 0);
+        }
+        const normKey = normalizeForMatch(branchKey);
+        const bObj = branches.find(b => normalizeForMatch(b.workingBranch) === normKey);
+        const displayName = bObj ? displayBranchName(bObj.workingBranch) : branchKey;
+        const normDisplay = normalizeForMatch(displayName);
+
+        const matchesFilter = filteredStoresForKPIs.some(s => {
+          const normS = normalizeForMatch(s.name);
+          return normS === normKey || normS === normDisplay || normKey.includes(normS) || normDisplay.includes(normS);
+        });
+
+        return matchesFilter ? sum + (d.lyThisMonth || 0) : sum;
       }, 0);
     })();
+
     const googleRating = (() => {
-      const storeNames = filteredStoresForKPIs.map(s => s.name);
-      const activeEntries = storeNames.length === 0 
-        ? Object.values(googleReviewData)
-        : storeNames.map(name => googleReviewData[name]).filter(Boolean);
-      
+      if (!googleReviewData || Object.keys(googleReviewData).length === 0) return 0;
+      const isAllSelected = (selectedStores.includes("All") || selectedStores.length === 0) && (selectedClusters.includes("All") || selectedClusters.length === 0);
+
+      const activeEntries = Object.entries(googleReviewData).filter(([branchKey, d]) => {
+        if (!d) return false;
+        if (isAllSelected) return true;
+        const normKey = normalizeForMatch(branchKey);
+        const bObj = branches.find(b => normalizeForMatch(b.workingBranch) === normKey);
+        const displayName = bObj ? displayBranchName(bObj.workingBranch) : branchKey;
+        const normDisplay = normalizeForMatch(displayName);
+
+        return filteredStoresForKPIs.some(s => {
+          const normS = normalizeForMatch(s.name);
+          return normS === normKey || normS === normDisplay || normKey.includes(normS) || normDisplay.includes(normS);
+        });
+      }).map(([, d]) => d);
+
       const ratedEntries = activeEntries.filter(entry => entry.rating > 0);
       if (ratedEntries.length === 0) return 0;
-      
+
       const sum = ratedEntries.reduce((acc, curr) => acc + (curr.rating || 0), 0);
       return parseFloat((sum / ratedEntries.length).toFixed(1));
     })();
 
     const totalReviewsCount = (() => {
-      const storeNames = filteredStoresForKPIs.map(s => s.name);
-      if (storeNames.length === 0) {
-        return Object.values(googleReviewData).reduce((sum, d) => sum + (d?.total || 0), 0);
-      }
-      return storeNames.reduce((sum, name) => {
-        const entry = googleReviewData[name];
-        return sum + (entry?.total || 0);
+      if (!googleReviewData || Object.keys(googleReviewData).length === 0) return 0;
+      const isAllSelected = (selectedStores.includes("All") || selectedStores.length === 0) && (selectedClusters.includes("All") || selectedClusters.length === 0);
+
+      return Object.entries(googleReviewData).reduce((sum, [branchKey, d]) => {
+        if (!d) return sum;
+        if (isAllSelected) return sum + (d.total || 0);
+        const normKey = normalizeForMatch(branchKey);
+        const bObj = branches.find(b => normalizeForMatch(b.workingBranch) === normKey);
+        const displayName = bObj ? displayBranchName(bObj.workingBranch) : branchKey;
+        const normDisplay = normalizeForMatch(displayName);
+
+        const matchesFilter = filteredStoresForKPIs.some(s => {
+          const normS = normalizeForMatch(s.name);
+          return normS === normKey || normS === normDisplay || normKey.includes(normS) || normDisplay.includes(normS);
+        });
+
+        return matchesFilter ? sum + (d.total || 0) : sum;
       }, 0);
     })();
 
@@ -2529,6 +2862,8 @@ const StoreInsights = () => {
       const shirtChange = getChangeStats(cardShirtQty, lyCardShirtQty);
       const dapprChange = getChangeStats(dapprSquadBills, lyDapprSquadBills);
       const reviewsChange = getChangeStats(googleReviews, lyGoogleReviews);
+      const googleReviewRate = consolidatedBills > 0 ? parseFloat((((googleReviews || 0) / consolidatedBills) * 100).toFixed(1)) : 0;
+      const lyGoogleReviewRate = lyConsolidatedBills > 0 ? parseFloat((((lyGoogleReviews || 0) / lyConsolidatedBills) * 100).toFixed(1)) : 0;
 
       return {
         achievedPct: trueAchievedPct,
@@ -2549,6 +2884,8 @@ const StoreInsights = () => {
         dapprSquadValue: dapprSquadValue * roleMultiplier,
         googleReviews,
         googleRating,
+        googleReviewRate,
+        lyGoogleReviewRate,
         
         valChangeDisplay: valChange.display, valChangeColor: valChange.color, valTrend: valChange.trend, valTrendColor: valChange.trendColor,
         billsChangeDisplay: billsChange.display, billsChangeColor: billsChange.color, billsTrend: billsChange.trend, billsTrendColor: billsChange.trendColor,
@@ -2622,6 +2959,8 @@ const StoreInsights = () => {
       const shirtChange = getChangeStats(shirtQty, lyCardShirtQty);
       const dapprChange = getChangeStats(dapprSquadBills, lyDapprSquadBills);
       const reviewsChange = getChangeStats(googleReviews, lyGoogleReviews);
+      const googleReviewRate = trueRentalBills > 0 ? parseFloat((((googleReviews || 0) / trueRentalBills) * 100).toFixed(1)) : 0;
+      const lyGoogleReviewRate = lyTrueRentalBills > 0 ? parseFloat((((lyGoogleReviews || 0) / lyTrueRentalBills) * 100).toFixed(1)) : 0;
 
       return {
         achievedPct: trueAchievedPct,
@@ -2642,6 +2981,8 @@ const StoreInsights = () => {
         dapprSquadValue: dapprSquadValue * roleMultiplier,
         googleReviews,
         googleRating,
+        googleReviewRate,
+        lyGoogleReviewRate,
         
         valChangeDisplay: valChange.display, valChangeColor: valChange.color, valTrend: valChange.trend, valTrendColor: valChange.trendColor,
         billsChangeDisplay: billsChange.display, billsChangeColor: billsChange.color, billsTrend: billsChange.trend, billsTrendColor: billsChange.trendColor,
@@ -3250,28 +3591,31 @@ const StoreInsights = () => {
     );
   };
 
-  const renderKpiCard = ({ title, mainVal, tyVal, lyVal, changeObj, unit, trend, trendColor }) => {
+  const renderKpiCard = ({ title, mainVal, tyVal, lyVal, changeObj, unit, trend, trendColor, label1 = "This Year :", label2 = "Last Year :", index = 0 }) => {
     const isUp = trend === "up" || (changeObj && changeObj.diff >= 0);
     const finalTrendColor = trendColor || (isUp ? "#00A36C" : "#e11d48");
     const finalTrend = trend || (isUp ? "up" : "down");
     const isNegative = (typeof mainVal === "string" && mainVal.startsWith("-")) || (changeObj && changeObj.diff < 0);
     const mainTextColor = isNegative ? "text-rose-600" : "text-emerald-600";
     return (
-      <div className="bg-white rounded-[20px] shadow-sm border border-gray-100 p-5 flex flex-col justify-between h-[200px] w-full font-sans">
+      <div 
+        style={{ animationDelay: `${index * 45}ms` }}
+        className="bg-white rounded-[20px] shadow-sm border border-gray-100 p-5 flex flex-col justify-between h-[200px] w-full font-sans transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:border-gray-200/80 group cursor-pointer animate-slideUpFade"
+      >
         <div>
-          <span className="text-[13px] font-bold text-gray-700 block">{title}</span>
+          <span className="text-[13px] font-bold text-gray-700 group-hover:text-gray-900 transition-colors block">{title}</span>
         </div>
         <div className="flex items-center justify-between mt-1">
-          <span className={`text-[28px] xs:text-[30px] sm:text-[32px] font-extrabold ${mainTextColor} leading-none`}>{mainVal}</span>
+          <span className={`text-[28px] xs:text-[30px] sm:text-[32px] font-extrabold ${mainTextColor} leading-none transition-transform duration-300 group-hover:scale-[1.03] origin-left`}>{mainVal}</span>
           <Sparkline type={finalTrend} color={finalTrendColor} />
         </div>
         <div className="flex flex-col gap-1.5 mt-3">
           <div className="flex justify-between items-center text-[12px]">
-            <span className="text-gray-400 font-semibold">This Year :</span>
+            <span className="text-gray-400 font-semibold">{label1}</span>
             <span className="text-gray-800 font-bold">{tyVal}</span>
           </div>
           <div className="flex justify-between items-center text-[12px]">
-            <span className="text-gray-400 font-semibold">Last Year :</span>
+            <span className="text-gray-400 font-semibold">{label2}</span>
             <span className="text-gray-800 font-bold">{lyVal}</span>
           </div>
         </div>
@@ -3292,6 +3636,34 @@ const StoreInsights = () => {
 
       {/* Main Content Area */}
       <div className="flex-1 md:ml-[110px] min-h-screen p-4 sm:p-6 lg:p-8 mb-[70px] md:mb-0">
+        <style>{`
+          @keyframes slideUpFade {
+            0% {
+              opacity: 0;
+              transform: translateY(18px) scale(0.98);
+            }
+            100% {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+            }
+          }
+          .animate-slideUpFade {
+            animation: slideUpFade 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+          }
+          @keyframes popoverOpen {
+            0% {
+              opacity: 0;
+              transform: scale(0.94) translateY(-6px);
+            }
+            100% {
+              opacity: 1;
+              transform: scale(1) translateY(0);
+            }
+          }
+          .animate-popoverOpen {
+            animation: popoverOpen 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          }
+        `}</style>
         
         {/* Top Header Controls row */}
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-6">
@@ -3343,40 +3715,45 @@ const StoreInsights = () => {
             </div>
 
             {timeframe === "CUSTOM" && (
-              <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-1.5 shadow-sm">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">From:</span>
-                  <input 
-                    type="date" 
-                    value={tempStartDate} 
-                    onChange={(e) => setTempStartDate(e.target.value)}
-                    className="border-none bg-transparent text-xs font-bold text-gray-700 outline-none p-0 focus:ring-0 cursor-pointer"
-                  />
-                </div>
-                <div className="h-4 w-px bg-gray-200"></div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">To:</span>
-                  <input 
-                    type="date" 
-                    value={tempEndDate} 
-                    onChange={(e) => setTempEndDate(e.target.value)}
-                    className="border-none bg-transparent text-xs font-bold text-gray-700 outline-none p-0 focus:ring-0 cursor-pointer"
-                  />
-                </div>
+              <div className="relative">
                 <button
-                  onClick={() => {
-                    if (tempStartDate && tempEndDate) {
-                      setCustomStartDate(tempStartDate);
-                      setCustomEndDate(tempEndDate);
-                    }
-                  }}
-                  className="ml-1 bg-black hover:bg-gray-800 text-white font-bold text-xs px-3 py-1.5 rounded-lg transition-all shadow-sm flex items-center gap-1 cursor-pointer active:scale-95"
+                  type="button"
+                  onClick={() => setIsCalendarOpen(!isCalendarOpen)}
+                  className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3.5 py-1.5 shadow-sm hover:border-gray-300 transition-all cursor-pointer"
                 >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
-                  Fetch
+                  <span className="text-xs font-bold text-gray-800">
+                    {(() => {
+                      if (!customStartDate || !customEndDate) return "Select Date Range";
+                      const p1 = customStartDate.split("-");
+                      const p2 = customEndDate.split("-");
+                      if (p1.length === 3 && p2.length === 3) {
+                        return `${p1[1]}/${p1[2]}/${p1[0]} – ${p2[1]}/${p2[2]}/${p2[0]}`;
+                      }
+                      return `${customStartDate} – ${customEndDate}`;
+                    })()}
+                  </span>
+                  <svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
                 </button>
+
+                {isCalendarOpen && (
+                  <SingleCalendarRangePicker
+                    initialStart={customStartDate}
+                    initialEnd={customEndDate}
+                    onApply={(start, end) => {
+                      setCustomStartDate(start);
+                      setCustomEndDate(end);
+                      setTempStartDate(start);
+                      setTempEndDate(end);
+                      setIsCalendarOpen(false);
+                    }}
+                    onClose={() => setIsCalendarOpen(false)}
+                  />
+                )}
               </div>
             )}
 
@@ -3387,14 +3764,17 @@ const StoreInsights = () => {
           </div>
         </div>
 
-        {/* Store Target vs Achieved Target Chart Card */}
-        <div className="bg-white rounded-[20px] shadow-sm border border-gray-100 p-6 mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+        {/* Store Target vs Achieved Target / LY vs TY Chart Card */}
+        <div className="bg-white rounded-[20px] shadow-sm border border-gray-100 p-4 sm:p-6 mb-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
             <div>
-              <h2 className="text-[17px] font-bold text-gray-900">
-                {isStoreAdmin ? "Employee Performance Overview" : "Store Target Vs Achieved Target"}
+              <h2 className="text-[16px] sm:text-[17px] font-bold text-gray-900 leading-snug">
+                {graphType === "LY_VS_TY" 
+                  ? (isStoreAdmin ? "Employee Last Year Vs This Year" : "Store Last Year Vs This Year")
+                  : (isStoreAdmin ? "Employee Performance Overview" : "Store Target Vs Achieved Target")
+                }
               </h2>
-              <p className="text-gray-400 text-xs font-semibold font-sans mt-0.5">
+              <p className="text-gray-400 text-[11px] sm:text-xs font-semibold font-sans mt-0.5">
                 {timeframe === "MTD"
                   ? getMTDDateRangeString()
                   : timeframe === "WTD"
@@ -3409,7 +3789,33 @@ const StoreInsights = () => {
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              {/* Graph Mode Switcher Toggle (Target vs Achieved | LY / TY) */}
+              <div className="flex bg-[#eef1f6] p-0.5 rounded-lg shadow-inner">
+                <button 
+                  type="button"
+                  onClick={() => setGraphType("TARGET_VS_ACHIEVED")}
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] sm:text-[11px] font-bold transition-all cursor-pointer ${
+                    graphType === "TARGET_VS_ACHIEVED" 
+                      ? "bg-white text-gray-950 shadow-sm" 
+                      : "text-gray-500 hover:text-gray-950"
+                  }`}
+                >
+                  Target vs Achieved
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setGraphType("LY_VS_TY")}
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] sm:text-[11px] font-bold transition-all cursor-pointer ${
+                    graphType === "LY_VS_TY" 
+                      ? "bg-white text-gray-950 shadow-sm" 
+                      : "text-gray-500 hover:text-gray-950"
+                  }`}
+                >
+                  LY / TY
+                </button>
+              </div>
+
               {/* Category selector pills — only for non-store-admin */}
               {!isStoreAdmin && (
               <div className="flex bg-[#eef1f6] p-0.5 rounded-lg">
@@ -3417,7 +3823,7 @@ const StoreInsights = () => {
                   <button 
                     key={filter}
                     onClick={() => setChartFilter(filter)}
-                    className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-all ${
+                    className={`px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] sm:text-[11px] font-bold transition-all ${
                       chartFilter === filter 
                         ? "bg-white text-gray-950 shadow-sm" 
                         : "text-gray-500 hover:text-gray-950"
@@ -3432,7 +3838,7 @@ const StoreInsights = () => {
               {/* View Report Button */}
               <a 
                 href="/store-analysis/dsr-report" 
-                className="bg-[#18181b] hover:bg-black text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors select-none text-center"
+                className="bg-[#18181b] hover:bg-black text-white px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-colors select-none text-center"
               >
                 View Report
               </a>
@@ -3440,132 +3846,261 @@ const StoreInsights = () => {
           </div>
 
           {/* Chart Legends */}
-          <div className="flex items-center gap-4 mb-4 text-xs font-bold text-gray-500">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#9333ea]" />
-              <span>Target</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#eab308]" />
-              <span>Achieved</span>
-            </div>
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-4 text-[11px] sm:text-xs font-bold text-gray-500 font-sans">
+            {graphType === "LY_VS_TY" ? (
+              <>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#475569]" />
+                  <span>Last Year (LY)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#10b981]" />
+                  <span>This Year (TY) - Growth</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#e11d48]" />
+                  <span>This Year (TY) - Degrowth</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#475569]" />
+                  <span>Target</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#10b981]" />
+                  <span>Achieved (Target Met)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#e11d48]" />
+                  <span>Achieved (Target Missed)</span>
+                </div>
+              </>
+            )}
           </div>
 
-          {/* Recharts Graph — BarChart for single store, AreaChart for multiple */}
-          <div className="h-[300px] w-full mt-2">
-            {isStoreAdmin && employeeChartData.length === 0 && !loadingPerformance && (
-              <div className="flex items-center justify-center h-full text-gray-400 text-sm font-semibold">
-                No employee performance data available for this period.
-              </div>
-            )}
-            {(!isStoreAdmin || employeeChartData.length > 0 || loadingPerformance) && (() => {
-              const chartPoints = isStoreAdmin ? employeeChartData : filteredChartData;
-              const useBarChart = chartPoints.length <= 2;
+          {/* Recharts Graph Container with Mobile Scrollability */}
+          <div className="w-full overflow-x-auto mt-2 pb-2">
+            <div className="h-[280px] sm:h-[320px] min-w-[640px] md:min-w-full relative">
+              {loadingPerformance && (
+                <div className="absolute inset-0 z-30 bg-white/90 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center transition-all duration-500 overflow-hidden font-sans">
+                  {/* Top Sweeping Laser Beam (Linear / Vercel Style) */}
+                  <div className="absolute top-0 left-0 right-0 h-[2.5px] bg-gray-100/60 overflow-hidden">
+                    <div className="h-full w-2/5 bg-gradient-to-r from-transparent via-emerald-500 to-transparent animate-laserBeam" />
+                  </div>
 
-              // Shared tooltip content
-              const sharedTooltip = (
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const data = payload[0].payload;
-                      return (
-                        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-xl text-xs font-sans">
-                          <h4 className="font-extrabold text-gray-900 text-sm mb-2">{data.name}</h4>
-                          <div className="space-y-1 font-semibold text-gray-500">
-                            <div className="flex items-center justify-between gap-6">
-                              <span>Target :</span>
-                              <span className="text-[#9333ea] font-extrabold">
-                                {data.target > 0 ? `₹${formatIndianNumber(data.target, 2)}` : "—"}
-                              </span>
+                  {/* High-Level Vertical Shimmer Skeleton Wave */}
+                  <div className="absolute inset-x-8 bottom-8 top-12 flex items-end justify-between gap-3 opacity-20 pointer-events-none">
+                    {[45, 70, 35, 90, 55, 80, 40, 95, 60, 75, 50, 85, 30, 65, 100, 45].map((h, idx) => (
+                      <div
+                        key={idx}
+                        className="flex-1 bg-gradient-to-t from-gray-900 via-gray-700 to-emerald-600 rounded-t-sm relative overflow-hidden"
+                        style={{ height: `${h}%` }}
+                      >
+                        <div
+                          className="absolute inset-0 bg-gradient-to-t from-transparent via-white/50 to-transparent animate-shimmer"
+                          style={{ animationDelay: `${(idx % 4) * 200}ms` }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Floating Glassmorphic Badge with Pulsing Emerald Radar Orb */}
+                  <div className="relative z-40 flex flex-col items-center gap-2.5 bg-white/95 border border-gray-200/90 shadow-2xl px-6 py-4 rounded-2xl backdrop-blur-xl animate-float">
+                    <div className="flex items-center gap-3">
+                      {/* Pulsing Emerald Radar Orb */}
+                      <div className="relative flex items-center justify-center w-4 h-4">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-[0_0_10px_#10b981]" />
+                      </div>
+
+                      <span className="text-xs font-bold text-gray-900 tracking-wide font-sans">
+                        Syncing Store Analytics
+                      </span>
+
+                      {/* Bouncing Micro Dots */}
+                      <div className="flex gap-1 items-center ml-1">
+                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                      </div>
+                    </div>
+
+                    <span className="text-[11px] font-semibold text-gray-400">
+                      Processing live revenue & target data
+                    </span>
+                  </div>
+
+                  <style>{`
+                    @keyframes laserBeam {
+                      0% { transform: translateX(-100%); }
+                      100% { transform: translateX(280%); }
+                    }
+                    .animate-laserBeam {
+                      animation: laserBeam 1.6s infinite ease-in-out;
+                    }
+                    @keyframes shimmer {
+                      0% { transform: translateY(100%); }
+                      100% { transform: translateY(-100%); }
+                    }
+                    .animate-shimmer {
+                      animation: shimmer 1.8s infinite ease-in-out;
+                    }
+                    @keyframes float {
+                      0%, 100% { transform: translateY(0px); }
+                      50% { transform: translateY(-3px); }
+                    }
+                    .animate-float {
+                      animation: float 2.5s ease-in-out infinite;
+                    }
+                  `}</style>
+                </div>
+              )}
+              {isStoreAdmin && employeeChartData.length === 0 && !loadingPerformance && (
+                <div className="flex items-center justify-center h-full text-gray-400 text-sm font-semibold">
+                  No employee performance data available for this period.
+                </div>
+              )}
+              {(!isStoreAdmin || employeeChartData.length > 0 || loadingPerformance) && (() => {
+                const chartPoints = isStoreAdmin ? employeeChartData : filteredChartData;
+
+                // Shared tooltip content
+                const sharedTooltip = (
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        if (graphType === "LY_VS_TY") {
+                          const lyVal = data.ly || 0;
+                          const tyVal = data.ty !== undefined ? data.ty : (data.achieved || 0);
+                          const diff = tyVal - lyVal;
+                          const pctGrowth = lyVal > 0 ? ((diff / lyVal) * 100).toFixed(1) : (tyVal > 0 ? "100" : "0");
+                          const isDegrowth = tyVal < lyVal;
+                          const diffPrefix = diff >= 0 ? "+" : "-";
+                          const diffColor = isDegrowth ? "text-rose-500" : "text-emerald-600";
+                          const tyColor = isDegrowth ? "text-rose-600" : "text-emerald-600";
+                          return (
+                            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-xl text-xs font-sans">
+                              <h4 className="font-extrabold text-gray-900 text-sm mb-2">{data.name}</h4>
+                              <div className="space-y-1 font-semibold text-gray-500">
+                                <div className="flex items-center justify-between gap-6">
+                                  <span>Last Year (LY) :</span>
+                                  <span className="text-[#475569] font-extrabold">₹{formatIndianNumber(lyVal, 2)}</span>
+                                </div>
+                                <div className="flex items-center justify-between gap-6">
+                                  <span>This Year (TY) :</span>
+                                  <span className={`${tyColor} font-extrabold`}>₹{formatIndianNumber(tyVal, 2)}</span>
+                                </div>
+                                <div className="flex items-center justify-between gap-6 border-t border-gray-100 pt-1.5 mt-1.5">
+                                  <span>Growth / Diff :</span>
+                                  <span className={`font-extrabold ${diffColor}`}>
+                                    {diffPrefix}₹{formatIndianNumber(Math.abs(diff), 2)} ({diffPrefix}{pctGrowth}%)
+                                  </span>
+                                </div>
+                              </div>
                             </div>
-                            <div className="flex items-center justify-between gap-6">
-                              <span>Achieved :</span>
-                              <span className="text-[#eab308] font-extrabold">₹{formatIndianNumber(data.achieved, 2)}</span>
-                            </div>
-                            <div className="flex items-center justify-between gap-6 border-t border-gray-100 pt-1.5 mt-1.5">
-                              <span>Balance :</span>
-                              <span className="text-gray-900 font-extrabold">
-                                {data.target > 0 ? `₹${formatIndianNumber(data.balance, 2)}` : "—"}
-                              </span>
+                          );
+                        }
+
+                        const targetVal = data.target || 0;
+                        const achievedVal = data.achieved || 0;
+                        const isTargetMet = targetVal > 0 ? achievedVal >= targetVal : achievedVal > 0;
+                        const achievedColor = isTargetMet ? "text-emerald-600" : "text-rose-600";
+
+                        return (
+                          <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-xl text-xs font-sans">
+                            <h4 className="font-extrabold text-gray-900 text-sm mb-2">{data.name}</h4>
+                            <div className="space-y-1 font-semibold text-gray-500">
+                              <div className="flex items-center justify-between gap-6">
+                                <span>Target :</span>
+                                <span className="text-[#475569] font-extrabold">
+                                  {targetVal > 0 ? `₹${formatIndianNumber(targetVal, 2)}` : "—"}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between gap-6">
+                                <span>Achieved :</span>
+                                <span className={`${achievedColor} font-extrabold`}>₹{formatIndianNumber(achievedVal, 2)}</span>
+                              </div>
+                              <div className="flex items-center justify-between gap-6 border-t border-gray-100 pt-1.5 mt-1.5">
+                                <span>Balance / Shortfall :</span>
+                                <span className={`font-extrabold ${data.balance <= 0 ? "text-emerald-600" : "text-rose-500"}`}>
+                                  {targetVal > 0 ? `₹${formatIndianNumber(data.balance, 2)}` : "—"}
+                                </span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-              );
-
-              const sharedAxes = (
-                <>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                  <XAxis
-                    dataKey="abbr"
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fill: "#9ca3af", fontSize: 10, fontWeight: 700 }}
-                    interval={0}
+                        );
+                      }
+                      return null;
+                    }}
                   />
-                  <YAxis
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fill: "#9ca3af", fontSize: 10, fontWeight: 700 }}
-                    tickFormatter={(val) => val >= 1000 ? `${val / 1000}K` : val}
-                  />
-                </>
-              );
+                );
 
-              if (useBarChart) {
+                const sharedAxes = (
+                  <>
+                    <CartesianGrid strokeDasharray="3 3" vertical={true} stroke="#e5e7eb" />
+                    <XAxis
+                      dataKey="abbr"
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fill: "#9ca3af", fontSize: 9, fontWeight: 700 }}
+                      interval={0}
+                    />
+                    <YAxis
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fill: "#9ca3af", fontSize: 9, fontWeight: 700 }}
+                      tickFormatter={(val) => val >= 1000 ? `${val / 1000}K` : val}
+                    />
+                  </>
+                );
+
                 return (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartPoints} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barCategoryGap="40%">
+                    <BarChart data={chartPoints} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barGap={3} barCategoryGap="30%">
                       {sharedAxes}
                       {sharedTooltip}
-                      <Bar dataKey="target" name="Target" fill="#9333ea" fillOpacity={0.85} radius={[6, 6, 0, 0]} barSize={60} />
-                      <Bar dataKey="achieved" name="Achieved" fill="#eab308" fillOpacity={0.85} radius={[6, 6, 0, 0]} barSize={60} />
+                      {graphType === "LY_VS_TY" ? (
+                        <>
+                          <Bar dataKey="ly" name="Last Year (LY)" fill="#475569" radius={[0, 0, 0, 0]} />
+                          <Bar dataKey="ty" name="This Year (TY)" radius={[0, 0, 0, 0]}>
+                            {chartPoints.map((entry, index) => {
+                              const lyVal = entry.ly || 0;
+                              const tyVal = entry.ty !== undefined ? entry.ty : (entry.achieved || 0);
+                              const isDegrowth = tyVal < lyVal;
+                              return (
+                                <Cell 
+                                  key={`cell-ty-${index}`} 
+                                  fill={isDegrowth ? "#e11d48" : "#10b981"} 
+                                />
+                              );
+                            })}
+                          </Bar>
+                        </>
+                      ) : (
+                        <>
+                          <Bar dataKey="target" name="Target" fill="#475569" fillOpacity={0.85} radius={[0, 0, 0, 0]} />
+                          <Bar dataKey="achieved" name="Achieved" radius={[0, 0, 0, 0]}>
+                            {chartPoints.map((entry, index) => {
+                              const targetVal = entry.target || 0;
+                              const achievedVal = entry.achieved || 0;
+                              const isTargetMet = targetVal > 0 ? achievedVal >= targetVal : achievedVal > 0;
+                              return (
+                                <Cell 
+                                  key={`cell-achieved-${index}`} 
+                                  fill={isTargetMet ? "#10b981" : "#e11d48"} 
+                                />
+                              );
+                            })}
+                          </Bar>
+                        </>
+                      )}
                     </BarChart>
                   </ResponsiveContainer>
                 );
-              }
-
-              return (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartPoints} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="chartTargetGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#9333ea" stopOpacity={0.12} />
-                        <stop offset="100%" stopColor="#9333ea" stopOpacity={0.0} />
-                      </linearGradient>
-                      <linearGradient id="chartAchievedGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#eab308" stopOpacity={0.12} />
-                        <stop offset="100%" stopColor="#eab308" stopOpacity={0.0} />
-                      </linearGradient>
-                    </defs>
-                    {sharedAxes}
-                    {sharedTooltip}
-                    <Area
-                      type="monotone"
-                      dataKey="target"
-                      stroke="#9333ea"
-                      strokeWidth={2.5}
-                      fill="url(#chartTargetGrad)"
-                      dot={{ r: 3, stroke: "#9333ea", strokeWidth: 1, fill: "#ffffff" }}
-                      activeDot={{ r: 6 }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="achieved"
-                      stroke="#eab308"
-                      strokeWidth={2.5}
-                      fill="url(#chartAchievedGrad)"
-                      dot={{ r: 3, stroke: "#eab308", strokeWidth: 1, fill: "#ffffff" }}
-                      activeDot={{ r: 6 }}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              );
-            })()}
+              })()}
+            </div>
           </div>
         </div>
 
@@ -3592,30 +4127,60 @@ const StoreInsights = () => {
               <div className="flex items-center gap-4">
                 {!isClusterAdmin && (
                   <>
-                    {/* Role Select Dropdown */}
-                    <div className="relative">
-                      <select 
-                        value={roleFilter} 
-                        onChange={(e) => setRoleFilter(e.target.value)}
-                        className="appearance-none bg-white border border-gray-200 rounded-[14px] px-4 py-2 pr-10 text-[13px] font-bold text-gray-700 shadow-sm focus:outline-none cursor-pointer hover:border-gray-300"
-                      >
-                        <option value="Cluster">Role : Cluster</option>
-                        <option value="Store Admin">Role : Store Admin</option>
-                        <option value="Super Admin">Role : Super Admin</option>
-                      </select>
-                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                        <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-                        </svg>
+                    {/* Role Badge / Dropdown */}
+                    {isSuperAdmin ? (
+                      <div className="bg-white border border-gray-200/90 rounded-[14px] px-4 py-2 text-[13px] font-bold text-gray-800 shadow-sm flex items-center gap-2 select-none">
+                        <span>Role : {user?.role === "admin" ? "Admin" : "Super Admin"}</span>
                       </div>
-                    </div>
+                    ) : (
+                      <div ref={roleDropdownRef} className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setIsRoleDropdownOpen(!isRoleDropdownOpen)}
+                          className="flex items-center justify-between gap-2 bg-white border border-gray-200 rounded-[14px] px-4 py-2 text-[13px] font-bold text-gray-700 shadow-sm hover:border-gray-300 focus:outline-none cursor-pointer min-w-[145px] transition-all"
+                        >
+                          <span>Role : {roleFilter}</span>
+                          <svg className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${isRoleDropdownOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+
+                        {isRoleDropdownOpen && (
+                          <div className="absolute right-0 mt-1.5 w-48 bg-white rounded-2xl shadow-2xl border border-gray-100/90 z-50 p-1.5 text-xs font-sans animate-popoverOpen origin-top-right">
+                            {["Cluster", "Store Admin", "Super Admin"].map((r) => {
+                              const isSelected = roleFilter === r;
+                              return (
+                                <button
+                                  key={r}
+                                  type="button"
+                                  onClick={() => {
+                                    setRoleFilter(r);
+                                    setIsRoleDropdownOpen(false);
+                                  }}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                    isSelected ? "bg-gray-900 text-white shadow-sm" : "text-gray-700 hover:bg-gray-100"
+                                  }`}
+                                >
+                                  <span>Role : {r}</span>
+                                  {isSelected && (
+                                    <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Multi-Select Cluster Dropdown */}
-                    <div className="relative">
+                    <div ref={clusterDropdownRef} className="relative">
                       <button
                         type="button"
                         onClick={() => setIsClusterDropdownOpen(!isClusterDropdownOpen)}
-                        className="flex items-center justify-between gap-2 bg-white border border-gray-200 rounded-[14px] px-4 py-2 text-[13px] font-bold text-gray-700 shadow-sm hover:border-gray-300 focus:outline-none cursor-pointer min-w-[160px]"
+                        className="flex items-center justify-between gap-2 bg-white border border-gray-200 rounded-[14px] px-4 py-2 text-[13px] font-bold text-gray-700 shadow-sm hover:border-gray-300 focus:outline-none cursor-pointer min-w-[160px] transition-all"
                       >
                         <span>
                           {selectedClusters.includes("All") || selectedClusters.length === 0
@@ -3625,13 +4190,13 @@ const StoreInsights = () => {
                               : `Clusters (${selectedClusters.length})`
                           }
                         </span>
-                        <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${isClusterDropdownOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
                         </svg>
                       </button>
 
                       {isClusterDropdownOpen && (
-                        <div className="absolute right-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-gray-200 z-50 p-2 text-xs">
+                        <div className="absolute right-0 mt-1.5 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100/90 z-50 p-2 text-xs font-sans animate-popoverOpen origin-top-right">
                           <div className="flex items-center justify-between px-2 py-1.5 border-b border-gray-100 mb-1">
                             <span className="font-bold text-gray-500 text-[11px]">Select Cluster(s)</span>
                             <div className="flex gap-2 text-[10px]">
@@ -3696,11 +4261,11 @@ const StoreInsights = () => {
 
                 {/* Multi-Select Store Dropdown — visible to both Super Admin and Cluster Admin when stores are available */}
                 {storeOptionsForFilter.length > 0 && (
-                  <div className="relative">
+                  <div ref={storeDropdownRef} className="relative">
                     <button
                       type="button"
                       onClick={() => setIsStoreDropdownOpen(!isStoreDropdownOpen)}
-                      className="flex items-center justify-between gap-2 bg-white border border-gray-200 rounded-[14px] px-4 py-2 text-[13px] font-bold text-gray-700 shadow-sm hover:border-gray-300 focus:outline-none cursor-pointer min-w-[150px]"
+                      className="flex items-center justify-between gap-2 bg-white border border-gray-200 rounded-[14px] px-4 py-2 text-[13px] font-bold text-gray-700 shadow-sm hover:border-gray-300 focus:outline-none cursor-pointer min-w-[150px] transition-all"
                     >
                       <span>
                         {selectedStores.includes("All") || selectedStores.length === 0
@@ -3710,13 +4275,13 @@ const StoreInsights = () => {
                             : `Stores (${selectedStores.length})`
                         }
                       </span>
-                      <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${isStoreDropdownOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
                       </svg>
                     </button>
 
                     {isStoreDropdownOpen && (
-                      <div className="absolute right-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-gray-200 z-50 p-2 text-xs font-sans">
+                      <div className="absolute right-0 mt-1.5 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100/90 z-50 p-2 text-xs font-sans animate-popoverOpen origin-top-right">
                         <div className="flex items-center justify-between px-2 py-1.5 border-b border-gray-100 mb-1">
                           <span className="font-bold text-gray-500 text-[11px]">Select Store(s)</span>
                           <div className="flex gap-2 text-[10px]">
@@ -3791,7 +4356,8 @@ const StoreInsights = () => {
             changeObj: stats.walkChange,
             unit: "Walk-ins",
             trend: stats.walkTrend,
-            trendColor: stats.walkTrendColor
+            trendColor: stats.walkTrendColor,
+            index: 1
           })}
 
           {renderKpiCard({
@@ -3802,7 +4368,8 @@ const StoreInsights = () => {
             changeObj: stats.billsChange,
             unit: "Bills",
             trend: stats.billsTrend,
-            trendColor: stats.billsTrendColor
+            trendColor: stats.billsTrendColor,
+            index: 2
           })}
 
           {renderKpiCard({
@@ -3813,18 +4380,20 @@ const StoreInsights = () => {
             changeObj: stats.qtyChange,
             unit: "",
             trend: stats.qtyTrend,
-            trendColor: stats.qtyTrendColor
+            trendColor: stats.qtyTrendColor,
+            index: 3
           })}
 
           {renderKpiCard({
-            title: "Achieved Target %",
+            title: "Value Generated",
             mainVal: stats.valChange?.display || "+0%",
             tyVal: `₹${formatIndianNumber(stats.achievedValue, 0)}`,
             lyVal: `₹${formatIndianNumber(stats.valChange?.prev || 0, 0)}`,
             changeObj: stats.valChange,
             unit: "currency",
             trend: stats.valTrend,
-            trendColor: stats.valTrendColor
+            trendColor: stats.valTrendColor,
+            index: 4
           })}
 
           {renderKpiCard({
@@ -3835,7 +4404,8 @@ const StoreInsights = () => {
             changeObj: stats.absChange,
             unit: "Basket Size",
             trend: stats.absTrend,
-            trendColor: stats.absTrendColor
+            trendColor: stats.absTrendColor,
+            index: 5
           })}
 
           {renderKpiCard({
@@ -3846,7 +4416,8 @@ const StoreInsights = () => {
             changeObj: stats.abvChange,
             unit: "currency",
             trend: stats.abvTrend,
-            trendColor: stats.abvTrendColor
+            trendColor: stats.abvTrendColor,
+            index: 6
           })}
 
           {renderKpiCard({
@@ -3857,7 +4428,8 @@ const StoreInsights = () => {
             changeObj: stats.conversionChange,
             unit: "pts",
             trend: stats.conversionChange?.trend,
-            trendColor: stats.conversionChange?.trendColor
+            trendColor: stats.conversionChange?.trendColor,
+            index: 7
           })}
 
           {renderKpiCard({
@@ -3868,7 +4440,8 @@ const StoreInsights = () => {
             changeObj: stats.shoeChange,
             unit: "Shoes",
             trend: stats.shoeChange?.trend,
-            trendColor: stats.shoeChange?.trendColor
+            trendColor: stats.shoeChange?.trendColor,
+            index: 8
           })}
 
           {renderKpiCard({
@@ -3879,7 +4452,8 @@ const StoreInsights = () => {
             changeObj: stats.shirtChange,
             unit: "Shirts",
             trend: stats.shirtChange?.trend,
-            trendColor: stats.shirtChange?.trendColor
+            trendColor: stats.shirtChange?.trendColor,
+            index: 9
           })}
 
           {renderKpiCard({
@@ -3890,23 +4464,30 @@ const StoreInsights = () => {
             changeObj: stats.dapprChange,
             unit: "Bills",
             trend: stats.dapprChange?.trend,
-            trendColor: stats.dapprChange?.trendColor
+            trendColor: stats.dapprChange?.trendColor,
+            index: 10
           })}
 
           {renderKpiCard({
             title: "Google Reviews",
-            mainVal: stats.reviewsChange?.display || "+0%",
+            mainVal: `${stats.googleReviewRate ?? 0}%`,
+            label1: "Google Reviews :",
             tyVal: formatIndianNumber(stats.googleReviews),
-            lyVal: formatIndianNumber(stats.reviewsChange?.prev || 0),
+            label2: "Total Bills :",
+            lyVal: formatIndianNumber(stats.billsGenerated),
             changeObj: stats.reviewsChange,
             unit: "Reviews",
             trend: stats.reviewsChange?.trend,
-            trendColor: stats.reviewsChange?.trendColor
+            trendColor: stats.reviewsChange?.trendColor,
+            index: 11
           })}
           </>)}
 
           {/* Card 12: Staff Rating / Store Rating */}
-          <div className="bg-white rounded-[20px] shadow-sm border border-gray-100 p-5 h-[200px] flex flex-col justify-between font-sans">
+          <div 
+            style={{ animationDelay: "540ms" }}
+            className="bg-white rounded-[20px] shadow-sm border border-gray-100 p-5 h-[200px] flex flex-col justify-between font-sans transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:border-gray-200/80 group cursor-pointer animate-slideUpFade"
+          >
             <div>
               <span className="text-[13px] font-bold text-gray-700 block">
                 {user?.role === "store_admin" ? "Staff Rating" : "Store Rating"}

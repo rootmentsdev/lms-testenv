@@ -1778,7 +1778,7 @@ const DSRReport = () => {
   useEffect(() => {
     if (isStoreAdmin && branches.length > 0) {
       const storeName = displayBranchName(branches[0].workingBranch);
-      setSelectedStore(storeName);
+      setSelectedStores([storeName]);
       setConfigStore(storeName);
     }
   }, [isStoreAdmin, branches]);

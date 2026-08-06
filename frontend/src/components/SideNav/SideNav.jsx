@@ -214,7 +214,7 @@ const SideNav = () => {
             </>
           ) : (
             <>
-              <NavItem to="/"            icon="dashboard"  label="Dashboard"   active={is('/')} />
+              <NavItem to="/"            icon="dashboard"  label="Dashboard"   active={is('/') || is('/store-insights')} />
 
               {user?.role !== 'telecaller' && (
                 <FlyoutNavItem
@@ -228,9 +228,6 @@ const SideNav = () => {
                     { to: '/store-analysis/store-rating', label: user?.role === 'store_admin' ? 'Staff Rating' : 'Store Rating', active: is('/store-analysis/store-rating') || is('/store-analysis/store-rating/create') || location.pathname.startsWith('/store-analysis/store-rating/') }
                   ]}
                 />
-              )}
-              {user?.role !== 'telecaller' && (
-                <NavItem to="/store-insights" icon="storeInsights" label="Store Insights" active={is('/store-insights')} />
               )}
 
               {/* Walk-In — portal flyout on hover */}
@@ -265,6 +262,9 @@ const SideNav = () => {
 
               {user?.role !== 'telecaller' && (
                 <NavItem to="/employee"    icon="employee"   label="Employees"   active={is('/employee') || location.pathname.startsWith('/detailed/')} />
+              )}
+              {user?.role !== 'store_admin' && user?.role !== 'telecaller' && (
+                <NavItem to="/training-dashboard" icon="training" label="Training Dashboard" active={is('/training-dashboard')} />
               )}
               {user?.role !== 'store_admin' && user?.role !== 'telecaller' && (
                 <NavItem to="/training"    icon="training"   label="Trainings"   active={is('/training') || is('/alltraining') || is('/createnewtraining')} />
