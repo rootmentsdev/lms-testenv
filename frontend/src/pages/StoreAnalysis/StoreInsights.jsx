@@ -2689,15 +2689,61 @@ const StoreInsights = () => {
       ).length;
     }
         const getChangeStats = (curr, prev) => {
-      const change = prev > 0 ? Math.round(((curr - prev) / prev) * 100) : 0;
+      const diff = curr - prev;
+      if (prev <= 0) {
+        const isPos = curr > 0;
+        const isZero = curr === 0;
+        return {
+          display: isZero ? "0%" : (isPos ? "+100%" : "0%"),
+          color: isZero ? "text-gray-500" : (isPos ? "text-emerald-600" : "text-rose-500"),
+          trend: isZero ? "neutral" : (isPos ? "up" : "down"),
+          trendColor: isZero ? "#6b7280" : (isPos ? "#00A36C" : "#e11d48"),
+          curr,
+          prev,
+          diff
+        };
+      }
+
+      const rawPct = (diff / prev) * 100;
+      const absPct = Math.abs(rawPct);
+      
+      let pctStr = "";
+      if (absPct === 0) {
+        pctStr = "0";
+      } else if (absPct < 1 || (absPct < 10 && Math.abs(rawPct % 1) >= 0.05)) {
+        pctStr = rawPct.toFixed(1);
+      } else {
+        pctStr = Math.round(rawPct).toString();
+      }
+
+      if (pctStr === "-0" || pctStr === "-0.0" || pctStr === "+0" || pctStr === "0.0") {
+        if (diff < 0) pctStr = "-0.1";
+        else if (diff > 0) pctStr = "+0.1";
+        else pctStr = "0";
+      }
+
+      const isNeg = diff < 0 || (rawPct < 0 && pctStr !== "0");
+      const isPos = diff > 0 || (rawPct > 0 && pctStr !== "0");
+      
+      let display = "0%";
+      if (isPos) {
+        display = pctStr.startsWith("+") ? `${pctStr}%` : `+${pctStr}%`;
+      } else if (isNeg) {
+        display = pctStr.endsWith("%") ? pctStr : `${pctStr}%`;
+      }
+
+      const color = isNeg ? "text-rose-500" : (isPos ? "text-emerald-600" : "text-gray-500");
+      const trend = isNeg ? "down" : (isPos ? "up" : "neutral");
+      const trendColor = isNeg ? "#e11d48" : (isPos ? "#00A36C" : "#6b7280");
+
       return {
-        display: change >= 0 ? `+${change}%` : `${change}%`,
-        color: change >= 0 ? "text-emerald-600" : "text-rose-500",
-        trend: change >= 0 ? "up" : "down",
-        trendColor: change >= 0 ? "#00A36C" : "#e11d48",
+        display,
+        color,
+        trend,
+        trendColor,
         curr,
         prev,
-        diff: curr - prev
+        diff
       };
     };
 
@@ -2806,7 +2852,10 @@ const StoreInsights = () => {
       const consolidatedBills = rentalBills + shoeBills + shirtBills;
       const consolidatedTotalQty = rentalQty + shoeQty + shirtQty;
 
-      const lyConsolidatedValue = lyRentalValue;
+      const totalLy = filteredStoresForKPIs.reduce((acc, c) => acc + (c.ly || 0), 0);
+      const lyConsolidatedValue = ((isStoreAdmin || (selectedStores.length === 1 && !selectedStores.includes("All"))) && employeeChartData.length > 0)
+        ? employeeChartData.reduce((sum, emp) => sum + (emp.ly || 0), 0)
+        : totalLy;
       const lyConsolidatedBills = lyRentalBills;
       const lyConsolidatedQty = lyRentalQty;
 
@@ -3592,11 +3641,13 @@ const StoreInsights = () => {
   };
 
   const renderKpiCard = ({ title, mainVal, tyVal, lyVal, changeObj, unit, trend, trendColor, label1 = "This Year :", label2 = "Last Year :", index = 0 }) => {
-    const isUp = trend === "up" || (changeObj && changeObj.diff >= 0);
-    const finalTrendColor = trendColor || (isUp ? "#00A36C" : "#e11d48");
-    const finalTrend = trend || (isUp ? "up" : "down");
+    const isUp = (changeObj && changeObj.diff > 0) || trend === "up";
+    const isDown = (changeObj && changeObj.diff < 0) || trend === "down";
+    const finalTrendColor = trendColor || (changeObj && changeObj.trendColor) || (isUp ? "#00A36C" : (isDown ? "#e11d48" : "#6b7280"));
+    const finalTrend = trend || (changeObj && changeObj.trend) || (isUp ? "up" : (isDown ? "down" : "neutral"));
     const isNegative = (typeof mainVal === "string" && mainVal.startsWith("-")) || (changeObj && changeObj.diff < 0);
-    const mainTextColor = isNegative ? "text-rose-600" : "text-emerald-600";
+    const isPositive = (typeof mainVal === "string" && mainVal.startsWith("+")) || (changeObj && changeObj.diff > 0);
+    const mainTextColor = isNegative ? "text-rose-600" : (isPositive ? "text-emerald-600" : "text-gray-700");
     return (
       <div 
         style={{ animationDelay: `${index * 45}ms` }}
@@ -3963,7 +4014,16 @@ const StoreInsights = () => {
                 </div>
               )}
               {(!isStoreAdmin || employeeChartData.length > 0 || loadingPerformance) && (() => {
-                const chartPoints = isStoreAdmin ? employeeChartData : filteredChartData;
+                const rawChartPoints = isStoreAdmin ? employeeChartData : filteredChartData;
+                const chartPoints = rawChartPoints.map((pt) => ({
+                  ...pt,
+                  ly: Math.max(0, pt.ly || 0),
+                  ty: Math.max(0, pt.ty !== undefined ? pt.ty : (pt.achieved || 0)),
+                  target: Math.max(0, pt.target || 0),
+                  achieved: Math.max(0, pt.achieved || 0),
+                  rawLy: pt.ly || 0,
+                  rawTy: pt.ty !== undefined ? pt.ty : (pt.achieved || 0),
+                }));
 
                 // Shared tooltip content
                 const sharedTooltip = (
@@ -3972,8 +4032,8 @@ const StoreInsights = () => {
                       if (active && payload && payload.length) {
                         const data = payload[0].payload;
                         if (graphType === "LY_VS_TY") {
-                          const lyVal = data.ly || 0;
-                          const tyVal = data.ty !== undefined ? data.ty : (data.achieved || 0);
+                          const lyVal = data.rawLy !== undefined ? data.rawLy : (data.ly || 0);
+                          const tyVal = data.rawTy !== undefined ? data.rawTy : (data.ty !== undefined ? data.ty : (data.achieved || 0));
                           const diff = tyVal - lyVal;
                           const pctGrowth = lyVal > 0 ? ((diff / lyVal) * 100).toFixed(1) : (tyVal > 0 ? "100" : "0");
                           const isDegrowth = tyVal < lyVal;
@@ -4048,10 +4108,16 @@ const StoreInsights = () => {
                       interval={0}
                     />
                     <YAxis
+                      domain={[0, 'auto']}
                       tickLine={false}
                       axisLine={false}
                       tick={{ fill: "#9ca3af", fontSize: 9, fontWeight: 700 }}
-                      tickFormatter={(val) => val >= 1000 ? `${val / 1000}K` : val}
+                      tickFormatter={(val) => {
+                        if (val <= 0) return "0";
+                        if (val >= 1000000) return `${val / 1000000}M`;
+                        if (val >= 1000) return `${val / 1000}K`;
+                        return `${val}`;
+                      }}
                     />
                   </>
                 );
