@@ -379,6 +379,33 @@ const shiftDateYear = (dateStr, years = -1) => {
   return getLocalDateString(d);
 };
 
+const SegmentedControl = ({ options, value, onChange }) => {
+  return (
+    <div className="relative inline-flex items-center bg-[#e5e7eb] dark:bg-gray-800 p-0.5 rounded-full shadow-inner select-none border border-gray-200/60 dark:border-gray-700/50">
+      {options.map((opt) => {
+        const key = typeof opt === "object" ? opt.key : opt;
+        const label = typeof opt === "object" ? opt.label : opt;
+        const isActive = value === key;
+
+        return (
+          <button
+            key={String(key)}
+            type="button"
+            onClick={() => onChange(key)}
+            className={`relative z-10 px-2.5 sm:px-3 py-1 rounded-full text-[10.5px] sm:text-[11px] font-black tracking-wide transition-all duration-250 ease-out cursor-pointer select-none ${
+              isActive
+                ? "bg-white text-gray-950 shadow-md shadow-black/10 scale-[1.02] border border-black/5 dark:bg-gray-100 dark:text-gray-950"
+                : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+            }`}
+          >
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
 const CURRENT_MONTH_LONG = new Date().toLocaleString("en-US", { month: "long" });
 const CURRENT_MONTH_SHORT = new Date().toLocaleString("en-US", { month: "short" });
 const CURRENT_YEAR = new Date().getFullYear();
@@ -3725,57 +3752,33 @@ const StoreInsights = () => {
 
           <div className="flex flex-wrap items-center gap-4">
             {/* Rental vs Consolidated Toggle */}
-            <div className="flex bg-[#e5e7eb] p-1 rounded-xl shadow-sm">
-              <button 
-                onClick={() => setIsConsolidated(false)}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  !isConsolidated 
-                    ? "bg-[#18181b] text-white shadow-sm" 
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                Rental
-              </button>
-              <button 
-                onClick={() => setIsConsolidated(true)}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  isConsolidated 
-                    ? "bg-[#18181b] text-white shadow-sm" 
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                Consolidated
-              </button>
-            </div>
+            <SegmentedControl
+              options={[
+                { key: false, label: "Rental" },
+                { key: true, label: "Consolidated" }
+              ]}
+              value={isConsolidated}
+              onChange={(val) => setIsConsolidated(val)}
+            />
 
             {/* Timeframe selector */}
-            <div className="flex bg-[#e5e7eb] p-1 rounded-xl shadow-sm">
-              {["MTD", "WTD", "YTD", "CUSTOM"].map((t) => (
-                <button 
-                  key={t}
-                  onClick={() => setTimeframe(t)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    timeframe === t 
-                      ? "bg-[#18181b] text-white shadow-sm" 
-                      : "text-gray-600 hover:text-gray-950 font-bold"
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
+            <SegmentedControl
+              options={["MTD", "WTD", "YTD", "CUSTOM"]}
+              value={timeframe}
+              onChange={(val) => setTimeframe(val)}
+            />
 
             {timeframe === "CUSTOM" && (
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setIsCalendarOpen(!isCalendarOpen)}
-                  className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3.5 py-1.5 shadow-sm hover:border-gray-300 transition-all cursor-pointer"
+                  className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-4 py-1.5 shadow-sm hover:border-gray-300 transition-all cursor-pointer"
                 >
                   <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
-                  <span className="text-xs font-bold text-gray-800">
+                  <span className="text-xs font-extrabold text-gray-800">
                     {(() => {
                       if (!customStartDate || !customEndDate) return "Select Date Range";
                       const p1 = customStartDate.split("-");
@@ -3842,48 +3845,22 @@ const StoreInsights = () => {
 
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               {/* Graph Mode Switcher Toggle (Target vs Achieved | LY / TY) */}
-              <div className="flex bg-[#eef1f6] p-0.5 rounded-lg shadow-inner">
-                <button 
-                  type="button"
-                  onClick={() => setGraphType("TARGET_VS_ACHIEVED")}
-                  className={`px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] sm:text-[11px] font-bold transition-all cursor-pointer ${
-                    graphType === "TARGET_VS_ACHIEVED" 
-                      ? "bg-white text-gray-950 shadow-sm" 
-                      : "text-gray-500 hover:text-gray-950"
-                  }`}
-                >
-                  Target vs Achieved
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => setGraphType("LY_VS_TY")}
-                  className={`px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] sm:text-[11px] font-bold transition-all cursor-pointer ${
-                    graphType === "LY_VS_TY" 
-                      ? "bg-white text-gray-950 shadow-sm" 
-                      : "text-gray-500 hover:text-gray-950"
-                  }`}
-                >
-                  LY / TY
-                </button>
-              </div>
+              <SegmentedControl
+                options={[
+                  { key: "TARGET_VS_ACHIEVED", label: "Target vs Achieved" },
+                  { key: "LY_VS_TY", label: "LY / TY" }
+                ]}
+                value={graphType}
+                onChange={(val) => setGraphType(val)}
+              />
 
               {/* Category selector pills — only for non-store-admin */}
               {!isStoreAdmin && (
-              <div className="flex bg-[#eef1f6] p-0.5 rounded-lg">
-                {["All", "On Track", "At Risk"].map((filter) => (
-                  <button 
-                    key={filter}
-                    onClick={() => setChartFilter(filter)}
-                    className={`px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] sm:text-[11px] font-bold transition-all ${
-                      chartFilter === filter 
-                        ? "bg-white text-gray-950 shadow-sm" 
-                        : "text-gray-500 hover:text-gray-950"
-                    }`}
-                  >
-                    {filter}
-                  </button>
-                ))}
-              </div>
+                <SegmentedControl
+                  options={["All", "On Track", "At Risk"]}
+                  value={chartFilter}
+                  onChange={(val) => setChartFilter(val)}
+                />
               )}
 
               {/* View Report Button */}
