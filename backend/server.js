@@ -1,10 +1,12 @@
-// Triggering nodemon restart for MONGODB_URI update
+// Triggering nodemon restart for MONGODB_URI update - IT Admin role enabled
 import dotenv from 'dotenv';
 dotenv.config();
 
 import cron from "node-cron";
 import cors from 'cors';
 import express from 'express';
+import { createServer } from 'http';
+import { Server as SocketIOServer } from 'socket.io';
 import cookieParser from 'cookie-parser';
 import axios from 'axios';                           // ✅ needed
 import mongoose from 'mongoose';
@@ -12,6 +14,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import connectMongoDB from './db/database.js';
+import { setIO } from './lib/socket.js';
 import ModuleRouter from './routes/ModuleRoute.js';
 import userrouter from './routes/AssessmentAndModule.js';
 import UserCreating from './routes/UserRoute.js';
@@ -28,6 +31,7 @@ import CategoryRouter from './routes/CategoryRoute.js'
 import DapprAttributionRouter from './routes/DapprAttributionRoute.js'
 import { seedDefaultCategories } from './model/Category.js'
 import PerformanceRouter from './routes/PerformanceRoute.js'
+import SupportTicketRouter from './routes/SupportTicketRoute.js';
 
 import { AlertNotification } from './lib/CornJob.js';
 import { startEmployeeAutoSync } from './lib/EmployeeAutoSync.js';
@@ -43,6 +47,75 @@ import bcrypt from 'bcrypt';
 const app = express();
 setupSwagger(app);
 const port = process.env.PORT || 7000;
+
+// ── Socket.io real-time setup ──────────────────────────────────────
+const httpServer = createServer(app);
+
+const allowedOriginsForSocket = [
+  'https://unicode-mu.vercel.app',
+  'https://lms.rootments.live',
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'https://lms-dev-jishnu.vercel.app',
+  'https://lms-3w6k.vercel.app',
+  'https://lmsrootments.vercel.app',
+  'https://lms-testenv-q8co.vercel.app',
+  'https://web-lms-fawn.vercel.app',
+  'https://trainingweb-gamma.vercel.app',
+  'https://learn.rootments.live',
+];
+
+const io = new SocketIOServer(httpServer, {
+  cors: {
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (origin.endsWith('.vercel.app') || allowedOriginsForSocket.includes(origin)) {
+        return callback(null, true);
+      }
+      callback(new Error('Socket.IO CORS blocked: ' + origin));
+    },
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
+  transports: ['websocket', 'polling'],
+});
+
+// Register the io instance so controllers can access it without circular imports
+setIO(io);
+
+// Rooms: each support ticket has its own room identified by ticketId string
+io.on('connection', (socket) => {
+  console.log('🔌 Socket connected:', socket.id);
+
+  socket.on('join_ticket', (ticketId) => {
+    socket.join(`ticket:${ticketId}`);
+    console.log(`📬 Socket ${socket.id} joined ticket:${ticketId}`);
+  });
+
+  socket.on('leave_ticket', (ticketId) => {
+    socket.leave(`ticket:${ticketId}`);
+  });
+
+  // Each user joins their own personal room by userId so they receive
+  // messages from IT admin even before they have loaded the ticket list
+  socket.on('join_user', (userId) => {
+    socket.join(`user:${userId}`);
+    console.log(`👤 Socket ${socket.id} joined user:${userId}`);
+  });
+
+  // IT admin joins a special room to receive all new-ticket notifications
+  socket.on('join_it_admin', () => {
+    socket.join('it_admin_room');
+    console.log(`👮 IT admin socket ${socket.id} joined it_admin_room`);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('🔌 Socket disconnected:', socket.id);
+  });
+});
+// ───────────────────────────────────────────────────────────────────
 
 // ✅ Hardcode the upstream token EXACTLY as provided
 const ROOTMENTS_API_TOKEN = 'RootX-production-9d17d9485eb772e79df8564004d4a4d4';
@@ -693,6 +766,8 @@ app.use('/api/store-targets', StoreTargetRouter)
 app.use('/api/dappr-attributions', DapprAttributionRouter)
 app.use('/api/customization-attributions', CustomizationAttributionRouter)
 app.use('/api/performance', PerformanceRouter)
+app.use('/api/support-tickets', SupportTicketRouter)
+console.log('✅ SupportTicketRouter mounted cleanly at /api/support-tickets')
 
 /* =================================================
    ✅ PROXY: GET /api/brynex/shoe-sales/summary
@@ -766,6 +841,8 @@ app.use('/api/google-form', GoogleFormRouter)
 // Google Review Routes
 import GoogleReviewRouter from './routes/GoogleReviewRoute.js';
 app.use('/api/google-reviews', GoogleReviewRouter)
+
+// Help & Support Ticket Routes - Mounted above with /api routes
 
 console.log(new Date());
 
@@ -855,7 +932,7 @@ connectMongoDB().then(async () => {
   // Seed test employee Emp8899
   await seedTestEmployee();
 
-  app.listen(port, '0.0.0.0', () => {
+  httpServer.listen(port, '0.0.0.0', () => {
     console.log(`✅ Server running on port ${port}`);
     
     // Keep the legacy employee sync opt-in so old external API data does not

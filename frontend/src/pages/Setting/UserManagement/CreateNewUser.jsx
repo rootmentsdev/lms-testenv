@@ -410,6 +410,7 @@ const CreateNewUser = () => {
                                             <option value="warehouse_admin">Warehouse Admin</option>
                                             <option value="telecaller">Telecaller</option>
                                             <option value="employee">Employee</option>
+                                            <option value="it_admin">IT Admin</option>
                                         </>
                                     )}
                                 </select>

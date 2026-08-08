@@ -12,7 +12,11 @@ const connectMongoDB = async () => {
             await mongoose.disconnect();
         }
 
-        const mongoUri = process.env.MONGODB_URI || 'mongodb+srv://abhirambca2021_db_user:Root@cluster0.5rf3i8g.mongodb.net/Rootments?retryWrites=true&w=majority&appName=Cluster0';
+        const mongoUri = process.env.MONGODB_URI;
+        
+        if (!mongoUri) {
+            throw new Error('MONGODB_URI environment variable is not set. Cannot connect to database.');
+        }
         
         console.log('🔗 Connecting to MongoDB...');
         console.log('📍 URI (first 50 chars):', mongoUri.substring(0, 50) + '...');
@@ -28,6 +32,9 @@ const connectMongoDB = async () => {
         console.log('📊 Database name:', mongoose.connection.db.databaseName);
         console.log('🌐 Host:', mongoose.connection.host);
         console.log('🔌 Port:', mongoose.connection.port);
+        console.log('🗄️  ============================================');
+        console.log('🗄️  ACTIVE DATABASE:', mongoose.connection.db.databaseName);
+        console.log('🗄️  ============================================');
         
         // Log connection events
         mongoose.connection.on('error', (err) => {

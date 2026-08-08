@@ -1284,21 +1284,26 @@ export const updateAdminUser = async (req, res) => {
                 finalBranches = branches || [];
             }
 
-            let rolePermissions = await Permission.findOne({ role });
-            if (!rolePermissions) {
-                const isSuper = (role === 'super_admin' || role === 'admin' || role === 'hr_admin');
-                rolePermissions = new Permission({
-                    role: role,
-                    permissions: {
-                        canCreateTraining: isSuper,
-                        canCreateAssessment: isSuper,
-                        canReassignTraining: isSuper,
-                        canReassignAssessment: isSuper,
-                        canDeleteTraining: isSuper,
-                        canDeleteAssessment: isSuper
-                    }
-                });
-                await rolePermissions.save();
+            let rolePermissions = null;
+            try {
+                rolePermissions = await Permission.findOne({ role });
+                if (!rolePermissions) {
+                    const isSuper = (role === 'super_admin' || role === 'admin' || role === 'hr_admin');
+                    rolePermissions = new Permission({
+                        role: role,
+                        permissions: {
+                            canCreateTraining: isSuper,
+                            canCreateAssessment: isSuper,
+                            canReassignTraining: isSuper,
+                            canReassignAssessment: isSuper,
+                            canDeleteTraining: isSuper,
+                            canDeleteAssessment: isSuper
+                        }
+                    });
+                    await rolePermissions.save();
+                }
+            } catch (pErr) {
+                console.warn("Skipped Permission creation for role:", role, pErr.message);
             }
 
             await User.findByIdAndDelete(id);
@@ -1312,13 +1317,13 @@ export const updateAdminUser = async (req, res) => {
                 subRole: "NR",
                 password: password && password.trim() !== "" ? await bcrypt.hash(password.trim(), 10) : hashedPassword,
                 role,
-                permissions: rolePermissions._id,
+                permissions: rolePermissions ? [rolePermissions._id] : [],
                 branches: finalBranches,
                 assignedClusters: [],
             });
             const savedAdmin = await newAdmin.save();
 
-            const userDesignation = role === 'super_admin' ? 'Super Admin' : (role === 'admin' ? 'Admin' : (role === 'hr_admin' ? 'HR Admin' : (role === 'cluster_admin' ? 'Cluster Admin' : (role === 'warehouse_admin' ? 'Warehouse Admin' : (role === 'telecaller' ? 'Telecaller' : 'Store Admin')))));
+            const userDesignation = role === 'super_admin' ? 'Super Admin' : (role === 'admin' ? 'Admin' : (role === 'hr_admin' ? 'HR Admin' : (role === 'cluster_admin' ? 'Cluster Admin' : (role === 'warehouse_admin' ? 'Warehouse Admin' : (role === 'telecaller' ? 'Telecaller' : (role === 'it_admin' ? 'IT Admin' : 'Store Admin'))))));
             let workingBranchStr = "";
             let finalLocCodes = [];
             if (finalBranches.length > 0) {
@@ -1371,23 +1376,30 @@ export const updateAdminUser = async (req, res) => {
             updateFields.assignedClusters = [];
         }
 
-        let rolePermissions = await Permission.findOne({ role });
-        if (!rolePermissions) {
-            const isSuper = (role === 'super_admin' || role === 'admin' || role === 'hr_admin');
-            rolePermissions = new Permission({
-                role: role,
-                permissions: {
-                    canCreateTraining: isSuper,
-                    canCreateAssessment: isSuper,
-                    canReassignTraining: isSuper,
-                    canReassignAssessment: isSuper,
-                    canDeleteTraining: isSuper,
-                    canDeleteAssessment: isSuper
-                }
-            });
-            await rolePermissions.save();
+        let rolePermissions = null;
+        try {
+            rolePermissions = await Permission.findOne({ role });
+            if (!rolePermissions) {
+                const isSuper = (role === 'super_admin' || role === 'admin' || role === 'hr_admin');
+                rolePermissions = new Permission({
+                    role: role,
+                    permissions: {
+                        canCreateTraining: isSuper,
+                        canCreateAssessment: isSuper,
+                        canReassignTraining: isSuper,
+                        canReassignAssessment: isSuper,
+                        canDeleteTraining: isSuper,
+                        canDeleteAssessment: isSuper
+                    }
+                });
+                await rolePermissions.save();
+            }
+        } catch (pErr) {
+            console.warn("Skipped Permission creation for role:", role, pErr.message);
         }
-        updateFields.permissions = rolePermissions._id;
+        if (rolePermissions) {
+            updateFields.permissions = [rolePermissions._id];
+        }
 
         const updatedAdmin = await Admin.findByIdAndUpdate(id, updateFields, { new: true }).populate('branches');
 
@@ -1401,7 +1413,7 @@ export const updateAdminUser = async (req, res) => {
                 if (password && password.trim() !== "") {
                     userRecord.password = await bcrypt.hash(password.trim(), 10);
                 }
-                const userDesignation = role === 'super_admin' ? 'Super Admin' : (role === 'admin' ? 'Admin' : (role === 'hr_admin' ? 'HR Admin' : (role === 'cluster_admin' ? 'Cluster Admin' : (role === 'warehouse_admin' ? 'Warehouse Admin' : (role === 'telecaller' ? 'Telecaller' : 'Store Admin')))));
+                const userDesignation = role === 'super_admin' ? 'Super Admin' : (role === 'admin' ? 'Admin' : (role === 'hr_admin' ? 'HR Admin' : (role === 'cluster_admin' ? 'Cluster Admin' : (role === 'warehouse_admin' ? 'Warehouse Admin' : (role === 'telecaller' ? 'Telecaller' : (role === 'it_admin' ? 'IT Admin' : 'Store Admin'))))));
                 userRecord.designation = userDesignation;
 
                 let workingBranchStr = "";

@@ -54,6 +54,7 @@ const DSRReport = lazy(() => import('./pages/StoreAnalysis/DSRReport.jsx'))
 const GrowthComparison = lazy(() => import('./pages/StoreAnalysis/GrowthComparison.jsx'))
 const GoogleReviewTask = lazy(() => import('./pages/StoreAnalysis/GoogleReviewTask.jsx'))
 const StoreInsights = lazy(() => import('./pages/StoreAnalysis/StoreInsights.jsx'))
+const HelpSupport = lazy(() => import('./pages/Setting/HelpSupport.jsx'))
 
 import { setUser, logout } from './features/auth/authSlice.js';
 
@@ -388,6 +389,7 @@ function App() {
             <Route path="/settings/users" element={<ProtectedLayout hideForRoles={['telecaller']}><ExistingUsers /></ProtectedLayout>} />
             <Route path="/settings/create-user" element={<ProtectedLayout hideForRoles={['telecaller']}><CreateNewUser /></ProtectedLayout>} />
             <Route path="/settings/create-notification" element={<ProtectedLayout hideForRoles={['telecaller']}><CreateNotificationPage /></ProtectedLayout>} />
+            <Route path="/settings/help" element={<ProtectedLayout><HelpSupport /></ProtectedLayout>} />
             <Route path="/alltraining" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><Training /></ProtectedLayout>} />
             <Route path="/training" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><CreateTraining /></ProtectedLayout>} />
             <Route path="/assigdata" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><AssignedTrainings /></ProtectedLayout>} />
