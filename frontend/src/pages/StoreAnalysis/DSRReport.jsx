@@ -476,41 +476,66 @@ function getCanonicalStaffName(rawName) {
 
 function isStaffNameMatch(strA, strB) {
   if (!strA || !strB) return false;
-  const canonA = getCanonicalStaffName(strA);
-  const canonB = getCanonicalStaffName(strB);
-  if (canonA === canonB) return true;
+  if (typeof isStoreAliasName === "function" && (isStoreAliasName(strA) || isStoreAliasName(strB))) return false;
+
+  const rawA = String(strA).trim();
+  const rawB = String(strB).trim();
+  if (rawA.toLowerCase() === rawB.toLowerCase()) return true;
+
+  const canonA = getCanonicalStaffName(rawA);
+  const canonB = getCanonicalStaffName(rawB);
+  if (canonA.toLowerCase() === canonB.toLowerCase()) return true;
 
   const normA = normalizeForMatch(canonA);
   const normB = normalizeForMatch(canonB);
   if (!normA || !normB) return false;
   if (normA === normB) return true;
 
-  if (normA.length >= 4 && normB.length >= 4) {
-    if (normA.startsWith(normB) || normB.startsWith(normA) ||
-        normA.endsWith(normB) || normB.endsWith(normA) ||
-        normA.includes(normB) || normB.includes(normA)) {
-      return true;
-    }
-  }
+  const cleanTokens = (str) =>
+    String(str)
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter(Boolean);
 
-  const cleanTokens = (str) => String(str).toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/).filter(Boolean);
   const tokensA = cleanTokens(canonA);
   const tokensB = cleanTokens(canonB);
+  if (tokensA.length === 0 || tokensB.length === 0) return false;
 
-  const subA = tokensA.filter(t => t.length >= 3);
-  const subB = tokensB.filter(t => t.length >= 3);
+  if (tokensA.join("") === tokensB.join("")) return true;
 
-  if (subA.length > 0 && subB.length > 0) {
-    const common = subA.filter(t => subB.includes(t));
-    const unsharedA = subA.filter(t => !subB.includes(t));
-    const unsharedB = subB.filter(t => !subA.includes(t));
+  const common = tokensA.filter(t => tokensB.includes(t));
+  if (common.length === 0) return false;
 
-    if (common.length === Math.min(subA.length, subB.length)) {
-      const conflictA = unsharedA.filter(t => t.length > 3 && !["muhammed", "mohammad", "mohammed"].includes(t));
-      const conflictB = unsharedB.filter(t => t.length > 3 && !["muhammed", "mohammad", "mohammed"].includes(t));
-      if (conflictA.length === 0 && conflictB.length === 0) {
-        return true;
-      }
+  const unsharedA = tokensA.filter(t => !tokensB.includes(t));
+  const unsharedB = tokensB.filter(t => !tokensA.includes(t));
+
+  const TITLES = new Set(["muhammed", "mohammad", "mohammed", "md", "m"]);
+  const isTitleToken = (t) => TITLES.has(t);
+
+  if (unsharedA.length > 0 && unsharedB.length > 0) {
+    const unsharedStrA = unsharedA.join("");
+    const unsharedStrB = unsharedB.join("");
+
+    if (unsharedStrA === unsharedStrB) return true;
+
+    if (
+      (unsharedA.length === 1 && isTitleToken(unsharedA[0]) && unsharedB.length === 1 && isTitleToken(unsharedB[0])) ||
+      (unsharedA.length === 1 && isTitleToken(unsharedA[0]) && unsharedB.every(isTitleToken)) ||
+      (unsharedB.length === 1 && isTitleToken(unsharedB[0]) && unsharedA.every(isTitleToken))
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  const substantialCommon = common.filter(t => t.length >= 3 && !TITLES.has(t));
+  if (substantialCommon.length > 0) {
+    const remainingUnshared = unsharedA.length > 0 ? unsharedA : unsharedB;
+    const allTitlesOrInitials = remainingUnshared.every(t => isTitleToken(t) || t.length <= 2);
+    if (allTitlesOrInitials) {
+      return true;
     }
   }
 
@@ -766,6 +791,34 @@ const DSRReport = () => {
   const [reportDropdownOpen, setReportDropdownOpen] = useState(false);
   const [funnelView, setFunnelView] = useState("Rental"); // "Rental" vs "Consolidated"
   const [funnelDropdownOpen, setFunnelDropdownOpen] = useState(false);
+
+  const clusterDropdownRef = useRef(null);
+  const storeDropdownRef = useRef(null);
+  const reportDropdownRef = useRef(null);
+  const funnelDropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (clusterDropdownRef.current && !clusterDropdownRef.current.contains(e.target)) {
+        setIsClusterDropdownOpen(false);
+      }
+      if (storeDropdownRef.current && !storeDropdownRef.current.contains(e.target)) {
+        setIsStoreDropdownOpen(false);
+      }
+      if (reportDropdownRef.current && !reportDropdownRef.current.contains(e.target)) {
+        setReportDropdownOpen(false);
+      }
+      if (funnelDropdownRef.current && !funnelDropdownRef.current.contains(e.target)) {
+        setFunnelDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, []);
 
   // Assign target modal states
   const [assignTargetModalOpen, setAssignTargetModalOpen] = useState(false);
@@ -4066,7 +4119,7 @@ const DSRReport = () => {
           <div className="flex flex-wrap items-center gap-3">
             {/* Multi-Select Cluster Dropdown — hidden for store_admin */}
             {!isStoreAdmin && (
-              <div className="relative">
+              <div className="relative" ref={clusterDropdownRef}>
                 <button
                   type="button"
                   onClick={() => setIsClusterDropdownOpen(!isClusterDropdownOpen)}
@@ -4150,7 +4203,7 @@ const DSRReport = () => {
 
             {/* Multi-Select Store Dropdown — hidden for store_admin */}
             {!isStoreAdmin && storeOptions.length > 0 && (
-              <div className="relative">
+              <div className="relative" ref={storeDropdownRef}>
                 <button
                   type="button"
                   onClick={() => setIsStoreDropdownOpen(!isStoreDropdownOpen)}
@@ -4232,7 +4285,7 @@ const DSRReport = () => {
             )}
 
             {/* Custom Report Dropdown */}
-            <div className="relative">
+            <div className="relative" ref={reportDropdownRef}>
               <button 
                 onClick={() => setReportDropdownOpen(!reportDropdownOpen)}
                 className="flex items-center gap-1.5 bg-white border border-gray-200/80 rounded-xl px-4 py-2.5 text-xs font-semibold text-gray-500 shadow-sm hover:bg-gray-50 transition-colors focus:outline-none"
@@ -4243,11 +4296,6 @@ const DSRReport = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
-
-              {/* Backdrop closer when open */}
-              {reportDropdownOpen && (
-                <div className="fixed inset-0 z-40" onClick={() => setReportDropdownOpen(false)} />
-              )}
 
               <div 
                 className={`absolute right-0 mt-2 w-56 rounded-xl bg-white border border-gray-100 shadow-lg z-50 py-1 origin-top-right transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
@@ -4284,7 +4332,7 @@ const DSRReport = () => {
 
             {/* Custom Funnel View Dropdown — shown when report is Sales Funnel or Revenue Vs Target */}
             {(selectedReport === "Sales Funnel" || selectedReport === "Revenue Vs Target" || selectedReport === "Cluster DSR") && (
-              <div className="relative">
+              <div className="relative" ref={funnelDropdownRef}>
                 <button 
                   onClick={() => setFunnelDropdownOpen(!funnelDropdownOpen)}
                   className="flex items-center gap-1.5 bg-white border border-gray-200/80 rounded-xl px-4 py-2.5 text-xs font-semibold text-gray-500 shadow-sm hover:bg-gray-50 transition-colors focus:outline-none"

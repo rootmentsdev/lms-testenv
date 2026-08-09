@@ -60,7 +60,10 @@ const NotificationPoller = () => {
           }
         }
       } catch (error) {
-        console.error('Error polling notifications:', error);
+        // Silently ignore transient network blips like ERR_NETWORK_CHANGED or AbortError
+        if (error?.name !== 'AbortError' && !error?.message?.includes?.('network') && !error?.message?.includes?.('Failed to fetch')) {
+          console.warn('Notification polling error:', error);
+        }
       }
     };
 

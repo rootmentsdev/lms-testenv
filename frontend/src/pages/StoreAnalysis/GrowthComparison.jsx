@@ -1,17 +1,27 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useSelector } from "react-redux";
 import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
 import { FiSearch, FiDownload } from "react-icons/fi";
 import baseUrl from "../../api/api";
 
+const CACHE_TTL_MS = 2 * 60 * 1000;
+
 // Shared performance cache (same as StoreInsights/HomeBar to reuse cross-page results)
 const getPerformanceCached = async (locId, startDate, endDate) => {
   const cacheKey = `perf_${locId}_${startDate}_${endDate}`;
   if (!window.__performanceCache) window.__performanceCache = {};
-  if (window.__performanceCache[cacheKey]?.promise) {
-    return window.__performanceCache[cacheKey].promise;
+  
+  const cached = window.__performanceCache[cacheKey];
+  if (cached) {
+    if (cached.data && (Date.now() - (cached.timestamp || 0) < CACHE_TTL_MS)) {
+      return cached.data;
+    }
+    if (cached.promise) {
+      return cached.promise;
+    }
   }
+
   const promise = (async () => {
     try {
       const controller = new AbortController();
@@ -31,13 +41,17 @@ const getPerformanceCached = async (locId, startDate, endDate) => {
       clearTimeout(timeout);
       if (res.ok) {
         const json = await res.json();
-        return Array.isArray(json.dataSet?.data) ? json.dataSet.data : [];
+        const data = Array.isArray(json.dataSet?.data) ? json.dataSet.data : [];
+        window.__performanceCache[cacheKey] = {
+          data,
+          timestamp: Date.now()
+        };
+        return data;
       }
     } catch (err) {
       if (err.name !== "AbortError") {
-        console.error(`Error fetching performance for loc ${locId}:`, err);
+        console.warn(`Error fetching performance for loc ${locId}:`, err);
       }
-    } finally {
       delete window.__performanceCache[cacheKey];
     }
     return [];
@@ -494,6 +508,26 @@ const GrowthComparison = () => {
   const [isClusterDropdownOpen, setIsClusterDropdownOpen] = useState(false);
   const [selectedStores, setSelectedStores] = useState(["All"]);
   const [isStoreDropdownOpen, setIsStoreDropdownOpen] = useState(false);
+
+  const clusterDropdownRef = useRef(null);
+  const storeDropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (clusterDropdownRef.current && !clusterDropdownRef.current.contains(e.target)) {
+        setIsClusterDropdownOpen(false);
+      }
+      if (storeDropdownRef.current && !storeDropdownRef.current.contains(e.target)) {
+        setIsStoreDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, []);
   const [activeTab, setActiveTab] = useState("MTD");
   const [customStartDate, setCustomStartDate] = useState(() => {
     const d = new Date();
@@ -602,7 +636,9 @@ const GrowthComparison = () => {
 
   // Fetch branches dynamically
   useEffect(() => {
-    const fetchBranches = async () => {
+    let timer;
+    let isMounted = true;
+    const fetchBranches = async (retries = 3) => {
       try {
         const token = localStorage.getItem("token");
         const res = await fetch(`${baseUrl.baseUrl}api/usercreate/getBranch`, {
@@ -612,17 +648,25 @@ const GrowthComparison = () => {
             Authorization: `Bearer ${token}`,
           },
         });
-        if (res.ok) {
+        if (res.ok && isMounted) {
           const json = await res.json();
           const list = Array.isArray(json?.data) ? json.data : [];
           const visible = list.filter((b) => !isHiddenBranch(b?.workingBranch));
           setBranches([...visible].sort(sortStoresGThenZ));
+        } else if (retries > 0 && isMounted) {
+          timer = setTimeout(() => fetchBranches(retries - 1), 2000);
         }
       } catch (err) {
-        console.error("Error fetching branches for Store Rental Comparison:", err);
+        if (retries > 0 && isMounted) {
+          timer = setTimeout(() => fetchBranches(retries - 1), 2000);
+        }
       }
     };
     fetchBranches();
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
   }, []);
 
   // Fetch Year-Over-Year Walk-In Counts (per store via walkin-count API) and Performance Report Data
@@ -710,20 +754,24 @@ const GrowthComparison = () => {
           return 0;
         };
 
-        // Build per-store walkin-count tasks for TY and LY
-        // We get the branch list from state (branches already fetched)
-        // But branches may not be loaded yet; use a snapshot passed via closure after branches fetch.
-        // To avoid circular dependency, we fetch branches inline here too.
-        const branchRes = await fetch(`${baseUrl.baseUrl}api/usercreate/getBranch`, {
-          method: "GET",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        });
-        let branchList = [];
-        if (branchRes.ok) {
-          const branchJson = await branchRes.json();
-          branchList = Array.isArray(branchJson?.data)
-            ? branchJson.data.filter((b) => !isHiddenBranch(b?.workingBranch))
-            : [];
+        // Use available branches list or fetch if not loaded yet
+        let branchList = Array.isArray(branches) && branches.length > 0 ? branches : [];
+        if (branchList.length === 0) {
+          try {
+            const branchRes = await fetch(`${baseUrl.baseUrl}api/usercreate/getBranch`, {
+              method: "GET",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            });
+            if (branchRes.ok) {
+              const branchJson = await branchRes.json();
+              branchList = Array.isArray(branchJson?.data)
+                ? branchJson.data.filter((b) => !isHiddenBranch(b?.workingBranch))
+                : [];
+              if (branchList.length > 0 && !cancelled) {
+                setBranches([...branchList].sort(sortStoresGThenZ));
+              }
+            }
+          } catch (e) { /* ignore */ }
         }
 
         const walkinTyTasks = branchList.map((b) => async () => {
@@ -779,13 +827,15 @@ const GrowthComparison = () => {
       } catch (err) {
         console.error("Error fetching YoY walkins and performance for comparison:", err);
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
     fetchData();
     return () => { cancelled = true; };
-  }, [activeTab, customStartDate, customEndDate, storeWeekRanges]);
+  }, [activeTab, customStartDate, customEndDate, storeWeekRanges, branches.length]);
 
   const formatIndianNumber = (num) => {
     const isNegative = num < 0;
@@ -1097,7 +1147,7 @@ const GrowthComparison = () => {
 
             {/* Cluster Multi-Select Dropdown */}
             {!isStoreAdmin && clusters.length > 0 && (
-              <div className="relative">
+              <div className="relative" ref={clusterDropdownRef}>
                 <button
                   type="button"
                   onClick={() => setIsClusterDropdownOpen(!isClusterDropdownOpen)}
@@ -1180,7 +1230,7 @@ const GrowthComparison = () => {
 
             {/* Store Multi-Select Dropdown */}
             {!isStoreAdmin && storeOptions.length > 0 && (
-              <div className="relative">
+              <div className="relative" ref={storeDropdownRef}>
                 <button
                   type="button"
                   onClick={() => setIsStoreDropdownOpen(!isStoreDropdownOpen)}

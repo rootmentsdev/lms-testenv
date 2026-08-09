@@ -1266,41 +1266,65 @@ const StoreInsights = () => {
   function isStaffNameMatch(strA, strB) {
     if (!strA || !strB) return false;
     if (isDapprSquadName(strA) || isDapprSquadName(strB)) return false;
-    const canonA = getCanonicalStaffName(strA);
-    const canonB = getCanonicalStaffName(strB);
-    if (canonA === canonB) return true;
+
+    const rawA = String(strA).trim();
+    const rawB = String(strB).trim();
+    if (rawA.toLowerCase() === rawB.toLowerCase()) return true;
+
+    const canonA = getCanonicalStaffName(rawA);
+    const canonB = getCanonicalStaffName(rawB);
+    if (canonA.toLowerCase() === canonB.toLowerCase()) return true;
 
     const normA = normalizeForMatch(canonA);
     const normB = normalizeForMatch(canonB);
     if (!normA || !normB) return false;
     if (normA === normB) return true;
 
-    if (normA.length >= 4 && normB.length >= 4) {
-      if (normA.startsWith(normB) || normB.startsWith(normA) ||
-          normA.endsWith(normB) || normB.endsWith(normA) ||
-          normA.includes(normB) || normB.includes(normA)) {
-        return true;
-      }
-    }
+    const cleanTokens = (str) =>
+      String(str)
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter(Boolean);
 
-    const cleanTokens = (str) => String(str).toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/).filter(Boolean);
     const tokensA = cleanTokens(canonA);
     const tokensB = cleanTokens(canonB);
+    if (tokensA.length === 0 || tokensB.length === 0) return false;
 
-    const subA = tokensA.filter(t => t.length >= 3);
-    const subB = tokensB.filter(t => t.length >= 3);
+    if (tokensA.join("") === tokensB.join("")) return true;
 
-    if (subA.length > 0 && subB.length > 0) {
-      const common = subA.filter(t => subB.includes(t));
-      const unsharedA = subA.filter(t => !subB.includes(t));
-      const unsharedB = subB.filter(t => !subA.includes(t));
+    const common = tokensA.filter(t => tokensB.includes(t));
+    if (common.length === 0) return false;
 
-      if (common.length === Math.min(subA.length, subB.length)) {
-        const conflictA = unsharedA.filter(t => t.length > 3 && !["muhammed", "mohammad", "mohammed"].includes(t));
-        const conflictB = unsharedB.filter(t => t.length > 3 && !["muhammed", "mohammad", "mohammed"].includes(t));
-        if (conflictA.length === 0 && conflictB.length === 0) {
-          return true;
-        }
+    const unsharedA = tokensA.filter(t => !tokensB.includes(t));
+    const unsharedB = tokensB.filter(t => !tokensA.includes(t));
+
+    const TITLES = new Set(["muhammed", "mohammad", "mohammed", "md", "m"]);
+    const isTitleToken = (t) => TITLES.has(t);
+
+    if (unsharedA.length > 0 && unsharedB.length > 0) {
+      const unsharedStrA = unsharedA.join("");
+      const unsharedStrB = unsharedB.join("");
+
+      if (unsharedStrA === unsharedStrB) return true;
+
+      if (
+        (unsharedA.length === 1 && isTitleToken(unsharedA[0]) && unsharedB.length === 1 && isTitleToken(unsharedB[0])) ||
+        (unsharedA.length === 1 && isTitleToken(unsharedA[0]) && unsharedB.every(isTitleToken)) ||
+        (unsharedB.length === 1 && isTitleToken(unsharedB[0]) && unsharedA.every(isTitleToken))
+      ) {
+        return true;
+      }
+
+      return false;
+    }
+
+    const substantialCommon = common.filter(t => t.length >= 3 && !TITLES.has(t));
+    if (substantialCommon.length > 0) {
+      const remainingUnshared = unsharedA.length > 0 ? unsharedA : unsharedB;
+      const allTitlesOrInitials = remainingUnshared.every(t => isTitleToken(t) || t.length <= 2);
+      if (allTitlesOrInitials) {
+        return true;
       }
     }
 
