@@ -1,8 +1,9 @@
 const baseUrl = {
   // Automatically switch between local development and production Render URL!
+  // https://lms-testenv-v0w5.onrender.com/
   baseUrl: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? "http://localhost:7000/"
-    : "https://lms-testenv-v0w5.onrender.com/",
+    : "https://lms-testenv.onrender.com/",
 };
 
 /**
