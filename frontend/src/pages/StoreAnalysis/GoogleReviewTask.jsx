@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
 import baseUrl from "../../api/api";
@@ -53,18 +53,44 @@ const parseStoreBrandAndName = (workingBranch) => {
 const GoogleReviewTask = () => {
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [storeFilter, setStoreFilter] = useState("All");
+
+  // Cluster Filter states
+  const [clusters, setClusters] = useState([]);
+  const [selectedClusters, setSelectedClusters] = useState(["All"]);
+  const [isClusterDropdownOpen, setIsClusterDropdownOpen] = useState(false);
+  const clusterDropdownRef = useRef(null);
+
+  // Store Filter states (multi-select)
+  const [selectedStores, setSelectedStores] = useState(["All"]);
+  const [isStoreDropdownOpen, setIsStoreDropdownOpen] = useState(false);
+  const storeDropdownRef = useRef(null);
+
+  // Date Filter state (single-select)
   const [dateFilter, setDateFilter] = useState("Today"); // Today, This Week, This Month
+
+  // Modal form states
   const [showAddModal, setShowAddModal] = useState(false);
   const [openedFromRow, setOpenedFromRow] = useState(false);
-  
-  // Modal form states
   const [selectedModalStore, setSelectedModalStore] = useState("");
   const [totalRatingsInput, setTotalRatingsInput] = useState("");
 
   // Loaded counts state mapped by workingBranch name
   const [reviewsState, setReviewsState] = useState({});
   const [loadingReviews, setLoadingReviews] = useState(true);
+
+  // Handle click outside for custom popover dropdowns
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (clusterDropdownRef.current && !clusterDropdownRef.current.contains(e.target)) {
+        setIsClusterDropdownOpen(false);
+      }
+      if (storeDropdownRef.current && !storeDropdownRef.current.contains(e.target)) {
+        setIsStoreDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Fetch real dashboard data from backend
   const fetchDashboard = async () => {
@@ -92,6 +118,32 @@ const GoogleReviewTask = () => {
 
   useEffect(() => {
     fetchDashboard();
+  }, []);
+
+  // Fetch active clusters dynamically
+  useEffect(() => {
+    const fetchClusters = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${baseUrl.baseUrl}api/admin/admin/list`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const list = Array.isArray(json?.data)
+            ? json.data.filter((item) => item.role === "cluster_admin")
+            : [];
+          setClusters(list);
+        }
+      } catch (err) {
+        console.error("Error fetching clusters:", err);
+      }
+    };
+    fetchClusters();
   }, []);
 
   // Fetch branches
@@ -124,7 +176,27 @@ const GoogleReviewTask = () => {
     fetchBranches();
   }, []);
 
-  // Merge dynamic branches with reviews counts state (mock data removed, defaults to 0)
+  // Filter available stores based on selected clusters
+  const availableBranches = useMemo(() => {
+    if (selectedClusters.includes("All") || selectedClusters.length === 0) {
+      return branches;
+    }
+    const assignedBranchIds = new Set();
+    selectedClusters.forEach((clusterId) => {
+      const clusterAdmin = clusters.find((c) => String(c._id) === String(clusterId));
+      if (clusterAdmin && Array.isArray(clusterAdmin.branches)) {
+        clusterAdmin.branches.forEach((b) => {
+          assignedBranchIds.add(String(b._id || b));
+          if (b.workingBranch) assignedBranchIds.add(norm(b.workingBranch));
+        });
+      }
+    });
+    return branches.filter(
+      (b) => assignedBranchIds.has(String(b._id)) || assignedBranchIds.has(norm(b.workingBranch))
+    );
+  }, [branches, selectedClusters, clusters]);
+
+  // Merge dynamic branches with reviews counts state
   const tableRows = useMemo(() => {
     return branches.map((b) => {
       const { displayName, brand } = parseStoreBrandAndName(b.workingBranch);
@@ -143,16 +215,33 @@ const GoogleReviewTask = () => {
     });
   }, [branches, reviewsState]);
 
-  // Filter and sort rows
+  // Filter and sort rows based on selected cluster(s), store(s), and date sorting
   const processedRows = useMemo(() => {
     let list = [...tableRows];
-    
-    // 1. Store Filter
-    if (storeFilter !== "All") {
-      list = list.filter(r => r.workingBranch === storeFilter);
+
+    // 1. Cluster Filter
+    if (!selectedClusters.includes("All") && selectedClusters.length > 0) {
+      const assignedBranchIds = new Set();
+      selectedClusters.forEach((clusterId) => {
+        const clusterAdmin = clusters.find((c) => String(c._id) === String(clusterId));
+        if (clusterAdmin && Array.isArray(clusterAdmin.branches)) {
+          clusterAdmin.branches.forEach((b) => {
+            assignedBranchIds.add(String(b._id || b));
+            if (b.workingBranch) assignedBranchIds.add(norm(b.workingBranch));
+          });
+        }
+      });
+      list = list.filter(
+        (r) => assignedBranchIds.has(String(r.id)) || assignedBranchIds.has(norm(r.workingBranch))
+      );
     }
-    
-    // 2. Sort depending on active Date Filter
+
+    // 2. Store Filter
+    if (!selectedStores.includes("All") && selectedStores.length > 0) {
+      list = list.filter((r) => selectedStores.includes(r.workingBranch));
+    }
+
+    // 3. Sort depending on active Date Filter
     if (dateFilter === "Today") {
       list.sort((a, b) => b.today - a.today);
     } else if (dateFilter === "This Week") {
@@ -160,14 +249,20 @@ const GoogleReviewTask = () => {
     } else if (dateFilter === "This Month") {
       list.sort((a, b) => b.thisMonth - a.thisMonth);
     }
-    
-    return list;
-  }, [tableRows, storeFilter, dateFilter]);
 
-  // Stores with ratings today metric (count stores where today > 0)
-  const storesWithRatingsToday = useMemo(() => {
-    return tableRows.filter(r => r.today > 0).length;
-  }, [tableRows]);
+    return list;
+  }, [tableRows, selectedClusters, selectedStores, clusters, dateFilter]);
+
+  // Stores with ratings metric for active period
+  const storesWithRatingsPeriod = useMemo(() => {
+    if (dateFilter === "Today") {
+      return processedRows.filter((r) => r.today > 0).length;
+    } else if (dateFilter === "This Week") {
+      return processedRows.filter((r) => r.thisWeek > 0).length;
+    } else {
+      return processedRows.filter((r) => r.thisMonth > 0).length;
+    }
+  }, [processedRows, dateFilter]);
 
   const handleRowClick = (branchName) => {
     setSelectedModalStore(branchName);
@@ -246,22 +341,192 @@ const GoogleReviewTask = () => {
           {/* Filters Row */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pt-2 border-t border-gray-100">
             <div className="flex flex-wrap items-center gap-3">
-              {/* Store Filter Selector */}
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-semibold">Store :</span>
-                <select
-                  value={storeFilter}
-                  onChange={(e) => setStoreFilter(e.target.value)}
-                  className="pl-14 pr-8 py-2 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm font-bold text-gray-700 shadow-sm focus:outline-none focus:border-gray-400 appearance-none min-w-[130px] cursor-pointer"
+
+              {/* Multi-Select Cluster Filter Selector */}
+              <div ref={clusterDropdownRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsClusterDropdownOpen(!isClusterDropdownOpen)}
+                  className="flex items-center justify-between gap-2 bg-white border border-gray-200 rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold text-gray-700 shadow-sm hover:border-gray-300 focus:outline-none cursor-pointer min-w-[150px] transition-all"
                 >
-                  <option value="All">All</option>
-                  {branches.map(b => (
-                    <option key={b._id} value={b.workingBranch}>
-                      {parseStoreBrandAndName(b.workingBranch).displayName}
-                    </option>
-                  ))}
-                </select>
-                <FiChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" size={14} />
+                  <span className="truncate">
+                    {selectedClusters.includes("All") || selectedClusters.length === 0
+                      ? "Cluster : All"
+                      : selectedClusters.length === 1
+                        ? `Cluster : ${clusters.find((c) => String(c._id) === String(selectedClusters[0]))?.name || "1 Selected"}`
+                        : `Clusters (${selectedClusters.length})`}
+                  </span>
+                  <FiChevronDown
+                    className={`text-gray-500 transition-transform duration-200 flex-shrink-0 ${
+                      isClusterDropdownOpen ? "rotate-180" : ""
+                    }`}
+                    size={14}
+                  />
+                </button>
+
+                {isClusterDropdownOpen && (
+                  <div className="absolute left-0 mt-1.5 w-60 bg-white rounded-xl shadow-xl border border-gray-200/90 z-50 p-2 text-xs font-sans animate-popoverOpen origin-top-left">
+                    <div className="flex items-center justify-between px-2 py-1.5 border-b border-gray-100 mb-1">
+                      <span className="font-bold text-gray-500 text-[11px]">Select Cluster(s)</span>
+                      <div className="flex gap-2 text-[10px]">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedClusters(["All"]);
+                            setSelectedStores(["All"]);
+                          }}
+                          className="text-blue-600 font-bold hover:underline cursor-pointer"
+                        >
+                          Select All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedClusters(["All"]);
+                            setSelectedStores(["All"]);
+                          }}
+                          className="text-red-500 font-bold hover:underline cursor-pointer"
+                        >
+                          Reset
+                        </button>
+                      </div>
+                    </div>
+                    <div className="max-h-48 overflow-y-auto flex flex-col gap-0.5">
+                      <label className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded-lg cursor-pointer font-bold text-gray-800">
+                        <input
+                          type="checkbox"
+                          checked={selectedClusters.includes("All")}
+                          onChange={() => {
+                            setSelectedClusters(["All"]);
+                            setSelectedStores(["All"]);
+                          }}
+                          className="rounded border-gray-300 text-black focus:ring-black accent-black cursor-pointer"
+                        />
+                        <span>All Clusters</span>
+                      </label>
+                      {clusters.map((c) => {
+                        const isChecked = selectedClusters.includes(String(c._id));
+                        return (
+                          <label
+                            key={c._id}
+                            className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded-lg cursor-pointer text-gray-700 font-semibold"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                setSelectedStores(["All"]);
+                                if (selectedClusters.includes("All")) {
+                                  setSelectedClusters([String(c._id)]);
+                                } else {
+                                  if (isChecked) {
+                                    const next = selectedClusters.filter(
+                                      (id) => id !== String(c._id)
+                                    );
+                                    setSelectedClusters(next.length === 0 ? ["All"] : next);
+                                  } else {
+                                    setSelectedClusters([...selectedClusters, String(c._id)]);
+                                  }
+                                }
+                              }}
+                              className="rounded border-gray-300 text-black focus:ring-black accent-black cursor-pointer"
+                            />
+                            <span>{c.name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Multi-Select Store Filter Selector */}
+              <div ref={storeDropdownRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsStoreDropdownOpen(!isStoreDropdownOpen)}
+                  className="flex items-center justify-between gap-2 bg-white border border-gray-200 rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold text-gray-700 shadow-sm hover:border-gray-300 focus:outline-none cursor-pointer min-w-[150px] transition-all"
+                >
+                  <span className="truncate">
+                    {selectedStores.includes("All") || selectedStores.length === 0
+                      ? "Store : All"
+                      : selectedStores.length === 1
+                        ? `Store : ${parseStoreBrandAndName(selectedStores[0]).displayName}`
+                        : `Stores (${selectedStores.length})`}
+                  </span>
+                  <FiChevronDown
+                    className={`text-gray-500 transition-transform duration-200 flex-shrink-0 ${
+                      isStoreDropdownOpen ? "rotate-180" : ""
+                    }`}
+                    size={14}
+                  />
+                </button>
+
+                {isStoreDropdownOpen && (
+                  <div className="absolute left-0 mt-1.5 w-64 bg-white rounded-xl shadow-xl border border-gray-200/90 z-50 p-2 text-xs font-sans animate-popoverOpen origin-top-left">
+                    <div className="flex items-center justify-between px-2 py-1.5 border-b border-gray-100 mb-1">
+                      <span className="font-bold text-gray-500 text-[11px]">Select Store(s)</span>
+                      <div className="flex gap-2 text-[10px]">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedStores(["All"])}
+                          className="text-blue-600 font-bold hover:underline cursor-pointer"
+                        >
+                          Select All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedStores(["All"])}
+                          className="text-red-500 font-bold hover:underline cursor-pointer"
+                        >
+                          Reset
+                        </button>
+                      </div>
+                    </div>
+                    <div className="max-h-56 overflow-y-auto flex flex-col gap-0.5">
+                      <label className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded-lg cursor-pointer font-bold text-gray-800">
+                        <input
+                          type="checkbox"
+                          checked={selectedStores.includes("All")}
+                          onChange={() => setSelectedStores(["All"])}
+                          className="rounded border-gray-300 text-black focus:ring-black accent-black cursor-pointer"
+                        />
+                        <span>All Stores</span>
+                      </label>
+                      {availableBranches.map((b) => {
+                        const isChecked = selectedStores.includes(b.workingBranch);
+                        const { displayName } = parseStoreBrandAndName(b.workingBranch);
+                        return (
+                          <label
+                            key={b._id}
+                            className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded-lg cursor-pointer text-gray-700 font-semibold"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                if (selectedStores.includes("All")) {
+                                  setSelectedStores([b.workingBranch]);
+                                } else {
+                                  if (isChecked) {
+                                    const next = selectedStores.filter(
+                                      (wb) => wb !== b.workingBranch
+                                    );
+                                    setSelectedStores(next.length === 0 ? ["All"] : next);
+                                  } else {
+                                    setSelectedStores([...selectedStores, b.workingBranch]);
+                                  }
+                                }
+                              }}
+                              className="rounded border-gray-300 text-black focus:ring-black accent-black cursor-pointer"
+                            />
+                            <span>{displayName}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Date Filter Selector */}
@@ -270,7 +535,7 @@ const GoogleReviewTask = () => {
                 <select
                   value={dateFilter}
                   onChange={(e) => setDateFilter(e.target.value)}
-                  className="pl-13 pr-8 py-2 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm font-bold text-gray-700 shadow-sm focus:outline-none focus:border-gray-400 appearance-none min-w-[120px] cursor-pointer"
+                  className="pl-14 pr-8 py-2 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm font-bold text-gray-700 shadow-sm focus:outline-none focus:border-gray-400 appearance-none min-w-[140px] cursor-pointer"
                 >
                   <option value="Today">Today</option>
                   <option value="This Week">This Week</option>
@@ -284,8 +549,8 @@ const GoogleReviewTask = () => {
             <div className="text-right">
               <span className="text-gray-400 text-xs font-semibold">Stores with Ratings {dateFilter === "Today" ? "Today" : (dateFilter === "This Week" ? "This Week" : "This Month")}</span>
               <p className="text-gray-900 text-lg sm:text-xl font-bold mt-0.5">
-                {dateFilter === "Today" ? storesWithRatingsToday : (dateFilter === "This Week" ? tableRows.filter(r => r.thisWeek > 0).length : tableRows.filter(r => r.thisMonth > 0).length)}
-                <span className="text-gray-400 font-medium text-xs sm:text-sm"> /{tableRows.length}</span>
+                {storesWithRatingsPeriod}
+                <span className="text-gray-400 font-medium text-xs sm:text-sm"> /{processedRows.length}</span>
               </p>
             </div>
           </div>
@@ -341,7 +606,7 @@ const GoogleReviewTask = () => {
 
       </div>
 
-      {/* Customer Rating Today dialog modal (redesigned matching mockup) */}
+      {/* Customer Rating Today dialog modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-[1px] transition-all">
           <div className="bg-white rounded-3xl border border-gray-100 shadow-xl w-full max-w-[420px] overflow-hidden animate-in fade-in zoom-in-95 duration-150 p-6">
@@ -369,7 +634,6 @@ const GoogleReviewTask = () => {
 
             {/* Modal Form */}
             <form onSubmit={handleSaveReview} className="space-y-5">
-              {/* Store select (shown only if opened from general Add button, else show subtitle) */}
               {!openedFromRow ? (
                 <div>
                   <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Select Store</label>
@@ -419,7 +683,7 @@ const GoogleReviewTask = () => {
                 />
               </div>
 
-              {/* Submit Button (aligned left matching mockup) */}
+              {/* Submit Button */}
               <div className="pt-2">
                 <button
                   type="submit"
