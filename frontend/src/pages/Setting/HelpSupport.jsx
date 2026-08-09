@@ -278,9 +278,9 @@ const HelpSupport = () => {
   const location = useLocation();
   const token = localStorage.getItem("token");
 
-  // Strict role check: ONLY IT Support Admin (it_admin or super_admin) sees all user queries and channel list
+  // Strict role check: ONLY IT Support Admin (it_admin, super_admin, admin) sees all user queries and channel list
   const userRoleLower = (user?.role || "").toLowerCase();
-  const isITSupportAdmin = ["it_admin", "super_admin"].includes(userRoleLower);
+  const isITSupportAdmin = ["it_admin", "super_admin", "admin"].includes(userRoleLower);
 
   const [activeTab, setActiveTab] = useState("tickets");
 
@@ -948,24 +948,28 @@ const HelpSupport = () => {
      Ultra-Clean Professional Message Stream Renderer
      ───────────────────────────────────────────────────────────────────────── */
   const renderMessageThread = (messages) => {
-    return messages?.map((msg, idx) => {
+    const cleanMessages = (messages || []).filter(
+      (msg) => !msg.text?.includes("Welcome to IT Direct Support")
+    );
+    return cleanMessages.map((msg, idx) => {
       const isMe =
-        msg.senderName === user?.name ||
-        msg.senderName === user?.username ||
         (isITSupportAdmin && msg.sender === "it_admin") ||
-        (!isITSupportAdmin && msg.sender === "user");
+        (!isITSupportAdmin && msg.sender === "user") ||
+        msg.senderName === user?.name ||
+        msg.senderName === user?.username;
 
-      const hasImage = Array.isArray(msg.attachments) && msg.attachments.length > 0 && msg.mediaType !== "audio";
+      const hasImage =
+        Array.isArray(msg.attachments) &&
+        msg.attachments.some((imgUrl) => typeof imgUrl === "string" && !imgUrl.startsWith("data:audio"));
 
       const audioSrcPayload =
         msg.audioUrl ||
-        (Array.isArray(msg.attachments) && msg.attachments.find((a) => a?.startsWith("data:audio"))) ||
+        (Array.isArray(msg.attachments) && msg.attachments.find((a) => typeof a === "string" && a.startsWith("data:audio"))) ||
         "";
 
-      const isVoiceNote =
-        msg.mediaType === "audio" ||
-        !!audioSrcPayload ||
-        msg.text?.toLowerCase().includes("voice note");
+      const hasAudio = !!audioSrcPayload;
+      const isVoiceNote = (msg.mediaType === "audio" || hasAudio) && hasAudio;
+      const showText = msg.text && (msg.text !== "🎤 Voice Note" || !hasAudio);
 
       return (
         <div
@@ -974,7 +978,13 @@ const HelpSupport = () => {
         >
           <div className="flex items-center gap-1.5 mb-1 px-1">
             <span className="text-[11px] font-semibold text-slate-500">
-              {msg.senderName} ({msg.sender === "it_admin" ? "IT Support" : "User"})
+              {msg.sender === "it_admin"
+                ? `${msg.senderName || "IT Support"} (IT Support)`
+                : `${msg.senderName || "User"} (${
+                    msg.senderRole
+                      ? msg.senderRole.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+                      : "User"
+                  })`}
             </span>
             <span className="text-[10px] text-slate-400">
               {new Date(msg.createdAt).toLocaleTimeString([], {
@@ -991,14 +1001,14 @@ const HelpSupport = () => {
                 : "bg-white text-slate-800 border border-slate-200/80 rounded-tl-xs"
             }`}
           >
-            {msg.text && !isVoiceNote && (
+            {showText && (
               <p className="whitespace-pre-line leading-relaxed">{msg.text}</p>
             )}
 
             {hasImage && (
-              <div className="mt-1">
+              <div className="mt-1 flex flex-wrap gap-2">
                 {msg.attachments
-                  .filter((imgUrl) => imgUrl && !imgUrl.startsWith("data:audio"))
+                  .filter((imgUrl) => typeof imgUrl === "string" && !imgUrl.startsWith("data:audio"))
                   .map((imgUrl, imgIdx) => (
                     <a
                       key={imgIdx}
@@ -1132,7 +1142,10 @@ const HelpSupport = () => {
                   ) : (
                     directChatChannels.map((channel) => {
                       const isSelected = directChatTicket?._id === channel._id;
-                      const lastMsg = channel.messages?.[channel.messages.length - 1];
+                      const validMsgs = (channel.messages || []).filter(
+                        (m) => !m.text?.includes("Welcome to IT Direct Support")
+                      );
+                      const lastMsg = validMsgs.length > 0 ? validMsgs[validMsgs.length - 1] : null;
 
                       return (
                         <div
@@ -1223,10 +1236,24 @@ const HelpSupport = () => {
                   </div>
                 </div>
 
-                <div className="hidden sm:flex items-center gap-2">
-                  <span className="text-[11px] font-semibold bg-slate-200/80 text-slate-700 px-3 py-1 rounded-xl">
+                <div className="flex items-center gap-2">
+                  <span className="hidden sm:inline-block text-[11px] font-semibold bg-slate-200/80 text-slate-700 px-3 py-1 rounded-xl">
                     Channel: {directChatTicket?.ticketId || "DIRECT"}
                   </span>
+                  {isITSupportAdmin && directChatTicket?._id && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteTicket(directChatTicket._id)}
+                      className="px-2.5 py-1 text-[11px] font-bold text-red-600 hover:text-white hover:bg-red-600 bg-red-50 border border-red-200 rounded-xl transition-all cursor-pointer flex items-center gap-1"
+                      title="Delete this chat channel"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      </svg>
+                      Delete
+                    </button>
+                  )}
                 </div>
               </div>
 

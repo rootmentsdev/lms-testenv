@@ -103,7 +103,13 @@ export const getOrCreateGeneralChat = async (req, res) => {
     console.log(`🔍 [getOrCreateGeneralChat] GET called — user: ${req.admin?.userId || req.user?.userId}`);
     const currentUser = await getUserContext(req);
     const role = (currentUser.role || "").toLowerCase();
-    const isITSupportAdmin = ["it_admin", "super_admin"].includes(role);
+    const isITSupportAdmin = ["it_admin", "super_admin", "admin"].includes(role);
+
+    // Clean up any legacy automated greeting message from DB
+    await SupportTicket.updateMany(
+      { "messages.text": { $regex: "Welcome to IT Direct Support", $options: "i" } },
+      { $pull: { messages: { text: { $regex: "Welcome to IT Direct Support", $options: "i" } } } }
+    ).catch(() => {});
 
     // IT admins can view any user's direct chat thread by passing ?userId=...
     // They do NOT get their own thread created
@@ -153,7 +159,7 @@ export const createGeneralChat = async (req, res) => {
     console.trace('🎫 [createGeneralChat] Call stack:');
     const currentUser = await getUserContext(req);
     const role = (currentUser.role || "").toLowerCase();
-    const isITSupportAdmin = ["it_admin", "super_admin"].includes(role);
+    const isITSupportAdmin = ["it_admin", "super_admin", "admin"].includes(role);
 
     // IT admins don't get personal chat threads
     if (isITSupportAdmin) {
@@ -203,15 +209,7 @@ export const createGeneralChat = async (req, res) => {
         description: "Direct chat thread with IT Team for general site inquiries, clarification, images & voice notes.",
         priority: "Medium",
         status: "Open",
-        messages: [
-          {
-            sender: "it_admin",
-            senderName: "IT Support Team",
-            senderRole: "it_admin",
-            text: "Hello! Welcome to IT Direct Support. Feel free to ask questions, share images, or record voice notes here for quick clarity.",
-            createdAt: new Date(),
-          },
-        ],
+        messages: [],
       });
       await ticket.save();
 
@@ -233,7 +231,13 @@ export const getTickets = async (req, res) => {
   try {
     const currentUser = await getUserContext(req);
     const role = (currentUser.role || "").toLowerCase();
-    const isITSupportAdmin = ["it_admin", "super_admin"].includes(role);
+    const isITSupportAdmin = ["it_admin", "super_admin", "admin"].includes(role);
+
+    // Clean up any legacy automated greeting message from DB
+    await SupportTicket.updateMany(
+      { "messages.text": { $regex: "Welcome to IT Direct Support", $options: "i" } },
+      { $pull: { messages: { text: { $regex: "Welcome to IT Direct Support", $options: "i" } } } }
+    ).catch(() => {});
 
     let filter = {};
     if (!isITSupportAdmin) {
@@ -256,19 +260,7 @@ export const getTickets = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
-      .sort({ updatedAt: -1 })
-      .populate("userId", "name email role")
-      .populate("assignedTo", "name email");
 
-    return res.status(200).json({
-      success: true,
-      tickets,
-    });
-  } catch (error) {
-    console.error("Error fetching support tickets:", error);
-    return res.status(500).json({ success: false, message: error.message });
-  }
-};
 
 // Get single ticket by ID
 export const getTicketById = async (req, res) => {
@@ -276,7 +268,7 @@ export const getTicketById = async (req, res) => {
     const { id } = req.params;
     const currentUser = await getUserContext(req);
     const role = (currentUser.role || "").toLowerCase();
-    const isITSupportAdmin = ["it_admin", "super_admin"].includes(role);
+    const isITSupportAdmin = ["it_admin", "super_admin", "admin"].includes(role);
 
     const ticket = await SupportTicket.findById(id)
       .populate("userId", "name email role")
@@ -310,23 +302,29 @@ export const addMessageToTicket = async (req, res) => {
 
     const currentUser = await getUserContext(req);
     const role = (currentUser.role || "").toLowerCase();
-    const isITOrAdmin = ["it_admin", "super_admin", "admin", "hr_admin"].includes(role);
+    const isITSupportAdmin = ["it_admin", "super_admin", "admin"].includes(role);
 
     const ticket = await SupportTicket.findById(id);
     if (!ticket) {
       return res.status(404).json({ success: false, message: "Ticket not found." });
     }
 
+    const isTicketOwner = String(ticket.userId) === String(currentUser._id);
+
     // Regular users can only message on their own tickets
-    if (!isITOrAdmin && String(ticket.userId) !== String(currentUser._id)) {
+    if (!isITSupportAdmin && !isTicketOwner) {
       return res.status(403).json({ success: false, message: "Access denied. You can only reply to your own tickets." });
     }
-    const sender = isITOrAdmin ? "it_admin" : "user";
+
+    // If sender is the ticket creator, they are "user"; if IT admin replying to another user's ticket, they are "it_admin"
+    const sender = isTicketOwner ? "user" : "it_admin";
+    const senderName = currentUser.name || (isTicketOwner ? "User" : "IT Support Admin");
+    const senderRole = isTicketOwner ? (currentUser.role || "User") : "it_admin";
 
     const newMessage = {
       sender,
-      senderName: currentUser.name || (isITOrAdmin ? "IT Support Admin" : "User"),
-      senderRole: currentUser.role,
+      senderName,
+      senderRole,
       text: text || (audioUrl ? "🎤 Voice Note" : attachments?.length ? "📷 Image Attachment" : ""),
       attachments: attachments || [],
       audioUrl: audioUrl || "",
@@ -337,7 +335,7 @@ export const addMessageToTicket = async (req, res) => {
     ticket.messages.push(newMessage);
     
     // Automatically transition Open ticket to In Progress when IT admin replies
-    if (isITOrAdmin && ticket.status === "Open") {
+    if (!isTicketOwner && ticket.status === "Open") {
       ticket.status = "In Progress";
     }
 
@@ -368,7 +366,7 @@ export const deleteTicket = async (req, res) => {
     const currentUser = await getUserContext(req);
     const role = (currentUser.role || "").toLowerCase();
 
-    if (!["it_admin", "super_admin"].includes(role)) {
+    if (!["it_admin", "super_admin", "admin"].includes(role)) {
       return res.status(403).json({ success: false, message: "Access denied. Only IT Support Admins can delete tickets." });
     }
 
@@ -394,7 +392,7 @@ export const updateTicketStatus = async (req, res) => {
 
     const currentUser = await getUserContext(req);
     const role = (currentUser.role || "").toLowerCase();
-    const isITSupportAdmin = ["it_admin", "super_admin"].includes(role);
+    const isITSupportAdmin = ["it_admin", "super_admin", "admin"].includes(role);
 
     if (!isITSupportAdmin) {
       return res.status(403).json({ success: false, message: "Access denied. Only IT Support Admins can update ticket status." });
