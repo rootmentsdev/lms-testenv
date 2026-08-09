@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import baseUrl from "../../api/api";
+import baseUrl, { formatStoreDisplayName } from "../../api/api";
 import Select from "react-select";
 import { toast } from "react-toastify";
 import { FaEye } from "react-icons/fa";
@@ -91,7 +91,7 @@ const CreateUser = () => {
         setUsers(
           data.data.map((item) => ({
             value: item._id,
-            label: item.workingBranch,
+            label: formatStoreDisplayName(item.workingBranch),
           }))
         );
       } catch (error) {

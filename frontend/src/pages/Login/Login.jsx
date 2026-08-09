@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import baseUrl from '../../api/api';
+import baseUrl, { formatStoreDisplayName } from '../../api/api';
 import { useDispatch } from 'react-redux';
 import { setUser } from '../../features/auth/authSlice';
 
@@ -472,7 +472,7 @@ const Login = () => {
                                   }}
                                   className="accent-white"
                                 />
-                                {b.workingBranch}
+                                {formatStoreDisplayName(b.workingBranch)}
                               </label>
                             );
                           })

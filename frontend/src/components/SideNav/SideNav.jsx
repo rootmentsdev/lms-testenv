@@ -64,6 +64,7 @@ const CollapsedFlyout = ({ label, active, items, isCollapsed, children }) => {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
   const triggerRef = useRef(null);
+  const flyoutRef = useRef(null);
   const hideTimer = useRef(null);
 
   const show = () => {
@@ -85,6 +86,21 @@ const CollapsedFlyout = ({ label, active, items, isCollapsed, children }) => {
 
   useEffect(() => () => clearTimeout(hideTimer.current), []);
 
+  // Clamp flyout popover inside viewport vertically so bottom items (like Settings submenus) are never cut off
+  useEffect(() => {
+    if (open && flyoutRef.current) {
+      const rect = flyoutRef.current.getBoundingClientRect();
+      const pad = 16;
+      if (rect.bottom > window.innerHeight - pad) {
+        const diff = rect.bottom - (window.innerHeight - pad);
+        setPos((prev) => ({ ...prev, top: prev.top - diff }));
+      } else if (rect.top < pad) {
+        const diff = pad - rect.top;
+        setPos((prev) => ({ ...prev, top: prev.top + diff }));
+      }
+    }
+  }, [open]);
+
   return (
     <div
       ref={triggerRef}
@@ -98,6 +114,7 @@ const CollapsedFlyout = ({ label, active, items, isCollapsed, children }) => {
         isCollapsed &&
         createPortal(
           <div
+            ref={flyoutRef}
             onMouseEnter={() => clearTimeout(hideTimer.current)}
             onMouseLeave={hide}
             style={{
@@ -157,9 +174,11 @@ const SideNav = () => {
   const user = useSelector((s) => s.auth.user);
   const location = useLocation();
 
-  // Sidebar Collapse state (persisted)
+  // Sidebar Collapse state (defaults to CLOSED on first opening or reload unless user clicked to open)
   const [isCollapsed, setIsCollapsed] = useState(() => {
-    return localStorage.getItem("sidebarCollapsed") === "true";
+    const saved = localStorage.getItem("sidebarCollapsed");
+    if (saved === null) return true;
+    return saved === "true";
   });
 
   // Real-time search filter query (expanded mode)

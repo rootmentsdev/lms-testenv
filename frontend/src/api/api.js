@@ -118,4 +118,36 @@ export const updateVideoProgress = async (params) => {
   return response;
 };
 
+export const formatStoreDisplayName = (rawName) => {
+  if (!rawName) return '';
+  const trimmed = String(rawName).trim();
+  const lower = trimmed.toLowerCase();
+  
+  if (['dappr squad', 'office', 'production', 'warehouse'].includes(lower)) {
+    return trimmed;
+  }
+  
+  const isZ = /^z[\.\-\s]/i.test(trimmed) || /^z/i.test(trimmed);
+  
+  let loc = trimmed
+    .replace(/^(sg|g|z)[\.\-\s]*/i, '')
+    .replace(/\d+$/g, '')
+    .trim();
+    
+  loc = loc
+    .replace(/\bedap{1,3}a?l{1,3}[yi]\b/i, 'Edappally')
+    .replace(/\bedap{1,3}a?l\b/i, 'Edappal')
+    .replace(/\bkottaka?l\b/i, 'Kottakkal')
+    .replace(/\bperinthalman+a\b/i, 'Perinthalmanna')
+    .replace(/\bkalpeta\b/i, 'Kalpetta')
+    .replace(/\bmanjer[yi]\b/i, 'Manjeri');
+
+  if (loc.length > 0) {
+    loc = loc.charAt(0).toUpperCase() + loc.slice(1);
+  }
+  
+  const prefix = isZ ? 'Z' : 'SG';
+  return `${prefix} ${loc}`;
+};
+
 export default baseUrl;

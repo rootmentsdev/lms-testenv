@@ -1,10 +1,35 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 
 import { useSelector } from 'react-redux';
 import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
-import baseUrl from "../../api/api";
+import baseUrl, { formatStoreDisplayName } from "../../api/api";
 import { FaSave, FaCheckCircle, FaUndo, FaTrashAlt, FaPlusCircle, FaVideo, FaEdit, FaClock, FaDownload } from 'react-icons/fa';
+
+const BRAND_TOKENS = new Set(["zorucci", "grooms", "suitor", "guy", "sg"]);
+function canonFixes(s) {
+    return s
+        .replace(/\bedap{1,2}a?l{1,3}y\b/g, "edappally")
+        .replace(/\bedap{1,2}a?l{1,3}i\b/g, "edappally")
+        .replace(/\bmanjeri\b/g, "manjery")
+        .replace(/\bperinthalmana\b/g, "perinthalmanna")
+        .replace(/\bkottakal\b/g, "kottakkal")
+        .replace(/\bkalpeta\b/g, "kalpetta")
+        .replace(/\bzoruc+i\b/g, "zorucci");
+}
+function norm(s) {
+    const x = String(s || "")
+        .normalize("NFKD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+    return canonFixes(x);
+}
+function locationKey(name) {
+    const tokens = norm(name).split(" ").filter(t => t && !BRAND_TOKENS.has(t));
+    return tokens.join(" ");
+}
 
 const CATEGORIES = [
     { key: 'total_walkin', label: 'TOTAL WALKIN', tooltip: "New walk-ins + revisit walk-ins for the selected date." },
@@ -266,6 +291,73 @@ const WalkinCount = () => {
     const [storeFilter, setStoreFilter] = useState('All');
     const [branches, setBranches] = useState([]);
     
+    // Cluster & Multi-Select Store Filter States
+    const [clusters, setClusters] = useState([]);
+    const [selectedClusters, setSelectedClusters] = useState(["All"]);
+    const [isClusterDropdownOpen, setIsClusterDropdownOpen] = useState(false);
+    const clusterDropdownRef = useRef(null);
+
+    const [selectedStores, setSelectedStores] = useState(["All"]);
+    const [isStoreDropdownOpen, setIsStoreDropdownOpen] = useState(false);
+    const storeDropdownRef = useRef(null);
+
+    // Sync selectedStores into storeFilter string for backend API compatibility
+    useEffect(() => {
+        const str = selectedStores.includes("All") || selectedStores.length === 0 ? "All" : selectedStores.join(",");
+        setStoreFilter(str);
+    }, [selectedStores]);
+
+    // Fetch Clusters on mount
+    useEffect(() => {
+        const fetchClusters = async () => {
+            try {
+                const res = await fetch(`${baseUrl.baseUrl}api/admin/admin/list`, {
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const json = await res.json();
+                    const list = Array.isArray(json?.data) ? json.data.filter(i => i.role === 'cluster_admin') : [];
+                    setClusters(list);
+                }
+            } catch (err) {
+                console.error("Error fetching clusters:", err);
+            }
+        };
+        if (token) fetchClusters();
+    }, [token]);
+
+    // Filter available stores based on selected clusters
+    const availableBranches = useMemo(() => {
+        if (selectedClusters.includes("All") || selectedClusters.length === 0) {
+            return branches;
+        }
+        const assignedKeys = new Set();
+        selectedClusters.forEach((clusterId) => {
+            const cAdmin = clusters.find((c) => String(c._id) === String(clusterId));
+            if (cAdmin && Array.isArray(cAdmin.branches)) {
+                cAdmin.branches.forEach((b) => {
+                    const key = locationKey(b.workingBranch || b.branchName || b);
+                    if (key) assignedKeys.add(key);
+                });
+            }
+        });
+        return branches.filter((b) => assignedKeys.has(locationKey(b.workingBranch)));
+    }, [branches, selectedClusters, clusters]);
+
+    // Click outside handler for dropdown popovers
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (clusterDropdownRef.current && !clusterDropdownRef.current.contains(e.target)) {
+                setIsClusterDropdownOpen(false);
+            }
+            if (storeDropdownRef.current && !storeDropdownRef.current.contains(e.target)) {
+                setIsStoreDropdownOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+    
     // Data States
     const [inAppCounts, setInAppCounts] = useState({});
     const [rowValues, setRowValues] = useState(() => {
@@ -391,14 +483,24 @@ const WalkinCount = () => {
                 let branchList = Array.isArray(branchJson?.stores) ? branchJson.stores : (Array.isArray(branchJson?.data) ? branchJson.data : []);
 
                 if (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'telecaller') {
-                    const existing = new Set(branchList.map(b => b.workingBranch));
-                    const missing = HARDCODED_STORES.filter(s => !existing.has(s));
-                    branchList = [...missing.map(name => ({ workingBranch: name })), ...branchList];
+                    const existingNames = new Set(branchList.map(b => formatStoreDisplayName(b.workingBranch)).filter(Boolean));
+                    const missing = HARDCODED_STORES.filter(s => !existingNames.has(formatStoreDisplayName(s)));
+                    branchList = [...branchList, ...missing.map(name => ({ workingBranch: name }))];
                 }
 
-                setBranches([...branchList].sort(sortStoresGThenZ));
-                if (['cluster_admin', 'store_admin'].includes(user?.role) && branchList.length > 0) {
-                    setStoreFilter(branchList[0].workingBranch);
+                const seenDisplayNames = new Set();
+                const uniqueBranches = [];
+                for (const b of branchList) {
+                    const dispName = formatStoreDisplayName(b.workingBranch);
+                    if (dispName && !seenDisplayNames.has(dispName)) {
+                        seenDisplayNames.add(dispName);
+                        uniqueBranches.push(b);
+                    }
+                }
+
+                setBranches(uniqueBranches.sort(sortStoresGThenZ));
+                if (['cluster_admin', 'store_admin'].includes(user?.role) && uniqueBranches.length > 0) {
+                    setStoreFilter(uniqueBranches[0].workingBranch);
                 }
             } catch (err) {
                 console.error("Error fetching branches:", err);
@@ -890,7 +992,7 @@ const WalkinCount = () => {
                                     style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer' }}
                                 >
                                     <option value="">Select Store</option>
-                                    {branches.map((b, i) => <option key={i} value={b.workingBranch}>{b.workingBranch}</option>)}
+                                    {branches.map((b, i) => <option key={i} value={b.workingBranch}>{formatStoreDisplayName(b.workingBranch)}</option>)}
                                 </select>
                             </div>
 
@@ -1011,22 +1113,171 @@ const WalkinCount = () => {
                         </h2>
                         
                         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>Store Branch:</span>
-                                {user?.role === 'store_admin' ? (
-                                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>{storeFilter}</span>
-                                ) : (
-                                    <select
-                                        value={storeFilter}
-                                        onChange={e => setStoreFilter(e.target.value)}
-                                        style={{ border: '1px solid #e5e7eb', borderRadius: '6px', padding: '4px 10px', fontSize: '12px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer', minWidth: '150px' }}
+                            {/* Cluster Multi-Select Filter */}
+                            {(user?.role === 'super_admin' || user?.role === 'admin') && (
+                                <div ref={clusterDropdownRef} style={{ position: 'relative' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsClusterDropdownOpen(!isClusterDropdownOpen)}
+                                        style={{
+                                            border: '1px solid #e5e7eb',
+                                            borderRadius: '8px',
+                                            padding: '7px 12px',
+                                            fontSize: '13px',
+                                            color: '#374151',
+                                            background: '#fff',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            fontWeight: 600
+                                        }}
                                     >
-                                        {['super_admin', 'admin', 'hr_admin', 'telecaller'].includes(user?.role) && <option value="All">All</option>}
-                                        <option value="">Select Store</option>
-                                        {branches.map((b, i) => <option key={i} value={b.workingBranch}>{b.workingBranch}</option>)}
-                                    </select>
-                                )}
-                            </div>
+                                        <span>
+                                            {selectedClusters.includes("All") || selectedClusters.length === 0
+                                                ? "Cluster : All"
+                                                : selectedClusters.length === 1
+                                                    ? `Cluster : ${clusters.find(c => String(c._id) === selectedClusters[0])?.name || clusters.find(c => String(c._id) === selectedClusters[0])?.username || selectedClusters[0]}`
+                                                    : `Clusters (${selectedClusters.length})`}
+                                        </span>
+                                        <svg className={`h-4 w-4 text-gray-400 transition-transform ${isClusterDropdownOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+
+                                    {isClusterDropdownOpen && (
+                                        <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: '6px', width: '220px', background: '#fff', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', border: '1px solid #e5e7eb', zIndex: 50, padding: '8px', fontSize: '12px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '6px', marginBottom: '6px', borderBottom: '1px solid #f3f4f6' }}>
+                                                <span style={{ fontWeight: 700, color: '#6b7280', fontSize: '11px' }}>Select Cluster(s)</span>
+                                                <div style={{ display: 'flex', gap: '8px', fontSize: '10px' }}>
+                                                    <button type="button" onClick={() => { setSelectedClusters(["All"]); setSelectedStores(["All"]); }} style={{ color: '#2563eb', fontWeight: 700, border: 'none', background: 'none', cursor: 'pointer' }}>All</button>
+                                                    <button type="button" onClick={() => { setSelectedClusters(["All"]); setSelectedStores(["All"]); }} style={{ color: '#ef4444', fontWeight: 700, border: 'none', background: 'none', cursor: 'pointer' }}>Reset</button>
+                                                </div>
+                                            </div>
+                                            <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 6px', borderRadius: '6px', cursor: 'pointer', fontWeight: 700 }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedClusters.includes("All")}
+                                                        onChange={() => { setSelectedClusters(["All"]); setSelectedStores(["All"]); }}
+                                                        style={{ cursor: 'pointer', accentColor: '#000' }}
+                                                    />
+                                                    <span>All Clusters</span>
+                                                </label>
+                                                {clusters.map((c) => {
+                                                    const isChecked = selectedClusters.includes(String(c._id));
+                                                    return (
+                                                        <label key={c._id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 6px', borderRadius: '6px', cursor: 'pointer', fontWeight: 500, color: '#374151' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isChecked}
+                                                                onChange={() => {
+                                                                    setSelectedStores(["All"]);
+                                                                    if (selectedClusters.includes("All")) {
+                                                                        setSelectedClusters([String(c._id)]);
+                                                                    } else {
+                                                                        if (isChecked) {
+                                                                            const next = selectedClusters.filter(id => id !== String(c._id));
+                                                                            setSelectedClusters(next.length === 0 ? ["All"] : next);
+                                                                        } else {
+                                                                            setSelectedClusters([...selectedClusters, String(c._id)]);
+                                                                        }
+                                                                    }
+                                                                }}
+                                                                style={{ cursor: 'pointer', accentColor: '#000' }}
+                                                            />
+                                                            <span>{c.name || c.username}</span>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Store Multi-Select Filter */}
+                            {(user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'cluster_admin' || user?.role === 'store_admin' || user?.role === 'telecaller') && (
+                                <div ref={storeDropdownRef} style={{ position: 'relative' }}>
+                                    <button
+                                        type="button"
+                                        disabled={user?.role === 'store_admin'}
+                                        onClick={() => setIsStoreDropdownOpen(!isStoreDropdownOpen)}
+                                        style={{
+                                            border: '1px solid #e5e7eb',
+                                            borderRadius: '8px',
+                                            padding: '7px 12px',
+                                            fontSize: '13px',
+                                            color: '#374151',
+                                            background: '#fff',
+                                            cursor: user?.role === 'store_admin' ? 'not-allowed' : 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            fontWeight: 600
+                                        }}
+                                    >
+                                        <span>
+                                            {selectedStores.includes("All") || selectedStores.length === 0
+                                                ? "Store : All"
+                                                : selectedStores.length === 1
+                                                    ? `Store : ${formatStoreDisplayName(selectedStores[0])}`
+                                                    : `Stores (${selectedStores.length})`}
+                                        </span>
+                                        <svg className={`h-4 w-4 text-gray-400 transition-transform ${isStoreDropdownOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+
+                                    {isStoreDropdownOpen && user?.role !== 'store_admin' && (
+                                        <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: '6px', width: '230px', background: '#fff', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', border: '1px solid #e5e7eb', zIndex: 50, padding: '8px', fontSize: '12px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '6px', marginBottom: '6px', borderBottom: '1px solid #f3f4f6' }}>
+                                                <span style={{ fontWeight: 700, color: '#6b7280', fontSize: '11px' }}>Select Store(s)</span>
+                                                <div style={{ display: 'flex', gap: '8px', fontSize: '10px' }}>
+                                                    <button type="button" onClick={() => setSelectedStores(["All"])} style={{ color: '#2563eb', fontWeight: 700, border: 'none', background: 'none', cursor: 'pointer' }}>All</button>
+                                                    <button type="button" onClick={() => setSelectedStores(["All"])} style={{ color: '#ef4444', fontWeight: 700, border: 'none', background: 'none', cursor: 'pointer' }}>Reset</button>
+                                                </div>
+                                            </div>
+                                            <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 6px', borderRadius: '6px', cursor: 'pointer', fontWeight: 700 }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedStores.includes("All")}
+                                                        onChange={() => setSelectedStores(["All"])}
+                                                        style={{ cursor: 'pointer', accentColor: '#000' }}
+                                                    />
+                                                    <span>All Stores</span>
+                                                </label>
+                                                {availableBranches.map((b, i) => {
+                                                    const isChecked = selectedStores.includes(b.workingBranch);
+                                                    return (
+                                                        <label key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 6px', borderRadius: '6px', cursor: 'pointer', fontWeight: 500, color: '#374151' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isChecked}
+                                                                onChange={() => {
+                                                                    if (selectedStores.includes("All")) {
+                                                                        setSelectedStores([b.workingBranch]);
+                                                                    } else {
+                                                                        if (isChecked) {
+                                                                            const next = selectedStores.filter(wb => wb !== b.workingBranch);
+                                                                            setSelectedStores(next.length === 0 ? ["All"] : next);
+                                                                        } else {
+                                                                            setSelectedStores([...selectedStores, b.workingBranch]);
+                                                                        }
+                                                                    }
+                                                                }}
+                                                                style={{ cursor: 'pointer', accentColor: '#000' }}
+                                                            />
+                                                            <span>{formatStoreDisplayName(b.workingBranch)}</span>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                             
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>Date Range:</span>

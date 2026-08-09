@@ -1244,29 +1244,21 @@ export const getWalkinCountPageData = async (req, res) => {
         }
 
 
-        // 1. Resolve store branch and storeId
-        let resolvedStoreName = store;
-        let resolvedStoreId = null;
+        // 1. Resolve store branch and storeId (supporting multi-store comma-separated strings)
         let queryConditions = [];
 
         if (store.toLowerCase() !== 'all') {
-            const branch = await Branch.findOne({ workingBranch: { $regex: `^${store.trim()}$`, $options: 'i' } });
-            if (branch) {
-                resolvedStoreId = branch._id;
-                resolvedStoreName = branch.workingBranch;
+            const storeArr = store.split(',').map(s => s.trim()).filter(Boolean);
+            if (storeArr.length > 0) {
+                const regexArr = storeArr.map(s => new RegExp(`^${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'));
+                const matchingBranches = await Branch.find({ workingBranch: { $in: regexArr } });
+                const matchedIds = matchingBranches.map(b => b._id);
+                const matchedNames = matchingBranches.map(b => b.workingBranch);
+
                 queryConditions.push({
                     $or: [
-                        { store: resolvedStoreName },
-                        { storeId: resolvedStoreId }
-                    ]
-                });
-            } else {
-                resolvedStoreId = new mongoose.Types.ObjectId();
-                resolvedStoreName = store;
-                queryConditions.push({
-                    $or: [
-                        { store: resolvedStoreName },
-                        { storeId: resolvedStoreId }
+                        { store: { $in: [...regexArr, ...matchedNames] } },
+                        { storeId: { $in: matchedIds } }
                     ]
                 });
             }
@@ -1557,7 +1549,11 @@ export const getWalkinCountPageData = async (req, res) => {
             savedCountsQuery.date = date;
         }
         if (store.toLowerCase() !== 'all') {
-            savedCountsQuery.storeId = resolvedStoreId;
+            const storeArr = store.split(',').map(s => s.trim()).filter(Boolean);
+            if (storeArr.length > 0) {
+                const regexArr = storeArr.map(s => new RegExp(`^${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'));
+                savedCountsQuery.store = { $in: regexArr };
+            }
         }
 
         const savedCounts = await WalkinCount.find(savedCountsQuery).lean();

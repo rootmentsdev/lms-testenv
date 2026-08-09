@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
-import baseUrl from "../../api/api";
+import baseUrl, { formatStoreDisplayName } from "../../api/api";
 import { FaChevronLeft, FaChevronRight, FaDownload } from 'react-icons/fa';
 
 /* ── helpers ─────────────────────────────────────────────────────────────── */
@@ -744,14 +744,24 @@ const WalkinReport = () => {
         let list = Array.isArray(json?.stores) ? json.stores : (Array.isArray(json?.data) ? json.data : []);
         
         if (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'telecaller') {
-          const existing = new Set(list.map(b => b.workingBranch));
-          const missing = HARDCODED_STORES.filter(s => !existing.has(s));
-          list = [...missing.map(name => ({ workingBranch: name })), ...list];
+          const existingNames = new Set(list.map(b => formatStoreDisplayName(b.workingBranch)).filter(Boolean));
+          const missing = HARDCODED_STORES.filter(s => !existingNames.has(formatStoreDisplayName(s)));
+          list = [...list, ...missing.map(name => ({ workingBranch: name }))];
         }
         
-        setBranches([...list].sort(sortStoresGThenZ));
-        if (user?.role === 'store_admin' && list.length > 0) {
-          setSelectedStores([list[0].workingBranch]);
+        const seenDisplayNames = new Set();
+        const uniqueBranches = [];
+        for (const b of list) {
+          const dispName = formatStoreDisplayName(b.workingBranch);
+          if (dispName && !seenDisplayNames.has(dispName)) {
+            seenDisplayNames.add(dispName);
+            uniqueBranches.push(b);
+          }
+        }
+
+        setBranches(uniqueBranches.sort(sortStoresGThenZ));
+        if (user?.role === 'store_admin' && uniqueBranches.length > 0) {
+          setSelectedStores([uniqueBranches[0].workingBranch]);
         }
       } catch(e){ console.error(e); }
       finally { setLoading(false); }
@@ -1036,25 +1046,27 @@ const WalkinReport = () => {
                 <label style={lbl}>End Date <span style={{color:'#ef4444'}}>*</span></label>
                 <input type="date" name="endDate" required value={formData.endDate} onChange={e=>setFormData(p=>({...p,endDate:e.target.value}))} style={inp} />
               </div>
-              <div>
-                <CustomSelect
-                  id="cluster-select"
-                  label={<span>Cluster <span style={{color:'#9ca3af', fontWeight:400}}>(Optional)</span></span>}
-                  options={clusters.map(c => ({ value: c._id, label: c.name }))}
-                  value={selectedClusters}
-                  onChange={(val) => {
-                    setSelectedClusters(val);
-                    setSelectedStores([]);
-                    setSelectedEmployees([]);
-                  }}
-                  placeholder="All Clusters"
-                />
-              </div>
+              {(user?.role === 'super_admin' || user?.role === 'admin') && (
+                <div>
+                  <CustomSelect
+                    id="cluster-select"
+                    label={<span>Cluster <span style={{color:'#9ca3af', fontWeight:400}}>(Optional)</span></span>}
+                    options={clusters.map(c => ({ value: c._id, label: c.name || c.username }))}
+                    value={selectedClusters}
+                    onChange={(val) => {
+                      setSelectedClusters(val);
+                      setSelectedStores([]);
+                      setSelectedEmployees([]);
+                    }}
+                    placeholder="All Clusters"
+                  />
+                </div>
+              )}
               <div>
                 <CustomSelect
                   id="store-select"
                   label={<span>Store Name <span style={{color:'#9ca3af', fontWeight:400}}>(Optional)</span></span>}
-                  options={availableBranches.map(b => ({ value: b.workingBranch, label: b.workingBranch }))}
+                  options={availableBranches.map(b => ({ value: b.workingBranch, label: formatStoreDisplayName(b.workingBranch) }))}
                   value={selectedStores}
                   onChange={(val) => {
                     setSelectedStores(val);

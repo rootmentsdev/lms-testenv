@@ -4,7 +4,7 @@ import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { FiSearch, FiDownload, FiArrowLeft, FiCalendar, FiEdit3, FiLock, FiUnlock } from "react-icons/fi";
-import baseUrl from "../../api/api";
+import baseUrl, { formatStoreDisplayName } from "../../api/api";
 
 const BRAND_TOKENS = new Set(["zorucci", "grooms", "suitor", "guy", "sg"]);
 
@@ -365,18 +365,7 @@ const getPerformanceCached = async (locId, startDate, endDate, forceRefresh = fa
 
 
 function displayBranchName(name) {
-  const raw = String(name || "").trim();
-  if (/^grooms\s+/i.test(raw)) {
-    return raw.replace(/^grooms\s+/i, "SG ");
-  }
-  if (/^suitor\s+guy\s+/i.test(raw)) {
-    return raw.replace(/^suitor\s+guy\s+/i, "SG ");
-  }
-  if (/^g[\.\-\s]+/i.test(raw)) {
-    return raw.replace(/^g[\.\-\s]+/i, "SG ");
-  }
-  if (raw === "G" || raw === "g") return "SG";
-  return raw;
+  return formatStoreDisplayName(name);
 }
 
 function isHiddenBranch(name) {

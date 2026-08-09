@@ -3,7 +3,7 @@ import { useSelector } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
 import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
-import baseUrl from "../../api/api";
+import baseUrl, { formatStoreDisplayName } from "../../api/api";
 import { FaChevronLeft, FaChevronRight, FaPen, FaDownload, FaEye } from 'react-icons/fa';
 
 /* ---------- Normalization and Spelling fixes helpers ---------- */
@@ -2000,16 +2000,26 @@ const sortStoresGThenZ = (a, b) => {
                 let branchList = Array.isArray(branchJson?.stores) ? branchJson.stores : (Array.isArray(branchJson?.data) ? branchJson.data : []);
 
                 if (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'telecaller') {
-                    // Force the dropdown to show the hardcoded stores to ensure it's not empty,
-                    // and merge any DB ones to prevent duplicates.
-                    const existing = new Set(branchList.map(b => b.workingBranch));
-                    const missing = HARDCODED_STORES.filter(s => !existing.has(s));
-                    branchList = [...missing.map(name => ({ workingBranch: name })), ...branchList];
+                    // Merge DB stores with hardcoded stores using formatStoreDisplayName to avoid duplicate display names
+                    const existingNames = new Set(branchList.map(b => formatStoreDisplayName(b.workingBranch)).filter(Boolean));
+                    const missing = HARDCODED_STORES.filter(s => !existingNames.has(formatStoreDisplayName(s)));
+                    branchList = [...branchList, ...missing.map(name => ({ workingBranch: name }))];
                 }
 
-                setBranches([...branchList].sort(sortStoresGThenZ));
-                if (user?.role === 'store_admin' && branchList.length > 0) {
-                    setSelectedStores([branchList[0].workingBranch]);
+                // Final deduplication by formatStoreDisplayName
+                const seenDisplayNames = new Set();
+                const uniqueBranches = [];
+                for (const b of branchList) {
+                    const dispName = formatStoreDisplayName(b.workingBranch);
+                    if (dispName && !seenDisplayNames.has(dispName)) {
+                        seenDisplayNames.add(dispName);
+                        uniqueBranches.push(b);
+                    }
+                }
+
+                setBranches(uniqueBranches.sort(sortStoresGThenZ));
+                if (user?.role === 'store_admin' && uniqueBranches.length > 0) {
+                    setSelectedStores([uniqueBranches[0].workingBranch]);
                 }
 
                 let adminData = null;
@@ -3343,87 +3353,88 @@ const sortStoresGThenZ = (a, b) => {
                                         Clear Range
                                     </button>
                                 )}
-                            </div>
-                            {/* Cluster Multi-Select Filter */}
-                            <div ref={clusterDropdownRef} style={{ position: 'relative' }}>
-                                <button
-                                    type="button"
-                                    onClick={() => setIsClusterDropdownOpen(!isClusterDropdownOpen)}
-                                    style={{
-                                        border: '1px solid #e5e7eb',
-                                        borderRadius: '8px',
-                                        padding: '7px 12px',
-                                        fontSize: '13px',
-                                        color: '#374151',
-                                        background: '#fff',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '6px',
-                                        fontWeight: 600
-                                    }}
-                                >
-                                    <span>
-                                        {selectedClusters.includes("All") || selectedClusters.length === 0
-                                            ? "Cluster : All"
-                                            : selectedClusters.length === 1
-                                                ? `Cluster : ${clusters.find(c => String(c._id) === String(selectedClusters[0]))?.name || "1 Selected"}`
-                                                : `Clusters (${selectedClusters.length})`}
-                                    </span>
-                                    <svg className={`h-4 w-4 text-gray-400 transition-transform ${isClusterDropdownOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </button>
+                                      {/* Cluster Multi-Select Filter */}
+                            {(user?.role === 'super_admin' || user?.role === 'admin') && (
+                                <div ref={clusterDropdownRef} style={{ position: 'relative' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsClusterDropdownOpen(!isClusterDropdownOpen)}
+                                        style={{
+                                            border: '1px solid #e5e7eb',
+                                            borderRadius: '8px',
+                                            padding: '7px 12px',
+                                            fontSize: '13px',
+                                            color: '#374151',
+                                            background: '#fff',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            fontWeight: 600
+                                        }}
+                                    >
+                                        <span>
+                                            {selectedClusters.includes("All") || selectedClusters.length === 0
+                                                ? "Cluster : All"
+                                                : selectedClusters.length === 1
+                                                    ? `Cluster : ${clusters.find(c => String(c._id) === selectedClusters[0])?.name || clusters.find(c => String(c._id) === selectedClusters[0])?.username || selectedClusters[0]}`
+                                                    : `Clusters (${selectedClusters.length})`}
+                                        </span>
+                                        <svg className={`h-4 w-4 text-gray-400 transition-transform ${isClusterDropdownOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
 
-                                {isClusterDropdownOpen && (
-                                    <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: '6px', width: '220px', background: '#fff', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', border: '1px solid #e5e7eb', zIndex: 50, padding: '8px', fontSize: '12px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '6px', marginBottom: '6px', borderBottom: '1px solid #f3f4f6' }}>
-                                            <span style={{ fontWeight: 700, color: '#6b7280', fontSize: '11px' }}>Select Cluster(s)</span>
-                                            <div style={{ display: 'flex', gap: '8px', fontSize: '10px' }}>
-                                                <button type="button" onClick={() => { setSelectedClusters(["All"]); setSelectedStores(["All"]); }} style={{ color: '#2563eb', fontWeight: 700, border: 'none', background: 'none', cursor: 'pointer' }}>All</button>
-                                                <button type="button" onClick={() => { setSelectedClusters(["All"]); setSelectedStores(["All"]); }} style={{ color: '#ef4444', fontWeight: 700, border: 'none', background: 'none', cursor: 'pointer' }}>Reset</button>
+                                    {isClusterDropdownOpen && (
+                                        <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: '6px', width: '220px', background: '#fff', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', border: '1px solid #e5e7eb', zIndex: 50, padding: '8px', fontSize: '12px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '6px', marginBottom: '6px', borderBottom: '1px solid #f3f4f6' }}>
+                                                <span style={{ fontWeight: 700, color: '#6b7280', fontSize: '11px' }}>Select Cluster(s)</span>
+                                                <div style={{ display: 'flex', gap: '8px', fontSize: '10px' }}>
+                                                    <button type="button" onClick={() => { setSelectedClusters(["All"]); setSelectedStores(["All"]); }} style={{ color: '#2563eb', fontWeight: 700, border: 'none', background: 'none', cursor: 'pointer' }}>All</button>
+                                                    <button type="button" onClick={() => { setSelectedClusters(["All"]); setSelectedStores(["All"]); }} style={{ color: '#ef4444', fontWeight: 700, border: 'none', background: 'none', cursor: 'pointer' }}>Reset</button>
+                                                </div>
+                                            </div>
+                                            <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 6px', borderRadius: '6px', cursor: 'pointer', fontWeight: 700 }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedClusters.includes("All")}
+                                                        onChange={() => { setSelectedClusters(["All"]); setSelectedStores(["All"]); }}
+                                                        style={{ cursor: 'pointer', accentColor: '#000' }}
+                                                    />
+                                                    <span>All Clusters</span>
+                                                </label>
+                                                {clusters.map((c) => {
+                                                    const isChecked = selectedClusters.includes(String(c._id));
+                                                    return (
+                                                        <label key={c._id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 6px', borderRadius: '6px', cursor: 'pointer', fontWeight: 500, color: '#374151' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isChecked}
+                                                                onChange={() => {
+                                                                    setSelectedStores(["All"]);
+                                                                    if (selectedClusters.includes("All")) {
+                                                                        setSelectedClusters([String(c._id)]);
+                                                                    } else {
+                                                                        if (isChecked) {
+                                                                            const next = selectedClusters.filter(id => id !== String(c._id));
+                                                                            setSelectedClusters(next.length === 0 ? ["All"] : next);
+                                                                        } else {
+                                                                            setSelectedClusters([...selectedClusters, String(c._id)]);
+                                                                        }
+                                                                    }
+                                                                }}
+                                                                style={{ cursor: 'pointer', accentColor: '#000' }}
+                                                            />
+                                                            <span>{c.name || c.username}</span>
+                                                        </label>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
-                                        <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 6px', borderRadius: '6px', cursor: 'pointer', fontWeight: 700 }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedClusters.includes("All")}
-                                                    onChange={() => { setSelectedClusters(["All"]); setSelectedStores(["All"]); }}
-                                                    style={{ cursor: 'pointer', accentColor: '#000' }}
-                                                />
-                                                <span>All Clusters</span>
-                                            </label>
-                                            {clusters.map((c) => {
-                                                const isChecked = selectedClusters.includes(String(c._id));
-                                                return (
-                                                    <label key={c._id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 6px', borderRadius: '6px', cursor: 'pointer', fontWeight: 500, color: '#374151' }}>
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={isChecked}
-                                                            onChange={() => {
-                                                                setSelectedStores(["All"]);
-                                                                if (selectedClusters.includes("All")) {
-                                                                    setSelectedClusters([String(c._id)]);
-                                                                } else {
-                                                                    if (isChecked) {
-                                                                        const next = selectedClusters.filter(id => id !== String(c._id));
-                                                                        setSelectedClusters(next.length === 0 ? ["All"] : next);
-                                                                    } else {
-                                                                        setSelectedClusters([...selectedClusters, String(c._id)]);
-                                                                    }
-                                                                }
-                                                            }}
-                                                            style={{ cursor: 'pointer', accentColor: '#000' }}
-                                                        />
-                                                        <span>{c.name}</span>
-                                                    </label>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
+                                    )}
+                                </div>
+                            )}                   </div>
 
                             {/* Store Multi-Select Filter */}
                             {(user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'cluster_admin' || user?.role === 'store_admin' || user?.role === 'telecaller') && (
@@ -3450,7 +3461,7 @@ const sortStoresGThenZ = (a, b) => {
                                             {selectedStores.includes("All") || selectedStores.length === 0
                                                 ? "Store : All"
                                                 : selectedStores.length === 1
-                                                    ? `Store : ${selectedStores[0]}`
+                                                    ? `Store : ${formatStoreDisplayName(selectedStores[0])}`
                                                     : `Stores (${selectedStores.length})`}
                                         </span>
                                         <svg className={`h-4 w-4 text-gray-400 transition-transform ${isStoreDropdownOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -3498,7 +3509,7 @@ const sortStoresGThenZ = (a, b) => {
                                                                 }}
                                                                 style={{ cursor: 'pointer', accentColor: '#000' }}
                                                             />
-                                                            <span>{b.workingBranch}</span>
+                                                            <span>{formatStoreDisplayName(b.workingBranch)}</span>
                                                         </label>
                                                     );
                                                 })}
