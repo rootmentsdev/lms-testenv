@@ -916,33 +916,31 @@ export const getWalkins = async (req, res) => {
         }
 
         if (status && status !== 'All') {
-            let statusCondition;
-            if (status === 'Cancelled' || status === 'Cancel') {
-                statusCondition = {
-                    $or: [
+            const statusList = String(status).split(',').map(s => s.trim()).filter(Boolean);
+            const statusOrConditions = [];
+
+            for (const st of statusList) {
+                if (st === 'Cancelled' || st === 'Cancel') {
+                    statusOrConditions.push(
                         { rentalStatus: { $in: ['Cancel', 'Cancelled'] } },
                         { shoeStatus: { $in: ['Cancel', 'Cancelled'] } },
                         { status: { $regex: '\\b(Cancel|Cancelled)\\b', $options: 'i' } }
-                    ]
-                };
-            } else {
-                const escapedStatus = status.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                statusCondition = {
-                    $or: [
-                        { rentalStatus: status },
-                        { shoeStatus: status },
+                    );
+                } else {
+                    const escapedStatus = st.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    statusOrConditions.push(
+                        { rentalStatus: st },
+                        { shoeStatus: st },
                         { status: { $regex: `\\b${escapedStatus}\\b`, $options: 'i' } }
-                    ]
-                };
+                    );
+                }
             }
-            if (baseQuery.$or) {
-                baseQuery.$and = [
-                    { $or: baseQuery.$or },
-                    statusCondition
-                ];
-                delete baseQuery.$or;
-            } else {
-                baseQuery.$or = statusCondition.$or;
+
+            if (statusOrConditions.length > 0) {
+                if (!baseQuery.$and) {
+                    baseQuery.$and = [];
+                }
+                baseQuery.$and.push({ $or: statusOrConditions });
             }
         }
 

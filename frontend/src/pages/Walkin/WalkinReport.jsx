@@ -680,6 +680,8 @@ const WalkinReport = () => {
   const [formData, setFormData] = useState({ startDate: today, endDate: today });
   
   // Selected values states
+  const [clusters, setClusters] = useState([]);
+  const [selectedClusters, setSelectedClusters] = useState([]);
   const [selectedStores, setSelectedStores] = useState([]);
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [selectedStatuses, setSelectedStatuses] = useState([]);
@@ -688,11 +690,49 @@ const WalkinReport = () => {
   const [reportGenerated, setReportGenerated] = useState(false);
   const [reportData,      setReportData]      = useState([]);
   const [tableSearch,     setTableSearch]     = useState('');
-  const [tableStatus,     setTableStatus]     = useState('All');
-  const [tableEventType,  setTableEventType]  = useState('All');
+  const [selectedTableStatuses, setSelectedTableStatuses] = useState(['All']);
+  const [isTableStatusOpen, setIsTableStatusOpen] = useState(false);
+  const tableStatusRef = React.useRef(null);
+  
+  const [selectedTableEventTypes, setSelectedTableEventTypes] = useState(['All']);
+  const [isTableEventTypeOpen, setIsTableEventTypeOpen] = useState(false);
+  const tableEventTypeRef = React.useRef(null);
+
   const [currentPage,     setCurrentPage]     = useState(1);
   const [itemsPerPage,    setItemsPerPage]    = useState(50);
   const [isDropdownOpen,  setIsDropdownOpen]  = useState(false);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (tableStatusRef.current && !tableStatusRef.current.contains(e.target)) {
+        setIsTableStatusOpen(false);
+      }
+      if (tableEventTypeRef.current && !tableEventTypeRef.current.contains(e.target)) {
+        setIsTableEventTypeOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  /* Fetch active clusters */
+  useEffect(() => {
+    const fetchClusters = async () => {
+      try {
+        const res = await fetch(`${baseUrl.baseUrl}api/admin/admin/list`, {
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const list = Array.isArray(json?.data) ? json.data.filter(i => i.role === 'cluster_admin') : [];
+          setClusters(list);
+        }
+      } catch (e) {
+        console.error('Error fetching clusters:', e);
+      }
+    };
+    if (token) fetchClusters();
+  }, [token]);
 
   /* load branches only (employees loaded lazily) */
   useEffect(() => {
@@ -718,6 +758,22 @@ const WalkinReport = () => {
     };
     if (token) load();
   }, [token, user?.role]);
+
+  // Scoped store options based on cluster selection
+  const availableBranches = React.useMemo(() => {
+    if (!selectedClusters || selectedClusters.length === 0) return branches;
+    const assignedKeys = new Set();
+    selectedClusters.forEach(clusterId => {
+      const cAdmin = clusters.find(c => String(c._id) === String(clusterId));
+      if (cAdmin && Array.isArray(cAdmin.branches)) {
+        cAdmin.branches.forEach(b => {
+          const key = locationKey(b.workingBranch || b.branchName || b);
+          if (key) assignedKeys.add(key);
+        });
+      }
+    });
+    return branches.filter(b => assignedKeys.has(locationKey(b.workingBranch)));
+  }, [branches, selectedClusters, clusters]);
 
   // Load all employees once to filter client-side (excluding office staff for walkin reports)
   const loadAllEmployees = async () => {
@@ -768,8 +824,8 @@ const WalkinReport = () => {
       });
     }
 
-    if (branches.length > 0) {
-      const storeBranches = branches.filter(b => !isOfficeStaff({ workingBranch: b.workingBranch }));
+    if (availableBranches.length > 0) {
+      const storeBranches = availableBranches.filter(b => !isOfficeStaff({ workingBranch: b.workingBranch }));
       const allowedKeys = new Set(storeBranches.map(b => locationKey(b.workingBranch)).filter(Boolean));
       
       if (allowedKeys.size > 0) {
@@ -782,7 +838,7 @@ const WalkinReport = () => {
     }
 
     return storeEmps;
-  }, [employees, selectedStores, branches]);
+  }, [employees, selectedStores, availableBranches]);
 
   const handleGenerate = async (e) => {
     e.preventDefault();
@@ -799,6 +855,21 @@ const WalkinReport = () => {
       if (json.success) {
         let data = json.data || [];
         
+        // Filter by cluster(s)
+        if (Array.isArray(selectedClusters) && selectedClusters.length > 0) {
+          const assignedKeys = new Set();
+          selectedClusters.forEach(clusterId => {
+            const cAdmin = clusters.find(c => String(c._id) === String(clusterId));
+            if (cAdmin && Array.isArray(cAdmin.branches)) {
+              cAdmin.branches.forEach(b => {
+                const key = locationKey(b.workingBranch || b.branchName || b);
+                if (key) assignedKeys.add(key);
+              });
+            }
+          });
+          data = data.filter(w => assignedKeys.has(locationKey(w.store)));
+        }
+
         // Filter by store(s)
         if (Array.isArray(selectedStores) && selectedStores.length > 0) {
           const selectedKeys = selectedStores.map(locationKey);
@@ -858,8 +929,8 @@ const WalkinReport = () => {
         setReportGenerated(true);
         setCurrentPage(1);
         setTableSearch('');
-        setTableStatus('All');
-        setTableEventType('All');
+        setSelectedTableStatuses(['All']);
+        setSelectedTableEventTypes(['All']);
       }
     } catch(e){ console.error(e); }
     finally { setLoading(false); }
@@ -914,8 +985,8 @@ const WalkinReport = () => {
   };
 
   const getDisplayedState = (w) => {
-    if (tableStatus && tableStatus !== 'All') {
-      return getCombinedStateAt(w, formData.endDate, formData.startDate, tableStatus) || w;
+    if (selectedTableStatuses.length > 0 && !selectedTableStatuses.includes('All')) {
+      return getCombinedStateAt(w, formData.endDate, formData.startDate, selectedTableStatuses) || w;
     }
     if (Array.isArray(selectedStatuses) && selectedStatuses.length > 0) {
       return getCombinedStateAt(w, formData.endDate, formData.startDate, selectedStatuses) || w;
@@ -927,8 +998,8 @@ const WalkinReport = () => {
   const displayed = reportData.filter(w => {
     const q = tableSearch.toLowerCase();
     const matchSearch = !q || w.customerName?.toLowerCase().includes(q) || w.contact?.includes(q) || w.staff?.toLowerCase().includes(q) || w.functionType?.toLowerCase().includes(q);
-    const matchStatus = tableStatus === 'All' || matchStatusAndDate(w, tableStatus);
-    const matchEventTypeFilter = tableEventType === 'All' || matchEventType(w.functionType, tableEventType);
+    const matchStatus = selectedTableStatuses.includes('All') || selectedTableStatuses.length === 0 || selectedTableStatuses.some(st => matchStatusAndDate(w, st));
+    const matchEventTypeFilter = selectedTableEventTypes.includes('All') || selectedTableEventTypes.length === 0 || selectedTableEventTypes.some(et => matchEventType(w.functionType, et));
     return matchSearch && matchStatus && matchEventTypeFilter;
   });
 
@@ -954,7 +1025,7 @@ const WalkinReport = () => {
         <div style={{ background:'#fff', borderRadius:'16px', border:'1px solid #f0f0f0', boxShadow:'0 1px 4px rgba(0,0,0,0.05)', padding:'20px', marginBottom:'20px', width:'100%', boxSizing:'border-box' }}>
           <form onSubmit={handleGenerate}>
             {/* Row 1 */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3" style={{}}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
               <div>
                 <label style={lbl}>Start Date <span style={{color:'#ef4444'}}>*</span></label>
                 <div style={{ position:'relative' }}>
@@ -967,16 +1038,30 @@ const WalkinReport = () => {
               </div>
               <div>
                 <CustomSelect
+                  id="cluster-select"
+                  label={<span>Cluster <span style={{color:'#9ca3af', fontWeight:400}}>(Optional)</span></span>}
+                  options={clusters.map(c => ({ value: c._id, label: c.name }))}
+                  value={selectedClusters}
+                  onChange={(val) => {
+                    setSelectedClusters(val);
+                    setSelectedStores([]);
+                    setSelectedEmployees([]);
+                  }}
+                  placeholder="All Clusters"
+                />
+              </div>
+              <div>
+                <CustomSelect
                   id="store-select"
-                  label={<span>Store Name <span style={{color:'#ef4444'}}>*</span></span>}
-                  options={branches.map(b => ({ value: b.workingBranch, label: b.workingBranch }))}
+                  label={<span>Store Name <span style={{color:'#9ca3af', fontWeight:400}}>(Optional)</span></span>}
+                  options={availableBranches.map(b => ({ value: b.workingBranch, label: b.workingBranch }))}
                   value={selectedStores}
                   onChange={(val) => {
                     setSelectedStores(val);
                     setSelectedEmployees([]);
                   }}
                   disabled={user?.role === 'store_admin'}
-                  placeholder="All Store"
+                  placeholder="All Stores"
                 />
               </div>
             </div>
@@ -1028,21 +1113,165 @@ const WalkinReport = () => {
             {/* Table toolbar */}
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 20px', borderBottom:'1px solid #f3f4f6' }}>
               <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
-                {/* Status pill dropdown */}
-                <div style={{ display:'flex', alignItems:'center', gap:'6px', border:'1px solid #e5e7eb', borderRadius:'8px', padding:'6px 12px', fontSize:'13px', color:'#374151', background:'#fff', cursor:'pointer' }}>
-                  <span>Status : </span>
-                  <select value={tableStatus} onChange={e=>{setTableStatus(e.target.value);setCurrentPage(1);}} style={{ border:'none', outline:'none', fontSize:'13px', color:'#374151', background:'transparent', cursor:'pointer' }}>
-                    <option value="All">All</option>
-                    {STATUS_OPTIONS.map(s=><option key={s} value={s}>{s}</option>)}
-                  </select>
+                {/* Status Multi-Select pill dropdown */}
+                <div ref={tableStatusRef} style={{ position: 'relative' }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsTableStatusOpen(!isTableStatusOpen)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      padding: '6px 12px',
+                      fontSize: '13px',
+                      color: '#374151',
+                      background: '#fff',
+                      cursor: 'pointer',
+                      fontWeight: 500
+                    }}
+                  >
+                    <span>
+                      {selectedTableStatuses.includes('All') || selectedTableStatuses.length === 0
+                        ? 'Status : All'
+                        : selectedTableStatuses.length === 1
+                          ? `Status : ${selectedTableStatuses[0]}`
+                          : `Statuses (${selectedTableStatuses.length})`}
+                    </span>
+                    <svg className={`h-4 w-4 text-gray-400 transition-transform ${isTableStatusOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {isTableStatusOpen && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: '6px', width: '200px', background: '#fff', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', border: '1px solid #e5e7eb', zIndex: 50, padding: '8px', fontSize: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '6px', marginBottom: '6px', borderBottom: '1px solid #f3f4f6' }}>
+                        <span style={{ fontWeight: 700, color: '#6b7280', fontSize: '11px' }}>Select Status(es)</span>
+                        <div style={{ display: 'flex', gap: '8px', fontSize: '10px' }}>
+                          <button type="button" onClick={() => { setSelectedTableStatuses(['All']); setCurrentPage(1); }} style={{ color: '#2563eb', fontWeight: 700, border: 'none', background: 'none', cursor: 'pointer' }}>All</button>
+                          <button type="button" onClick={() => { setSelectedTableStatuses(['All']); setCurrentPage(1); }} style={{ color: '#ef4444', fontWeight: 700, border: 'none', background: 'none', cursor: 'pointer' }}>Reset</button>
+                        </div>
+                      </div>
+                      <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 6px', borderRadius: '6px', cursor: 'pointer', fontWeight: 700 }}>
+                          <input
+                            type="checkbox"
+                            checked={selectedTableStatuses.includes('All')}
+                            onChange={() => { setSelectedTableStatuses(['All']); setCurrentPage(1); }}
+                            style={{ cursor: 'pointer', accentColor: '#000' }}
+                          />
+                          <span>All Statuses</span>
+                        </label>
+                        {STATUS_OPTIONS.map((st) => {
+                          const isChecked = selectedTableStatuses.includes(st);
+                          return (
+                            <label key={st} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 6px', borderRadius: '6px', cursor: 'pointer', fontWeight: 500, color: '#374151' }}>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => {
+                                  setCurrentPage(1);
+                                  if (selectedTableStatuses.includes('All')) {
+                                    setSelectedTableStatuses([st]);
+                                  } else {
+                                    if (isChecked) {
+                                      const next = selectedTableStatuses.filter(s => s !== st);
+                                      setSelectedTableStatuses(next.length === 0 ? ['All'] : next);
+                                    } else {
+                                      setSelectedTableStatuses([...selectedTableStatuses, st]);
+                                    }
+                                  }
+                                }}
+                                style={{ cursor: 'pointer', accentColor: '#000' }}
+                              />
+                              <span>{st}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                {/* Event Type pill dropdown */}
-                <div style={{ display:'flex', alignItems:'center', gap:'6px', border:'1px solid #e5e7eb', borderRadius:'8px', padding:'6px 12px', fontSize:'13px', color:'#374151', background:'#fff', cursor:'pointer' }}>
-                  <span>Event Type : </span>
-                  <select value={tableEventType} onChange={e=>{setTableEventType(e.target.value);setCurrentPage(1);}} style={{ border:'none', outline:'none', fontSize:'13px', color:'#374151', background:'transparent', cursor:'pointer' }}>
-                    <option value="All">All</option>
-                    {EVENT_TYPE_OPTIONS.map(et=><option key={et} value={et}>{et}</option>)}
-                  </select>
+                {/* Event Type Multi-Select pill dropdown */}
+                <div ref={tableEventTypeRef} style={{ position: 'relative' }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsTableEventTypeOpen(!isTableEventTypeOpen)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      padding: '6px 12px',
+                      fontSize: '13px',
+                      color: '#374151',
+                      background: '#fff',
+                      cursor: 'pointer',
+                      fontWeight: 500
+                    }}
+                  >
+                    <span>
+                      {selectedTableEventTypes.includes('All') || selectedTableEventTypes.length === 0
+                        ? 'Event Type : All'
+                        : selectedTableEventTypes.length === 1
+                          ? `Event Type : ${selectedTableEventTypes[0]}`
+                          : `Event Types (${selectedTableEventTypes.length})`}
+                    </span>
+                    <svg className={`h-4 w-4 text-gray-400 transition-transform ${isTableEventTypeOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {isTableEventTypeOpen && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: '6px', width: '220px', background: '#fff', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', border: '1px solid #e5e7eb', zIndex: 50, padding: '8px', fontSize: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '6px', marginBottom: '6px', borderBottom: '1px solid #f3f4f6' }}>
+                        <span style={{ fontWeight: 700, color: '#6b7280', fontSize: '11px' }}>Select Event Type(s)</span>
+                        <div style={{ display: 'flex', gap: '8px', fontSize: '10px' }}>
+                          <button type="button" onClick={() => { setSelectedTableEventTypes(['All']); setCurrentPage(1); }} style={{ color: '#2563eb', fontWeight: 700, border: 'none', background: 'none', cursor: 'pointer' }}>All</button>
+                          <button type="button" onClick={() => { setSelectedTableEventTypes(['All']); setCurrentPage(1); }} style={{ color: '#ef4444', fontWeight: 700, border: 'none', background: 'none', cursor: 'pointer' }}>Reset</button>
+                        </div>
+                      </div>
+                      <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 6px', borderRadius: '6px', cursor: 'pointer', fontWeight: 700 }}>
+                          <input
+                            type="checkbox"
+                            checked={selectedTableEventTypes.includes('All')}
+                            onChange={() => { setSelectedTableEventTypes(['All']); setCurrentPage(1); }}
+                            style={{ cursor: 'pointer', accentColor: '#000' }}
+                          />
+                          <span>All Event Types</span>
+                        </label>
+                        {EVENT_TYPE_OPTIONS.map((et) => {
+                          const isChecked = selectedTableEventTypes.includes(et);
+                          return (
+                            <label key={et} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 6px', borderRadius: '6px', cursor: 'pointer', fontWeight: 500, color: '#374151' }}>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => {
+                                  setCurrentPage(1);
+                                  if (selectedTableEventTypes.includes('All')) {
+                                    setSelectedTableEventTypes([et]);
+                                  } else {
+                                    if (isChecked) {
+                                      const next = selectedTableEventTypes.filter(e => e !== et);
+                                      setSelectedTableEventTypes(next.length === 0 ? ['All'] : next);
+                                    } else {
+                                      setSelectedTableEventTypes([...selectedTableEventTypes, et]);
+                                    }
+                                  }
+                                }}
+                                style={{ cursor: 'pointer', accentColor: '#000' }}
+                              />
+                              <span>{et}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 {/* Search */}
                 <div style={{ display:'flex', alignItems:'center', gap:'8px', border:'1px solid #e5e7eb', borderRadius:'8px', padding:'6px 12px', background:'#fff' }}>
