@@ -261,7 +261,7 @@ const parseWeekDays = (val) => {
 };
 
 
-const fetchWithRetry = async (url, options, retries = 2, backoff = 200, timeoutMs = 4000) => {
+const fetchWithRetry = async (url, options, retries = 3, backoff = 500, timeoutMs = 25000) => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const opts = { ...options, signal: controller.signal };
@@ -269,7 +269,7 @@ const fetchWithRetry = async (url, options, retries = 2, backoff = 200, timeoutM
   try {
     const res = await fetch(url, opts);
     clearTimeout(timer);
-    if (!res.ok && retries > 0 && res.status >= 500) {
+    if (!res.ok && retries > 0) {
       await new Promise(r => setTimeout(r, backoff));
       return fetchWithRetry(url, options, retries - 1, backoff * 1.5, timeoutMs);
     }
@@ -284,7 +284,7 @@ const fetchWithRetry = async (url, options, retries = 2, backoff = 200, timeoutM
   }
 };
 
-const runWithConcurrencyLimit = async (tasks, limit) => {
+const runWithConcurrencyLimit = async (tasks, limit = 4) => {
   const results = [];
   const executing = new Set();
   for (const task of tasks) {
@@ -306,8 +306,15 @@ const getPerformanceCached = async (locId, startDate, endDate) => {
     window.__performanceCache = {};
   }
   
-  if (window.__performanceCache[cacheKey]?.promise) {
-    return window.__performanceCache[cacheKey].promise;
+  const cached = window.__performanceCache[cacheKey];
+  // Valid cache for 2 minutes
+  if (cached) {
+    if (cached.data && (Date.now() - (cached.timestamp || 0) < 120000)) {
+      return cached.data;
+    }
+    if (cached.promise) {
+      return cached.promise;
+    }
   }
 
   const promise = (async () => {
@@ -324,16 +331,18 @@ const getPerformanceCached = async (locId, startDate, endDate) => {
           LocationID: locId,
           UserID: "7777"
         })
-      });
+      }, 3, 500, 25000);
       if (res.ok) {
         const json = await res.json();
         const data = json.dataSet?.data || [];
+        window.__performanceCache[cacheKey] = {
+          data,
+          timestamp: Date.now()
+        };
         return data;
       }
     } catch (err) {
       console.warn(`Retry exhausted for getPerformanceCached (loc ${locId}):`, err);
-    } finally {
-      delete window.__performanceCache[cacheKey];
     }
     return [];
   })();
@@ -489,32 +498,36 @@ function isHiddenBranch(name) {
 
 // Generate store abbreviation for X-axis labels
 function getAbbreviation(fullName) {
-  const normName = fullName.toLowerCase();
+  const normName = String(fullName || "").toLowerCase().trim();
   let prefix = "";
-  if (normName.includes("zorucci")) prefix = "Z-";
-  else if (normName.includes("suitor guy") || normName.includes("sg")) prefix = "SG-";
-  else if (normName.includes("grooms") || normName.startsWith("g ")) prefix = "G-";
-  else if (normName.startsWith("z ")) prefix = "Z-";
+  if (normName.includes("zorucci") || normName.startsWith("z-") || normName.startsWith("z.") || normName.startsWith("z ")) {
+    prefix = "Z-";
+  } else if (normName.includes("suitor guy") || normName.includes("sg") || normName.startsWith("sg-") || normName.startsWith("sg.") || normName.startsWith("sg ") || normName.startsWith("g-") || normName.startsWith("g.") || normName.startsWith("g ") || normName.includes("grooms")) {
+    prefix = "SG-";
+  }
   
   const clean = fullName
+    .replace(/^(zorucci|suitor guy|grooms|sg|g|z)[\.\-\s]*/i, "")
     .replace(/zorucci|suitor guy|grooms|sg|g\s+|z\s+/i, "")
     .trim()
     .toUpperCase();
   
-  if (clean.includes("EDAPPALLY")) return prefix + "EDPLY";
-  if (clean.includes("EDAPPAL")) return prefix + "EDPL";
-  if (clean.includes("PERINTHALMANNA")) return prefix + "PRMNA";
-  if (clean.includes("KOTTAKKAL")) return prefix + "KTKL";
+  if (clean.includes("EDAPPALLY") || clean.includes("EDAPALLY")) return prefix + "EDPLY";
+  if (clean.includes("EDAPPAL") || clean.includes("EDAPAL")) return prefix + "EDPL";
+  if (clean.includes("PERINTHALMANNA") || clean.includes("PERINTHALMANA") || clean.includes("PMA")) return prefix + "PRMNA";
+  if (clean.includes("KOTTAKKAL") || clean.includes("KTK")) return prefix + "KTKL";
   if (clean.includes("KOTTAYAM")) return prefix + "KTYM";
-  if (clean.includes("PERUMBAVOOR")) return prefix + "PBVR";
-  if (clean.includes("THRISSUR")) return prefix + "TSR";
-  if (clean.includes("CHAVAKKAD")) return prefix + "CVND";
-  if (clean.includes("CALICUT")) return prefix + "CLCT";
+  if (clean.includes("PERUMBAVOOR") || clean.includes("PERUMBAVUR")) return prefix + "PBVR";
+  if (clean.includes("THRISSUR") || clean.includes("TSR")) return prefix + "TSR";
+  if (clean.includes("CHAVAKKAD") || clean.includes("CHAVAKAD")) return prefix + "CVND";
+  if (clean.includes("CALICUT") || clean.includes("KOZHIKODE")) return prefix + "CLCT";
   if (clean.includes("VADAKARA")) return prefix + "VDKRA";
-  if (clean.includes("PALAKKAD")) return prefix + "PLKD";
+  if (clean.includes("PALAKKAD") || clean.includes("PKD")) return prefix + "PLKD";
   if (clean.includes("MANJERI")) return prefix + "MNJRY";
-  if (clean.includes("TRIVANDRUM")) return prefix + "TVM";
-  if (clean.includes("KANNUR")) return prefix + "KNR";
+  if (clean.includes("TRIVANDRUM") || clean.includes("THIRUVANANTHAPURAM") || clean.includes("TVM")) return prefix + "TVM";
+  if (clean.includes("KALPETTA")) return prefix + "KALPE";
+  if (clean.includes("KANNUR") || clean.includes("KNR")) return prefix + "KNR";
+  if (clean.includes("MG ROAD") || clean.includes("MGROAD")) return prefix + "MG RO";
   
   return prefix + clean.slice(0, 5);
 }
@@ -1242,41 +1255,65 @@ const StoreInsights = () => {
   function isStaffNameMatch(strA, strB) {
     if (!strA || !strB) return false;
     if (isDapprSquadName(strA) || isDapprSquadName(strB)) return false;
-    const canonA = getCanonicalStaffName(strA);
-    const canonB = getCanonicalStaffName(strB);
-    if (canonA === canonB) return true;
+
+    const rawA = String(strA).trim();
+    const rawB = String(strB).trim();
+    if (rawA.toLowerCase() === rawB.toLowerCase()) return true;
+
+    const canonA = getCanonicalStaffName(rawA);
+    const canonB = getCanonicalStaffName(rawB);
+    if (canonA.toLowerCase() === canonB.toLowerCase()) return true;
 
     const normA = normalizeForMatch(canonA);
     const normB = normalizeForMatch(canonB);
     if (!normA || !normB) return false;
     if (normA === normB) return true;
 
-    if (normA.length >= 4 && normB.length >= 4) {
-      if (normA.startsWith(normB) || normB.startsWith(normA) ||
-          normA.endsWith(normB) || normB.endsWith(normA) ||
-          normA.includes(normB) || normB.includes(normA)) {
-        return true;
-      }
-    }
+    const cleanTokens = (str) =>
+      String(str)
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter(Boolean);
 
-    const cleanTokens = (str) => String(str).toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/).filter(Boolean);
     const tokensA = cleanTokens(canonA);
     const tokensB = cleanTokens(canonB);
+    if (tokensA.length === 0 || tokensB.length === 0) return false;
 
-    const subA = tokensA.filter(t => t.length >= 3);
-    const subB = tokensB.filter(t => t.length >= 3);
+    if (tokensA.join("") === tokensB.join("")) return true;
 
-    if (subA.length > 0 && subB.length > 0) {
-      const common = subA.filter(t => subB.includes(t));
-      const unsharedA = subA.filter(t => !subB.includes(t));
-      const unsharedB = subB.filter(t => !subA.includes(t));
+    const common = tokensA.filter(t => tokensB.includes(t));
+    if (common.length === 0) return false;
 
-      if (common.length === Math.min(subA.length, subB.length)) {
-        const conflictA = unsharedA.filter(t => t.length > 3 && !["muhammed", "mohammad", "mohammed"].includes(t));
-        const conflictB = unsharedB.filter(t => t.length > 3 && !["muhammed", "mohammad", "mohammed"].includes(t));
-        if (conflictA.length === 0 && conflictB.length === 0) {
-          return true;
-        }
+    const unsharedA = tokensA.filter(t => !tokensB.includes(t));
+    const unsharedB = tokensB.filter(t => !tokensA.includes(t));
+
+    const TITLES = new Set(["muhammed", "mohammad", "mohammed", "md", "m"]);
+    const isTitleToken = (t) => TITLES.has(t);
+
+    if (unsharedA.length > 0 && unsharedB.length > 0) {
+      const unsharedStrA = unsharedA.join("");
+      const unsharedStrB = unsharedB.join("");
+
+      if (unsharedStrA === unsharedStrB) return true;
+
+      if (
+        (unsharedA.length === 1 && isTitleToken(unsharedA[0]) && unsharedB.length === 1 && isTitleToken(unsharedB[0])) ||
+        (unsharedA.length === 1 && isTitleToken(unsharedA[0]) && unsharedB.every(isTitleToken)) ||
+        (unsharedB.length === 1 && isTitleToken(unsharedB[0]) && unsharedA.every(isTitleToken))
+      ) {
+        return true;
+      }
+
+      return false;
+    }
+
+    const substantialCommon = common.filter(t => t.length >= 3 && !TITLES.has(t));
+    if (substantialCommon.length > 0) {
+      const remainingUnshared = unsharedA.length > 0 ? unsharedA : unsharedB;
+      const allTitlesOrInitials = remainingUnshared.every(t => isTitleToken(t) || t.length <= 2);
+      if (allTitlesOrInitials) {
+        return true;
       }
     }
 
@@ -1891,7 +1928,7 @@ const StoreInsights = () => {
           return { locId, data };
         });
 
-        const results = await runWithConcurrencyLimit(tasks, 6);
+        const results = await runWithConcurrencyLimit(tasks, 4);
         const map = {};
         results.forEach(r => {
           map[r.locId] = r.data;
@@ -1926,7 +1963,7 @@ const StoreInsights = () => {
           return { locId, data };
         });
 
-        runWithConcurrencyLimit(lyTasks, 6).then(lyResults => {
+        runWithConcurrencyLimit(lyTasks, 3).then(lyResults => {
           const lyMap = {};
           lyResults.forEach(r => {
             lyMap[r.locId] = r.data;
