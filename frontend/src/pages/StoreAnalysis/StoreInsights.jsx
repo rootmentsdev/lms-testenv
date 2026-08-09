@@ -18,7 +18,7 @@ import {
 } from "recharts";
 import { FiDownload } from "react-icons/fi";
 import { FaStar, FaStarHalfAlt, FaRegStar, FaChevronLeft, FaChevronRight } from "react-icons/fa";
-import baseUrl from "../../api/api";
+import baseUrl, { formatStoreDisplayName } from "../../api/api";
 
 // ── Helpers & Constants ──────────────────────────────────────────────────
 const BRAND_TOKENS = new Set(["zorucci", "grooms", "suitor", "guy", "sg"]);
@@ -464,18 +464,7 @@ function normalizeForMatch(str) {
 }
 
 function displayBranchName(name) {
-  const raw = String(name || "").trim();
-  if (/^grooms\s+/i.test(raw)) {
-    return raw.replace(/^grooms\s+/i, "SG ");
-  }
-  if (/^suitor\s+guy\s+/i.test(raw)) {
-    return raw.replace(/^suitor\s+guy\s+/i, "SG ");
-  }
-  if (/^g[\.\-\s]+/i.test(raw)) {
-    return raw.replace(/^g[\.\-\s]+/i, "SG ");
-  }
-  if (raw === "G" || raw === "g") return "SG";
-  return raw;
+  return formatStoreDisplayName(name);
 }
 
 function isHiddenBranch(name) {

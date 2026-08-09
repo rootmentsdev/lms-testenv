@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
-import baseUrl from "../../api/api";
+import baseUrl, { formatStoreDisplayName } from "../../api/api";
 import { FiPlus, FiChevronDown, FiX, FiArrowLeft } from "react-icons/fi";
 
 function norm(str) {
@@ -32,20 +32,16 @@ const parseStoreBrandAndName = (workingBranch) => {
   const raw = String(workingBranch).trim();
   const lower = raw.toLowerCase();
   
-  let brand = "Zorucci";
-  if (lower.startsWith("g-") || lower.startsWith("g.") || lower.startsWith("g ")) {
+  let brand = "SG";
+  if (lower.startsWith("z-") || lower.startsWith("z.") || lower.startsWith("z ") || lower.startsWith("z")) {
+    brand = "Zorucci";
+  } else if (lower.startsWith("g-") || lower.startsWith("g.") || lower.startsWith("g ")) {
     brand = "Grooms";
   } else if (lower.startsWith("sg-") || lower.startsWith("sg.") || lower.startsWith("sg ")) {
     brand = "Suitor Guy";
   }
   
-  let displayName = raw
-    .replace(/^(z-|z\.|z\s+|g-|g\.|g\s+|sg-|sg\.|sg\s+)/i, "")
-    .trim();
-    
-  if (displayName) {
-    displayName = displayName.charAt(0).toUpperCase() + displayName.slice(1);
-  }
+  const displayName = formatStoreDisplayName(raw);
   
   return { displayName, brand };
 };
@@ -162,9 +158,18 @@ const GoogleReviewTask = () => {
           const json = await res.json();
           const list = Array.isArray(json?.data) ? json.data : [];
           const visible = list.filter((b) => !isHiddenBranch(b?.workingBranch));
-          setBranches(visible);
-          if (visible.length > 0) {
-            setSelectedModalStore(visible[0].workingBranch);
+          const seenNames = new Set();
+          const uniqueVisible = [];
+          for (const b of visible) {
+            const dispName = formatStoreDisplayName(b?.workingBranch);
+            if (dispName && !seenNames.has(dispName)) {
+              seenNames.add(dispName);
+              uniqueVisible.push(b);
+            }
+          }
+          setBranches(uniqueVisible);
+          if (uniqueVisible.length > 0) {
+            setSelectedModalStore(uniqueVisible[0].workingBranch);
           }
         }
       } catch (err) {
@@ -343,102 +348,93 @@ const GoogleReviewTask = () => {
             <div className="flex flex-wrap items-center gap-3">
 
               {/* Multi-Select Cluster Filter Selector */}
-              <div ref={clusterDropdownRef} className="relative">
-                <button
-                  type="button"
-                  onClick={() => setIsClusterDropdownOpen(!isClusterDropdownOpen)}
-                  className="flex items-center justify-between gap-2 bg-white border border-gray-200 rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold text-gray-700 shadow-sm hover:border-gray-300 focus:outline-none cursor-pointer min-w-[150px] transition-all"
-                >
-                  <span className="truncate">
-                    {selectedClusters.includes("All") || selectedClusters.length === 0
-                      ? "Cluster : All"
-                      : selectedClusters.length === 1
-                        ? `Cluster : ${clusters.find((c) => String(c._id) === String(selectedClusters[0]))?.name || "1 Selected"}`
-                        : `Clusters (${selectedClusters.length})`}
-                  </span>
-                  <FiChevronDown
-                    className={`text-gray-500 transition-transform duration-200 flex-shrink-0 ${
-                      isClusterDropdownOpen ? "rotate-180" : ""
-                    }`}
-                    size={14}
-                  />
-                </button>
+              {(user?.role === 'super_admin' || user?.role === 'admin') && (
+                <div ref={clusterDropdownRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsClusterDropdownOpen(!isClusterDropdownOpen)}
+                    className="flex items-center justify-between gap-2 bg-white border border-gray-200 rounded-xl px-3.5 py-2 text-xs sm:text-sm font-bold text-gray-700 shadow-sm hover:border-gray-300 focus:outline-none cursor-pointer min-w-[150px] transition-all"
+                  >
+                    <span className="truncate">
+                      {selectedClusters.includes("All") || selectedClusters.length === 0
+                        ? "Cluster : All"
+                        : selectedClusters.length === 1
+                          ? `Cluster : ${clusters.find((c) => String(c._id) === String(selectedClusters[0]))?.name || clusters.find((c) => String(c._id) === String(selectedClusters[0]))?.username || "1 Selected"}`
+                          : `Clusters (${selectedClusters.length})`}
+                    </span>
+                    <FiChevronDown
+                      className={`text-gray-500 transition-transform duration-200 flex-shrink-0 ${
+                        isClusterDropdownOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
 
-                {isClusterDropdownOpen && (
-                  <div className="absolute left-0 mt-1.5 w-60 bg-white rounded-xl shadow-xl border border-gray-200/90 z-50 p-2 text-xs font-sans animate-popoverOpen origin-top-left">
-                    <div className="flex items-center justify-between px-2 py-1.5 border-b border-gray-100 mb-1">
-                      <span className="font-bold text-gray-500 text-[11px]">Select Cluster(s)</span>
-                      <div className="flex gap-2 text-[10px]">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedClusters(["All"]);
-                            setSelectedStores(["All"]);
-                          }}
-                          className="text-blue-600 font-bold hover:underline cursor-pointer"
-                        >
-                          Select All
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedClusters(["All"]);
-                            setSelectedStores(["All"]);
-                          }}
-                          className="text-red-500 font-bold hover:underline cursor-pointer"
-                        >
-                          Reset
-                        </button>
+                  {isClusterDropdownOpen && (
+                    <div className="absolute top-full left-0 mt-1.5 w-60 bg-white rounded-xl shadow-xl border border-gray-100 p-2 z-50 text-xs">
+                      <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-100 px-1">
+                        <span className="font-bold text-gray-500 text-[11px]">Select Cluster(s)</span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedClusters(["All"])}
+                            className="text-blue-600 hover:underline font-bold text-[10px]"
+                          >
+                            All
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedClusters([])}
+                            className="text-red-500 hover:underline font-bold text-[10px]"
+                          >
+                            Reset
+                          </button>
+                        </div>
+                      </div>
+                      <div className="max-h-48 overflow-y-auto space-y-1">
+                        <label className="flex items-center gap-2 p-1.5 hover:bg-gray-50 rounded-lg cursor-pointer font-bold">
+                          <input
+                            type="checkbox"
+                            checked={selectedClusters.includes("All")}
+                            onChange={() => setSelectedClusters(["All"])}
+                            className="rounded border-gray-300 text-black focus:ring-black accent-black cursor-pointer"
+                          />
+                          <span>All Clusters</span>
+                        </label>
+                        {clusters.map((c) => {
+                          const isChecked = selectedClusters.includes(String(c._id));
+                          return (
+                            <label
+                              key={c._id}
+                              className="flex items-center gap-2 p-1.5 hover:bg-gray-50 rounded-lg cursor-pointer font-medium text-gray-700"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => {
+                                  if (selectedClusters.includes("All")) {
+                                    setSelectedClusters([String(c._id)]);
+                                  } else {
+                                    if (isChecked) {
+                                      const next = selectedClusters.filter(
+                                        (id) => id !== String(c._id)
+                                      );
+                                      setSelectedClusters(next.length === 0 ? ["All"] : next);
+                                    } else {
+                                      setSelectedClusters([...selectedClusters, String(c._id)]);
+                                    }
+                                  }
+                                }}
+                                className="rounded border-gray-300 text-black focus:ring-black accent-black cursor-pointer"
+                              />
+                              <span>{c.name || c.username}</span>
+                            </label>
+                          );
+                        })}
                       </div>
                     </div>
-                    <div className="max-h-48 overflow-y-auto flex flex-col gap-0.5">
-                      <label className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded-lg cursor-pointer font-bold text-gray-800">
-                        <input
-                          type="checkbox"
-                          checked={selectedClusters.includes("All")}
-                          onChange={() => {
-                            setSelectedClusters(["All"]);
-                            setSelectedStores(["All"]);
-                          }}
-                          className="rounded border-gray-300 text-black focus:ring-black accent-black cursor-pointer"
-                        />
-                        <span>All Clusters</span>
-                      </label>
-                      {clusters.map((c) => {
-                        const isChecked = selectedClusters.includes(String(c._id));
-                        return (
-                          <label
-                            key={c._id}
-                            className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded-lg cursor-pointer text-gray-700 font-semibold"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => {
-                                setSelectedStores(["All"]);
-                                if (selectedClusters.includes("All")) {
-                                  setSelectedClusters([String(c._id)]);
-                                } else {
-                                  if (isChecked) {
-                                    const next = selectedClusters.filter(
-                                      (id) => id !== String(c._id)
-                                    );
-                                    setSelectedClusters(next.length === 0 ? ["All"] : next);
-                                  } else {
-                                    setSelectedClusters([...selectedClusters, String(c._id)]);
-                                  }
-                                }
-                              }}
-                              className="rounded border-gray-300 text-black focus:ring-black accent-black cursor-pointer"
-                            />
-                            <span>{c.name}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
 
               {/* Multi-Select Store Filter Selector */}
               <div ref={storeDropdownRef} className="relative">

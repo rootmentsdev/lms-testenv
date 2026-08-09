@@ -3,7 +3,7 @@ import { useSelector } from "react-redux";
 import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
 import { FiSearch, FiDownload } from "react-icons/fi";
-import baseUrl from "../../api/api";
+import baseUrl, { formatStoreDisplayName } from "../../api/api";
 
 // Shared performance cache (same as StoreInsights/HomeBar to reuse cross-page results)
 const getPerformanceCached = async (locId, startDate, endDate) => {
@@ -92,18 +92,7 @@ function locationKey(name) {
 }
 
 function displayBranchName(name) {
-  const raw = String(name || "").trim();
-  if (/^grooms\s+/i.test(raw)) {
-    return raw.replace(/^grooms\s+/i, "SG ");
-  }
-  if (/^suitor\s+guy\s+/i.test(raw)) {
-    return raw.replace(/^suitor\s+guy\s+/i, "SG ");
-  }
-  if (/^g[\.\-\s]+/i.test(raw)) {
-    return raw.replace(/^g[\.\-\s]+/i, "SG ");
-  }
-  if (raw === "G" || raw === "g") return "SG";
-  return raw;
+  return formatStoreDisplayName(name);
 }
 
 function isHiddenBranch(name) {

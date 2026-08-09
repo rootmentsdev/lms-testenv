@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSelector } from "react-redux";
 import SideNav from "../../components/SideNav/SideNav";
-import baseUrl from "../../api/api";
+import baseUrl, { formatStoreDisplayName } from "../../api/api";
 import { Link } from "react-router-dom";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 
@@ -220,7 +220,7 @@ const EmployeeData = () => {
           </div>
 
           <select value={storeFilter} onChange={e=>{setStoreFilter(e.target.value);setCurrentPage(1);}} style={sel}>
-            {stores.map(s=><option key={s} value={s}>{s === "All" ? "Store : All" : s}</option>)}
+            {stores.map(s=><option key={s} value={s}>{s === "All" ? "Store : All" : formatStoreDisplayName(s)}</option>)}
           </select>
 
           <select value={roleFilter} onChange={e=>{setRoleFilter(e.target.value);setCurrentPage(1);}} style={sel}>
@@ -271,14 +271,9 @@ const EmployeeData = () => {
                         </td>
                         <td style={{ padding:"14px 16px", minWidth:"140px" }}>
                           {e.workingBranch ? (
-                            <>
-                              <div style={{ fontWeight:500, color:"#374151", fontSize:"13px", textTransform:"uppercase" }}>
-                                {e.workingBranch.replace(/^(GROOMS|ZORUCCI|SUITOR GUY)\s*/i, "")}
-                              </div>
-                              <div style={{ fontSize:"11px", color:"#9ca3af", marginTop:"2px", textTransform:"uppercase" }}>
-                                {e.workingBranch.match(/^(GROOMS|ZORUCCI|SUITOR GUY)/i)?.[0] || ""}
-                              </div>
-                            </>
+                            <div style={{ fontWeight:500, color:"#374151", fontSize:"13px" }}>
+                              {formatStoreDisplayName(e.workingBranch)}
+                            </div>
                           ) : <span style={{ color:"#9ca3af" }}>—</span>}
                         </td>
                         <td style={{ padding:"14px 16px", minWidth:"160px" }}>

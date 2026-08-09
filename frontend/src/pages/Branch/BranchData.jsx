@@ -314,7 +314,7 @@ import { useSelector } from "react-redux";
 import { FaPlus, FaEdit, FaBuilding, FaSearch, FaEye, FaAngleLeft, FaAngleRight, FaAngleDoubleLeft, FaAngleDoubleRight, FaChevronDown } from "react-icons/fa";
 import { HiUsers, HiAcademicCap, HiClipboardCheck } from "react-icons/hi";
 import SideNav from "../../components/SideNav/SideNav";
-import baseUrl from "../../api/api";
+import baseUrl, { formatStoreDisplayName } from "../../api/api";
 import { Link } from "react-router-dom";
 import { normalizeBranchProgress } from "../../features/dashboard/dashboardUtils";
 import { fetchHomeProgressChart as fetchHomeProgress } from "../../features/dashboard/dashboardFetch";
@@ -369,11 +369,7 @@ function brandKey(name) {
 }
 
 function displayBranchName(name) {
-  const raw = String(name || "");
-  if (/^grooms\s+/i.test(raw)) {
-    return raw.replace(/^grooms\s+/i, "Suitor Guy ");
-  }
-  return raw;
+  return formatStoreDisplayName(name);
 }
 
 function isHiddenBranch(name) {

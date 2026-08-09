@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import Select from "react-select";
 import SideNav from "../../components/SideNav/SideNav";
-import baseUrl from "../../api/api";
+import baseUrl, { formatStoreDisplayName } from "../../api/api";
 
 const DESIGNATIONS = [
   "Assistant General Manager",
@@ -277,7 +277,7 @@ const CreateEmployee = () => {
                       { value: "all", label: "All Stores" },
                       ...stores.map((s) => ({
                         value: String(s.locCode),
-                        label: s.workingBranch,
+                        label: formatStoreDisplayName(s.workingBranch),
                       })),
                     ]}
                     isMulti

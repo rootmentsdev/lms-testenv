@@ -9,7 +9,7 @@ import { BsFillSendCheckFill } from "react-icons/bs";
 import { useEffect, useState, useMemo } from "react";
 import SideNav from "../../components/SideNav/SideNav";
 import { CiFilter } from "react-icons/ci";
-import baseUrl from "../../api/api";
+import baseUrl, { formatStoreDisplayName } from "../../api/api";
 import { BsSend } from "react-icons/bs";
 import { toast } from "react-toastify";
 
@@ -139,7 +139,7 @@ const AssessmentOverDuedata = () => {
                 className="flex justify-between items-center w-full border-2 py-2 px-4 bg-white text-black rounded-md hover:bg-gray-200"
                 onClick={() => setIsBranchOpen(prev => !prev)}
               >
-                <h4>{filterBranch || "Branch"}</h4>
+                <h4>{filterBranch ? formatStoreDisplayName(filterBranch) : "Branch"}</h4>
                 <CiFilter className="text-[#016E5B]" />
               </button>
               {isBranchOpen && (
@@ -149,7 +149,7 @@ const AssessmentOverDuedata = () => {
                   </button>
                   {branches.map((branch, index) => (
                     <button key={index} onClick={() => handleBranchChange(branch)} className="block w-full py-2 text-sm text-gray-700 hover:bg-gray-100">
-                      {branch}
+                      {formatStoreDisplayName(branch)}
                     </button>
                   ))}
                 </div>
@@ -162,16 +162,16 @@ const AssessmentOverDuedata = () => {
         {/* {error && <div className="text-red-500 text-center mb-4">{error} OR No data</div>} */}
 
         {/* Employee Table */}
-        <div className="mx-10 overflow-x-auto text-black lg:mb-[70px]">
-          <table className="w-full border-2 border-gray-300">
+        <div className="mt-2 text-black overflow-x-auto w-full">
+          <table className="min-w-full bg-white border-2 border-gray-300">
             <thead>
-              <tr className="bg-[#016E5B] text-white">
+              <tr className="bg-gray-200">
                 <th className="px-3 py-1 border-2 border-gray-300">Emp ID</th>
-                <th className="px-3 py-1 border-2 border-gray-300">Name</th>
-                <th className="px-3 py-1 border-2 border-gray-300">Role</th>
-                <th className="px-3 py-1 border-2 border-gray-300">Branch</th>
-                <th className="px-3 py-1 border-2 border-gray-300">Assessment Overdue</th>
-                <th className="px-3 py-1 border-2 border-gray-300">Send Reminder</th>
+                <th className="px-3 py-1 border-2 border-gray-300">Employee Name</th>
+                <th className="px-3 py-1 border-2 border-gray-300">Designation</th>
+                <th className="px-3 py-1 border-2 border-gray-300">Branch Name</th>
+                <th className="px-3 py-1 border-2 border-gray-300">Overdue Module Name</th>
+                <th className="px-3 py-1 border-2 border-gray-300">Remind</th>
               </tr>
             </thead>
             <tbody>
@@ -181,7 +181,7 @@ const AssessmentOverDuedata = () => {
                     <td className="px-3 py-1 border-2 border-gray-300 text-center">#{employee.empID}</td>
                     <td className="px-3 py-1 border-2 border-gray-300 text-center">{employee.userName}</td>
                     <td className="px-3 py-1 border-2 border-gray-300 text-center">{employee.role}</td>
-                    <td className="px-3 py-1 border-2 border-gray-300 text-center">{employee.workingBranch}</td>
+                    <td className="px-3 py-1 border-2 border-gray-300 text-center">{formatStoreDisplayName(employee.workingBranch)}</td>
                     <td className="px-3 py-1 border-2 border-gray-300 text-center">
                       {employee.overdueAssessments?.length > 0 ? (
                         employee.overdueAssessments.map((assessment, idx) => (
