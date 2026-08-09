@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useSelector } from "react-redux";
 import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
 import baseUrl, { formatStoreDisplayName } from "../../api/api";
@@ -47,6 +48,7 @@ const parseStoreBrandAndName = (workingBranch) => {
 };
 
 const GoogleReviewTask = () => {
+  const user = useSelector((state) => state.auth.user);
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
 
