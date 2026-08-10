@@ -1904,17 +1904,35 @@ const DSRReport = () => {
     const fetchSystemEmployees = async () => {
       try {
         const token = localStorage.getItem("token");
-        const res = await fetch(`${baseUrl.baseUrl}api/admin/accessible-employees`, {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
-          }
-        });
-        if (res.ok) {
-          const json = await res.json();
-          const list = Array.isArray(json?.employees) ? json.employees : (Array.isArray(json?.data) ? json.data : []);
-          setSystemEmployees(list);
+        const headers = {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        };
+        const [empRes, adminRes] = await Promise.all([
+          fetch(`${baseUrl.baseUrl}api/admin/accessible-employees`, { headers }).catch(() => null),
+          fetch(`${baseUrl.baseUrl}api/admin/admin/list`, { headers }).catch(() => null)
+        ]);
+
+        const list = [];
+        if (empRes?.ok) {
+          const json = await empRes.json();
+          const empList = Array.isArray(json?.employees) ? json.employees : (Array.isArray(json?.data) ? json.data : []);
+          empList.forEach(e => list.push(e));
         }
+        if (adminRes?.ok) {
+          const json = await adminRes.json();
+          const adminList = Array.isArray(json?.data) ? json.data : (Array.isArray(json) ? json : []);
+          adminList.forEach(a => {
+            if (a && (a.EmpId || a.employeeId || a.empCode)) {
+              list.push({
+                ...a,
+                EmpId: a.EmpId || a.employeeId || a.empCode,
+                name: a.name || a.username
+              });
+            }
+          });
+        }
+        setSystemEmployees(list);
       } catch (err) {
         console.error("Error fetching system employees:", err);
       }
@@ -2513,52 +2531,53 @@ const DSRReport = () => {
         ...mergedPeriodList.map(x => x && x.bookingBy),
         ...salesStaffNames,
         ...(funnelView === "Consolidated" ? Object.keys(dapprAttribution) : [])
-      ].filter(name => typeof name === "string" && name.trim() !== "");
+      ].filter(name => typeof name === "string" && name.trim() !== "" && name.trim().toLowerCase() !== "none");
 
-      const staffNames = [];
-      const seenNormalized = new Set();
-      
-      const sortedStaffNames = Array.from(new Set(rawStaffNames)).sort((a, b) => {
-        const aUpper = /[A-Z]/.test(a);
-        const bUpper = /[A-Z]/.test(b);
-        if (aUpper && !bUpper) return -1;
-        if (!aUpper && bUpper) return 1;
-        return (b || "").length - (a || "").length;
-      });
+      const sortedStaffNames = Array.from(new Set(rawStaffNames)).sort((a, b) => (b || "").length - (a || "").length);
 
-      sortedStaffNames.forEach(name => {
-        if (!name) return;
-        const canonName = getCanonicalStaffName(name);
+      const staffEntries = [];
+      sortedStaffNames.forEach(rawName => {
+        const canonName = getCanonicalStaffName(rawName);
         const normReal = normalizeForMatch(canonName);
         const empCode = systemEmpNameToCodeMap.get(canonName.toLowerCase()) || systemEmpNameToCodeMap.get(normReal);
-        const dedupeKey = empCode ? `code_${empCode}` : `name_${normReal}`;
 
-        if (dedupeKey && !seenNormalized.has(dedupeKey)) {
-          seenNormalized.add(dedupeKey);
+        let entry = null;
+        if (empCode) {
+          entry = staffEntries.find(e => e.empCodes.includes(empCode));
+        }
+        if (!entry) {
+          entry = staffEntries.find(e => isStaffNameMatch(e.displayName, rawName) || e.rawNames.some(rn => isStaffNameMatch(rn, rawName)));
+        }
+
+        if (entry) {
+          if (empCode && !entry.empCodes.includes(empCode)) entry.empCodes.push(empCode);
+          if (!entry.rawNames.includes(rawName)) entry.rawNames.push(rawName);
+        } else {
           const officialName = (empCode && systemEmpCodeToNameMap?.get(empCode)) ? systemEmpCodeToNameMap.get(empCode) : canonName;
-          staffNames.push(officialName);
+          staffEntries.push({
+            displayName: officialName,
+            empCodes: empCode ? [empCode] : [],
+            rawNames: [rawName]
+          });
         }
       });
 
-      return staffNames.map((staffName, index) => {
+      return staffEntries.map((entry, index) => {
         const sl = String(index + 1).padStart(2, "0");
-        const fullName = String(staffName).trim();
-        const targetCanon = getCanonicalStaffName(staffName);
-        const staffKey = normalizeForMatch(targetCanon);
-        const staffEmpCode = systemEmpNameToCodeMap.get(targetCanon.toLowerCase()) || systemEmpNameToCodeMap.get(staffKey);
+        const fullName = entry.displayName;
 
         let rentalVal = mergedPeriodList.filter(x => {
           if (!x) return false;
           const xCode = normalizeEmpCode(x.empCode) || systemEmpNameToCodeMap.get(getCanonicalStaffName(x.bookingBy).toLowerCase()) || systemEmpNameToCodeMap.get(normalizeForMatch(x.bookingBy));
-          if (staffEmpCode && xCode && staffEmpCode === xCode) return true;
-          return normalizeForMatch(getCanonicalStaffName(x.bookingBy)) === staffKey || normalizeForMatch(x.bookingBy) === staffKey;
+          if (xCode && entry.empCodes.includes(xCode)) return true;
+          return entry.rawNames.some(rn => isStaffNameMatch(rn, x.bookingBy)) || isStaffNameMatch(fullName, x.bookingBy);
         }).reduce((sum, x) => sum + (x.totalValue || 0), 0);
 
         if (funnelView === "Consolidated") {
           const dapprKey = Object.keys(dapprAttribution).find(k => {
             const kCode = systemEmpNameToCodeMap.get(getCanonicalStaffName(k).toLowerCase()) || systemEmpNameToCodeMap.get(normalizeForMatch(k));
-            if (staffEmpCode && kCode && staffEmpCode === kCode) return true;
-            return normalizeForMatch(getCanonicalStaffName(k)) === staffKey || normalizeForMatch(k) === staffKey;
+            if (kCode && entry.empCodes.includes(kCode)) return true;
+            return entry.rawNames.some(rn => isStaffNameMatch(rn, k)) || isStaffNameMatch(fullName, k);
           });
           if (dapprKey) {
             rentalVal += Number(dapprAttribution[dapprKey]?.billWtd) || 0;
@@ -2569,18 +2588,12 @@ const DSRReport = () => {
         if (funnelView === "Consolidated") {
           const getSalesDataForStaff = (salesItem) => {
             if (!salesItem || !salesItem.byStaff) return {};
-            if (salesItem.byStaff[fullName]) return salesItem.byStaff[fullName];
-            if (salesItem.byStaff[targetCanon]) return salesItem.byStaff[targetCanon];
-
-            const staffEmpCode = systemEmpNameToCodeMap.get(targetCanon.toLowerCase()) || systemEmpNameToCodeMap.get(staffKey);
 
             const foundKey = Object.keys(salesItem.byStaff).find(k => {
               const item = salesItem.byStaff[k];
               const kCode = item?.empCode || normalizeEmpCode(k) || systemEmpNameToCodeMap.get(getCanonicalStaffName(k).toLowerCase()) || systemEmpNameToCodeMap.get(normalizeForMatch(k));
-              if (staffEmpCode && kCode && staffEmpCode === kCode) return true;
-
-              const kCanon = getCanonicalStaffName(k);
-              return kCanon === targetCanon || normalizeForMatch(kCanon) === staffKey || isStaffNameMatch(k, staffName);
+              if (kCode && entry.empCodes.includes(kCode)) return true;
+              return entry.rawNames.some(rn => isStaffNameMatch(rn, k)) || isStaffNameMatch(fullName, k);
             });
             return foundKey ? salesItem.byStaff[foundKey] : {};
           };
@@ -2591,7 +2604,7 @@ const DSRReport = () => {
         
         let target = getStaffTarget(name, fullName, activeTab);
         if (target === null) {
-          target = 0; // If no explicit target assigned, default to 0
+          target = 0;
         }
         
         const balance = target - achieved;
@@ -2776,8 +2789,7 @@ const DSRReport = () => {
           if (rentalName && !entry.rentalNames.includes(rentalName)) {
             entry.rentalNames.push(rentalName);
           }
-          // Rule: Always prefer Rental POS Software Name for Display!
-          if (rentalName && rentalName !== entry.displayName) {
+          if (rentalName && rentalName.length > entry.displayName.length) {
             entry.displayName = rentalName;
           }
         }
