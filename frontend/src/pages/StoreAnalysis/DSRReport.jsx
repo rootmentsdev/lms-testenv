@@ -1301,14 +1301,27 @@ const DSRReport = () => {
     if (val !== undefined && val !== null && val.trim() !== "" && !isNaN(parsed)) {
       const updatedTargets = { ...weeklyTargets };
       const updatedEmpTargets = { ...employeeTargets };
+
+      const storeNorm = store.replace(/[.\-]/g, '-');
+      const normKey = normalizeForMatch(store);
+      const allKeysToUpdate = Array.from(new Set([store, storeNorm, normKey].filter(Boolean)));
       
       if (targetAssignMode === "Staff") {
         if (!modalStaff) {
           alert("Please select a staff member.");
           return;
         }
-        const storeEmpTargets = [...(updatedEmpTargets[store] || [])];
-        const staffIndex = storeEmpTargets.findIndex(t => t.staffName === modalStaff);
+        
+        let existingEmpList = [];
+        for (const k of allKeysToUpdate) {
+          if (updatedEmpTargets[k] && updatedEmpTargets[k].length > 0) {
+            existingEmpList = updatedEmpTargets[k];
+            break;
+          }
+        }
+
+        const storeEmpTargets = [...existingEmpList];
+        const staffIndex = storeEmpTargets.findIndex(t => getCanonicalStaffName(t.staffName) === getCanonicalStaffName(modalStaff) || t.staffName === modalStaff);
         
         if (staffIndex >= 0) {
           const empT = { ...storeEmpTargets[staffIndex] };
@@ -1328,7 +1341,10 @@ const DSRReport = () => {
           storeEmpTargets.push(empT);
         }
         
-        updatedEmpTargets[store] = storeEmpTargets;
+        allKeysToUpdate.forEach(k => {
+          updatedEmpTargets[k] = storeEmpTargets;
+        });
+
         setEmployeeTargets(updatedEmpTargets);
         localStorage.setItem("employeeTargets", JSON.stringify(updatedEmpTargets));
         
@@ -1344,18 +1360,26 @@ const DSRReport = () => {
           updatedTargets["All"] = allObj;
 
           storeOptions.filter(o => o !== "All").forEach((storeName) => {
+            const sNorm = storeName.replace(/[.\-]/g, '-');
+            const sKey = normalizeForMatch(storeName);
+            const keys = Array.from(new Set([storeName, sNorm, sKey].filter(Boolean)));
+            
             const storeObj = { ...(updatedTargets[storeName] || {}) };
             activeWeeks.forEach((wk) => {
               storeObj[wk] = parsed;
             });
-            updatedTargets[storeName] = storeObj;
+            keys.forEach(k => {
+              updatedTargets[k] = storeObj;
+            });
           });
         } else {
           const storeObj = { ...(updatedTargets[store] || {}) };
           activeWeeks.forEach((wk) => {
             storeObj[wk] = parsed;
           });
-          updatedTargets[store] = storeObj;
+          allKeysToUpdate.forEach(k => {
+            updatedTargets[k] = storeObj;
+          });
         }
         
         setWeeklyTargets(updatedTargets);
@@ -1363,9 +1387,7 @@ const DSRReport = () => {
 
         // Pushing to DB asynchronously
         if (store === "All") {
-          // Save to All first
           await saveStoreTargetToDb("All", updatedTargets, storeWeekRanges, month, CURRENT_YEAR, updatedEmpTargets);
-          // Save for each store in list
           const promises = storeOptions.filter(o => o !== "All").map((storeName) => {
             return saveStoreTargetToDb(storeName, updatedTargets, storeWeekRanges, month, CURRENT_YEAR, updatedEmpTargets);
           });
@@ -1374,6 +1396,9 @@ const DSRReport = () => {
           await saveStoreTargetToDb(store, updatedTargets, storeWeekRanges, month, CURRENT_YEAR, updatedEmpTargets);
         }
       }
+
+      // Re-fetch targets from DB to ensure local state and table render are 100% synchronized
+      await fetchStoreTargets(month, CURRENT_YEAR);
     }
 
     window.__performanceCache = {};
@@ -1575,22 +1600,29 @@ const DSRReport = () => {
   };
 
   useEffect(() => {
-    if (modalStore && activeWeeks && activeWeeks.length > 0) {
+    if (assignTargetModalOpen && modalStore && activeWeeks && activeWeeks.length > 0) {
       const primaryWeek = activeWeeks[0];
       let customVal;
+
+      const storeNorm = modalStore.replace(/[.\-]/g, '-');
+      const normKey = normalizeForMatch(modalStore);
+      
       if (targetAssignMode === "Staff" && modalStaff) {
-        const empObj = (employeeTargets[modalStore] || []).find(e => e.staffName === modalStaff);
+        const empList = employeeTargets[modalStore] || employeeTargets[storeNorm] || employeeTargets[normKey] || [];
+        const empObj = empList.find(e => getCanonicalStaffName(e.staffName) === getCanonicalStaffName(modalStaff) || e.staffName === modalStaff);
         customVal = empObj?.weeklyTargets?.[primaryWeek];
       } else {
-        customVal = weeklyTargets[modalStore]?.[primaryWeek];
+        const tgtObj = weeklyTargets[modalStore] || weeklyTargets[storeNorm] || weeklyTargets[normKey] || getStoreWeeklyTargets(modalStore);
+        customVal = tgtObj?.[primaryWeek];
       }
-      if (customVal !== undefined) {
+
+      if (customVal !== undefined && customVal !== null && customVal !== "") {
         setModalTarget(customVal.toString());
       } else {
         setModalTarget("");
       }
     }
-  }, [modalStore, activeWeeks, weeklyTargets, targetAssignMode, modalStaff, employeeTargets]);
+  }, [assignTargetModalOpen, modalStore, activeWeeks, weeklyTargets, targetAssignMode, modalStaff, employeeTargets]);
 
   // Synchronize modal state dates when store or modal visibility changes
   // Also auto-select store for store_admin on modal open

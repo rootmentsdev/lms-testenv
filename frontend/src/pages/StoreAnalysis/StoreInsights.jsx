@@ -2127,9 +2127,16 @@ const StoreInsights = () => {
 
         const allLocationIds = ["1", "3", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "23", "25"];
 
-        // Always fetch all location IDs so no store data is missed due to branch name mismatches.
-        // Display/filtering is restricted separately by the branches state (which is already filtered per role).
-        const locationIds = allLocationIds;
+        // Scope location IDs for store_admin and cluster_admin to only their assigned branches (+ Dappr loc 25)
+        let locationIds = allLocationIds;
+        if (isStoreAdmin || isClusterAdmin) {
+          const targetBranches = branches.length > 0 ? branches : (user?.branches || []);
+          const assignedLocIds = targetBranches.map(b => getBranchLocationId(b?.workingBranch || b)).filter(Boolean);
+          if (isConsolidated) assignedLocIds.push("25");
+          if (assignedLocIds.length > 0) {
+            locationIds = Array.from(new Set(assignedLocIds));
+          }
+        }
 
         const getStoreNameFromLocId = (locId) => {
           const foundBranch = branches.find(b => getBranchLocationId(b.workingBranch) === locId);
@@ -2604,14 +2611,40 @@ const StoreInsights = () => {
   // Filtered chart data based on classification (All, On Track, At Risk)
   const filteredChartData = useMemo(() => {
     let list = filteredStoresForKPIs;
+    if (graphType === "LY_VS_TY") {
+      if (chartFilter === "On Track") {
+        return list.filter(item => {
+          const lyVal = item.ly || 0;
+          const tyVal = item.ty !== undefined ? item.ty : (item.achieved || 0);
+          return tyVal >= lyVal;
+        });
+      }
+      if (chartFilter === "At Risk") {
+        return list.filter(item => {
+          const lyVal = item.ly || 0;
+          const tyVal = item.ty !== undefined ? item.ty : (item.achieved || 0);
+          return tyVal < lyVal;
+        });
+      }
+      return list;
+    }
+
     if (chartFilter === "On Track") {
-      return list.filter(item => item.pct >= 90);
+      return list.filter(item => {
+        const targetVal = item.target || 0;
+        const achievedVal = item.achieved || 0;
+        return targetVal > 0 ? achievedVal >= targetVal : achievedVal > 0;
+      });
     }
     if (chartFilter === "At Risk") {
-      return list.filter(item => item.pct < 90);
+      return list.filter(item => {
+        const targetVal = item.target || 0;
+        const achievedVal = item.achieved || 0;
+        return targetVal > 0 ? achievedVal < targetVal : achievedVal <= 0;
+      });
     }
     return list;
-  }, [filteredStoresForKPIs, chartFilter]);
+  }, [filteredStoresForKPIs, chartFilter, graphType]);
 
   // Map shoe/shirt sales by locCode and staff name matching DSRReport's mergeSalespersons logic
   const salesByStaffMap = useMemo(() => {
@@ -2686,10 +2719,38 @@ const StoreInsights = () => {
           .filter(Boolean)
       : [];
 
+    // Determine the target month name from the active timeframe
+    const targetMonthName = timeframe === "CUSTOM"
+      ? (customStartDate ? new Date(customStartDate).toLocaleString("en-US", { month: "long" }) : CURRENT_MONTH_LONG)
+      : CURRENT_MONTH_LONG;
+
+    const storeName = displayBranchName(singleBranch.workingBranch);
+    const storeNorm = storeName.replace(/[.\-]/g, '-');
+    const normKey = normalizeForMatch(storeName);
+
+    const storeEmpTargets = employeeTargets[storeName]?.[targetMonthName] 
+      || employeeTargets[storeNorm]?.[targetMonthName] 
+      || employeeTargets[normKey]?.[targetMonthName] 
+      || (Array.isArray(employeeTargets[storeName]) ? employeeTargets[storeName] : [])
+      || (Array.isArray(employeeTargets[storeNorm]) ? employeeTargets[storeNorm] : [])
+      || (Array.isArray(employeeTargets[normKey]) ? employeeTargets[normKey] : [])
+      || [];
+
+    const branchEmployees = (employees || []).filter(emp => {
+      if (!emp) return false;
+      const empBranch = emp.workingBranch || emp.branch || "";
+      if (!empBranch) return false;
+      return empBranch === singleBranch.workingBranch || 
+             normalizeForMatch(empBranch) === normKey || 
+             getBranchLocationId(empBranch) === locId;
+    }).map(emp => emp.name || emp.displayName || emp.username || emp.staffName);
+
     const rawStaffNames = [
       ...mergedPeriodList.map(x => x && x.bookingBy),
       ...salesStaffNames,
-      ...(isConsolidated ? Object.keys(dapprAttribution) : [])
+      ...(isConsolidated ? Object.keys(dapprAttribution) : []),
+      ...storeEmpTargets.map(e => e.staffName),
+      ...branchEmployees
     ].filter(name => typeof name === "string" && name.trim() !== "" && name.trim().toLowerCase() !== "none" && !isDapprSquadName(name)).map(getCanonicalStaffName);
 
     const sortedStaffNames = Array.from(new Set(rawStaffNames)).sort((a, b) => (b || "").length - (a || "").length);
@@ -2720,14 +2781,6 @@ const StoreInsights = () => {
         });
       }
     });
-
-    // Determine the target month name from the active timeframe
-    const targetMonthName = timeframe === "CUSTOM"
-      ? (customStartDate ? new Date(customStartDate).toLocaleString("en-US", { month: "long" }) : CURRENT_MONTH_LONG)
-      : CURRENT_MONTH_LONG;
-
-    const storeName = displayBranchName(singleBranch.workingBranch);
-    const storeEmpTargets = employeeTargets[storeName]?.[targetMonthName] || [];
 
     // Helper: resolve a staff member's target for the current timeframe
     const resolveStaffTarget = (staffName) => {
@@ -2787,49 +2840,51 @@ const StoreInsights = () => {
       : [];
     const lyMergedPeriodList = [...lyLocPeriodList, ...lyDapprPeriodForStore, ...lyUnmappedDapprPeriodList];
 
-    return staffEntries
-      .map(entry => {
-        const fullName = entry.displayName;
-        const firstName = fullName.split(/\s+/)[0] || fullName;
+    const result = staffEntries.map(entry => {
+      const fullName = entry.displayName;
+      const firstName = fullName.split(/\s+/)[0] || fullName;
 
-        const staffRentalItems = mergedPeriodList.filter(x => {
-          if (!x) return false;
-          const xCode = normalizeEmpCode(x.empCode) || systemEmpNameToCodeMap?.get(getCanonicalStaffName(x.bookingBy).toLowerCase()) || systemEmpNameToCodeMap?.get(normalizeForMatch(x.bookingBy));
-          if (xCode && entry.empCodes.includes(xCode)) return true;
-          return entry.rawNames.some(rn => isStaffNameMatch(rn, x.bookingBy)) || isStaffNameMatch(fullName, x.bookingBy);
+      const staffRentalItems = mergedPeriodList.filter(x => {
+        if (!x) return false;
+        const xCode = normalizeEmpCode(x.empCode) || systemEmpNameToCodeMap?.get(getCanonicalStaffName(x.bookingBy).toLowerCase()) || systemEmpNameToCodeMap?.get(normalizeForMatch(x.bookingBy));
+        if (xCode && entry.empCodes.includes(xCode)) return true;
+        return entry.rawNames.some(rn => isStaffNameMatch(rn, x.bookingBy)) || isStaffNameMatch(fullName, x.bookingBy);
+      });
+
+      let achieved = staffRentalItems.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+      if (isConsolidated) {
+        const staffSales = getSalesDataForStaff(fullName);
+        achieved += staffSales.value || 0;
+
+        const dapprKey = Object.keys(dapprAttribution).find(k => {
+          const kCode = systemEmpNameToCodeMap?.get(getCanonicalStaffName(k).toLowerCase()) || systemEmpNameToCodeMap?.get(normalizeForMatch(k));
+          if (kCode && entry.empCodes.includes(kCode)) return true;
+          return entry.rawNames.some(rn => isStaffNameMatch(rn, k)) || isStaffNameMatch(fullName, k);
         });
-
-        let achieved = staffRentalItems.reduce((sum, item) => sum + (item.totalValue || 0), 0);
-        if (isConsolidated) {
-          const staffSales = getSalesDataForStaff(fullName);
-          achieved += staffSales.value || 0;
-
-          const dapprKey = Object.keys(dapprAttribution).find(k => {
-            const kCode = systemEmpNameToCodeMap?.get(getCanonicalStaffName(k).toLowerCase()) || systemEmpNameToCodeMap?.get(normalizeForMatch(k));
-            if (kCode && entry.empCodes.includes(kCode)) return true;
-            return entry.rawNames.some(rn => isStaffNameMatch(rn, k)) || isStaffNameMatch(fullName, k);
-          });
-          if (dapprKey) {
-            achieved += Number(dapprAttribution[dapprKey]?.billWtd) || 0;
-          }
+        if (dapprKey) {
+          achieved += Number(dapprAttribution[dapprKey]?.billWtd) || 0;
         }
+      }
 
-        const staffLyRentalItems = lyMergedPeriodList.filter(x => {
-          if (!x) return false;
-          const xCode = normalizeEmpCode(x.empCode) || systemEmpNameToCodeMap?.get(getCanonicalStaffName(x.bookingBy).toLowerCase()) || systemEmpNameToCodeMap?.get(normalizeForMatch(x.bookingBy));
-          if (xCode && entry.empCodes.includes(xCode)) return true;
-          return entry.rawNames.some(rn => isStaffNameMatch(rn, x.bookingBy)) || isStaffNameMatch(fullName, x.bookingBy);
-        });
-        const lyValue = staffLyRentalItems.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+      const staffLyRentalItems = lyMergedPeriodList.filter(x => {
+        if (!x) return false;
+        const xCode = normalizeEmpCode(x.empCode) || systemEmpNameToCodeMap?.get(getCanonicalStaffName(x.bookingBy).toLowerCase()) || systemEmpNameToCodeMap?.get(normalizeForMatch(x.bookingBy));
+        if (xCode && entry.empCodes.includes(xCode)) return true;
+        return entry.rawNames.some(rn => isStaffNameMatch(rn, x.bookingBy)) || isStaffNameMatch(fullName, x.bookingBy);
+      });
+      const lyValue = staffLyRentalItems.reduce((sum, item) => sum + (item.totalValue || 0), 0);
 
-        const target = resolveStaffTarget(fullName);
-        const balance = target - achieved;
-        const pct = target > 0 ? Math.round((achieved / target) * 100) : 0;
-        return { name: fullName, abbr: firstName, achieved, ty: achieved, ly: lyValue, target, balance, pct };
-      })
-      .filter(item => item.achieved > 0 || item.target > 0 || item.ly > 0)
-      .sort((a, b) => b.achieved - a.achieved);
-  }, [isStoreAdmin, branches, performanceData, lyPerformanceData, employeeTargets, timeframe, customStartDate, customEndDate, isConsolidated, salespersons, salesData, dapprAttribution, customizationAttribution, systemEmpNameToCodeMap, systemEmpCodeToNameMap]);
+      const target = resolveStaffTarget(fullName);
+      const balance = target - achieved;
+      const pct = target > 0 ? Math.round((achieved / target) * 100) : 0;
+      return { name: fullName, abbr: firstName, achieved, ty: achieved, ly: lyValue, target, balance, pct };
+    });
+
+    const activeResult = result.filter(item => item.achieved > 0 || item.target > 0 || item.ly > 0);
+    return activeResult.length > 0 
+      ? activeResult.sort((a, b) => b.achieved - a.achieved) 
+      : result.sort((a, b) => a.name.localeCompare(b.name));
+  }, [isStoreAdmin, branches, performanceData, lyPerformanceData, employeeTargets, timeframe, customStartDate, customEndDate, isConsolidated, salespersons, salesData, dapprAttribution, customizationAttribution, systemEmpNameToCodeMap, systemEmpCodeToNameMap, employees]);
 
 
 
