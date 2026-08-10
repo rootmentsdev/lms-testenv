@@ -15,8 +15,8 @@ const options = {
         },
         servers: [
             {
-                url: "https://lms-testenv-v0w5.onrender.com/",
-                description: "Live Development Server",
+                url: "https://lms.brynexapparels.in/",
+                description: "Production Server",
             },
             {
                 url: "http://localhost:7000/",
