@@ -1197,26 +1197,30 @@ const DSRReport = () => {
       const currentWeekId = getCurrentWeekId(storeName);
       const weekRangesObj = getStoreWeekRange(storeName);
 
-      // Get the date range string for the active week (key is the weekId number)
-      const activeWeekRangeStr = weekRangesObj ? (weekRangesObj[currentWeekId] || weekRangesObj[String(currentWeekId)]) : null;
+      let activeWeekRangeStr = weekRangesObj ? (weekRangesObj[currentWeekId] || weekRangesObj[String(currentWeekId)]) : null;
+      if (!activeWeekRangeStr || activeWeekRangeStr === "Select Days") {
+        const daysInMonth = getDaysCountInMonth(CURRENT_MONTH_LONG, currentYear);
+        if (currentWeekId === 1) activeWeekRangeStr = "01 - 07";
+        else if (currentWeekId === 2) activeWeekRangeStr = "08 - 14";
+        else if (currentWeekId === 3) activeWeekRangeStr = "15 - 21";
+        else activeWeekRangeStr = `22 - ${daysInMonth}`;
+      }
 
-      if (activeWeekRangeStr && activeWeekRangeStr !== "Select Days") {
-        const { start: startDay, end: endDay } = parseWeekDays(activeWeekRangeStr);
-        if (startDay !== null && endDay !== null && !isNaN(startDay) && !isNaN(endDay)) {
-          const weekStart = new Date(currentYear, currentMonth, startDay);
-          const weekEnd = new Date(currentYear, currentMonth, endDay);
-          const endDate = today > weekEnd ? weekEnd : (today < weekStart ? weekStart : today);
-          if (today >= weekStart) {
-            return getTargetForRange(storeName, weekStart, endDate);
-          }
+      const { start: startDay, end: endDay } = parseWeekDays(activeWeekRangeStr);
+      if (startDay !== null && endDay !== null && !isNaN(startDay) && !isNaN(endDay)) {
+        const weekStart = new Date(currentYear, currentMonth, startDay);
+        const weekEnd = new Date(currentYear, currentMonth, endDay);
+        const endDate = today > weekEnd ? weekEnd : (today < weekStart ? weekStart : today);
+        if (today >= weekStart) {
+          return getTargetForRange(storeName, weekStart, endDate);
         }
       }
 
-      // Fallback: use the week target / days in week * elapsed days of the current calendar week
       const val = storeTargetObj[currentWeekId] !== undefined ? storeTargetObj[currentWeekId] : storeTargetObj[String(currentWeekId)];
       const fullWTarget = (val !== undefined && val !== null) ? Number(val) : (defaultTarget ? Math.round(defaultTarget * 0.23) : 0);
       if (fullWTarget === 0) return 0;
-      const elapsedDays = Math.max(1, Math.min(7, today.getDay() === 0 ? 7 : today.getDay()));
+      const startDayFallback = currentWeekId === 1 ? 1 : (currentWeekId === 2 ? 8 : (currentWeekId === 3 ? 15 : 22));
+      const elapsedDays = Math.max(1, Math.min(7, today.getDate() - startDayFallback + 1));
       return Math.round((fullWTarget / 7) * elapsedDays);
     }
 
@@ -1251,22 +1255,30 @@ const DSRReport = () => {
       const currentWeekId = getCurrentWeekId(storeName);
       const weekRangesObj = getStoreWeekRange(storeName);
 
-      const activeWeekRangeStr = weekRangesObj ? (weekRangesObj[currentWeekId] || weekRangesObj[String(currentWeekId)]) : null;
-      if (activeWeekRangeStr && activeWeekRangeStr !== "Select Days") {
-        const { start: startDay, end: endDay } = parseWeekDays(activeWeekRangeStr);
-        if (startDay !== null && endDay !== null && !isNaN(startDay) && !isNaN(endDay)) {
-          const weekStart = new Date(currentYear, currentMonth, startDay);
-          const weekEnd = new Date(currentYear, currentMonth, endDay);
-          const endDate = today > weekEnd ? weekEnd : (today < weekStart ? weekStart : today);
-          if (today >= weekStart) {
-            return getTargetForRange(storeName, weekStart, endDate, empTargetObj);
-          }
+      let activeWeekRangeStr = weekRangesObj ? (weekRangesObj[currentWeekId] || weekRangesObj[String(currentWeekId)]) : null;
+      if (!activeWeekRangeStr || activeWeekRangeStr === "Select Days") {
+        const daysInMonth = getDaysCountInMonth(CURRENT_MONTH_LONG, currentYear);
+        if (currentWeekId === 1) activeWeekRangeStr = "01 - 07";
+        else if (currentWeekId === 2) activeWeekRangeStr = "08 - 14";
+        else if (currentWeekId === 3) activeWeekRangeStr = "15 - 21";
+        else activeWeekRangeStr = `22 - ${daysInMonth}`;
+      }
+
+      const { start: startDay, end: endDay } = parseWeekDays(activeWeekRangeStr);
+      if (startDay !== null && endDay !== null && !isNaN(startDay) && !isNaN(endDay)) {
+        const weekStart = new Date(currentYear, currentMonth, startDay);
+        const weekEnd = new Date(currentYear, currentMonth, endDay);
+        const endDate = today > weekEnd ? weekEnd : (today < weekStart ? weekStart : today);
+        if (today >= weekStart) {
+          return getTargetForRange(storeName, weekStart, endDate, empTargetObj);
         }
       }
 
       const val = empTargetObj[currentWeekId] !== undefined ? empTargetObj[currentWeekId] : empTargetObj[String(currentWeekId)];
       const fullWTarget = val !== undefined && val !== null ? Number(val) : 0;
-      const elapsedDays = Math.max(1, Math.min(7, today.getDay() === 0 ? 7 : today.getDay()));
+      if (fullWTarget === 0) return 0;
+      const startDayFallback = currentWeekId === 1 ? 1 : (currentWeekId === 2 ? 8 : (currentWeekId === 3 ? 15 : 22));
+      const elapsedDays = Math.max(1, Math.min(7, today.getDate() - startDayFallback + 1));
       return Math.round((fullWTarget / 7) * elapsedDays);
     }
 

@@ -1769,23 +1769,31 @@ const StoreInsights = () => {
     if (activeTabVal === "WTD") {
       const currentWeekId = getCurrentWeekId(storeName, targetMonthName);
       const weekRangesObj = getStoreWeekRange(storeName, targetMonthName);
-      // Use numeric weekId key directly
-      const activeWeekRangeStr = weekRangesObj ? (weekRangesObj[currentWeekId] || weekRangesObj[String(currentWeekId)]) : null;
-      if (activeWeekRangeStr && activeWeekRangeStr !== "Select Days") {
-        const { start: startDay, end: endDay } = parseWeekDays(activeWeekRangeStr);
-        if (startDay !== null && endDay !== null && !isNaN(startDay) && !isNaN(endDay)) {
-          const weekStart = new Date(currentYear, currentMonth, startDay);
-          const weekEnd = new Date(currentYear, currentMonth, endDay);
-          const endDate = today > weekEnd ? weekEnd : (today < weekStart ? weekStart : today);
-          if (today >= weekStart) {
-            return getTargetForRange(storeName, weekStart, endDate, targetMonthName);
-          }
+
+      let activeWeekRangeStr = weekRangesObj ? (weekRangesObj[currentWeekId] || weekRangesObj[String(currentWeekId)]) : null;
+      if (!activeWeekRangeStr || activeWeekRangeStr === "Select Days") {
+        const daysInMonth = getDaysCountInMonth(targetMonthName, currentYear);
+        if (currentWeekId === 1) activeWeekRangeStr = "01 - 07";
+        else if (currentWeekId === 2) activeWeekRangeStr = "08 - 14";
+        else if (currentWeekId === 3) activeWeekRangeStr = "15 - 21";
+        else activeWeekRangeStr = `22 - ${daysInMonth}`;
+      }
+
+      const { start: startDay, end: endDay } = parseWeekDays(activeWeekRangeStr);
+      if (startDay !== null && endDay !== null && !isNaN(startDay) && !isNaN(endDay)) {
+        const weekStart = new Date(currentYear, currentMonth, startDay);
+        const weekEnd = new Date(currentYear, currentMonth, endDay);
+        const endDate = today > weekEnd ? weekEnd : (today < weekStart ? weekStart : today);
+        if (today >= weekStart) {
+          return getTargetForRange(storeName, weekStart, endDate, targetMonthName);
         }
       }
+
       const val = storeTargetObj[currentWeekId] !== undefined ? storeTargetObj[currentWeekId] : storeTargetObj[String(currentWeekId)];
       const fullWTarget = (val !== undefined && val !== null) ? Number(val) : (defaultTarget ? Math.round(defaultTarget * 0.23) : 0);
       if (fullWTarget === 0) return 0;
-      const elapsedDays = Math.max(1, Math.min(7, today.getDay() === 0 ? 7 : today.getDay()));
+      const startDayFallback = currentWeekId === 1 ? 1 : (currentWeekId === 2 ? 8 : (currentWeekId === 3 ? 15 : 22));
+      const elapsedDays = Math.max(1, Math.min(7, today.getDate() - startDayFallback + 1));
       return Math.round((fullWTarget / 7) * elapsedDays);
     }
 
@@ -2551,7 +2559,7 @@ const StoreInsights = () => {
     }).filter(Boolean);
 
     return list;
-  }, [branches, isConsolidated, timeframe, customStartDate, customEndDate, weeklyTargets, performanceData, lyPerformanceData, salesData, lySalesData, dapprAttribution, customizationAttribution, storeDapprTotals, storeCustomizationTotals, selectedStores, isStoreAdmin]);
+  }, [branches, isConsolidated, timeframe, customStartDate, customEndDate, weeklyTargets, storeWeekRanges, performanceData, lyPerformanceData, salesData, lySalesData, dapprAttribution, customizationAttribution, storeDapprTotals, storeCustomizationTotals, selectedStores, isStoreAdmin]);
 
   // Filter stores by cluster & store if selected
   const filteredStoresForKPIs = useMemo(() => {
@@ -2721,13 +2729,38 @@ const StoreInsights = () => {
       const empT = storeEmpTargets.find(e => normalizeForMatch(e.staffName) === normalizeForMatch(staffName));
       if (!empT || !empT.weeklyTargets) return 0;
       const wt = empT.weeklyTargets;
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth();
 
       if (timeframe === "MTD") {
-        return [1, 2, 3, 4].reduce((s, wId) => s + (wt[wId] || 0), 0);
+        const monthStart = new Date(currentYear, currentMonth, 1);
+        const lastDayOfMonth = getDaysCountInMonth(targetMonthName, currentYear);
+        const monthEnd = new Date(currentYear, currentMonth, lastDayOfMonth);
+        const endDate = today > monthEnd ? monthEnd : (today < monthStart ? monthStart : today);
+        return getTargetForRange(storeName, monthStart, endDate, targetMonthName, wt);
       }
       if (timeframe === "WTD") {
-        const weekId = getCurrentWeekId(storeName, targetMonthName);
-        return wt[weekId] || 0;
+        const currentWeekId = getCurrentWeekId(storeName, targetMonthName);
+        const weekRangesObj = getStoreWeekRange(storeName, targetMonthName);
+        let activeWeekRangeStr = weekRangesObj ? (weekRangesObj[currentWeekId] || weekRangesObj[String(currentWeekId)]) : null;
+        if (!activeWeekRangeStr || activeWeekRangeStr === "Select Days") {
+          const daysInMonth = getDaysCountInMonth(targetMonthName, currentYear);
+          if (currentWeekId === 1) activeWeekRangeStr = "01 - 07";
+          else if (currentWeekId === 2) activeWeekRangeStr = "08 - 14";
+          else if (currentWeekId === 3) activeWeekRangeStr = "15 - 21";
+          else activeWeekRangeStr = `22 - ${daysInMonth}`;
+        }
+        const { start: startDay, end: endDay } = parseWeekDays(activeWeekRangeStr);
+        if (startDay !== null && endDay !== null && !isNaN(startDay) && !isNaN(endDay)) {
+          const weekStart = new Date(currentYear, currentMonth, startDay);
+          const weekEnd = new Date(currentYear, currentMonth, endDay);
+          const endDate = today > weekEnd ? weekEnd : (today < weekStart ? weekStart : today);
+          if (today >= weekStart) {
+            return getTargetForRange(storeName, weekStart, endDate, targetMonthName, wt);
+          }
+        }
+        return wt[currentWeekId] || 0;
       }
       if (timeframe === "CUSTOM") {
         return getCustomRangeTarget(storeName, customStartDate, customEndDate, targetMonthName, wt);
