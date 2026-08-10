@@ -1098,34 +1098,47 @@ const DSRReport = () => {
 
   const getStoreTarget = (storeName, defaultTarget, activeTabVal, customFactorVal) => {
     const storeTargetObj = getStoreWeeklyTargets(storeName);
-    
-    // Monthly (MTD) is the sum of all weeks
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth();
+
+    // MTD: Prorated daily sum from 1st of the month up to today (or end of month if today is past current month)
     if (activeTabVal === "MTD") {
+      const monthStart = new Date(currentYear, currentMonth, 1);
+      const lastDayOfMonth = getDaysCountInMonth(CURRENT_MONTH_LONG, currentYear);
+      const monthEnd = new Date(currentYear, currentMonth, lastDayOfMonth);
+      const endDate = today > monthEnd ? monthEnd : (today < monthStart ? monthStart : today);
+      
       const hasCustomWeeks = [1, 2, 3, 4].some(wId => storeTargetObj[wId] !== undefined || storeTargetObj[String(wId)] !== undefined);
-      if (!hasCustomWeeks) {
-        return defaultTarget;
+      if (!hasCustomWeeks && defaultTarget) {
+        const daysInMonth = getDaysCountInMonth(CURRENT_MONTH_LONG, currentYear);
+        const elapsedDays = Math.max(1, Math.min(daysInMonth, today.getDate()));
+        return Math.round((defaultTarget / daysInMonth) * elapsedDays);
       }
       
-      let sum = 0;
-      for (let wId = 1; wId <= 4; wId++) {
-        const val = storeTargetObj[wId] !== undefined ? storeTargetObj[wId] : storeTargetObj[String(wId)];
-        if (val !== undefined) {
-          sum += Number(val);
-        } else {
-          sum += Math.round(defaultTarget * 0.23);
-        }
-      }
-      return sum;
+      return getTargetForRange(storeName, monthStart, endDate);
     }
     
+    // WTD: Prorated daily sum from active week start up to today
     if (activeTabVal === "WTD") {
-      // Weekly (WTD) shows the active week target
       const currentWeekId = getCurrentWeekId(storeName); 
-      const val = storeTargetObj[currentWeekId] !== undefined ? storeTargetObj[currentWeekId] : storeTargetObj[String(currentWeekId)];
-      if (val !== undefined) {
-        return Number(val);
+      const weekRangesObj = getStoreWeekRange(storeName);
+      if (weekRangesObj && weekRangesObj.activeWeekRange) {
+        const rangeParts = weekRangesObj.activeWeekRange.split("-").map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
+        if (rangeParts.length >= 2) {
+          const weekStart = new Date(currentYear, currentMonth, rangeParts[0]);
+          const weekEnd = new Date(currentYear, currentMonth, rangeParts[1]);
+          const endDate = today > weekEnd ? weekEnd : (today < weekStart ? weekStart : today);
+          if (today >= weekStart) {
+            return getTargetForRange(storeName, weekStart, endDate);
+          }
+        }
       }
-      return Math.round(defaultTarget * 0.23);
+      
+      const val = storeTargetObj[currentWeekId] !== undefined ? storeTargetObj[currentWeekId] : storeTargetObj[String(currentWeekId)];
+      const fullWTarget = val !== undefined ? Number(val) : Math.round(defaultTarget * 0.23);
+      const elapsedDays = Math.max(1, Math.min(7, today.getDay() === 0 ? 7 : today.getDay()));
+      return Math.round((fullWTarget / 7) * elapsedDays);
     }
 
     if (activeTabVal === "Custom") {
@@ -1144,20 +1157,37 @@ const DSRReport = () => {
     if (!empT || !empT.weeklyTargets) return null; // No explicit target
 
     const empTargetObj = empT.weeklyTargets;
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth();
 
     if (activeTabVal === "MTD") {
-      let sum = 0;
-      for (let wId = 1; wId <= 4; wId++) {
-        const val = empTargetObj[wId] !== undefined ? empTargetObj[wId] : empTargetObj[String(wId)];
-        sum += (Number(val) || 0);
-      }
-      return sum;
+      const monthStart = new Date(currentYear, currentMonth, 1);
+      const lastDayOfMonth = getDaysCountInMonth(CURRENT_MONTH_LONG, currentYear);
+      const monthEnd = new Date(currentYear, currentMonth, lastDayOfMonth);
+      const endDate = today > monthEnd ? monthEnd : (today < monthStart ? monthStart : today);
+      return getTargetForRange(storeName, monthStart, endDate, empTargetObj);
     }
 
     if (activeTabVal === "WTD") {
       const currentWeekId = getCurrentWeekId(storeName); 
+      const weekRangesObj = getStoreWeekRange(storeName);
+      if (weekRangesObj && weekRangesObj.activeWeekRange) {
+        const rangeParts = weekRangesObj.activeWeekRange.split("-").map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
+        if (rangeParts.length >= 2) {
+          const weekStart = new Date(currentYear, currentMonth, rangeParts[0]);
+          const weekEnd = new Date(currentYear, currentMonth, rangeParts[1]);
+          const endDate = today > weekEnd ? weekEnd : (today < weekStart ? weekStart : today);
+          if (today >= weekStart) {
+            return getTargetForRange(storeName, weekStart, endDate, empTargetObj);
+          }
+        }
+      }
+
       const val = empTargetObj[currentWeekId] !== undefined ? empTargetObj[currentWeekId] : empTargetObj[String(currentWeekId)];
-      return val !== undefined && val !== null ? Number(val) : 0;
+      const fullWTarget = val !== undefined && val !== null ? Number(val) : 0;
+      const elapsedDays = Math.max(1, Math.min(7, today.getDay() === 0 ? 7 : today.getDay()));
+      return Math.round((fullWTarget / 7) * elapsedDays);
     }
 
     if (activeTabVal === "Custom") {
