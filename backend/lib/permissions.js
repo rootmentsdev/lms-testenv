@@ -401,12 +401,14 @@ export const buildTaskFilter = async (adminId, baseQuery = {}) => {
         );
     }
 
-    // ── Super Admin / Admin / HR Admin → creator OR assignee ─────
+    // ── Super Admin / Admin / HR Admin → creator, assignee, in approvalChain, or reassigned by admin ─────
     if (['super_admin', 'admin', 'hr_admin'].includes(admin.role)) {
         const restriction = {
             $or: [
                 { createdBy: { $in: creatorIds } },
-                ...assignedMatchConditions
+                ...assignedMatchConditions,
+                { approvalChain: { $in: assignedQueryValues } },
+                { 'workMap.assignedBy': { $in: [admin.name, admin.username].filter(Boolean) } }
             ]
         };
 

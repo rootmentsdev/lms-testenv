@@ -9,6 +9,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
+import { useSelector } from "react-redux";
 import { fetchDailyWalkinsChart } from "../../features/dashboard/dashboardFetch";
 
 const fmt = (d) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -92,6 +93,7 @@ const buildDays = (range, startDate, endDate) => {
 };
 
 const DailyWalkings = ({ range = "7", customRange, onRangeChange, onCustomRangeChange }) => {
+  const user = useSelector((state) => state.auth.user);
   const [activeIdx, setActiveIdx] = useState(null);
   const [walkinResponse, setWalkinResponse] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -106,6 +108,7 @@ const DailyWalkings = ({ range = "7", customRange, onRangeChange, onCustomRangeC
           range,
           startDate: customRange?.startDate,
           endDate: customRange?.endDate,
+          store: user?.role === "store_admin" ? user?.workingBranch : undefined,
         });
         if (!mounted) return;
         setWalkinResponse(data);
@@ -125,7 +128,7 @@ const DailyWalkings = ({ range = "7", customRange, onRangeChange, onCustomRangeC
       mounted = false;
       window.removeEventListener("dashboard:refresh", refresh);
     };
-  }, [range, customRange?.startDate, customRange?.endDate]);
+  }, [range, customRange?.startDate, customRange?.endDate, user?.role, user?.workingBranch]);
 
   const days = useMemo(() => buildDays(range, customRange?.startDate, customRange?.endDate), [
     range,

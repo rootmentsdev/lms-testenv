@@ -1218,6 +1218,11 @@ const StoreInsights = () => {
     "shabir vt": "SHABIR VT",
     "shabirvt": "SHABIR VT",
     "shabir": "SHABIR VT",
+    "devadeth r": "DEVADATH",
+    "devadethr": "DEVADATH",
+    "devadeth": "DEVADATH",
+    "devadath r": "DEVADATH",
+    "devadathr": "DEVADATH",
   };
 
   function getCanonicalStaffName(rawName) {
@@ -1240,6 +1245,39 @@ const StoreInsights = () => {
     return str.replace(/[^A-Z0-9]/g, "");
   }
 
+  function extractWalkinEmpCodes(w, empNameToCodeMap) {
+    if (!w) return [];
+    const codes = [];
+    [w.empCode, w.empId, w.empID, w.EmpId, w.employeeId, w.emp_code].forEach(val => {
+      if (val) codes.push(normalizeEmpCode(val));
+    });
+    if (w.createdBy && typeof w.createdBy === "object") {
+      [w.createdBy.empID, w.createdBy.EmpId, w.createdBy.employeeId, w.createdBy.empCode, w.createdBy.emp_code].forEach(val => {
+        if (val) codes.push(normalizeEmpCode(val));
+      });
+      if (w.createdBy.name && empNameToCodeMap) {
+        const code = empNameToCodeMap?.get?.(getCanonicalStaffName(w.createdBy.name).toLowerCase()) || empNameToCodeMap?.get?.(normalizeForMatch(w.createdBy.name));
+        if (code) codes.push(code);
+      }
+    } else if (typeof w.createdBy === "string" && empNameToCodeMap) {
+      const code = empNameToCodeMap?.get?.(getCanonicalStaffName(w.createdBy).toLowerCase()) || empNameToCodeMap?.get?.(normalizeForMatch(w.createdBy));
+      if (code) codes.push(code);
+    }
+
+    if (w.staffId && typeof w.staffId === "object") {
+      [w.staffId.empID, w.staffId.EmpId, w.staffId.employeeId, w.staffId.empCode, w.staffId.emp_code].forEach(val => {
+        if (val) codes.push(normalizeEmpCode(val));
+      });
+    }
+
+    const wStaff = w.staff || w.staffName || w.managerName;
+    if (wStaff && empNameToCodeMap) {
+      const code = empNameToCodeMap?.get?.(getCanonicalStaffName(wStaff).toLowerCase()) || empNameToCodeMap?.get?.(normalizeForMatch(wStaff));
+      if (code) codes.push(code);
+    }
+    return Array.from(new Set(codes.filter(Boolean)));
+  }
+
 
   const isDapprSquadName = (name) => {
     if (!name) return false;
@@ -1251,6 +1289,24 @@ const StoreInsights = () => {
            DAPPR_SQUAD_STORE_MAPPING[normalized] !== undefined ||
            lower === "dappr squad";
   };
+
+  function levenshteinDistance(a, b) {
+    const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
+    for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
+    for (let j = 0; j <= b.length; j++) matrix[0][j] = j;
+
+    for (let i = 1; i <= a.length; i++) {
+      for (let j = 1; j <= b.length; j++) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j - 1] + cost
+        );
+      }
+    }
+    return matrix[a.length][b.length];
+  }
 
   function isStaffNameMatch(strA, strB) {
     if (!strA || !strB) return false;
@@ -1280,39 +1336,45 @@ const StoreInsights = () => {
     const tokensB = cleanTokens(canonB);
     if (tokensA.length === 0 || tokensB.length === 0) return false;
 
-    if (tokensA.join("") === tokensB.join("")) return true;
+    const strAlphaA = tokensA.join("");
+    const strAlphaB = tokensB.join("");
 
+    if (strAlphaA === strAlphaB) return true;
+
+    // 1. Concatenated prefix/substring check (e.g., Jishnuraj vs Jishnu vs Jishnu Raj K)
+    if (strAlphaA.length >= 5 && strAlphaB.length >= 5) {
+      if (strAlphaA.startsWith(strAlphaB) || strAlphaB.startsWith(strAlphaA)) {
+        const diff = Math.abs(strAlphaA.length - strAlphaB.length);
+        if (diff <= 3) return true;
+      }
+    }
+
+    // Helper to extract explicit initials
+    const initialsOf = (tokens) => tokens.filter(t => t.length <= 2).join("");
+    const initA = initialsOf(tokensA);
+    const initB = initialsOf(tokensB);
+    if (initA.length > 0 && initB.length > 0 && initA !== initB) {
+      return false; // Conflicting initials e.g. A S vs V B -> DIFFERENT STAFF!
+    }
+
+    // 2. Levenshtein distance for spelling typos (e.g., THAHSEEN P vs THAHASEEN)
+    if (Math.abs(strAlphaA.length - strAlphaB.length) <= 3) {
+      const dist = levenshteinDistance(strAlphaA, strAlphaB);
+      if (dist <= 2 && Math.min(strAlphaA.length, strAlphaB.length) >= 5) {
+        return true;
+      }
+    }
+
+    // 3. Common tokens check with substantial token matching
     const common = tokensA.filter(t => tokensB.includes(t));
-    if (common.length === 0) return false;
-
     const unsharedA = tokensA.filter(t => !tokensB.includes(t));
     const unsharedB = tokensB.filter(t => !tokensA.includes(t));
 
     const TITLES = new Set(["muhammed", "mohammad", "mohammed", "md", "m"]);
-    const isTitleToken = (t) => TITLES.has(t);
-
-    if (unsharedA.length > 0 && unsharedB.length > 0) {
-      const unsharedStrA = unsharedA.join("");
-      const unsharedStrB = unsharedB.join("");
-
-      if (unsharedStrA === unsharedStrB) return true;
-
-      if (
-        (unsharedA.length === 1 && isTitleToken(unsharedA[0]) && unsharedB.length === 1 && isTitleToken(unsharedB[0])) ||
-        (unsharedA.length === 1 && isTitleToken(unsharedA[0]) && unsharedB.every(isTitleToken)) ||
-        (unsharedB.length === 1 && isTitleToken(unsharedB[0]) && unsharedA.every(isTitleToken))
-      ) {
-        return true;
-      }
-
-      return false;
-    }
-
-    const substantialCommon = common.filter(t => t.length >= 3 && !TITLES.has(t));
+    const substantialCommon = common.filter(t => t.length >= 4 && !TITLES.has(t));
     if (substantialCommon.length > 0) {
-      const remainingUnshared = unsharedA.length > 0 ? unsharedA : unsharedB;
-      const allTitlesOrInitials = remainingUnshared.every(t => isTitleToken(t) || t.length <= 2);
-      if (allTitlesOrInitials) {
+      const isInitialsOrSuffix = (t) => TITLES.has(t) || t.length <= 2 || ["raj", "kumar"].includes(t);
+      if (unsharedA.every(isInitialsOrSuffix) || unsharedB.every(isInitialsOrSuffix)) {
         return true;
       }
     }
@@ -1581,7 +1643,7 @@ const StoreInsights = () => {
       }
     }
     
-    const parseRange = (val, weekId) => {
+    const parseRange0 = (val, weekId) => {
       let { start: startDay, end: endDay } = parseWeekDays(val);
       if (startDay === null || endDay === null || isNaN(startDay) || isNaN(endDay)) {
         if (weekId === 1) { startDay = 1; endDay = 7; }
@@ -1591,17 +1653,81 @@ const StoreInsights = () => {
       }
       return { startDay, endDay, count: (endDay - startDay + 1) };
     };
-    
+
+    const wRanges0 = {
+      1: parseRange0(w1, 1),
+      2: parseRange0(w2, 2),
+      3: parseRange0(w3, 3),
+      4: parseRange0(w4, 4),
+    };
+
+    const tgtObj0 = overrideTargetObj || getStoreWeeklyTargetsObj(storeName, targetMonthName);
+    let totalTarget0 = 0;
+    let temp0 = new Date(start);
+    while (temp0 <= end) {
+      const dayNum0 = temp0.getDate();
+      const tempMonth0 = temp0.getMonth();
+      if (tempMonth0 === targetMonth) {
+        let foundWeekId0 = null;
+        for (let wId = 1; wId <= 4; wId++) {
+          const r = wRanges0[wId];
+          if (dayNum0 >= r.startDay && dayNum0 <= r.endDay) { foundWeekId0 = wId; break; }
+        }
+        if (foundWeekId0) {
+          const tw = tgtObj0[foundWeekId0] || tgtObj0[String(foundWeekId0)] || 0;
+          totalTarget0 += tw / (wRanges0[foundWeekId0].count || 7);
+        }
+      }
+      temp0.setDate(temp0.getDate() + 1);
+    }
+    return Math.round(totalTarget0);
+  };
+
+  const getStoreWeeklyTargetsObj = (storeName, targetMonthName = CURRENT_MONTH_LONG) => {
+    if (!storeName) return {};
+    const normKey = normalizeForMatch(storeName);
+    const snorm = storeName.replace(/[.\-]/g, '-');
+    const matchKey = Object.keys(weeklyTargets).find(
+      k => k === storeName || k === snorm || (normKey && normalizeForMatch(k) === normKey)
+    );
+    if (!matchKey) return {};
+    const monthObj = weeklyTargets[matchKey];
+    if (monthObj && monthObj[targetMonthName]) return monthObj[targetMonthName];
+    return monthObj || {};
+  };
+
+  const getTargetForRange = (storeName, start, end, targetMonthName = CURRENT_MONTH_LONG, overrideTargetObj = null) => {
+    if (!start || !end) return 0;
+    const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    const targetMonthIndex = MONTH_NAMES.indexOf(targetMonthName);
+    const targetYearNum = start.getFullYear();
+    const targetMonth = targetMonthIndex !== -1 ? targetMonthIndex : new Date().getMonth();
+
+    const weekRangesObj = getStoreWeekRange(storeName, targetMonthName);
+    // getStoreWeekRange returns { 1: "...", 2: "...", 3: "...", 4: "..." }
+    const w1 = (weekRangesObj && weekRangesObj[1]) ? weekRangesObj[1] : `01 - 07 ${targetMonthName.slice(0, 3)}`;
+    const w2 = (weekRangesObj && weekRangesObj[2]) ? weekRangesObj[2] : `08 - 14 ${targetMonthName.slice(0, 3)}`;
+    const w3 = (weekRangesObj && weekRangesObj[3]) ? weekRangesObj[3] : `15 - 21 ${targetMonthName.slice(0, 3)}`;
+    const w4 = (weekRangesObj && weekRangesObj[4]) ? weekRangesObj[4] : `22 - ${getDaysCountInMonth(targetMonthName, targetYearNum)} ${targetMonthName.slice(0, 3)}`;
+
+    const parseRange = (val, weekId) => {
+      let { start: startDay, end: endDay } = parseWeekDays(val);
+      if (startDay === null || endDay === null || isNaN(startDay) || isNaN(endDay)) {
+        if (weekId === 1) { startDay = 1; endDay = 7; }
+        else if (weekId === 2) { startDay = 8; endDay = 14; }
+        else if (weekId === 3) { startDay = 15; endDay = 21; }
+        else { startDay = 22; endDay = getDaysCountInMonth(targetMonthName, targetYearNum); }
+      }
+      return { startDay, endDay, count: (endDay - startDay + 1) };
+    };
     const wRanges = {
       1: parseRange(w1, 1),
       2: parseRange(w2, 2),
       3: parseRange(w3, 3),
       4: parseRange(w4, 4),
     };
-    
-    const storeTargetObj = overrideTargetObj || weeklyTargets[storeName]?.[targetMonthName] || {};
+    const storeTargetObj = overrideTargetObj || getStoreWeeklyTargetsObj(storeName, targetMonthName);
     let totalTarget = 0;
-    
     let temp = new Date(start);
     while (temp <= end) {
       const dayNum = temp.getDate();
@@ -1610,50 +1736,70 @@ const StoreInsights = () => {
         let foundWeekId = null;
         for (let wId = 1; wId <= 4; wId++) {
           const r = wRanges[wId];
-          if (dayNum >= r.startDay && dayNum <= r.endDay) {
-            foundWeekId = wId;
-            break;
-          }
+          if (dayNum >= r.startDay && dayNum <= r.endDay) { foundWeekId = wId; break; }
         }
-        
         if (foundWeekId) {
-          const targetW = storeTargetObj[foundWeekId] || 0;
-          const daysInW = wRanges[foundWeekId].count || 7;
-          totalTarget += targetW / daysInW;
+          const targetW = storeTargetObj[foundWeekId] || storeTargetObj[String(foundWeekId)] || 0;
+          totalTarget += targetW / (wRanges[foundWeekId].count || 7);
         }
       }
       temp.setDate(temp.getDate() + 1);
     }
-    
     return Math.round(totalTarget);
   };
 
   const getStoreTarget = (storeName, defaultTarget, activeTabVal, customFactorVal, targetMonthName = CURRENT_MONTH_LONG) => {
-    const storeTargetObj = weeklyTargets[storeName]?.[targetMonthName] || {};
-    
+    const storeTargetObj = getStoreWeeklyTargetsObj(storeName, targetMonthName);
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth();
+
     if (activeTabVal === "MTD") {
-      const hasCustomWeeks = [1, 2, 3, 4].some(wId => storeTargetObj[wId] !== undefined);
-      if (!hasCustomWeeks) {
-        return defaultTarget;
+      const monthStart = new Date(currentYear, currentMonth, 1);
+      const lastDayOfMonth = getDaysCountInMonth(targetMonthName, currentYear);
+      const monthEnd = new Date(currentYear, currentMonth, lastDayOfMonth);
+      const endDate = today > monthEnd ? monthEnd : (today < monthStart ? monthStart : today);
+      const hasAnyWeekTarget = [1, 2, 3, 4].some(wId => {
+        const v = storeTargetObj[wId] !== undefined ? storeTargetObj[wId] : storeTargetObj[String(wId)];
+        return v !== undefined && Number(v) > 0;
+      });
+      if (!hasAnyWeekTarget && defaultTarget) {
+        const elapsedDays = Math.max(1, Math.min(lastDayOfMonth, today.getDate()));
+        return Math.round((defaultTarget / lastDayOfMonth) * elapsedDays);
       }
-      
-      let sum = 0;
-      for (let wId = 1; wId <= 4; wId++) {
-        if (storeTargetObj[wId] !== undefined) {
-          sum += storeTargetObj[wId];
-        } else {
-          sum += Math.round(defaultTarget * 0.23);
-        }
-      }
-      return sum;
+      if (!hasAnyWeekTarget) return 0;
+      return getTargetForRange(storeName, monthStart, endDate, targetMonthName);
     }
     
     if (activeTabVal === "WTD") {
-      const currentWeekId = getCurrentWeekId(storeName, targetMonthName); 
-      if (storeTargetObj[currentWeekId] !== undefined) {
-        return storeTargetObj[currentWeekId];
+      const currentWeekId = getCurrentWeekId(storeName, targetMonthName);
+      const weekRangesObj = getStoreWeekRange(storeName, targetMonthName);
+
+      let activeWeekRangeStr = weekRangesObj ? (weekRangesObj[currentWeekId] || weekRangesObj[String(currentWeekId)]) : null;
+      if (!activeWeekRangeStr || activeWeekRangeStr === "Select Days") {
+        const daysInMonth = getDaysCountInMonth(targetMonthName, currentYear);
+        if (currentWeekId === 1) activeWeekRangeStr = "01 - 07";
+        else if (currentWeekId === 2) activeWeekRangeStr = "08 - 14";
+        else if (currentWeekId === 3) activeWeekRangeStr = "15 - 21";
+        else activeWeekRangeStr = `22 - ${daysInMonth}`;
       }
-      return Math.round(defaultTarget * 0.23);
+
+      const { start: startDay, end: endDay } = parseWeekDays(activeWeekRangeStr);
+      if (startDay !== null && endDay !== null && !isNaN(startDay) && !isNaN(endDay)) {
+        const weekStart = new Date(currentYear, currentMonth, startDay);
+        const weekEnd = new Date(currentYear, currentMonth, endDay);
+        const endDate = today > weekEnd ? weekEnd : (today < weekStart ? weekStart : today);
+        if (today >= weekStart) {
+          return getTargetForRange(storeName, weekStart, endDate, targetMonthName);
+        }
+      }
+
+      const val = storeTargetObj[currentWeekId] !== undefined ? storeTargetObj[currentWeekId] : storeTargetObj[String(currentWeekId)];
+      const fullWTarget = (val !== undefined && val !== null) ? Number(val) : (defaultTarget ? Math.round(defaultTarget * 0.23) : 0);
+      if (fullWTarget === 0) return 0;
+      const startDayFallback = currentWeekId === 1 ? 1 : (currentWeekId === 2 ? 8 : (currentWeekId === 3 ? 15 : 22));
+      const elapsedDays = Math.max(1, Math.min(7, today.getDate() - startDayFallback + 1));
+      return Math.round((fullWTarget / 7) * elapsedDays);
     }
 
     if (activeTabVal === "CUSTOM") {
@@ -1800,6 +1946,86 @@ const StoreInsights = () => {
 
   const lyPeriodStart = shiftDateYear(periodStart, -1);
   const lyPeriodEnd = shiftDateYear(periodEnd, -1);
+
+  const [systemEmployees, setSystemEmployees] = useState([]);
+
+  useEffect(() => {
+    const fetchSystemEmployees = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const headers = {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        };
+        const [empRes, adminRes] = await Promise.all([
+          fetch(`${baseUrl.baseUrl}api/admin/accessible-employees`, { headers }).catch(() => null),
+          fetch(`${baseUrl.baseUrl}api/admin/admin/list`, { headers }).catch(() => null)
+        ]);
+
+        const list = [];
+        if (empRes?.ok) {
+          const json = await empRes.json();
+          const empList = Array.isArray(json?.employees) ? json.employees : (Array.isArray(json?.data) ? json.data : []);
+          empList.forEach(e => list.push(e));
+        }
+        if (adminRes?.ok) {
+          const json = await adminRes.json();
+          const adminList = Array.isArray(json?.data) ? json.data : (Array.isArray(json) ? json : []);
+          adminList.forEach(a => {
+            if (a && (a.EmpId || a.employeeId || a.empCode)) {
+              list.push({
+                ...a,
+                EmpId: a.EmpId || a.employeeId || a.empCode,
+                name: a.name || a.username
+              });
+            }
+          });
+        }
+        setSystemEmployees(list);
+      } catch (err) {
+        console.error("Error fetching system employees in StoreInsights:", err);
+      }
+    };
+    fetchSystemEmployees();
+  }, []);
+
+  const { systemEmpNameToCodeMap, systemEmpCodeToNameMap } = useMemo(() => {
+    const nameToCodeMap = new Map();
+    const codeToNameMap = new Map();
+
+    systemEmployees.forEach(emp => {
+      const code = emp.EmpId || emp.empID || emp.employeeId || emp.emp_code;
+      const normCode = normalizeEmpCode(code);
+      if (!normCode) return;
+
+      const officialName = emp.name || emp.staffName || emp.username || "";
+      if (officialName) {
+        codeToNameMap.set(normCode, officialName);
+      }
+
+      [emp.username, emp.name, emp.staffName].filter(Boolean).forEach(rawName => {
+        const canon = getCanonicalStaffName(rawName);
+        const normKey = normalizeForMatch(rawName);
+        
+        nameToCodeMap.set(canon.toLowerCase(), normCode);
+        nameToCodeMap.set(normKey, normCode);
+
+        const qToK = normKey.replace(/q/g, 'k');
+        const kToQ = normKey.replace(/k/g, 'q');
+        nameToCodeMap.set(qToK, normCode);
+        nameToCodeMap.set(kToQ, normCode);
+
+        const cleanKey = normKey.replace(/[^a-z]/g, '');
+        if (cleanKey.length >= 3) {
+          nameToCodeMap.set(cleanKey, normCode);
+          nameToCodeMap.set(cleanKey.replace(/q/g, 'k'), normCode);
+          nameToCodeMap.set(cleanKey.replace(/k/g, 'q'), normCode);
+        }
+      });
+    });
+
+    return { systemEmpNameToCodeMap: nameToCodeMap, systemEmpCodeToNameMap: codeToNameMap };
+  }, [systemEmployees]);
 
   // Fetch targets once on mount for the current year
   useEffect(() => {
@@ -2338,7 +2564,7 @@ const StoreInsights = () => {
     }).filter(Boolean);
 
     return list;
-  }, [branches, isConsolidated, timeframe, customStartDate, customEndDate, weeklyTargets, performanceData, lyPerformanceData, salesData, lySalesData, dapprAttribution, customizationAttribution, storeDapprTotals, storeCustomizationTotals, selectedStores, isStoreAdmin]);
+  }, [branches, isConsolidated, timeframe, customStartDate, customEndDate, weeklyTargets, storeWeekRanges, performanceData, lyPerformanceData, salesData, lySalesData, dapprAttribution, customizationAttribution, storeDapprTotals, storeCustomizationTotals, selectedStores, isStoreAdmin]);
 
   // Filter stores by cluster & store if selected
   const filteredStoresForKPIs = useMemo(() => {
@@ -2464,23 +2690,34 @@ const StoreInsights = () => {
       ...mergedPeriodList.map(x => x && x.bookingBy),
       ...salesStaffNames,
       ...(isConsolidated ? Object.keys(dapprAttribution) : [])
-    ].filter(name => typeof name === "string" && name.trim() !== "" && !isDapprSquadName(name)).map(getCanonicalStaffName);
+    ].filter(name => typeof name === "string" && name.trim() !== "" && name.trim().toLowerCase() !== "none" && !isDapprSquadName(name)).map(getCanonicalStaffName);
 
-    const staffNames = [];
-    const sortedStaffNames = Array.from(new Set(rawStaffNames)).sort((a, b) => {
-      const aUpper = /[A-Z]/.test(a);
-      const bUpper = /[A-Z]/.test(b);
-      if (aUpper && !bUpper) return -1;
-      if (!aUpper && bUpper) return 1;
-      return (b || "").length - (a || "").length;
-    });
+    const sortedStaffNames = Array.from(new Set(rawStaffNames)).sort((a, b) => (b || "").length - (a || "").length);
 
-    sortedStaffNames.forEach(name => {
-      if (!name) return;
-      const canon = getCanonicalStaffName(name);
-      const existing = staffNames.find(existingName => isStaffNameMatch(existingName, canon));
-      if (!existing) {
-        staffNames.push(canon);
+    const staffEntries = [];
+    sortedStaffNames.forEach(rawName => {
+      const canonName = getCanonicalStaffName(rawName);
+      const normReal = normalizeForMatch(canonName);
+      const empCode = systemEmpNameToCodeMap?.get(canonName.toLowerCase()) || systemEmpNameToCodeMap?.get(normReal);
+
+      let entry = null;
+      if (empCode) {
+        entry = staffEntries.find(e => e.empCodes.includes(empCode));
+      }
+      if (!entry) {
+        entry = staffEntries.find(e => isStaffNameMatch(e.displayName, rawName) || e.rawNames.some(rn => isStaffNameMatch(rn, rawName)));
+      }
+
+      if (entry) {
+        if (empCode && !entry.empCodes.includes(empCode)) entry.empCodes.push(empCode);
+        if (!entry.rawNames.includes(rawName)) entry.rawNames.push(rawName);
+      } else {
+        const officialName = (empCode && systemEmpCodeToNameMap?.get(empCode)) ? systemEmpCodeToNameMap.get(empCode) : canonName;
+        staffEntries.push({
+          displayName: officialName,
+          empCodes: empCode ? [empCode] : [],
+          rawNames: [rawName]
+        });
       }
     });
 
@@ -2497,13 +2734,38 @@ const StoreInsights = () => {
       const empT = storeEmpTargets.find(e => normalizeForMatch(e.staffName) === normalizeForMatch(staffName));
       if (!empT || !empT.weeklyTargets) return 0;
       const wt = empT.weeklyTargets;
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth();
 
       if (timeframe === "MTD") {
-        return [1, 2, 3, 4].reduce((s, wId) => s + (wt[wId] || 0), 0);
+        const monthStart = new Date(currentYear, currentMonth, 1);
+        const lastDayOfMonth = getDaysCountInMonth(targetMonthName, currentYear);
+        const monthEnd = new Date(currentYear, currentMonth, lastDayOfMonth);
+        const endDate = today > monthEnd ? monthEnd : (today < monthStart ? monthStart : today);
+        return getTargetForRange(storeName, monthStart, endDate, targetMonthName, wt);
       }
       if (timeframe === "WTD") {
-        const weekId = getCurrentWeekId(storeName, targetMonthName);
-        return wt[weekId] || 0;
+        const currentWeekId = getCurrentWeekId(storeName, targetMonthName);
+        const weekRangesObj = getStoreWeekRange(storeName, targetMonthName);
+        let activeWeekRangeStr = weekRangesObj ? (weekRangesObj[currentWeekId] || weekRangesObj[String(currentWeekId)]) : null;
+        if (!activeWeekRangeStr || activeWeekRangeStr === "Select Days") {
+          const daysInMonth = getDaysCountInMonth(targetMonthName, currentYear);
+          if (currentWeekId === 1) activeWeekRangeStr = "01 - 07";
+          else if (currentWeekId === 2) activeWeekRangeStr = "08 - 14";
+          else if (currentWeekId === 3) activeWeekRangeStr = "15 - 21";
+          else activeWeekRangeStr = `22 - ${daysInMonth}`;
+        }
+        const { start: startDay, end: endDay } = parseWeekDays(activeWeekRangeStr);
+        if (startDay !== null && endDay !== null && !isNaN(startDay) && !isNaN(endDay)) {
+          const weekStart = new Date(currentYear, currentMonth, startDay);
+          const weekEnd = new Date(currentYear, currentMonth, endDay);
+          const endDate = today > weekEnd ? weekEnd : (today < weekStart ? weekStart : today);
+          if (today >= weekStart) {
+            return getTargetForRange(storeName, weekStart, endDate, targetMonthName, wt);
+          }
+        }
+        return wt[currentWeekId] || 0;
       }
       if (timeframe === "CUSTOM") {
         return getCustomRangeTarget(storeName, customStartDate, customEndDate, targetMonthName, wt);
@@ -2525,29 +2787,39 @@ const StoreInsights = () => {
       : [];
     const lyMergedPeriodList = [...lyLocPeriodList, ...lyDapprPeriodForStore, ...lyUnmappedDapprPeriodList];
 
-    return staffNames
-      .map(staffName => {
-        const fullName = String(staffName || "").trim();
+    return staffEntries
+      .map(entry => {
+        const fullName = entry.displayName;
         const firstName = fullName.split(/\s+/)[0] || fullName;
-        const staffKey = normalizeForMatch(fullName);
-        const staffRentalItems = mergedPeriodList.filter(x => x && (normalizeForMatch(x.bookingBy) === staffKey || isStaffNameMatch(x.bookingBy, fullName)));
-        
+
+        const staffRentalItems = mergedPeriodList.filter(x => {
+          if (!x) return false;
+          const xCode = normalizeEmpCode(x.empCode) || systemEmpNameToCodeMap?.get(getCanonicalStaffName(x.bookingBy).toLowerCase()) || systemEmpNameToCodeMap?.get(normalizeForMatch(x.bookingBy));
+          if (xCode && entry.empCodes.includes(xCode)) return true;
+          return entry.rawNames.some(rn => isStaffNameMatch(rn, x.bookingBy)) || isStaffNameMatch(fullName, x.bookingBy);
+        });
+
         let achieved = staffRentalItems.reduce((sum, item) => sum + (item.totalValue || 0), 0);
         if (isConsolidated) {
           const staffSales = getSalesDataForStaff(fullName);
           achieved += staffSales.value || 0;
 
-          const dapprKey = Object.keys(dapprAttribution).find(k => 
-            normalizeForMatch(getCanonicalStaffName(k)) === staffKey || 
-            normalizeForMatch(k) === staffKey ||
-            isStaffNameMatch(k, fullName)
-          );
+          const dapprKey = Object.keys(dapprAttribution).find(k => {
+            const kCode = systemEmpNameToCodeMap?.get(getCanonicalStaffName(k).toLowerCase()) || systemEmpNameToCodeMap?.get(normalizeForMatch(k));
+            if (kCode && entry.empCodes.includes(kCode)) return true;
+            return entry.rawNames.some(rn => isStaffNameMatch(rn, k)) || isStaffNameMatch(fullName, k);
+          });
           if (dapprKey) {
             achieved += Number(dapprAttribution[dapprKey]?.billWtd) || 0;
           }
         }
 
-        const staffLyRentalItems = lyMergedPeriodList.filter(x => x && (normalizeForMatch(x.bookingBy) === staffKey || isStaffNameMatch(x.bookingBy, fullName)));
+        const staffLyRentalItems = lyMergedPeriodList.filter(x => {
+          if (!x) return false;
+          const xCode = normalizeEmpCode(x.empCode) || systemEmpNameToCodeMap?.get(getCanonicalStaffName(x.bookingBy).toLowerCase()) || systemEmpNameToCodeMap?.get(normalizeForMatch(x.bookingBy));
+          if (xCode && entry.empCodes.includes(xCode)) return true;
+          return entry.rawNames.some(rn => isStaffNameMatch(rn, x.bookingBy)) || isStaffNameMatch(fullName, x.bookingBy);
+        });
         const lyValue = staffLyRentalItems.reduce((sum, item) => sum + (item.totalValue || 0), 0);
 
         const target = resolveStaffTarget(fullName);
@@ -2557,7 +2829,7 @@ const StoreInsights = () => {
       })
       .filter(item => item.achieved > 0 || item.target > 0 || item.ly > 0)
       .sort((a, b) => b.achieved - a.achieved);
-  }, [isStoreAdmin, branches, performanceData, lyPerformanceData, employeeTargets, timeframe, customStartDate, customEndDate, isConsolidated, salespersons, salesData, dapprAttribution, customizationAttribution]);
+  }, [isStoreAdmin, branches, performanceData, lyPerformanceData, employeeTargets, timeframe, customStartDate, customEndDate, isConsolidated, salespersons, salesData, dapprAttribution, customizationAttribution, systemEmpNameToCodeMap, systemEmpCodeToNameMap]);
 
 
 
@@ -3165,24 +3437,34 @@ const StoreInsights = () => {
         ...locPeriodList.map(x => x && x.bookingBy),
         ...salesStaffNames,
         ...(isConsolidated ? Object.keys(dapprAttribution) : [])
-      ].filter(name => typeof name === "string" && name.trim() !== "").map(getCanonicalStaffName);
+      ].filter(name => typeof name === "string" && name.trim() !== "" && name.trim().toLowerCase() !== "none").map(getCanonicalStaffName);
 
-      const staffNames = [];
-      
-      const sortedStaffNames = Array.from(new Set(rawStaffNames)).sort((a, b) => {
-        const aUpper = /[A-Z]/.test(a);
-        const bUpper = /[A-Z]/.test(b);
-        if (aUpper && !bUpper) return -1;
-        if (!aUpper && bUpper) return 1;
-        return (b || "").length - (a || "").length;
-      });
+      const sortedStaffNames = Array.from(new Set(rawStaffNames)).sort((a, b) => (b || "").length - (a || "").length);
 
-      sortedStaffNames.forEach(name => {
-        if (!name) return;
-        const canon = getCanonicalStaffName(name);
-        const existing = staffNames.find(existingName => isStaffNameMatch(existingName, canon));
-        if (!existing) {
-          staffNames.push(canon);
+      const staffEntries = [];
+      sortedStaffNames.forEach(rawName => {
+        const canonName = getCanonicalStaffName(rawName);
+        const normReal = normalizeForMatch(canonName);
+        const empCode = systemEmpNameToCodeMap?.get(canonName.toLowerCase()) || systemEmpNameToCodeMap?.get(normReal);
+
+        let entry = null;
+        if (empCode) {
+          entry = staffEntries.find(e => e.empCodes.includes(empCode));
+        }
+        if (!entry) {
+          entry = staffEntries.find(e => isStaffNameMatch(e.displayName, rawName) || e.rawNames.some(rn => isStaffNameMatch(rn, rawName)));
+        }
+
+        if (entry) {
+          if (empCode && !entry.empCodes.includes(empCode)) entry.empCodes.push(empCode);
+          if (!entry.rawNames.includes(rawName)) entry.rawNames.push(rawName);
+        } else {
+          const officialName = (empCode && systemEmpCodeToNameMap?.get(empCode)) ? systemEmpCodeToNameMap.get(empCode) : canonName;
+          staffEntries.push({
+            displayName: officialName,
+            empCodes: empCode ? [empCode] : [],
+            rawNames: [rawName]
+          });
         }
       });
 
@@ -3201,33 +3483,44 @@ const StoreInsights = () => {
         storeTotalValue += Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
       }
 
-      if (staffNames.length === 0) {
-        // Fallback mock staff if no real data exists yet
-        const mockStaff = [
-          { name: "Staff Arun", targetAchieved: 15400, contribution: 45, abs: 2.1, abv: 1800, conversion: 85 },
-          { name: "Staff Suresh", targetAchieved: 12100, contribution: 35, abs: 2.5, abv: 2100, conversion: 90 },
-          { name: "Staff Vipin", targetAchieved: 6800, contribution: 20, abs: 1.8, abv: 1500, conversion: 75 },
-        ];
-        return mockStaff;
+      if (staffEntries.length === 0) {
+        return [];
       }
 
-      return staffNames.map(staffName => {
-        const staffKey = normalizeForMatch(staffName);
-        const staffFtdList = locPeriodList.filter(x => x && (normalizeForMatch(x.bookingBy) === staffKey || isStaffNameMatch(x.bookingBy, staffName)));
+      return staffEntries.map(entry => {
+        const staffName = entry.displayName;
+
+        const staffFtdList = locPeriodList.filter(x => {
+          if (!x) return false;
+          const xCode = normalizeEmpCode(x.empCode) || systemEmpNameToCodeMap?.get(getCanonicalStaffName(x.bookingBy).toLowerCase()) || systemEmpNameToCodeMap?.get(normalizeForMatch(x.bookingBy));
+          if (xCode && entry.empCodes.includes(xCode)) return true;
+          return entry.rawNames.some(rn => isStaffNameMatch(rn, x.bookingBy)) || isStaffNameMatch(staffName, x.bookingBy);
+        });
 
         let bills = staffFtdList.reduce((sum, x) => sum + (x.total_Number_Of_Bill || 0), 0);
         let qty = staffFtdList.reduce((sum, x) => sum + (x.totalQuantity || 0), 0);
         let value = staffFtdList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
 
         if (isConsolidated) {
-          const staffSales = getSalesDataForStaff(staffName);
-          bills += staffSales.bills || 0;
-          qty += staffSales.qty || 0;
-          value += staffSales.value || 0;
+          if (locCode && salesByStaffMap[locCode]) {
+            const staffSalesKey = Object.keys(salesByStaffMap[locCode]).find(k => {
+              const kCode = systemEmpNameToCodeMap?.get(getCanonicalStaffName(k).toLowerCase()) || systemEmpNameToCodeMap?.get(normalizeForMatch(k));
+              if (kCode && entry.empCodes.includes(kCode)) return true;
+              return entry.rawNames.some(rn => isStaffNameMatch(rn, k)) || isStaffNameMatch(staffName, k);
+            });
+            if (staffSalesKey) {
+              const sData = salesByStaffMap[locCode][staffSalesKey];
+              bills += sData.bills || 0;
+              qty += sData.qty || 0;
+              value += sData.value || 0;
+            }
+          }
 
-          const dapprKey = Object.keys(dapprAttribution).find(k => 
-            isStaffNameMatch(k, staffName) || normalizeForMatch(getCanonicalStaffName(k)) === staffKey
-          );
+          const dapprKey = Object.keys(dapprAttribution).find(k => {
+            const kCode = systemEmpNameToCodeMap?.get(getCanonicalStaffName(k).toLowerCase()) || systemEmpNameToCodeMap?.get(normalizeForMatch(k));
+            if (kCode && entry.empCodes.includes(kCode)) return true;
+            return entry.rawNames.some(rn => isStaffNameMatch(rn, k)) || isStaffNameMatch(staffName, k);
+          });
           if (dapprKey) {
             const dAttr = dapprAttribution[dapprKey] || {};
             value += Number(dAttr.billWtd) || 0;
@@ -3241,11 +3534,13 @@ const StoreInsights = () => {
 
         // Conversion = bills / walkins for this staff
         const staffWalkins = storeWalkins.filter(w => {
+          const wCodes = extractWalkinEmpCodes(w, systemEmpNameToCodeMap);
+          if (wCodes.length > 0 && entry.empCodes.some(c => wCodes.includes(c))) return true;
           const wStaff = w.staff || w.staffName || (typeof w.createdBy === 'string' ? w.createdBy : w.createdBy?.name) || w.managerName || '';
           if (!wStaff) {
-            return staffKey === "unassigned" || staffName.toLowerCase() === "unassigned";
+            return staffName.toLowerCase() === "unassigned";
           }
-          return isStaffNameMatch(wStaff, staffName);
+          return entry.rawNames.some(rn => isStaffNameMatch(rn, wStaff)) || isStaffNameMatch(wStaff, staffName);
         }).length;
         const conversion = staffWalkins > 0 ? Math.round((bills / staffWalkins) * 100) : 0;
 
@@ -3408,7 +3703,7 @@ const StoreInsights = () => {
         };
       });
     }
-  }, [branches, chartData, isConsolidated, performanceData, walkins, isStoreAdmin, isClusterAdmin, salesData, salespersons, dapprAttribution, customizationAttribution, selectedClusters, selectedStores, clusters, periodStart, periodEnd]);
+  }, [branches, chartData, isConsolidated, performanceData, walkins, isStoreAdmin, isClusterAdmin, salesData, salespersons, dapprAttribution, customizationAttribution, selectedClusters, selectedStores, clusters, periodStart, periodEnd, systemEmpNameToCodeMap, systemEmpCodeToNameMap]);
 
   const processedRanking = useMemo(() => {
     let result = [...rankingData];

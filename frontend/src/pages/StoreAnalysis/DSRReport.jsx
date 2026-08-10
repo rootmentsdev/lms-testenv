@@ -398,6 +398,12 @@ function normalizeForMatch(str) {
 }
 
 const STAFF_ALIAS_MAPPING = {
+  "sidheek": "SIDHEEQ",
+  "sidheeq": "SIDHEEQ",
+  "sidheek k": "SIDHEEQ",
+  "sidheeq k": "SIDHEEQ",
+  "sidheeqk": "SIDHEEQ",
+  "sidheekk": "SIDHEEQ",
   "niyas dinu nasar k": "NIYAS",
   "niyas dinu nasar": "NIYAS",
   "niyasdinunasark": "NIYAS",
@@ -447,6 +453,11 @@ const STAFF_ALIAS_MAPPING = {
   "shabir vt": "SHABIR VT",
   "shabirvt": "SHABIR VT",
   "shabir": "SHABIR VT",
+  "devadeth r": "DEVADATH",
+  "devadethr": "DEVADATH",
+  "devadeth": "DEVADATH",
+  "devadath r": "DEVADATH",
+  "devadathr": "DEVADATH",
 };
 
 function getCanonicalStaffName(rawName) {
@@ -461,6 +472,24 @@ function getCanonicalStaffName(rawName) {
     return STAFF_ALIAS_MAPPING[normKey];
   }
   return str;
+}
+
+function levenshteinDistance(a, b) {
+  const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
+  for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
+  for (let j = 0; j <= b.length; j++) matrix[0][j] = j;
+
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,
+        matrix[i][j - 1] + 1,
+        matrix[i - 1][j - 1] + cost
+      );
+    }
+  }
+  return matrix[a.length][b.length];
 }
 
 function isStaffNameMatch(strA, strB) {
@@ -491,39 +520,45 @@ function isStaffNameMatch(strA, strB) {
   const tokensB = cleanTokens(canonB);
   if (tokensA.length === 0 || tokensB.length === 0) return false;
 
-  if (tokensA.join("") === tokensB.join("")) return true;
+  const strAlphaA = tokensA.join("");
+  const strAlphaB = tokensB.join("");
 
+  if (strAlphaA === strAlphaB) return true;
+
+  // 1. Concatenated prefix/substring check (e.g., Jishnuraj vs Jishnu vs Jishnu Raj K)
+  if (strAlphaA.length >= 5 && strAlphaB.length >= 5) {
+    if (strAlphaA.startsWith(strAlphaB) || strAlphaB.startsWith(strAlphaA)) {
+      const diff = Math.abs(strAlphaA.length - strAlphaB.length);
+      if (diff <= 3) return true;
+    }
+  }
+
+  // Helper to extract explicit initials
+  const initialsOf = (tokens) => tokens.filter(t => t.length <= 2).join("");
+  const initA = initialsOf(tokensA);
+  const initB = initialsOf(tokensB);
+  if (initA.length > 0 && initB.length > 0 && initA !== initB) {
+    return false; // Conflicting initials e.g. A S vs V B -> DIFFERENT STAFF!
+  }
+
+  // 2. Levenshtein distance for spelling typos (e.g., THAHSEEN P vs THAHASEEN)
+  if (Math.abs(strAlphaA.length - strAlphaB.length) <= 3) {
+    const dist = levenshteinDistance(strAlphaA, strAlphaB);
+    if (dist <= 2 && Math.min(strAlphaA.length, strAlphaB.length) >= 5) {
+      return true;
+    }
+  }
+
+  // 3. Common tokens check with substantial token matching
   const common = tokensA.filter(t => tokensB.includes(t));
-  if (common.length === 0) return false;
-
   const unsharedA = tokensA.filter(t => !tokensB.includes(t));
   const unsharedB = tokensB.filter(t => !tokensA.includes(t));
 
   const TITLES = new Set(["muhammed", "mohammad", "mohammed", "md", "m"]);
-  const isTitleToken = (t) => TITLES.has(t);
-
-  if (unsharedA.length > 0 && unsharedB.length > 0) {
-    const unsharedStrA = unsharedA.join("");
-    const unsharedStrB = unsharedB.join("");
-
-    if (unsharedStrA === unsharedStrB) return true;
-
-    if (
-      (unsharedA.length === 1 && isTitleToken(unsharedA[0]) && unsharedB.length === 1 && isTitleToken(unsharedB[0])) ||
-      (unsharedA.length === 1 && isTitleToken(unsharedA[0]) && unsharedB.every(isTitleToken)) ||
-      (unsharedB.length === 1 && isTitleToken(unsharedB[0]) && unsharedA.every(isTitleToken))
-    ) {
-      return true;
-    }
-
-    return false;
-  }
-
-  const substantialCommon = common.filter(t => t.length >= 3 && !TITLES.has(t));
+  const substantialCommon = common.filter(t => t.length >= 4 && !TITLES.has(t));
   if (substantialCommon.length > 0) {
-    const remainingUnshared = unsharedA.length > 0 ? unsharedA : unsharedB;
-    const allTitlesOrInitials = remainingUnshared.every(t => isTitleToken(t) || t.length <= 2);
-    if (allTitlesOrInitials) {
+    const isInitialsOrSuffix = (t) => TITLES.has(t) || t.length <= 2 || ["raj", "kumar"].includes(t);
+    if (unsharedA.every(isInitialsOrSuffix) || unsharedB.every(isInitialsOrSuffix)) {
       return true;
     }
   }
@@ -974,9 +1009,77 @@ const DSRReport = () => {
     }
     return nearest;
   };
+  // getTargetForRange: Accepts Date objects (start, end) and calculates prorated target day-by-day
+  // Used by getStoreTarget (MTD/WTD) and getStaffTarget (MTD/WTD)
+  const getTargetForRange = (storeName, start, end, overrideTargetObj = null) => {
+    if (!start || !end) return 0;
+
+    const targetMonth = start.getMonth();
+    const targetMonthName = start.toLocaleString("en-US", { month: "long" });
+    const targetYearNum = start.getFullYear();
+
+    const autoWeeks = getAutoWeekDates(targetMonthName, targetYearNum);
+
+    let w1 = autoWeeks[1], w2 = autoWeeks[2], w3 = autoWeeks[3], w4 = autoWeeks[4];
+
+    if (storeName && storeName !== "All") {
+      const sr = getStoreWeekRange(storeName, targetMonthName);
+      if (sr) {
+        if (sr[1] && sr[1] !== "Select Days") w1 = sr[1];
+        if (sr[2] && sr[2] !== "Select Days") w2 = sr[2];
+        if (sr[3] && sr[3] !== "Select Days") w3 = sr[3];
+        if (sr[4] && sr[4] !== "Select Days") w4 = sr[4];
+      }
+    }
+
+    const parseRange = (val, weekId) => {
+      let { start: startDay, end: endDay } = parseWeekDays(val);
+      if (startDay === null || endDay === null || isNaN(startDay) || isNaN(endDay)) {
+        if (weekId === 1) { startDay = 1; endDay = 7; }
+        else if (weekId === 2) { startDay = 8; endDay = 14; }
+        else if (weekId === 3) { startDay = 15; endDay = 21; }
+        else { startDay = 22; endDay = getDaysCountInMonth(targetMonthName, targetYearNum); }
+      }
+      return { startDay, endDay, count: (endDay - startDay + 1) };
+    };
+
+    const wRanges = {
+      1: parseRange(w1, 1),
+      2: parseRange(w2, 2),
+      3: parseRange(w3, 3),
+      4: parseRange(w4, 4),
+    };
+
+    const storeTargetObj = overrideTargetObj || getStoreWeeklyTargets(storeName);
+
+    let totalTarget = 0;
+    let temp = new Date(start);
+    while (temp <= end) {
+      const dayNum = temp.getDate();
+      const tempMonth = temp.getMonth();
+      if (tempMonth === targetMonth) {
+        let foundWeekId = null;
+        for (let wId = 1; wId <= 4; wId++) {
+          const r = wRanges[wId];
+          if (dayNum >= r.startDay && dayNum <= r.endDay) {
+            foundWeekId = wId;
+            break;
+          }
+        }
+        if (foundWeekId) {
+          const targetW = storeTargetObj[foundWeekId] || storeTargetObj[String(foundWeekId)] || 0;
+          const daysInW = wRanges[foundWeekId].count || 7;
+          totalTarget += targetW / daysInW;
+        }
+      }
+      temp.setDate(temp.getDate() + 1);
+    }
+    return Math.round(totalTarget);
+  };
 
   const getCustomRangeTarget = (storeName, startDateStr, endDateStr, overrideTargetObj = null) => {
     if (!startDateStr || !endDateStr) return 0;
+
     
     const start = new Date(startDateStr);
     const end = new Date(endDateStr);
@@ -1068,38 +1171,65 @@ const DSRReport = () => {
 
   const getStoreTarget = (storeName, defaultTarget, activeTabVal, customFactorVal) => {
     const storeTargetObj = getStoreWeeklyTargets(storeName);
-    
-    // Monthly (MTD) is the sum of all weeks
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth();
+
+    // MTD: Prorated daily sum from 1st of the month up to today
     if (activeTabVal === "MTD") {
-      const hasCustomWeeks = [1, 2, 3, 4].some(wId => storeTargetObj[wId] !== undefined || storeTargetObj[String(wId)] !== undefined);
-      if (!hasCustomWeeks) {
-        return defaultTarget;
-      }
+      const monthStart = new Date(currentYear, currentMonth, 1);
+      const lastDayOfMonth = getDaysCountInMonth(CURRENT_MONTH_LONG, currentYear);
+      const monthEnd = new Date(currentYear, currentMonth, lastDayOfMonth);
+      const endDate = today > monthEnd ? monthEnd : (today < monthStart ? monthStart : today);
       
-      let sum = 0;
-      for (let wId = 1; wId <= 4; wId++) {
-        const val = storeTargetObj[wId] !== undefined ? storeTargetObj[wId] : storeTargetObj[String(wId)];
-        if (val !== undefined) {
-          sum += Number(val);
-        } else {
-          sum += Math.round(defaultTarget * 0.23);
-        }
+      // Only use simple proration if no weekly targets are stored at all
+      const hasAnyWeekTarget = [1, 2, 3, 4].some(wId => {
+        const v = storeTargetObj[wId] !== undefined ? storeTargetObj[wId] : storeTargetObj[String(wId)];
+        return v !== undefined && Number(v) > 0;
+      });
+      if (!hasAnyWeekTarget && defaultTarget) {
+        const daysInMonth = getDaysCountInMonth(CURRENT_MONTH_LONG, currentYear);
+        const elapsedDays = Math.max(1, Math.min(daysInMonth, today.getDate()));
+        return Math.round((defaultTarget / daysInMonth) * elapsedDays);
       }
-      return sum;
+      if (!hasAnyWeekTarget) return 0;
+      
+      return getTargetForRange(storeName, monthStart, endDate);
     }
     
+    // WTD: Prorated from active week start up to today using week range dates
     if (activeTabVal === "WTD") {
-      // Weekly (WTD) shows the active week target
-      const currentWeekId = getCurrentWeekId(storeName); 
-      const val = storeTargetObj[currentWeekId] !== undefined ? storeTargetObj[currentWeekId] : storeTargetObj[String(currentWeekId)];
-      if (val !== undefined) {
-        return Number(val);
+      const currentWeekId = getCurrentWeekId(storeName);
+      const weekRangesObj = getStoreWeekRange(storeName);
+
+      let activeWeekRangeStr = weekRangesObj ? (weekRangesObj[currentWeekId] || weekRangesObj[String(currentWeekId)]) : null;
+      if (!activeWeekRangeStr || activeWeekRangeStr === "Select Days") {
+        const daysInMonth = getDaysCountInMonth(CURRENT_MONTH_LONG, currentYear);
+        if (currentWeekId === 1) activeWeekRangeStr = "01 - 07";
+        else if (currentWeekId === 2) activeWeekRangeStr = "08 - 14";
+        else if (currentWeekId === 3) activeWeekRangeStr = "15 - 21";
+        else activeWeekRangeStr = `22 - ${daysInMonth}`;
       }
-      return Math.round(defaultTarget * 0.23);
+
+      const { start: startDay, end: endDay } = parseWeekDays(activeWeekRangeStr);
+      if (startDay !== null && endDay !== null && !isNaN(startDay) && !isNaN(endDay)) {
+        const weekStart = new Date(currentYear, currentMonth, startDay);
+        const weekEnd = new Date(currentYear, currentMonth, endDay);
+        const endDate = today > weekEnd ? weekEnd : (today < weekStart ? weekStart : today);
+        if (today >= weekStart) {
+          return getTargetForRange(storeName, weekStart, endDate);
+        }
+      }
+
+      const val = storeTargetObj[currentWeekId] !== undefined ? storeTargetObj[currentWeekId] : storeTargetObj[String(currentWeekId)];
+      const fullWTarget = (val !== undefined && val !== null) ? Number(val) : (defaultTarget ? Math.round(defaultTarget * 0.23) : 0);
+      if (fullWTarget === 0) return 0;
+      const startDayFallback = currentWeekId === 1 ? 1 : (currentWeekId === 2 ? 8 : (currentWeekId === 3 ? 15 : 22));
+      const elapsedDays = Math.max(1, Math.min(7, today.getDate() - startDayFallback + 1));
+      return Math.round((fullWTarget / 7) * elapsedDays);
     }
 
     if (activeTabVal === "Custom") {
-      // Proportional custom target calculated accurately based on custom date overlaps
       return getCustomRangeTarget(storeName, customStartDate, customEndDate);
     }
     
@@ -1114,20 +1244,47 @@ const DSRReport = () => {
     if (!empT || !empT.weeklyTargets) return null; // No explicit target
 
     const empTargetObj = empT.weeklyTargets;
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth();
 
     if (activeTabVal === "MTD") {
-      let sum = 0;
-      for (let wId = 1; wId <= 4; wId++) {
-        const val = empTargetObj[wId] !== undefined ? empTargetObj[wId] : empTargetObj[String(wId)];
-        sum += (Number(val) || 0);
-      }
-      return sum;
+      const monthStart = new Date(currentYear, currentMonth, 1);
+      const lastDayOfMonth = getDaysCountInMonth(CURRENT_MONTH_LONG, currentYear);
+      const monthEnd = new Date(currentYear, currentMonth, lastDayOfMonth);
+      const endDate = today > monthEnd ? monthEnd : (today < monthStart ? monthStart : today);
+      return getTargetForRange(storeName, monthStart, endDate, empTargetObj);
     }
 
     if (activeTabVal === "WTD") {
-      const currentWeekId = getCurrentWeekId(storeName); 
+      const currentWeekId = getCurrentWeekId(storeName);
+      const weekRangesObj = getStoreWeekRange(storeName);
+
+      let activeWeekRangeStr = weekRangesObj ? (weekRangesObj[currentWeekId] || weekRangesObj[String(currentWeekId)]) : null;
+      if (!activeWeekRangeStr || activeWeekRangeStr === "Select Days") {
+        const daysInMonth = getDaysCountInMonth(CURRENT_MONTH_LONG, currentYear);
+        if (currentWeekId === 1) activeWeekRangeStr = "01 - 07";
+        else if (currentWeekId === 2) activeWeekRangeStr = "08 - 14";
+        else if (currentWeekId === 3) activeWeekRangeStr = "15 - 21";
+        else activeWeekRangeStr = `22 - ${daysInMonth}`;
+      }
+
+      const { start: startDay, end: endDay } = parseWeekDays(activeWeekRangeStr);
+      if (startDay !== null && endDay !== null && !isNaN(startDay) && !isNaN(endDay)) {
+        const weekStart = new Date(currentYear, currentMonth, startDay);
+        const weekEnd = new Date(currentYear, currentMonth, endDay);
+        const endDate = today > weekEnd ? weekEnd : (today < weekStart ? weekStart : today);
+        if (today >= weekStart) {
+          return getTargetForRange(storeName, weekStart, endDate, empTargetObj);
+        }
+      }
+
       const val = empTargetObj[currentWeekId] !== undefined ? empTargetObj[currentWeekId] : empTargetObj[String(currentWeekId)];
-      return val !== undefined && val !== null ? Number(val) : 0;
+      const fullWTarget = val !== undefined && val !== null ? Number(val) : 0;
+      if (fullWTarget === 0) return 0;
+      const startDayFallback = currentWeekId === 1 ? 1 : (currentWeekId === 2 ? 8 : (currentWeekId === 3 ? 15 : 22));
+      const elapsedDays = Math.max(1, Math.min(7, today.getDate() - startDayFallback + 1));
+      return Math.round((fullWTarget / 7) * elapsedDays);
     }
 
     if (activeTabVal === "Custom") {
@@ -1898,17 +2055,35 @@ const DSRReport = () => {
     const fetchSystemEmployees = async () => {
       try {
         const token = localStorage.getItem("token");
-        const res = await fetch(`${baseUrl.baseUrl}api/admin/accessible-employees`, {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
-          }
-        });
-        if (res.ok) {
-          const json = await res.json();
-          const list = Array.isArray(json?.employees) ? json.employees : (Array.isArray(json?.data) ? json.data : []);
-          setSystemEmployees(list);
+        const headers = {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        };
+        const [empRes, adminRes] = await Promise.all([
+          fetch(`${baseUrl.baseUrl}api/admin/accessible-employees`, { headers }).catch(() => null),
+          fetch(`${baseUrl.baseUrl}api/admin/admin/list`, { headers }).catch(() => null)
+        ]);
+
+        const list = [];
+        if (empRes?.ok) {
+          const json = await empRes.json();
+          const empList = Array.isArray(json?.employees) ? json.employees : (Array.isArray(json?.data) ? json.data : []);
+          empList.forEach(e => list.push(e));
         }
+        if (adminRes?.ok) {
+          const json = await adminRes.json();
+          const adminList = Array.isArray(json?.data) ? json.data : (Array.isArray(json) ? json : []);
+          adminList.forEach(a => {
+            if (a && (a.EmpId || a.employeeId || a.empCode)) {
+              list.push({
+                ...a,
+                EmpId: a.EmpId || a.employeeId || a.empCode,
+                name: a.name || a.username
+              });
+            }
+          });
+        }
+        setSystemEmployees(list);
       } catch (err) {
         console.error("Error fetching system employees:", err);
       }
@@ -1916,22 +2091,43 @@ const DSRReport = () => {
     fetchSystemEmployees();
   }, []);
 
-  const systemEmpNameToCodeMap = useMemo(() => {
-    const map = new Map();
+  const { systemEmpNameToCodeMap, systemEmpCodeToNameMap } = useMemo(() => {
+    const nameToCodeMap = new Map();
+    const codeToNameMap = new Map();
+
     systemEmployees.forEach(emp => {
       const code = emp.EmpId || emp.empID || emp.employeeId || emp.emp_code;
       const normCode = normalizeEmpCode(code);
       if (!normCode) return;
 
-      [emp.username, emp.name, emp.staffName].forEach(rawName => {
-        if (rawName) {
-          const canon = getCanonicalStaffName(rawName);
-          map.set(canon.toLowerCase(), normCode);
-          map.set(normalizeForMatch(rawName), normCode);
+      const officialName = emp.name || emp.staffName || emp.username || "";
+      if (officialName) {
+        codeToNameMap.set(normCode, officialName);
+      }
+
+      [emp.username, emp.name, emp.staffName].filter(Boolean).forEach(rawName => {
+        const canon = getCanonicalStaffName(rawName);
+        const normKey = normalizeForMatch(rawName);
+        
+        nameToCodeMap.set(canon.toLowerCase(), normCode);
+        nameToCodeMap.set(normKey, normCode);
+
+        // Auto-handle spelling variants across systems (e.g. Q <-> K, E <-> EE, initials)
+        const qToK = normKey.replace(/q/g, 'k');
+        const kToQ = normKey.replace(/k/g, 'q');
+        nameToCodeMap.set(qToK, normCode);
+        nameToCodeMap.set(kToQ, normCode);
+
+        const cleanKey = normKey.replace(/[^a-z]/g, '');
+        if (cleanKey.length >= 3) {
+          nameToCodeMap.set(cleanKey, normCode);
+          nameToCodeMap.set(cleanKey.replace(/q/g, 'k'), normCode);
+          nameToCodeMap.set(cleanKey.replace(/k/g, 'q'), normCode);
         }
       });
     });
-    return map;
+
+    return { systemEmpNameToCodeMap: nameToCodeMap, systemEmpCodeToNameMap: codeToNameMap };
   }, [systemEmployees]);
 
   // Fetch targets dynamically when not editing targets in modals
@@ -2486,38 +2682,54 @@ const DSRReport = () => {
         ...mergedPeriodList.map(x => x && x.bookingBy),
         ...salesStaffNames,
         ...(funnelView === "Consolidated" ? Object.keys(dapprAttribution) : [])
-      ].filter(name => typeof name === "string" && name.trim() !== "");
+      ].filter(name => typeof name === "string" && name.trim() !== "" && name.trim().toLowerCase() !== "none");
 
-      const staffNames = [];
-      const seenNormalized = new Set();
-      
-      const sortedStaffNames = Array.from(new Set(rawStaffNames)).sort((a, b) => {
-        const aUpper = /[A-Z]/.test(a);
-        const bUpper = /[A-Z]/.test(b);
-        if (aUpper && !bUpper) return -1;
-        if (!aUpper && bUpper) return 1;
-        return (b || "").length - (a || "").length;
-      });
+      const sortedStaffNames = Array.from(new Set(rawStaffNames)).sort((a, b) => (b || "").length - (a || "").length);
 
-      sortedStaffNames.forEach(name => {
-        if (!name) return;
-        const canonName = getCanonicalStaffName(name);
+      const staffEntries = [];
+      sortedStaffNames.forEach(rawName => {
+        const canonName = getCanonicalStaffName(rawName);
         const normReal = normalizeForMatch(canonName);
-        if (normReal && !seenNormalized.has(normReal)) {
-          seenNormalized.add(normReal);
-          staffNames.push(canonName);
+        const empCode = systemEmpNameToCodeMap.get(canonName.toLowerCase()) || systemEmpNameToCodeMap.get(normReal);
+
+        let entry = null;
+        if (empCode) {
+          entry = staffEntries.find(e => e.empCodes.includes(empCode));
+        }
+        if (!entry) {
+          entry = staffEntries.find(e => isStaffNameMatch(e.displayName, rawName) || e.rawNames.some(rn => isStaffNameMatch(rn, rawName)));
+        }
+
+        if (entry) {
+          if (empCode && !entry.empCodes.includes(empCode)) entry.empCodes.push(empCode);
+          if (!entry.rawNames.includes(rawName)) entry.rawNames.push(rawName);
+        } else {
+          const officialName = (empCode && systemEmpCodeToNameMap?.get(empCode)) ? systemEmpCodeToNameMap.get(empCode) : canonName;
+          staffEntries.push({
+            displayName: officialName,
+            empCodes: empCode ? [empCode] : [],
+            rawNames: [rawName]
+          });
         }
       });
 
-      return staffNames.map((staffName, index) => {
+      return staffEntries.map((entry, index) => {
         const sl = String(index + 1).padStart(2, "0");
-        const fullName = String(staffName).trim();
-        const targetCanon = getCanonicalStaffName(staffName);
-        const staffKey = normalizeForMatch(targetCanon);
+        const fullName = entry.displayName;
 
-        let rentalVal = mergedPeriodList.filter(x => x && (normalizeForMatch(getCanonicalStaffName(x.bookingBy)) === staffKey || normalizeForMatch(x.bookingBy) === staffKey)).reduce((sum, x) => sum + (x.totalValue || 0), 0);
+        let rentalVal = mergedPeriodList.filter(x => {
+          if (!x) return false;
+          const xCode = normalizeEmpCode(x.empCode) || systemEmpNameToCodeMap.get(getCanonicalStaffName(x.bookingBy).toLowerCase()) || systemEmpNameToCodeMap.get(normalizeForMatch(x.bookingBy));
+          if (xCode && entry.empCodes.includes(xCode)) return true;
+          return entry.rawNames.some(rn => isStaffNameMatch(rn, x.bookingBy)) || isStaffNameMatch(fullName, x.bookingBy);
+        }).reduce((sum, x) => sum + (x.totalValue || 0), 0);
+
         if (funnelView === "Consolidated") {
-          const dapprKey = Object.keys(dapprAttribution).find(k => normalizeForMatch(getCanonicalStaffName(k)) === staffKey || normalizeForMatch(k) === staffKey);
+          const dapprKey = Object.keys(dapprAttribution).find(k => {
+            const kCode = systemEmpNameToCodeMap.get(getCanonicalStaffName(k).toLowerCase()) || systemEmpNameToCodeMap.get(normalizeForMatch(k));
+            if (kCode && entry.empCodes.includes(kCode)) return true;
+            return entry.rawNames.some(rn => isStaffNameMatch(rn, k)) || isStaffNameMatch(fullName, k);
+          });
           if (dapprKey) {
             rentalVal += Number(dapprAttribution[dapprKey]?.billWtd) || 0;
           }
@@ -2527,18 +2739,12 @@ const DSRReport = () => {
         if (funnelView === "Consolidated") {
           const getSalesDataForStaff = (salesItem) => {
             if (!salesItem || !salesItem.byStaff) return {};
-            if (salesItem.byStaff[fullName]) return salesItem.byStaff[fullName];
-            if (salesItem.byStaff[targetCanon]) return salesItem.byStaff[targetCanon];
-
-            const staffEmpCode = systemEmpNameToCodeMap.get(targetCanon.toLowerCase()) || systemEmpNameToCodeMap.get(staffKey);
 
             const foundKey = Object.keys(salesItem.byStaff).find(k => {
               const item = salesItem.byStaff[k];
               const kCode = item?.empCode || normalizeEmpCode(k) || systemEmpNameToCodeMap.get(getCanonicalStaffName(k).toLowerCase()) || systemEmpNameToCodeMap.get(normalizeForMatch(k));
-              if (staffEmpCode && kCode && staffEmpCode === kCode) return true;
-
-              const kCanon = getCanonicalStaffName(k);
-              return kCanon === targetCanon || normalizeForMatch(kCanon) === staffKey || isStaffNameMatch(k, staffName);
+              if (kCode && entry.empCodes.includes(kCode)) return true;
+              return entry.rawNames.some(rn => isStaffNameMatch(rn, k)) || isStaffNameMatch(fullName, k);
             });
             return foundKey ? salesItem.byStaff[foundKey] : {};
           };
@@ -2549,7 +2755,7 @@ const DSRReport = () => {
         
         let target = getStaffTarget(name, fullName, activeTab);
         if (target === null) {
-          target = 0; // If no explicit target assigned, default to 0
+          target = 0;
         }
         
         const balance = target - achieved;
@@ -2734,8 +2940,7 @@ const DSRReport = () => {
           if (rentalName && !entry.rentalNames.includes(rentalName)) {
             entry.rentalNames.push(rentalName);
           }
-          // Rule: Always prefer Rental POS Software Name for Display!
-          if (rentalName && rentalName !== entry.displayName) {
+          if (rentalName && rentalName.length > entry.displayName.length) {
             entry.displayName = rentalName;
           }
         }
