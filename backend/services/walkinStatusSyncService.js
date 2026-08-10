@@ -364,34 +364,11 @@ export const syncWalkinStatuses = async (overrideDateFrom = null, overrideDateTo
 
                 let walkins = [];
                 if (queryFilters.length > 0) {
-                    const storeOrCond = locCode !== '555'
-                        ? [{ storeId: storeId }, { store: new RegExp(`^${(workingBranch || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }]
-                        : [];
-
-                    const globalInvoiceConds = [];
-                    if (invoiceNos.length > 0) globalInvoiceConds.push({ invoiceNo: { $in: invoiceNos } });
-                    if (shoeInvoiceNos.length > 0) globalInvoiceConds.push({ shoeInvoiceNo: { $in: shoeInvoiceNos } });
-
-                    const phoneConds = [];
-                    for (const p of normalizedPhones) {
-                        phoneConds.push({ contact: p });
-                        phoneConds.push({ contact: `+91${p}` });
-                        phoneConds.push({ contact: `91${p}` });
-                        phoneConds.push({ contact: `0${p}` });
-                        const regexStr = p.split('').join('\\D*') + '$';
-                        phoneConds.push({ contact: { $regex: regexStr } });
+                    const walkinQuery = { $or: queryFilters };
+                    if (locCode !== '555') {
+                        walkinQuery.storeId = storeId;
                     }
-
-                    const orList = [...globalInvoiceConds];
-                    if (phoneConds.length > 0) {
-                        if (storeOrCond.length > 0) {
-                            orList.push({ $and: [{ $or: storeOrCond }, { $or: phoneConds }] });
-                        } else {
-                            orList.push({ $or: phoneConds });
-                        }
-                    }
-
-                    walkins = await Walkin.find({ $or: orList }).sort({ createdAt: -1 });
+                    walkins = await Walkin.find(walkinQuery).sort({ createdAt: -1 });
                 }
 
                 // Group retrieved walkins by invoiceNo, shoeInvoiceNo, and unassigned lists by phone

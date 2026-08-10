@@ -1058,30 +1058,21 @@ export const getWalkins = async (req, res) => {
         ]);
 
         const todayStr = getLocalDateStringIST(new Date());
-        const seenKeys = new Set();
-        const deduplicatedMapped = [];
-
-        for (const w of filtered) {
-            const key = w.invoiceNo
-                ? `inv_${w.invoiceNo}`
-                : `key_${(w.customerName || '').toLowerCase().trim()}_${(w.contact || '').toLowerCase().trim()}_${(w.date || '').toLowerCase().trim()}_${(w.store || '').toLowerCase().trim()}_${(w.status || '').toLowerCase().trim()}`;
-            if (!seenKeys.has(key)) {
-                seenKeys.add(key);
-                const lastChangeStr = getLocalDateStringIST(w.lastStatusChangeDate);
-                deduplicatedMapped.push({
-                    ...w,
-                    statusChangedToday: !!(lastChangeStr && lastChangeStr === todayStr)
-                });
-            }
-        }
+        const mappedFiltered = filtered.map(w => {
+            const lastChangeStr = getLocalDateStringIST(w.lastStatusChangeDate);
+            return {
+                ...w,
+                statusChangedToday: !!(lastChangeStr && lastChangeStr === todayStr)
+            };
+        });
 
         return res.status(200).json({
             success: true,
             message: 'Walk-ins retrieved successfully',
-            count: deduplicatedMapped.length,
+            count: total,
             page: limitNum > 0 ? pageNum : 1,
-            limit: limitNum > 0 ? limitNum : deduplicatedMapped.length,
-            data: deduplicatedMapped
+            limit: limitNum > 0 ? limitNum : total,
+            data: mappedFiltered
         });
 
     } catch (error) {

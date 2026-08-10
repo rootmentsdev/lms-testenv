@@ -407,10 +407,7 @@ function applyFilters(employees, { search, store, role }) {
         const cleanVal = val.replace(/\s+/g, '');
         return val.includes(q) || cleanVal.includes(cleanQ);
       });
-    const isAllStores = e.workingBranch === 'All Stores' || 
-                        (e.workingBranch && e.workingBranch.split(',').length > 5);
-    const matchStore = !store || store === 'All' || 
-                       (!isAllStores && e.workingBranch === store);
+    const matchStore = !store || store === 'All' || e.workingBranch === store;
     const matchRole = !role || role === 'All' || e.designation === role;
     return matchSearch && matchStore && matchRole;
   });
@@ -758,13 +755,10 @@ export const getAllAppRegisteredEmployees = async (req, res) => {
           const cleanVal = val.replace(/\s+/g, '');
           return val.includes(search) || cleanVal.includes(cleanSearch);
         });
-      const isAllStores = e.workingBranch === 'All Stores' || 
-                          (e.workingBranch && e.workingBranch.split(',').length > 5);
       const matchStore = store === 'All' || 
-                         (!isAllStores && (
-                           e.workingBranch === store || 
-                           String(e.workingBranch || '').split(', ').includes(store)
-                         ));
+                         e.workingBranch === store || 
+                         e.workingBranch === 'All Stores' ||
+                         String(e.workingBranch || '').split(', ').includes(store);
       const matchRole  = role  === 'All' || e.designation   === role;
       return matchSearch && matchStore && matchRole;
     });

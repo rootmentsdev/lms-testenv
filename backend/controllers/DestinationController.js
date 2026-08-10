@@ -1020,11 +1020,9 @@ export const getAccessibleEmployees = async (req, res) => {
         }
 
         // Fetch store/cluster admins for the selected/accessible stores to include them as employees
-        let storeAdminQuery = { isActive: { $ne: false } };
+        let storeAdminQuery = { role: { $in: allowedAdminRoles }, isActive: true };
         if (resolvedStore) {
             storeAdminQuery.branches = resolvedStore._id;
-        } else if (['super_admin', 'admin', 'hr_admin'].includes(req.admin.role)) {
-            // High-level roles access all system admins/employees when no store parameter is specified
         } else {
             const accessibleStoreIds = await getAccessibleStoreIds(req.admin.userId);
             storeAdminQuery.branches = { $in: accessibleStoreIds };
