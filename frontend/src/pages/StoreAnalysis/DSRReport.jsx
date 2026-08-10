@@ -469,6 +469,24 @@ function getCanonicalStaffName(rawName) {
   return str;
 }
 
+function levenshteinDistance(a, b) {
+  const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
+  for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
+  for (let j = 0; j <= b.length; j++) matrix[0][j] = j;
+
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,
+        matrix[i][j - 1] + 1,
+        matrix[i - 1][j - 1] + cost
+      );
+    }
+  }
+  return matrix[a.length][b.length];
+}
+
 function isStaffNameMatch(strA, strB) {
   if (!strA || !strB) return false;
   if (typeof isStoreAliasName === "function" && (isStoreAliasName(strA) || isStoreAliasName(strB))) return false;
@@ -497,39 +515,45 @@ function isStaffNameMatch(strA, strB) {
   const tokensB = cleanTokens(canonB);
   if (tokensA.length === 0 || tokensB.length === 0) return false;
 
-  if (tokensA.join("") === tokensB.join("")) return true;
+  const strAlphaA = tokensA.join("");
+  const strAlphaB = tokensB.join("");
 
+  if (strAlphaA === strAlphaB) return true;
+
+  // 1. Concatenated prefix/substring check (e.g., Jishnuraj vs Jishnu vs Jishnu Raj K)
+  if (strAlphaA.length >= 5 && strAlphaB.length >= 5) {
+    if (strAlphaA.startsWith(strAlphaB) || strAlphaB.startsWith(strAlphaA)) {
+      const diff = Math.abs(strAlphaA.length - strAlphaB.length);
+      if (diff <= 3) return true;
+    }
+  }
+
+  // Helper to extract explicit initials
+  const initialsOf = (tokens) => tokens.filter(t => t.length <= 2).join("");
+  const initA = initialsOf(tokensA);
+  const initB = initialsOf(tokensB);
+  if (initA.length > 0 && initB.length > 0 && initA !== initB) {
+    return false; // Conflicting initials e.g. A S vs V B -> DIFFERENT STAFF!
+  }
+
+  // 2. Levenshtein distance for spelling typos (e.g., THAHSEEN P vs THAHASEEN)
+  if (Math.abs(strAlphaA.length - strAlphaB.length) <= 3) {
+    const dist = levenshteinDistance(strAlphaA, strAlphaB);
+    if (dist <= 2 && Math.min(strAlphaA.length, strAlphaB.length) >= 5) {
+      return true;
+    }
+  }
+
+  // 3. Common tokens check with substantial token matching
   const common = tokensA.filter(t => tokensB.includes(t));
-  if (common.length === 0) return false;
-
   const unsharedA = tokensA.filter(t => !tokensB.includes(t));
   const unsharedB = tokensB.filter(t => !tokensA.includes(t));
 
   const TITLES = new Set(["muhammed", "mohammad", "mohammed", "md", "m"]);
-  const isTitleToken = (t) => TITLES.has(t);
-
-  if (unsharedA.length > 0 && unsharedB.length > 0) {
-    const unsharedStrA = unsharedA.join("");
-    const unsharedStrB = unsharedB.join("");
-
-    if (unsharedStrA === unsharedStrB) return true;
-
-    if (
-      (unsharedA.length === 1 && isTitleToken(unsharedA[0]) && unsharedB.length === 1 && isTitleToken(unsharedB[0])) ||
-      (unsharedA.length === 1 && isTitleToken(unsharedA[0]) && unsharedB.every(isTitleToken)) ||
-      (unsharedB.length === 1 && isTitleToken(unsharedB[0]) && unsharedA.every(isTitleToken))
-    ) {
-      return true;
-    }
-
-    return false;
-  }
-
-  const substantialCommon = common.filter(t => t.length >= 3 && !TITLES.has(t));
+  const substantialCommon = common.filter(t => t.length >= 4 && !TITLES.has(t));
   if (substantialCommon.length > 0) {
-    const remainingUnshared = unsharedA.length > 0 ? unsharedA : unsharedB;
-    const allTitlesOrInitials = remainingUnshared.every(t => isTitleToken(t) || t.length <= 2);
-    if (allTitlesOrInitials) {
+    const isInitialsOrSuffix = (t) => TITLES.has(t) || t.length <= 2 || ["raj", "kumar"].includes(t);
+    if (unsharedA.every(isInitialsOrSuffix) || unsharedB.every(isInitialsOrSuffix)) {
       return true;
     }
   }

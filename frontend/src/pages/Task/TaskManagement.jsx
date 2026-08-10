@@ -216,7 +216,8 @@ const TaskManagement = () => {
           // A task should only show up in the Review Requests tab of a user if they are the current active approver in the approvalChain
           const hasChain = t.approvalChain && t.approvalChain.length > 0;
           const currentApprover = hasChain ? t.approvalChain[t.approvalChainIndex] : t.createdBy;
-          return String(currentApprover) === String(user?.userId);
+          const userIds = [user?.userId, user?._id, user?.empID, user?.EmpId, user?.employeeId].filter(Boolean).map(String);
+          return userIds.includes(String(currentApprover));
         })
       );
 
