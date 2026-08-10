@@ -68,19 +68,54 @@ import baseUrl from './api/api';
 class AppErrorBoundary extends Component {
   state = { hasError: false };
 
-  static getDerivedStateFromError(error) {
-    console.error("Caught component error in AppErrorBoundary:", error);
+  static getDerivedStateFromError() {
     return { hasError: true };
-  }
-
-  componentDidCatch(error, errorInfo) {
-    console.error("AppErrorBoundary error details:", error, errorInfo);
   }
 
   render() {
     if (this.state.hasError) {
-      // Return children or clean graceful fallback without full-page modal overlay
-      return this.props.children || null;
+      return (
+        <div style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#f4f6f8",
+          padding: "24px",
+        }}>
+          <div style={{
+            maxWidth: "420px",
+            width: "100%",
+            borderRadius: "18px",
+            background: "#ffffff",
+            boxShadow: "0 18px 45px rgba(15, 23, 42, 0.12)",
+            padding: "28px",
+            textAlign: "center",
+          }}>
+            <h1 style={{ fontSize: "22px", margin: "0 0 10px", color: "#0f172a" }}>
+              App update needed
+            </h1>
+            <p style={{ margin: "0 0 22px", color: "#64748b", lineHeight: 1.5 }}>
+              A new version was deployed while this page was open. Refresh to load the latest files.
+            </p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              style={{
+                border: 0,
+                borderRadius: "12px",
+                background: "#0f172a",
+                color: "#ffffff",
+                cursor: "pointer",
+                fontWeight: 700,
+                padding: "12px 18px",
+              }}
+            >
+              Refresh app
+            </button>
+          </div>
+        </div>
+      );
     }
 
     return this.props.children;

@@ -1315,20 +1315,9 @@ export const updateTaskStatus = async (req, res) => {
         title: reassignedCategory ? reassignedCategory.trim() : task.title
       });
 
-      // Update approval chain on status reassign: Reassigner -> Previous Approvers -> Creator
-      const reassignerId = userId.toString();
-      const creatorId = task.createdBy.toString();
-      let resolvedApprovalChain = [reassignerId];
-      if (task.approvalChain && task.approvalChain.length > 0) {
-        task.approvalChain.forEach(id => {
-          if (id !== reassignerId && !resolvedApprovalChain.includes(id)) {
-            resolvedApprovalChain.push(id);
-          }
-        });
-      }
-      if (!resolvedApprovalChain.includes(creatorId)) {
-        resolvedApprovalChain.push(creatorId);
-      }
+      // Update approval chain on status reassign
+      // Approval chain for task completion: Assignee -> Creator (Assigner)
+      let resolvedApprovalChain = [task.createdBy.toString()];
 
       task.approvalChain = resolvedApprovalChain;
       task.approvalChainIndex = 0;
@@ -1601,18 +1590,11 @@ export const reassignTask = async (req, res) => {
       title: category ? category.trim() : task.title
     });
 
-    // Approval chain for reassigned task completion: Reassigner -> Previous Approvers -> Creator
+    // Approval chain for reassigned task completion: Reassigner -> Creator (if different)
     const reassignerId = userId.toString();
     const creatorId = task.createdBy.toString();
     let resolvedApprovalChain = [reassignerId];
-    if (task.approvalChain && task.approvalChain.length > 0) {
-      task.approvalChain.forEach(id => {
-        if (id !== reassignerId && !resolvedApprovalChain.includes(id)) {
-          resolvedApprovalChain.push(id);
-        }
-      });
-    }
-    if (!resolvedApprovalChain.includes(creatorId)) {
+    if (reassignerId !== creatorId) {
       resolvedApprovalChain.push(creatorId);
     }
 

@@ -939,8 +939,7 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
               {(() => {
                 const hasChain = task.approvalChain && task.approvalChain.length > 0;
                 const currentApprover = hasChain ? task.approvalChain[task.approvalChainIndex] : task.createdBy;
-                const userIds = [user?.userId, user?._id, user?.empID, user?.EmpId, user?.employeeId].filter(Boolean).map(String);
-                const isCurrentApprover = userIds.includes(String(currentApprover));
+                const isCurrentApprover = user?.userId?.toString() === currentApprover?.toString();
 
                 if (task.status === 'PENDING REVIEW' && isCurrentApprover) {
                   const isFinalStep = !hasChain || (task.approvalChainIndex === task.approvalChain.length - 1);

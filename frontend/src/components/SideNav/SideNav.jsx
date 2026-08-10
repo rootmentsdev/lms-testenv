@@ -314,15 +314,11 @@ const SideNav = () => {
       {
         title: "ACADEMICS & TRAINING",
         items: [
-          ...(user?.role !== "telecaller"
+          ...(user?.role !== "store_admin" && user?.role !== "telecaller"
             ? [
                 { id: "trainingDash", to: "/training-dashboard", icon: "training", label: "Training Dashboard", active: is("/training-dashboard") },
-                ...(user?.role !== "store_admin"
-                  ? [
-                      { id: "trainings", to: "/training", icon: "training", label: "Trainings", active: is("/training") || is("/alltraining") || is("/createnewtraining") },
-                      { id: "assessments", to: "/assessments", icon: "assessment", label: "Assessments", active: is("/assessments") }
-                    ]
-                  : [])
+                { id: "trainings", to: "/training", icon: "training", label: "Trainings", active: is("/training") || is("/alltraining") || is("/createnewtraining") },
+                { id: "assessments", to: "/assessments", icon: "assessment", label: "Assessments", active: is("/assessments") }
               ]
             : []),
           ...(user?.role !== "cluster_admin" && user?.role !== "store_admin" && user?.role !== "telecaller"

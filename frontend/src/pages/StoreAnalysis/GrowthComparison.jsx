@@ -720,62 +720,88 @@ const GrowthComparison = () => {
           return { locId, data };
         });
 
-        // Fetch TY & LY walkin lists in bulk (2 fast requests instead of 42 individual store requests)
-        const branchRes = await fetch(`${baseUrl.baseUrl}api/usercreate/getBranch`, {
-          method: "GET",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        });
-        let branchList = [];
-        if (branchRes.ok) {
-          const branchJson = await branchRes.json();
-          branchList = Array.isArray(branchJson?.data)
-            ? branchJson.data.filter((b) => !isHiddenBranch(b?.workingBranch))
-            : [];
-          if (branchList.length > 0 && !cancelled) {
-            setBranches([...branchList].sort(sortStoresGThenZ));
-          }
+        // Fetch walkin count per store using walkin-count API (same source as WalkinCount page)
+        // Returns inApp.walkin — new walk-ins only (excludes revisits)
+        const walkinCountFetch = async (storeName, startDate, endDate) => {
+          try {
+            const ctrl = new AbortController();
+            const t = setTimeout(() => ctrl.abort(), 10000);
+            const url = `${baseUrl.baseUrl}api/walkin/walkin-count?date=${startDate}&store=${encodeURIComponent(storeName)}&startDate=${startDate}&endDate=${endDate}`;
+            const res = await fetch(url, {
+              method: "GET",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+              signal: ctrl.signal,
+            });
+            clearTimeout(t);
+            if (res.ok) {
+              const json = await res.json();
+              if (json?.success && json?.inApp) {
+                return json.inApp.walkin || 0;
+              }
+            }
+          } catch (e) { /* ignore timeout/network errors */ }
+          return 0;
+        };
+
+        // Use available branches list or fetch if not loaded yet
+        let branchList = Array.isArray(branches) && branches.length > 0 ? branches : [];
+        if (branchList.length === 0) {
+          try {
+            const branchRes = await fetch(`${baseUrl.baseUrl}api/usercreate/getBranch`, {
+              method: "GET",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            });
+            if (branchRes.ok) {
+              const branchJson = await branchRes.json();
+              branchList = Array.isArray(branchJson?.data)
+                ? branchJson.data.filter((b) => !isHiddenBranch(b?.workingBranch))
+                : [];
+              if (branchList.length > 0 && !cancelled) {
+                setBranches([...branchList].sort(sortStoresGThenZ));
+              }
+            }
+          } catch (e) { /* ignore */ }
         }
 
-        const [tyWalkinRes, lyWalkinRes, tyResults, lyResults] = await Promise.all([
-          fetch(`${baseUrl.baseUrl}api/walkin/list?startDate=${tyStart}&endDate=${tyEnd}`, {
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
-          }).catch(() => null),
-          fetch(`${baseUrl.baseUrl}api/walkin/list?startDate=${lyStart}&endDate=${lyEnd}`, {
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
-          }).catch(() => null),
+        const walkinTyTasks = branchList.map((b) => async () => {
+          let storeStart = tyStart;
+          let storeEnd = tyEnd;
+          if (activeTab === "WTD") {
+            const range = getStoreWTDDateRange(displayBranchName(b.workingBranch), currentYear, storeWeekRanges);
+            storeStart = range.start;
+            storeEnd = range.end;
+          }
+          const count = await walkinCountFetch(b.workingBranch, storeStart, storeEnd);
+          return { storeName: b.workingBranch, count };
+        });
+
+        const walkinLyTasks = branchList.map((b) => async () => {
+          let storeStart = lyStart;
+          let storeEnd = lyEnd;
+          if (activeTab === "WTD") {
+            const range = getStoreWTDDateRange(displayBranchName(b.workingBranch), lastYear, storeWeekRanges);
+            storeStart = range.start;
+            storeEnd = range.end;
+          }
+          const count = await walkinCountFetch(b.workingBranch, storeStart, storeEnd);
+          return { storeName: b.workingBranch, count };
+        });
+
+        // Run performance + walkin-count fetches in parallel
+        const [tyResults, lyResults, tyWalkinResults, lyWalkinResults] = await Promise.all([
           runWithConcurrencyLimit(tyTasks, 10),
           runWithConcurrencyLimit(lyTasks, 10),
+          runWithConcurrencyLimit(walkinTyTasks, 5),
+          runWithConcurrencyLimit(walkinLyTasks, 5),
         ]);
 
         if (cancelled) return;
 
-        const tyWalkinJson = tyWalkinRes?.ok ? await tyWalkinRes.json() : null;
-        const lyWalkinJson = lyWalkinRes?.ok ? await lyWalkinRes.json() : null;
-
-        const tyWalkinList = Array.isArray(tyWalkinJson?.data) ? tyWalkinJson.data : (Array.isArray(tyWalkinJson?.walkins) ? tyWalkinJson.walkins : []);
-        const lyWalkinList = Array.isArray(lyWalkinJson?.data) ? lyWalkinJson.data : (Array.isArray(lyWalkinJson?.walkins) ? lyWalkinJson.walkins : []);
-
+        // Build store-keyed walkin count maps
         const tyWalkMap = {};
         const lyWalkMap = {};
-
-        branchList.forEach((b) => {
-          const rawName = b.workingBranch;
-          const fmtName = formatStoreDisplayName(rawName);
-
-          const tyCount = tyWalkinList.filter((w) => {
-            const wFmt = formatStoreDisplayName(w.store);
-            return wFmt === fmtName || norm(w.store) === norm(rawName);
-          }).length;
-
-          const lyCount = lyWalkinList.filter((w) => {
-            const wFmt = formatStoreDisplayName(w.store);
-            return wFmt === fmtName || norm(w.store) === norm(rawName);
-          }).length;
-
-          tyWalkMap[rawName] = tyCount;
-          lyWalkMap[rawName] = lyCount;
-        });
-
+        tyWalkinResults.forEach(r => { tyWalkMap[r.storeName] = r.count; });
+        lyWalkinResults.forEach(r => { lyWalkMap[r.storeName] = r.count; });
         setTyWalkinCounts(tyWalkMap);
         setLyWalkinCounts(lyWalkMap);
 
