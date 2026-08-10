@@ -119,7 +119,6 @@ export const updateVideoProgress = async (params) => {
   return response;
 };
 
-<<<<<<< HEAD
 export const formatStoreDisplayName = (rawName) => {
   if (!rawName) return '';
   const trimmed = String(rawName).trim();
@@ -153,6 +152,3 @@ export const formatStoreDisplayName = (rawName) => {
 };
 
 export default baseUrl;
-=======
-export default baseUrl;
->>>>>>> prod/main
