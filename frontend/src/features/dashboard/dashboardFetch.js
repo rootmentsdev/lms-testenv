@@ -92,11 +92,15 @@ export function fetchWeeklyWalkins(daysCount = 7) {
   return fetchJson(buildWalkinChartPath({ range: daysCount, chartOnly: false }));
 }
 
-export function fetchDailyWalkinsChart({ range = "7", startDate, endDate } = {}) {
-  return fetchJson(buildWalkinChartPath({ range, startDate, endDate, chartOnly: true }));
+export function fetchDailyWalkinsChart({ range = "7", startDate, endDate, store } = {}) {
+  let path = buildWalkinChartPath({ range, startDate, endDate, chartOnly: true });
+  if (store) {
+    path += `&store=${encodeURIComponent(store)}`;
+  }
+  return fetchJson(path);
 }
 
-export function fetchWeeklyWalkinCount({ range = "7", startDate, endDate } = {}) {
+export function fetchWeeklyWalkinCount({ range = "7", startDate, endDate, store } = {}) {
   const useCustomRange = String(range) === "custom";
   const preset = getPresetDateRange(range);
   const start = useCustomRange && normalizeDate(startDate) ? toISTDateOnly(normalizeDate(startDate)) : preset?.startDate;
@@ -106,7 +110,11 @@ export function fetchWeeklyWalkinCount({ range = "7", startDate, endDate } = {})
     throw new Error("A valid date range is required");
   }
 
-  return fetchJson(`api/walkin/list?startDate=${start}&endDate=${end}&countOnly=true`);
+  let path = `api/walkin/list?startDate=${start}&endDate=${end}&countOnly=true`;
+  if (store) {
+    path += `&store=${encodeURIComponent(store)}`;
+  }
+  return fetchJson(path);
 }
 
 export function fetchBestThreeUsers() {

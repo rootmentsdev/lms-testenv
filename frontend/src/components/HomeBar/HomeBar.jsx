@@ -838,10 +838,18 @@ const HomeBar = () => {
     return () => { mountedRef.current = false; };
   }, [timeframe, customStart, customEnd]);
 
-  const allData = useMemo(
-    () => normalizeBranchProgress(responseData),
-    [responseData]
-  );
+  const allData = useMemo(() => {
+    let data = normalizeBranchProgress(responseData);
+    if (isStoreAdmin && user?.workingBranch) {
+      const targetFmt = user.workingBranch.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const filtered = data.filter((obj) => {
+        const name = (obj.branchName || obj.branch || obj.locCode || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        return name.includes(targetFmt) || targetFmt.includes(name);
+      });
+      if (filtered.length > 0) data = filtered;
+    }
+    return data;
+  }, [responseData, isStoreAdmin, user?.workingBranch]);
 
   const realChartData = useMemo(() =>
     allData.map((obj) => {

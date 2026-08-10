@@ -150,6 +150,7 @@ const DashboardOverview = ({ range = "7", customRange }) => {
           range,
           startDate: customRange?.startDate,
           endDate: customRange?.endDate,
+          store: user?.role === "store_admin" ? user?.workingBranch : undefined,
         });
         if (!mounted) return;
         setWalkinCount(Number(walkins?.count || 0));
@@ -192,17 +193,45 @@ const DashboardOverview = ({ range = "7", customRange }) => {
       mounted = false;
       window.removeEventListener("dashboard:refresh", refresh);
     };
-  }, [range, customRange?.startDate, customRange?.endDate]);
+  }, [range, customRange?.startDate, customRange?.endDate, user?.role, user?.workingBranch]);
+
+  const isStoreAdmin = user?.role === "store_admin";
+  const userBranchName = user?.workingBranch || "";
 
   const stats = useMemo(() => {
     const summary = summaryResponse?.data || {};
-    const branches = normalizeBranchProgress(chartResponse);
-    const totalBranches = branches.length;
+    let branches = normalizeBranchProgress(chartResponse);
+    if (isStoreAdmin && userBranchName) {
+      const targetFmt = userBranchName.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const filtered = branches.filter((b) => {
+        const name = (b.branchName || b.shortBranchName || b.locCode || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        return name.includes(targetFmt) || targetFmt.includes(name);
+      });
+      if (filtered.length > 0) branches = filtered;
+    }
 
-    const totalEmp = Number(summary.totalEmployees || branches.reduce((sum, b) => sum + (b.totalEmployees || 0), 0));
-    const inTraining = Number(summary.employeesInTraining || 0);
-    const completedAssessments = Number(summary.completedAssessments || branches.reduce((sum, b) => sum + Number(b.completeAssessmentCount || 0), 0));
-    const overdueAssessmentsCount = Number(summary.overdueAssessments || branches.reduce((sum, b) => sum + Number(b.pendingAssessmentCount || 0), 0));
+    const totalBranches = isStoreAdmin ? 1 : branches.length;
+
+    const totalEmp = Number(
+      isStoreAdmin && branches.length > 0
+        ? branches.reduce((sum, b) => sum + (b.totalEmployees || 0), 0)
+        : summary.totalEmployees || branches.reduce((sum, b) => sum + (b.totalEmployees || 0), 0)
+    );
+    const inTraining = Number(
+      isStoreAdmin && branches.length > 0
+        ? branches.reduce((sum, b) => sum + (b.employeesInTraining || 0), 0)
+        : summary.employeesInTraining || 0
+    );
+    const completedAssessments = Number(
+      isStoreAdmin && branches.length > 0
+        ? branches.reduce((sum, b) => sum + Number(b.completeAssessmentCount || 0), 0)
+        : summary.completedAssessments || branches.reduce((sum, b) => sum + Number(b.completeAssessmentCount || 0), 0)
+    );
+    const overdueAssessmentsCount = Number(
+      isStoreAdmin && branches.length > 0
+        ? branches.reduce((sum, b) => sum + Number(b.pendingAssessmentCount || 0), 0)
+        : summary.overdueAssessments || branches.reduce((sum, b) => sum + Number(b.pendingAssessmentCount || 0), 0)
+    );
     const totalAssessments = completedAssessments + overdueAssessmentsCount;
 
     const tasks = tasksResponse?.data || [];
@@ -243,7 +272,9 @@ const DashboardOverview = ({ range = "7", customRange }) => {
       totalWalkins,
       overdueTasksCount,
     };
-  }, [summaryResponse, chartResponse, walkinCount, tasksResponse]);
+  }, [summaryResponse, chartResponse, walkinCount, tasksResponse, isStoreAdmin, userBranchName]);
+
+  const storeSubtitle = isStoreAdmin && userBranchName ? userBranchName : `Across ${stats.totalBranches} stores`;
 
   const cards = [
     {
@@ -251,12 +282,12 @@ const DashboardOverview = ({ range = "7", customRange }) => {
       value: walkinLoading ? "..." : (stats.totalWalkins || "0"),
       subtitle:
         range === "7"
-          ? `This week to date · ${stats.totalBranches} stores`
+          ? `This week to date · ${isStoreAdmin ? userBranchName : stats.totalBranches + ' stores'}`
           : range === "month"
-          ? `This month to date · ${stats.totalBranches} stores`
+          ? `This month to date · ${isStoreAdmin ? userBranchName : stats.totalBranches + ' stores'}`
           : range === "custom" && customRange?.startDate && customRange?.endDate
-          ? `${formatDateLabel(customRange.startDate)} to ${formatDateLabel(customRange.endDate)} · ${stats.totalBranches} stores`
-          : `Last ${range} days · ${stats.totalBranches} stores`,
+          ? `${formatDateLabel(customRange.startDate)} to ${formatDateLabel(customRange.endDate)} · ${isStoreAdmin ? userBranchName : stats.totalBranches + ' stores'}`
+          : `Last ${range} days · ${isStoreAdmin ? userBranchName : stats.totalBranches + ' stores'}`,
       icon: <WalkinIcon />,
       iconBg: "#EDE9FE",
     },
@@ -277,14 +308,14 @@ const DashboardOverview = ({ range = "7", customRange }) => {
     {
       title: "Employees in Training",
       value: summaryLoading ? "..." : (stats.inTraining || "0"),
-      subtitle: `Across ${stats.totalBranches} stores`,
+      subtitle: storeSubtitle,
       icon: <EmployeeIcon />,
       iconBg: "#DCFCE7",
     },
     {
       title: "Completed Assessments",
       value: summaryLoading ? "..." : (stats.completedAssessments || "0"),
-      subtitle: `Across ${stats.totalBranches} stores`,
+      subtitle: storeSubtitle,
       icon: <AssessmentIcon />,
       iconBg: "#DBEAFE",
     },

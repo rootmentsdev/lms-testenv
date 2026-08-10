@@ -398,6 +398,12 @@ function normalizeForMatch(str) {
 }
 
 const STAFF_ALIAS_MAPPING = {
+  "sidheek": "SIDHEEQ",
+  "sidheeq": "SIDHEEQ",
+  "sidheek k": "SIDHEEQ",
+  "sidheeq k": "SIDHEEQ",
+  "sidheeqk": "SIDHEEQ",
+  "sidheekk": "SIDHEEQ",
   "niyas dinu nasar k": "NIYAS",
   "niyas dinu nasar": "NIYAS",
   "niyasdinunasark": "NIYAS",
@@ -1916,22 +1922,43 @@ const DSRReport = () => {
     fetchSystemEmployees();
   }, []);
 
-  const systemEmpNameToCodeMap = useMemo(() => {
-    const map = new Map();
+  const { systemEmpNameToCodeMap, systemEmpCodeToNameMap } = useMemo(() => {
+    const nameToCodeMap = new Map();
+    const codeToNameMap = new Map();
+
     systemEmployees.forEach(emp => {
       const code = emp.EmpId || emp.empID || emp.employeeId || emp.emp_code;
       const normCode = normalizeEmpCode(code);
       if (!normCode) return;
 
-      [emp.username, emp.name, emp.staffName].forEach(rawName => {
-        if (rawName) {
-          const canon = getCanonicalStaffName(rawName);
-          map.set(canon.toLowerCase(), normCode);
-          map.set(normalizeForMatch(rawName), normCode);
+      const officialName = emp.name || emp.staffName || emp.username || "";
+      if (officialName) {
+        codeToNameMap.set(normCode, officialName);
+      }
+
+      [emp.username, emp.name, emp.staffName].filter(Boolean).forEach(rawName => {
+        const canon = getCanonicalStaffName(rawName);
+        const normKey = normalizeForMatch(rawName);
+        
+        nameToCodeMap.set(canon.toLowerCase(), normCode);
+        nameToCodeMap.set(normKey, normCode);
+
+        // Auto-handle spelling variants across systems (e.g. Q <-> K, E <-> EE, initials)
+        const qToK = normKey.replace(/q/g, 'k');
+        const kToQ = normKey.replace(/k/g, 'q');
+        nameToCodeMap.set(qToK, normCode);
+        nameToCodeMap.set(kToQ, normCode);
+
+        const cleanKey = normKey.replace(/[^a-z]/g, '');
+        if (cleanKey.length >= 3) {
+          nameToCodeMap.set(cleanKey, normCode);
+          nameToCodeMap.set(cleanKey.replace(/q/g, 'k'), normCode);
+          nameToCodeMap.set(cleanKey.replace(/k/g, 'q'), normCode);
         }
       });
     });
-    return map;
+
+    return { systemEmpNameToCodeMap: nameToCodeMap, systemEmpCodeToNameMap: codeToNameMap };
   }, [systemEmployees]);
 
   // Fetch targets dynamically when not editing targets in modals
@@ -2503,9 +2530,13 @@ const DSRReport = () => {
         if (!name) return;
         const canonName = getCanonicalStaffName(name);
         const normReal = normalizeForMatch(canonName);
-        if (normReal && !seenNormalized.has(normReal)) {
-          seenNormalized.add(normReal);
-          staffNames.push(canonName);
+        const empCode = systemEmpNameToCodeMap.get(canonName.toLowerCase()) || systemEmpNameToCodeMap.get(normReal);
+        const dedupeKey = empCode ? `code_${empCode}` : `name_${normReal}`;
+
+        if (dedupeKey && !seenNormalized.has(dedupeKey)) {
+          seenNormalized.add(dedupeKey);
+          const officialName = (empCode && systemEmpCodeToNameMap?.get(empCode)) ? systemEmpCodeToNameMap.get(empCode) : canonName;
+          staffNames.push(officialName);
         }
       });
 
@@ -2514,10 +2545,21 @@ const DSRReport = () => {
         const fullName = String(staffName).trim();
         const targetCanon = getCanonicalStaffName(staffName);
         const staffKey = normalizeForMatch(targetCanon);
+        const staffEmpCode = systemEmpNameToCodeMap.get(targetCanon.toLowerCase()) || systemEmpNameToCodeMap.get(staffKey);
 
-        let rentalVal = mergedPeriodList.filter(x => x && (normalizeForMatch(getCanonicalStaffName(x.bookingBy)) === staffKey || normalizeForMatch(x.bookingBy) === staffKey)).reduce((sum, x) => sum + (x.totalValue || 0), 0);
+        let rentalVal = mergedPeriodList.filter(x => {
+          if (!x) return false;
+          const xCode = normalizeEmpCode(x.empCode) || systemEmpNameToCodeMap.get(getCanonicalStaffName(x.bookingBy).toLowerCase()) || systemEmpNameToCodeMap.get(normalizeForMatch(x.bookingBy));
+          if (staffEmpCode && xCode && staffEmpCode === xCode) return true;
+          return normalizeForMatch(getCanonicalStaffName(x.bookingBy)) === staffKey || normalizeForMatch(x.bookingBy) === staffKey;
+        }).reduce((sum, x) => sum + (x.totalValue || 0), 0);
+
         if (funnelView === "Consolidated") {
-          const dapprKey = Object.keys(dapprAttribution).find(k => normalizeForMatch(getCanonicalStaffName(k)) === staffKey || normalizeForMatch(k) === staffKey);
+          const dapprKey = Object.keys(dapprAttribution).find(k => {
+            const kCode = systemEmpNameToCodeMap.get(getCanonicalStaffName(k).toLowerCase()) || systemEmpNameToCodeMap.get(normalizeForMatch(k));
+            if (staffEmpCode && kCode && staffEmpCode === kCode) return true;
+            return normalizeForMatch(getCanonicalStaffName(k)) === staffKey || normalizeForMatch(k) === staffKey;
+          });
           if (dapprKey) {
             rentalVal += Number(dapprAttribution[dapprKey]?.billWtd) || 0;
           }
