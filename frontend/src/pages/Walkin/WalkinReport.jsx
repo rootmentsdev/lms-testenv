@@ -71,10 +71,10 @@ const NON_SALES_REASONS = new Set([
 ]);
 
 const HARDCODED_STORES = [
-    'SG Edappally', 'SG Calicut', 'SG Chavakkad', 'SG Edappal', 'SG Kalpetta',
-    'SG Kannur', 'SG Kottakkal', 'SG Kottayam', 'SG Manjeri', 'SG MG Road',
-    'SG Palakkad', 'SG Perinthalmanna', 'SG Perumbavoor', 'SG Thrissur', 'SG Trivandrum',
-    'SG Vadakara',
+    'G-Edappally', 'G.Calicut', 'G.Chavakkad', 'G.Edappal', 'G.Kalpetta',
+    'G.Kannur', 'G.Kottakkal', 'G.Kottayam', 'G.Manjeri', 'G.MG Road',
+    'G.Palakkad', 'G.Perinthalmanna', 'G.Perumbavoor', 'G.Thrissur', 'G-Trivandrum',
+    'G.Vadakara',
     'Z-Edapally1', 'Z- Edappal', 'Z.Kottakkal', 'Z.Perinthalmanna',
     'Dappr Squad', 'office', 'production', 'WAREHOUSE'
 ];
@@ -744,17 +744,16 @@ const WalkinReport = () => {
         let list = Array.isArray(json?.stores) ? json.stores : (Array.isArray(json?.data) ? json.data : []);
         
         if (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'telecaller') {
-          const existingNames = new Set(list.map(b => formatStoreDisplayName(b.workingBranch)).filter(Boolean));
-          const missing = HARDCODED_STORES.filter(s => !existingNames.has(formatStoreDisplayName(s)));
+          const existingNames = new Set(list.map(b => b.workingBranch).filter(Boolean));
+          const missing = HARDCODED_STORES.filter(s => !existingNames.has(s));
           list = [...list, ...missing.map(name => ({ workingBranch: name }))];
         }
         
-        const seenDisplayNames = new Set();
+        const seenWorkingBranches = new Set();
         const uniqueBranches = [];
         for (const b of list) {
-          const dispName = formatStoreDisplayName(b.workingBranch);
-          if (dispName && !seenDisplayNames.has(dispName)) {
-            seenDisplayNames.add(dispName);
+          if (b?.workingBranch && !seenWorkingBranches.has(b.workingBranch)) {
+            seenWorkingBranches.add(b.workingBranch);
             uniqueBranches.push(b);
           }
         }

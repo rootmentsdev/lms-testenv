@@ -50,10 +50,10 @@ const CATEGORIES = [
 ];
 
 const HARDCODED_STORES = [
-    'SG Edappally', 'SG Calicut', 'SG Chavakkad', 'SG Edappal', 'SG Kalpetta',
-    'SG Kannur', 'SG Kottakkal', 'SG Kottayam', 'SG Manjeri', 'SG MG Road',
-    'SG Palakkad', 'SG Perinthalmanna', 'SG Perumbavoor', 'SG Thrissur', 'SG Trivandrum',
-    'SG Vadakara',
+    'G-Edappally', 'G.Calicut', 'G.Chavakkad', 'G.Edappal', 'G.Kalpetta',
+    'G.Kannur', 'G.Kottakkal', 'G.Kottayam', 'G.Manjeri', 'G.MG Road',
+    'G.Palakkad', 'G.Perinthalmanna', 'G.Perumbavoor', 'G.Thrissur', 'G-Trivandrum',
+    'G.Vadakara',
     'Z-Edapally1', 'Z- Edappal', 'Z.Kottakkal', 'Z.Perinthalmanna',
     'Dappr Squad', 'office', 'production', 'WAREHOUSE'
 ];
@@ -483,17 +483,16 @@ const WalkinCount = () => {
                 let branchList = Array.isArray(branchJson?.stores) ? branchJson.stores : (Array.isArray(branchJson?.data) ? branchJson.data : []);
 
                 if (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'telecaller') {
-                    const existingNames = new Set(branchList.map(b => formatStoreDisplayName(b.workingBranch)).filter(Boolean));
-                    const missing = HARDCODED_STORES.filter(s => !existingNames.has(formatStoreDisplayName(s)));
+                    const existingNames = new Set(branchList.map(b => b.workingBranch).filter(Boolean));
+                    const missing = HARDCODED_STORES.filter(s => !existingNames.has(s));
                     branchList = [...branchList, ...missing.map(name => ({ workingBranch: name }))];
                 }
 
-                const seenDisplayNames = new Set();
+                const seenWorkingBranches = new Set();
                 const uniqueBranches = [];
                 for (const b of branchList) {
-                    const dispName = formatStoreDisplayName(b.workingBranch);
-                    if (dispName && !seenDisplayNames.has(dispName)) {
-                        seenDisplayNames.add(dispName);
+                    if (b?.workingBranch && !seenWorkingBranches.has(b.workingBranch)) {
+                        seenWorkingBranches.add(b.workingBranch);
                         uniqueBranches.push(b);
                     }
                 }

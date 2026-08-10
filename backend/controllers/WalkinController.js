@@ -41,6 +41,66 @@ function locationKey(name) {
     return tokens.join(" ");
 }
 
+const resolveStoreConditions = async (storeParam) => {
+    if (!storeParam || storeParam.toLowerCase() === 'all') return null;
+
+    const storeArr = storeParam.split(',').map(s => s.trim()).filter(Boolean);
+    if (storeArr.length === 0) return null;
+
+    const allBranches = await Branch.find({}).lean();
+    const allWalkinStores = await Walkin.distinct("store").catch(() => []);
+
+    const matchedBranchIds = new Set();
+    const matchedStoreNames = new Set();
+
+    storeArr.forEach(s => {
+        const key = locationKey(s);
+        matchedStoreNames.add(s);
+
+        if (key) {
+            allBranches.forEach(b => {
+                const bKey = locationKey(b.workingBranch || b.location || "");
+                if (bKey === key || norm(b.workingBranch).includes(key)) {
+                    if (b._id) matchedBranchIds.add(b._id.toString());
+                    if (b.workingBranch) matchedStoreNames.add(b.workingBranch);
+                }
+            });
+
+            allWalkinStores.forEach(ws => {
+                if (typeof ws === 'string') {
+                    const wsKey = locationKey(ws);
+                    if (wsKey === key || norm(ws).includes(key)) {
+                        matchedStoreNames.add(ws);
+                    }
+                }
+            });
+        }
+    });
+
+    const matchedIdsArray = [];
+    matchedBranchIds.forEach(id => {
+        matchedIdsArray.push(id);
+        try {
+            matchedIdsArray.push(new mongoose.Types.ObjectId(id));
+        } catch {
+            // ignore
+        }
+    });
+
+    const matchedNamesArray = Array.from(matchedStoreNames);
+
+    return {
+        query: {
+            $or: [
+                { store: { $in: matchedNamesArray } },
+                { storeId: { $in: matchedIdsArray } }
+            ]
+        },
+        matchedIdsArray,
+        matchedNamesArray
+    };
+};
+
 const getFormattedDateTime = (date = new Date()) => {
     const d = new Date(date);
     const istDate = new Date(d.getTime() + (5.5 * 60 * 60 * 1000));
@@ -945,12 +1005,10 @@ export const getWalkins = async (req, res) => {
         }
 
         if (store && store !== 'All') {
-            const storeNames = store.split(',').map(s => s.trim()).filter(Boolean);
-            if (storeNames.length > 1) {
-                const regexes = storeNames.map(name => new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'));
-                baseQuery.store = { $in: regexes };
-            } else if (storeNames.length === 1) {
-                baseQuery.store = { $regex: `^${storeNames[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' };
+            const resolvedStoreObj = await resolveStoreConditions(store);
+            if (resolvedStoreObj?.query) {
+                if (!baseQuery.$and) baseQuery.$and = [];
+                baseQuery.$and.push(resolvedStoreObj.query);
             }
         }
 
@@ -1253,23 +1311,14 @@ export const getWalkinCountPageData = async (req, res) => {
         }
 
 
-        // 1. Resolve store branch and storeId (supporting multi-store comma-separated strings)
+        // 1. Resolve store branch and storeId (supporting multi-store comma-separated strings & location aliases)
         let queryConditions = [];
+        let resolvedStoreObj = null;
 
         if (store.toLowerCase() !== 'all') {
-            const storeArr = store.split(',').map(s => s.trim()).filter(Boolean);
-            if (storeArr.length > 0) {
-                const regexArr = storeArr.map(s => new RegExp(`^${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'));
-                const matchingBranches = await Branch.find({ workingBranch: { $in: regexArr } });
-                const matchedIds = matchingBranches.map(b => b._id);
-                const matchedNames = matchingBranches.map(b => b.workingBranch);
-
-                queryConditions.push({
-                    $or: [
-                        { store: { $in: [...regexArr, ...matchedNames] } },
-                        { storeId: { $in: matchedIds } }
-                    ]
-                });
+            resolvedStoreObj = await resolveStoreConditions(store);
+            if (resolvedStoreObj?.query) {
+                queryConditions.push(resolvedStoreObj.query);
             }
         }
 
@@ -1537,8 +1586,18 @@ export const getWalkinCountPageData = async (req, res) => {
         } else {
             cameraChecksQuery.date = date;
         }
-        if (store.toLowerCase() !== 'all') {
-            cameraChecksQuery.storeId = resolvedStoreId;
+        if (store.toLowerCase() !== 'all' && resolvedStoreObj) {
+            const orList = [];
+            if (resolvedStoreObj.matchedIdsArray && resolvedStoreObj.matchedIdsArray.length > 0) {
+                orList.push({ storeId: { $in: resolvedStoreObj.matchedIdsArray } });
+            }
+            if (resolvedStoreObj.matchedNamesArray && resolvedStoreObj.matchedNamesArray.length > 0) {
+                const storeRegexes = resolvedStoreObj.matchedNamesArray.map(n => new RegExp(`^${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'));
+                orList.push({ store: { $in: [...storeRegexes, ...resolvedStoreObj.matchedNamesArray] } });
+            }
+            if (orList.length > 0) {
+                cameraChecksQuery.$or = orList;
+            }
         }
         const cameraChecks = await WalkinCameraCheck.find(cameraChecksQuery)
             .populate('createdBy', 'name role')
@@ -1557,11 +1616,17 @@ export const getWalkinCountPageData = async (req, res) => {
         } else {
             savedCountsQuery.date = date;
         }
-        if (store.toLowerCase() !== 'all') {
-            const storeArr = store.split(',').map(s => s.trim()).filter(Boolean);
-            if (storeArr.length > 0) {
-                const regexArr = storeArr.map(s => new RegExp(`^${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'));
-                savedCountsQuery.store = { $in: regexArr };
+        if (store.toLowerCase() !== 'all' && resolvedStoreObj) {
+            const orList = [];
+            if (resolvedStoreObj.matchedNamesArray && resolvedStoreObj.matchedNamesArray.length > 0) {
+                const storeRegexes = resolvedStoreObj.matchedNamesArray.map(n => new RegExp(`^${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'));
+                orList.push({ store: { $in: [...storeRegexes, ...resolvedStoreObj.matchedNamesArray] } });
+            }
+            if (resolvedStoreObj.matchedIdsArray && resolvedStoreObj.matchedIdsArray.length > 0) {
+                orList.push({ storeId: { $in: resolvedStoreObj.matchedIdsArray } });
+            }
+            if (orList.length > 0) {
+                savedCountsQuery.$or = orList;
             }
         }
 
@@ -1647,10 +1712,13 @@ export const getWalkinCountPageData = async (req, res) => {
             });
         }
 
+        const savedStoreName = store.toLowerCase() === 'all' ? 'All' : (resolvedStoreObj?.matchedNamesArray?.[0] || store);
+        const savedStoreId = store.toLowerCase() === 'all' ? null : (resolvedStoreObj?.matchedIdsArray?.[0] || null);
+
         const savedCount = {
             date: hasRange ? `${startDate} to ${endDate}` : date,
-            store: store.toLowerCase() === 'all' ? 'All' : resolvedStoreName,
-            storeId: store.toLowerCase() === 'all' ? null : resolvedStoreId,
+            store: savedStoreName,
+            storeId: savedStoreId,
             counts: aggregatedCounts
         };
 
@@ -1947,25 +2015,9 @@ export const getFlutterWalkinCount = async (req, res) => {
         let queryConditions = [];
 
         if (store.toLowerCase() !== 'all') {
-            const branch = await Branch.findOne({ workingBranch: { $regex: `^${store.trim()}$`, $options: 'i' } });
-            if (branch) {
-                resolvedStoreId = branch._id;
-                resolvedStoreName = branch.workingBranch;
-                queryConditions.push({
-                    $or: [
-                        { store: resolvedStoreName },
-                        { storeId: resolvedStoreId }
-                    ]
-                });
-            } else {
-                resolvedStoreId = new mongoose.Types.ObjectId();
-                resolvedStoreName = store;
-                queryConditions.push({
-                    $or: [
-                        { store: resolvedStoreName },
-                        { storeId: resolvedStoreId }
-                    ]
-                });
+            const resolvedStoreObj = await resolveStoreConditions(store);
+            if (resolvedStoreObj?.query) {
+                queryConditions.push(resolvedStoreObj.query);
             }
         }
 
@@ -2035,10 +2087,12 @@ export const getFlutterWalkinCount = async (req, res) => {
 
         const walkinCount = walkinSet.size;
 
+        const savedStoreName = store.toLowerCase() === 'all' ? 'All' : (resolvedStoreObj?.matchedNamesArray?.[0] || store);
+
         return res.status(200).json({
             success: true,
             date: hasRange ? `${startDate} to ${endDate}` : date,
-            store: store.toLowerCase() === 'all' ? 'All' : resolvedStoreName,
+            store: savedStoreName,
             walkinCount
         });
     } catch (error) {
