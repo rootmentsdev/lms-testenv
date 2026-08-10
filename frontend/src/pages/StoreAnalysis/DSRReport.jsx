@@ -1004,9 +1004,77 @@ const DSRReport = () => {
     }
     return nearest;
   };
+  // getTargetForRange: Accepts Date objects (start, end) and calculates prorated target day-by-day
+  // Used by getStoreTarget (MTD/WTD) and getStaffTarget (MTD/WTD)
+  const getTargetForRange = (storeName, start, end, overrideTargetObj = null) => {
+    if (!start || !end) return 0;
+
+    const targetMonth = start.getMonth();
+    const targetMonthName = start.toLocaleString("en-US", { month: "long" });
+    const targetYearNum = start.getFullYear();
+
+    const autoWeeks = getAutoWeekDates(targetMonthName, targetYearNum);
+
+    let w1 = autoWeeks[1], w2 = autoWeeks[2], w3 = autoWeeks[3], w4 = autoWeeks[4];
+
+    if (storeName && storeName !== "All") {
+      const sr = getStoreWeekRange(storeName, targetMonthName);
+      if (sr) {
+        if (sr[1] && sr[1] !== "Select Days") w1 = sr[1];
+        if (sr[2] && sr[2] !== "Select Days") w2 = sr[2];
+        if (sr[3] && sr[3] !== "Select Days") w3 = sr[3];
+        if (sr[4] && sr[4] !== "Select Days") w4 = sr[4];
+      }
+    }
+
+    const parseRange = (val, weekId) => {
+      let { start: startDay, end: endDay } = parseWeekDays(val);
+      if (startDay === null || endDay === null || isNaN(startDay) || isNaN(endDay)) {
+        if (weekId === 1) { startDay = 1; endDay = 7; }
+        else if (weekId === 2) { startDay = 8; endDay = 14; }
+        else if (weekId === 3) { startDay = 15; endDay = 21; }
+        else { startDay = 22; endDay = getDaysCountInMonth(targetMonthName, targetYearNum); }
+      }
+      return { startDay, endDay, count: (endDay - startDay + 1) };
+    };
+
+    const wRanges = {
+      1: parseRange(w1, 1),
+      2: parseRange(w2, 2),
+      3: parseRange(w3, 3),
+      4: parseRange(w4, 4),
+    };
+
+    const storeTargetObj = overrideTargetObj || getStoreWeeklyTargets(storeName);
+
+    let totalTarget = 0;
+    let temp = new Date(start);
+    while (temp <= end) {
+      const dayNum = temp.getDate();
+      const tempMonth = temp.getMonth();
+      if (tempMonth === targetMonth) {
+        let foundWeekId = null;
+        for (let wId = 1; wId <= 4; wId++) {
+          const r = wRanges[wId];
+          if (dayNum >= r.startDay && dayNum <= r.endDay) {
+            foundWeekId = wId;
+            break;
+          }
+        }
+        if (foundWeekId) {
+          const targetW = storeTargetObj[foundWeekId] || storeTargetObj[String(foundWeekId)] || 0;
+          const daysInW = wRanges[foundWeekId].count || 7;
+          totalTarget += targetW / daysInW;
+        }
+      }
+      temp.setDate(temp.getDate() + 1);
+    }
+    return Math.round(totalTarget);
+  };
 
   const getCustomRangeTarget = (storeName, startDateStr, endDateStr, overrideTargetObj = null) => {
     if (!startDateStr || !endDateStr) return 0;
+
     
     const start = new Date(startDateStr);
     const end = new Date(endDateStr);
