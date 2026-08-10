@@ -1693,7 +1693,8 @@ const StoreInsights = () => {
 
   const getTargetForRange = (storeName, start, end, targetMonthName = CURRENT_MONTH_LONG, overrideTargetObj = null) => {
     if (!start || !end) return 0;
-    const targetMonthIndex = getMonthIndex(targetMonthName);
+    const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    const targetMonthIndex = MONTH_NAMES.indexOf(targetMonthName);
     const targetYearNum = start.getFullYear();
     const targetMonth = targetMonthIndex !== -1 ? targetMonthIndex : new Date().getMonth();
 
