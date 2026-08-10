@@ -1218,6 +1218,11 @@ const StoreInsights = () => {
     "shabir vt": "SHABIR VT",
     "shabirvt": "SHABIR VT",
     "shabir": "SHABIR VT",
+    "devadeth r": "DEVADATH",
+    "devadethr": "DEVADATH",
+    "devadeth": "DEVADATH",
+    "devadath r": "DEVADATH",
+    "devadathr": "DEVADATH",
   };
 
   function getCanonicalStaffName(rawName) {

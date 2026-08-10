@@ -3,7 +3,7 @@ const baseUrl = {
   // https://lms-testenv-v0w5.onrender.com/
   baseUrl: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? "http://localhost:7001/"
-    : "https://lms-testenv.onrender.com/",
+    : "https://lms.brynexapparels.in/",
 };
 
 /**
@@ -119,6 +119,7 @@ export const updateVideoProgress = async (params) => {
   return response;
 };
 
+<<<<<<< HEAD
 export const formatStoreDisplayName = (rawName) => {
   if (!rawName) return '';
   const trimmed = String(rawName).trim();
@@ -152,3 +153,6 @@ export const formatStoreDisplayName = (rawName) => {
 };
 
 export default baseUrl;
+=======
+export default baseUrl;
+>>>>>>> prod/main
