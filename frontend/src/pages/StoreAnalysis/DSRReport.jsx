@@ -1170,47 +1170,57 @@ const DSRReport = () => {
     const currentYear = today.getFullYear();
     const currentMonth = today.getMonth();
 
-    // MTD: Prorated daily sum from 1st of the month up to today (or end of month if today is past current month)
+    // MTD: Prorated daily sum from 1st of the month up to today
     if (activeTabVal === "MTD") {
       const monthStart = new Date(currentYear, currentMonth, 1);
       const lastDayOfMonth = getDaysCountInMonth(CURRENT_MONTH_LONG, currentYear);
       const monthEnd = new Date(currentYear, currentMonth, lastDayOfMonth);
       const endDate = today > monthEnd ? monthEnd : (today < monthStart ? monthStart : today);
       
-      const hasCustomWeeks = [1, 2, 3, 4].some(wId => storeTargetObj[wId] !== undefined || storeTargetObj[String(wId)] !== undefined);
-      if (!hasCustomWeeks && defaultTarget) {
+      // Only use simple proration if no weekly targets are stored at all
+      const hasAnyWeekTarget = [1, 2, 3, 4].some(wId => {
+        const v = storeTargetObj[wId] !== undefined ? storeTargetObj[wId] : storeTargetObj[String(wId)];
+        return v !== undefined && Number(v) > 0;
+      });
+      if (!hasAnyWeekTarget && defaultTarget) {
         const daysInMonth = getDaysCountInMonth(CURRENT_MONTH_LONG, currentYear);
         const elapsedDays = Math.max(1, Math.min(daysInMonth, today.getDate()));
         return Math.round((defaultTarget / daysInMonth) * elapsedDays);
       }
+      if (!hasAnyWeekTarget) return 0;
       
       return getTargetForRange(storeName, monthStart, endDate);
     }
     
-    // WTD: Prorated daily sum from active week start up to today
+    // WTD: Prorated from active week start up to today using week range dates
     if (activeTabVal === "WTD") {
-      const currentWeekId = getCurrentWeekId(storeName); 
+      const currentWeekId = getCurrentWeekId(storeName);
       const weekRangesObj = getStoreWeekRange(storeName);
-      if (weekRangesObj && weekRangesObj.activeWeekRange) {
-        const rangeParts = weekRangesObj.activeWeekRange.split("-").map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
-        if (rangeParts.length >= 2) {
-          const weekStart = new Date(currentYear, currentMonth, rangeParts[0]);
-          const weekEnd = new Date(currentYear, currentMonth, rangeParts[1]);
+
+      // Get the date range string for the active week (key is the weekId number)
+      const activeWeekRangeStr = weekRangesObj ? (weekRangesObj[currentWeekId] || weekRangesObj[String(currentWeekId)]) : null;
+
+      if (activeWeekRangeStr && activeWeekRangeStr !== "Select Days") {
+        const { start: startDay, end: endDay } = parseWeekDays(activeWeekRangeStr);
+        if (startDay !== null && endDay !== null && !isNaN(startDay) && !isNaN(endDay)) {
+          const weekStart = new Date(currentYear, currentMonth, startDay);
+          const weekEnd = new Date(currentYear, currentMonth, endDay);
           const endDate = today > weekEnd ? weekEnd : (today < weekStart ? weekStart : today);
           if (today >= weekStart) {
             return getTargetForRange(storeName, weekStart, endDate);
           }
         }
       }
-      
+
+      // Fallback: use the week target / days in week * elapsed days of the current calendar week
       const val = storeTargetObj[currentWeekId] !== undefined ? storeTargetObj[currentWeekId] : storeTargetObj[String(currentWeekId)];
-      const fullWTarget = val !== undefined ? Number(val) : Math.round(defaultTarget * 0.23);
+      const fullWTarget = (val !== undefined && val !== null) ? Number(val) : (defaultTarget ? Math.round(defaultTarget * 0.23) : 0);
+      if (fullWTarget === 0) return 0;
       const elapsedDays = Math.max(1, Math.min(7, today.getDay() === 0 ? 7 : today.getDay()));
       return Math.round((fullWTarget / 7) * elapsedDays);
     }
 
     if (activeTabVal === "Custom") {
-      // Proportional custom target calculated accurately based on custom date overlaps
       return getCustomRangeTarget(storeName, customStartDate, customEndDate);
     }
     
@@ -1238,13 +1248,15 @@ const DSRReport = () => {
     }
 
     if (activeTabVal === "WTD") {
-      const currentWeekId = getCurrentWeekId(storeName); 
+      const currentWeekId = getCurrentWeekId(storeName);
       const weekRangesObj = getStoreWeekRange(storeName);
-      if (weekRangesObj && weekRangesObj.activeWeekRange) {
-        const rangeParts = weekRangesObj.activeWeekRange.split("-").map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
-        if (rangeParts.length >= 2) {
-          const weekStart = new Date(currentYear, currentMonth, rangeParts[0]);
-          const weekEnd = new Date(currentYear, currentMonth, rangeParts[1]);
+
+      const activeWeekRangeStr = weekRangesObj ? (weekRangesObj[currentWeekId] || weekRangesObj[String(currentWeekId)]) : null;
+      if (activeWeekRangeStr && activeWeekRangeStr !== "Select Days") {
+        const { start: startDay, end: endDay } = parseWeekDays(activeWeekRangeStr);
+        if (startDay !== null && endDay !== null && !isNaN(startDay) && !isNaN(endDay)) {
+          const weekStart = new Date(currentYear, currentMonth, startDay);
+          const weekEnd = new Date(currentYear, currentMonth, endDay);
           const endDate = today > weekEnd ? weekEnd : (today < weekStart ? weekStart : today);
           if (today >= weekStart) {
             return getTargetForRange(storeName, weekStart, endDate, empTargetObj);
