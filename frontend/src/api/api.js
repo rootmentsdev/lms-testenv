@@ -3,7 +3,7 @@ const baseUrl = {
   // https://lms-testenv-v0w5.onrender.com/
   baseUrl: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? "http://localhost:7001/"
-    : "https://lms.brynexapparels.in/",
+    : "https://lms-testenv.onrender.com/",
 };
 
 /**
