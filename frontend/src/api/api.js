@@ -2,7 +2,7 @@ const baseUrl = {
   // Automatically switch between local development and test Render URL!
   // https://lms-testenv-v0w5.onrender.com/
   baseUrl: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? "http://localhost:7001/"
+    ? "http://localhost:7000/"
     : "https://lms-testenv-v0w5.onrender.com/",
 };
 
@@ -124,7 +124,7 @@ export const formatStoreDisplayName = (rawName) => {
   const trimmed = String(rawName).trim();
   const lower = trimmed.toLowerCase();
 
-  if (['dappr squad', 'office', 'production', 'warehouse'].includes(lower)) {
+  if (['dappr squad', 'dapper squad', 'office', 'production', 'warehouse'].includes(lower)) {
     return trimmed;
   }
 
