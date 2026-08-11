@@ -69,7 +69,7 @@ const BRANCH_LOCATION_MAPPING = {
   // G-MG Road (loc 23)
   "g.mg road": "23", "g.mgroad": "23", "g mg road": "23", "gmg road": "23", "grooms mg road": "23", "suitor guy mg road": "23", "sg.mg road": "23", "sg.mgroad": "23", "sg mg road": "23",
   // Dappr Squad (loc 25)
-  "dappr squad": "25", "crsrootments": "25"
+  "dappr squad": "25", "dapper squad": "25", "dappr": "25", "dapper": "25", "crsrootments": "25"
 };
 
 // Fuzzy normalized lookup: strips all non-alphanumeric chars then matches
@@ -242,6 +242,10 @@ function getDapprSquadDataForStore(locId, dapprList) {
       const code = alphaOnly.slice(2);
       if (abbrevMap[code] === locId) return true;
     }
+
+    // 4. Branch location lookup fallback
+    if (getBranchLocationId(raw) === locId) return true;
+    if (getBranchLocationId(alphaOnly) === locId) return true;
 
     return false;
   });
@@ -1285,9 +1289,23 @@ const StoreInsights = () => {
     const normalized = lower.replace(/[^a-z0-9]/g, "");
     return lower.startsWith("sg.") || 
            lower.startsWith("sg ") || 
+           lower.startsWith("sg-") || 
+           lower.startsWith("sg_") || 
+           lower.startsWith("z.") || 
+           lower.startsWith("z ") || 
+           lower.startsWith("z-") || 
+           lower.startsWith("z_") || 
+           lower === "dappr squad" ||
+           lower === "dapper squad" ||
+           lower.startsWith("dappr") ||
+           lower.startsWith("dapper") ||
+           lower === "crsrootments" ||
+           lower === "unassigned" ||
            DAPPR_SQUAD_STORE_MAPPING[lower] !== undefined ||
            DAPPR_SQUAD_STORE_MAPPING[normalized] !== undefined ||
-           lower === "dappr squad";
+           DAPPR_SQUAD_STORE_MAPPING["sg." + normalized.replace(/^sg/, "")] !== undefined ||
+           Boolean(getBranchLocationId(lower)) ||
+           Boolean(getBranchLocationId(normalized));
   };
 
   function levenshteinDistance(a, b) {
@@ -1576,36 +1594,99 @@ const StoreInsights = () => {
           setCustomizationAttribution(custMapped);
           setStoreCustomizationTotals(custByStore);
         } else {
-          const currentWeek = getCurrentWeekId(activeStore, targetMonth) || 1;
-
           // Fetch Dappr attributions (single store)
-          const dapprRes = await fetch(`${baseUrl.baseUrl}api/dappr-attributions?storeName=${encodeURIComponent(activeStore)}&month=${targetMonth}&year=${targetYear}&week=${currentWeek}`, {
+          let dapprUrl = `${baseUrl.baseUrl}api/dappr-attributions?storeName=${encodeURIComponent(activeStore)}&month=${targetMonth}&year=${targetYear}`;
+          if (timeframe === "WTD") {
+            const currentWeek = getCurrentWeekId(activeStore, targetMonth) || 1;
+            dapprUrl += `&week=${currentWeek}`;
+          }
+
+          const dapprRes = await fetch(dapprUrl, {
             headers: { "Authorization": `Bearer ${token}` }
           });
           const dapprJson = await dapprRes.json();
-          if (dapprJson.success && dapprJson.data && dapprJson.data.attributions) {
-            const mapped = {};
-            dapprJson.data.attributions.forEach(attr => {
-              mapped[attr.staffName] = { billWtd: attr.billWtd, valWtd: attr.valWtd, qtyWtd: attr.qtyWtd };
+          const mapped = {};
+          const dapprByStore = {};
+          const storeKey = normalizeForMatch(activeStore);
+          dapprByStore[storeKey] = { val: 0, bills: 0, qty: 0 };
+
+          if (dapprJson.success && dapprJson.data) {
+            const docs = Array.isArray(dapprJson.data) ? dapprJson.data : [dapprJson.data];
+            docs.forEach(doc => {
+              (doc.attributions || []).forEach(attr => {
+                if (!attr?.staffName) return;
+                const bv = Number(attr.billWtd) || 0;
+                const vv = Number(attr.valWtd) || 0;
+                const qv = Number(attr.qtyWtd) || 0;
+                mapped[attr.staffName] = {
+                  billWtd: (mapped[attr.staffName]?.billWtd || 0) + bv,
+                  valWtd:  (mapped[attr.staffName]?.valWtd  || 0) + vv,
+                  qtyWtd:  (mapped[attr.staffName]?.qtyWtd  || 0) + qv,
+                };
+                dapprByStore[storeKey].val   += bv;
+                dapprByStore[storeKey].bills += vv;
+                dapprByStore[storeKey].qty   += qv;
+              });
             });
             setDapprAttribution(mapped);
+            setStoreDapprTotals(dapprByStore);
           } else {
             setDapprAttribution({});
+            setStoreDapprTotals(dapprByStore);
           }
 
           // Fetch Customization attributions (single store)
-          const custRes = await fetch(`${baseUrl.baseUrl}api/customization-attributions?storeName=${encodeURIComponent(activeStore)}&month=${targetMonth}&year=${targetYear}&week=${currentWeek}`, {
+          let custUrl = `${baseUrl.baseUrl}api/customization-attributions?storeName=${encodeURIComponent(activeStore)}&month=${targetMonth}&year=${targetYear}`;
+          if (timeframe === "WTD") {
+            const currentWeek = getCurrentWeekId(activeStore, targetMonth) || 1;
+            custUrl += `&week=${currentWeek}`;
+          }
+
+          const custRes = await fetch(custUrl, {
             headers: { "Authorization": `Bearer ${token}` }
           });
           const custJson = await custRes.json();
-          if (custJson.success && custJson.data && custJson.data.attributions) {
-            const mapped = {};
-            custJson.data.attributions.forEach(attr => {
-              mapped[attr.staffName] = { billWtd: attr.billWtd, valWtd: attr.valWtd, qtyWtd: attr.qtyWtd };
+          const custMapped = {};
+          const custByStore = {};
+          custByStore[storeKey] = { val: 0, bills: 0, qty: 0 };
+
+          if (custJson.success && custJson.data) {
+            const docs = Array.isArray(custJson.data) ? custJson.data : [custJson.data];
+            docs.forEach(doc => {
+              let valAdd = Number(doc.totalValue) || 0;
+              let billsAdd = Number(doc.totalBills) || 0;
+              let qtyAdd = Number(doc.totalQuantity) || 0;
+
+              if (doc.attributions && doc.attributions.length > 0) {
+                doc.attributions.forEach(attr => {
+                  if (!attr?.staffName) return;
+                  const bv = Number(attr.billWtd) || 0;
+                  const vv = Number(attr.valWtd) || 0;
+                  const qv = Number(attr.qtyWtd) || 0;
+
+                  custMapped[attr.staffName] = {
+                    billWtd: (custMapped[attr.staffName]?.billWtd || 0) + bv,
+                    valWtd:  (custMapped[attr.staffName]?.valWtd  || 0) + vv,
+                    qtyWtd:  (custMapped[attr.staffName]?.qtyWtd  || 0) + qv,
+                  };
+
+                  if (!valAdd && !billsAdd && !qtyAdd) {
+                    valAdd += bv;
+                    billsAdd += vv;
+                    qtyAdd += qv;
+                  }
+                });
+              }
+
+              custByStore[storeKey].val   += valAdd;
+              custByStore[storeKey].bills += billsAdd;
+              custByStore[storeKey].qty   += qtyAdd;
             });
-            setCustomizationAttribution(mapped);
+            setCustomizationAttribution(custMapped);
+            setStoreCustomizationTotals(custByStore);
           } else {
             setCustomizationAttribution({});
+            setStoreCustomizationTotals(custByStore);
           }
         }
       } catch (err) {
@@ -2132,7 +2213,7 @@ const StoreInsights = () => {
         if (isStoreAdmin || isClusterAdmin) {
           const targetBranches = branches.length > 0 ? branches : (user?.branches || []);
           const assignedLocIds = targetBranches.map(b => getBranchLocationId(b?.workingBranch || b)).filter(Boolean);
-          if (isConsolidated) assignedLocIds.push("25");
+          assignedLocIds.push("25");
           if (assignedLocIds.length > 0) {
             locationIds = Array.from(new Set(assignedLocIds));
           }
@@ -2228,7 +2309,7 @@ const StoreInsights = () => {
     };
     const intervalId = setInterval(silentRefresh, REFRESH_INTERVAL_MS);
     return () => clearInterval(intervalId);
-  }, [timeframe, customStartDate, customEndDate, branches, storeWeekRanges]);
+  }, [timeframe, customStartDate, customEndDate, branches, storeWeekRanges, isConsolidated]);
 
   // Fetch walkins dynamically based on timeframe range
   useEffect(() => {
@@ -2530,7 +2611,17 @@ const StoreInsights = () => {
         const branchSales = (locCode && salesData.byBranch?.[locCode]) || {};
         const salesTotalValue = branchSales.totalValue || 0;
 
-        achieved = rentalValue + salesTotalValue;
+        let dapprVal = 0;
+        if (dapprPeriodForStore.length === 0 && !isGMGRoad) {
+          const storeKey = normalizeForMatch(name);
+          if (isStoreAdmin && dapprAttribution) {
+            dapprVal = Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
+          } else if (storeDapprTotals && storeDapprTotals[storeKey]) {
+            dapprVal = storeDapprTotals[storeKey].val || 0;
+          }
+        }
+
+        achieved = rentalValue + salesTotalValue + dapprVal;
       }
 
       // Last Year value calculation for store
@@ -2655,16 +2746,21 @@ const StoreInsights = () => {
       const storesList = Array.isArray(sp.stores) ? sp.stores : [];
       storesList.forEach(st => {
         const lc = String(st.locCode || "");
-        if (!lc) return;
-        if (!map[lc]) map[lc] = {};
+        const sName = st.storeName ? normalizeForMatch(st.storeName) : "";
         const tot = st.total || {};
         const entryVal = {
           bills: tot.bills || 0,
           qty: tot.qty || 0,
-          value: tot.value || 0
+          value: tot.value || 0,
+          staffName: staffName
         };
-        map[lc][canon] = entryVal;
-        map[lc][staffName] = entryVal;
+        [lc, sName].filter(Boolean).forEach(key => {
+          if (!map[key]) map[key] = {};
+          map[key][canon] = entryVal;
+          map[key][staffName] = entryVal;
+          map[key][normalizeForMatch(staffName)] = entryVal;
+          map[key][normalizeForMatch(canon)] = entryVal;
+        });
       });
     });
     return map;
@@ -2679,26 +2775,31 @@ const StoreInsights = () => {
     const locCode = singleBranch.locCode || getBranchLocCode(singleBranch.workingBranch, branches);
     const locPeriodList = performanceData[locId] || [];
 
-    // If consolidated, also include Dappr Squad data for this location
-    const dapprPeriodList = isConsolidated ? (performanceData["25"] || []) : [];
-    const dapprPeriodForStore = isConsolidated ? getDapprSquadDataForStore(locId, dapprPeriodList) : [];
-    const isGMGRoad = locId === "23";
-    const unmappedDapprPeriodList = (isGMGRoad && isConsolidated)
-      ? dapprPeriodList.filter(item => {
-          const raw = String(item.bookingBy || "").trim().toLowerCase();
-          const alphaOnly = raw.replace(/[^a-z0-9]/g, "");
-          const dotted = alphaOnly.startsWith("sg") ? "sg." + alphaOnly.slice(2) : raw;
-          return !DAPPR_SQUAD_STORE_MAPPING[raw] && !DAPPR_SQUAD_STORE_MAPPING[dotted];
-        })
-      : [];
-    const mergedPeriodList = [...locPeriodList, ...dapprPeriodForStore, ...unmappedDapprPeriodList];
-
     // Helper: find shoe/shirt sales for a staff member
-    const getSalesDataForStaff = (staffName) => {
+    const getSalesDataForStaff = (staffName, entry) => {
       const canon = getCanonicalStaffName(staffName);
-      if (locCode && salesByStaffMap[locCode]) {
-        if (salesByStaffMap[locCode][canon]) return salesByStaffMap[locCode][canon];
-        if (salesByStaffMap[locCode][staffName]) return salesByStaffMap[locCode][staffName];
+      const normStaff = normalizeForMatch(staffName);
+      const normCanon = normalizeForMatch(canon);
+      const branchKey = normalizeForMatch(singleBranch.workingBranch);
+      const storeMaps = [
+        locCode && salesByStaffMap[locCode],
+        locId && salesByStaffMap[locId],
+        branchKey && salesByStaffMap[branchKey]
+      ].filter(Boolean);
+
+      for (const sm of storeMaps) {
+        if (sm[canon]) return sm[canon];
+        if (sm[staffName]) return sm[staffName];
+        if (sm[normCanon]) return sm[normCanon];
+        if (sm[normStaff]) return sm[normStaff];
+
+        // Search through all keys in the store map
+        const foundKey = Object.keys(sm).find(k => {
+          const kCode = systemEmpNameToCodeMap?.get(getCanonicalStaffName(k).toLowerCase()) || systemEmpNameToCodeMap?.get(normalizeForMatch(k));
+          if (kCode && entry?.empCodes?.includes(kCode)) return true;
+          return (entry?.rawNames || []).some(rn => isStaffNameMatch(rn, k)) || isStaffNameMatch(staffName, k);
+        });
+        if (foundKey && sm[foundKey]) return sm[foundKey];
       }
       return { bills: 0, qty: 0, value: 0 };
     };
@@ -2708,7 +2809,7 @@ const StoreInsights = () => {
       const strName = String(rawName);
       if (strName.toLowerCase() === "unassigned") return "Unassigned";
       const normName = normalizeForMatch(strName);
-      const match = mergedPeriodList.find(n => n && normalizeForMatch(n.bookingBy) === normName);
+      const match = locPeriodList.find(n => n && normalizeForMatch(n.bookingBy) === normName);
       return match ? match.bookingBy : strName;
     };
 
@@ -2746,7 +2847,7 @@ const StoreInsights = () => {
     }).map(emp => emp.name || emp.displayName || emp.username || emp.staffName);
 
     const rawStaffNames = [
-      ...mergedPeriodList.map(x => x && x.bookingBy),
+      ...locPeriodList.map(x => x && x.bookingBy),
       ...salesStaffNames,
       ...(isConsolidated ? Object.keys(dapprAttribution) : []),
       ...storeEmpTargets.map(e => e.staffName),
@@ -2826,25 +2927,14 @@ const StoreInsights = () => {
       return 0;
     };
 
-    // Last year merged period list for employee view
+    // Last year store rental performance list for employee view
     const lyLocPeriodList = isStoreAdmin && singleBranch ? (lyPerformanceData[locId] || []) : [];
-    const lyDapprPeriodList = (isStoreAdmin && isConsolidated) ? (lyPerformanceData["25"] || []) : [];
-    const lyDapprPeriodForStore = (isStoreAdmin && isConsolidated) ? getDapprSquadDataForStore(locId, lyDapprPeriodList) : [];
-    const lyUnmappedDapprPeriodList = (isGMGRoad && isConsolidated)
-      ? lyDapprPeriodList.filter(item => {
-          const raw = String(item.bookingBy || "").trim().toLowerCase();
-          const alphaOnly = raw.replace(/[^a-z0-9]/g, "");
-          const dotted = alphaOnly.startsWith("sg") ? "sg." + alphaOnly.slice(2) : raw;
-          return !DAPPR_SQUAD_STORE_MAPPING[raw] && !DAPPR_SQUAD_STORE_MAPPING[dotted];
-        })
-      : [];
-    const lyMergedPeriodList = [...lyLocPeriodList, ...lyDapprPeriodForStore, ...lyUnmappedDapprPeriodList];
 
     const result = staffEntries.map(entry => {
       const fullName = entry.displayName;
       const firstName = fullName.split(/\s+/)[0] || fullName;
 
-      const staffRentalItems = mergedPeriodList.filter(x => {
+      const staffRentalItems = locPeriodList.filter(x => {
         if (!x) return false;
         const xCode = normalizeEmpCode(x.empCode) || systemEmpNameToCodeMap?.get(getCanonicalStaffName(x.bookingBy).toLowerCase()) || systemEmpNameToCodeMap?.get(normalizeForMatch(x.bookingBy));
         if (xCode && entry.empCodes.includes(xCode)) return true;
@@ -2853,7 +2943,7 @@ const StoreInsights = () => {
 
       let achieved = staffRentalItems.reduce((sum, item) => sum + (item.totalValue || 0), 0);
       if (isConsolidated) {
-        const staffSales = getSalesDataForStaff(fullName);
+        const staffSales = getSalesDataForStaff(fullName, entry);
         achieved += staffSales.value || 0;
 
         const dapprKey = Object.keys(dapprAttribution).find(k => {
@@ -2866,7 +2956,7 @@ const StoreInsights = () => {
         }
       }
 
-      const staffLyRentalItems = lyMergedPeriodList.filter(x => {
+      const staffLyRentalItems = lyLocPeriodList.filter(x => {
         if (!x) return false;
         const xCode = normalizeEmpCode(x.empCode) || systemEmpNameToCodeMap?.get(getCanonicalStaffName(x.bookingBy).toLowerCase()) || systemEmpNameToCodeMap?.get(normalizeForMatch(x.bookingBy));
         if (xCode && entry.empCodes.includes(xCode)) return true;
@@ -3014,49 +3104,84 @@ const StoreInsights = () => {
     let lyDapprSquadValue = 0;
     let lyDapprSquadQty = 0;
 
-    const squadPeriodList = isConsolidated ? (performanceData["25"] || []) : [];
-    const lySquadPeriodList = isConsolidated ? (lyPerformanceData["25"] || []) : [];
+    const isSingleStoreOrAdmin = isStoreAdmin || (selectedStores.length === 1 && !selectedStores.includes("All"));
 
-    filteredStoresForKPIs.forEach(c => {
-      const name = c.name;
-      const locId = getBranchLocationId(name);
-      if (!locId || locId === "25") return;
+    if (isConsolidated) {
+      if (isSingleStoreOrAdmin) {
+        // In Store Admin / single store view, only show the Dappr Squad bills/value/qty if they added/attributed it in the section
+        if (dapprAttribution && Object.keys(dapprAttribution).length > 0) {
+          dapprSquadBills = Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.valWtd) || 0), 0);
+          dapprSquadValue = Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
+          dapprSquadQty = Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.qtyWtd) || 0), 0);
+        } else {
+          dapprSquadBills = 0;
+          dapprSquadValue = 0;
+          dapprSquadQty = 0;
+        }
+      } else {
+        // All-stores view: sum from storeDapprTotals (if attributions exist) or fallback to POS loc 25
+        let hasStoreTotals = false;
+        filteredStoresForKPIs.forEach(c => {
+          const storeKey = normalizeForMatch(c.name);
+          if (storeDapprTotals && storeDapprTotals[storeKey] && (storeDapprTotals[storeKey].bills > 0 || storeDapprTotals[storeKey].val > 0)) {
+            dapprSquadBills += storeDapprTotals[storeKey].bills || 0;
+            dapprSquadValue += storeDapprTotals[storeKey].val || 0;
+            dapprSquadQty += storeDapprTotals[storeKey].qty || 0;
+            hasStoreTotals = true;
+          }
+        });
 
-      const dapprPeriodForStore = isConsolidated ? getDapprSquadDataForStore(locId, squadPeriodList) : [];
-      const isGMGRoad = locId === "23";
-      const unmappedDapprPeriodList = isGMGRoad
-        ? squadPeriodList.filter(item => {
-            const raw = String(item.bookingBy || "").trim().toLowerCase();
-            const alphaOnly = raw.replace(/[^a-z0-9]/g, "");
-            const dotted = alphaOnly.startsWith("sg") ? "sg." + alphaOnly.slice(2) : raw;
-            return !DAPPR_SQUAD_STORE_MAPPING[raw] && !DAPPR_SQUAD_STORE_MAPPING[dotted];
-          })
-        : [];
-      const mergedList = [...dapprPeriodForStore, ...unmappedDapprPeriodList];
+        if (!hasStoreTotals) {
+          const squadPeriodList = performanceData["25"] || [];
+          filteredStoresForKPIs.forEach(c => {
+            const name = c.name;
+            const locId = getBranchLocationId(name);
+            if (!locId || locId === "25") return;
 
-      dapprSquadBills += mergedList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
-      dapprSquadValue += mergedList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
-      dapprSquadQty += mergedList.reduce((sum, item) => sum + (item.totalQuantity || item.total_Number_Of_Bill || 0), 0);
+            const dapprPeriodForStore = getDapprSquadDataForStore(locId, squadPeriodList);
+            const isGMGRoad = locId === "23";
+            const unmappedDapprPeriodList = isGMGRoad
+              ? squadPeriodList.filter(item => {
+                  const raw = String(item.bookingBy || "").trim().toLowerCase();
+                  const alphaOnly = raw.replace(/[^a-z0-9]/g, "");
+                  const dotted = alphaOnly.startsWith("sg") ? "sg." + alphaOnly.slice(2) : raw;
+                  return !DAPPR_SQUAD_STORE_MAPPING[raw] && !DAPPR_SQUAD_STORE_MAPPING[dotted];
+                })
+              : [];
+            const mergedList = [...dapprPeriodForStore, ...unmappedDapprPeriodList];
+
+            dapprSquadBills += mergedList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
+            dapprSquadValue += mergedList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+            dapprSquadQty += mergedList.reduce((sum, item) => sum + (item.totalQuantity || item.total_Number_Of_Bill || 0), 0);
+          });
+        }
+      }
 
       // Last Year Dappr Squad
-      const lyDapprPeriodForStore = getDapprSquadDataForStore(locId, lySquadPeriodList);
-      const lyUnmappedDapprPeriodList = isGMGRoad
-        ? lySquadPeriodList.filter(item => {
-            const raw = String(item.bookingBy || "").trim().toLowerCase();
-            const alphaOnly = raw.replace(/[^a-z0-9]/g, "");
-            const dotted = alphaOnly.startsWith("sg") ? "sg." + alphaOnly.slice(2) : raw;
-            return !DAPPR_SQUAD_STORE_MAPPING[raw] && !DAPPR_SQUAD_STORE_MAPPING[dotted];
-          })
-        : [];
-      const lyMergedList = [...lyDapprPeriodForStore, ...lyUnmappedDapprPeriodList];
+      const lySquadPeriodList = lyPerformanceData["25"] || [];
+      filteredStoresForKPIs.forEach(c => {
+        const name = c.name;
+        const locId = getBranchLocationId(name);
+        if (!locId || locId === "25") return;
+        const isGMGRoad = locId === "23";
+        const lyDapprPeriodForStore = getDapprSquadDataForStore(locId, lySquadPeriodList);
+        const lyUnmappedDapprPeriodList = isGMGRoad
+          ? lySquadPeriodList.filter(item => {
+              const raw = String(item.bookingBy || "").trim().toLowerCase();
+              const alphaOnly = raw.replace(/[^a-z0-9]/g, "");
+              const dotted = alphaOnly.startsWith("sg") ? "sg." + alphaOnly.slice(2) : raw;
+              return !DAPPR_SQUAD_STORE_MAPPING[raw] && !DAPPR_SQUAD_STORE_MAPPING[dotted];
+            })
+          : [];
+        const lyMergedList = [...lyDapprPeriodForStore, ...lyUnmappedDapprPeriodList];
+        lyDapprSquadBills += lyMergedList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
+        lyDapprSquadValue += lyMergedList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+        lyDapprSquadQty += lyMergedList.reduce((sum, item) => sum + (item.totalQuantity || item.total_Number_Of_Bill || 0), 0);
+      });
+    }
 
-      lyDapprSquadBills += lyMergedList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
-      lyDapprSquadValue += lyMergedList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
-      lyDapprSquadQty += lyMergedList.reduce((sum, item) => sum + (item.totalQuantity || item.total_Number_Of_Bill || 0), 0);
-    });
-
-    // Database-wide Walkins override for consolidated cluster filter "All" AND no store filter
-    if ((selectedClusters.includes("All") || selectedClusters.length === 0) && (selectedStores.includes("All") || selectedStores.length === 0) && !isStoreAdmin) {
+    // Database-wide Walkins override for consolidated cluster filter "All" AND no store filter (Admin / Super Admin only)
+    if ((selectedClusters.includes("All") || selectedClusters.length === 0) && (selectedStores.includes("All") || selectedStores.length === 0) && !isStoreAdmin && !isClusterAdmin) {
       customerWalkins = walkins.filter(w => isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd)).length;
       lyCustomerWalkins = lyWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, lyPeriodStart, lyPeriodEnd)).length;
       convertedWalkinsCount = walkins.filter(w => 
@@ -3098,29 +3223,19 @@ const StoreInsights = () => {
 
       if (pctStr === "-0" || pctStr === "-0.0" || pctStr === "+0" || pctStr === "0.0") {
         if (diff < 0) pctStr = "-0.1";
-        else if (diff > 0) pctStr = "+0.1";
-        else pctStr = "0";
+        else pctStr = "+0%";
+      } else {
+        pctStr = `${rawPct > 0 ? "+" : ""}${pctStr}%`;
       }
 
-      const isNeg = diff < 0 || (rawPct < 0 && pctStr !== "0");
-      const isPos = diff > 0 || (rawPct > 0 && pctStr !== "0");
-      
-      let display = "0%";
-      if (isPos) {
-        display = pctStr.startsWith("+") ? `${pctStr}%` : `+${pctStr}%`;
-      } else if (isNeg) {
-        display = pctStr.endsWith("%") ? pctStr : `${pctStr}%`;
-      }
-
-      const color = isNeg ? "text-rose-500" : (isPos ? "text-emerald-600" : "text-gray-500");
-      const trend = isNeg ? "down" : (isPos ? "up" : "neutral");
-      const trendColor = isNeg ? "#e11d48" : (isPos ? "#00A36C" : "#6b7280");
+      const isPositive = diff > 0;
+      const isNeutral = diff === 0;
 
       return {
-        display,
-        color,
-        trend,
-        trendColor,
+        display: pctStr,
+        color: isNeutral ? "text-gray-500" : (isPositive ? "text-emerald-600" : "text-rose-500"),
+        trend: isNeutral ? "neutral" : (isPositive ? "up" : "down"),
+        trendColor: isNeutral ? "#6b7280" : (isPositive ? "#00A36C" : "#e11d48"),
         curr,
         prev,
         diff
@@ -3129,69 +3244,55 @@ const StoreInsights = () => {
 
     const activeReviewField = timeframe === "WTD" ? "thisWeek" : (timeframe === "FTD" ? "today" : (timeframe === "YTD" ? "total" : "thisMonth"));
 
+    const isAllSelected = !isStoreAdmin && !isClusterAdmin 
+      && (selectedStores.includes("All") || selectedStores.length === 0) 
+      && (selectedClusters.includes("All") || selectedClusters.length === 0);
+
+    const isBranchMatchingFilter = (branchKey) => {
+      if (isAllSelected) return true;
+      const normKey = normalizeForMatch(branchKey);
+      const bObj = branches.find(b => 
+        normalizeForMatch(b.workingBranch) === normKey || 
+        normalizeForMatch(displayBranchName(b.workingBranch)) === normKey
+      );
+      const displayName = bObj ? displayBranchName(bObj.workingBranch) : branchKey;
+      const normDisplay = normalizeForMatch(displayName);
+      const branchLocId = bObj ? getBranchLocationId(bObj.workingBranch) : getBranchLocationId(branchKey);
+
+      return filteredStoresForKPIs.some(s => {
+        const normS = normalizeForMatch(s.name);
+        const sLocId = getBranchLocationId(s.name);
+        return normS === normKey || 
+               normS === normDisplay || 
+               normKey.includes(normS) || 
+               normDisplay.includes(normS) || 
+               normS.includes(normKey) || 
+               normS.includes(normDisplay) ||
+               (branchLocId && sLocId && branchLocId === sLocId);
+      });
+    };
+
     const googleReviews = (() => {
       if (!googleReviewData || Object.keys(googleReviewData).length === 0) return 0;
-      const isAllSelected = (selectedStores.includes("All") || selectedStores.length === 0) && (selectedClusters.includes("All") || selectedClusters.length === 0);
-
       return Object.entries(googleReviewData).reduce((sum, [branchKey, d]) => {
-        if (!d) return sum;
-        if (isAllSelected) {
-          return sum + (d[activeReviewField] ?? d.thisMonth ?? 0);
-        }
-        const normKey = normalizeForMatch(branchKey);
-        const bObj = branches.find(b => normalizeForMatch(b.workingBranch) === normKey);
-        const displayName = bObj ? displayBranchName(bObj.workingBranch) : branchKey;
-        const normDisplay = normalizeForMatch(displayName);
-
-        const matchesFilter = filteredStoresForKPIs.some(s => {
-          const normS = normalizeForMatch(s.name);
-          return normS === normKey || normS === normDisplay || normKey.includes(normS) || normDisplay.includes(normS);
-        });
-
-        return matchesFilter ? sum + (d[activeReviewField] ?? d.thisMonth ?? 0) : sum;
+        if (!d || !isBranchMatchingFilter(branchKey)) return sum;
+        return sum + (d[activeReviewField] ?? d.thisMonth ?? 0);
       }, 0);
     })();
 
     const lyGoogleReviews = (() => {
       if (!googleReviewData || Object.keys(googleReviewData).length === 0) return 0;
-      const isAllSelected = (selectedStores.includes("All") || selectedStores.length === 0) && (selectedClusters.includes("All") || selectedClusters.length === 0);
-
       return Object.entries(googleReviewData).reduce((sum, [branchKey, d]) => {
-        if (!d) return sum;
-        if (isAllSelected) {
-          return sum + (d.lyThisMonth || 0);
-        }
-        const normKey = normalizeForMatch(branchKey);
-        const bObj = branches.find(b => normalizeForMatch(b.workingBranch) === normKey);
-        const displayName = bObj ? displayBranchName(bObj.workingBranch) : branchKey;
-        const normDisplay = normalizeForMatch(displayName);
-
-        const matchesFilter = filteredStoresForKPIs.some(s => {
-          const normS = normalizeForMatch(s.name);
-          return normS === normKey || normS === normDisplay || normKey.includes(normS) || normDisplay.includes(normS);
-        });
-
-        return matchesFilter ? sum + (d.lyThisMonth || 0) : sum;
+        if (!d || !isBranchMatchingFilter(branchKey)) return sum;
+        return sum + (d.lyThisMonth || 0);
       }, 0);
     })();
 
     const googleRating = (() => {
       if (!googleReviewData || Object.keys(googleReviewData).length === 0) return 0;
-      const isAllSelected = (selectedStores.includes("All") || selectedStores.length === 0) && (selectedClusters.includes("All") || selectedClusters.length === 0);
-
-      const activeEntries = Object.entries(googleReviewData).filter(([branchKey, d]) => {
-        if (!d) return false;
-        if (isAllSelected) return true;
-        const normKey = normalizeForMatch(branchKey);
-        const bObj = branches.find(b => normalizeForMatch(b.workingBranch) === normKey);
-        const displayName = bObj ? displayBranchName(bObj.workingBranch) : branchKey;
-        const normDisplay = normalizeForMatch(displayName);
-
-        return filteredStoresForKPIs.some(s => {
-          const normS = normalizeForMatch(s.name);
-          return normS === normKey || normS === normDisplay || normKey.includes(normS) || normDisplay.includes(normS);
-        });
-      }).map(([, d]) => d);
+      const activeEntries = Object.entries(googleReviewData)
+        .filter(([branchKey, d]) => d && isBranchMatchingFilter(branchKey))
+        .map(([, d]) => d);
 
       const ratedEntries = activeEntries.filter(entry => entry.rating > 0);
       if (ratedEntries.length === 0) return 0;
@@ -3202,22 +3303,9 @@ const StoreInsights = () => {
 
     const totalReviewsCount = (() => {
       if (!googleReviewData || Object.keys(googleReviewData).length === 0) return 0;
-      const isAllSelected = (selectedStores.includes("All") || selectedStores.length === 0) && (selectedClusters.includes("All") || selectedClusters.length === 0);
-
       return Object.entries(googleReviewData).reduce((sum, [branchKey, d]) => {
-        if (!d) return sum;
-        if (isAllSelected) return sum + (d.total || 0);
-        const normKey = normalizeForMatch(branchKey);
-        const bObj = branches.find(b => normalizeForMatch(b.workingBranch) === normKey);
-        const displayName = bObj ? displayBranchName(bObj.workingBranch) : branchKey;
-        const normDisplay = normalizeForMatch(displayName);
-
-        const matchesFilter = filteredStoresForKPIs.some(s => {
-          const normS = normalizeForMatch(s.name);
-          return normS === normKey || normS === normDisplay || normKey.includes(normS) || normDisplay.includes(normS);
-        });
-
-        return matchesFilter ? sum + (d.total || 0) : sum;
+        if (!d || !isBranchMatchingFilter(branchKey)) return sum;
+        return sum + (d.total || 0);
       }, 0);
     })();
 
@@ -3233,9 +3321,8 @@ const StoreInsights = () => {
       const consolidatedTotalQty = rentalQty + shoeQty + shirtQty;
 
       const totalLy = filteredStoresForKPIs.reduce((acc, c) => acc + (c.ly || 0), 0);
-      const lyConsolidatedValue = ((isStoreAdmin || (selectedStores.length === 1 && !selectedStores.includes("All"))) && employeeChartData.length > 0)
-        ? employeeChartData.reduce((sum, emp) => sum + (emp.ly || 0), 0)
-        : totalLy;
+      const employeeLySum = employeeChartData.reduce((sum, emp) => sum + (emp.ly || 0), 0);
+      const lyConsolidatedValue = totalLy > 0 ? totalLy : employeeLySum;
       const lyConsolidatedBills = lyRentalBills;
       const lyConsolidatedQty = lyRentalQty;
 
@@ -3443,7 +3530,7 @@ const StoreInsights = () => {
       console.error("[StoreInsights] Error computing stats:", err);
       return null;
     }
-  }, [chartData, filteredStoresForKPIs, isConsolidated, roleFilter, performanceData, lyPerformanceData, walkins, lyWalkins, timeframe, customStartDate, customEndDate, salesData, lySalesData, isStoreAdmin, isClusterAdmin, selectedClusters, selectedStores, branches, periodStart, periodEnd, lyPeriodStart, lyPeriodEnd, googleReviewData]);
+  }, [chartData, filteredStoresForKPIs, isConsolidated, roleFilter, performanceData, lyPerformanceData, walkins, lyWalkins, timeframe, customStartDate, customEndDate, salesData, lySalesData, isStoreAdmin, isClusterAdmin, selectedClusters, selectedStores, branches, periodStart, periodEnd, lyPeriodStart, lyPeriodEnd, googleReviewData, dapprAttribution, storeDapprTotals]);
 
   // Store ranking data calculations
   const rankingData = useMemo(() => {
@@ -3557,17 +3644,24 @@ const StoreInsights = () => {
         let value = staffFtdList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
 
         if (isConsolidated) {
-          if (locCode && salesByStaffMap[locCode]) {
-            const staffSalesKey = Object.keys(salesByStaffMap[locCode]).find(k => {
+          const storeMaps = [
+            locCode && salesByStaffMap[locCode],
+            locId && salesByStaffMap[locId],
+            singleBranch && normalizeForMatch(singleBranch.workingBranch) && salesByStaffMap[normalizeForMatch(singleBranch.workingBranch)]
+          ].filter(Boolean);
+
+          for (const sm of storeMaps) {
+            const staffSalesKey = Object.keys(sm).find(k => {
               const kCode = systemEmpNameToCodeMap?.get(getCanonicalStaffName(k).toLowerCase()) || systemEmpNameToCodeMap?.get(normalizeForMatch(k));
               if (kCode && entry.empCodes.includes(kCode)) return true;
               return entry.rawNames.some(rn => isStaffNameMatch(rn, k)) || isStaffNameMatch(staffName, k);
             });
-            if (staffSalesKey) {
-              const sData = salesByStaffMap[locCode][staffSalesKey];
+            if (staffSalesKey && sm[staffSalesKey]) {
+              const sData = sm[staffSalesKey];
               bills += sData.bills || 0;
               qty += sData.qty || 0;
               value += sData.value || 0;
+              break;
             }
           }
 
@@ -3647,7 +3741,7 @@ const StoreInsights = () => {
 
         const locPeriodList = performanceData[locId] || [];
         const dapprPeriodList = isConsolidated ? (performanceData["25"] || []) : [];
-        const dapprPeriodForStore = [];
+        const dapprPeriodForStore = isConsolidated ? getDapprSquadDataForStore(locId, dapprPeriodList) : [];
         const isGMGRoad = locId === "23";
         const unmappedDapprPeriodList = (isGMGRoad && isConsolidated)
           ? dapprPeriodList.filter(item => {
@@ -3669,9 +3763,23 @@ const StoreInsights = () => {
         const salesTotalBills = branchSales.totalBills || 0;
         const salesTotalQty = branchSales.totalQty || 0;
 
-        const value = rentalVal + salesTotalVal;
-        const bills = rentalBills + salesTotalBills;
-        const qty = rentalQty + salesTotalQty;
+        let dapprVal = 0, dapprBills = 0, dapprQty = 0;
+        if (dapprPeriodForStore.length === 0 && !isGMGRoad) {
+          const storeKey = normalizeForMatch(name);
+          if (isStoreAdmin && dapprAttribution) {
+            dapprVal = Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
+            dapprBills = Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.valWtd) || 0), 0);
+            dapprQty = Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.qtyWtd) || 0), 0);
+          } else if (storeDapprTotals && storeDapprTotals[storeKey]) {
+            dapprVal = storeDapprTotals[storeKey].val || 0;
+            dapprBills = storeDapprTotals[storeKey].bills || 0;
+            dapprQty = storeDapprTotals[storeKey].qty || 0;
+          }
+        }
+
+        const value = rentalVal + salesTotalVal + dapprVal;
+        const bills = rentalBills + salesTotalBills + dapprBills;
+        const qty = rentalQty + salesTotalQty + dapprQty;
 
         totalConsolidatedValue += value;
 
