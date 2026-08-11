@@ -489,6 +489,8 @@ const sortStoresGThenZ = (a, b) => {
 const GrowthComparison = () => {
   const { user } = useSelector((state) => state.auth || {});
   const isStoreAdmin = user?.role === "store_admin";
+  const isClusterAdmin = user?.role === "cluster_admin";
+  const isRestrictedRole = isStoreAdmin || isClusterAdmin;
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const STORES_PER_PAGE = 9999;
@@ -640,7 +642,20 @@ const GrowthComparison = () => {
         if (res.ok && isMounted) {
           const json = await res.json();
           const list = Array.isArray(json?.data) ? json.data : [];
-          const visible = list.filter((b) => !isHiddenBranch(b?.workingBranch));
+          let visible = list.filter((b) => !isHiddenBranch(b?.workingBranch));
+          if (isRestrictedRole) {
+            const assignedBranchIds = new Set((user?.branches || []).map((b) => String(b._id || b)));
+            const assignedBranchNames = new Set(
+              (user?.branches || [])
+                .map((b) => norm(b.workingBranch || b.name || (typeof b === "string" ? b : "")))
+                .filter(Boolean)
+            );
+            visible = visible.filter(
+              (b) =>
+                assignedBranchIds.has(String(b._id)) ||
+                assignedBranchNames.has(norm(b.workingBranch))
+            );
+          }
           setBranches([...visible].sort(sortStoresGThenZ));
         } else if (retries > 0 && isMounted) {
           timer = setTimeout(() => fetchBranches(retries - 1), 2000);
@@ -656,7 +671,7 @@ const GrowthComparison = () => {
       isMounted = false;
       clearTimeout(timer);
     };
-  }, []);
+  }, [user, isRestrictedRole]);
 
   // Fetch Year-Over-Year Walk-In Counts (per store via walkin-count API) and Performance Report Data
   useEffect(() => {
@@ -731,6 +746,19 @@ const GrowthComparison = () => {
           branchList = Array.isArray(branchJson?.data)
             ? branchJson.data.filter((b) => !isHiddenBranch(b?.workingBranch))
             : [];
+          if (isRestrictedRole) {
+            const assignedBranchIds = new Set((user?.branches || []).map((b) => String(b._id || b)));
+            const assignedBranchNames = new Set(
+              (user?.branches || [])
+                .map((b) => norm(b.workingBranch || b.name || (typeof b === "string" ? b : "")))
+                .filter(Boolean)
+            );
+            branchList = branchList.filter(
+              (b) =>
+                assignedBranchIds.has(String(b._id)) ||
+                assignedBranchNames.has(norm(b.workingBranch))
+            );
+          }
           if (branchList.length > 0 && !cancelled) {
             setBranches([...branchList].sort(sortStoresGThenZ));
           }
@@ -1109,7 +1137,7 @@ const GrowthComparison = () => {
             </div>
 
             {/* Cluster Multi-Select Dropdown */}
-            {!isStoreAdmin && clusters.length > 0 && (
+            {!isRestrictedRole && clusters.length > 0 && (
               <div className="relative" ref={clusterDropdownRef}>
                 <button
                   type="button"

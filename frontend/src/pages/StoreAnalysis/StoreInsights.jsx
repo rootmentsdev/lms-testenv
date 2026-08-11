@@ -1037,12 +1037,17 @@ const StoreInsights = () => {
 
           // For store_admin/cluster_admin: only show their assigned branches
           if (isStoreAdmin || isClusterAdmin) {
-            const assignedBranchIds = (user?.branches || []).map(b => String(b._id || b));
-            console.log("[StoreInsights] user.branches raw:", user?.branches);
-            console.log("[StoreInsights] assignedBranchIds:", assignedBranchIds);
-            console.log("[StoreInsights] all visible branches:", visible.map(b => ({ id: b._id, workingBranch: b.workingBranch, locCode: b.locCode })));
-            visible = visible.filter(b => assignedBranchIds.includes(String(b._id)));
-            console.log("[StoreInsights] filtered branches for store_admin:", visible.map(b => ({ id: b._id, workingBranch: b.workingBranch, locId: getBranchLocationId(b.workingBranch), locCode: b.locCode })));
+            const assignedBranchIds = new Set((user?.branches || []).map(b => String(b._id || b)));
+            const assignedBranchNames = new Set(
+              (user?.branches || [])
+                .map(b => norm(b.workingBranch || b.name || (typeof b === "string" ? b : "")))
+                .filter(Boolean)
+            );
+            visible = visible.filter(
+              (b) =>
+                assignedBranchIds.has(String(b._id)) ||
+                assignedBranchNames.has(norm(b.workingBranch))
+            );
           }
 
           setBranches([...visible].sort(sortStoresGThenZ));
@@ -3264,10 +3269,6 @@ const StoreInsights = () => {
         const sLocId = getBranchLocationId(s.name);
         return normS === normKey || 
                normS === normDisplay || 
-               normKey.includes(normS) || 
-               normDisplay.includes(normS) || 
-               normS.includes(normKey) || 
-               normS.includes(normDisplay) ||
                (branchLocId && sLocId && branchLocId === sLocId);
       });
     };

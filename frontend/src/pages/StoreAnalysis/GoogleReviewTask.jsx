@@ -49,6 +49,10 @@ const parseStoreBrandAndName = (workingBranch) => {
 
 const GoogleReviewTask = () => {
   const user = useSelector((state) => state.auth.user);
+  const isClusterAdmin = user?.role === "cluster_admin";
+  const isStoreAdmin = user?.role === "store_admin";
+  const isRestrictedRole = isClusterAdmin || isStoreAdmin;
+
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -159,7 +163,23 @@ const GoogleReviewTask = () => {
         if (res.ok) {
           const json = await res.json();
           const list = Array.isArray(json?.data) ? json.data : [];
-          const visible = list.filter((b) => !isHiddenBranch(b?.workingBranch));
+          let visible = list.filter((b) => !isHiddenBranch(b?.workingBranch));
+
+          // For cluster_admin / store_admin: only show their assigned branches
+          if (isRestrictedRole) {
+            const assignedBranchIds = new Set((user?.branches || []).map((b) => String(b._id || b)));
+            const assignedBranchNames = new Set(
+              (user?.branches || [])
+                .map((b) => norm(b.workingBranch || b.name || (typeof b === "string" ? b : "")))
+                .filter(Boolean)
+            );
+            visible = visible.filter(
+              (b) =>
+                assignedBranchIds.has(String(b._id)) ||
+                assignedBranchNames.has(norm(b.workingBranch))
+            );
+          }
+
           const seenNames = new Set();
           const uniqueVisible = [];
           for (const b of visible) {
@@ -181,10 +201,24 @@ const GoogleReviewTask = () => {
       }
     };
     fetchBranches();
-  }, []);
+  }, [user, isRestrictedRole]);
 
   // Filter available stores based on selected clusters
   const availableBranches = useMemo(() => {
+    if (isRestrictedRole) {
+      const assignedBranchIds = new Set((user?.branches || []).map((b) => String(b._id || b)));
+      const assignedBranchNames = new Set(
+        (user?.branches || [])
+          .map((b) => norm(b.workingBranch || b.name || (typeof b === "string" ? b : "")))
+          .filter(Boolean)
+      );
+      return branches.filter(
+        (b) =>
+          assignedBranchIds.has(String(b._id)) ||
+          assignedBranchNames.has(norm(b.workingBranch))
+      );
+    }
+
     if (selectedClusters.includes("All") || selectedClusters.length === 0) {
       return branches;
     }
@@ -201,11 +235,12 @@ const GoogleReviewTask = () => {
     return branches.filter(
       (b) => assignedBranchIds.has(String(b._id)) || assignedBranchIds.has(norm(b.workingBranch))
     );
-  }, [branches, selectedClusters, clusters]);
+  }, [branches, selectedClusters, clusters, isRestrictedRole, user]);
 
   // Merge dynamic branches with reviews counts state
   const tableRows = useMemo(() => {
-    return branches.map((b) => {
+    const baseBranches = isRestrictedRole ? availableBranches : branches;
+    return baseBranches.map((b) => {
       const { displayName, brand } = parseStoreBrandAndName(b.workingBranch);
       const saved = reviewsState[b.workingBranch] || {};
       
@@ -220,14 +255,14 @@ const GoogleReviewTask = () => {
         total: saved.total !== undefined ? saved.total : 0,
       };
     });
-  }, [branches, reviewsState]);
+  }, [branches, availableBranches, reviewsState, isRestrictedRole]);
 
   // Filter and sort rows based on selected cluster(s), store(s), and date sorting
   const processedRows = useMemo(() => {
     let list = [...tableRows];
 
-    // 1. Cluster Filter
-    if (!selectedClusters.includes("All") && selectedClusters.length > 0) {
+    // 1. Cluster Filter (only for central admins)
+    if (!isRestrictedRole && !selectedClusters.includes("All") && selectedClusters.length > 0) {
       const assignedBranchIds = new Set();
       selectedClusters.forEach((clusterId) => {
         const clusterAdmin = clusters.find((c) => String(c._id) === String(clusterId));
@@ -258,7 +293,7 @@ const GoogleReviewTask = () => {
     }
 
     return list;
-  }, [tableRows, selectedClusters, selectedStores, clusters, dateFilter]);
+  }, [tableRows, selectedClusters, selectedStores, clusters, dateFilter, isRestrictedRole]);
 
   // Stores with ratings metric for active period
   const storesWithRatingsPeriod = useMemo(() => {
@@ -280,8 +315,9 @@ const GoogleReviewTask = () => {
   };
 
   const handleAddBtnClick = () => {
-    if (branches.length > 0) {
-      setSelectedModalStore(branches[0].workingBranch);
+    const list = isRestrictedRole ? availableBranches : branches;
+    if (list.length > 0) {
+      setSelectedModalStore(list[0].workingBranch);
     }
     setTotalRatingsInput("");
     setOpenedFromRow(false);
@@ -641,7 +677,7 @@ const GoogleReviewTask = () => {
                     onChange={(e) => setSelectedModalStore(e.target.value)}
                     className="w-full py-2.5 px-3.5 bg-white border border-gray-200 rounded-2xl text-xs sm:text-sm font-semibold text-gray-700 shadow-sm focus:outline-none focus:border-gray-400 cursor-pointer"
                   >
-                    {branches.map(b => (
+                    {(isRestrictedRole ? availableBranches : branches).map(b => (
                       <option key={b._id} value={b.workingBranch}>
                         {parseStoreBrandAndName(b.workingBranch).displayName} ({parseStoreBrandAndName(b.workingBranch).brand})
                       </option>
