@@ -1382,8 +1382,21 @@ export const getWalkinCountPageData = async (req, res) => {
             queryConditions = [dateQuery];
         }
 
-        const walkins = await Walkin.find({ $and: queryConditions }).lean();
-        console.log(`[Backend API] total records considered (fetched from DB): ${walkins.length}`);
+        const rawWalkins = await Walkin.find({ $and: queryConditions }).lean();
+        console.log(`[Backend API] total records considered (fetched from DB): ${rawWalkins.length}`);
+
+        // Deduplicate walkins using the exact same logic as getWalkins (Walk In Report)
+        const seenKeys = new Set();
+        const walkins = [];
+        for (const w of rawWalkins) {
+            const key = w.invoiceNo
+                ? `inv_${w.invoiceNo}`
+                : `key_${(w.customerName || '').toLowerCase().trim()}_${(w.contact || '').toLowerCase().trim()}_${(w.date || '').toLowerCase().trim()}_${(w.store || '').toLowerCase().trim()}_${(w.status || '').toLowerCase().trim()}`;
+            if (!seenKeys.has(key)) {
+                seenKeys.add(key);
+                walkins.push(w);
+            }
+        }
 
 
         // 3. Compute inApp counts based on the specified rules
@@ -2074,14 +2087,21 @@ export const getFlutterWalkinCount = async (req, res) => {
             queryConditions = [dateQuery];
         }
 
-        const walkins = await Walkin.find({ $and: queryConditions }).lean();
+        const rawWalkins = await Walkin.find({ $and: queryConditions }).lean();
         const walkinSet = new Set();
+        const seenKeys = new Set();
 
-        walkins.forEach(w => {
+        rawWalkins.forEach(w => {
             const isDateInRange = (dateVal) => isInISTRange(dateVal, startUTC, nextDayStartUTC);
             const createdInRange = isDateInRange(w.createdAt);
             if (createdInRange) {
-                walkinSet.add(w._id.toString());
+                const key = w.invoiceNo
+                    ? `inv_${w.invoiceNo}`
+                    : `key_${(w.customerName || '').toLowerCase().trim()}_${(w.contact || '').toLowerCase().trim()}_${(w.date || '').toLowerCase().trim()}_${(w.store || '').toLowerCase().trim()}_${(w.status || '').toLowerCase().trim()}`;
+                if (!seenKeys.has(key)) {
+                    seenKeys.add(key);
+                    walkinSet.add(w._id.toString());
+                }
             }
         });
 

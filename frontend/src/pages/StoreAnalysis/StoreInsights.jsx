@@ -471,6 +471,7 @@ function normalizeForMatch(str) {
   if (!str) return "";
   return String(str)
     .toLowerCase()
+    .replace(/edap{1,3}a?l{1,3}[yi]\d*/g, "edappally")
     .replace(/[^a-z0-9]/g, "")
     .replace(/^sg/, "g")
     .replace(/^dapper/, "dappr");
@@ -1172,6 +1173,7 @@ const StoreInsights = () => {
     if (!str) return "";
     return String(str)
       .toLowerCase()
+      .replace(/edap{1,3}a?l{1,3}[yi]\d*/g, "edappally")
       .replace(/[^a-z0-9]/g, "")
       .replace(/^sg/, "g")
       .replace(/^dapper/, "dappr");
@@ -3069,7 +3071,7 @@ const StoreInsights = () => {
       lyRentalQty += lyMergedPeriodList.reduce((sum, item) => sum + (item.totalQuantity ?? 0), 0);
 
       // 3. Shoe & Shirt Sales  (use DSRReport-compatible totals from byBranch)
-      const bObj = branches.find(b => normalizeForMatch(b.workingBranch) === normalizeForMatch(name));
+      const bObj = branches.find(b => (c._id && String(b._id) === String(c._id)) || normalizeForMatch(b.workingBranch) === normalizeForMatch(name));
       const locCode = bObj?.locCode;
       if (locCode && salesData.byBranch?.[locCode]) {
         const branchSales = salesData.byBranch[locCode];
@@ -3084,15 +3086,23 @@ const StoreInsights = () => {
 
       // 4. Walkins
       const storeKeyVal = normalizeForMatch(name);
+      const isStoreMatch = (w, branchObj) => {
+        if (!w) return false;
+        if (branchObj?._id && (w.storeId === branchObj._id || String(w.storeId) === String(branchObj._id))) return true;
+        if (branchObj?.workingBranch && (w.store === branchObj.workingBranch || normalizeForMatch(w.store) === normalizeForMatch(branchObj.workingBranch))) return true;
+        if (name && normalizeForMatch(w.store) === normalizeForMatch(name)) return true;
+        return false;
+      };
+
       const storeWalkins = walkins.filter(w => 
-        (w.storeId === bObj?._id || w.store === bObj?.workingBranch) && 
+        isStoreMatch(w, bObj) && 
         isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd)
       );
       customerWalkins += storeWalkins.length;
       convertedWalkinsCount += storeWalkins.filter(w => w.status?.toLowerCase() === "booked").length;
 
       const lyStoreWalkins = lyWalkins.filter(w => 
-        (w.storeId === bObj?._id || w.store === bObj?.workingBranch) && 
+        isStoreMatch(w, bObj) && 
         isWalkinCreatedInRange(w.createdAt, lyPeriodStart, lyPeriodEnd)
       );
       lyCustomerWalkins += lyStoreWalkins.length;
@@ -3613,7 +3623,7 @@ const StoreInsights = () => {
 
       // Filter walkins for this store
       const storeWalkins = walkins.filter(w => 
-        (w.storeId === singleBranch?._id || w.store === singleBranch?.workingBranch) && 
+        (w.storeId === singleBranch?._id || String(w.storeId) === String(singleBranch?._id) || w.store === singleBranch?.workingBranch || (w.store && singleBranch?.workingBranch && normalizeForMatch(w.store) === normalizeForMatch(singleBranch.workingBranch))) && 
         isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd)
       );
 
@@ -3790,10 +3800,10 @@ const StoreInsights = () => {
         const abs = bills > 0 ? parseFloat((qty / bills).toFixed(1)) : 0.0;
         const abv = bills > 0 ? Math.round(value / bills) : 0;
 
-        const bObj = branches.find(br => normalizeForMatch(br.workingBranch) === normalizeForMatch(name));
+        const bObj = branches.find(br => (br._id && String(br._id) === String(b?._id)) || normalizeForMatch(br.workingBranch) === normalizeForMatch(name));
         const storeKeyVal = normalizeForMatch(name);
         const storeWalkins = walkins.filter(w => 
-          (w.storeId === bObj?._id || w.store === bObj?.workingBranch) && 
+          (w.storeId === bObj?._id || String(w.storeId) === String(bObj?._id) || w.store === bObj?.workingBranch || (w.store && bObj?.workingBranch && normalizeForMatch(w.store) === normalizeForMatch(bObj.workingBranch)) || normalizeForMatch(w.store) === normalizeForMatch(name)) && 
           isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd)
         ).length;
         const conversion = storeWalkins > 0 ? Math.round((bills / storeWalkins) * 100) : 0;
@@ -3847,7 +3857,7 @@ const StoreInsights = () => {
 
         const storeKeyVal = normalizeForMatch(name);
         const storeWalkins = walkins.filter(w => 
-          (w.storeId === b?._id || w.store === b?.workingBranch) && 
+          (w.storeId === b?._id || String(w.storeId) === String(b?._id) || w.store === b?.workingBranch || (w.store && b?.workingBranch && normalizeForMatch(w.store) === normalizeForMatch(b.workingBranch)) || normalizeForMatch(w.store) === normalizeForMatch(name)) && 
           isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd)
         ).length;
         const conversion = storeWalkins > 0 ? Math.round((bills / storeWalkins) * 100) : 0;
