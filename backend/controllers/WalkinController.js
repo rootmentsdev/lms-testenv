@@ -1315,8 +1315,19 @@ export const getWalkinCountPageData = async (req, res) => {
         let queryConditions = [];
         let resolvedStoreObj = null;
 
-        if (store.toLowerCase() !== 'all') {
-            resolvedStoreObj = await resolveStoreConditions(store);
+        let effectiveStoreParam = store;
+        if (store.toLowerCase() === 'all' && req.admin && ['cluster_admin', 'store_admin', 'employee'].includes(req.admin.role)) {
+            const adminDoc = await Admin.findById(req.admin.userId).populate('branches').lean();
+            if (adminDoc?.branches?.length > 0) {
+                const branchNames = adminDoc.branches.map(b => b.workingBranch || b.branchName).filter(Boolean);
+                if (branchNames.length > 0) {
+                    effectiveStoreParam = branchNames.join(',');
+                }
+            }
+        }
+
+        if (effectiveStoreParam.toLowerCase() !== 'all') {
+            resolvedStoreObj = await resolveStoreConditions(effectiveStoreParam);
             if (resolvedStoreObj?.query) {
                 queryConditions.push(resolvedStoreObj.query);
             }

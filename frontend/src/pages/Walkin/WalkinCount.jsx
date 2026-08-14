@@ -301,12 +301,6 @@ const WalkinCount = () => {
     const [isStoreDropdownOpen, setIsStoreDropdownOpen] = useState(false);
     const storeDropdownRef = useRef(null);
 
-    // Sync selectedStores into storeFilter string for backend API compatibility
-    useEffect(() => {
-        const str = selectedStores.includes("All") || selectedStores.length === 0 ? "All" : selectedStores.join(",");
-        setStoreFilter(str);
-    }, [selectedStores]);
-
     // Fetch Clusters on mount
     useEffect(() => {
         const fetchClusters = async () => {
@@ -343,6 +337,25 @@ const WalkinCount = () => {
         });
         return branches.filter((b) => assignedKeys.has(locationKey(b.workingBranch)));
     }, [branches, selectedClusters, clusters]);
+
+    // Sync selectedStores & selectedClusters into storeFilter string for backend API compatibility
+    useEffect(() => {
+        let str = "All";
+        if (selectedStores.includes("All") || selectedStores.length === 0) {
+            if (!selectedClusters.includes("All") && selectedClusters.length > 0) {
+                const branchNames = availableBranches.map(b => b.workingBranch).filter(Boolean);
+                str = branchNames.length > 0 ? branchNames.join(",") : "All";
+            } else if (user?.role === 'cluster_admin' || user?.role === 'store_admin') {
+                const branchNames = availableBranches.map(b => b.workingBranch).filter(Boolean);
+                str = branchNames.length > 0 ? branchNames.join(",") : "All";
+            } else {
+                str = "All";
+            }
+        } else {
+            str = selectedStores.join(",");
+        }
+        setStoreFilter(str);
+    }, [selectedStores, selectedClusters, availableBranches, user?.role]);
 
     // Click outside handler for dropdown popovers
     useEffect(() => {
