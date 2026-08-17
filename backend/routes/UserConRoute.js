@@ -1,8 +1,70 @@
 import express from 'express';
-import { appSignUp, flutterLogin, loginUser, saveFcmToken } from '../controllers/CreateUser.js'; // Import the login controller
+import { appSignUp, flutterLogin, loginUser, saveFcmToken, sendOtp, verifyOtp } from '../controllers/CreateUser.js'; // Import the login controller
 import { verifyJWT } from '../lib/JWT.js';
 
 const router = express.Router();
+
+/**
+ * @swagger
+ * /api/auth/send-otp:
+ *   post:
+ *     tags: [Authentication]
+ *     summary: Send OTP code to user's email
+ *     description: Generates a 6-digit verification code and emails it to the user. Valid for 5 minutes.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: employee@company.com
+ *             required:
+ *               - email
+ *     responses:
+ *       200:
+ *         description: OTP sent successfully
+ *       400:
+ *         description: Email is required
+ *       500:
+ *         description: Server error
+ */
+router.post('/send-otp', sendOtp);
+
+/**
+ * @swagger
+ * /api/auth/verify-otp:
+ *   post:
+ *     tags: [Authentication]
+ *     summary: Verify email OTP code
+ *     description: Validates the 6-digit OTP code sent to the specified email address.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: employee@company.com
+ *               otp:
+ *                 type: string
+ *                 example: "123456"
+ *             required:
+ *               - email
+ *               - otp
+ *     responses:
+ *       200:
+ *         description: OTP verified successfully
+ *       400:
+ *         description: Invalid or expired OTP code
+ *       500:
+ *         description: Server error
+ */
+router.post('/verify-otp', verifyOtp);
 
 /**
  * @swagger

@@ -8,7 +8,8 @@ import Module from '../model/Module.js';
 import { Training } from '../model/Traning.js';
 import Admin from '../model/Admin.js';
 import Notification from '../model/Notification.js';
-import { sendCompletionEmail } from '../utils/sendEmail.js';
+import Otp from '../model/Otp.js';
+import { sendCompletionEmail, sendOtpEmail } from '../utils/sendEmail.js';
 import { sendNotification } from '../utils/notificationHelper.js';
 dotenv.config()
 
@@ -1563,6 +1564,21 @@ export const appSignUp = async (req, res) => {
       }
     }
 
+    // Verify OTP if provided in request body
+    if (req.body.otp) {
+      const otpRecord = await Otp.findOne({
+        email: finalEmail.toLowerCase(),
+        otp: String(req.body.otp).trim()
+      });
+      if (!otpRecord) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid or expired OTP code.'
+        });
+      }
+      await Otp.deleteMany({ email: finalEmail.toLowerCase() });
+    }
+
     // Helper to build flexible case and space-tolerant regex for Employee IDs
     const buildEmpIdRegex = (str) => {
       const trimmed = str.trim();
@@ -1681,6 +1697,64 @@ export const appSignUp = async (req, res) => {
       error: error.message
     });
   }
+};
+
+export const sendOtp = async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email || !String(email).trim()) {
+            return res.status(400).json({ success: false, message: 'Email address is required.' });
+        }
+
+        const normalizedEmail = String(email).trim().toLowerCase();
+
+        // Generate 6-digit OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+        // Store OTP in database (replace any existing OTP for this email)
+        await Otp.deleteMany({ email: normalizedEmail });
+        await Otp.create({ email: normalizedEmail, otp });
+
+        // Send Email
+        try {
+            await sendOtpEmail({ email: normalizedEmail, otp });
+        } catch (emailErr) {
+            console.error('Error sending OTP email:', emailErr);
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: `OTP sent successfully to ${normalizedEmail}`,
+            ...(process.env.NODE_ENV !== 'production' ? { otp } : {})
+        });
+    } catch (error) {
+        console.error('Error in sendOtp:', error);
+        return res.status(500).json({ success: false, message: 'Failed to send OTP' });
+    }
+};
+
+export const verifyOtp = async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+        if (!email || !otp) {
+            return res.status(400).json({ success: false, message: 'Both email and otp are required.' });
+        }
+
+        const normalizedEmail = String(email).trim().toLowerCase();
+        const otpRecord = await Otp.findOne({ email: normalizedEmail, otp: String(otp).trim() });
+
+        if (!otpRecord) {
+            return res.status(400).json({ success: false, message: 'Invalid or expired OTP code.' });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: 'OTP verified successfully.'
+        });
+    } catch (error) {
+        console.error('Error in verifyOtp:', error);
+        return res.status(500).json({ success: false, message: 'Failed to verify OTP' });
+    }
 };
 
 

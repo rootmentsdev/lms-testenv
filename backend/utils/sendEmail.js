@@ -22,3 +22,39 @@ export const sendCompletionEmail = async ({ name, empId, trainingName, branch, e
 
   await transporter.sendMail(mailOptions);
 };
+
+export const sendOtpEmail = async ({ email, otp }) => {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.warn(`⚠️ [EMAIL] EMAIL_USER/EMAIL_PASS not configured. OTP generated for ${email} is: ${otp}`);
+    return;
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+    port: Number(process.env.EMAIL_PORT) || 465,
+    secure: true,
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+
+  const mailOptions = {
+    from: `"Brynex LMS Verification" <${process.env.EMAIL_USER}>`,
+    to: email,
+    subject: `Your Verification Code (OTP) – Brynex LMS`,
+    text: `Hello,\n\nYour One-Time Password (OTP) for signup verification is: ${otp}\n\nThis code is valid for 5 minutes. Please do not share this code with anyone.\n\nWarm regards,\nBrynex LMS Team`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+        <h2 style="color: #111827; text-align: center;">Email Verification Code</h2>
+        <p style="color: #4b5563; font-size: 14px;">Use the following OTP code to complete your registration. This code will expire in <strong>5 minutes</strong>.</p>
+        <div style="background-color: #f3f4f6; text-align: center; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <span style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #111827;">${otp}</span>
+        </div>
+        <p style="color: #6b7280; font-size: 12px; text-align: center;">If you did not request this OTP, please ignore this email.</p>
+      </div>
+    `
+  };
+
+  await transporter.sendMail(mailOptions);
+};
