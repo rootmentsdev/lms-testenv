@@ -283,11 +283,22 @@ export const flutterLogin = async (req, res) => {
       return res.status(400).json({ message: 'Employee ID and password are required' });
     }
 
+    // Helper to build flexible case and space-tolerant regex for Employee IDs (EMP, Emp, emp, EMP 123, emp123, etc.)
+    const buildEmpIdRegex = (str) => {
+      const trimmed = str.trim();
+      const noSpace = trimmed.replace(/\s+/g, '');
+      const escaped = noSpace.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const flexPattern = escaped.replace(/([a-zA-Z]+)(\d+)/, '$1\\s*$2');
+      return new RegExp(`^${flexPattern}$`, 'i');
+    };
+
     // 1. Check if the user is an Admin
+    const empIdRegex = buildEmpIdRegex(rawEmpID);
+    const escapedRaw = rawEmpID.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const adminQuery = {
       $or: [
-        { EmpId: { $regex: `^${rawEmpID.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' } },
-        { email: { $regex: `^${rawEmpID.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' } }
+        { EmpId: empIdRegex },
+        { email: { $regex: `^${escapedRaw}$`, $options: 'i' } }
       ]
     };
 
@@ -400,7 +411,10 @@ export const flutterLogin = async (req, res) => {
 
     // 2. Fallback to standard User/Employee authentication
     const query = {
-      empID: { $regex: `^${rawEmpID.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' }
+      $or: [
+        { empID: empIdRegex },
+        { email: { $regex: `^${escapedRaw}$`, $options: 'i' } }
+      ]
     };
 
     let user = await User.findOne(query);
@@ -1476,4 +1490,178 @@ export const saveFcmToken = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Failed to save FCM token' });
   }
 };
+
+export const appSignUp = async (req, res) => {
+  try {
+    const {
+      username,
+      name,
+      email,
+      empID,
+      userId,
+      password,
+      phoneNumber,
+      workingBranch,
+      locCode,
+      branchId,
+      branches
+    } = req.body;
+
+    const finalName = (username || name || '').trim();
+    const finalEmail = (email || '').trim();
+    const finalPassword = (password || '').trim();
+    let finalEmpId = (empID || userId || '').trim();
+    const finalPhone = (phoneNumber || '').trim();
+
+    if (!finalName || !finalEmail || !finalPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name/username, email, and password are required fields.'
+      });
+    }
+
+    // Auto-generate empID if not provided
+    if (!finalEmpId) {
+      const adminCount = await Admin.countDocuments();
+      const userCount = await User.countDocuments();
+      let unique = false;
+      let currentCount = adminCount + userCount;
+      while (!unique) {
+        finalEmpId = `EMP${String(currentCount + 1).padStart(3, '0')}`;
+        const existingAdmin = await Admin.findOne({
+          $or: [
+            { EmpId: { $regex: `^${finalEmpId}$`, $options: 'i' } },
+            { empID: { $regex: `^${finalEmpId}$`, $options: 'i' } }
+          ]
+        });
+        const existingUser = await User.findOne({
+          $or: [
+            { empID: { $regex: `^${finalEmpId}$`, $options: 'i' } },
+            { EmpId: { $regex: `^${finalEmpId}$`, $options: 'i' } }
+          ]
+        });
+        if (!existingAdmin && !existingUser) {
+          unique = true;
+        } else {
+          currentCount++;
+        }
+      }
+    }
+
+    // Helper to build flexible case and space-tolerant regex for Employee IDs
+    const buildEmpIdRegex = (str) => {
+      const trimmed = str.trim();
+      const noSpace = trimmed.replace(/\s+/g, '');
+      const escaped = noSpace.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const flexPattern = escaped.replace(/([a-zA-Z]+)(\d+)/, '$1\\s*$2');
+      return new RegExp(`^${flexPattern}$`, 'i');
+    };
+
+    const signupEmpRegex = buildEmpIdRegex(finalEmpId);
+    const escapedEmail = finalEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    // Check if account already exists by email or empID
+    const existingUser = await User.findOne({
+      $or: [
+        { email: { $regex: `^${escapedEmail}$`, $options: 'i' } },
+        { empID: signupEmpRegex },
+        { EmpId: signupEmpRegex }
+      ]
+    });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'An account with this email or Employee ID already exists.'
+      });
+    }
+
+    const existingAdmin = await Admin.findOne({
+      $or: [
+        { email: { $regex: `^${escapedEmail}$`, $options: 'i' } },
+        { EmpId: signupEmpRegex },
+        { empID: signupEmpRegex }
+      ]
+    });
+    if (existingAdmin) {
+      return res.status(400).json({
+        success: false,
+        message: 'An administrative account with this email or Employee ID already exists.'
+      });
+    }
+
+    // Resolve branch & locCode details if supplied
+    let resolvedBranch = workingBranch || 'Default Store';
+    let resolvedLocCode = locCode || ['100'];
+
+    const targetBranchId = branchId || (Array.isArray(branches) && branches.length > 0 ? branches[0] : null);
+    if (targetBranchId) {
+      const branchDoc = await Branch.findById(targetBranchId);
+      if (branchDoc) {
+        resolvedBranch = branchDoc.workingBranch;
+        resolvedLocCode = [branchDoc.locCode];
+      }
+    }
+
+    if (typeof resolvedLocCode === 'string') {
+      if (resolvedLocCode.includes(',')) {
+        resolvedLocCode = resolvedLocCode.split(',').map(s => s.trim());
+      } else {
+        resolvedLocCode = [resolvedLocCode.trim()];
+      }
+    }
+
+    const hashedPassword = await bcrypt.hash(finalPassword, 10);
+
+    const newUser = new User({
+      username: finalName,
+      email: finalEmail,
+      empID: finalEmpId,
+      password: hashedPassword,
+      phoneNumber: finalPhone,
+      designation: 'Employee',
+      workingBranch: resolvedBranch,
+      locCode: resolvedLocCode,
+      source: 'app'
+    });
+
+    const savedUser = await newUser.save();
+
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT secret is not defined in environment variables');
+    }
+
+    const token = jwt.sign(
+      { userId: savedUser._id, email: savedUser.email, empID: savedUser.empID, role: 'employee' },
+      process.env.JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: 'Account created successfully',
+      token,
+      user: {
+        id: savedUser._id,
+        username: savedUser.username,
+        name: savedUser.username,
+        email: savedUser.email,
+        empID: savedUser.empID,
+        phoneNumber: savedUser.phoneNumber,
+        designation: savedUser.designation,
+        workingBranch: savedUser.workingBranch,
+        locCode: savedUser.locCode,
+        source: savedUser.source
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in appSignUp:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error during sign up',
+      error: error.message
+    });
+  }
+};
+
 

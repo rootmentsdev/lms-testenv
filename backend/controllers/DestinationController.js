@@ -663,7 +663,14 @@ export const CreatingAdminUsers = async (req, res) => {
                 }
             }
 
-            const existingUser = await User.findOne({ $or: [{ empID: EmpId }, { email }] });
+            const escapedEmp = EmpId ? EmpId.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : '';
+            const escapedEmail = email ? email.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : '';
+            const existingUser = await User.findOne({
+                $or: [
+                    { empID: { $regex: `^${escapedEmp}$`, $options: 'i' } },
+                    { email: { $regex: `^${escapedEmail}$`, $options: 'i' } }
+                ]
+            });
             if (existingUser) {
                 // Update existing employee
                 existingUser.username = name;
@@ -775,7 +782,14 @@ export const CreatingAdminUsers = async (req, res) => {
         }
 
         // Check if Admin already exists by EmpId or email
-        let existingAdmin = await Admin.findOne({ $or: [{ EmpId }, { email }] });
+        const escapedAdminEmp = EmpId ? EmpId.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : '';
+        const escapedAdminEmail = email ? email.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : '';
+        let existingAdmin = await Admin.findOne({
+            $or: [
+                { EmpId: { $regex: `^${escapedAdminEmp}$`, $options: 'i' } },
+                { email: { $regex: `^${escapedAdminEmail}$`, $options: 'i' } }
+            ]
+        });
         if (existingAdmin) {
             // Update existing Admin
             existingAdmin.name = name;

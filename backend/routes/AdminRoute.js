@@ -189,8 +189,8 @@ router.get('/branch-audit/:id', MiddilWare, getBranchAuditById);
  * /api/admin/admin/createadmin:
  *   post:
  *     tags: [Admin]
- *     summary: Create a new admin user
- *     description: Allows the creation of a new administrator with specific credentials and roles.
+ *     summary: Create a new admin or employee user (Web Dashboard)
+ *     description: Creates an administrator or employee account with assigned permissions, store branches, and credentials.
  *     requestBody:
  *       required: true
  *       content:
@@ -198,22 +198,41 @@ router.get('/branch-audit/:id', MiddilWare, getBranchAuditById);
  *           schema:
  *             type: object
  *             properties:
- *               username:
+ *               userName:
  *                 type: string
- *                 description: Admin username
- *               password:
+ *                 description: Full name of the user
+ *               userId:
  *                 type: string
- *                 description: Admin password
+ *                 description: Employee ID (auto-generated if omitted)
  *               email:
  *                 type: string
- *                 description: Admin email
- *               branch:
- *                     type:array
+ *                 description: Email address
+ *               phoneNumber:
+ *                 type: string
+ *                 description: Contact phone number
+ *               password:
+ *                 type: string
+ *                 description: Account password
+ *               userRole:
+ *                 type: string
+ *                 enum: [super_admin, admin, hr_admin, cluster_admin, store_admin, warehouse_admin, telecaller, employee]
+ *                 description: Role assigned to the user
+ *               Branch:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of branch ObjectIds assigned to the user
+ *             required:
+ *               - userName
+ *               - email
+ *               - userRole
  *     responses:
  *       200:
- *         description: Admin user created successfully.
+ *         description: User created or updated successfully.
  *       400:
  *         description: Bad request, missing or invalid data.
+ *       403:
+ *         description: Forbidden - unauthorized role assignment.
  *       500:
  *         description: Internal server error.
  */
