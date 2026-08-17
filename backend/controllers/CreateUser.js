@@ -7,6 +7,7 @@ import TrainingProgress from '../model/Trainingprocessschema.js';
 import Module from '../model/Module.js';
 import { Training } from '../model/Traning.js';
 import Admin from '../model/Admin.js';
+import Notification from '../model/Notification.js';
 import { sendCompletionEmail } from '../utils/sendEmail.js';
 import { sendNotification } from '../utils/notificationHelper.js';
 dotenv.config()
@@ -537,6 +538,20 @@ export const flutterLogin = async (req, res) => {
 
     if (!isAuthenticated || !user) {
       return res.status(401).json({ message: 'Authentication failed' });
+    }
+
+    if (user.registrationStatus === 'pending') {
+      return res.status(403).json({
+        success: false,
+        message: 'Your registration request is pending approval by Admin.'
+      });
+    }
+
+    if (user.registrationStatus === 'declined') {
+      return res.status(403).json({
+        success: false,
+        message: 'Your registration request was declined by Admin.'
+      });
     }
 
     if (!process.env.JWT_SECRET) {
@@ -1621,25 +1636,28 @@ export const appSignUp = async (req, res) => {
       designation: 'Employee',
       workingBranch: resolvedBranch,
       locCode: resolvedLocCode,
-      source: 'app'
+      source: 'app',
+      registrationStatus: 'pending'
     });
 
     const savedUser = await newUser.save();
 
-    if (!process.env.JWT_SECRET) {
-      throw new Error('JWT secret is not defined in environment variables');
+    // Create Admin notification for pending registration
+    try {
+      const notify = new Notification({
+        title: 'New App User Registration Request',
+        body: `${savedUser.username} (${savedUser.empID}) has requested registration via mobile app. Please accept or decline.`,
+        Role: ['super_admin', 'admin', 'hr_admin'],
+        category: 'Registration'
+      });
+      await notify.save();
+    } catch (notifyErr) {
+      console.error('Error creating registration notification:', notifyErr);
     }
-
-    const token = jwt.sign(
-      { userId: savedUser._id, email: savedUser.email, empID: savedUser.empID, role: 'employee' },
-      process.env.JWT_SECRET,
-      { expiresIn: '30d' }
-    );
 
     return res.status(201).json({
       success: true,
-      message: 'Account created successfully',
-      token,
+      message: 'Registration request submitted successfully! Your account is pending admin approval.',
       user: {
         id: savedUser._id,
         username: savedUser.username,
@@ -1650,7 +1668,8 @@ export const appSignUp = async (req, res) => {
         designation: savedUser.designation,
         workingBranch: savedUser.workingBranch,
         locCode: savedUser.locCode,
-        source: savedUser.source
+        source: savedUser.source,
+        registrationStatus: savedUser.registrationStatus
       }
     });
 
