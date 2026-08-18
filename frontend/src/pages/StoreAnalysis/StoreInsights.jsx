@@ -128,23 +128,38 @@ const STORE_TO_LOC_CODE = {
   "gedappally": "702",
   "sgedappally": "702",
   "gtrivandrum": "700",
+  "sgtrivandrum": "700",
   "zedappal": "100",
   "zperinthalmanna": "133",
   "zkottakkal": "122",
   "gkottayam": "701",
+  "sgkottayam": "701",
   "gperumbavoor": "703",
+  "sgperumbavoor": "703",
   "gthrissur": "704",
+  "sgthrissur": "704",
   "gchavakkad": "706",
+  "sgchavakkad": "706",
   "gcalicut": "712",
+  "sgcalicut": "712",
   "gvadakara": "708",
+  "sgvadakara": "708",
   "gedappal": "707",
+  "sgedappal": "707",
   "gperinthalmanna": "709",
+  "sgperinthalmanna": "709",
   "gkottakkal": "711",
+  "sgkottakkal": "711",
   "gmanjeri": "710",
+  "sgmanjeri": "710",
   "gpalakkad": "705",
+  "sgpalakkad": "705",
   "gkalpetta": "717",
+  "sgkalpetta": "717",
   "gkannur": "716",
-  "gmgroad": "718"
+  "sgkannur": "716",
+  "gmgroad": "718",
+  "sgmgroad": "718"
 };
 
 function getBranchLocCode(workingBranch, branchesList) {
@@ -934,9 +949,11 @@ const SingleCalendarRangePicker = ({ initialStart, initialEnd, onApply, onClose 
 const ALL_STREAMS = [
   { id: "rental", label: "Rental", desc: "Rental bookings & orders", color: "#2563eb", icon: "👔", dot: "#3b82f6", activeBg: "bg-blue-50/80", activeBorder: "border-blue-200" },
   { id: "dappr", label: "Dappr Squad", desc: "POS (Loc 25) & attributions", color: "#8b5cf6", icon: "⚡", dot: "#8b5cf6", activeBg: "bg-purple-50/80", activeBorder: "border-purple-200" },
-  { id: "customization", label: "Customization", desc: "Shirt sales & tailoring", color: "#059669", icon: "✂️", dot: "#10b981", activeBg: "bg-emerald-50/80", activeBorder: "border-emerald-200" },
-  { id: "shoe", label: "Shoe Sales", desc: "Footwear & shoe billing", color: "#d97706", icon: "👞", dot: "#f59e0b", activeBg: "bg-amber-50/80", activeBorder: "border-amber-200" },
+  { id: "customization", label: "Customization", desc: "Tailoring & customization attributions", color: "#059669", icon: "✂️", dot: "#10b981", activeBg: "bg-emerald-50/80", activeBorder: "border-emerald-200" },
+  { id: "shoe", label: "Sales Data", desc: "Store product sales", color: "#d97706", icon: "🛍️", dot: "#f59e0b", activeBg: "bg-amber-50/80", activeBorder: "border-amber-200" },
 ];
+
+const CONSOLIDATED_STREAMS = ["rental", "dappr", "shoe"]; // Consolidated = Rental + Dappr Squad + Sales Data (excludes Customization)
 
 const StoreInsights = () => {
   const user = useSelector((state) => state.auth.user);
@@ -955,7 +972,7 @@ const StoreInsights = () => {
   const includeShoe = selectedStreams.includes("shoe");
   const isAllStreams = selectedStreams.length === ALL_STREAMS.length;
   const isRentalOnly = selectedStreams.length === 1 && selectedStreams.includes("rental");
-  const isConsolidated = isAllStreams;
+  const isConsolidated = selectedStreams.length === CONSOLIDATED_STREAMS.length && CONSOLIDATED_STREAMS.every(s => selectedStreams.includes(s));
 
   // Page State
   const [timeframe, setTimeframe] = useState("MTD"); // MTD, WTD, YTD, CUSTOM
@@ -1587,8 +1604,15 @@ const StoreInsights = () => {
             const docs = Array.isArray(custJson.data) ? custJson.data : [custJson.data];
             docs.forEach(doc => {
               if (!doc?.storeName) return;
-              const storeKey = normalizeForMatch(doc.storeName);
-              if (!custByStore[storeKey]) custByStore[storeKey] = { val: 0, bills: 0, qty: 0 };
+              const rawKey = normalizeForMatch(doc.storeName);
+              const dispKey = normalizeForMatch(displayBranchName(doc.storeName));
+              const edapKey = rawKey.replace(/edappally/g, "edapally");
+              const dispEdapKey = dispKey.replace(/edappally/g, "edapally");
+              const keysToAdd = Array.from(new Set([rawKey, dispKey, edapKey, dispEdapKey])).filter(Boolean);
+
+              keysToAdd.forEach(k => {
+                if (!custByStore[k]) custByStore[k] = { val: 0, bills: 0, qty: 0 };
+              });
 
               let valAdd = Number(doc.totalValue) || 0;
               let billsAdd = Number(doc.totalBills) || 0;
@@ -1615,9 +1639,11 @@ const StoreInsights = () => {
                 });
               }
 
-              custByStore[storeKey].val   += valAdd;
-              custByStore[storeKey].bills += billsAdd;
-              custByStore[storeKey].qty   += qtyAdd;
+              keysToAdd.forEach(k => {
+                custByStore[k].val   += valAdd;
+                custByStore[k].bills += billsAdd;
+                custByStore[k].qty   += qtyAdd;
+              });
             });
           }
           setCustomizationAttribution(custMapped);
@@ -1682,6 +1708,16 @@ const StoreInsights = () => {
           if (custJson.success && custJson.data) {
             const docs = Array.isArray(custJson.data) ? custJson.data : [custJson.data];
             docs.forEach(doc => {
+              const rawKey = normalizeForMatch(doc.storeName || activeStore);
+              const dispKey = normalizeForMatch(displayBranchName(doc.storeName || activeStore));
+              const edapKey = rawKey.replace(/edappally/g, "edapally");
+              const dispEdapKey = dispKey.replace(/edappally/g, "edapally");
+              const keysToAdd = Array.from(new Set([rawKey, dispKey, edapKey, dispEdapKey, storeKey])).filter(Boolean);
+
+              keysToAdd.forEach(k => {
+                if (!custByStore[k]) custByStore[k] = { val: 0, bills: 0, qty: 0 };
+              });
+
               let valAdd = Number(doc.totalValue) || 0;
               let billsAdd = Number(doc.totalBills) || 0;
               let qtyAdd = Number(doc.totalQuantity) || 0;
@@ -1707,9 +1743,11 @@ const StoreInsights = () => {
                 });
               }
 
-              custByStore[storeKey].val   += valAdd;
-              custByStore[storeKey].bills += billsAdd;
-              custByStore[storeKey].qty   += qtyAdd;
+              keysToAdd.forEach(k => {
+                custByStore[k].val   += valAdd;
+                custByStore[k].bills += billsAdd;
+                custByStore[k].qty   += qtyAdd;
+              });
             });
             setCustomizationAttribution(custMapped);
             setStoreCustomizationTotals(custByStore);
@@ -2483,9 +2521,9 @@ const StoreInsights = () => {
         setSalespersons(salespersonsList);
 
         const byBranch = {};
-        let totalShoeQty = 0, totalShirtQty = 0;
-        let totalShoeValue = 0, totalShirtValue = 0;
-        let totalShoeBills = 0, totalShirtBills = 0;
+        let totalSalesQty = 0;
+        let totalSalesValue = 0;
+        let totalSalesBills = 0;
 
         stores.forEach(s => {
           const locCode = String(s.locCode || "");
@@ -2496,46 +2534,47 @@ const StoreInsights = () => {
           const mixed = s.mixed || {};
           const total = s.total || {};
 
-          // mixed goes to shoe (it's shoe+shirt combo — attributed to shoe bucket)
-          const shoeQty   = (shoe.qty   || 0) + (mixed.qty   || 0);
-          const shoeValue = (shoe.value || 0) + (mixed.value || 0);
-          const shoeBills = (shoe.bills || 0) + (mixed.bills || 0);
-          const shirtQty   = shirt.qty   || 0;
-          const shirtValue = shirt.value || 0;
-          const shirtBills = shirt.bills || 0;
+          // Store sales: combine shoe + shirt + mixed into total POS sales
+          const salesValue = Math.round(total.value ?? ((shoe.value || 0) + (shirt.value || 0) + (mixed.value || 0)));
+          const salesQty   = total.qty   ?? ((shoe.qty || 0) + (shirt.qty || 0) + (mixed.qty || 0));
+          const salesBills = total.bills ?? ((shoe.bills || 0) + (shirt.bills || 0) + (mixed.bills || 0));
 
           byBranch[locCode] = {
-            totalValue: Math.round((total.value || 0)),
-            totalQty:   total.qty   || 0,
-            totalBills: total.bills || 0,
-            shoeQty,   shoeValue,   shoeBills,
-            shirtQty,  shirtValue,  shirtBills,
+            totalValue: salesValue,
+            totalQty:   salesQty,
+            totalBills: salesBills,
+            shoeQty:    salesQty,
+            shoeValue:  salesValue,
+            shoeBills:  salesBills,
+            shirtQty:   shirt.qty || 0,
+            shirtValue: shirt.value || 0,
+            shirtBills: shirt.bills || 0,
           };
 
-          totalShoeQty   += shoeQty;
-          totalShirtQty  += shirtQty;
-          totalShoeValue += shoeValue;
-          totalShirtValue += shirtValue;
-          totalShoeBills += shoeBills;
-          totalShirtBills += shirtBills;
+          totalSalesQty   += salesQty;
+          totalSalesValue += salesValue;
+          totalSalesBills += salesBills;
         });
 
         setSalesData({
-          shoeQty:   Math.round(totalShoeQty),
-          shirtQty:  Math.round(totalShirtQty),
-          shoeValue: Math.round(totalShoeValue),
-          shirtValue: Math.round(totalShirtValue),
-          shoeBills: totalShoeBills,
-          shirtBills: totalShirtBills,
+          shoeQty:    Math.round(totalSalesQty),
+          shirtQty:   0,
+          shoeValue:  Math.round(totalSalesValue),
+          shirtValue: 0,
+          shoeBills:  totalSalesBills,
+          shirtBills: 0,
+          salesQty:   Math.round(totalSalesQty),
+          salesValue: Math.round(totalSalesValue),
+          salesBills: totalSalesBills,
           byBranch
         });
 
         // Map last year sales data
         const lyStores = Array.isArray(lyRes.stores) ? lyRes.stores : [];
         const lyByBranch = {};
-        let lyTotalShoeQty = 0, lyTotalShirtQty = 0;
-        let lyTotalShoeValue = 0, lyTotalShirtValue = 0;
-        let lyTotalShoeBills = 0, lyTotalShirtBills = 0;
+        let lyTotalSalesQty = 0;
+        let lyTotalSalesValue = 0;
+        let lyTotalSalesBills = 0;
 
         lyStores.forEach(s => {
           const locCode = String(s.locCode || "");
@@ -2546,37 +2585,38 @@ const StoreInsights = () => {
           const mixed = s.mixed || {};
           const total = s.total || {};
 
-          const shoeQty   = (shoe.qty   || 0) + (mixed.qty   || 0);
-          const shoeValue = (shoe.value || 0) + (mixed.value || 0);
-          const shoeBills = (shoe.bills || 0) + (mixed.bills || 0);
-          const shirtQty   = shirt.qty   || 0;
-          const shirtValue = shirt.value || 0;
-          const shirtBills = shirt.bills || 0;
+          const salesValue = Math.round(total.value ?? ((shoe.value || 0) + (shirt.value || 0) + (mixed.value || 0)));
+          const salesQty   = total.qty   ?? ((shoe.qty || 0) + (shirt.qty || 0) + (mixed.qty || 0));
+          const salesBills = total.bills ?? ((shoe.bills || 0) + (shirt.bills || 0) + (mixed.bills || 0));
 
           lyByBranch[locCode] = {
-            totalValue: Math.round((total.value || 0)),
-            totalQty:   total.qty   || 0,
-            totalBills: total.bills || 0,
-            shoeQty,   shoeValue,   shoeBills,
-            shirtQty,  shirtValue,  shirtBills,
+            totalValue: salesValue,
+            totalQty:   salesQty,
+            totalBills: salesBills,
+            shoeQty:    salesQty,
+            shoeValue:  salesValue,
+            shoeBills:  salesBills,
+            shirtQty:   shirt.qty || 0,
+            shirtValue: shirt.value || 0,
+            shirtBills: shirt.bills || 0,
           };
 
-          lyTotalShoeQty   += shoeQty;
-          lyTotalShirtQty  += shirtQty;
-          lyTotalShoeValue += shoeValue;
-          lyTotalShirtValue += shirtValue;
-          lyTotalShoeBills += shoeBills;
-          lyTotalShirtBills += shirtBills;
+          lyTotalSalesQty   += salesQty;
+          lyTotalSalesValue += salesValue;
+          lyTotalSalesBills += salesBills;
         });
 
         setLySalesData({
-          shoeQty:   Math.round(lyTotalShoeQty),
-          shirtQty:  Math.round(lyTotalShirtQty),
-          shoeValue: Math.round(lyTotalShoeValue),
-          shirtValue: Math.round(lyTotalShirtValue),
-          shoeBills: lyTotalShoeBills,
-          shirtBills: lyTotalShirtBills,
-          byBranch: lyByBranch
+          shoeQty:    Math.round(lyTotalSalesQty),
+          shirtQty:   0,
+          shoeValue:  Math.round(lyTotalSalesValue),
+          shirtValue: 0,
+          shoeBills:  lyTotalSalesBills,
+          shirtBills: 0,
+          salesQty:   Math.round(lyTotalSalesQty),
+          salesValue: Math.round(lyTotalSalesValue),
+          salesBills: lyTotalSalesBills,
+          byBranch:   lyByBranch
         });
       } catch (err) {
         console.error("Error fetching sales data in StoreInsights:", err);
@@ -2620,7 +2660,7 @@ const StoreInsights = () => {
       const name = displayBranchName(b.workingBranch);
       const locId = getBranchLocationId(b.workingBranch);
       if (locId === "25") return null;
-      const locCode = b.locCode;
+      const locCode = b.locCode || getBranchLocCode(b.workingBranch, branches);
 
       let target = 0;
       if (timeframe === "YTD") {
@@ -2645,15 +2685,12 @@ const StoreInsights = () => {
       const mergedPeriodList = [...locPeriodList, ...dapprPeriodForStore, ...unmappedDapprPeriodList];
       const rentalValue = mergedPeriodList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
 
-      // Branch sales (Shoe + Customization)
+      // Branch sales (Sales Data: Shoe + Shirt combined)
       const branchSales = (locCode && salesData.byBranch?.[locCode]) || {};
       let shoeVal = 0;
       let custVal = 0;
       if (includeShoe) {
-        shoeVal = branchSales.shoeValue || 0;
-      }
-      if (includeCustomization) {
-        custVal = branchSales.shirtValue || 0;
+        shoeVal = branchSales.totalValue ?? (branchSales.shoeValue || 0);
       }
 
       let dapprVal = 0;
@@ -2696,10 +2733,7 @@ const StoreInsights = () => {
       let lyShoeVal = 0;
       let lyCustVal = 0;
       if (includeShoe) {
-        lyShoeVal = lyBranchSales.shoeValue || 0;
-      }
-      if (includeCustomization) {
-        lyCustVal = lyBranchSales.shirtValue || 0;
+        lyShoeVal = lyBranchSales.totalValue ?? (lyBranchSales.shoeValue || 0);
       }
 
       const lyValue = lyRentalValue + lyShoeVal + lyCustVal;
@@ -2878,14 +2912,9 @@ const StoreInsights = () => {
 
       let bills = 0, qty = 0, value = 0;
       if (includeShoe) {
-        bills += found.shoeBills || 0;
-        qty   += found.shoeQty || 0;
-        value += found.shoeValue || 0;
-      }
-      if (includeCustomization) {
-        bills += found.shirtBills || 0;
-        qty   += found.shirtQty || 0;
-        value += found.shirtValue || 0;
+        bills += found.bills ?? ((found.shoeBills || 0) + (found.shirtBills || 0));
+        qty   += found.qty   ?? ((found.shoeQty || 0) + (found.shirtQty || 0));
+        value += found.value ?? ((found.shoeValue || 0) + (found.shirtValue || 0));
       }
       return { bills, qty, value };
     };
@@ -2899,7 +2928,7 @@ const StoreInsights = () => {
       return match ? match.bookingBy : strName;
     };
 
-    const salesStaffNames = (includeShoe || includeCustomization)
+    const salesStaffNames = includeShoe
       ? (salespersons || [])
           .filter(sp => sp.stores && sp.stores.some(st => String(st.locCode) === String(locCode)))
           .map(sp => canonicalizeName(sp.salesperson))
@@ -3147,34 +3176,24 @@ const StoreInsights = () => {
         lyRentalQty += lyLocPeriodList.reduce((sum, item) => sum + (item.totalQuantity ?? 0), 0);
       }
 
-      // 3. Shoe & Shirt Sales from byBranch
+      // 3. Sales Data from byBranch (all POS sales: shoe + shirt)
       const bObj = branches.find(b => (c._id && String(b._id) === String(c._id)) || normalizeForMatch(b.workingBranch) === normalizeForMatch(name));
-      const locCode = bObj?.locCode;
+      const locCode = bObj?.locCode || getBranchLocCode(bObj?.workingBranch || name, branches);
       if (locCode && salesData.byBranch?.[locCode]) {
         const branchSales = salesData.byBranch[locCode];
         if (includeShoe) {
-          shoeValue += branchSales.shoeValue || 0;
-          shoeQty += branchSales.shoeQty || 0;
-          shoeBills += branchSales.shoeBills || 0;
-        }
-        if (includeCustomization) {
-          shirtValue += branchSales.shirtValue || 0;
-          shirtQty += branchSales.shirtQty || 0;
-          shirtBills += branchSales.shirtBills || 0;
+          shoeValue += branchSales.totalValue ?? (branchSales.shoeValue || 0);
+          shoeQty   += branchSales.totalQty   ?? (branchSales.shoeQty || 0);
+          shoeBills += branchSales.totalBills ?? (branchSales.shoeBills || 0);
         }
       }
 
       if (locCode && lySalesData.byBranch?.[locCode]) {
         const lyBranchSales = lySalesData.byBranch[locCode];
         if (includeShoe) {
-          lyShoeValue += lyBranchSales.shoeValue || 0;
-          lyShoeQty += lyBranchSales.shoeQty || 0;
-          lyShoeBills += lyBranchSales.shoeBills || 0;
-        }
-        if (includeCustomization) {
-          lyShirtValue += lyBranchSales.shirtValue || 0;
-          lyShirtQty += lyBranchSales.shirtQty || 0;
-          lyShirtBills += lyBranchSales.shirtBills || 0;
+          lyShoeValue += lyBranchSales.totalValue ?? (lyBranchSales.shoeValue || 0);
+          lyShoeQty   += lyBranchSales.totalQty   ?? (lyBranchSales.shoeQty || 0);
+          lyShoeBills += lyBranchSales.totalBills ?? (lyBranchSales.shoeBills || 0);
         }
       }
 
@@ -3464,19 +3483,19 @@ const StoreInsights = () => {
     filteredStoresForKPIs.forEach(c => {
       const cName = c.name;
       const cBObj = branches.find(b => normalizeForMatch(b.workingBranch) === normalizeForMatch(cName));
-      const cLocCode = cBObj?.locCode;
+      const cLocCode = cBObj?.locCode || getBranchLocCode(cBObj?.workingBranch || cName, branches);
       if (cLocCode && salesData.byBranch?.[cLocCode]) {
         const bs = salesData.byBranch[cLocCode];
-        cardShoeQty += bs.shoeQty || 0;
+        cardShoeQty += bs.totalQty ?? (bs.shoeQty || 0);
         cardShirtQty += bs.shirtQty || 0;
-        cardShoeValue += bs.shoeValue || 0;
+        cardShoeValue += bs.totalValue ?? (bs.shoeValue || 0);
         cardShirtValue += bs.shirtValue || 0;
       }
       if (cLocCode && lySalesData.byBranch?.[cLocCode]) {
         const lbs = lySalesData.byBranch[cLocCode];
-        lyCardShoeQty += lbs.shoeQty || 0;
+        lyCardShoeQty += lbs.totalQty ?? (lbs.shoeQty || 0);
         lyCardShirtQty += lbs.shirtQty || 0;
-        lyCardShoeValue += lbs.shoeValue || 0;
+        lyCardShoeValue += lbs.totalValue ?? (lbs.shoeValue || 0);
         lyCardShirtValue += lbs.shirtValue || 0;
       }
     });
@@ -3635,10 +3654,9 @@ const StoreInsights = () => {
       }
       const branchSales = salesData.byBranch?.[locCode] || {};
       if (includeShoe) {
-        storeTotalValue += branchSales.shoeValue || 0;
+        storeTotalValue += branchSales.totalValue ?? (branchSales.shoeValue || 0);
       }
       if (includeCustomization) {
-        storeTotalValue += branchSales.shirtValue || 0;
         storeTotalValue += Object.values(customizationAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
       }
       if (includeDappr) {
@@ -3669,7 +3687,7 @@ const StoreInsights = () => {
           value += staffFtdList.reduce((sum, x) => sum + (x.totalValue || 0), 0);
         }
 
-        if (includeShoe || includeCustomization) {
+        if (includeShoe) {
           const storeMaps = [
             locCode && salesByStaffMap[locCode],
             locId && salesByStaffMap[locId],
@@ -3684,16 +3702,9 @@ const StoreInsights = () => {
             });
             if (staffSalesKey && sm[staffSalesKey]) {
               const sData = sm[staffSalesKey];
-              if (includeShoe) {
-                bills += sData.shoeBills || 0;
-                qty += sData.shoeQty || 0;
-                value += sData.shoeValue || 0;
-              }
-              if (includeCustomization) {
-                bills += sData.shirtBills || 0;
-                qty += sData.shirtQty || 0;
-                value += sData.shirtValue || 0;
-              }
+              bills += sData.bills ?? ((sData.shoeBills || 0) + (sData.shirtBills || 0));
+              qty   += sData.qty   ?? ((sData.shoeQty || 0) + (sData.shirtQty || 0));
+              value += sData.value ?? ((sData.shoeValue || 0) + (sData.shirtValue || 0));
               break;
             }
           }
@@ -3785,7 +3796,7 @@ const StoreInsights = () => {
     const storeMetrics = activeBranches.map(b => {
       const name = displayBranchName(b.workingBranch);
       const locId = getBranchLocationId(b.workingBranch);
-      const locCode = b.locCode;
+      const locCode = b.locCode || getBranchLocCode(b.workingBranch, branches);
 
       const locPeriodList = includeRental ? (performanceData[locId] || []) : [];
       const dapprPeriodList = includeDappr ? (performanceData["25"] || []) : [];
@@ -3810,16 +3821,12 @@ const StoreInsights = () => {
       let custVal = 0, custBills = 0, custQty = 0;
 
       if (includeShoe) {
-        shoeVal = branchSales.shoeValue || 0;
-        shoeBills = branchSales.shoeBills || 0;
-        shoeQty = branchSales.shoeQty || 0;
+        shoeVal = branchSales.totalValue ?? (branchSales.shoeValue || 0);
+        shoeBills = branchSales.totalBills ?? (branchSales.shoeBills || 0);
+        shoeQty = branchSales.totalQty ?? (branchSales.shoeQty || 0);
       }
 
       if (includeCustomization) {
-        custVal = branchSales.shirtValue || 0;
-        custBills = branchSales.shirtBills || 0;
-        custQty = branchSales.shirtQty || 0;
-
         const storeKey = normalizeForMatch(name);
         if (isStoreAdmin && customizationAttribution) {
           custVal += Object.values(customizationAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
@@ -4271,11 +4278,11 @@ const StoreInsights = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setSelectedStreams(ALL_STREAMS.map(s => s.id));
+                    setSelectedStreams([...CONSOLIDATED_STREAMS]);
                     setIsStreamDropdownOpen(false);
                   }}
                   className={`relative z-10 px-3 py-1 rounded-full text-[11px] font-black tracking-wide transition-all duration-200 cursor-pointer select-none ${
-                    isAllStreams
+                    isConsolidated
                       ? "bg-white text-gray-950 shadow-md shadow-black/10 scale-[1.02] border border-black/5"
                       : "text-gray-500 hover:text-gray-900"
                   }`}
@@ -4288,13 +4295,13 @@ const StoreInsights = () => {
                   type="button"
                   onClick={() => setIsStreamDropdownOpen(!isStreamDropdownOpen)}
                   className={`relative z-10 flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black tracking-wide transition-all duration-200 cursor-pointer select-none ${
-                    !isRentalOnly && !isAllStreams
+                    !isRentalOnly && !isConsolidated
                       ? "bg-white text-gray-950 shadow-md shadow-black/10 scale-[1.02] border border-black/5"
                       : "text-gray-500 hover:text-gray-900"
                   }`}
                 >
                   <span>
-                    {!isRentalOnly && !isAllStreams ? `Custom (${selectedStreams.length})` : "Customize"}
+                    {!isRentalOnly && !isConsolidated ? `Custom (${selectedStreams.length})` : "Customize"}
                   </span>
                   <svg
                     className={`w-3 h-3 text-gray-500 transition-transform duration-200 ${isStreamDropdownOpen ? "rotate-180" : ""}`}
@@ -4324,6 +4331,17 @@ const StoreInsights = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedStreams([...CONSOLIDATED_STREAMS])}
+                        className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
+                          isConsolidated
+                            ? "bg-gray-900 text-white"
+                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        }`}
+                      >
+                        Consolidated (3)
+                      </button>
                       <button
                         type="button"
                         onClick={() => setSelectedStreams(ALL_STREAMS.map(s => s.id))}
@@ -5144,12 +5162,12 @@ const StoreInsights = () => {
           })}
 
           {renderKpiCard({
-            title: "Shoe Sale",
+            title: "Sales Data",
             mainVal: stats.shoeChange?.display || "+0%",
             tyVal: formatIndianNumber(stats.shoeSale),
             lyVal: formatIndianNumber(stats.shoeChange?.prev || 0),
             changeObj: stats.shoeChange,
-            unit: "Shoes",
+            unit: "Items",
             trend: stats.shoeChange?.trend,
             trendColor: stats.shoeChange?.trendColor,
             index: 8

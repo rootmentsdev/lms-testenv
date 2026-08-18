@@ -258,23 +258,38 @@ const STORE_TO_LOC_CODE = {
   "gedappally": "702",
   "sgedappally": "702",
   "gtrivandrum": "700",
+  "sgtrivandrum": "700",
   "zedappal": "100",
   "zperinthalmanna": "133",
   "zkottakkal": "122",
   "gkottayam": "701",
+  "sgkottayam": "701",
   "gperumbavoor": "703",
+  "sgperumbavoor": "703",
   "gthrissur": "704",
+  "sgthrissur": "704",
   "gchavakkad": "706",
+  "sgchavakkad": "706",
   "gcalicut": "712",
+  "sgcalicut": "712",
   "gvadakara": "708",
+  "sgvadakara": "708",
   "gedappal": "707",
+  "sgedappal": "707",
   "gperinthalmanna": "709",
+  "sgperinthalmanna": "709",
   "gkottakkal": "711",
+  "sgkottakkal": "711",
   "gmanjeri": "710",
+  "sgmanjeri": "710",
   "gpalakkad": "705",
+  "sgpalakkad": "705",
   "gkalpetta": "717",
+  "sgkalpetta": "717",
   "gkannur": "716",
-  "gmgroad": "718"
+  "sgkannur": "716",
+  "gmgroad": "718",
+  "sgmgroad": "718"
 };
 
 function getBranchLocCode(workingBranch, branchesList) {
@@ -759,7 +774,7 @@ const sortStoresGThenZ = (a, b) => {
 
 const DSRReport = () => {
   const user = useSelector((state) => state.auth.user);
-  const isAdminOrSuperAdmin = user?.role === "super_admin" || user?.role === "admin";
+  const isAdminOrSuperAdmin = user?.role === "super_admin" || user?.role === "admin" || user?.role === "it_admin";
   const isStoreAdmin = user?.role === "store_admin";
   const isClusterAdmin = user?.role === "cluster_admin";
   const [branches, setBranches] = useState([]);
@@ -1947,9 +1962,8 @@ const DSRReport = () => {
       const targetMonth = activeTab === "Custom" ? getMonthNameFromDateStr(appliedEndDate || customEndDate || customStartDate) : CURRENT_MONTH_LONG;
       const targetYear = activeTab === "Custom" ? getYearFromDateStr(appliedEndDate || customEndDate || customStartDate) : CURRENT_YEAR;
       const storeParam = (!targetStore || targetStore === "All") ? "All" : targetStore;
-      const currentWeek = storeParam !== "All" ? (getCurrentWeekId(storeParam) || "All") : "All";
 
-      const queryUrl = `${baseUrl.baseUrl}api/customization-attributions?storeName=${encodeURIComponent(storeParam)}&month=${targetMonth}&year=${targetYear}${currentWeek !== "All" ? `&week=${currentWeek}` : ''}`;
+      const queryUrl = `${baseUrl.baseUrl}api/customization-attributions?storeName=${encodeURIComponent(storeParam)}&month=${targetMonth}&year=${targetYear}`;
       console.log("[Customization] Fetching:", queryUrl);
       const res = await fetch(queryUrl, {
         headers: {
@@ -1969,10 +1983,17 @@ const DSRReport = () => {
 
         docs.forEach(doc => {
           if (!doc || !doc.storeName) return;
-          const storeKey = normalizeForMatch(doc.storeName);
-          if (!storeTotals[storeKey]) {
-            storeTotals[storeKey] = { val: 0, bills: 0, qty: 0, valFtd: 0, billsFtd: 0, qtyFtd: 0 };
-          }
+          const rawKey = normalizeForMatch(doc.storeName);
+          const dispKey = normalizeForMatch(displayBranchName(doc.storeName));
+          const edapKey = rawKey.replace(/edappally/g, "edapally");
+          const dispEdapKey = dispKey.replace(/edappally/g, "edapally");
+          const keysToAdd = Array.from(new Set([rawKey, dispKey, edapKey, dispEdapKey])).filter(Boolean);
+
+          keysToAdd.forEach(k => {
+            if (!storeTotals[k]) {
+              storeTotals[k] = { val: 0, bills: 0, qty: 0, valFtd: 0, billsFtd: 0, qtyFtd: 0 };
+            }
+          });
 
           const docDateStr = doc.date || (doc.updatedAt ? getLocalDateString(doc.updatedAt) : (doc.createdAt ? getLocalDateString(doc.createdAt) : ""));
           const isTodayDoc = docDateStr === ftdTargetDate;
@@ -2011,15 +2032,17 @@ const DSRReport = () => {
             });
           }
 
-          storeTotals[storeKey].val += valAdd;
-          storeTotals[storeKey].bills += billsAdd;
-          storeTotals[storeKey].qty += qtyAdd;
+          keysToAdd.forEach(k => {
+            storeTotals[k].val += valAdd;
+            storeTotals[k].bills += billsAdd;
+            storeTotals[k].qty += qtyAdd;
 
-          if (isTodayDoc) {
-            storeTotals[storeKey].valFtd += valAdd;
-            storeTotals[storeKey].billsFtd += billsAdd;
-            storeTotals[storeKey].qtyFtd += qtyAdd;
-          }
+            if (isTodayDoc) {
+              storeTotals[k].valFtd += valAdd;
+              storeTotals[k].billsFtd += billsAdd;
+              storeTotals[k].qtyFtd += qtyAdd;
+            }
+          });
         });
         console.log("[Customization] storeTotals keys:", Object.keys(storeTotals));
       }
@@ -4297,6 +4320,7 @@ const DSRReport = () => {
                   const targetStore = (isStoreAdmin && branches.length > 0) ? displayBranchName(branches[0].workingBranch) : selectedStore;
                   let freshAttribution = { ...customizationAttribution };
                   try {
+                    await fetchCustomizationAttribution();
                     const token = localStorage.getItem("token");
                     const targetMonth = activeTab === "Custom" ? getMonthNameFromDateStr(customStartDate) : CURRENT_MONTH_LONG;
                     const targetYear = activeTab === "Custom" ? getYearFromDateStr(customStartDate) : CURRENT_YEAR;
@@ -4307,13 +4331,18 @@ const DSRReport = () => {
                     const json = await res.json();
                     if (json.success && json.data) {
                       freshAttribution = {};
-                      (json.data.attributions || []).forEach(attr => {
-                        freshAttribution[attr.staffName] = {
-                          billWtd: attr.billWtd,
-                          valWtd: attr.valWtd,
-                          qtyWtd: attr.qtyWtd
-                        };
-                      });
+                      const docs = Array.isArray(json.data) ? json.data : [json.data];
+                      const doc = docs[0];
+                      if (doc) {
+                        (doc.attributions || []).forEach(attr => {
+                          if (!attr?.staffName) return;
+                          freshAttribution[attr.staffName] = {
+                            billWtd: attr.billWtd,
+                            valWtd: attr.valWtd,
+                            qtyWtd: attr.qtyWtd
+                          };
+                        });
+                      }
                       setCustomizationAttribution(freshAttribution);
                     }
                   } catch (err) {
@@ -5589,9 +5618,9 @@ const DSRReport = () => {
 
           const targetStoreName = (isStoreAdmin && branches.length > 0) ? displayBranchName(branches[0].workingBranch) : selectedStore;
           const storeCustObj = getStoreCustomizationTotal(targetStoreName, storeCustomizationTotals);
-          const customizationTotalValue = storeCustObj?.val || 0;
-          const customizationTotalBills = storeCustObj?.bills || 0;
-          const customizationTotalQty   = storeCustObj?.qty || 0;
+          const customizationTotalValue = (activeTab === "FTD" && (storeCustObj?.valFtd > 0 || storeCustObj?.billsFtd > 0)) ? (storeCustObj.valFtd || 0) : (storeCustObj?.val || 0);
+          const customizationTotalBills = (activeTab === "FTD" && (storeCustObj?.valFtd > 0 || storeCustObj?.billsFtd > 0)) ? (storeCustObj.billsFtd || 0) : (storeCustObj?.bills || 0);
+          const customizationTotalQty   = (activeTab === "FTD" && (storeCustObj?.valFtd > 0 || storeCustObj?.billsFtd > 0)) ? (storeCustObj.qtyFtd || 0) : (storeCustObj?.qty || 0);
 
           let allocatedValue = 0;
           let allocatedBills = 0;
@@ -5774,9 +5803,13 @@ const DSRReport = () => {
                             month: targetMonth,
                             year: Number(targetYear),
                             week: Number(currentWeek),
+                            totalValue: customizationTotalValue,
+                            totalBills: customizationTotalBills,
+                            totalQuantity: customizationTotalQty,
                             attributions: attributionsList
                           })
                         });
+                        await fetchCustomizationAttribution();
                       } catch (err) {
                         console.error("Error saving Customization attribution to MongoDB:", err);
                       }
