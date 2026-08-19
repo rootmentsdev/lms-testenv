@@ -19,6 +19,7 @@ import {
 import { FiDownload } from "react-icons/fi";
 import { FaStar, FaStarHalfAlt, FaRegStar, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import baseUrl, { formatStoreDisplayName } from "../../api/api";
+import { getHardcodedWalkin } from "../../utils/hardcodedWalkins";
 
 // ── Helpers & Constants ──────────────────────────────────────────────────
 const BRAND_TOKENS = new Set(["zorucci", "grooms", "suitor", "guy", "sg"]);
@@ -3117,7 +3118,12 @@ const StoreInsights = () => {
         isStoreMatch(w, bObj) && 
         isWalkinCreatedInRange(w.createdAt, lyPeriodStart, lyPeriodEnd)
       );
-      lyCustomerWalkins += lyStoreWalkins.length;
+      const hardcodedCount = getHardcodedWalkin(bObj?.workingBranch || c.name, lyPeriodStart, lyPeriodEnd);
+      if (hardcodedCount !== undefined && hardcodedCount !== null) {
+        lyCustomerWalkins += hardcodedCount;
+      } else {
+        lyCustomerWalkins += lyStoreWalkins.length;
+      }
       lyConvertedWalkinsCount += lyStoreWalkins.filter(w => w.status?.toLowerCase() === "booked").length;
     });
 
@@ -3210,7 +3216,24 @@ const StoreInsights = () => {
     // Database-wide Walkins override for consolidated cluster filter "All" AND no store filter (Admin / Super Admin only)
     if ((selectedClusters.includes("All") || selectedClusters.length === 0) && (selectedStores.includes("All") || selectedStores.length === 0) && !isStoreAdmin && !isClusterAdmin) {
       customerWalkins = walkins.filter(w => isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd)).length;
-      lyCustomerWalkins = lyWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, lyPeriodStart, lyPeriodEnd)).length;
+      
+      let hardcodedSumAll = 0;
+      let hasAnyHardcoded = false;
+      filteredStoresForKPIs.forEach(c => {
+        const bObj = branches.find(b => normalizeForMatch(b.workingBranch) === normalizeForMatch(c.name));
+        const hVal = getHardcodedWalkin(bObj?.workingBranch || c.name, lyPeriodStart, lyPeriodEnd);
+        if (hVal !== undefined && hVal !== null) {
+          hardcodedSumAll += hVal;
+          hasAnyHardcoded = true;
+        }
+      });
+
+      if (hasAnyHardcoded) {
+        lyCustomerWalkins = hardcodedSumAll;
+      } else {
+        lyCustomerWalkins = lyWalkins.filter(w => isWalkinCreatedInRange(w.createdAt, lyPeriodStart, lyPeriodEnd)).length;
+      }
+
       convertedWalkinsCount = walkins.filter(w => 
         isWalkinCreatedInRange(w.createdAt, periodStart, periodEnd) && 
         w.status?.toLowerCase() === "booked"
