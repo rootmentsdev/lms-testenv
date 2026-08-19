@@ -411,19 +411,28 @@ function normalizeForMatch(str) {
     .replace(/^sg/, "g")
     .replace(/^dapper/, "dappr");
 }
-
 const STAFF_ALIAS_MAPPING = {
-  "sidheek": "SIDHEEQ",
-  "sidheeq": "SIDHEEQ",
-  "sidheek k": "SIDHEEQ",
-  "sidheeq k": "SIDHEEQ",
-  "sidheeqk": "SIDHEEQ",
-  "sidheekk": "SIDHEEQ",
+  // Ashiq
+  "mohammed ashiq s": "M ASHIQ S",
+  "mohammed ashiq": "M ASHIQ S",
+  "mohammedashiqs": "M ASHIQ S",
+  "mohammedashiq": "M ASHIQ S",
+  "mohammad ashiq s": "M ASHIQ S",
+  "mohammad ashiq": "M ASHIQ S",
+  "m ashiq s": "M ASHIQ S",
+  "mashiqs": "M ASHIQ S",
+  "m ashiq": "M ASHIQ S",
+  "mashiq": "M ASHIQ S",
+  "ashiq": "M ASHIQ S",
+
+  // Niyas
   "niyas dinu nasar k": "NIYAS",
   "niyas dinu nasar": "NIYAS",
   "niyasdinunasark": "NIYAS",
   "niyasdinunasar": "NIYAS",
   "niyas": "NIYAS",
+
+  // Shamil
   "m shamil k p": "M SHAMIL K P",
   "mshamilkp": "M SHAMIL K P",
   "muhammed shamil k p": "M SHAMIL K P",
@@ -431,13 +440,21 @@ const STAFF_ALIAS_MAPPING = {
   "shamil k p": "M SHAMIL K P",
   "shamilkp": "M SHAMIL K P",
   "shamil": "M SHAMIL K P",
+
+  // Shahil
   "shahil shan v": "SHAHIL SHAN",
   "shahilshanv": "SHAHIL SHAN",
   "shahil shan": "SHAHIL SHAN",
   "shahilshan": "SHAHIL SHAN",
+
+  // Riswan
   "m riswan": "MOHAMMAD RISWAN",
   "mriswan": "MOHAMMAD RISWAN",
   "riswan": "MOHAMMAD RISWAN",
+  "mohammad riswan": "MOHAMMAD RISWAN",
+  "mohammed riswan": "MOHAMMAD RISWAN",
+
+  // Shan
   "m shan k": "M SHAN K",
   "mshank": "M SHAN K",
   "muhammed shan k": "M SHAN K",
@@ -445,6 +462,8 @@ const STAFF_ALIAS_MAPPING = {
   "shan k": "M SHAN K",
   "shank": "M SHAN K",
   "shan": "M SHAN K",
+
+  // Faris
   "s faris vk": "S FARIS VK",
   "sfarisvk": "S FARIS VK",
   "salmanul faris v k": "S FARIS VK",
@@ -454,26 +473,129 @@ const STAFF_ALIAS_MAPPING = {
   "salman faris": "S FARIS VK",
   "salmanfaris": "S FARIS VK",
   "faris": "S FARIS VK",
+
+  // Salman
   "salman muhammed v": "SALMAN MUHAMMED.V",
   "salmanmuhammedv": "SALMAN MUHAMMED.V",
   "salman muhammed": "SALMAN MUHAMMED.V",
   "salmanmuhammed": "SALMAN MUHAMMED.V",
+
+  // Basil
   "muhammed basil p k": "Muhammed Basil P K",
   "muhammedbasilpk": "Muhammed Basil P K",
   "muhammed basil": "Muhammed Basil P K",
   "muhammedbasil": "Muhammed Basil P K",
   "basil": "Muhammed Basil P K",
+
+  // Shabir
   "muhammad shabir vt": "SHABIR VT",
   "muhammadshabirvt": "SHABIR VT",
   "shabir vt": "SHABIR VT",
   "shabirvt": "SHABIR VT",
   "shabir": "SHABIR VT",
+
+  // Devadath
   "devadeth r": "DEVADATH",
   "devadethr": "DEVADATH",
   "devadeth": "DEVADATH",
   "devadath r": "DEVADATH",
   "devadathr": "DEVADATH",
+
+
+  // Anshif
+  "muhammed anshif c.k": "ANSHIF C.K",
+  "muhammed anshif ck": "ANSHIF C.K",
+  "muhammedanshifck": "ANSHIF C.K",
+  "m anshif ck": "ANSHIF C.K",
+  "manshifck": "ANSHIF C.K",
+  "anshif c.k": "ANSHIF C.K",
+  "anshif ck": "ANSHIF C.K",
+  "anshif": "ANSHIF C.K",
+
+  // Afsal
+  "mohammed afsal v l": "AFSAL",
+  "mohammed afsal": "AFSAL",
+  "mohammedafsal": "AFSAL",
+  "afsal": "AFSAL",
+
+  // Thahseen
+  "muhammad thahseen p": "THAHSEEN P",
+  "muhammadthahseenp": "THAHSEEN P",
+  "thahseen p": "THAHSEEN P",
+  "thahseen": "THAHSEEN P",
+  "thahaseen": "THAHSEEN P",
+
+  // Sidheeq
+  "sidheek": "SIDHEEQ",
+  "sidheeq": "SIDHEEQ",
+  "sidheek k": "SIDHEEQ",
+  "sidheeq k": "SIDHEEQ",
+  "sidheeqk": "SIDHEEQ",
+  "sidheekk": "SIDHEEQ",
+
+  // Deepak
+  "deepak nh": "DEEPAK N H",
+  "deepak n h": "DEEPAK N H",
+  "deepaknh": "DEEPAK N H",
+
+  // Shamnad
+  "shamnad as": "Shamnad A S",
+  "shamnad a s": "Shamnad A S",
+  "shamnadas": "Shamnad A S",
+
+  // Jaseena
+  "jaseena p": "JASEENA",
+  "jaseenap": "JASEENA",
+
+  // Nayana
+  "nayana t s": "NAYANA TS",
+  "nayanats": "NAYANA TS",
+
+  // Al Shifna
+  "al shifna v s": "AL SHIFNA VS",
+  "al shifna vs": "AL SHIFNA VS",
+  "alshifnavs": "AL SHIFNA VS",
+  "al shifna": "AL SHIFNA VS",
+  "alshifna": "AL SHIFNA VS",
+
+  // Angel
+  "angel p saji": "ANGEL P SAJI",
+  "angelpsaji": "ANGEL P SAJI",
+
+  // Alphin
+  "alphin biju": "ALPHIN BIJU",
+  "alphinbiju": "ALPHIN BIJU",
+  "alphin": "ALPHIN BIJU",
+
+  // Amal
+  "amal k manoj": "AMAL K MANOJ",
+  "amalkmanoj": "AMAL K MANOJ",
+  "amal k": "AMAL K MANOJ",
+  "amalk": "AMAL K MANOJ",
+  "amal": "AMAL K MANOJ",
+
+  // Abhijith
+  "abhijith kumar p a": "ABHIJITH KUMAR",
+  "abhijithkumarpa": "ABHIJITH KUMAR",
+  "abhijith kumar": "ABHIJITH KUMAR",
+  "abhijithkumar": "ABHIJITH KUMAR",
+  "abhijith": "ABHIJITH KUMAR",
+
+  // Aswin
+  "aswin raj m. r": "ASWIN RAJ M.R",
+  "aswin raj m.r": "ASWIN RAJ M.R",
+  "aswin raj m r": "ASWIN RAJ M.R",
+  "aswin raj mr": "ASWIN RAJ M.R",
+  "aswinrajmr": "ASWIN RAJ M.R",
+  "aswin raj": "ASWIN RAJ M.R",
+  "aswinraj": "ASWIN RAJ M.R",
+  "aswin": "ASWIN RAJ M.R",
+
+  // Reshma
+  "reshma m": "RESHMA M",
+  "reshmam": "RESHMA M"
 };
+
 
 function getCanonicalStaffName(rawName) {
   if (!rawName) return "";
@@ -540,6 +662,16 @@ function isStaffNameMatch(strA, strB) {
 
   if (strAlphaA === strAlphaB) return true;
 
+  const TITLES = new Set(["muhammed", "mohammad", "mohammed", "md", "m"]);
+  const isTitleToken = (t) => TITLES.has(t);
+
+  // Core name match ignoring leading titles (e.g., "m ashiq s" vs "mohammed ashiq s")
+  const coreA = tokensA.filter(t => !isTitleToken(t)).join("");
+  const coreB = tokensB.filter(t => !isTitleToken(t)).join("");
+  if (coreA.length >= 4 && coreA === coreB) {
+    return true;
+  }
+
   // 1. Concatenated prefix/substring check (e.g., Jishnuraj vs Jishnu vs Jishnu Raj K)
   if (strAlphaA.length >= 5 && strAlphaB.length >= 5) {
     if (strAlphaA.startsWith(strAlphaB) || strAlphaB.startsWith(strAlphaA)) {
@@ -548,8 +680,8 @@ function isStaffNameMatch(strA, strB) {
     }
   }
 
-  // Helper to extract explicit initials
-  const initialsOf = (tokens) => tokens.filter(t => t.length <= 2).join("");
+  // Helper to extract explicit non-title initials
+  const initialsOf = (tokens) => tokens.filter(t => t.length <= 2 && !isTitleToken(t)).join("");
   const initA = initialsOf(tokensA);
   const initB = initialsOf(tokensB);
   if (initA.length > 0 && initB.length > 0 && initA !== initB) {
@@ -569,11 +701,20 @@ function isStaffNameMatch(strA, strB) {
   const unsharedA = tokensA.filter(t => !tokensB.includes(t));
   const unsharedB = tokensB.filter(t => !tokensA.includes(t));
 
-  const TITLES = new Set(["muhammed", "mohammad", "mohammed", "md", "m"]);
+  if (unsharedA.length > 0 && unsharedB.length > 0) {
+    if (
+      (unsharedA.length === 1 && isTitleToken(unsharedA[0]) && unsharedB.length === 1 && isTitleToken(unsharedB[0])) ||
+      (unsharedA.length === 1 && isTitleToken(unsharedA[0]) && unsharedB.every(isTitleToken)) ||
+      (unsharedB.length === 1 && isTitleToken(unsharedB[0]) && unsharedA.every(isTitleToken))
+    ) {
+      return true;
+    }
+  }
+
   const substantialCommon = common.filter(t => t.length >= 4 && !TITLES.has(t));
   if (substantialCommon.length > 0) {
     const isInitialsOrSuffix = (t) => TITLES.has(t) || t.length <= 2 || ["raj", "kumar"].includes(t);
-    if (unsharedA.every(isInitialsOrSuffix) || unsharedB.every(isInitialsOrSuffix)) {
+    if (unsharedA.every(isInitialsOrSuffix) && unsharedB.every(isInitialsOrSuffix)) {
       return true;
     }
   }

@@ -1219,11 +1219,28 @@ const StoreInsights = () => {
   }
 
   const STAFF_ALIAS_MAPPING = {
+    // Ashiq
+
+    "mohammed ashiq s": "M ASHIQ S",
+    "mohammed ashiq": "M ASHIQ S",
+    "mohammedashiqs": "M ASHIQ S",
+    "mohammedashiq": "M ASHIQ S",
+    "mohammad ashiq s": "M ASHIQ S",
+    "mohammad ashiq": "M ASHIQ S",
+    "m ashiq s": "M ASHIQ S",
+    "mashiqs": "M ASHIQ S",
+    "m ashiq": "M ASHIQ S",
+    "mashiq": "M ASHIQ S",
+    "ashiq": "M ASHIQ S",
+
+    // Niyas
     "niyas dinu nasar k": "NIYAS",
     "niyas dinu nasar": "NIYAS",
     "niyasdinunasark": "NIYAS",
     "niyasdinunasar": "NIYAS",
     "niyas": "NIYAS",
+
+    // Shamil
     "m shamil k p": "M SHAMIL K P",
     "mshamilkp": "M SHAMIL K P",
     "muhammed shamil k p": "M SHAMIL K P",
@@ -1231,13 +1248,21 @@ const StoreInsights = () => {
     "shamil k p": "M SHAMIL K P",
     "shamilkp": "M SHAMIL K P",
     "shamil": "M SHAMIL K P",
+
+    // Shahil
     "shahil shan v": "SHAHIL SHAN",
     "shahilshanv": "SHAHIL SHAN",
     "shahil shan": "SHAHIL SHAN",
     "shahilshan": "SHAHIL SHAN",
+
+    // Riswan
     "m riswan": "MOHAMMAD RISWAN",
     "mriswan": "MOHAMMAD RISWAN",
     "riswan": "MOHAMMAD RISWAN",
+    "mohammad riswan": "MOHAMMAD RISWAN",
+    "mohammed riswan": "MOHAMMAD RISWAN",
+
+    // Shan
     "m shan k": "M SHAN K",
     "mshank": "M SHAN K",
     "muhammed shan k": "M SHAN K",
@@ -1245,6 +1270,8 @@ const StoreInsights = () => {
     "shan k": "M SHAN K",
     "shank": "M SHAN K",
     "shan": "M SHAN K",
+
+    // Faris
     "s faris vk": "S FARIS VK",
     "sfarisvk": "S FARIS VK",
     "salmanul faris v k": "S FARIS VK",
@@ -1254,26 +1281,129 @@ const StoreInsights = () => {
     "salman faris": "S FARIS VK",
     "salmanfaris": "S FARIS VK",
     "faris": "S FARIS VK",
+
+    // Salman
     "salman muhammed v": "SALMAN MUHAMMED.V",
     "salmanmuhammedv": "SALMAN MUHAMMED.V",
     "salman muhammed": "SALMAN MUHAMMED.V",
     "salmanmuhammed": "SALMAN MUHAMMED.V",
+
+    // Basil
     "muhammed basil p k": "Muhammed Basil P K",
     "muhammedbasilpk": "Muhammed Basil P K",
     "muhammed basil": "Muhammed Basil P K",
     "muhammedbasil": "Muhammed Basil P K",
     "basil": "Muhammed Basil P K",
+
+    // Shabir
     "muhammad shabir vt": "SHABIR VT",
     "muhammadshabirvt": "SHABIR VT",
     "shabir vt": "SHABIR VT",
     "shabirvt": "SHABIR VT",
     "shabir": "SHABIR VT",
+
+    // Devadath
     "devadeth r": "DEVADATH",
     "devadethr": "DEVADATH",
     "devadeth": "DEVADATH",
     "devadath r": "DEVADATH",
     "devadathr": "DEVADATH",
+
+
+    // Anshif
+    "muhammed anshif c.k": "ANSHIF C.K",
+    "muhammed anshif ck": "ANSHIF C.K",
+    "muhammedanshifck": "ANSHIF C.K",
+    "m anshif ck": "ANSHIF C.K",
+    "manshifck": "ANSHIF C.K",
+    "anshif c.k": "ANSHIF C.K",
+    "anshif ck": "ANSHIF C.K",
+    "anshif": "ANSHIF C.K",
+
+    // Afsal
+    "mohammed afsal v l": "AFSAL",
+    "mohammed afsal": "AFSAL",
+    "mohammedafsal": "AFSAL",
+    "afsal": "AFSAL",
+
+    // Thahseen
+    "muhammad thahseen p": "THAHSEEN P",
+    "muhammadthahseenp": "THAHSEEN P",
+    "thahseen p": "THAHSEEN P",
+    "thahseen": "THAHSEEN P",
+    "thahaseen": "THAHSEEN P",
+
+    // Sidheeq
+    "sidheek": "SIDHEEQ",
+    "sidheeq": "SIDHEEQ",
+    "sidheek k": "SIDHEEQ",
+    "sidheeq k": "SIDHEEQ",
+    "sidheeqk": "SIDHEEQ",
+    "sidheekk": "SIDHEEQ",
+
+    // Deepak
+    "deepak nh": "DEEPAK N H",
+    "deepak n h": "DEEPAK N H",
+    "deepaknh": "DEEPAK N H",
+
+    // Shamnad
+    "shamnad as": "Shamnad A S",
+    "shamnad a s": "Shamnad A S",
+    "shamnadas": "Shamnad A S",
+
+    // Jaseena
+    "jaseena p": "JASEENA",
+    "jaseenap": "JASEENA",
+
+    // Nayana
+    "nayana t s": "NAYANA TS",
+    "nayanats": "NAYANA TS",
+
+    // Al Shifna
+    "al shifna v s": "AL SHIFNA VS",
+    "al shifna vs": "AL SHIFNA VS",
+    "alshifnavs": "AL SHIFNA VS",
+    "al shifna": "AL SHIFNA VS",
+    "alshifna": "AL SHIFNA VS",
+
+    // Angel
+    "angel p saji": "ANGEL P SAJI",
+    "angelpsaji": "ANGEL P SAJI",
+
+    // Alphin
+    "alphin biju": "ALPHIN BIJU",
+    "alphinbiju": "ALPHIN BIJU",
+    "alphin": "ALPHIN BIJU",
+
+    // Amal
+    "amal k manoj": "AMAL K MANOJ",
+    "amalkmanoj": "AMAL K MANOJ",
+    "amal k": "AMAL K MANOJ",
+    "amalk": "AMAL K MANOJ",
+    "amal": "AMAL K MANOJ",
+
+    // Abhijith
+    "abhijith kumar p a": "ABHIJITH KUMAR",
+    "abhijithkumarpa": "ABHIJITH KUMAR",
+    "abhijith kumar": "ABHIJITH KUMAR",
+    "abhijithkumar": "ABHIJITH KUMAR",
+    "abhijith": "ABHIJITH KUMAR",
+
+    // Aswin
+    "aswin raj m. r": "ASWIN RAJ M.R",
+    "aswin raj m.r": "ASWIN RAJ M.R",
+    "aswin raj m r": "ASWIN RAJ M.R",
+    "aswin raj mr": "ASWIN RAJ M.R",
+    "aswinrajmr": "ASWIN RAJ M.R",
+    "aswin raj": "ASWIN RAJ M.R",
+    "aswinraj": "ASWIN RAJ M.R",
+    "aswin": "ASWIN RAJ M.R",
+
+    // Reshma
+    "reshma m": "RESHMA M",
+    "reshmam": "RESHMA M"
   };
+
 
   function getCanonicalStaffName(rawName) {
     if (!rawName) return "";
@@ -1283,6 +1413,49 @@ const StoreInsights = () => {
       return STAFF_ALIAS_MAPPING[lower];
     }
     return str;
+  }
+
+  function getStaffChartAbbreviation(fullName, allStaffNames = []) {
+    if (!fullName) return "";
+    const str = String(fullName).trim();
+    const tokens = str.split(/\s+/).filter(Boolean);
+    if (tokens.length === 0) return str;
+
+    // If first token is a single letter or initial like "M", "S", "A", or "Al" (length <= 2) and second token exists
+    let primaryName = tokens[0];
+    if (tokens[0].length <= 2 && tokens.length > 1) {
+      if (tokens[0].toUpperCase() === "AL" && tokens[1]) {
+        primaryName = `Al ${tokens[1]}`; // e.g. "Al Shifna"
+      } else {
+        primaryName = tokens[1]; // e.g. "M ASHIQ S" -> "Ashiq"
+      }
+    }
+
+    // Count how many staff in the current view share this primaryName (case-insensitive)
+    const matchingStaff = allStaffNames.filter(otherName => {
+      if (!otherName) return false;
+      const oTokens = String(otherName).trim().split(/\s+/).filter(Boolean);
+      const oPrimary = (oTokens[0] && oTokens[0].length <= 2 && oTokens.length > 1) 
+        ? (oTokens[0].toUpperCase() === "AL" && oTokens[1] ? `Al ${oTokens[1]}` : oTokens[1])
+        : (oTokens[0] || "");
+      return oPrimary.toLowerCase() === primaryName.toLowerCase();
+    });
+
+    if (matchingStaff.length > 1) {
+      // If name starts with Muhammed/Mohammed/etc. and has a second token, use second token to distinguish (e.g. "Ifas", "Swalih")
+      if (tokens.length > 1 && tokens[0].toLowerCase().startsWith("muhamm")) {
+        return tokens[1];
+      }
+      if (tokens.length > 1 && tokens[0].toLowerCase().startsWith("mohamm")) {
+        return tokens[1];
+      }
+      // Otherwise append second token or last initial
+      if (tokens.length > 1) {
+        return `${tokens[0]} ${tokens[1].charAt(0)}.`;
+      }
+    }
+
+    return primaryName;
   }
 
   function normalizeEmpCode(code) {
@@ -1405,6 +1578,16 @@ const StoreInsights = () => {
 
     if (strAlphaA === strAlphaB) return true;
 
+    const TITLES = new Set(["muhammed", "mohammad", "mohammed", "md", "m"]);
+    const isTitleToken = (t) => TITLES.has(t);
+
+    // Core name match ignoring leading titles (e.g., "m ashiq s" vs "mohammed ashiq s")
+    const coreA = tokensA.filter(t => !isTitleToken(t)).join("");
+    const coreB = tokensB.filter(t => !isTitleToken(t)).join("");
+    if (coreA.length >= 4 && coreA === coreB) {
+      return true;
+    }
+
     // 1. Concatenated prefix/substring check (e.g., Jishnuraj vs Jishnu vs Jishnu Raj K)
     if (strAlphaA.length >= 5 && strAlphaB.length >= 5) {
       if (strAlphaA.startsWith(strAlphaB) || strAlphaB.startsWith(strAlphaA)) {
@@ -1413,8 +1596,8 @@ const StoreInsights = () => {
       }
     }
 
-    // Helper to extract explicit initials
-    const initialsOf = (tokens) => tokens.filter(t => t.length <= 2).join("");
+    // Helper to extract explicit non-title initials
+    const initialsOf = (tokens) => tokens.filter(t => t.length <= 2 && !isTitleToken(t)).join("");
     const initA = initialsOf(tokensA);
     const initB = initialsOf(tokensB);
     if (initA.length > 0 && initB.length > 0 && initA !== initB) {
@@ -1434,11 +1617,20 @@ const StoreInsights = () => {
     const unsharedA = tokensA.filter(t => !tokensB.includes(t));
     const unsharedB = tokensB.filter(t => !tokensA.includes(t));
 
-    const TITLES = new Set(["muhammed", "mohammad", "mohammed", "md", "m"]);
+    if (unsharedA.length > 0 && unsharedB.length > 0) {
+      if (
+        (unsharedA.length === 1 && isTitleToken(unsharedA[0]) && unsharedB.length === 1 && isTitleToken(unsharedB[0])) ||
+        (unsharedA.length === 1 && isTitleToken(unsharedA[0]) && unsharedB.every(isTitleToken)) ||
+        (unsharedB.length === 1 && isTitleToken(unsharedB[0]) && unsharedA.every(isTitleToken))
+      ) {
+        return true;
+      }
+    }
+
     const substantialCommon = common.filter(t => t.length >= 4 && !TITLES.has(t));
     if (substantialCommon.length > 0) {
       const isInitialsOrSuffix = (t) => TITLES.has(t) || t.length <= 2 || ["raj", "kumar"].includes(t);
-      if (unsharedA.every(isInitialsOrSuffix) || unsharedB.every(isInitialsOrSuffix)) {
+      if (unsharedA.every(isInitialsOrSuffix) && unsharedB.every(isInitialsOrSuffix)) {
         return true;
       }
     }
@@ -2834,6 +3026,8 @@ const StoreInsights = () => {
     const map = {};
     (salespersons || []).forEach(sp => {
       const staffName = sp.salesperson || "Unassigned";
+      const rawEmpCode = sp.empId || sp.employeeId || "";
+      const empCode = normalizeEmpCode(rawEmpCode) || systemEmpNameToCodeMap?.get(getCanonicalStaffName(staffName).toLowerCase()) || systemEmpNameToCodeMap?.get(normalizeForMatch(staffName)) || "";
       const canon = getCanonicalStaffName(staffName);
       const storesList = Array.isArray(sp.stores) ? sp.stores : [];
       storesList.forEach(st => {
@@ -2857,6 +3051,7 @@ const StoreInsights = () => {
           value: tot.value || 0,
           shoeBills, shoeQty, shoeValue,
           shirtBills, shirtQty, shirtValue,
+          empCode: empCode,
           staffName: staffName
         };
         [lc, sName].filter(Boolean).forEach(key => {
@@ -2865,11 +3060,14 @@ const StoreInsights = () => {
           map[key][staffName] = entryVal;
           map[key][normalizeForMatch(staffName)] = entryVal;
           map[key][normalizeForMatch(canon)] = entryVal;
+          if (empCode) {
+            map[key][empCode] = entryVal;
+          }
         });
       });
     });
     return map;
-  }, [salespersons]);
+  }, [salespersons, systemEmpNameToCodeMap]);
 
   // Employee-level chart data for store_admin — shows each employee's achieved vs assigned target
   const employeeChartData = useMemo(() => {
@@ -2894,14 +3092,23 @@ const StoreInsights = () => {
 
       let found = null;
       for (const sm of storeMaps) {
+        // 1. Search by empCodes first
+        if (entry?.empCodes?.length) {
+          for (const code of entry.empCodes) {
+            if (sm[code]) { found = sm[code]; break; }
+          }
+          if (found) break;
+        }
+
+        // 2. Direct name matching
         if (sm[canon]) { found = sm[canon]; break; }
         if (sm[staffName]) { found = sm[staffName]; break; }
         if (sm[normCanon]) { found = sm[normCanon]; break; }
         if (sm[normStaff]) { found = sm[normStaff]; break; }
 
-        // Search through all keys in the store map
+        // 3. Search through all keys in the store map
         const foundKey = Object.keys(sm).find(k => {
-          const kCode = systemEmpNameToCodeMap?.get(getCanonicalStaffName(k).toLowerCase()) || systemEmpNameToCodeMap?.get(normalizeForMatch(k));
+          const kCode = normalizeEmpCode(sm[k]?.empCode) || systemEmpNameToCodeMap?.get(getCanonicalStaffName(k).toLowerCase()) || systemEmpNameToCodeMap?.get(normalizeForMatch(k));
           if (kCode && entry?.empCodes?.includes(kCode)) return true;
           return (entry?.rawNames || []).some(rn => isStaffNameMatch(rn, k)) || isStaffNameMatch(staffName, k);
         });
@@ -2918,22 +3125,6 @@ const StoreInsights = () => {
       }
       return { bills, qty, value };
     };
-
-    const canonicalizeName = (rawName) => {
-      if (!rawName) return "";
-      const strName = String(rawName);
-      if (strName.toLowerCase() === "unassigned") return "Unassigned";
-      const normName = normalizeForMatch(strName);
-      const match = locPeriodList.find(n => n && normalizeForMatch(n.bookingBy) === normName);
-      return match ? match.bookingBy : strName;
-    };
-
-    const salesStaffNames = includeShoe
-      ? (salespersons || [])
-          .filter(sp => sp.stores && sp.stores.some(st => String(st.locCode) === String(locCode)))
-          .map(sp => canonicalizeName(sp.salesperson))
-          .filter(Boolean)
-      : [];
 
     // Determine the target month name from the active timeframe
     const targetMonthName = timeframe === "CUSTOM"
@@ -2952,56 +3143,130 @@ const StoreInsights = () => {
       || (Array.isArray(employeeTargets[normKey]) ? employeeTargets[normKey] : [])
       || [];
 
-    const branchEmployees = (employees || []).filter(emp => {
-      if (!emp) return false;
-      const empBranch = emp.workingBranch || emp.branch || "";
-      if (!empBranch) return false;
-      return empBranch === singleBranch.workingBranch || 
-             normalizeForMatch(empBranch) === normKey || 
-             getBranchLocationId(empBranch) === locId;
-    }).map(emp => emp.name || emp.displayName || emp.username || emp.staffName);
+    const staffMap = new Map();
 
-    const rawStaffNames = [
-      ...locPeriodList.map(x => x && x.bookingBy),
-      ...salesStaffNames,
-      ...(includeDappr ? Object.keys(dapprAttribution) : []),
-      ...(includeCustomization ? Object.keys(customizationAttribution) : []),
-      ...storeEmpTargets.map(e => e.staffName),
-      ...branchEmployees
-    ].filter(name => typeof name === "string" && name.trim() !== "" && name.trim().toLowerCase() !== "none" && !isDapprSquadName(name)).map(getCanonicalStaffName);
-
-    const sortedStaffNames = Array.from(new Set(rawStaffNames)).sort((a, b) => (b || "").length - (a || "").length);
-
-    const staffEntries = [];
-    sortedStaffNames.forEach(rawName => {
-      const canonName = getCanonicalStaffName(rawName);
-      const normReal = normalizeForMatch(canonName);
-      const empCode = systemEmpNameToCodeMap?.get(canonName.toLowerCase()) || systemEmpNameToCodeMap?.get(normReal);
+    const getOrCreateStaffEntry = (rawEmpCode, rawName) => {
+      const normCode = normalizeEmpCode(rawEmpCode) || systemEmpNameToCodeMap?.get(getCanonicalStaffName(rawName).toLowerCase()) || systemEmpNameToCodeMap?.get(normalizeForMatch(rawName)) || "";
+      const trimmedName = rawName ? String(rawName).trim() : "";
+      const canonName = trimmedName ? getCanonicalStaffName(trimmedName) : "";
 
       let entry = null;
-      if (empCode) {
-        entry = staffEntries.find(e => e.empCodes.includes(empCode));
-      }
-      if (!entry) {
-        entry = staffEntries.find(e => isStaffNameMatch(e.displayName, rawName) || e.rawNames.some(rn => isStaffNameMatch(rn, rawName)));
+
+      // 1. Match by employee code / ID first (Universal single source of truth!)
+      if (normCode) {
+        for (const e of staffMap.values()) {
+          if (e.empCodes.includes(normCode)) {
+            entry = e;
+            break;
+          }
+        }
       }
 
-      if (entry) {
-        if (empCode && !entry.empCodes.includes(empCode)) entry.empCodes.push(empCode);
-        if (!entry.rawNames.includes(rawName)) entry.rawNames.push(rawName);
+      // 2. Match by canonical / alias / fuzzy name
+      if (!entry && (trimmedName || canonName)) {
+        for (const e of staffMap.values()) {
+          if (
+            isStaffNameMatch(e.displayName, trimmedName) ||
+            isStaffNameMatch(e.displayName, canonName) ||
+            e.rawNames.some(rn => isStaffNameMatch(rn, trimmedName) || isStaffNameMatch(rn, canonName))
+          ) {
+            entry = e;
+            break;
+          }
+        }
+      }
+
+      if (!entry) {
+        entry = {
+          empCodes: normCode ? [normCode] : [],
+          displayName: canonName || trimmedName || "Unassigned",
+          rawNames: trimmedName ? [trimmedName] : []
+        };
+        const key = normCode || (canonName || "unassigned").toLowerCase();
+        staffMap.set(key, entry);
       } else {
-        const officialName = (empCode && systemEmpCodeToNameMap?.get(empCode)) ? systemEmpCodeToNameMap.get(empCode) : canonName;
-        staffEntries.push({
-          displayName: officialName,
-          empCodes: empCode ? [empCode] : [],
-          rawNames: [rawName]
-        });
+        if (normCode && !entry.empCodes.includes(normCode)) {
+          entry.empCodes.push(normCode);
+        }
+        if (trimmedName && !entry.rawNames.includes(trimmedName)) {
+          entry.rawNames.push(trimmedName);
+        }
+        // Prefer the longer/more complete display name if matching
+        if (canonName && canonName.length > entry.displayName.length && !isDapprSquadName(canonName)) {
+          entry.displayName = canonName;
+        }
+      }
+
+      return entry;
+    };
+
+    // 1. Process Rental POS items for this location
+    if (includeRental) {
+      locPeriodList.forEach(x => {
+        if (x && (x.bookingBy || x.empCode)) {
+          const rentalCode = normalizeEmpCode(x.empCode) || systemEmpNameToCodeMap?.get(getCanonicalStaffName(x.bookingBy).toLowerCase()) || systemEmpNameToCodeMap?.get(normalizeForMatch(x.bookingBy)) || "";
+          getOrCreateStaffEntry(rentalCode, x.bookingBy);
+        }
+      });
+    }
+
+    // 2. Process Shoe/Shirt Salespersons for this location
+    if (includeShoe) {
+      (salespersons || []).forEach(sp => {
+        const storesList = Array.isArray(sp.stores) ? sp.stores : [];
+        const matchStore = storesList.find(st => String(st.locCode) === String(locCode) || (st.storeName && normalizeForMatch(st.storeName) === normKey));
+        if (matchStore && ((matchStore.total?.value || 0) > 0 || (matchStore.total?.bills || 0) > 0)) {
+          const rawCode = sp.empId || sp.employeeId || "";
+          const staffName = sp.salesperson || "";
+          const salesCode = normalizeEmpCode(rawCode) || systemEmpNameToCodeMap?.get(getCanonicalStaffName(staffName).toLowerCase()) || systemEmpNameToCodeMap?.get(normalizeForMatch(staffName)) || "";
+          getOrCreateStaffEntry(salesCode, staffName);
+        }
+      });
+    }
+
+    // 3. Process Dappr & Customization attributions
+    if (includeDappr) {
+      Object.keys(dapprAttribution).forEach(k => {
+        if (k && !isDapprSquadName(k)) {
+          const kCode = systemEmpNameToCodeMap?.get(getCanonicalStaffName(k).toLowerCase()) || systemEmpNameToCodeMap?.get(normalizeForMatch(k)) || "";
+          getOrCreateStaffEntry(kCode, k);
+        }
+      });
+    }
+    if (includeCustomization) {
+      Object.keys(customizationAttribution).forEach(k => {
+        if (k && !isDapprSquadName(k)) {
+          const kCode = systemEmpNameToCodeMap?.get(getCanonicalStaffName(k).toLowerCase()) || systemEmpNameToCodeMap?.get(normalizeForMatch(k)) || "";
+          getOrCreateStaffEntry(kCode, k);
+        }
+      });
+    }
+
+    // 4. Process configured Store Targets for this store
+    storeEmpTargets.forEach(e => {
+      if (e && e.staffName) {
+        const tCode = systemEmpNameToCodeMap?.get(getCanonicalStaffName(e.staffName).toLowerCase()) || systemEmpNameToCodeMap?.get(normalizeForMatch(e.staffName)) || "";
+        getOrCreateStaffEntry(tCode, e.staffName);
       }
     });
 
+    const staffEntries = Array.from(staffMap.values());
+
+
+
     // Helper: resolve a staff member's target for the current timeframe
-    const resolveStaffTarget = (staffName) => {
-      const empT = storeEmpTargets.find(e => normalizeForMatch(e.staffName) === normalizeForMatch(staffName));
+    const resolveStaffTarget = (staffName, entry) => {
+      const canon = getCanonicalStaffName(staffName);
+      const normName = normalizeForMatch(staffName);
+      const normCanon = normalizeForMatch(canon);
+      const empT = storeEmpTargets.find(e => {
+        const eCanon = getCanonicalStaffName(e.staffName);
+        const eNorm = normalizeForMatch(e.staffName);
+        const eNormCanon = normalizeForMatch(eCanon);
+        if (e.staffName === staffName || eCanon === canon || eNorm === normName || eNormCanon === normCanon) return true;
+        if (entry?.rawNames?.some(rn => rn === e.staffName || getCanonicalStaffName(rn) === eCanon || isStaffNameMatch(rn, e.staffName))) return true;
+        return isStaffNameMatch(e.staffName, staffName) || isStaffNameMatch(e.staffName, canon);
+      });
       if (!empT || !empT.weeklyTargets) return 0;
       const wt = empT.weeklyTargets;
       const today = new Date();
@@ -3045,10 +3310,11 @@ const StoreInsights = () => {
 
     // Last year store rental performance list for employee view
     const lyLocPeriodList = (isStoreAdmin && singleBranch && includeRental) ? (lyPerformanceData[locId] || []) : [];
+    const allStaffDisplayNames = staffEntries.map(e => e.displayName);
 
     const result = staffEntries.map(entry => {
       const fullName = entry.displayName;
-      const firstName = fullName.split(/\s+/)[0] || fullName;
+      const chartAbbr = getStaffChartAbbreviation(fullName, allStaffDisplayNames);
 
       const staffRentalItems = includeRental ? locPeriodList.filter(x => {
         if (!x) return false;
@@ -3094,17 +3360,24 @@ const StoreInsights = () => {
       }) : [];
       const lyValue = staffLyRentalItems.reduce((sum, item) => sum + (item.totalValue || 0), 0);
 
-      const target = resolveStaffTarget(fullName);
+      const target = resolveStaffTarget(fullName, entry);
       const balance = target - achieved;
       const pct = target > 0 ? Math.round((achieved / target) * 100) : 0;
-      return { name: fullName, abbr: firstName, achieved, ty: achieved, ly: lyValue, target, balance, pct };
+      return { name: fullName, abbr: chartAbbr, achieved, ty: achieved, ly: lyValue, target, balance, pct };
     });
 
-    const activeResult = result.filter(item => item.achieved > 0 || item.target > 0 || item.ly > 0);
+
+    const activeResult = result.filter(item => {
+      if (graphType === "LY_VS_TY") {
+        return item.achieved > 0 || item.ly > 0;
+      }
+      return item.achieved > 0 || item.target > 0;
+    });
     return activeResult.length > 0 
       ? activeResult.sort((a, b) => b.achieved - a.achieved) 
       : result.sort((a, b) => a.name.localeCompare(b.name));
-  }, [isStoreAdmin, branches, performanceData, lyPerformanceData, employeeTargets, timeframe, customStartDate, customEndDate, selectedStreams, salespersons, salesData, dapprAttribution, customizationAttribution, systemEmpNameToCodeMap, systemEmpCodeToNameMap, employees]);
+  }, [isStoreAdmin, branches, performanceData, lyPerformanceData, employeeTargets, timeframe, customStartDate, customEndDate, selectedStreams, salespersons, salesData, dapprAttribution, customizationAttribution, systemEmpNameToCodeMap, systemEmpCodeToNameMap, employees, graphType]);
+
 
 
 
