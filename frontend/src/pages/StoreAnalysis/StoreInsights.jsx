@@ -3960,12 +3960,24 @@ const StoreInsights = () => {
             .filter(Boolean)
         : [];
 
+      const isInvalidStaffName = (name) => {
+        if (!name || typeof name !== 'string') return true;
+        const lower = name.trim().toLowerCase();
+        if (!lower || lower === 'none' || lower === 'store total' || lower === 'store_total' || lower === 'store-total' || lower === 'total' || lower === 'unassigned') return true;
+        const norm = normalizeForMatch(name);
+        if (branches && branches.some(b => normalizeForMatch(b.workingBranch) === norm || normalizeForMatch(displayBranchName(b.workingBranch)) === norm)) return true;
+        if (lower.startsWith('suitor guy') || lower.startsWith('zorucci') || lower.startsWith('dappr squad') || lower === 'office' || lower === 'production' || lower === 'warehouse') return true;
+        return false;
+      };
+
       const rawStaffNames = [
         ...locPeriodList.map(x => x && x.bookingBy),
         ...salesStaffNames,
         ...(includeDappr ? Object.keys(dapprAttribution) : []),
         ...(includeCustomization ? Object.keys(customizationAttribution) : [])
-      ].filter(name => typeof name === "string" && name.trim() !== "" && name.trim().toLowerCase() !== "none").map(getCanonicalStaffName);
+      ]
+        .filter(name => typeof name === "string" && !isInvalidStaffName(name))
+        .map(getCanonicalStaffName);
 
       const sortedStaffNames = Array.from(new Set(rawStaffNames)).sort((a, b) => (b || "").length - (a || "").length);
 
@@ -4244,8 +4256,21 @@ const StoreInsights = () => {
   }, [branches, chartData, selectedStreams, performanceData, walkins, isStoreAdmin, isClusterAdmin, salesData, salespersons, dapprAttribution, customizationAttribution, storeDapprTotals, storeCustomizationTotals, selectedClusters, selectedStores, clusters, periodStart, periodEnd, systemEmpNameToCodeMap, systemEmpCodeToNameMap]);
 
   const processedRanking = useMemo(() => {
+    const showStaffRanking = isStoreAdmin || (selectedStores.length === 1 && !selectedStores.includes("All"));
     let result = [...rankingData];
     
+    if (showStaffRanking) {
+      result = result.filter(s => {
+        if (!s || !s.name) return false;
+        const lower = s.name.trim().toLowerCase();
+        if (lower === 'store total' || lower === 'store_total' || lower === 'store-total' || lower === 'total' || lower === 'unassigned') return false;
+        const norm = normalizeForMatch(s.name);
+        if (branches && branches.some(b => normalizeForMatch(b.workingBranch) === norm || normalizeForMatch(displayBranchName(b.workingBranch)) === norm)) return false;
+        if (lower.startsWith('suitor guy') || lower.startsWith('zorucci') || lower.startsWith('dappr squad') || lower === 'office' || lower === 'production' || lower === 'warehouse') return false;
+        return true;
+      });
+    }
+
     if (rankingSearch.trim()) {
       const q = rankingSearch.toLowerCase();
       result = result.filter(s => s.name.toLowerCase().includes(q));
