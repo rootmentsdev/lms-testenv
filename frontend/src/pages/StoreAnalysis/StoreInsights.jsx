@@ -517,6 +517,32 @@ function isHiddenBranch(name) {
   );
 }
 
+function isStoreOrBranchName(name, branchesList = []) {
+  if (!name || typeof name !== "string") return false;
+  const str = name.trim();
+  if (!str || str.toLowerCase() === "none" || str.toLowerCase() === "unassigned") return false;
+
+  if (isHiddenBranch(str)) return true;
+
+  const normName = norm(str);
+  const legacyStoreNorms = [
+    norm("Suitor Guy Calicut"), norm("SG Calicut"), norm("Grooms Calicut"), norm("G-Calicut"), norm("SG-Calicut"), norm("Calicut"),
+    norm("Suitor Guy Kochi"), norm("SG Kochi"), norm("Grooms Kochi"), norm("G-Kochi"), norm("SG-Kochi"), norm("Kochi"),
+    "office", "production", "warehouse"
+  ];
+  if (legacyStoreNorms.includes(normName)) return true;
+
+  if (Array.isArray(branchesList) && branchesList.length > 0) {
+    const matchesBranch = branchesList.some(b => {
+      const bDisp = displayBranchName(b.workingBranch);
+      return norm(bDisp) === normName || norm(b.workingBranch) === normName;
+    });
+    if (matchesBranch) return true;
+  }
+
+  return false;
+}
+
 // Generate store abbreviation for X-axis labels
 function getAbbreviation(fullName) {
   const normName = String(fullName || "").toLowerCase().trim();
@@ -1548,7 +1574,6 @@ const StoreInsights = () => {
 
   function isStaffNameMatch(strA, strB) {
     if (!strA || !strB) return false;
-    if (isDapprSquadName(strA) || isDapprSquadName(strB)) return false;
 
     const rawA = String(strA).trim();
     const rawB = String(strB).trim();
@@ -1562,6 +1587,10 @@ const StoreInsights = () => {
     const normB = normalizeForMatch(canonB);
     if (!normA || !normB) return false;
     if (normA === normB) return true;
+
+    const isDapprA = isDapprSquadName(strA);
+    const isDapprB = isDapprSquadName(strB);
+    if (isDapprA !== isDapprB) return false;
 
     const cleanTokens = (str) =>
       String(str)

@@ -403,6 +403,32 @@ function isHiddenBranch(name) {
   );
 }
 
+function isStoreOrBranchName(name, branchesList = []) {
+  if (!name || typeof name !== "string") return false;
+  const str = name.trim();
+  if (!str || str.toLowerCase() === "none" || str.toLowerCase() === "unassigned") return false;
+
+  if (isHiddenBranch(str)) return true;
+
+  const normName = norm(str);
+  const legacyStoreNorms = [
+    norm("Suitor Guy Calicut"), norm("SG Calicut"), norm("Grooms Calicut"), norm("G-Calicut"), norm("SG-Calicut"), norm("Calicut"),
+    norm("Suitor Guy Kochi"), norm("SG Kochi"), norm("Grooms Kochi"), norm("G-Kochi"), norm("SG-Kochi"), norm("Kochi"),
+    "office", "production", "warehouse"
+  ];
+  if (legacyStoreNorms.includes(normName)) return true;
+
+  if (Array.isArray(branchesList) && branchesList.length > 0) {
+    const matchesBranch = branchesList.some(b => {
+      const bDisp = displayBranchName(b.workingBranch);
+      return norm(bDisp) === normName || norm(b.workingBranch) === normName;
+    });
+    if (matchesBranch) return true;
+  }
+
+  return false;
+}
+
 function normalizeForMatch(str) {
   if (!str) return "";
   return String(str)
@@ -631,7 +657,6 @@ function levenshteinDistance(a, b) {
 
 function isStaffNameMatch(strA, strB) {
   if (!strA || !strB) return false;
-  if (typeof isStoreAliasName === "function" && (isStoreAliasName(strA) || isStoreAliasName(strB))) return false;
 
   const rawA = String(strA).trim();
   const rawB = String(strB).trim();
@@ -645,6 +670,8 @@ function isStaffNameMatch(strA, strB) {
   const normB = normalizeForMatch(canonB);
   if (!normA || !normB) return false;
   if (normA === normB) return true;
+
+  if (typeof isStoreAliasName === "function" && (isStoreAliasName(strA) !== isStoreAliasName(strB))) return false;
 
   const cleanTokens = (str) =>
     String(str)
