@@ -451,6 +451,29 @@ const STAFF_ALIAS_MAPPING = {
   "mashiq": "M ASHIQ S",
   "ashiq": "M ASHIQ S",
 
+  // Akash VK
+  "akash vk": "AKASH VK",
+  "akash v k": "AKASH VK",
+  "akashvk": "AKASH VK",
+  "akash": "AKASH VK",
+  "ak": "AKASH VK",
+
+  // Sajith K
+  "sajith k": "SAJITH K",
+  "sajithk": "SAJITH K",
+  "sajith": "SAJITH K",
+  "sk": "SAJITH K",
+
+  // Abdul Hadi
+  "abdul hadi rafeeque": "Abdul Hadi Rafeeque",
+  "abdul hadi": "Abdul Hadi Rafeeque",
+  "abdulhadi": "Abdul Hadi Rafeeque",
+  "hadi": "Abdul Hadi Rafeeque",
+
+  // Suvinesh
+  "suvinesh k": "SUVINESH",
+  "suvinesh": "SUVINESH",
+
   // Niyas
   "niyas dinu nasar k": "NIYAS",
   "niyas dinu nasar": "NIYAS",
@@ -2382,6 +2405,14 @@ const DSRReport = () => {
           nameToCodeMap.set(cleanKey, normCode);
           nameToCodeMap.set(cleanKey.replace(/q/g, 'k'), normCode);
           nameToCodeMap.set(cleanKey.replace(/k/g, 'q'), normCode);
+        }
+
+        const tokens = rawName.trim().split(/\s+/).filter(Boolean);
+        if (tokens.length >= 2) {
+          const initials = tokens.map(t => t[0]).join('').toLowerCase();
+          if (initials.length >= 2 && !nameToCodeMap.has(initials)) {
+            nameToCodeMap.set(initials, normCode);
+          }
         }
       });
     });
