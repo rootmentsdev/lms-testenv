@@ -119,10 +119,16 @@ const EmployeeData = () => {
         store: storeFilter,
         role: roleFilter,
       });
-      const res = await fetch(
-        `${baseUrl.baseUrl}api/employee/app-users?${params}`,
+      
+      let res = await fetch(
+        `${baseUrl.baseUrl}api/greythr/employees?${params}`,
         { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } }
       );
+
+      if (!res.ok) {
+        throw new Error("Failed to fetch GreytHR employees");
+      }
+
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         const mapped = json.data.map(mapEmployee);
@@ -176,10 +182,16 @@ const EmployeeData = () => {
       store: storeFilter,
       role: roleFilter,
     });
-    const res = await fetch(
-      `${baseUrl.baseUrl}api/employee/app-users?${params}`,
+    let res = await fetch(
+      `${baseUrl.baseUrl}api/greythr/employees?${params}`,
       { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } }
     );
+    if (!res.ok) {
+      res = await fetch(
+        `${baseUrl.baseUrl}api/employee/app-users?${params}`,
+        { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } }
+      );
+    }
     const json = await res.json();
     if (json.success) {
       const mapped = (json.data || []).map(mapEmployee);

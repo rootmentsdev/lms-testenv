@@ -124,7 +124,7 @@ export const formatStoreDisplayName = (rawName) => {
   const trimmed = String(rawName).trim();
   const lower = trimmed.toLowerCase();
 
-  if (['dappr squad', 'dapper squad', 'office', 'production', 'warehouse'].includes(lower)) {
+  if (lower.startsWith('suitor guy') || lower.startsWith('zorucci') || lower.startsWith('dappr') || ['office', 'production', 'warehouse', 'all stores', 'all'].includes(lower)) {
     return trimmed;
   }
 

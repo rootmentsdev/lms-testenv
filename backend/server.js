@@ -680,10 +680,13 @@ app.use('/api/task-category', CategoryRouter)
 
 import CustomizationAttributionRouter from './routes/CustomizationAttributionRoute.js'
 import StoreTargetRouter from './routes/StoreTargetRoute.js'
+import GreythrRouter from './routes/greythrRoute.js'
 app.use('/api/store-targets', StoreTargetRouter)
 app.use('/api/dappr-attributions', DapprAttributionRouter)
 app.use('/api/customization-attributions', CustomizationAttributionRouter)
 app.use('/api/performance', PerformanceRouter)
+app.use('/api/greythr', GreythrRouter)
+
 
 /* =================================================
    ✅ PROXY: GET /api/brynex/shoe-sales/summary
