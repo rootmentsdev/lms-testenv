@@ -55,6 +55,11 @@ const GrowthComparison = lazy(() => import('./pages/StoreAnalysis/GrowthComparis
 const GoogleReviewTask = lazy(() => import('./pages/StoreAnalysis/GoogleReviewTask.jsx'))
 const StoreInsights = lazy(() => import('./pages/StoreAnalysis/StoreInsights.jsx'))
 const HelpSupport = lazy(() => import('./pages/Setting/HelpSupport.jsx'))
+const PlatformAdminLayout = lazy(() => import('./pages/PlatformAdmin/PlatformAdminLayout.jsx'))
+const PlatformDashboard = lazy(() => import('./pages/PlatformAdmin/PlatformDashboard.jsx'))
+const CompaniesPage = lazy(() => import('./pages/PlatformAdmin/CompaniesPage.jsx'))
+const CompanyDetailPage = lazy(() => import('./pages/PlatformAdmin/CompanyDetailPage.jsx'))
+const AuditLogsPage = lazy(() => import('./pages/PlatformAdmin/AuditLogsPage.jsx'))
 
 import { setUser, logout } from './features/auth/authSlice.js';
 
@@ -124,17 +129,34 @@ class AppErrorBoundary extends Component {
 }
 
 // Layout wrapper that adds the global header to all protected pages
-const ProtectedLayout = ({ children, hideForRoles }) => {
+const ProtectedLayout = ({ children, hideForRoles, moduleKey }) => {
   const user = useSelector((state) => state.auth.user);
+
   if (user && user.role === 'warehouse_admin') {
     if (window.location.pathname === '/') {
       return <Navigate to="/customization" replace />;
     }
   }
+
   if (user && hideForRoles && hideForRoles.includes(user.role)) {
     const defaultPath = user.role === 'warehouse_admin' ? '/customization' : '/';
     return <Navigate to={defaultPath} replace />;
   }
+
+  // Plan & Custom Allowed Module Access Guard
+  if (
+    user &&
+    user.role !== 'super_admin' &&
+    moduleKey &&
+    Array.isArray(user.allowedModules) &&
+    !user.allowedModules.includes('ALL')
+  ) {
+    if (!user.allowedModules.includes(moduleKey)) {
+      toast.error(`The '${moduleKey.replace('_', ' ').toUpperCase()}' module is not included in your company access plan.`);
+      return <Navigate to="/" replace />;
+    }
+  }
+
   return (
     <ProtectedRoute>
       <Header />
@@ -248,9 +270,12 @@ function App() {
 
           if (request.user) {
             dispatch(setUser({
+              ...request.user,
               userId: request.user.userId,
               role: request.user.role,
               username: request.user.username,
+              tenantId: request.user.tenantId || null,
+              allowedModules: request.user.allowedModules || ['ALL'],
               branches: request.user.branches || [],
             }));
           } else {
@@ -372,62 +397,68 @@ function App() {
             />
 
             {/* Protected Routes */}
-            <Route path="/" element={<ProtectedLayout><StoreInsights /></ProtectedLayout>} />
-            <Route path="/training-dashboard" element={<ProtectedLayout><Home /></ProtectedLayout>} />
-            <Route path="/assessments" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><Assessments /></ProtectedLayout>} />
+            <Route path="/" element={<ProtectedLayout moduleKey="dashboard"><StoreInsights /></ProtectedLayout>} />
+            <Route path="/training-dashboard" element={<ProtectedLayout moduleKey="training"><Home /></ProtectedLayout>} />
+            <Route path="/assessments" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']} moduleKey="assessment"><Assessments /></ProtectedLayout>} />
 
-            <Route path="/branch" element={<ProtectedLayout hideForRoles={['telecaller']}><Branch /></ProtectedLayout>} />
-            <Route path="/branch/audit" element={<ProtectedLayout hideForRoles={['telecaller']}><BranchAudit /></ProtectedLayout>} />
-            <Route path="/branch/audit/create" element={<ProtectedLayout hideForRoles={['telecaller']}><BranchAuditForm /></ProtectedLayout>} />
-            <Route path="/branch/audit/:id" element={<ProtectedLayout hideForRoles={['telecaller']}><BranchAuditProfile /></ProtectedLayout>} />
-            <Route path="/Addbranch" element={<ProtectedLayout hideForRoles={['telecaller']}><AddBranch /></ProtectedLayout>} />
+            <Route path="/branch" element={<ProtectedLayout hideForRoles={['telecaller']} moduleKey="branch"><Branch /></ProtectedLayout>} />
+            <Route path="/branch/audit" element={<ProtectedLayout hideForRoles={['telecaller']} moduleKey="branch"><BranchAudit /></ProtectedLayout>} />
+            <Route path="/branch/audit/create" element={<ProtectedLayout hideForRoles={['telecaller']} moduleKey="branch"><BranchAuditForm /></ProtectedLayout>} />
+            <Route path="/branch/audit/:id" element={<ProtectedLayout hideForRoles={['telecaller']} moduleKey="branch"><BranchAuditProfile /></ProtectedLayout>} />
+            <Route path="/Addbranch" element={<ProtectedLayout hideForRoles={['telecaller']} moduleKey="branch"><AddBranch /></ProtectedLayout>} />
 
-            <Route path="/employee" element={<ProtectedLayout hideForRoles={['telecaller']}><Employee /></ProtectedLayout>} />
-            <Route path="/employee/create" element={<ProtectedLayout hideForRoles={['telecaller']}><CreateEmployee /></ProtectedLayout>} />
-            <Route path="/module" element={<ProtectedLayout hideForRoles={['telecaller']}><Module /></ProtectedLayout>} />
-            <Route path="/settings" element={<ProtectedLayout hideForRoles={['telecaller']}><Setting /></ProtectedLayout>} />
-            <Route path="/settings/users" element={<ProtectedLayout hideForRoles={['telecaller']}><ExistingUsers /></ProtectedLayout>} />
-            <Route path="/settings/create-user" element={<ProtectedLayout hideForRoles={['telecaller']}><CreateNewUser /></ProtectedLayout>} />
-            <Route path="/settings/create-notification" element={<ProtectedLayout hideForRoles={['telecaller']}><CreateNotificationPage /></ProtectedLayout>} />
-            <Route path="/settings/help" element={<ProtectedLayout><HelpSupport /></ProtectedLayout>} />
-            <Route path="/alltraining" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><Training /></ProtectedLayout>} />
-            <Route path="/training" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><CreateTraining /></ProtectedLayout>} />
-            <Route path="/assigdata" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><AssignedTrainings /></ProtectedLayout>} />
-            <Route path="/assigtraining/:id" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><AssingOrdelete /></ProtectedLayout>} />
-            <Route path="/createmodule" element={<ProtectedLayout hideForRoles={['telecaller']}><CreateModule /></ProtectedLayout>} />
-            <Route path="/createmodule/:id" element={<ProtectedLayout hideForRoles={['telecaller']}><CreateModule /></ProtectedLayout>} />
-            <Route path="/createnewtraining" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><CreateTrainings /></ProtectedLayout>} />
-            <Route path="/createnewtraining/:id" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><CreateTrainings /></ProtectedLayout>} />
-            <Route path="/reassign/:id" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><Reassign /></ProtectedLayout>} />
-            <Route path="/create/mandatorytraining" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><MandatoryTraining /></ProtectedLayout>} />
-            <Route path="/trainingdetails/:id" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><UserTrainingProgress /></ProtectedLayout>} />
-            <Route path="/create/assessment" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><CreateAssessment /></ProtectedLayout>} />
-            <Route path="/assessment/assign/:id" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><AssessmentsAssign /></ProtectedLayout>} />
-            <Route path="/assign/assessment" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><AssignAssessment /></ProtectedLayout>} />
+            <Route path="/employee" element={<ProtectedLayout hideForRoles={['telecaller']} moduleKey="employee"><Employee /></ProtectedLayout>} />
+            <Route path="/employee/create" element={<ProtectedLayout hideForRoles={['telecaller']} moduleKey="employee"><CreateEmployee /></ProtectedLayout>} />
+            <Route path="/module" element={<ProtectedLayout hideForRoles={['telecaller']} moduleKey="training"><Module /></ProtectedLayout>} />
+            <Route path="/settings" element={<ProtectedLayout hideForRoles={['telecaller']} moduleKey="settings"><Setting /></ProtectedLayout>} />
+            <Route path="/settings/users" element={<ProtectedLayout hideForRoles={['telecaller']} moduleKey="settings"><ExistingUsers /></ProtectedLayout>} />
+            <Route path="/settings/create-user" element={<ProtectedLayout hideForRoles={['telecaller']} moduleKey="settings"><CreateNewUser /></ProtectedLayout>} />
+            <Route path="/settings/create-notification" element={<ProtectedLayout hideForRoles={['telecaller']} moduleKey="settings"><CreateNotificationPage /></ProtectedLayout>} />
+            <Route path="/settings/help" element={<ProtectedLayout moduleKey="settings"><HelpSupport /></ProtectedLayout>} />
+            <Route path="/alltraining" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']} moduleKey="training"><Training /></ProtectedLayout>} />
+            <Route path="/training" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']} moduleKey="training"><CreateTraining /></ProtectedLayout>} />
+            <Route path="/assigdata" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']} moduleKey="training"><AssignedTrainings /></ProtectedLayout>} />
+            <Route path="/assigtraining/:id" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']} moduleKey="training"><AssingOrdelete /></ProtectedLayout>} />
+            <Route path="/createmodule" element={<ProtectedLayout hideForRoles={['telecaller']} moduleKey="training"><CreateModule /></ProtectedLayout>} />
+            <Route path="/createmodule/:id" element={<ProtectedLayout hideForRoles={['telecaller']} moduleKey="training"><CreateModule /></ProtectedLayout>} />
+            <Route path="/createnewtraining" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']} moduleKey="training"><CreateTrainings /></ProtectedLayout>} />
+            <Route path="/createnewtraining/:id" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']} moduleKey="training"><CreateTrainings /></ProtectedLayout>} />
+            <Route path="/reassign/:id" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']} moduleKey="training"><Reassign /></ProtectedLayout>} />
+            <Route path="/create/mandatorytraining" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']} moduleKey="training"><MandatoryTraining /></ProtectedLayout>} />
+            <Route path="/trainingdetails/:id" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']} moduleKey="training"><UserTrainingProgress /></ProtectedLayout>} />
+            <Route path="/create/assessment" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']} moduleKey="assessment"><CreateAssessment /></ProtectedLayout>} />
+            <Route path="/assessment/assign/:id" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']} moduleKey="assessment"><AssessmentsAssign /></ProtectedLayout>} />
+            <Route path="/assign/assessment" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']} moduleKey="assessment"><AssignAssessment /></ProtectedLayout>} />
             {/* Test route removed - no longer needed */}
-            <Route path="/admin/Notification" element={<ProtectedLayout hideForRoles={['telecaller']}><Notifications /></ProtectedLayout>} />
+            <Route path="/admin/Notification" element={<ProtectedLayout hideForRoles={['telecaller']} moduleKey="settings"><Notifications /></ProtectedLayout>} />
 
-            <Route path="/admin/overdue/assessment" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><AssessmentOverDuedata /></ProtectedLayout>} />
-            <Route path="/admin/overdue/training" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']}><TraningOverDuedata /></ProtectedLayout>} />
-            <Route path="/detailed/:id" element={<ProtectedLayout hideForRoles={['telecaller']}><EmployeeDetaile /></ProtectedLayout>} />
+            <Route path="/admin/overdue/assessment" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']} moduleKey="assessment"><AssessmentOverDuedata /></ProtectedLayout>} />
+            <Route path="/admin/overdue/training" element={<ProtectedLayout hideForRoles={['store_admin', 'telecaller']} moduleKey="training"><TraningOverDuedata /></ProtectedLayout>} />
+            <Route path="/detailed/:id" element={<ProtectedLayout hideForRoles={['telecaller']} moduleKey="employee"><EmployeeDetaile /></ProtectedLayout>} />
 
-            <Route path="/branch/detailed/:id" element={<ProtectedLayout hideForRoles={['telecaller']}><BranchDetails /></ProtectedLayout>} />
+            <Route path="/branch/detailed/:id" element={<ProtectedLayout hideForRoles={['telecaller']} moduleKey="branch"><BranchDetails /></ProtectedLayout>} />
             <Route path="/admin/profile" element={<ProtectedLayout><Profile /></ProtectedLayout>} />
-            <Route path="/admin/login-analytics" element={<ProtectedLayout hideForRoles={['telecaller']}><LoginAnalytics /></ProtectedLayout>} />
-            <Route path="/walkin/list" element={<ProtectedLayout><WalkinList /></ProtectedLayout>} />
-            <Route path="/walkin/report" element={<ProtectedLayout><WalkinReport /></ProtectedLayout>} />
-            <Route path="/walkin/count" element={<ProtectedLayout><WalkinCount /></ProtectedLayout>} />
-            <Route path="/customization" element={<ProtectedLayout><Customization /></ProtectedLayout>} />
-            <Route path="/task" element={<ProtectedLayout><TaskManagement /></ProtectedLayout>} />
-            <Route path="/task/create" element={<ProtectedLayout hideForRoles={['telecaller']}><CreateTask /></ProtectedLayout>} />
-            <Route path="/task/auto-schedule" element={<ProtectedLayout hideForRoles={['telecaller']}><AutoTask /></ProtectedLayout>} />
-            <Route path="/store-analysis/dsr-report" element={<ProtectedLayout hideForRoles={['telecaller']}><DSRReport /></ProtectedLayout>} />
-            <Route path="/store-analysis/growth-comparison" element={<ProtectedLayout hideForRoles={['telecaller']}><GrowthComparison /></ProtectedLayout>} />
-            <Route path="/store-analysis/google-review-task" element={<ProtectedLayout hideForRoles={['telecaller']}><GoogleReviewTask /></ProtectedLayout>} />
-            <Route path="/store-analysis/store-rating" element={<ProtectedLayout hideForRoles={['telecaller']}><BranchAudit /></ProtectedLayout>} />
-            <Route path="/store-analysis/store-rating/create" element={<ProtectedLayout hideForRoles={['telecaller']}><BranchAuditForm /></ProtectedLayout>} />
-            <Route path="/store-analysis/store-rating/:id" element={<ProtectedLayout hideForRoles={['telecaller']}><BranchAuditProfile /></ProtectedLayout>} />
-            <Route path="/store-insights" element={<ProtectedLayout hideForRoles={['telecaller']}><StoreInsights /></ProtectedLayout>} />
+            <Route path="/admin/login-analytics" element={<ProtectedLayout hideForRoles={['telecaller']} moduleKey="settings"><LoginAnalytics /></ProtectedLayout>} />
+            <Route path="/walkin/list" element={<ProtectedLayout moduleKey="walkin"><WalkinList /></ProtectedLayout>} />
+            <Route path="/walkin/report" element={<ProtectedLayout moduleKey="walkin"><WalkinReport /></ProtectedLayout>} />
+            <Route path="/walkin/count" element={<ProtectedLayout moduleKey="walkin"><WalkinCount /></ProtectedLayout>} />
+            <Route path="/customization" element={<ProtectedLayout moduleKey="customization"><Customization /></ProtectedLayout>} />
+            <Route path="/task" element={<ProtectedLayout moduleKey="task"><TaskManagement /></ProtectedLayout>} />
+            <Route path="/task/create" element={<ProtectedLayout hideForRoles={['telecaller']} moduleKey="task"><CreateTask /></ProtectedLayout>} />
+            <Route path="/task/auto-schedule" element={<ProtectedLayout hideForRoles={['telecaller']} moduleKey="task"><AutoTask /></ProtectedLayout>} />
+            <Route path="/store-analysis/dsr-report" element={<ProtectedLayout hideForRoles={['telecaller']} moduleKey="dsr_report"><DSRReport /></ProtectedLayout>} />
+            <Route path="/store-analysis/growth-comparison" element={<ProtectedLayout hideForRoles={['telecaller']} moduleKey="store_analysis"><GrowthComparison /></ProtectedLayout>} />
+            <Route path="/store-analysis/google-review-task" element={<ProtectedLayout hideForRoles={['telecaller']} moduleKey="store_analysis"><GoogleReviewTask /></ProtectedLayout>} />
+            <Route path="/store-analysis/store-rating" element={<ProtectedLayout hideForRoles={['telecaller']} moduleKey="branch"><BranchAudit /></ProtectedLayout>} />
+            <Route path="/store-analysis/store-rating/create" element={<ProtectedLayout hideForRoles={['telecaller']} moduleKey="branch"><BranchAuditForm /></ProtectedLayout>} />
+            <Route path="/store-analysis/store-rating/:id" element={<ProtectedLayout hideForRoles={['telecaller']} moduleKey="branch"><BranchAuditProfile /></ProtectedLayout>} />
+            <Route path="/store-insights" element={<ProtectedLayout hideForRoles={['telecaller']} moduleKey="store_analysis"><StoreInsights /></ProtectedLayout>} />
+
+            {/* Platform Admin Routes (Super Admin Only) */}
+            <Route path="/platform-admin" element={<ProtectedRoute><PlatformAdminLayout><PlatformDashboard /></PlatformAdminLayout></ProtectedRoute>} />
+            <Route path="/platform-admin/companies" element={<ProtectedRoute><PlatformAdminLayout><CompaniesPage /></PlatformAdminLayout></ProtectedRoute>} />
+            <Route path="/platform-admin/companies/:tenantId" element={<ProtectedRoute><PlatformAdminLayout><CompanyDetailPage /></PlatformAdminLayout></ProtectedRoute>} />
+            <Route path="/platform-admin/audit-logs" element={<ProtectedRoute><PlatformAdminLayout><AuditLogsPage /></PlatformAdminLayout></ProtectedRoute>} />
 
           </Routes>
         </Suspense>

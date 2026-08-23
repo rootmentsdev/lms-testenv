@@ -37,6 +37,11 @@ const branchSchema = new mongoose.Schema({
     isActive: {
         type: Boolean,
         default: true
+    },
+    tenantId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Tenant',
+        index: true
     }
 }, {
     timestamps: true,

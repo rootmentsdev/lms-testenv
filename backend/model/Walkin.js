@@ -211,12 +211,19 @@ const walkinSchema = new mongoose.Schema({
     legacyMeta: {
         type: mongoose.Schema.Types.Mixed,
         default: {}
+    },
+    tenantId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Tenant',
+        index: true
     }
 }, {
     timestamps: true
 });
 
-// Role-based filtering queries by store
+// Role-based and multi-tenant filtering queries
+walkinSchema.index({ tenantId: 1, createdAt: -1 });
+walkinSchema.index({ tenantId: 1, store: 1 });
 walkinSchema.index({ store: 1 });
 walkinSchema.index({ storeId: 1 });
 walkinSchema.index({ employeeId: 1 });

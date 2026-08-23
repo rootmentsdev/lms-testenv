@@ -217,13 +217,19 @@ export const checkCustomerExists = async (req, res) => {
         let query = { contact: contact.trim() };
 
         // Apply store-wide filtering if admin token is present
-        if (req.admin) {
-            const adminId = req.admin.userId;
+        if (req.admin || req.user) {
+            const adminId = (req.admin || req.user).userId || (req.admin || req.user).id;
             query = await buildStoreWideWalkinFilter(adminId, query);
             console.log(`Resolved query with permissions:`, JSON.stringify(query, null, 2));
             if (query._id === null) {
                 console.log(`Access denied: query._id is null`);
                 return res.status(403).json({ success: false, message: 'Admin not found or access denied' });
+            }
+
+            const tenantId = req.user?.tenantId || req.admin?.tenantId;
+            const role = req.user?.role || req.admin?.role;
+            if (tenantId && role !== 'super_admin') {
+                query.tenantId = tenantId;
             }
         } else {
             console.log(`No req.admin found, querying globally:`, query);
@@ -989,6 +995,13 @@ export const getWalkins = async (req, res) => {
         const secureQuery = await buildWalkinFilter(adminId, baseQuery);
         if (secureQuery._id === null) {
             return res.status(403).json({ success: false, message: 'Admin not found or access denied' });
+        }
+
+        // 2b. Enforce strict multi-tenant isolation
+        const userTenantId = req.user?.tenantId || req.admin?.tenantId;
+        const userRole = req.user?.role || req.admin?.role;
+        if (userTenantId && userRole !== 'super_admin') {
+            secureQuery.tenantId = userTenantId;
         }
 
         // 3. Fetch filtered walkins directly from MongoDB

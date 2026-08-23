@@ -24,11 +24,12 @@ const StoreTargetSchema = new mongoose.Schema({
       3: { type: Number, default: 0 },
       4: { type: Number, default: 0 }
     }
-  }]
+  }],
+  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', index: true }
 }, { timestamps: true });
 
-// Prevent duplicate entries for the same store name in the same month/year
-StoreTargetSchema.index({ storeName: 1, month: 1, year: 1 }, { unique: true });
+// Prevent duplicate entries for the same store name in the same month/year per tenant
+StoreTargetSchema.index({ tenantId: 1, storeName: 1, month: 1, year: 1 });
 
 const StoreTarget = mongoose.model('StoreTarget', StoreTargetSchema);
 export default StoreTarget;

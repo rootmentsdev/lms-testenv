@@ -44,6 +44,11 @@ const userSchema = new mongoose.Schema({
     assignedModules: [assignedModuleSchema], // Array of assigned modules
     assignedAssessments: [assignedAssessmentSchema],
     training: [trainingSchema],// Array of assigned assessments
+    tenantId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Tenant',
+        index: true
+    },
     createdAt: { type: Date, default: Date.now }, // Timestamp when the user was created
     updatedAt: { type: Date, default: Date.now }, // Timestamp when the user was last updated
 });

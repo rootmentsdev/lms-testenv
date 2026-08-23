@@ -32,6 +32,7 @@ import DapprAttributionRouter from './routes/DapprAttributionRoute.js'
 import { seedDefaultCategories } from './model/Category.js'
 import PerformanceRouter from './routes/PerformanceRoute.js'
 import SupportTicketRouter from './routes/SupportTicketRoute.js';
+import PlatformAdminRouter from './routes/PlatformAdminRoute.js';
 
 import { AlertNotification } from './lib/CornJob.js';
 import { startEmployeeAutoSync } from './lib/EmployeeAutoSync.js';
@@ -767,6 +768,8 @@ app.use('/api/dappr-attributions', DapprAttributionRouter)
 app.use('/api/customization-attributions', CustomizationAttributionRouter)
 app.use('/api/performance', PerformanceRouter)
 app.use('/api/support-tickets', SupportTicketRouter)
+app.use('/api/platform', PlatformAdminRouter)
+console.log('✅ PlatformAdminRouter mounted cleanly at /api/platform')
 console.log('✅ SupportTicketRouter mounted cleanly at /api/support-tickets')
 
 /* =================================================

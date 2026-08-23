@@ -10,9 +10,12 @@ const authSlice = createSlice({
     reducers: {
         setUser: (state, action) => {
             state.user = {
+                ...action.payload,
                 userId: action.payload.userId,
                 role: action.payload.role,
                 username: action.payload.username,
+                tenantId: action.payload.tenantId || null,
+                allowedModules: action.payload.allowedModules || ['ALL'],
                 branches: action.payload.branches || [],
             };
             state.isAuthenticated = true;

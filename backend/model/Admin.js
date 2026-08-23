@@ -21,6 +21,12 @@ const adminSchema = new mongoose.Schema({
     employeeId: { type: String, default: "" },
     isActive: { type: Boolean, default: true },
     fcmToken: { type: String, default: '' },
+    tenantId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Tenant',
+        default: null,
+        index: true
+    },
 }, { timestamps: true });
 
 // Queried by role to find super_admins and filter by admin type

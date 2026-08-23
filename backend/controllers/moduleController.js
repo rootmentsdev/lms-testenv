@@ -10,6 +10,7 @@ import jwt from 'jsonwebtoken'
 import bcrypt from 'bcrypt'
 import Subrole from '../model/Subrole.js';
 import EscalationLevel from '../model/EscalationLevel.js';
+import Tenant from '../model/Tenant.js';
 
 export const createModule = async (req, res) => {
     try {
@@ -398,11 +399,30 @@ export const AdminLogin = async (req, res) => {
 
         console.log('✅ [LOGIN] Password valid for:', email);
 
+        // Check if user belongs to a suspended tenant
+        let allowedModules = ['ALL'];
+        if (user.tenantId && user.role !== 'super_admin') {
+            const tenant = await Tenant.findById(user.tenantId);
+            if (tenant) {
+                if (tenant.status === 'suspended') {
+                    console.log('❌ [LOGIN] Tenant suspended for:', email);
+                    return res.status(403).json({
+                        message: 'Access denied: Your company account is suspended. Please contact platform administrator.'
+                    });
+                }
+                allowedModules = (Array.isArray(tenant.allowedModules) && tenant.allowedModules.length > 0)
+                    ? tenant.allowedModules
+                    : ['dashboard', 'dsr_report', 'employee', 'branch', 'settings'];
+            }
+        }
+
         // Create payload for the JWT
         const payload = {
             userId: user._id,
             username: user.name,
             role: user.role,
+            tenantId: user.tenantId || null,
+            allowedModules
         };
 
         // Sign the JWT token with secret key

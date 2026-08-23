@@ -148,6 +148,18 @@ const Header = () => {
                         )}
                     </button>
 
+                    {/* SaaS Platform Admin Quick Access Button */}
+                    {user?.role === 'super_admin' && (
+                        <Link to="/platform-admin">
+                            <button className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow-sm transition-all">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                                </svg>
+                                <span>SaaS Admin</span>
+                            </button>
+                        </Link>
+                    )}
+
                     {/* Bell */}
                     <Link to="/admin/Notification">
                         <button className="relative w-9 h-9 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors">
@@ -201,6 +213,19 @@ const Header = () => {
                                         Profile
                                     </div>
                                 </Link>
+
+                                {user?.role === 'super_admin' && (
+                                    <Link
+                                        to="/platform-admin"
+                                        onClick={() => setDropOpen(false)}
+                                        className="w-full px-4 py-3 text-sm text-amber-600 hover:bg-amber-50 flex items-center gap-2 font-semibold"
+                                    >
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                                        </svg>
+                                        SaaS Platform Admin
+                                    </Link>
+                                )}
 
                                 <button
                                     type="button"

@@ -48,9 +48,20 @@ export const getAccessibleStoreIds = async (adminId) => {
     const admin = await Admin.findById(adminId).populate('branches assignedClusters');
     
     if (admin) {
+        // Multi-tenant isolation: If admin belongs to a customer tenant and is not platform super_admin
+        if (admin.tenantId && admin.role !== 'super_admin') {
+            const tenantBranches = await Branch.find({ tenantId: admin.tenantId, isActive: true }).select('_id');
+            if (admin.branches && admin.branches.length > 0) {
+                const assignedIds = admin.branches.map(b => (b._id || b).toString());
+                const tenantBranchIds = tenantBranches.map(b => b._id.toString());
+                return assignedIds.filter(id => tenantBranchIds.includes(id));
+            }
+            return tenantBranches.map(b => b._id.toString());
+        }
+
         if (isFullAccessAdmin(admin.role)) {
-            // Full access: return all branch IDs
-            const allBranches = await Branch.find({ isActive: true }).select('_id');
+            // Full access for internal platform admin: return internal branches (tenantId null/undefined)
+            const allBranches = await Branch.find({ tenantId: { $in: [null, undefined] }, isActive: true }).select('_id');
             return allBranches.map(b => b._id.toString());
         }
 

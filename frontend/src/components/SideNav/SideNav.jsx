@@ -230,6 +230,9 @@ const SideNav = () => {
         title: "NAVIGATION",
         items: [
           { id: "dashboard", to: "/", icon: "dashboard", label: "Dashboard", active: is("/") || is("/store-insights") },
+          ...(user?.role === "super_admin"
+            ? [{ id: "platformAdmin", to: "/platform-admin", icon: "customization", label: "SaaS Platform Admin", active: location.pathname.startsWith("/platform-admin") }]
+            : []),
           ...(user?.role !== "telecaller"
             ? [
                 {
@@ -336,8 +339,58 @@ const SideNav = () => {
       }
     ];
 
-    return categories.filter((cat) => cat.items.length > 0);
-  }, [user?.role, location.pathname]);
+    const isItemAllowed = (item) => {
+      if (user?.role === "super_admin" || !user?.allowedModules || user?.allowedModules.includes("ALL")) {
+        return true;
+      }
+      if (item.id === "platformAdmin" || item.id === "dashboard") {
+        return true;
+      }
+      if (item.id === "storeAnalysis") {
+        return user.allowedModules.includes("store_analysis") || user.allowedModules.includes("dsr_report");
+      }
+      const moduleMap = {
+        dashboard: "dashboard",
+        storeAnalysis: "store_analysis",
+        walkin: "walkin",
+        task: "task",
+        employee: "employee",
+        trainingDash: "training",
+        trainings: "training",
+        assessments: "assessment",
+        module: "training",
+        branch: "branch",
+        settings: "settings",
+        customization: "customization"
+      };
+      const key = moduleMap[item.id] || item.id;
+      return user.allowedModules.includes(key);
+    };
+
+    const filterSubItems = (item) => {
+      if (!item.items || user?.role === "super_admin" || !user?.allowedModules || user?.allowedModules.includes("ALL")) {
+        return item;
+      }
+      if (item.id === "storeAnalysis") {
+        const subAllowed = item.items.filter((sub) => {
+          if (sub.to.includes("dsr-report")) return user.allowedModules.includes("dsr_report") || user.allowedModules.includes("store_analysis");
+          return user.allowedModules.includes("store_analysis");
+        });
+        return { ...item, items: subAllowed };
+      }
+      return item;
+    };
+
+    return categories
+      .map((cat) => ({
+        ...cat,
+        items: cat.items
+          .filter((item) => isItemAllowed(item))
+          .map((item) => filterSubItems(item))
+          .filter((item) => !item.items || item.items.length > 0)
+      }))
+      .filter((cat) => cat.items.length > 0);
+  }, [user?.role, user?.allowedModules, location.pathname]);
 
   // Filter categories and items based on search query in expanded mode
   const filteredCategories = useMemo(() => {

@@ -172,9 +172,12 @@ const Login = () => {
       const data = await res.json();
       if (res.ok) {
         dispatch(setUser({
+          ...data.user,
           userId: data.user?.userId,
           role: data.user?.role,
           username: data.user?.username,
+          tenantId: data.user?.tenantId || null,
+          allowedModules: data.user?.allowedModules || ['ALL'],
           branches: data.user?.branches || [],
         }));
         localStorage.setItem('token', data.token);

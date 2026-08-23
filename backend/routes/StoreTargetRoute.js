@@ -322,10 +322,24 @@ router.get('/weeks-configuration', MiddilWare, async (req, res) => {
     const month = req.query.month || defaultMonth;
     const year = Number(req.query.year || defaultYear);
 
-    // Fetch active branches and existing store targets
+    const tenantId = req.user?.tenantId;
+    const isSuperAdmin = req.user?.role === 'super_admin';
+
+    const branchQuery = { isActive: true };
+    const targetQuery = { month, year };
+
+    if (tenantId && !isSuperAdmin) {
+      branchQuery.tenantId = tenantId;
+      targetQuery.tenantId = tenantId;
+    } else if (!isSuperAdmin) {
+      branchQuery.tenantId = { $in: [null, undefined] };
+      targetQuery.tenantId = { $in: [null, undefined] };
+    }
+
+    // Fetch active branches and existing store targets scoped to tenant
     const [branches, targets] = await Promise.all([
-      Branch.find({ isActive: true }).select('workingBranch locCode').lean(),
-      StoreTarget.find({ month, year }).lean()
+      Branch.find(branchQuery).select('workingBranch locCode').lean(),
+      StoreTarget.find(targetQuery).lean()
     ]);
 
     // Create a map of store target documents by store name
