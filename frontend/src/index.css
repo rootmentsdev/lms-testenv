@@ -244,3 +244,135 @@ tr, tbody tr {
   opacity: 1;
 }
 
+/* ── Continuous Ambient Brand Animations ── */
+.brand-logo-ambient {
+  position: relative;
+}
+
+.brand-logo-ambient::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.4) 0%, rgba(99, 102, 241, 0.25) 50%, transparent 75%);
+  animation: logoBreathingGlow 3s ease-in-out infinite alternate;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes logoBreathingGlow {
+  0% {
+    transform: scale(0.90);
+    opacity: 0.3;
+    filter: blur(4px);
+  }
+  100% {
+    transform: scale(1.12);
+    opacity: 0.85;
+    filter: blur(8px);
+  }
+}
+
+.brand-title-continuous {
+  background: linear-gradient(
+    110deg,
+    #0f172a 0%,
+    #0f172a 30%,
+    #0284c7 42%,
+    #00e5ff 50%,
+    #0284c7 58%,
+    #0f172a 70%,
+    #0f172a 100%
+  );
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: continuousTitleSweep 3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  filter: drop-shadow(0 0 1px rgba(0, 229, 255, 0.3));
+}
+
+html.dark .brand-title-continuous {
+  background: linear-gradient(
+    110deg,
+    #f8fafc 0%,
+    #f8fafc 30%,
+    #38bdf8 42%,
+    #7dd3fc 50%,
+    #38bdf8 58%,
+    #f8fafc 70%,
+    #f8fafc 100%
+  );
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: continuousTitleSweep 3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  filter: drop-shadow(0 0 3px rgba(56, 189, 248, 0.6));
+}
+
+@keyframes continuousTitleSweep {
+  0% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -120% 0;
+  }
+}
+
+/* ── Logo 360-degree Periodic Turnaround Spin Animation ── */
+.brand-logo-spin {
+  animation: logoPeriodicSpin 8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  transform-style: preserve-3d;
+}
+
+@keyframes logoPeriodicSpin {
+  0%, 75% {
+    transform: rotateY(0deg);
+  }
+  85% {
+    transform: rotateY(180deg) scale(1.08);
+  }
+  95%, 100% {
+    transform: rotateY(360deg) scale(1);
+  }
+}
+
+.brand-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background-color: #10b981;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  animation: liveDotPulse 2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes liveDotPulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+/* Smooth entrance for page titles */
+.animate-page-title {
+  animation: pageTitleFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes pageTitleFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
