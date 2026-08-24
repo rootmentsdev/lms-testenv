@@ -273,65 +273,117 @@ tr, tbody tr {
   }
 }
 
-.brand-title-continuous {
+/* ── Choreographed Header Branding Animation (12s Cycle) ── */
+
+.brand-text-perspective {
+  perspective: 1000px;
+}
+
+.brand-title-container {
+  display: inline-flex;
   background: linear-gradient(
     110deg,
     #0f172a 0%,
-    #0f172a 30%,
-    #0284c7 42%,
+    #0f172a 32%,
+    #0284c7 44%,
     #00e5ff 50%,
-    #0284c7 58%,
-    #0f172a 70%,
+    #0284c7 56%,
+    #0f172a 68%,
     #0f172a 100%
   );
   background-size: 250% 100%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: continuousTitleSweep 3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  filter: drop-shadow(0 0 1px rgba(0, 229, 255, 0.3));
+  animation: textSparkleSweep 12s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  filter: drop-shadow(0 0 1px rgba(0, 229, 255, 0.35));
 }
 
-html.dark .brand-title-continuous {
+html.dark .brand-title-container {
   background: linear-gradient(
     110deg,
     #f8fafc 0%,
-    #f8fafc 30%,
-    #38bdf8 42%,
+    #f8fafc 32%,
+    #38bdf8 44%,
     #7dd3fc 50%,
-    #38bdf8 58%,
-    #f8fafc 70%,
+    #38bdf8 56%,
+    #f8fafc 68%,
     #f8fafc 100%
   );
   background-size: 250% 100%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: continuousTitleSweep 3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation: textSparkleSweep 12s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   filter: drop-shadow(0 0 3px rgba(56, 189, 248, 0.6));
 }
 
-@keyframes continuousTitleSweep {
+@keyframes textSparkleSweep {
   0% {
-    background-position: 120% 0;
+    background-position: 150% 0;
+  }
+  37.5% {
+    background-position: -50% 0;
+  }
+  54% {
+    background-position: -50% 0;
+  }
+  66.5% {
+    background-position: 150% 0;
+  }
+  91.5% {
+    background-position: -50% 0;
   }
   100% {
-    background-position: -120% 0;
+    background-position: -50% 0;
   }
 }
 
-/* ── Logo 360-degree Periodic Turnaround Spin Animation ── */
-.brand-logo-spin {
-  animation: logoPeriodicSpin 8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+/* Letter-by-letter vertical roll flip */
+.brand-letter {
+  display: inline-block;
+  transform-style: preserve-3d;
+  backface-visibility: visible;
+  animation: letterVerticalRoll 12s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+}
+
+@keyframes letterVerticalRoll {
+  /* 0% to 37.5% (0s - 4.5s): Sits flat during slow text sparkle sweep */
+  0%, 37.5% {
+    transform: perspective(400px) rotateX(0deg);
+  }
+
+  /* 37.5% to 54% (4.5s - 6.5s): Smooth 360-degree vertical 3D tumbler reel spin */
+  54% {
+    transform: perspective(400px) rotateX(-360deg);
+  }
+
+  /* 54% to 100%: Stays flat */
+  100% {
+    transform: perspective(400px) rotateX(-360deg);
+  }
+}
+
+/* Logo Choreography */
+.brand-logo-choreographed {
+  animation: logoChoreography 12s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   transform-style: preserve-3d;
 }
 
-@keyframes logoPeriodicSpin {
-  0%, 75% {
-    transform: rotateY(0deg);
+@keyframes logoChoreography {
+  /* 0% to 66.5% (0s - 8s): Logo sits still while text sweeps & turns around */
+  0%, 66.5% {
+    transform: rotateY(0deg) scale(1);
   }
-  85% {
+
+  /* 66.5% to 91.5% (8s - 11s): Logo revolves 360 degrees smoothly in sync with text sweep */
+  79% {
     transform: rotateY(180deg) scale(1.08);
   }
-  95%, 100% {
+  91.5% {
+    transform: rotateY(360deg) scale(1);
+  }
+
+  /* 91.5% to 100% (11s - 12s): Sits still before repeating */
+  100% {
     transform: rotateY(360deg) scale(1);
   }
 }

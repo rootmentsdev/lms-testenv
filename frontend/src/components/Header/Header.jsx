@@ -111,12 +111,22 @@ const Header = () => {
                         <img 
                             src="/logo.png" 
                             alt="Brynex LMS" 
-                            className="w-11 h-11 object-contain select-none relative z-10 brand-logo-spin transition-transform duration-300 group-hover:scale-110" 
+                            className="w-11 h-11 object-contain select-none relative z-10 brand-logo-choreographed transition-transform duration-300 group-hover:scale-110" 
                         />
                     </div>
-                    <div className="flex flex-col ml-1">
-                        <h1 className="text-xl font-bold tracking-wide brand-title-continuous">
-                            BRYNEX ONE
+                    <div className="flex flex-col ml-1 brand-text-perspective">
+                        <h1 className="text-xl font-bold tracking-wide brand-title-container flex items-center">
+                            {"BRYNEX ONE".split('').map((char, index) => (
+                                <span
+                                    key={index}
+                                    className="brand-letter inline-block"
+                                    style={{
+                                        animationDelay: `${(index * 0.07).toFixed(2)}s`
+                                    }}
+                                >
+                                    {char === ' ' ? '\u00A0' : char}
+                                </span>
+                            ))}
                         </h1>
                         <span className="text-[9px] font-medium tracking-widest uppercase text-gray-400 group-hover:text-gray-600 transition-all duration-300" style={{ letterSpacing: '0.18em' }}>
                             BRYNEX APPAREL PVT.LTD
