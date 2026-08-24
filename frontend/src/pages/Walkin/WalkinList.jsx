@@ -765,7 +765,7 @@ const sortStoresGThenZ = (a, b) => {
                                                     {/* Attachment First */}
                                                     <div className="col-span-12 md:col-span-3">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Attachment <span className="text-gray-400 font-normal">(Optional)</span>
+                                                            Attachment <span className="text-red-500">*</span>
                                                         </label>
                                                         <div className="relative">
                                                             <input
@@ -790,9 +790,9 @@ const sortStoresGThenZ = (a, b) => {
                                                     {/* Colour */}
                                                     <div className="col-span-12 md:col-span-3">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Colour
+                                                            Colour <span className="text-red-500">*</span>
                                                         </label>
-                                                        <input
+                                                        <input required
                                                             type="text"
                                                             name="lossColour"
                                                             placeholder="Enter Colour"
@@ -804,10 +804,10 @@ const sortStoresGThenZ = (a, b) => {
                                                     {/* Size */}
                                                     <div className="col-span-12 md:col-span-3">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Select Size
+                                                            Select Size <span className="text-red-500">*</span>
                                                         </label>
                                                         <div className="relative">
-                                                            <select
+                                                            <select required
                                                                 name="lossSize"
                                                                 value={formData.lossSize || ''}
                                                                 onChange={handleInputChange}
@@ -828,10 +828,10 @@ const sortStoresGThenZ = (a, b) => {
                                                     {/* Product Category Tier */}
                                                     <div className="col-span-12 md:col-span-3">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Product Category
+                                                            Product Category <span className="text-red-500">*</span>
                                                         </label>
                                                         <div className="relative">
-                                                            <select
+                                                            <select required
                                                                 name="productCategory"
                                                                 value={formData.productCategory || ''}
                                                                 onChange={handleInputChange}
@@ -2795,7 +2795,22 @@ const sortStoresGThenZ = (a, b) => {
                         }
 
                     } else if (isDesignOrColourUnavailable(lossReasonLower)) {
-                        // All fields (Attachment, Colour, Size, Product Category) are optional
+                        if (!selectedFile && (!formData.attachment || formData.attachment.trim() === '')) {
+                            alert('Please attach a file.');
+                            return;
+                        }
+                        if (!formData.lossColour || formData.lossColour.trim() === '') {
+                            alert('Please enter a Colour.');
+                            return;
+                        }
+                        if (!formData.lossSize || formData.lossSize === '') {
+                            alert('Please select a Size.');
+                            return;
+                        }
+                        if (!formData.productCategory || formData.productCategory === '') {
+                            alert('Please select a Product Category.');
+                            return;
+                        }
                     } else if (lossReasonLower === 'size') {
                         if (!formData.lossSize || formData.lossSize === '') {
                             alert('Please select a Size.');

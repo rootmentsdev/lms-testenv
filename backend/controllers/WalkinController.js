@@ -396,6 +396,27 @@ export const saveWalkin = async (req, res) => {
             });
         }
 
+        // Validate mandatory fields for Design / Colour Not Available reason
+        const incomingStatusStr = status ? String(status).trim() : '';
+        const incomingReasonStr = String(lossReasonVal || '').toLowerCase().trim();
+        const isDesignOrColourUnavailableReason = incomingReasonStr === 'design not available' || incomingReasonStr === 'colour not available' || incomingReasonStr === 'color not available' || incomingReasonStr === 'design and colour not available' || incomingReasonStr === 'design & colour not available';
+
+        if (incomingStatusStr === 'Loss' && isDesignOrColourUnavailableReason) {
+            const hasAttachment = (fileAttachment && (fileAttachment.base64 || fileAttachment.name)) || (req.body.attachment && String(req.body.attachment).trim() !== '') || (_id && (await Walkin.findById(_id))?.attachment);
+            if (!hasAttachment) {
+                return res.status(400).json({ success: false, message: 'Attachment is required when reason is Design or Colour Not Available' });
+            }
+            if (!lossColourVal || String(lossColourVal).trim() === '') {
+                return res.status(400).json({ success: false, message: 'Colour is required when reason is Design or Colour Not Available' });
+            }
+            if (!lossSizeVal || String(lossSizeVal).trim() === '') {
+                return res.status(400).json({ success: false, message: 'Size is required when reason is Design or Colour Not Available' });
+            }
+            if (!productCategoryVal || String(productCategoryVal).trim() === '') {
+                return res.status(400).json({ success: false, message: 'Product Category is required when reason is Design or Colour Not Available' });
+            }
+        }
+
         const trimmedContact = contact ? contact.trim() : '-';
 
         // Automatically fetch current date and time when adding walk-ins
