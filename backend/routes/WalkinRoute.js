@@ -189,7 +189,17 @@ router.get('/check/:contact', OptionalMiddilWare, checkCustomerExists);
  *                 example: "Budget restriction"
  *               lossReason:
  *                 type: string
- *                 example: "design and color unavailable"
+ *                 description: "Reason for Loss (e.g. 'Design Not Available', 'Colour Not Available', 'Product Already Booked', 'Price', 'Size', 'Confirm Later')"
+ *                 example: "Design Not Available"
+ *               productCategory:
+ *                 type: string
+ *                 description: "Product category tier when loss reason is design/colour unavailable"
+ *                 enum:
+ *                   - "Premium"
+ *                   - "Non Premium"
+ *                   - "Ultra Luxury"
+ *                   - "Luxury"
+ *                 example: "Premium"
  *               lossEnquiryTrailOption:
  *                 type: string
  *                 example: "Just Visit"

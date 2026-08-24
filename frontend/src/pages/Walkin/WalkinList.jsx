@@ -5,6 +5,7 @@ import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
 import baseUrl, { formatStoreDisplayName } from "../../api/api";
 import { FaChevronLeft, FaChevronRight, FaPen, FaDownload, FaEye } from 'react-icons/fa';
+import * as XLSX from 'xlsx';
 
 /* ---------- Normalization and Spelling fixes helpers ---------- */
 const BRAND_TOKENS = new Set(["zorucci", "grooms", "suitor", "guy", "sg"]);
@@ -214,6 +215,8 @@ const normalizeSubCategory = (val, category = '') => {
 
 const NON_SALES_REASONS = new Set([
     'Product Already Booked',
+    'Design Not Available',
+    'Colour Not Available',
     'Design and Colour Not Available',
     'Model, Design and Colour Not Available',
     'Design and Color Unavailable',
@@ -226,12 +229,173 @@ const NON_SALES_REASONS = new Set([
     'Confirm Later'
 ]);
 
+const isDesignOrColourUnavailable = (reason) => {
+    if (!reason) return false;
+    const r = String(reason).toLowerCase().trim();
+    return (
+        r === 'design not available' ||
+        r === 'colour not available' ||
+        r === 'color not available' ||
+        r === 'design and colour not available' ||
+        r === 'design and color unavailable' ||
+        r === 'model, design and colour not available'
+    );
+};
+
 const SALES_SUBCATEGORIES = new Set([
     'Shoe',
     'Shirt',
     'Select Sub Category',
     'Select sub category'
 ]);
+
+/* ── Export to CSV & Excel Helpers ───────────────────────────────────────── */
+const getExportRows = (data) => {
+  const headers = [
+    '#', 
+    'DATE', 
+    'CUSTOMER', 
+    'CONTACT', 
+    'REPEAT COUNT', 
+    'STATUS', 
+    'FUNCTION DATE', 
+    'FUNCTION TYPE', 
+    'CATEGORY', 
+    'PRODUCT TYPE', 
+    'LOSS REASON', 
+    'SUB CATEGORY', 
+    'REMARKS', 
+    'SIZE', 
+    'COLOR', 
+    'NOTES', 
+    'STORE', 
+    'STAFF', 
+    'ATTACHMENT', 
+    'BOOKING DATE', 
+    'RENTOUT DATE', 
+    'RETURN DATE', 
+    'BILLED DATE', 
+    'BILL RETURNED DATE',
+    'NEXT VISIT DATE'
+  ];
+
+  const formatDate = (val) => {
+    if (!val || val === '-') return '-';
+    try {
+      const parts = String(val).split(' ')[0].split('T')[0];
+      return parts || '-';
+    } catch {
+      return '-';
+    }
+  };
+
+  const rows = (data || []).map((w, i) => {
+    const productType = w.lossProductType || '-';
+    const notesText = w.notes || '-';
+
+    let displayLossReason = '-';
+    let displaySubCategory = '-';
+
+    if (w.status === 'Loss' || w.status === 'Revisit Loss') {
+      const isSales = (w.lossProductType || '').toLowerCase().trim() === 'sales';
+
+      if (w.lossReason && w.lossReason !== '-' && w.lossReason !== '') {
+        displayLossReason = w.lossReason;
+        if (w.lossSelectRemarks && w.lossSelectRemarks !== '-' && w.lossSelectRemarks !== '') {
+          displayLossReason += ` (${w.lossSelectRemarks})`;
+        }
+      } else if (w.subCategory && NON_SALES_REASONS.has(w.subCategory)) {
+        displayLossReason = w.subCategory;
+        if (w.lossSelectRemarks && w.lossSelectRemarks !== '-' && w.lossSelectRemarks !== '') {
+          displayLossReason += ` (${w.lossSelectRemarks})`;
+        }
+      } else if (w.lossSelectRemarks && w.lossSelectRemarks !== '-' && w.lossSelectRemarks !== '') {
+        displayLossReason = w.lossSelectRemarks;
+      }
+
+      if (isSales) {
+        if (w.subCategory && w.subCategory !== '-' && !NON_SALES_REASONS.has(w.subCategory)) {
+          displaySubCategory = w.subCategory;
+        }
+      } else {
+        displaySubCategory = '-';
+      }
+    } else {
+      displaySubCategory = (w.subCategory && w.subCategory !== '-') ? w.subCategory : '-';
+    }
+
+    const walkinDate = formatDate(w.createdAt || w.date);
+    const functionDate = w.functionDate ? formatDate(w.functionDate) : '-';
+
+    return [
+      i + 1,
+      walkinDate,
+      w.customerName || '-',
+      w.contact ? `+91 ${w.contact}` : '-',
+      w.repeatCount || 1,
+      w.status || '-',
+      functionDate,
+      w.functionType || '-',
+      w.category || '-',
+      productType,
+      displayLossReason,
+      displaySubCategory,
+      w.remarks || '-',
+      w.lossSize || '-',
+      w.lossColour || '-',
+      notesText,
+      w.store || '-',
+      w.staff || '-',
+      w.attachment ? (w.attachmentName || 'Yes') : '-',
+      formatDate(w.bookingDate),
+      formatDate(w.rentoutDate),
+      formatDate(w.returnDate),
+      formatDate(w.billedDate),
+      formatDate(w.billReturnedDate),
+      (w.lossEnquiryRevisitDate && w.lossEnquiryRevisitDate !== '-') ? formatDate(w.lossEnquiryRevisitDate) : '-'
+    ];
+  });
+
+  return { headers, rows };
+};
+
+const exportCSV = (data) => {
+  const { headers, rows } = getExportRows(data);
+
+  const csv = [headers, ...rows].map((r) => r.map((c) => {
+    let s = String(c ?? '');
+    s = s.replace(/\u2013|\u2014/g, '-');
+    s = s.replace(/[\r\n]+/g, ' ');
+    return `"${s.replace(/"/g, '""')}"`;
+  }).join(',')).join('\n');
+
+  const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); 
+  a.href = url; 
+  a.download = 'walkin-list.csv'; 
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+const exportExcel = (data) => {
+  const { headers, rows } = getExportRows(data);
+  const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+  const colWidths = headers.map((h, i) => {
+    let maxLen = h.length;
+    rows.forEach(r => {
+      const valStr = String(r[i] ?? '');
+      if (valStr.length > maxLen) maxLen = valStr.length;
+    });
+    return { wch: Math.min(Math.max(maxLen + 3, 10), 50) };
+  });
+  worksheet['!cols'] = colWidths;
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Walkin List');
+  XLSX.writeFile(workbook, 'walkin-list.xlsx');
+};
 
 const getStatusColors = (statusStr) => {
     const colors = {
@@ -590,7 +754,7 @@ const sortStoresGThenZ = (a, b) => {
                                                 </>
                                             )}
 
-                                            {((formData.lossReason || '').toLowerCase().trim() === 'design and colour not available' || (formData.lossReason || '').toLowerCase().trim() === 'design and color unavailable' || (formData.lossReason || '').toLowerCase().trim() === 'model, design and colour not available') && (
+                                            {isDesignOrColourUnavailable(formData.lossReason) && (
                                                 <>
                                                     {/* Banner */}
                                                     <div className="col-span-12">
@@ -598,6 +762,7 @@ const sortStoresGThenZ = (a, b) => {
                                                             💡 Attachment is the best option for this category.
                                                         </div>
                                                     </div>
+                                                    {/* Attachment First */}
                                                     <div className="col-span-12 md:col-span-3">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                                                             Attachment <span className="text-gray-400 font-normal">(Optional)</span>
@@ -622,14 +787,78 @@ const sortStoresGThenZ = (a, b) => {
                                                             </label>
                                                         </div>
                                                     </div>
-                                                    <div className="col-span-12 md:col-span-9">
+                                                    {/* Colour */}
+                                                    <div className="col-span-12 md:col-span-3">
+                                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                            Colour
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            name="lossColour"
+                                                            placeholder="Enter Colour"
+                                                            value={formData.lossColour || ''}
+                                                            onChange={handleInputChange}
+                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold"
+                                                        />
+                                                    </div>
+                                                    {/* Size */}
+                                                    <div className="col-span-12 md:col-span-3">
+                                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                            Select Size
+                                                        </label>
+                                                        <div className="relative">
+                                                            <select
+                                                                name="lossSize"
+                                                                value={formData.lossSize || ''}
+                                                                onChange={handleInputChange}
+                                                                className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                            >
+                                                                <option value="">Select Size</option>
+                                                                {['32', '34', '36', '38', '40', '42', '44', '46', '48', 'Others'].map((size) => (
+                                                                    <option key={size} value={size}>{size}</option>
+                                                                ))}
+                                                            </select>
+                                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                </svg>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    {/* Product Category Tier */}
+                                                    <div className="col-span-12 md:col-span-3">
+                                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                            Product Category
+                                                        </label>
+                                                        <div className="relative">
+                                                            <select
+                                                                name="productCategory"
+                                                                value={formData.productCategory || ''}
+                                                                onChange={handleInputChange}
+                                                                className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                            >
+                                                                <option value="">Select Product Category</option>
+                                                                <option value="Premium">Premium</option>
+                                                                <option value="Non Premium">Non Premium</option>
+                                                                <option value="Ultra Luxury">Ultra Luxury</option>
+                                                                <option value="Luxury">Luxury</option>
+                                                            </select>
+                                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                </svg>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    {/* Note */}
+                                                    <div className="col-span-12">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                                                             Note <span className="text-red-500">*</span>
                                                         </label>
                                                         <textarea required
                                                             name="lossNote"
                                                             rows={1}
-                                                            placeholder="Product Category / Item Name"
+                                                            placeholder="Product Item Name / Remarks"
                                                             value={formData.lossNote || ''}
                                                             onChange={handleInputChange}
                                                             className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-300 resize-none font-semibold"
@@ -679,6 +908,37 @@ const sortStoresGThenZ = (a, b) => {
                                                                 </svg>
                                                             </div>
                                                         </div>
+                                                    </div>
+                                                    <div className="col-span-12 md:col-span-9">
+                                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                            Note <span className="text-red-500">*</span>
+                                                        </label>
+                                                        <textarea required
+                                                            name="lossNote"
+                                                            rows={1}
+                                                            placeholder="Product Category / Item Name"
+                                                            value={formData.lossNote || ''}
+                                                            onChange={handleInputChange}
+                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-300 resize-none font-semibold"
+                                                        />
+                                                    </div>
+                                                </>
+                                            )}
+
+                                            {((formData.lossReason || '').toLowerCase().trim() === 'confirm later') && (
+                                                <>
+                                                    <div className="col-span-12 md:col-span-3">
+                                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                            Next Visit Date<span className="text-red-500">*</span>
+                                                        </label>
+                                                        <input
+                                                            type="date"
+                                                            name="lossEnquiryRevisitDate"
+                                                            required
+                                                            value={formData.lossEnquiryRevisitDate || ''}
+                                                            onChange={handleInputChange}
+                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold cursor-pointer"
+                                                        />
                                                     </div>
                                                     <div className="col-span-12 md:col-span-9">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -962,40 +1222,6 @@ const sortStoresGThenZ = (a, b) => {
                                                                 </svg>
                                                             </div>
                                                         </div>
-                                                    </div>
-
-                                                    {/* Note box */}
-                                                    <div className="col-span-12 md:col-span-3">
-                                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-red-500">*</span>
-                                                        </label>
-                                                        <textarea required
-                                                            name="lossNote"
-                                                            rows={1}
-                                                            placeholder="Product Category / Item Name"
-                                                            value={formData.lossNote || ''}
-                                                            onChange={handleInputChange}
-                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-300 resize-none font-semibold"
-                                                        />
-                                                    </div>
-                                                </>
-                                            )}
-
-                                            {((formData.lossReason || '').toLowerCase().trim() === 'confirm later') && (
-                                                <>
-                                                    {/* Next visit date calendar selector */}
-                                                    <div className="col-span-12 md:col-span-3">
-                                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Next Visit Date<span className="text-red-500">*</span>
-                                                        </label>
-                                                        <input
-                                                            type="date"
-                                                            name="lossEnquiryRevisitDate"
-                                                            required
-                                                            value={formData.lossEnquiryRevisitDate || ''}
-                                                            onChange={handleInputChange}
-                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold cursor-pointer"
-                                                        />
                                                     </div>
 
                                                     {/* Note box */}
@@ -1902,7 +2128,8 @@ const sortStoresGThenZ = (a, b) => {
             lossSize: '',
             lossSelectRemarks: '',
             lossSalesPrice: '',
-            lossReason: ''
+            lossReason: '',
+            productCategory: ''
         };
     };
 
@@ -2457,6 +2684,7 @@ const sortStoresGThenZ = (a, b) => {
         if (w.lossSelectRemarks && w.lossSelectRemarks !== '-' && w.lossSelectRemarks.trim() !== '') parsed.lossSelectRemarks = w.lossSelectRemarks;
         if (w.lossEnquiryTrailOption && w.lossEnquiryTrailOption !== '-' && w.lossEnquiryTrailOption.trim() !== '') parsed.lossEnquiryTrailOption = w.lossEnquiryTrailOption;
         if (w.lossEnquiryRevisitDate && w.lossEnquiryRevisitDate !== '-' && w.lossEnquiryRevisitDate.trim() !== '') parsed.lossEnquiryRevisitDate = w.lossEnquiryRevisitDate;
+        if (w.productCategory && w.productCategory !== '-' && w.productCategory.trim() !== '') parsed.productCategory = w.productCategory;
         parsed.lossReason = w.lossReason || (w.status === 'Loss' ? w.subCategory : '');
 
         let subCat = w.subCategory || '-';
@@ -2566,9 +2794,16 @@ const sortStoresGThenZ = (a, b) => {
                             return;
                         }
 
+                    } else if (isDesignOrColourUnavailable(lossReasonLower)) {
+                        // All fields (Attachment, Colour, Size, Product Category) are optional
                     } else if (lossReasonLower === 'size') {
                         if (!formData.lossSize || formData.lossSize === '') {
                             alert('Please select a Size.');
+                            return;
+                        }
+                    } else if (lossReasonLower === 'confirm later') {
+                        if (!formData.lossEnquiryRevisitDate || formData.lossEnquiryRevisitDate === '') {
+                            alert('Please enter when the customer will revisit.');
                             return;
                         }
                     }
@@ -2722,6 +2957,7 @@ const sortStoresGThenZ = (a, b) => {
                     lossEnquiryTrailOption: formData.lossEnquiryTrailOption || '',
                     lossEnquiryRevisitDate: formData.lossEnquiryRevisitDate || '',
                     lossReason: cleanLossReason,
+                    productCategory: formData.productCategory || '',
                     status: formData.status,
                     date: formData.date
                 })
@@ -2812,9 +3048,11 @@ const sortStoresGThenZ = (a, b) => {
                     return [
                         'Select Reason',
                         'Product Already Booked',
-                        'Design and Colour Not Available',
+                        'Design Not Available',
+                        'Colour Not Available',
                         'Price',
-                        'Size'
+                        'Size',
+                        'Confirm Later'
                     ];
                 }
             }
@@ -2829,8 +3067,7 @@ const sortStoresGThenZ = (a, b) => {
                     return [
                         'Select Reason',
                         'Enquiry Without Groom and Bride',
-                        'Enquiry Without Trial',
-                        'Confirm Later'
+                        'Enquiry Without Trial'
                     ];
                 }
             }
@@ -2845,7 +3082,8 @@ const sortStoresGThenZ = (a, b) => {
                     return [
                         'Select Reason',
                         'Product Already Booked',
-                        'Design and Colour Not Available',
+                        'Design Not Available',
+                        'Colour Not Available',
                         'Price',
                         'Enquiry',
                         'Size'
@@ -3131,18 +3369,34 @@ const sortStoresGThenZ = (a, b) => {
                         {/* Header */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '24px', marginBottom: '16px' }}>
                             <h1 style={{ fontSize: '22px', fontWeight: 700, lineHeight: 1.2, color: '#111827', margin: 0 }}>Walk In List</h1>
-                            {user?.role !== 'telecaller' && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <button
-                                    onClick={() => {
-                                        setFormData(getResetFormData());
-                                        setSelectedFile(null);
-                                        setShowAddView(true);
-                                    }}
-                                    style={{ background: '#111827', color: '#fff', border: 'none', borderRadius: '10px', padding: '9px 18px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                    onClick={() => exportCSV(walkins)}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '7px 14px', fontSize: '13px', fontWeight: 500, color: '#374151', background: '#fff', cursor: 'pointer' }}
                                 >
-                                    + New Walk In
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                    Export CSV
                                 </button>
-                            )}
+                                <button
+                                    onClick={() => exportExcel(walkins)}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid #86efac', borderRadius: '8px', padding: '7px 14px', fontSize: '13px', fontWeight: 500, color: '#15803d', background: '#dcfce7', cursor: 'pointer' }}
+                                >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                    Export Excel
+                                </button>
+                                {user?.role !== 'telecaller' && (
+                                    <button
+                                        onClick={() => {
+                                            setFormData(getResetFormData());
+                                            setSelectedFile(null);
+                                            setShowAddView(true);
+                                        }}
+                                        style={{ background: '#111827', color: '#fff', border: 'none', borderRadius: '10px', padding: '9px 18px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                    >
+                                        + New Walk In
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
                         {/* Filters */}
@@ -3528,10 +3782,10 @@ const sortStoresGThenZ = (a, b) => {
                                 <div style={{ textAlign: 'center', padding: '48px', color: '#9ca3af', fontSize: '13px' }}>No walk-in records found.</div>
                             ) : (
                                 <>
-                                    <div style={{ overflowX: 'auto' }}>
-                                        <table style={{ width: user?.role === 'telecaller' ? '3355px' : '3435px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
-                                            <thead>
-                                                <tr style={{ borderBottom: '1px solid #f3f4f6', background: '#fafafa' }}>
+                                    <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 220px)' }}>
+                                        <table style={{ width: user?.role === 'telecaller' ? '3355px' : '3435px', tableLayout: 'fixed', borderCollapse: 'separate', borderSpacing: 0, fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
+                                            <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#fafafa' }}>
+                                                <tr style={{ background: '#fafafa' }}>
                                                     {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'REPEAT COUNT', 'STATUS', 'HISTORY', 'FUNCTION DATE', 'FUNCTION TYPE', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'SIZE', 'COLOR', 'NOTES', 'STORE', 'STAFF', 'ATTACHMENT', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'BILLED DATE', 'BILL RETURNED DATE', 'NEXT VISIT DATE', 'EDIT'].filter(h => h !== 'EDIT' || user?.role !== 'telecaller').map((h, i) => {
                                                         const getColWidth = (header) => {
                                                             const widths = {
@@ -3570,6 +3824,11 @@ const sortStoresGThenZ = (a, b) => {
                                                             <th
                                                                 key={i}
                                                                 style={{
+                                                                    position: 'sticky',
+                                                                    top: 0,
+                                                                    zIndex: 10,
+                                                                    background: '#fafafa',
+                                                                    borderBottom: '1px solid #f3f4f6',
                                                                     padding: '12px 12px',
                                                                     textAlign: 'center',
                                                                     fontSize: '11px',
@@ -4000,54 +4259,6 @@ const sortStoresGThenZ = (a, b) => {
                                                         </div>
                                                     </>
                                                 )}
-                                            </div>
-                                            <div style={{ display: 'flex', gap: '8px' }}>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handlePageChange(currentPage - 1)}
-                                                    disabled={currentPage === 1}
-                                                    style={{
-                                                        width: '36px',
-                                                        height: '36px',
-                                                        border: '1px solid #e5e7eb',
-                                                        borderRadius: '8px',
-                                                        background: '#fff',
-                                                        cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                                                        opacity: currentPage === 1 ? 0.4 : 1,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                                                        color: '#374151'
-                                                    }}
-                                                    onMouseEnter={e => { if (currentPage !== 1) e.currentTarget.style.background = '#f9fafb'; }}
-                                                    onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
-                                                >
-                                                    <FaChevronLeft size={10} />
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handlePageChange(currentPage + 1)}
-                                                    disabled={currentPage === totalPages || totalPages === 0}
-                                                    style={{
-                                                        width: '36px',
-                                                        height: '36px',
-                                                        border: '1px solid #e5e7eb',
-                                                        borderRadius: '8px',
-                                                        background: '#fff',
-                                                        cursor: (currentPage === totalPages || totalPages === 0) ? 'not-allowed' : 'pointer',
-                                                        opacity: (currentPage === totalPages || totalPages === 0) ? 0.4 : 1,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                                                        color: '#374151'
-                                                    }}
-                                                    onMouseEnter={e => { if (currentPage !== totalPages && totalPages !== 0) e.currentTarget.style.background = '#f9fafb'; }}
-                                                    onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
-                                                >
-                                                    <FaChevronRight size={10} />
-                                                </button>
                                             </div>
                                         </div>
                                     </div>

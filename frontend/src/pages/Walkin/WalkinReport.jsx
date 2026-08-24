@@ -4,6 +4,7 @@ import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
 import baseUrl, { formatStoreDisplayName } from "../../api/api";
 import { FaChevronLeft, FaChevronRight, FaDownload } from 'react-icons/fa';
+import * as XLSX from 'xlsx';
 
 /* ── helpers ─────────────────────────────────────────────────────────────── */
 const BRAND_TOKENS = new Set(["zorucci", "grooms", "suitor", "guy", "sg"]);
@@ -58,6 +59,8 @@ const matchEventType = (actualValue, targetFilter) => {
 
 const NON_SALES_REASONS = new Set([
     'Product Already Booked',
+    'Design Not Available',
+    'Colour Not Available',
     'Design and Colour Not Available',
     'Model, Design and Colour Not Available',
     'Design and Color Unavailable',
@@ -295,8 +298,8 @@ const getCombinedStateAt = (w, endDateStr, startDateStr, statusFilterOrList) => 
   return statesBeforeCutoff[statesBeforeCutoff.length - 1];
 };
 
-/* ── Export to CSV ───────────────────────────────────────────────────────── */
-const exportCSV = (data, getState) => {
+/* ── Export to CSV & Excel ───────────────────────────────────────────────── */
+const getExportRows = (data, getState) => {
   const headers = [
     '#', 
     'DATE', 
@@ -325,9 +328,8 @@ const exportCSV = (data, getState) => {
     'NEXT VISIT DATE'
   ];
 
-
   const rows = data.map((w, i) => {
-    const itemState = getState(w) || w;
+    const itemState = getState ? (getState(w) || w) : w;
     const productType = w.lossProductType || '-';
     const notesText = w.notes || '-';
 
@@ -358,7 +360,7 @@ const exportCSV = (data, getState) => {
       displaySubCategory = w.subCategory || '-';
     }
 
-    const walkinDate = itemState.date ? fmtDate(itemState.date) : '-';
+    const walkinDate = itemState.date ? fmtDate(itemState.date) : (w.createdAt || w.date ? fmtDate(w.createdAt || w.date) : '-');
     const functionDate = w.functionDate ? fmtDate(w.functionDate) : '-';
 
     return [
@@ -390,6 +392,12 @@ const exportCSV = (data, getState) => {
     ];
   });
 
+  return { headers, rows };
+};
+
+const exportCSV = (data, getState) => {
+  const { headers, rows } = getExportRows(data, getState);
+
   const csv = [headers, ...rows].map((r, rowIdx) => r.map((c, colIdx) => {
     let s = String(c ?? '');
     // Strip any en/em dashes that were used as placeholders (use plain hyphen instead)
@@ -408,6 +416,25 @@ const exportCSV = (data, getState) => {
   a.download = 'walkin-report.csv'; 
   a.click();
   URL.revokeObjectURL(url);
+};
+
+const exportExcel = (data, getState) => {
+  const { headers, rows } = getExportRows(data, getState);
+  const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+  const colWidths = headers.map((h, i) => {
+    let maxLen = h.length;
+    rows.forEach(r => {
+      const valStr = String(r[i] ?? '');
+      if (valStr.length > maxLen) maxLen = valStr.length;
+    });
+    return { wch: Math.min(Math.max(maxLen + 3, 10), 50) };
+  });
+  worksheet['!cols'] = colWidths;
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Walkin Report');
+  XLSX.writeFile(workbook, 'walkin-report.xlsx');
 };
 /* ── CustomSelect Dropdown Component ────────────────────────────────────────── */
 const CustomSelect = ({
@@ -1290,11 +1317,15 @@ const WalkinReport = () => {
                   <input type="text" placeholder="Search" value={tableSearch} onChange={e=>{setTableSearch(e.target.value);setCurrentPage(1);}} style={{ border:'none', outline:'none', fontSize:'13px', color:'#374151', background:'transparent', width:'180px' }} />
                 </div>
               </div>
-              {/* Export button – single button only */}
+              {/* Export buttons */}
               <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
                 <button onClick={()=>exportCSV(displayed, getDisplayedState)} style={{ display:'flex', alignItems:'center', gap:'6px', border:'1px solid #e5e7eb', borderRadius:'8px', padding:'7px 14px', fontSize:'13px', fontWeight:500, color:'#374151', background:'#f9fafb', cursor:'pointer' }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                   Export CSV
+                </button>
+                <button onClick={()=>exportExcel(displayed, getDisplayedState)} style={{ display:'flex', alignItems:'center', gap:'6px', border:'1px solid #86efac', borderRadius:'8px', padding:'7px 14px', fontSize:'13px', fontWeight:500, color:'#15803d', background:'#dcfce7', cursor:'pointer' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Export Excel
                 </button>
               </div>
             </div>
@@ -1307,10 +1338,10 @@ const WalkinReport = () => {
             ) : displayed.length === 0 ? (
               <div style={{ textAlign:'center', padding:'48px', color:'#9ca3af', fontSize:'13px' }}>No records found.</div>
             ) : (
-              <div style={{ overflowX:'auto' }}>
-                <table style={{ width: '3265px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
-                  <thead>
-                    <tr style={{ background:'#fafafa', borderBottom:'1px solid #f3f4f6' }}>
+              <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 220px)' }}>
+                <table style={{ width: '3265px', tableLayout: 'fixed', borderCollapse: 'separate', borderSpacing: 0, fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
+                  <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#fafafa' }}>
+                    <tr style={{ background:'#fafafa' }}>
                       {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'REPEAT COUNT', 'STATUS', 'FUNCTION DATE', 'FUNCTION TYPE', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'SIZE', 'COLOR', 'NOTES', 'STORE', 'STAFF', 'ATTACHMENT', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'BILLED DATE', 'BILL RETURNED DATE', 'NEXT VISIT DATE'].map((h, i) => {
                           const getColWidth = (header) => {
                             const widths = {
@@ -1347,6 +1378,11 @@ const WalkinReport = () => {
                               <th
                                   key={i}
                                   style={{
+                                      position: 'sticky',
+                                      top: 0,
+                                      zIndex: 10,
+                                      background: '#fafafa',
+                                      borderBottom: '1px solid #f3f4f6',
                                       padding: '12px 12px',
                                       textAlign: 'center',
                                       fontSize: '11px',
@@ -1681,58 +1717,6 @@ const WalkinReport = () => {
                       </div>
                     </>
                   )}
-                </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    style={{
-                      width: '36px',
-                      height: '36px',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '8px',
-                      background: '#fff',
-                      cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                      opacity: currentPage === 1 ? 0.4 : 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                      color: '#374151'
-                    }}
-                    onMouseEnter={e => { if (currentPage !== 1) e.currentTarget.style.background = '#f9fafb'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="15 18 9 12 15 6" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages || totalPages === 0}
-                    style={{
-                      width: '36px',
-                      height: '36px',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '8px',
-                      background: '#fff',
-                      cursor: (currentPage === totalPages || totalPages === 0) ? 'not-allowed' : 'pointer',
-                      opacity: (currentPage === totalPages || totalPages === 0) ? 0.4 : 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                      color: '#374151'
-                    }}
-                    onMouseEnter={e => { if (currentPage !== totalPages && totalPages !== 0) e.currentTarget.style.background = '#f9fafb'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="9 18 15 12 9 6" />
-                    </svg>
-                  </button>
                 </div>
               </div>
             </div>

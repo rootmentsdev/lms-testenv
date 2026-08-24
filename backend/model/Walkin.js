@@ -91,6 +91,11 @@ const walkinSchema = new mongoose.Schema({
         default: '',
         trim: true
     },
+    productCategory: {
+        type: String,
+        default: '',
+        trim: true
+    },
     lossEnquiryTrailOption: {
         type: String,
         default: '',

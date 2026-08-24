@@ -374,6 +374,7 @@ export const saveWalkin = async (req, res) => {
         const lossEnquiryTrailOptionVal = lossEnquiryTrailOption !== undefined ? lossEnquiryTrailOption : req.body.trialOption;
         const lossEnquiryRevisitDateVal = lossEnquiryRevisitDate !== undefined ? lossEnquiryRevisitDate : req.body.revisitDate;
         const lossReasonVal = lossReason !== undefined ? lossReason : req.body.lossReason;
+        const productCategoryVal = req.body.productCategory !== undefined ? req.body.productCategory : (req.body.lossProductCategory !== undefined ? req.body.lossProductCategory : req.body.productCategoryTier);
 
         const setOptionalLossFields = (record) => {
             if (notesVal !== undefined) record.notes = String(notesVal).trim();
@@ -385,6 +386,7 @@ export const saveWalkin = async (req, res) => {
             if (lossEnquiryTrailOptionVal !== undefined) record.lossEnquiryTrailOption = String(lossEnquiryTrailOptionVal).trim();
             if (lossEnquiryRevisitDateVal !== undefined) record.lossEnquiryRevisitDate = String(lossEnquiryRevisitDateVal).trim();
             if (lossReasonVal !== undefined) record.lossReason = String(lossReasonVal).trim();
+            if (productCategoryVal !== undefined) record.productCategory = String(productCategoryVal).trim();
         };
 
         if (!_id && (!customerName || !contact)) {
@@ -557,6 +559,7 @@ export const saveWalkin = async (req, res) => {
                     lossEnquiryTrailOption: lossEnquiryTrailOptionVal !== undefined ? String(lossEnquiryTrailOptionVal).trim() : walkinRecord.lossEnquiryTrailOption,
                     lossEnquiryRevisitDate: lossEnquiryRevisitDateVal !== undefined ? String(lossEnquiryRevisitDateVal).trim() : walkinRecord.lossEnquiryRevisitDate,
                     lossReason: lossReasonVal !== undefined ? String(lossReasonVal).trim() : walkinRecord.lossReason,
+                    productCategory: productCategoryVal !== undefined ? String(productCategoryVal).trim() : walkinRecord.productCategory,
                     repeatCount: 1,
                     date: todayStr
                 });
@@ -825,6 +828,7 @@ export const saveWalkin = async (req, res) => {
                         lossEnquiryTrailOption: lossEnquiryTrailOptionVal !== undefined ? String(lossEnquiryTrailOptionVal).trim() : '',
                         lossEnquiryRevisitDate: lossEnquiryRevisitDateVal !== undefined ? String(lossEnquiryRevisitDateVal).trim() : '',
                         lossReason: lossReasonVal !== undefined ? String(lossReasonVal).trim() : '',
+                        productCategory: productCategoryVal !== undefined ? String(productCategoryVal).trim() : '',
                         repeatCount: nextRepeatCount,
                         date: todayStr
                     });
@@ -871,6 +875,7 @@ export const saveWalkin = async (req, res) => {
                     lossEnquiryTrailOption: lossEnquiryTrailOptionVal !== undefined ? String(lossEnquiryTrailOptionVal).trim() : '',
                     lossEnquiryRevisitDate: lossEnquiryRevisitDateVal !== undefined ? String(lossEnquiryRevisitDateVal).trim() : '',
                     lossReason: lossReasonVal !== undefined ? String(lossReasonVal).trim() : '',
+                    productCategory: productCategoryVal !== undefined ? String(productCategoryVal).trim() : '',
                     repeatCount: 1,
                     date: todayStr
                 });
@@ -1048,7 +1053,7 @@ export const getWalkins = async (req, res) => {
         }
 
         // 3. Fetch filtered walkins directly from MongoDB
-        const baseProjection = 'date customerName contact functionDate store staff managerName category subCategory functionType remarks repeatCount status storeId employeeId createdBy createdAt updatedAt lastStatusChangeDate statusChangedToday bookingDate rentoutDate returnDate cancelDate cancellationDate lossReason lossProductType lossSize lossColour lossSalesPrice lossSelectRemarks lossEnquiryTrailOption lossEnquiryRevisitDate notes attachment attachmentName statusHistory rentalStatus shoeStatus billedDate billReturnedDate invoiceNo shoeInvoiceNo';
+        const baseProjection = 'date customerName contact functionDate store staff managerName category subCategory functionType remarks repeatCount status storeId employeeId createdBy createdAt updatedAt lastStatusChangeDate statusChangedToday bookingDate rentoutDate returnDate cancelDate cancellationDate lossReason lossProductType lossSize lossColour lossSalesPrice lossSelectRemarks lossEnquiryTrailOption lossEnquiryRevisitDate notes attachment attachmentName statusHistory rentalStatus shoeStatus billedDate billReturnedDate invoiceNo shoeInvoiceNo productCategory';
 
         const isCountOnlyFetch = String(countOnly).toLowerCase() === 'true';
         const isChartOnlyFetch = String(chartOnly).toLowerCase() === 'true';
@@ -1198,7 +1203,7 @@ export const getAllWalkinsPublic = async (req, res) => {
 
         let filtered = await Walkin.find(query)
             .sort(sortQuery)
-            .select('date customerName contact functionDate store staff managerName category subCategory functionType remarks repeatCount status storeId employeeId createdBy createdAt updatedAt lastStatusChangeDate statusChangedToday bookingDate rentoutDate returnDate cancelDate cancellationDate lossReason lossProductType lossSize lossColour lossSalesPrice lossSelectRemarks lossEnquiryTrailOption lossEnquiryRevisitDate notes attachment attachmentName statusHistory rentalStatus shoeStatus billedDate billReturnedDate invoiceNo shoeInvoiceNo')
+            .select('date customerName contact functionDate store staff managerName category subCategory functionType remarks repeatCount status storeId employeeId createdBy createdAt updatedAt lastStatusChangeDate statusChangedToday bookingDate rentoutDate returnDate cancelDate cancellationDate lossReason lossProductType lossSize lossColour lossSalesPrice lossSelectRemarks lossEnquiryTrailOption lossEnquiryRevisitDate notes attachment attachmentName statusHistory rentalStatus shoeStatus billedDate billReturnedDate invoiceNo shoeInvoiceNo productCategory')
             .lean();
 
         const todayStr = getLocalDateStringIST(new Date());

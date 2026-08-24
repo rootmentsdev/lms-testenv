@@ -188,3 +188,59 @@ html.dark .recharts-default-tooltip {
   border-color: #1e293b !important;
 }
 
+/* ── Modern Minimal Pointer & Micro-Interaction Animations ── */
+button, 
+a, 
+input[type="button"], 
+input[type="submit"], 
+.cursor-pointer,
+select {
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), 
+              box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.15s ease,
+              background-color 0.15s ease;
+}
+
+/* Subtle button press feedback when clicked */
+button:active:not(:disabled), 
+a:active, 
+.cursor-pointer:active {
+  transform: scale(0.975);
+}
+
+/* Subtle glow outline focus on active form inputs */
+input:focus, 
+select:focus, 
+textarea:focus {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+/* Table row pointer hover elevation */
+tr, tbody tr {
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+/* Custom interactive ripple / pointer glow effect utility class */
+.pointer-glow {
+  position: relative;
+  overflow: hidden;
+}
+.pointer-glow::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 120%;
+  height: 120%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.25) 0%, transparent 70%);
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  pointer-events: none;
+}
+.pointer-glow:hover::after {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+}
+
