@@ -419,6 +419,18 @@ export const saveWalkin = async (req, res) => {
 
         const trimmedContact = contact ? contact.trim() : '-';
 
+        // Validate first-time mobile numbers with zero history must start with 'New Walkin' status
+        if (!_id && trimmedContact && trimmedContact !== '-') {
+            const historyCount = await Walkin.countDocuments({ contact: trimmedContact });
+            const isNewStatus = !incomingStatusStr || isNewWalkinStatus(incomingStatusStr);
+            if (historyCount === 0 && !isNewStatus) {
+                return res.status(400).json({
+                    success: false,
+                    message: "First-time walk-in for a new customer mobile number must start with status 'New Walkin'"
+                });
+            }
+        }
+
         // Automatically fetch current date and time when adding walk-ins
         const todayStr = _id ? (date || getFormattedDateTime()) : getFormattedDateTime();
 
