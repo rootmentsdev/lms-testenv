@@ -96,6 +96,16 @@ const walkinSchema = new mongoose.Schema({
         default: '',
         trim: true
     },
+    workType: {
+        type: String,
+        default: '',
+        trim: true
+    },
+    workSize: {
+        type: String,
+        default: '',
+        trim: true
+    },
     lossEnquiryTrailOption: {
         type: String,
         default: '',

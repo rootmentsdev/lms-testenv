@@ -375,6 +375,8 @@ export const saveWalkin = async (req, res) => {
         const lossEnquiryRevisitDateVal = lossEnquiryRevisitDate !== undefined ? lossEnquiryRevisitDate : req.body.revisitDate;
         const lossReasonVal = lossReason !== undefined ? lossReason : req.body.lossReason;
         const productCategoryVal = req.body.productCategory !== undefined ? req.body.productCategory : (req.body.lossProductCategory !== undefined ? req.body.lossProductCategory : req.body.productCategoryTier);
+        const workTypeVal = req.body.workType !== undefined ? req.body.workType : req.body.lossWorkType;
+        const workSizeVal = req.body.workSize !== undefined ? req.body.workSize : req.body.lossWorkSize;
 
         const setOptionalLossFields = (record) => {
             if (notesVal !== undefined) record.notes = String(notesVal).trim();
@@ -387,6 +389,8 @@ export const saveWalkin = async (req, res) => {
             if (lossEnquiryRevisitDateVal !== undefined) record.lossEnquiryRevisitDate = String(lossEnquiryRevisitDateVal).trim();
             if (lossReasonVal !== undefined) record.lossReason = String(lossReasonVal).trim();
             if (productCategoryVal !== undefined) record.productCategory = String(productCategoryVal).trim();
+            if (workTypeVal !== undefined) record.workType = String(workTypeVal).trim();
+            if (workSizeVal !== undefined) record.workSize = String(workSizeVal).trim();
         };
 
         if (!_id && (!customerName || !contact)) {
@@ -396,24 +400,38 @@ export const saveWalkin = async (req, res) => {
             });
         }
 
-        // Validate mandatory fields for Design / Colour Not Available reason
+        // Validate mandatory fields for Design / Colour Not Available reasons
         const incomingStatusStr = status ? String(status).trim() : '';
         const incomingReasonStr = String(lossReasonVal || '').toLowerCase().trim();
-        const isDesignOrColourUnavailableReason = incomingReasonStr === 'design not available' || incomingReasonStr === 'colour not available' || incomingReasonStr === 'color not available' || incomingReasonStr === 'design and colour not available' || incomingReasonStr === 'design & colour not available';
+        const isDesignNotAvailableReason = incomingReasonStr === 'design not available' || incomingReasonStr === 'design and colour not available' || incomingReasonStr === 'design & colour not available' || incomingReasonStr === 'design and color unavailable' || incomingReasonStr === 'model, design and colour not available';
+        const isColourNotAvailableReason = incomingReasonStr === 'colour not available' || incomingReasonStr === 'color not available';
 
-        if (incomingStatusStr === 'Loss' && isDesignOrColourUnavailableReason) {
+        if (incomingStatusStr === 'Loss' && isDesignNotAvailableReason) {
             const hasAttachment = (fileAttachment && (fileAttachment.base64 || fileAttachment.name)) || (req.body.attachment && String(req.body.attachment).trim() !== '') || (_id && (await Walkin.findById(_id))?.attachment);
-            if (!hasAttachment) {
-                return res.status(400).json({ success: false, message: 'Attachment is required when reason is Design or Colour Not Available' });
+            if (!hasAttachment && (!notesVal || String(notesVal).trim() === '')) {
+                return res.status(400).json({ success: false, message: 'Note is required when no attachment is provided.' });
             }
-            if (!lossColourVal || String(lossColourVal).trim() === '') {
-                return res.status(400).json({ success: false, message: 'Colour is required when reason is Design or Colour Not Available' });
+            if (!workTypeVal || String(workTypeVal).trim() === '') {
+                return res.status(400).json({ success: false, message: 'Work Type is required when reason is Design Not Available' });
             }
             if (!lossSizeVal || String(lossSizeVal).trim() === '') {
-                return res.status(400).json({ success: false, message: 'Size is required when reason is Design or Colour Not Available' });
+                return res.status(400).json({ success: false, message: 'Size is required when reason is Design Not Available' });
             }
-            if (!productCategoryVal || String(productCategoryVal).trim() === '') {
-                return res.status(400).json({ success: false, message: 'Product Category is required when reason is Design or Colour Not Available' });
+            if (!workSizeVal || String(workSizeVal).trim() === '') {
+                return res.status(400).json({ success: false, message: 'Work Size is required when reason is Design Not Available' });
+            }
+        }
+
+        if (incomingStatusStr === 'Loss' && isColourNotAvailableReason) {
+            const hasAttachment = (fileAttachment && (fileAttachment.base64 || fileAttachment.name)) || (req.body.attachment && String(req.body.attachment).trim() !== '') || (_id && (await Walkin.findById(_id))?.attachment);
+            if (!hasAttachment && (!notesVal || String(notesVal).trim() === '')) {
+                return res.status(400).json({ success: false, message: 'Note is required when no attachment is provided.' });
+            }
+            if (!lossColourVal || String(lossColourVal).trim() === '') {
+                return res.status(400).json({ success: false, message: 'Colour is required when reason is Colour Not Available' });
+            }
+            if (!workSizeVal || String(workSizeVal).trim() === '') {
+                return res.status(400).json({ success: false, message: 'Work Size is required when reason is Colour Not Available' });
             }
         }
 
@@ -593,6 +611,8 @@ export const saveWalkin = async (req, res) => {
                     lossEnquiryRevisitDate: lossEnquiryRevisitDateVal !== undefined ? String(lossEnquiryRevisitDateVal).trim() : walkinRecord.lossEnquiryRevisitDate,
                     lossReason: lossReasonVal !== undefined ? String(lossReasonVal).trim() : walkinRecord.lossReason,
                     productCategory: productCategoryVal !== undefined ? String(productCategoryVal).trim() : walkinRecord.productCategory,
+                    workType: workTypeVal !== undefined ? String(workTypeVal).trim() : (walkinRecord.workType || ''),
+                    workSize: workSizeVal !== undefined ? String(workSizeVal).trim() : (walkinRecord.workSize || ''),
                     repeatCount: 1,
                     date: todayStr
                 });
@@ -862,6 +882,8 @@ export const saveWalkin = async (req, res) => {
                         lossEnquiryRevisitDate: lossEnquiryRevisitDateVal !== undefined ? String(lossEnquiryRevisitDateVal).trim() : '',
                         lossReason: lossReasonVal !== undefined ? String(lossReasonVal).trim() : '',
                         productCategory: productCategoryVal !== undefined ? String(productCategoryVal).trim() : '',
+                        workType: workTypeVal !== undefined ? String(workTypeVal).trim() : '',
+                        workSize: workSizeVal !== undefined ? String(workSizeVal).trim() : '',
                         repeatCount: nextRepeatCount,
                         date: todayStr
                     });
@@ -909,6 +931,8 @@ export const saveWalkin = async (req, res) => {
                     lossEnquiryRevisitDate: lossEnquiryRevisitDateVal !== undefined ? String(lossEnquiryRevisitDateVal).trim() : '',
                     lossReason: lossReasonVal !== undefined ? String(lossReasonVal).trim() : '',
                     productCategory: productCategoryVal !== undefined ? String(productCategoryVal).trim() : '',
+                    workType: workTypeVal !== undefined ? String(workTypeVal).trim() : '',
+                    workSize: workSizeVal !== undefined ? String(workSizeVal).trim() : '',
                     repeatCount: 1,
                     date: todayStr
                 });
@@ -1086,7 +1110,7 @@ export const getWalkins = async (req, res) => {
         }
 
         // 3. Fetch filtered walkins directly from MongoDB
-        const baseProjection = 'date customerName contact functionDate store staff managerName category subCategory functionType remarks repeatCount status storeId employeeId createdBy createdAt updatedAt lastStatusChangeDate statusChangedToday bookingDate rentoutDate returnDate cancelDate cancellationDate lossReason lossProductType lossSize lossColour lossSalesPrice lossSelectRemarks lossEnquiryTrailOption lossEnquiryRevisitDate notes attachment attachmentName statusHistory rentalStatus shoeStatus billedDate billReturnedDate invoiceNo shoeInvoiceNo productCategory';
+        const baseProjection = 'date customerName contact functionDate store staff managerName category subCategory functionType remarks repeatCount status storeId employeeId createdBy createdAt updatedAt lastStatusChangeDate statusChangedToday bookingDate rentoutDate returnDate cancelDate cancellationDate lossReason lossProductType lossSize lossColour lossSalesPrice lossSelectRemarks lossEnquiryTrailOption lossEnquiryRevisitDate notes attachment attachmentName statusHistory rentalStatus shoeStatus billedDate billReturnedDate invoiceNo shoeInvoiceNo productCategory workType workSize';
 
         const isCountOnlyFetch = String(countOnly).toLowerCase() === 'true';
         const isChartOnlyFetch = String(chartOnly).toLowerCase() === 'true';
@@ -1236,7 +1260,7 @@ export const getAllWalkinsPublic = async (req, res) => {
 
         let filtered = await Walkin.find(query)
             .sort(sortQuery)
-            .select('date customerName contact functionDate store staff managerName category subCategory functionType remarks repeatCount status storeId employeeId createdBy createdAt updatedAt lastStatusChangeDate statusChangedToday bookingDate rentoutDate returnDate cancelDate cancellationDate lossReason lossProductType lossSize lossColour lossSalesPrice lossSelectRemarks lossEnquiryTrailOption lossEnquiryRevisitDate notes attachment attachmentName statusHistory rentalStatus shoeStatus billedDate billReturnedDate invoiceNo shoeInvoiceNo productCategory')
+            .select('date customerName contact functionDate store staff managerName category subCategory functionType remarks repeatCount status storeId employeeId createdBy createdAt updatedAt lastStatusChangeDate statusChangedToday bookingDate rentoutDate returnDate cancelDate cancellationDate lossReason lossProductType lossSize lossColour lossSalesPrice lossSelectRemarks lossEnquiryTrailOption lossEnquiryRevisitDate notes attachment attachmentName statusHistory rentalStatus shoeStatus billedDate billReturnedDate invoiceNo shoeInvoiceNo productCategory workType workSize')
             .lean();
 
         const todayStr = getLocalDateStringIST(new Date());

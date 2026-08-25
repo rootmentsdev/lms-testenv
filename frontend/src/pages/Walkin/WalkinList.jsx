@@ -229,18 +229,62 @@ const NON_SALES_REASONS = new Set([
     'Confirm Later'
 ]);
 
-const isDesignOrColourUnavailable = (reason) => {
+const isDesignNotAvailableReason = (reason) => {
     if (!reason) return false;
     const r = String(reason).toLowerCase().trim();
     return (
         r === 'design not available' ||
-        r === 'colour not available' ||
-        r === 'color not available' ||
         r === 'design and colour not available' ||
+        r === 'design & colour not available' ||
         r === 'design and color unavailable' ||
         r === 'model, design and colour not available'
     );
 };
+
+const isColourNotAvailableReason = (reason) => {
+    if (!reason) return false;
+    const r = String(reason).toLowerCase().trim();
+    return (
+        r === 'colour not available' ||
+        r === 'color not available'
+    );
+};
+
+const isDesignOrColourUnavailable = (reason) => {
+    return isDesignNotAvailableReason(reason) || isColourNotAvailableReason(reason);
+};
+
+const STANDARD_COLOURS = [
+    'Black',
+    'Navy Blue',
+    'Royal Blue',
+    'Sky Blue',
+    'Blue',
+    'Olive Green',
+    'Green',
+    'Mint Green',
+    'Maroon',
+    'Red',
+    'Burgundy',
+    'Pink',
+    'Peach',
+    'Yellow',
+    'Mustard',
+    'Gold',
+    'White',
+    'Off White',
+    'Ivory',
+    'Cream',
+    'Beige',
+    'Grey',
+    'Dark Grey',
+    'Light Grey',
+    'Silver',
+    'Brown',
+    'Tan',
+    'Purple',
+    'Lavender'
+];
 
 const SALES_SUBCATEGORIES = new Set([
     'Shoe',
@@ -359,7 +403,66 @@ const getExportRows = (data) => {
   return { headers, rows };
 };
 
-const exportCSV = (data) => {
+const buildExportFilename = (filters = {}, ext = 'csv') => {
+  const {
+    selectedStores = [],
+    selectedStatuses = [],
+    selectedTableStatuses = [],
+    startDate = '',
+    endDate = '',
+    filterStartDate = '',
+    filterEndDate = ''
+  } = filters;
+
+  const validStores = (selectedStores || []).filter(s => s && s !== 'All');
+  let storeStr = 'all store';
+  if (validStores.length === 1) {
+    storeStr = formatStoreDisplayName(validStores[0]) || validStores[0];
+  } else {
+    storeStr = 'all store';
+  }
+
+  const tableStatuses = (selectedTableStatuses || []).filter(s => s && s !== 'All');
+  const generalStatuses = (selectedStatuses || []).filter(s => s && s !== 'All');
+  const activeStatuses = tableStatuses.length > 0 ? tableStatuses : generalStatuses;
+
+  let statusStr = 'all status';
+  if (activeStatuses.length === 1) {
+    statusStr = activeStatuses[0];
+  } else if (activeStatuses.length > 1) {
+    statusStr = activeStatuses.join('-');
+  } else {
+    statusStr = 'all status';
+  }
+
+  const sDate = (startDate || filterStartDate || '').trim();
+  const eDate = (endDate || filterEndDate || '').trim();
+
+  let dateStr = 'all time';
+  if (sDate && eDate) {
+    if (sDate === eDate) {
+      dateStr = sDate;
+    } else {
+      dateStr = `${sDate}_to_${eDate}`;
+    }
+  } else if (sDate) {
+    dateStr = `from_${sDate}`;
+  } else if (eDate) {
+    dateStr = `until_${eDate}`;
+  } else {
+    dateStr = 'all time';
+  }
+
+  const sanitize = (str) => String(str || '').replace(/[\/\\?%*:|"<>]/g, '-').trim();
+
+  const cleanStore = sanitize(storeStr);
+  const cleanStatus = sanitize(statusStr);
+  const cleanDate = sanitize(dateStr);
+
+  return `${cleanStore}_${cleanStatus}_report_${cleanDate}.${ext}`;
+};
+
+const exportCSV = (data, filters = {}) => {
   const { headers, rows } = getExportRows(data);
 
   const csv = [headers, ...rows].map((r) => r.map((c) => {
@@ -369,16 +472,17 @@ const exportCSV = (data) => {
     return `"${s.replace(/"/g, '""')}"`;
   }).join(',')).join('\n');
 
+  const filename = buildExportFilename(filters, 'csv');
   const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); 
   a.href = url; 
-  a.download = 'walkin-list.csv'; 
+  a.download = filename; 
   a.click();
   URL.revokeObjectURL(url);
 };
 
-const exportExcel = (data) => {
+const exportExcel = (data, filters = {}) => {
   const { headers, rows } = getExportRows(data);
   const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
 
@@ -392,9 +496,10 @@ const exportExcel = (data) => {
   });
   worksheet['!cols'] = colWidths;
 
+  const filename = buildExportFilename(filters, 'xlsx');
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Walkin List');
-  XLSX.writeFile(workbook, 'walkin-list.xlsx');
+  XLSX.writeFile(workbook, filename);
 };
 
 const getStatusColors = (statusStr) => {
@@ -577,6 +682,7 @@ const sortStoresGThenZ = (a, b) => {
     const [customerExistsNotification, setCustomerExistsNotification] = useState(false);
     const [customerData, setCustomerData] = useState(null);
     const [selectedFile, setSelectedFile] = useState(null);
+    const [isCustomColour, setIsCustomColour] = useState(false);
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
@@ -599,16 +705,21 @@ const sortStoresGThenZ = (a, b) => {
         remarks: '',
         status: 'New Walkin',
         repeatCount: 1,
-        lossProductType: '',
-        lossSizeColour: '',
-        lossSizeOption: '',
-        lossPriceReason: '',
-        lossBudget: '',
-        lossNote: '',
-        lossReason: ''
+        lossSelectRemarks: '',
+        lossSalesPrice: '',
+        lossReason: '',
+        productCategory: '',
+        workType: '',
+        workSize: ''
     });
 
     const [currentAdmin, setCurrentAdmin] = useState(null);
+
+    useEffect(() => {
+        if (formData.lossColour && formData.lossColour.trim() !== '' && !STANDARD_COLOURS.includes(formData.lossColour) && formData.lossColour !== 'Other') {
+            setIsCustomColour(true);
+        }
+    }, [formData.lossColour]);
 
     // Track walkins that already changed status today
     const [statusChangedToday, setStatusChangedToday] = useState({});
@@ -754,7 +865,7 @@ const sortStoresGThenZ = (a, b) => {
                                                 </>
                                             )}
 
-                                            {isDesignOrColourUnavailable(formData.lossReason) && (
+                                            {isDesignNotAvailableReason(formData.lossReason) && (
                                                 <>
                                                     {/* Banner */}
                                                     <div className="col-span-12">
@@ -762,10 +873,10 @@ const sortStoresGThenZ = (a, b) => {
                                                             💡 Attachment is the best option for this category.
                                                         </div>
                                                     </div>
-                                                    {/* Attachment First */}
+                                                    {/* Attachment (Optional) */}
                                                     <div className="col-span-12 md:col-span-3">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Attachment <span className="text-red-500">*</span>
+                                                            Attachment
                                                         </label>
                                                         <div className="relative">
                                                             <input
@@ -787,21 +898,21 @@ const sortStoresGThenZ = (a, b) => {
                                                             </label>
                                                         </div>
                                                     </div>
-                                                    {/* Colour */}
+                                                    {/* Work Type (Text Box) */}
                                                     <div className="col-span-12 md:col-span-3">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Colour <span className="text-red-500">*</span>
+                                                            Work Type <span className="text-red-500">*</span>
                                                         </label>
                                                         <input required
                                                             type="text"
-                                                            name="lossColour"
-                                                            placeholder="Enter Colour"
-                                                            value={formData.lossColour || ''}
+                                                            name="workType"
+                                                            placeholder="Enter Work Type"
+                                                            value={formData.workType || ''}
                                                             onChange={handleInputChange}
                                                             className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold"
                                                         />
                                                     </div>
-                                                    {/* Size */}
+                                                    {/* Size (Dropdown) */}
                                                     <div className="col-span-12 md:col-span-3">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                                                             Select Size <span className="text-red-500">*</span>
@@ -825,19 +936,19 @@ const sortStoresGThenZ = (a, b) => {
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    {/* Product Category Tier */}
+                                                    {/* Work Size Dropdown: Premium, Non Premium, Ultra Luxury, Luxury */}
                                                     <div className="col-span-12 md:col-span-3">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Product Category <span className="text-red-500">*</span>
+                                                            Work Size <span className="text-red-500">*</span>
                                                         </label>
                                                         <div className="relative">
                                                             <select required
-                                                                name="productCategory"
-                                                                value={formData.productCategory || ''}
+                                                                name="workSize"
+                                                                value={formData.workSize || ''}
                                                                 onChange={handleInputChange}
                                                                 className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
                                                             >
-                                                                <option value="">Select Product Category</option>
+                                                                <option value="">Select Work Size</option>
                                                                 <option value="Premium">Premium</option>
                                                                 <option value="Non Premium">Non Premium</option>
                                                                 <option value="Ultra Luxury">Ultra Luxury</option>
@@ -853,9 +964,144 @@ const sortStoresGThenZ = (a, b) => {
                                                     {/* Note */}
                                                     <div className="col-span-12">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Note <span className="text-red-500">*</span>
+                                                            Note {(!selectedFile && (!formData.attachment || formData.attachment.trim() === '')) && <span className="text-red-500">*</span>}
                                                         </label>
-                                                        <textarea required
+                                                        <textarea
+                                                            required={!selectedFile && (!formData.attachment || formData.attachment.trim() === '')}
+                                                            name="lossNote"
+                                                            rows={1}
+                                                            placeholder="Product Item Name / Remarks"
+                                                            value={formData.lossNote || ''}
+                                                            onChange={handleInputChange}
+                                                            className="w-full h-11 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white placeholder-gray-300 resize-none font-semibold"
+                                                        />
+                                                    </div>
+                                                </>
+                                            )}
+
+                                            {isColourNotAvailableReason(formData.lossReason) && (
+                                                <>
+                                                    {/* Banner */}
+                                                    <div className="col-span-12">
+                                                        <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-700 font-semibold mb-1 w-full">
+                                                            💡 Attachment is the best option for this category.
+                                                        </div>
+                                                    </div>
+                                                    {/* Attachment (Optional) */}
+                                                    <div className="col-span-12 md:col-span-3">
+                                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                            Attachment
+                                                        </label>
+                                                        <div className="relative">
+                                                            <input
+                                                                type="file"
+                                                                id="walkin-attachment-file"
+                                                                onChange={handleFileChange}
+                                                                className="hidden"
+                                                            />
+                                                            <label
+                                                                htmlFor="walkin-attachment-file"
+                                                                className="w-full h-11 border border-gray-200 rounded-lg px-3.5 flex items-center justify-between text-sm focus:outline-none text-gray-600 bg-white cursor-pointer hover:border-gray-400 transition-all font-semibold overflow-hidden"
+                                                            >
+                                                                <span className="truncate">
+                                                                    {selectedFile ? selectedFile.name : (formData.attachmentName || 'Choose File...')}
+                                                                </span>
+                                                                <svg className="w-4 h-4 text-gray-400 shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                                                </svg>
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                    {/* Colour (Dropdown with Other -> Text Box option) */}
+                                                    <div className="col-span-12 md:col-span-3">
+                                                        <div className="flex justify-between items-center mb-1.5">
+                                                            <label className="block text-xs font-semibold text-gray-700">
+                                                                Colour <span className="text-red-500">*</span>
+                                                            </label>
+                                                            {isCustomColour && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setIsCustomColour(false);
+                                                                        setFormData(prev => ({ ...prev, lossColour: '' }));
+                                                                    }}
+                                                                    className="text-[11px] font-semibold text-blue-600 hover:underline"
+                                                                >
+                                                                    Choose from list
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                        {isCustomColour ? (
+                                                            <input required
+                                                                type="text"
+                                                                name="lossColour"
+                                                                placeholder="Enter Custom Colour"
+                                                                value={formData.lossColour || ''}
+                                                                onChange={handleInputChange}
+                                                                className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white font-semibold"
+                                                            />
+                                                        ) : (
+                                                            <div className="relative">
+                                                                <select required
+                                                                    name="lossColour"
+                                                                    value={formData.lossColour || ''}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value;
+                                                                        if (val === 'Other') {
+                                                                            setIsCustomColour(true);
+                                                                            setFormData(prev => ({ ...prev, lossColour: '' }));
+                                                                        } else {
+                                                                            handleInputChange(e);
+                                                                        }
+                                                                    }}
+                                                                    className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                                >
+                                                                    <option value="">Select Colour</option>
+                                                                    {STANDARD_COLOURS.map((col) => (
+                                                                        <option key={col} value={col}>{col}</option>
+                                                                    ))}
+                                                                    <option value="Other">Other</option>
+                                                                </select>
+                                                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                        <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                    </svg>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {/* Work Size Dropdown: Premium, Non Premium, Ultra Luxury, Luxury */}
+                                                    <div className="col-span-12 md:col-span-3">
+                                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                            Work Size <span className="text-red-500">*</span>
+                                                        </label>
+                                                        <div className="relative">
+                                                            <select required
+                                                                name="workSize"
+                                                                value={formData.workSize || ''}
+                                                                onChange={handleInputChange}
+                                                                className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
+                                                            >
+                                                                <option value="">Select Work Size</option>
+                                                                <option value="Premium">Premium</option>
+                                                                <option value="Non Premium">Non Premium</option>
+                                                                <option value="Ultra Luxury">Ultra Luxury</option>
+                                                                <option value="Luxury">Luxury</option>
+                                                            </select>
+                                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                                                </svg>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    {/* Note */}
+                                                    <div className="col-span-12">
+                                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                                            Note {(!selectedFile && (!formData.attachment || formData.attachment.trim() === '')) && <span className="text-red-500">*</span>}
+                                                        </label>
+                                                        <textarea
+                                                            required={!selectedFile && (!formData.attachment || formData.attachment.trim() === '')}
                                                             name="lossNote"
                                                             rows={1}
                                                             placeholder="Product Item Name / Remarks"
@@ -2129,7 +2375,9 @@ const sortStoresGThenZ = (a, b) => {
             lossSelectRemarks: '',
             lossSalesPrice: '',
             lossReason: '',
-            productCategory: ''
+            productCategory: '',
+            workType: '',
+            workSize: ''
         };
     };
 
@@ -2538,6 +2786,8 @@ const sortStoresGThenZ = (a, b) => {
                 if (json.data.lossSelectRemarks && json.data.lossSelectRemarks !== '-' && json.data.lossSelectRemarks.trim() !== '') parsed.lossSelectRemarks = json.data.lossSelectRemarks;
                 if (json.data.lossEnquiryTrailOption && json.data.lossEnquiryTrailOption !== '-' && json.data.lossEnquiryTrailOption.trim() !== '') parsed.lossEnquiryTrailOption = json.data.lossEnquiryTrailOption;
                 if (json.data.lossEnquiryRevisitDate && json.data.lossEnquiryRevisitDate !== '-' && json.data.lossEnquiryRevisitDate.trim() !== '') parsed.lossEnquiryRevisitDate = json.data.lossEnquiryRevisitDate;
+                if (json.data.workType && json.data.workType !== '-' && json.data.workType.trim() !== '') parsed.workType = json.data.workType;
+                if (json.data.workSize && json.data.workSize !== '-' && json.data.workSize.trim() !== '') parsed.workSize = json.data.workSize;
 
                 let subCat = json.data.subCategory || '-';
                 if ((!subCat || subCat === '-') && parsed.parsedSubCategory) {
@@ -2596,6 +2846,8 @@ const sortStoresGThenZ = (a, b) => {
             if (walkinRecord.lossReason && walkinRecord.lossReason !== '-' && walkinRecord.lossReason.trim() !== '') parsed.lossReason = walkinRecord.lossReason;
             if (walkinRecord.lossEnquiryTrailOption && walkinRecord.lossEnquiryTrailOption !== '-' && walkinRecord.lossEnquiryTrailOption.trim() !== '') parsed.lossEnquiryTrailOption = walkinRecord.lossEnquiryTrailOption;
             if (walkinRecord.lossEnquiryRevisitDate && walkinRecord.lossEnquiryRevisitDate !== '-' && walkinRecord.lossEnquiryRevisitDate.trim() !== '') parsed.lossEnquiryRevisitDate = walkinRecord.lossEnquiryRevisitDate;
+            if (walkinRecord.workType && walkinRecord.workType !== '-' && walkinRecord.workType.trim() !== '') parsed.workType = walkinRecord.workType;
+            if (walkinRecord.workSize && walkinRecord.workSize !== '-' && walkinRecord.workSize.trim() !== '') parsed.workSize = walkinRecord.workSize;
 
             let finalCategory = walkinRecord.category || '';
             let finalSubCategory = walkinRecord.subCategory || '-';
@@ -2685,6 +2937,8 @@ const sortStoresGThenZ = (a, b) => {
         if (w.lossEnquiryTrailOption && w.lossEnquiryTrailOption !== '-' && w.lossEnquiryTrailOption.trim() !== '') parsed.lossEnquiryTrailOption = w.lossEnquiryTrailOption;
         if (w.lossEnquiryRevisitDate && w.lossEnquiryRevisitDate !== '-' && w.lossEnquiryRevisitDate.trim() !== '') parsed.lossEnquiryRevisitDate = w.lossEnquiryRevisitDate;
         if (w.productCategory && w.productCategory !== '-' && w.productCategory.trim() !== '') parsed.productCategory = w.productCategory;
+        if (w.workType && w.workType !== '-' && w.workType.trim() !== '') parsed.workType = w.workType;
+        if (w.workSize && w.workSize !== '-' && w.workSize.trim() !== '') parsed.workSize = w.workSize;
         parsed.lossReason = w.lossReason || (w.status === 'Loss' ? w.subCategory : '');
 
         let subCat = w.subCategory || '-';
@@ -2794,21 +3048,36 @@ const sortStoresGThenZ = (a, b) => {
                             return;
                         }
 
-                    } else if (isDesignOrColourUnavailable(lossReasonLower)) {
-                        if (!selectedFile && (!formData.attachment || formData.attachment.trim() === '')) {
-                            alert('Please attach a file.');
+                    } else if (isDesignNotAvailableReason(lossReasonLower)) {
+                        const hasAtt = selectedFile || (formData.attachment && formData.attachment.trim() !== '');
+                        if (!hasAtt && (!formData.lossNote || formData.lossNote.trim() === '')) {
+                            alert('Note is required when no attachment is provided.');
                             return;
                         }
-                        if (!formData.lossColour || formData.lossColour.trim() === '') {
-                            alert('Please enter a Colour.');
+                        if (!formData.workType || formData.workType.trim() === '') {
+                            alert('Please enter a Work Type.');
                             return;
                         }
                         if (!formData.lossSize || formData.lossSize === '') {
                             alert('Please select a Size.');
                             return;
                         }
-                        if (!formData.productCategory || formData.productCategory === '') {
-                            alert('Please select a Product Category.');
+                        if (!formData.workSize || formData.workSize === '') {
+                            alert('Please select a Work Size.');
+                            return;
+                        }
+                    } else if (isColourNotAvailableReason(lossReasonLower)) {
+                        const hasAtt = selectedFile || (formData.attachment && formData.attachment.trim() !== '');
+                        if (!hasAtt && (!formData.lossNote || formData.lossNote.trim() === '')) {
+                            alert('Note is required when no attachment is provided.');
+                            return;
+                        }
+                        if (!formData.lossColour || formData.lossColour.trim() === '') {
+                            alert('Please enter or select a Colour.');
+                            return;
+                        }
+                        if (!formData.workSize || formData.workSize === '') {
+                            alert('Please select a Work Size.');
                             return;
                         }
                     } else if (lossReasonLower === 'size') {
@@ -2973,6 +3242,8 @@ const sortStoresGThenZ = (a, b) => {
                     lossEnquiryRevisitDate: formData.lossEnquiryRevisitDate || '',
                     lossReason: cleanLossReason,
                     productCategory: formData.productCategory || '',
+                    workType: formData.workType || '',
+                    workSize: formData.workSize || '',
                     status: formData.status,
                     date: formData.date
                 })
@@ -3396,14 +3667,14 @@ const sortStoresGThenZ = (a, b) => {
                             <h1 style={{ fontSize: '22px', fontWeight: 700, lineHeight: 1.2, color: '#111827', margin: 0 }}>Walk In List</h1>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <button
-                                    onClick={() => exportCSV(walkins)}
+                                    onClick={() => exportCSV(walkins, { selectedStores, selectedStatuses, filterStartDate, filterEndDate })}
                                     style={{ display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '7px 14px', fontSize: '13px', fontWeight: 500, color: '#374151', background: '#fff', cursor: 'pointer' }}
                                 >
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                                     Export CSV
                                 </button>
                                 <button
-                                    onClick={() => exportExcel(walkins)}
+                                    onClick={() => exportExcel(walkins, { selectedStores, selectedStatuses, filterStartDate, filterEndDate })}
                                     style={{ display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid #86efac', borderRadius: '8px', padding: '7px 14px', fontSize: '13px', fontWeight: 500, color: '#15803d', background: '#dcfce7', cursor: 'pointer' }}
                                 >
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>

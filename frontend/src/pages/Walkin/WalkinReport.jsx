@@ -395,7 +395,66 @@ const getExportRows = (data, getState) => {
   return { headers, rows };
 };
 
-const exportCSV = (data, getState) => {
+const buildExportFilename = (filters = {}, ext = 'csv') => {
+  const {
+    selectedStores = [],
+    selectedStatuses = [],
+    selectedTableStatuses = [],
+    startDate = '',
+    endDate = '',
+    filterStartDate = '',
+    filterEndDate = ''
+  } = filters;
+
+  const validStores = (selectedStores || []).filter(s => s && s !== 'All');
+  let storeStr = 'all store';
+  if (validStores.length === 1) {
+    storeStr = formatStoreDisplayName(validStores[0]) || validStores[0];
+  } else {
+    storeStr = 'all store';
+  }
+
+  const tableStatuses = (selectedTableStatuses || []).filter(s => s && s !== 'All');
+  const generalStatuses = (selectedStatuses || []).filter(s => s && s !== 'All');
+  const activeStatuses = tableStatuses.length > 0 ? tableStatuses : generalStatuses;
+
+  let statusStr = 'all status';
+  if (activeStatuses.length === 1) {
+    statusStr = activeStatuses[0];
+  } else if (activeStatuses.length > 1) {
+    statusStr = activeStatuses.join('-');
+  } else {
+    statusStr = 'all status';
+  }
+
+  const sDate = (startDate || filterStartDate || '').trim();
+  const eDate = (endDate || filterEndDate || '').trim();
+
+  let dateStr = 'all time';
+  if (sDate && eDate) {
+    if (sDate === eDate) {
+      dateStr = sDate;
+    } else {
+      dateStr = `${sDate}_to_${eDate}`;
+    }
+  } else if (sDate) {
+    dateStr = `from_${sDate}`;
+  } else if (eDate) {
+    dateStr = `until_${eDate}`;
+  } else {
+    dateStr = 'all time';
+  }
+
+  const sanitize = (str) => String(str || '').replace(/[\/\\?%*:|"<>]/g, '-').trim();
+
+  const cleanStore = sanitize(storeStr);
+  const cleanStatus = sanitize(statusStr);
+  const cleanDate = sanitize(dateStr);
+
+  return `${cleanStore}_${cleanStatus}_report_${cleanDate}.${ext}`;
+};
+
+const exportCSV = (data, getState, filters = {}) => {
   const { headers, rows } = getExportRows(data, getState);
 
   const csv = [headers, ...rows].map((r, rowIdx) => r.map((c, colIdx) => {
@@ -408,17 +467,18 @@ const exportCSV = (data, getState) => {
     return `"${s.replace(/"/g, '""')}"`;
   }).join(',')).join('\n');
 
+  const filename = buildExportFilename(filters, 'csv');
   // Prefixing with UTF-8 BOM (\uFEFF) forces Excel to read the CSV as UTF-8 encoding
   const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); 
   a.href = url; 
-  a.download = 'walkin-report.csv'; 
+  a.download = filename; 
   a.click();
   URL.revokeObjectURL(url);
 };
 
-const exportExcel = (data, getState) => {
+const exportExcel = (data, getState, filters = {}) => {
   const { headers, rows } = getExportRows(data, getState);
   const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
 
@@ -432,9 +492,10 @@ const exportExcel = (data, getState) => {
   });
   worksheet['!cols'] = colWidths;
 
+  const filename = buildExportFilename(filters, 'xlsx');
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Walkin Report');
-  XLSX.writeFile(workbook, 'walkin-report.xlsx');
+  XLSX.writeFile(workbook, filename);
 };
 /* ── CustomSelect Dropdown Component ────────────────────────────────────────── */
 const CustomSelect = ({
@@ -1319,11 +1380,11 @@ const WalkinReport = () => {
               </div>
               {/* Export buttons */}
               <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
-                <button onClick={()=>exportCSV(displayed, getDisplayedState)} style={{ display:'flex', alignItems:'center', gap:'6px', border:'1px solid #e5e7eb', borderRadius:'8px', padding:'7px 14px', fontSize:'13px', fontWeight:500, color:'#374151', background:'#f9fafb', cursor:'pointer' }}>
+                <button onClick={()=>exportCSV(displayed, getDisplayedState, { selectedStores, selectedStatuses, selectedTableStatuses, startDate: formData.startDate, endDate: formData.endDate })} style={{ display:'flex', alignItems:'center', gap:'6px', border:'1px solid #e5e7eb', borderRadius:'8px', padding:'7px 14px', fontSize:'13px', fontWeight:500, color:'#374151', background:'#f9fafb', cursor:'pointer' }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                   Export CSV
                 </button>
-                <button onClick={()=>exportExcel(displayed, getDisplayedState)} style={{ display:'flex', alignItems:'center', gap:'6px', border:'1px solid #86efac', borderRadius:'8px', padding:'7px 14px', fontSize:'13px', fontWeight:500, color:'#15803d', background:'#dcfce7', cursor:'pointer' }}>
+                <button onClick={()=>exportExcel(displayed, getDisplayedState, { selectedStores, selectedStatuses, selectedTableStatuses, startDate: formData.startDate, endDate: formData.endDate })} style={{ display:'flex', alignItems:'center', gap:'6px', border:'1px solid #86efac', borderRadius:'8px', padding:'7px 14px', fontSize:'13px', fontWeight:500, color:'#15803d', background:'#dcfce7', cursor:'pointer' }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                   Export Excel
                 </button>
