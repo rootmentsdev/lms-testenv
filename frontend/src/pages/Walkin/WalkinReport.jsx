@@ -220,11 +220,26 @@ const getCombinedStateAt = (w, endDateStr, startDateStr, statusFilterOrList) => 
     date: initialDate
   });
 
-  const sortedHistory = [...(w.statusHistory || [])].sort((a, b) => new Date(a.date) - new Date(b.date));
+  // Collect explicit status milestone dates as fallback events
+  const milestones = [];
+  if (w.bookingDate) milestones.push({ status: 'Booked', date: w.bookingDate });
+  if (w.rentoutDate) milestones.push({ status: 'Rentout', date: w.rentoutDate });
+  if (w.returnDate) milestones.push({ status: 'Return', date: w.returnDate });
+  if (w.cancelDate || w.cancellationDate) milestones.push({ status: 'Cancelled', date: w.cancelDate || w.cancellationDate });
+  if (w.billedDate) milestones.push({ status: 'Billed', date: w.billedDate });
+  if (w.billReturnedDate) milestones.push({ status: 'Bill Returned', date: w.billReturnedDate });
+  if (w.lastStatusChangeDate && w.status) milestones.push({ status: w.status, date: w.lastStatusChangeDate });
+
+  const rawEvents = [
+    ...(w.statusHistory || []).map(h => ({ status: h.status, category: h.category, date: h.date })),
+    ...milestones
+  ];
+
+  rawEvents.sort((a, b) => new Date(a.date) - new Date(b.date));
 
   const rentalStatuses = ['New Walkin', 'Booked', 'Rentout', 'Return', 'Cancelled', 'Cancel'];
 
-  sortedHistory.forEach(h => {
+  rawEvents.forEach(h => {
     const s = String(h.status || '').trim();
     const isRental = rentalStatuses.includes(s) || (h.category && h.category !== 'Sales');
     if (isRental) {
