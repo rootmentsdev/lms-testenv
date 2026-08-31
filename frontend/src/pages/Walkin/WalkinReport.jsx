@@ -331,6 +331,9 @@ const getExportRows = (data, getState) => {
     'REMARKS', 
     'SIZE', 
     'COLOR', 
+    'WORK TYPE',
+    'PRODUCT CATEGORY',
+    'WORK SIZE',
     'NOTES', 
     'STORE', 
     'STAFF', 
@@ -394,6 +397,9 @@ const getExportRows = (data, getState) => {
       w.remarks || '-',
       w.lossSize || '-',
       w.lossColour || '-',
+      w.workType || '-',
+      w.productCategory || w.workSize || '-',
+      w.workSize || w.productCategory || '-',
       notesText,
       w.store || '-',
       w.staff || '-',
@@ -1415,10 +1421,10 @@ const WalkinReport = () => {
               <div style={{ textAlign:'center', padding:'48px', color:'#9ca3af', fontSize:'13px' }}>No records found.</div>
             ) : (
               <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 220px)' }}>
-                <table style={{ width: '3265px', tableLayout: 'fixed', borderCollapse: 'separate', borderSpacing: 0, fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
+                <table style={{ width: '3655px', tableLayout: 'fixed', borderCollapse: 'separate', borderSpacing: 0, fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
                   <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#fafafa' }}>
                     <tr style={{ background:'#fafafa' }}>
-                      {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'REPEAT COUNT', 'STATUS', 'FUNCTION DATE', 'FUNCTION TYPE', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'SIZE', 'COLOR', 'NOTES', 'STORE', 'STAFF', 'ATTACHMENT', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'BILLED DATE', 'BILL RETURNED DATE', 'NEXT VISIT DATE'].map((h, i) => {
+                      {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'REPEAT COUNT', 'STATUS', 'FUNCTION DATE', 'FUNCTION TYPE', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'SIZE', 'COLOR', 'WORK TYPE', 'PRODUCT CATEGORY', 'WORK SIZE', 'NOTES', 'STORE', 'STAFF', 'ATTACHMENT', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'BILLED DATE', 'BILL RETURNED DATE', 'NEXT VISIT DATE'].map((h, i) => {
                           const getColWidth = (header) => {
                             const widths = {
                               '#': '50px',
@@ -1437,6 +1443,9 @@ const WalkinReport = () => {
                               'REMARKS': '200px',
                               'SIZE': '70px',
                               'COLOR': '85px',
+                              'WORK TYPE': '130px',
+                              'PRODUCT CATEGORY': '140px',
+                              'WORK SIZE': '120px',
                               'NOTES': '200px',
                               'STORE': '140px',
                               'STAFF': '155px',
@@ -1605,8 +1614,23 @@ const WalkinReport = () => {
                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.lossColour || '–'}</span>
                                 </div>
                               </td>
-                          <td style={{textAlign: 'center',  padding: '11px 12px', color: '#6b7280', boxSizing: 'border-box' }}>
+                              <td style={{textAlign: 'center', padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
+                                <div className="walkin-marquee-container" title={w.workType}>
+                                    <span className="walkin-marquee-text walkin-anim-scroll">{w.workType || '–'}</span>
+                                </div>
+                              </td>
+                              <td style={{textAlign: 'center', padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
                                 <div className="walkin-marquee-container">
+                                    <span className="walkin-marquee-text walkin-anim-scroll">{w.productCategory || '–'}</span>
+                                </div>
+                              </td>
+                              <td style={{textAlign: 'center', padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
+                                <div className="walkin-marquee-container">
+                                    <span className="walkin-marquee-text walkin-anim-scroll">{w.workSize || '–'}</span>
+                                </div>
+                              </td>
+                          <td style={{textAlign: 'center',  padding: '11px 12px', color: '#6b7280', boxSizing: 'border-box' }}>
+                                <div className="walkin-marquee-container" title={notesText}>
                                     <span className="walkin-marquee-text walkin-anim-scroll">{notesText}</span>
                                 </div>
                               </td>

@@ -1939,18 +1939,34 @@ export const saveCameraCheckEntry = async (req, res) => {
         }
 
         let resolvedStoreId = null;
-        const branch = await Branch.findOne({ workingBranch: { $regex: `^${store.trim()}$`, $options: 'i' } });
+        let resolvedStoreName = store.trim();
+        let branch = await Branch.findOne({ workingBranch: { $regex: `^${store.trim()}$`, $options: 'i' } });
+        if (!branch) {
+            const key = locationKey(store);
+            if (key) {
+                const allBranches = await Branch.find({}).lean();
+                branch = allBranches.find(b => {
+                    const bKey = locationKey(b.workingBranch || b.location || "");
+                    return bKey === key || norm(b.workingBranch).includes(key) || norm(store).includes(locationKey(b.workingBranch || ""));
+                });
+            }
+        }
+
         if (branch) {
             resolvedStoreId = branch._id;
-        } else {
-            return res.status(404).json({ success: false, message: 'Store not found' });
+            resolvedStoreName = branch.workingBranch;
+        } else if (mongoose.Types.ObjectId.isValid(store)) {
+            resolvedStoreId = new mongoose.Types.ObjectId(store);
         }
 
         // Filter out empty rows: rows without a statusKey are considered empty or incomplete
         const validEntries = entries.filter(entry => entry.statusKey && entry.statusKey.trim() !== '');
 
         // 1. Delete all existing camera check entries for this store and date
-        await WalkinCameraCheck.deleteMany({ date, storeId: resolvedStoreId });
+        const deleteQuery = resolvedStoreId 
+            ? { date, $or: [{ storeId: resolvedStoreId }, { store: { $regex: `^${resolvedStoreName}$`, $options: 'i' } }] }
+            : { date, store: { $regex: `^${resolvedStoreName}$`, $options: 'i' } };
+        await WalkinCameraCheck.deleteMany(deleteQuery);
 
         // 2. Insert the new valid entries
         if (validEntries.length > 0) {
@@ -1961,7 +1977,7 @@ export const saveCameraCheckEntry = async (req, res) => {
                 
                 return {
                     date,
-                    store: branch.workingBranch,
+                    store: resolvedStoreName,
                     storeId: resolvedStoreId,
                     statusKey: entry.statusKey,
                     timeDuration: (inTimeClean && outTimeClean) ? `${inTimeClean} to ${outTimeClean}` : '–',
@@ -1977,10 +1993,16 @@ export const saveCameraCheckEntry = async (req, res) => {
         }
 
         // 3. Sync the aggregated counts in WalkinCount
-        await syncWalkinCountInCam(date, resolvedStoreId, branch.workingBranch);
+        if (resolvedStoreId) {
+            await syncWalkinCountInCam(date, resolvedStoreId, resolvedStoreName);
+        }
 
         // 4. Retrieve the updated checks list to return to client
-        const updatedChecks = await WalkinCameraCheck.find({ date, storeId: resolvedStoreId })
+        const findQuery = resolvedStoreId
+            ? { date, $or: [{ storeId: resolvedStoreId }, { store: { $regex: `^${resolvedStoreName}$`, $options: 'i' } }] }
+            : { date, store: { $regex: `^${resolvedStoreName}$`, $options: 'i' } };
+
+        const updatedChecks = await WalkinCameraCheck.find(findQuery)
             .populate('createdBy', 'name role')
             .lean();
 
@@ -1997,24 +2019,51 @@ export const saveCameraCheckEntry = async (req, res) => {
 
 /**
  * GET /api/walkin/camera-check
- * Retrieves the camera checker log entries for a given date and store.
+ * Retrieves the camera checker log entries for a given date (or date range) and store.
  */
 export const getCameraCheckEntries = async (req, res) => {
     try {
-        const { date, store } = req.query;
-        if (!date || !store) {
-            return res.status(400).json({ success: false, message: 'Date and Store are required' });
+        const { date, store, startDate, endDate } = req.query;
+        if (!store) {
+            return res.status(400).json({ success: false, message: 'Store is required' });
+        }
+        if (!date && (!startDate || !endDate)) {
+            return res.status(400).json({ success: false, message: 'Date or Date Range (startDate, endDate) is required' });
         }
 
-        let resolvedStoreId = null;
-        const branch = await Branch.findOne({ workingBranch: { $regex: `^${store.trim()}$`, $options: 'i' } });
-        if (branch) {
-            resolvedStoreId = branch._id;
-        } else {
-            return res.status(404).json({ success: false, message: 'Store not found' });
+        let storeConditions = null;
+        if (store.toLowerCase() !== 'all') {
+            const resolved = await resolveStoreConditions(store);
+            if (resolved?.query) {
+                storeConditions = resolved.query;
+            } else {
+                storeConditions = {
+                    $or: [
+                        { store: { $regex: `^${store.trim()}$`, $options: 'i' } },
+                        { store: store.trim() }
+                    ]
+                };
+            }
         }
 
-        const cameraChecks = await WalkinCameraCheck.find({ date, storeId: resolvedStoreId })
+        let dateConditions = {};
+        if (startDate && endDate) {
+            dateConditions = { date: { $gte: startDate, $lte: endDate } };
+        } else if (date) {
+            const dateArr = String(date).split(',').map(d => d.trim()).filter(Boolean);
+            if (dateArr.length > 1) {
+                dateConditions = { date: { $in: dateArr } };
+            } else {
+                dateConditions = { date: dateArr[0] || date };
+            }
+        }
+
+        let finalQuery = dateConditions;
+        if (storeConditions) {
+            finalQuery = { $and: [dateConditions, storeConditions] };
+        }
+
+        const cameraChecks = await WalkinCameraCheck.find(finalQuery)
             .populate('createdBy', 'name role')
             .lean();
 

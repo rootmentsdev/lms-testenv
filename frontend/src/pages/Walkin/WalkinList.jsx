@@ -311,6 +311,9 @@ const getExportRows = (data) => {
     'REMARKS', 
     'SIZE', 
     'COLOR', 
+    'WORK TYPE',
+    'PRODUCT CATEGORY',
+    'WORK SIZE',
     'NOTES', 
     'STORE', 
     'STAFF', 
@@ -387,6 +390,9 @@ const getExportRows = (data) => {
       w.remarks || '-',
       w.lossSize || '-',
       w.lossColour || '-',
+      w.workType || '-',
+      w.productCategory || w.workSize || '-',
+      w.workSize || w.productCategory || '-',
       notesText,
       w.store || '-',
       w.staff || '-',
@@ -4087,10 +4093,10 @@ const sortStoresGThenZ = (a, b) => {
                             ) : (
                                 <>
                                     <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 220px)' }}>
-                                        <table style={{ width: user?.role === 'telecaller' ? '3355px' : '3435px', tableLayout: 'fixed', borderCollapse: 'separate', borderSpacing: 0, fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
+                                        <table style={{ width: user?.role === 'telecaller' ? '3745px' : '3825px', tableLayout: 'fixed', borderCollapse: 'separate', borderSpacing: 0, fontSize: '12px', fontFamily: "DM Sans, sans-serif" }}>
                                             <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#fafafa' }}>
                                                 <tr style={{ background: '#fafafa' }}>
-                                                    {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'REPEAT COUNT', 'STATUS', 'HISTORY', 'FUNCTION DATE', 'FUNCTION TYPE', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'SIZE', 'COLOR', 'NOTES', 'STORE', 'STAFF', 'ATTACHMENT', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'BILLED DATE', 'BILL RETURNED DATE', 'NEXT VISIT DATE', 'EDIT'].filter(h => h !== 'EDIT' || user?.role !== 'telecaller').map((h, i) => {
+                                                    {['#', 'DATE', 'CUSTOMER', 'CONTACT', 'REPEAT COUNT', 'STATUS', 'HISTORY', 'FUNCTION DATE', 'FUNCTION TYPE', 'CATEGORY', 'PRODUCT TYPE', 'LOSS REASON', 'SUB CATEGORY', 'REMARKS', 'SIZE', 'COLOR', 'WORK TYPE', 'PRODUCT CATEGORY', 'WORK SIZE', 'NOTES', 'STORE', 'STAFF', 'ATTACHMENT', 'BOOKING DATE', 'RENTOUT DATE', 'RETURN DATE', 'BILLED DATE', 'BILL RETURNED DATE', 'NEXT VISIT DATE', 'EDIT'].filter(h => h !== 'EDIT' || user?.role !== 'telecaller').map((h, i) => {
                                                         const getColWidth = (header) => {
                                                             const widths = {
                                                               '#': '50px',
@@ -4110,6 +4116,9 @@ const sortStoresGThenZ = (a, b) => {
                                                               'REMARKS': '200px',
                                                               'SIZE': '70px',
                                                               'COLOR': '85px',
+                                                              'WORK TYPE': '130px',
+                                                              'PRODUCT CATEGORY': '140px',
+                                                              'WORK SIZE': '120px',
                                                               'NOTES': '200px',
                                                               'STORE': '140px',
                                                               'STAFF': '155px',
@@ -4371,6 +4380,21 @@ const sortStoresGThenZ = (a, b) => {
                                                             <td style={{ textAlign: 'center', padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
                                                                 <div className="walkin-marquee-container">
                                                                     <span className="walkin-marquee-text walkin-anim-scroll">{w.lossColour || '–'}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td style={{ textAlign: 'center', padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
+                                                                <div className="walkin-marquee-container" title={w.workType}>
+                                                                    <span className="walkin-marquee-text walkin-anim-scroll">{w.workType || '–'}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td style={{ textAlign: 'center', padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
+                                                                <div className="walkin-marquee-container">
+                                                                    <span className="walkin-marquee-text walkin-anim-scroll">{w.productCategory || w.workSize || '–'}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td style={{ textAlign: 'center', padding: '11px 12px', color: '#374151', boxSizing: 'border-box' }}>
+                                                                <div className="walkin-marquee-container">
+                                                                    <span className="walkin-marquee-text walkin-anim-scroll">{w.workSize || w.productCategory || '–'}</span>
                                                                 </div>
                                                             </td>
                                                             <td style={{ textAlign: 'center', padding: '11px 12px', color: '#6b7280', boxSizing: 'border-box' }}>
