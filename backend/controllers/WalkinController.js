@@ -1350,6 +1350,37 @@ const BACKEND_CATEGORIES = [
     { key: 'revisit_others', label: 'REVISIT OTHERS' }
 ];
 
+export const STATUS_KEY_MAP = {
+    'rentout': 'revisit_rentout',
+    'rent_out': 'revisit_rentout',
+    'rent-out': 'revisit_rentout',
+    'new_rentout': 'new_walkin_rentout',
+    'new_walkin_rentout': 'new_walkin_rentout',
+    'revisit_rentout': 'revisit_rentout',
+    'booking': 'new_walkin_booking',
+    'new_booking': 'new_walkin_booking',
+    'new_walkin_booking': 'new_walkin_booking',
+    'revisit_booking': 'revisit_booking',
+    'return': 'revisit_return',
+    'revisit_return': 'revisit_return',
+    'loss': 'new_loss',
+    'new_loss': 'new_loss',
+    'revisit_loss': 'revisit_loss',
+    'trial': 'revisit_trial',
+    'revisit_trial': 'revisit_trial',
+    'reissue': 'revisit_reissue',
+    'revisit_reissue': 'revisit_reissue',
+    'cancelled': 'new_cancelled',
+    'cancel': 'new_cancelled',
+    'new_cancelled': 'new_cancelled',
+    'revisit_cancelled': 'revisit_cancelled',
+    'others': 'new_others',
+    'new_others': 'new_others',
+    'revisit_others': 'revisit_others',
+    'walkin': 'walkin',
+    'total_walkin': 'total_walkin'
+};
+
 const isValidYMD = (str) => {
     return typeof str === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(str);
 };
@@ -1506,86 +1537,43 @@ export const getWalkinCountPageData = async (req, res) => {
         const walkinSet = new Set();
         const repeatWalkinSet = new Set();
 
-        const toDateStrIST = (dateVal) => {
-            if (!dateVal) return null;
-            const d = new Date(dateVal);
-            if (isNaN(d.getTime())) return null;
-            const istDate = new Date(d.getTime() + (5.5 * 60 * 60 * 1000));
-            const y = istDate.getUTCFullYear();
-            const m = String(istDate.getUTCMonth() + 1).padStart(2, '0');
-            const dayStr = String(istDate.getUTCDate()).padStart(2, '0');
-            return `${y}-${m}-${dayStr}`;
-        };
-
         walkins.forEach(w => {
             const isDateInRange = (dateVal) => {
                 return isInISTRange(dateVal, startUTC, nextDayStartUTC);
             };
 
             const createdInRange = isDateInRange(w.createdAt);
-            const updatedInRange = isDateInRange(w.updatedAt);
-
             const hasBookingInRange = isDateInRange(w.bookingDate);
             const hasRentoutInRange = isDateInRange(w.rentoutDate);
             const hasReturnInRange = isDateInRange(w.returnDate);
             const hasCancelInRange = isDateInRange(w.cancelDate || w.cancellationDate);
             const hasBilledInRange = isDateInRange(w.billedDate);
-            const hasBillReturnedInRange = isDateInRange(w.billReturnedDate);
-            const hasLastStatusChangeInRange = isDateInRange(w.lastStatusChangeDate);
 
             // Filter history in range
             const historyInRange = (w.statusHistory || []).filter(h => isDateInRange(h.date));
-            const hasHistoryInRange = historyInRange.length > 0;
             
-            // Build the set of status updates in range
-            const statusesInRange = new Set(historyInRange.map(h => h.status));
-            
-            // Fallbacks: if update range date matched but status wasn't in history
-            if (hasLastStatusChangeInRange && w.status) {
-                statusesInRange.add(w.status);
-            }
-            if (hasBookingInRange) statusesInRange.add('Booked');
-            if (hasRentoutInRange) statusesInRange.add('Rentout');
-            if (hasReturnInRange) statusesInRange.add('Return');
-            if (hasCancelInRange) statusesInRange.add('Cancelled');
-            if (hasBilledInRange) statusesInRange.add('Billed');
-            if (hasBillReturnedInRange) statusesInRange.add('Bill Returned');
-
-            // Spelling/normalization helpers
-            const isTrial = (str) => {
-                const s = String(str || '').toLowerCase().trim();
-                return s === 'trial' || s === 'trail';
-            };
-
-            const isReissue = (str) => {
-                const s = String(str || '').toLowerCase().trim().replace(/[^a-z]/g, '');
-                return s === 'reissue';
-            };
-
-            const isLoss = (str) => {
-                const s = String(str || '').toLowerCase().trim();
-                return s === 'loss';
-            };
-
+            // Normalized main status string
             const normStatus = String(w.status || '').toLowerCase().trim();
 
-            // Calculate hasRevisitLoss first to correctly separate auto/new loss from repeat/revisit loss
-            const hasRevisitLoss = (w.statusHistory || []).some(h => {
-                if (!isDateInRange(h.date)) return false;
+            const isReissue = (catStr) => {
+                if (!catStr) return false;
+                const c = catStr.toLowerCase();
+                return c.includes('reissue') || c.includes('re-issue') || c.includes('re issue');
+            };
+
+            const isTrial = (catStr) => {
+                if (!catStr) return false;
+                const c = catStr.toLowerCase();
+                return c.includes('trial');
+            };
+
+            const hasTrialHistoryInRange = historyInRange.some(h => {
                 const hStatus = String(h.status || '').toLowerCase().trim();
-                const hCategory = String(h.category || '').toLowerCase().trim();
-                return hStatus.includes('revisit') && isLoss(hCategory);
+                const hCategory = String(h.category || '').toLowerCase().trim().replace(/[^a-z]/g, '');
+                return (hStatus.includes('trial') || isTrial(hCategory) || hStatus.includes('revisit') && isTrial(hCategory));
             });
 
-            const hasRevisitTrial = (w.statusHistory || []).some(h => {
-                if (!isDateInRange(h.date)) return false;
-                const hStatus = String(h.status || '').toLowerCase().trim();
-                const hCategory = String(h.category || '').toLowerCase().trim();
-                return hStatus.includes('revisit') && isTrial(hCategory);
-            });
-
-            const hasRevisitReissue = (w.statusHistory || []).some(h => {
-                if (!isDateInRange(h.date)) return false;
+            const hasReissueHistoryInRange = historyInRange.some(h => {
                 const hStatus = String(h.status || '').toLowerCase().trim();
                 const hCategory = String(h.category || '').toLowerCase().trim().replace(/[^a-z]/g, '');
                 return hStatus.includes('revisit') && isReissue(hCategory);
@@ -1597,23 +1585,18 @@ export const getWalkinCountPageData = async (req, res) => {
                 walkinSet.add(w._id.toString());
 
                 // Priority for New Walkin:
-                // 1. New Cancelled
                 if (hasCancelInRange) {
                     counts.new_cancelled++;
                 }
-                // 2. New Walkin Rentout
                 else if (hasRentoutInRange) {
                     counts.new_walkin_rentout++;
                 }
-                // 3. New Walkin Booking
                 else if (hasBookingInRange || hasBilledInRange) {
                     counts.new_walkin_booking++;
                 }
-                // 4. New Loss
                 else if (isLossState) {
                     counts.new_loss++;
                 }
-                // 5. New Others
                 else {
                     counts.new_others++;
                 }
@@ -1625,7 +1608,7 @@ export const getWalkinCountPageData = async (req, res) => {
                     repeatWalkinSet.add(w._id.toString());
                 }
                 // 2. Revisit Return
-                else if (hasReturnInRange || hasBillReturnedInRange) {
+                else if (hasReturnInRange) {
                     counts.revisit_return++;
                     repeatWalkinSet.add(w._id.toString());
                 }
@@ -1639,38 +1622,32 @@ export const getWalkinCountPageData = async (req, res) => {
                     counts.revisit_booking++;
                     repeatWalkinSet.add(w._id.toString());
                 }
-                // 5. Revisit Loss
-                else if (hasRevisitLoss || isLossState) {
-                    counts.revisit_loss++;
-                    repeatWalkinSet.add(w._id.toString());
-                }
-                // 6. Revisit Trial
-                else if (hasRevisitTrial) {
+                // 5. Revisit Trial
+                else if (hasTrialHistoryInRange) {
                     counts.revisit_trial++;
                     repeatWalkinSet.add(w._id.toString());
                 }
-                // 7. Revisit Reissue
-                else if (hasRevisitReissue) {
+                // 6. Revisit Reissue
+                else if (hasReissueHistoryInRange) {
                     counts.revisit_reissue++;
                     repeatWalkinSet.add(w._id.toString());
                 }
-                // 8. Revisit Others (fallback for updatedAt in range but not counted in 1-7)
-                else if (updatedInRange) {
+                // 7. Revisit Loss
+                else if (isLossState) {
+                    counts.revisit_loss++;
+                    repeatWalkinSet.add(w._id.toString());
+                }
+                // 8. Revisit Others
+                else {
                     counts.revisit_others++;
                     repeatWalkinSet.add(w._id.toString());
                 }
             }
         });
 
-        // 4. Calculate total unique count sizes
+        // Set higher level aggregations
         counts.walkin = walkinSet.size;
         counts.revisit_walkin = repeatWalkinSet.size;
-
-        // 5. Calculate legacy keys for backward compatibility
-        counts.cancelled = counts.new_cancelled + counts.revisit_cancelled;
-        counts.others = counts.new_others + counts.revisit_others;
-
-        // 6. Calculate total_walkin as sum of walkin + revisit_walkin to guarantee 100% reconciliation
         counts.total_walkin = counts.walkin + counts.revisit_walkin;
 
 
@@ -1698,10 +1675,15 @@ export const getWalkinCountPageData = async (req, res) => {
             .populate('createdBy', 'name role')
             .lean();
 
-        // Calculate sums per statusKey
+        // Calculate sums per statusKey (supporting statusKey aliases e.g. 'rentout' -> 'revisit_rentout')
         const cameraCheckSums = {};
         cameraChecks.forEach(cc => {
-            cameraCheckSums[cc.statusKey] = (cameraCheckSums[cc.statusKey] || 0) + cc.inCamCount;
+            const rawKey = String(cc.statusKey || '').trim().toLowerCase();
+            const mappedKey = STATUS_KEY_MAP[rawKey] || cc.statusKey;
+            cameraCheckSums[mappedKey] = (cameraCheckSums[mappedKey] || 0) + (cc.inCamCount || 1);
+            if (rawKey !== mappedKey) {
+                cameraCheckSums[rawKey] = (cameraCheckSums[rawKey] || 0) + (cc.inCamCount || 1);
+            }
         });
 
         // 5. Fetch saved comparison details (if any) for this date/range & store
@@ -1735,7 +1717,10 @@ export const getWalkinCountPageData = async (req, res) => {
             const remarksSet = new Set();
 
             savedCounts.forEach(sc => {
-                const existing = sc.counts.find(c => c.statusKey === cat.key);
+                const existing = sc.counts.find(c => {
+                    const existingKey = String(c.statusKey || '').trim().toLowerCase();
+                    return existingKey === cat.key || STATUS_KEY_MAP[existingKey] === cat.key;
+                });
                 if (existing) {
                     if (existing.inCam !== '-') {
                         totalInCam += Number(existing.inCam) || 0;
@@ -1823,7 +1808,7 @@ export const getWalkinCountPageData = async (req, res) => {
             success: true,
             inApp: counts,
             saved: savedCount,
-            cameraChecks: req.admin?.role === 'store_admin' ? [] : cameraChecks
+            cameraChecks: cameraChecks
         });
 
 
@@ -1887,7 +1872,12 @@ const syncWalkinCountInCam = async (date, storeId, storeName) => {
     const cameraChecks = await WalkinCameraCheck.find({ date, storeId });
     const sums = {};
     cameraChecks.forEach(cc => {
-        sums[cc.statusKey] = (sums[cc.statusKey] || 0) + cc.inCamCount;
+        const rawKey = String(cc.statusKey || '').trim().toLowerCase();
+        const mappedKey = STATUS_KEY_MAP[rawKey] || cc.statusKey;
+        sums[mappedKey] = (sums[mappedKey] || 0) + (cc.inCamCount || 1);
+        if (rawKey !== mappedKey) {
+            sums[rawKey] = (sums[rawKey] || 0) + (cc.inCamCount || 1);
+        }
     });
 
     let walkinCountDoc = await WalkinCount.findOne({ date, storeId });
@@ -1907,7 +1897,10 @@ const syncWalkinCountInCam = async (date, storeId, storeName) => {
         });
     } else {
         BACKEND_CATEGORIES.forEach(cat => {
-            const idx = walkinCountDoc.counts.findIndex(c => c.statusKey === cat.key);
+            const idx = walkinCountDoc.counts.findIndex(c => {
+                const existingKey = String(c.statusKey || '').trim().toLowerCase();
+                return existingKey === cat.key || STATUS_KEY_MAP[existingKey] === cat.key;
+            });
             const newInCamVal = sums[cat.key] !== undefined ? String(sums[cat.key]) : '-';
             if (idx > -1) {
                 walkinCountDoc.counts[idx].inCam = newInCamVal;
@@ -1974,12 +1967,14 @@ export const saveCameraCheckEntry = async (req, res) => {
                 const inTimeClean = String(entry.inTime || '').trim();
                 const outTimeClean = String(entry.outTime || '').trim();
                 const identClean = String(entry.identification || '').substring(0, 20).trim();
+                const rawStatusKey = String(entry.statusKey || '').trim();
+                const mappedStatusKey = STATUS_KEY_MAP[rawStatusKey.toLowerCase()] || rawStatusKey;
                 
                 return {
                     date,
                     store: resolvedStoreName,
                     storeId: resolvedStoreId,
-                    statusKey: entry.statusKey,
+                    statusKey: mappedStatusKey,
                     timeDuration: (inTimeClean && outTimeClean) ? `${inTimeClean} to ${outTimeClean}` : '–',
                     inTime: inTimeClean,
                     outTime: outTimeClean,
