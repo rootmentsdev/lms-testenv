@@ -936,19 +936,22 @@ const sortStoresGThenZ = (a, b) => {
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    {/* Work Size Dropdown: Premium, Non Premium, Ultra Luxury, Luxury */}
+                                                    {/* Product Category Dropdown: Premium, Non Premium, Ultra Luxury, Luxury */}
                                                     <div className="col-span-12 md:col-span-3">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Work Size <span className="text-red-500">*</span>
+                                                            Product Category <span className="text-red-500">*</span>
                                                         </label>
                                                         <div className="relative">
                                                             <select required
-                                                                name="workSize"
-                                                                value={formData.workSize || ''}
-                                                                onChange={handleInputChange}
+                                                                name="productCategory"
+                                                                value={formData.productCategory || formData.workSize || ''}
+                                                                onChange={(e) => {
+                                                                    handleInputChange(e);
+                                                                    setFormData(prev => ({ ...prev, productCategory: e.target.value, workSize: e.target.value }));
+                                                                }}
                                                                 className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
                                                             >
-                                                                <option value="">Select Work Size</option>
+                                                                <option value="">Select Product Category</option>
                                                                 <option value="Premium">Premium</option>
                                                                 <option value="Non Premium">Non Premium</option>
                                                                 <option value="Ultra Luxury">Ultra Luxury</option>
@@ -1070,19 +1073,22 @@ const sortStoresGThenZ = (a, b) => {
                                                             </div>
                                                         )}
                                                     </div>
-                                                    {/* Work Size Dropdown: Premium, Non Premium, Ultra Luxury, Luxury */}
+                                                    {/* Product Category Dropdown: Premium, Non Premium, Ultra Luxury, Luxury */}
                                                     <div className="col-span-12 md:col-span-3">
                                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                                            Work Size <span className="text-red-500">*</span>
+                                                            Product Category <span className="text-red-500">*</span>
                                                         </label>
                                                         <div className="relative">
                                                             <select required
-                                                                name="workSize"
-                                                                value={formData.workSize || ''}
-                                                                onChange={handleInputChange}
+                                                                name="productCategory"
+                                                                value={formData.productCategory || formData.workSize || ''}
+                                                                onChange={(e) => {
+                                                                    handleInputChange(e);
+                                                                    setFormData(prev => ({ ...prev, productCategory: e.target.value, workSize: e.target.value }));
+                                                                }}
                                                                 className="w-full h-11 border border-gray-200 rounded-lg px-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-800 bg-white cursor-pointer appearance-none pr-8 font-semibold"
                                                             >
-                                                                <option value="">Select Work Size</option>
+                                                                <option value="">Select Product Category</option>
                                                                 <option value="Premium">Premium</option>
                                                                 <option value="Non Premium">Non Premium</option>
                                                                 <option value="Ultra Luxury">Ultra Luxury</option>
@@ -3062,8 +3068,9 @@ const sortStoresGThenZ = (a, b) => {
                             alert('Please select a Size.');
                             return;
                         }
-                        if (!formData.workSize || formData.workSize === '') {
-                            alert('Please select a Work Size.');
+                        const prodCat = formData.productCategory || formData.workSize;
+                        if (!prodCat || prodCat === '') {
+                            alert('Please select a Product Category.');
                             return;
                         }
                     } else if (isColourNotAvailableReason(lossReasonLower)) {
@@ -3076,8 +3083,9 @@ const sortStoresGThenZ = (a, b) => {
                             alert('Please enter or select a Colour.');
                             return;
                         }
-                        if (!formData.workSize || formData.workSize === '') {
-                            alert('Please select a Work Size.');
+                        const prodCat = formData.productCategory || formData.workSize;
+                        if (!prodCat || prodCat === '') {
+                            alert('Please select a Product Category.');
                             return;
                         }
                     } else if (lossReasonLower === 'size') {
@@ -3241,9 +3249,9 @@ const sortStoresGThenZ = (a, b) => {
                     lossEnquiryTrailOption: formData.lossEnquiryTrailOption || '',
                     lossEnquiryRevisitDate: formData.lossEnquiryRevisitDate || '',
                     lossReason: cleanLossReason,
-                    productCategory: formData.productCategory || '',
+                    productCategory: formData.productCategory || formData.workSize || '',
                     workType: formData.workType || '',
-                    workSize: formData.workSize || '',
+                    workSize: formData.productCategory || formData.workSize || '',
                     status: formData.status,
                     date: formData.date
                 })

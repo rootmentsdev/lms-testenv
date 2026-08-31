@@ -193,7 +193,7 @@ router.get('/check/:contact', OptionalMiddilWare, checkCustomerExists);
  *                 example: "Design Not Available"
  *               productCategory:
  *                 type: string
- *                 description: "Product category tier when loss reason is design/colour unavailable"
+ *                 description: "Product Category dropdown for loss reasons 'Design Not Available' and 'Colour Not Available'"
  *                 enum:
  *                   - "Premium"
  *                   - "Non Premium"
@@ -206,7 +206,7 @@ router.get('/check/:contact', OptionalMiddilWare, checkCustomerExists);
  *                 example: "Custom Handwork"
  *               workSize:
  *                 type: string
- *                 description: "Work size selection for loss reasons 'Design Not Available' and 'Colour Not Available'"
+ *                 description: "Alias for productCategory ('Premium', 'Non Premium', 'Ultra Luxury', 'Luxury')"
  *                 enum:
  *                   - "Premium"
  *                   - "Non Premium"

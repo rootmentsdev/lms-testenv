@@ -374,9 +374,18 @@ export const saveWalkin = async (req, res) => {
         const lossEnquiryTrailOptionVal = lossEnquiryTrailOption !== undefined ? lossEnquiryTrailOption : req.body.trialOption;
         const lossEnquiryRevisitDateVal = lossEnquiryRevisitDate !== undefined ? lossEnquiryRevisitDate : req.body.revisitDate;
         const lossReasonVal = lossReason !== undefined ? lossReason : req.body.lossReason;
-        const productCategoryVal = req.body.productCategory !== undefined ? req.body.productCategory : (req.body.lossProductCategory !== undefined ? req.body.lossProductCategory : req.body.productCategoryTier);
+        const categoryTierVal = req.body.productCategory !== undefined 
+            ? req.body.productCategory 
+            : (req.body.workSize !== undefined 
+                ? req.body.workSize 
+                : (req.body.lossProductCategory !== undefined 
+                    ? req.body.lossProductCategory 
+                    : (req.body.lossWorkSize !== undefined 
+                        ? req.body.lossWorkSize 
+                        : req.body.productCategoryTier)));
+        const productCategoryVal = categoryTierVal;
+        const workSizeVal = categoryTierVal;
         const workTypeVal = req.body.workType !== undefined ? req.body.workType : req.body.lossWorkType;
-        const workSizeVal = req.body.workSize !== undefined ? req.body.workSize : req.body.lossWorkSize;
 
         const setOptionalLossFields = (record) => {
             if (notesVal !== undefined) record.notes = String(notesVal).trim();
@@ -417,8 +426,8 @@ export const saveWalkin = async (req, res) => {
             if (!lossSizeVal || String(lossSizeVal).trim() === '') {
                 return res.status(400).json({ success: false, message: 'Size is required when reason is Design Not Available' });
             }
-            if (!workSizeVal || String(workSizeVal).trim() === '') {
-                return res.status(400).json({ success: false, message: 'Work Size is required when reason is Design Not Available' });
+            if (!productCategoryVal || String(productCategoryVal).trim() === '') {
+                return res.status(400).json({ success: false, message: 'Product Category is required when reason is Design Not Available' });
             }
         }
 
@@ -430,8 +439,8 @@ export const saveWalkin = async (req, res) => {
             if (!lossColourVal || String(lossColourVal).trim() === '') {
                 return res.status(400).json({ success: false, message: 'Colour is required when reason is Colour Not Available' });
             }
-            if (!workSizeVal || String(workSizeVal).trim() === '') {
-                return res.status(400).json({ success: false, message: 'Work Size is required when reason is Colour Not Available' });
+            if (!productCategoryVal || String(productCategoryVal).trim() === '') {
+                return res.status(400).json({ success: false, message: 'Product Category is required when reason is Colour Not Available' });
             }
         }
 
