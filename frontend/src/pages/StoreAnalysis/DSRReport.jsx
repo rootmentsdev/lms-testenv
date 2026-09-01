@@ -2968,12 +2968,20 @@ const DSRReport = () => {
         ? Object.keys(salesPeriodItem.byStaff || {}).map(canonicalizeName).filter(Boolean)
         : [];
 
+      const sysEmpNames = systemEmployees
+        .filter(e => {
+          const b = e?.workingBranch || e?.branch || e?.store;
+          return b && (normalizeForMatch(b) === storeKeyVal || displayBranchName(b) === name || getBranchLocCode(b, branches) === locCode);
+        })
+        .map(e => String(e.name || e.username || "").trim())
+        .filter(Boolean);
+
       const rawStaffNames = [
+        ...sysEmpNames,
         ...mergedPeriodList.map(x => x && x.bookingBy),
         ...salesStaffNames,
         ...(funnelView === "Consolidated" ? Object.keys(dapprAttribution) : [])
       ].filter(name => typeof name === "string" && name.trim() !== "" && name.trim().toLowerCase() !== "none");
-
       const sortedStaffNames = Array.from(new Set(rawStaffNames)).sort((a, b) => (b || "").length - (a || "").length);
 
       const staffEntries = [];
@@ -3237,6 +3245,20 @@ const DSRReport = () => {
 
         return entry;
       };
+
+      const locCode = selectedBranch?.locCode || getBranchLocCode(selectedBranch?.workingBranch, branches);
+      
+      // 0. Seed all staff members belonging to this store
+      systemEmployees.forEach(e => {
+        const b = e?.workingBranch || e?.branch || e?.store;
+        if (b && (normalizeForMatch(b) === storeKeyVal || displayBranchName(b) === storeName || getBranchLocCode(b, branches) === locCode)) {
+           const rawName = e.name || e.username || (e.firstName && e.lastName ? `${e.firstName} ${e.lastName}` : '');
+           const empCode = e.EmpId || e.employeeId || e.empCode;
+           if (rawName || empCode) {
+             getOrCreateStaffEntry(empCode, rawName);
+           }
+        }
+      });
 
       // 1. Process Rental POS items (FTD + Period)
       [...locFtdList, ...locPeriodList].forEach(x => {
@@ -6184,6 +6206,15 @@ const DSRReport = () => {
                         const locId = getBranchLocationId(branch.workingBranch);
                         const locCode = branch.locCode || getBranchLocCode(branch.workingBranch, branches);
                         const storeKeyVal = normalizeForMatch(branch.workingBranch);
+                        
+                        const sysEmpNames = systemEmployees
+                          .filter(e => {
+                            const b = e?.workingBranch || e?.branch || e?.store;
+                            return b && (normalizeForMatch(b) === storeKeyVal || displayBranchName(b) === modalStore || getBranchLocCode(b, branches) === locCode);
+                          })
+                          .map(e => String(e.name || e.username || "").trim())
+                          .filter(Boolean);
+
                         const rentalNames = (performanceData.period[locId] || []).map(x => x.bookingBy);
                         const squadNames = (performanceData.period["25"] || [])
                           .filter(x => {
@@ -6193,7 +6224,8 @@ const DSRReport = () => {
                           .map(x => x.bookingBy);
                         const salesByStaff = (salesData.period[locCode] || salesData.period[storeKeyVal] || { byStaff: {} }).byStaff || {};
                         const salesNames = Object.keys(salesByStaff);
-                        const uniqueNames = Array.from(new Set([...rentalNames, ...squadNames, ...salesNames])).filter(Boolean);
+                        const uniqueNames = Array.from(new Set([...sysEmpNames, ...rentalNames, ...squadNames, ...salesNames])).filter(Boolean);
+                        
                         return uniqueNames.map(name => (
                           <option key={name} value={name}>{name}</option>
                         ));
