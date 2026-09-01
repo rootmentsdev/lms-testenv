@@ -313,7 +313,6 @@ const getCombinedStateAt = (w, endDateStr, startDateStr, statusFilterOrList) => 
   return statesBeforeCutoff[statesBeforeCutoff.length - 1];
 };
 
-<<<<<<< HEAD
 const formatDateForFileName = (dateStr) => {
   if (!dateStr) return '';
   const parts = String(dateStr).split('-');
@@ -326,12 +325,8 @@ const formatDateForFileName = (dateStr) => {
   return dateStr;
 };
 
-/* ── Export to CSV ───────────────────────────────────────────────────────── */
-const exportCSV = (data, getState, selectedStores = [], branches = [], formData = {}) => {
-=======
 /* ── Export to CSV & Excel ───────────────────────────────────────────────── */
 const getExportRows = (data, getState) => {
->>>>>>> b78022717977e362ab5c3eddb22d3a83a5745171
   const headers = [
     '#', 
     'DATE', 
@@ -505,45 +500,38 @@ const exportCSV = (data, getState, filters = {}) => {
     return `"${s.replace(/"/g, '""')}"`;
   }).join(',')).join('\n');
 
-<<<<<<< HEAD
   let storeNameStr = 'ALL STORES';
-  if (selectedStores && selectedStores.length === 1 && selectedStores[0] !== 'All') {
-    const selectedId = selectedStores[0];
-    const bObj = branches.find(b => String(b._id) === String(selectedId) || b.workingBranch === selectedId || norm(b.workingBranch) === norm(selectedId));
+  if (filters.selectedStores && filters.selectedStores.length === 1 && filters.selectedStores[0] !== 'All') {
+    const selectedId = filters.selectedStores[0];
+    // We assume branches is passed via filters or it falls back to empty
+    const branchesArr = filters.branches || [];
+    const bObj = branchesArr.find(b => String(b._id) === String(selectedId) || b.workingBranch === selectedId || norm(b.workingBranch) === norm(selectedId));
     if (bObj) {
       storeNameStr = formatStoreDisplayName(bObj.workingBranch);
     } else {
       storeNameStr = String(selectedId);
     }
-  } else if (selectedStores && selectedStores.length > 1) {
-    storeNameStr = `${selectedStores.length} STORES`;
+  } else if (filters.selectedStores && filters.selectedStores.length > 1) {
+    storeNameStr = `${filters.selectedStores.length} STORES`;
   }
 
   const sanitizedStoreName = String(storeNameStr || 'ALL STORES').toUpperCase().replace(/[/\\?%*:|"<>]/g, '').trim();
 
-  const startFmt = formatDateForFileName(formData.startDate);
-  const endFmt = formatDateForFileName(formData.endDate);
+  const startFmt = formatDateForFileName(filters.startDate || filters.filterStartDate);
+  const endFmt = formatDateForFileName(filters.endDate || filters.filterEndDate);
   
   let dateRangeStr = startFmt;
   if (startFmt && endFmt && startFmt !== endFmt) {
     dateRangeStr = `${startFmt} TO ${endFmt}`;
   }
 
-  const fileName = `${sanitizedStoreName} - WALKIN REPORT - ${dateRangeStr}`.trim() + '.csv';
-
-=======
-  const filename = buildExportFilename(filters, 'csv');
->>>>>>> b78022717977e362ab5c3eddb22d3a83a5745171
+  const filename = `${sanitizedStoreName} - WALKIN REPORT - ${dateRangeStr}`.trim() + '.csv';
   // Prefixing with UTF-8 BOM (\uFEFF) forces Excel to read the CSV as UTF-8 encoding
   const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); 
   a.href = url; 
-<<<<<<< HEAD
-  a.download = fileName; 
-=======
-  a.download = filename; 
->>>>>>> b78022717977e362ab5c3eddb22d3a83a5745171
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 };
@@ -1450,11 +1438,7 @@ const WalkinReport = () => {
               </div>
               {/* Export buttons */}
               <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
-<<<<<<< HEAD
-                <button onClick={()=>exportCSV(displayed, getDisplayedState, selectedStores, branches, formData)} style={{ display:'flex', alignItems:'center', gap:'6px', border:'1px solid #e5e7eb', borderRadius:'8px', padding:'7px 14px', fontSize:'13px', fontWeight:500, color:'#374151', background:'#f9fafb', cursor:'pointer' }}>
-=======
-                <button onClick={()=>exportCSV(displayed, getDisplayedState, { selectedStores, selectedStatuses, selectedTableStatuses, startDate: formData.startDate, endDate: formData.endDate })} style={{ display:'flex', alignItems:'center', gap:'6px', border:'1px solid #e5e7eb', borderRadius:'8px', padding:'7px 14px', fontSize:'13px', fontWeight:500, color:'#374151', background:'#f9fafb', cursor:'pointer' }}>
->>>>>>> b78022717977e362ab5c3eddb22d3a83a5745171
+                <button onClick={()=>exportCSV(displayed, getDisplayedState, { selectedStores, selectedStatuses, selectedTableStatuses, startDate: formData.startDate, endDate: formData.endDate, branches })} style={{ display:'flex', alignItems:'center', gap:'6px', border:'1px solid #e5e7eb', borderRadius:'8px', padding:'7px 14px', fontSize:'13px', fontWeight:500, color:'#374151', background:'#f9fafb', cursor:'pointer' }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                   Export CSV
                 </button>
