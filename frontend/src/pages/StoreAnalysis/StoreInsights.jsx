@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useSelector } from "react-redux";
 import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
+import WelcomeBanner from "../../components/WelcomeBanner/WelcomeBanner";
 import { 
   AreaChart, 
   Area, 
@@ -4672,6 +4673,11 @@ const StoreInsights = () => {
 
       {/* Main Content Area */}
       <div className="flex-1 md:ml-[110px] min-h-screen p-4 sm:p-6 lg:p-8 mb-[70px] md:mb-0">
+        {/* Top Welcome Banner */}
+        <div className="mb-6">
+          <WelcomeBanner />
+        </div>
+
         <style>{`
           @keyframes slideUpFade {
             0% {
