@@ -977,10 +977,10 @@ const ALL_STREAMS = [
   { id: "rental", label: "Rental", desc: "Rental bookings & orders", color: "#2563eb", icon: "👔", dot: "#3b82f6", activeBg: "bg-blue-50/80", activeBorder: "border-blue-200" },
   { id: "dappr", label: "Dappr Squad", desc: "POS (Loc 25) & attributions", color: "#8b5cf6", icon: "⚡", dot: "#8b5cf6", activeBg: "bg-purple-50/80", activeBorder: "border-purple-200" },
   { id: "customization", label: "Customization", desc: "Tailoring & customization attributions", color: "#059669", icon: "✂️", dot: "#10b981", activeBg: "bg-emerald-50/80", activeBorder: "border-emerald-200" },
-  { id: "shoe", label: "Sales Data", desc: "Store product sales", color: "#d97706", icon: "🛍️", dot: "#f59e0b", activeBg: "bg-amber-50/80", activeBorder: "border-amber-200" },
+  { id: "shoe", label: "Shoe Sales", desc: "Store product sales", color: "#d97706", icon: "🛍️", dot: "#f59e0b", activeBg: "bg-amber-50/80", activeBorder: "border-amber-200" },
 ];
 
-const CONSOLIDATED_STREAMS = ["rental", "dappr", "shoe"]; // Consolidated = Rental + Dappr Squad + Sales Data (excludes Customization)
+const CONSOLIDATED_STREAMS = ["rental", "dappr", "shoe"]; // Consolidated = Rental + Dappr Squad + Shoe Sales (excludes Customization)
 
 const StoreInsights = () => {
   const user = useSelector((state) => state.auth.user);
@@ -1133,7 +1133,32 @@ const StoreInsights = () => {
     const fetchGoogleReviews = async () => {
       try {
         const token = localStorage.getItem("token");
-        const res = await fetch(`${baseUrl.baseUrl}api/google-reviews/dashboard`, {
+        const today = new Date();
+        const todayStr = getLocalDateString(today);
+        let startStr = todayStr;
+        let endStr = todayStr;
+
+        if (timeframe === "WTD") {
+          const wtdRange = getStoreWTDDateRange("All");
+          startStr = wtdRange.start;
+          endStr = wtdRange.end;
+        } else if (timeframe === "MTD") {
+          startStr = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
+          endStr = todayStr;
+        } else if (timeframe === "YTD") {
+          startStr = getLocalDateString(new Date(today.getFullYear(), 0, 1));
+          endStr = todayStr;
+        } else if (timeframe === "CUSTOM") {
+          startStr = customStartDate || todayStr;
+          endStr = customEndDate || todayStr;
+        }
+
+        let url = `${baseUrl.baseUrl}api/google-reviews/dashboard`;
+        if (startStr && endStr) {
+          url += `?startDate=${startStr}&endDate=${endStr}`;
+        }
+
+        const res = await fetch(url, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -1151,7 +1176,7 @@ const StoreInsights = () => {
       }
     };
     fetchGoogleReviews();
-  }, []);
+  }, [timeframe, customStartDate, customEndDate]);
 
   // Fetch branch audit rating summary (staff/store ratings) from backend
   useEffect(() => {
@@ -2915,11 +2940,13 @@ const StoreInsights = () => {
       const locCode = b.locCode || getBranchLocCode(b.workingBranch, branches);
 
       let target = 0;
-      if (timeframe === "YTD") {
-        target = getYTDStoreTarget(name);
-      } else {
-        const targetMonth = timeframe === "CUSTOM" ? getMonthNameFromDateStr(customStartDate) : CURRENT_MONTH_LONG;
-        target = getStoreTarget(name, 0, timeframe === "CUSTOM" ? "CUSTOM" : timeframe, customFactor, targetMonth);
+      if (includeRental) {
+        if (timeframe === "YTD") {
+          target = getYTDStoreTarget(name);
+        } else {
+          const targetMonth = timeframe === "CUSTOM" ? getMonthNameFromDateStr(customStartDate) : CURRENT_MONTH_LONG;
+          target = getStoreTarget(name, 0, timeframe === "CUSTOM" ? "CUSTOM" : timeframe, customFactor, targetMonth);
+        }
       }
 
       const locPeriodList = includeRental ? (performanceData[locId] || []) : [];
@@ -2946,7 +2973,7 @@ const StoreInsights = () => {
       }
 
       let dapprVal = 0;
-      if (includeDappr && dapprPeriodForStore.length === 0 && !isGMGRoad) {
+      if (includeDappr && (!dapprPeriodList || dapprPeriodList.length === 0) && !isGMGRoad) {
         const storeKey = normalizeForMatch(name);
         if (isStoreAdmin && dapprAttribution) {
           dapprVal = Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
@@ -3131,8 +3158,10 @@ const StoreInsights = () => {
 
   // Employee-level chart data for store_admin — shows each employee's achieved vs assigned target
   const employeeChartData = useMemo(() => {
-    if (!isStoreAdmin || branches.length === 0) return [];
-    const singleBranch = branches[0];
+    const isSingleStoreView = isStoreAdmin || (selectedStores.length === 1 && !selectedStores.includes("All"));
+    if (!isSingleStoreView || branches.length === 0) return [];
+    const singleBranch = isStoreAdmin ? branches[0] : (branches.find(b => displayBranchName(b.workingBranch) === selectedStores[0]) || branches[0]);
+    if (!singleBranch) return [];
     const locId = getBranchLocationId(singleBranch?.workingBranch);
     if (!locId) return [];
     const locCode = singleBranch.locCode || getBranchLocCode(singleBranch.workingBranch, branches);
@@ -3570,26 +3599,15 @@ const StoreInsights = () => {
     const isSingleStoreOrAdmin = isStoreAdmin || (selectedStores.length === 1 && !selectedStores.includes("All"));
 
     if (includeDappr) {
-      if (isSingleStoreOrAdmin) {
-        if (dapprAttribution && Object.keys(dapprAttribution).length > 0) {
-          dapprSquadBills = Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.valWtd) || 0), 0);
-          dapprSquadValue = Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
-          dapprSquadQty = Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.qtyWtd) || 0), 0);
-        }
-      } else {
-        let hasStoreTotals = false;
-        filteredStoresForKPIs.forEach(c => {
-          const storeKey = normalizeForMatch(c.name);
-          if (storeDapprTotals && storeDapprTotals[storeKey] && (storeDapprTotals[storeKey].bills > 0 || storeDapprTotals[storeKey].val > 0)) {
-            dapprSquadBills += storeDapprTotals[storeKey].bills || 0;
-            dapprSquadValue += storeDapprTotals[storeKey].val || 0;
-            dapprSquadQty += storeDapprTotals[storeKey].qty || 0;
-            hasStoreTotals = true;
-          }
-        });
+      const squadPeriodList = performanceData["25"] || [];
+      const isAllStoresSelected = selectedStores.includes("All") || selectedStores.length === 0 || (typeof storeOptionsForFilter !== "undefined" && selectedStores.length === storeOptionsForFilter.length);
 
-        if (!hasStoreTotals) {
-          const squadPeriodList = performanceData["25"] || [];
+      if (squadPeriodList && squadPeriodList.length > 0) {
+        if (isAllStoresSelected) {
+          dapprSquadBills = squadPeriodList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
+          dapprSquadValue = squadPeriodList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+          dapprSquadQty = squadPeriodList.reduce((sum, item) => sum + (item.totalQuantity || item.total_Number_Of_Bill || 0), 0);
+        } else {
           filteredStoresForKPIs.forEach(c => {
             const name = c.name;
             const locId = getBranchLocationId(name);
@@ -3612,29 +3630,50 @@ const StoreInsights = () => {
             dapprSquadQty += mergedList.reduce((sum, item) => sum + (item.totalQuantity || item.total_Number_Of_Bill || 0), 0);
           });
         }
+      } else if (isSingleStoreOrAdmin && dapprAttribution && Object.keys(dapprAttribution).length > 0) {
+        dapprSquadBills = Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.valWtd) || 0), 0);
+        dapprSquadValue = Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
+        dapprSquadQty = Object.values(dapprAttribution).reduce((s, v) => s + (Number(v.qtyWtd) || 0), 0);
+      } else {
+        filteredStoresForKPIs.forEach(c => {
+          const storeKey = normalizeForMatch(c.name);
+          if (storeDapprTotals && storeDapprTotals[storeKey] && (storeDapprTotals[storeKey].bills > 0 || storeDapprTotals[storeKey].val > 0)) {
+            dapprSquadBills += storeDapprTotals[storeKey].bills || 0;
+            dapprSquadValue += storeDapprTotals[storeKey].val || 0;
+            dapprSquadQty += storeDapprTotals[storeKey].qty || 0;
+          }
+        });
       }
 
       // Last Year Dappr Squad
       const lySquadPeriodList = lyPerformanceData["25"] || [];
-      filteredStoresForKPIs.forEach(c => {
-        const name = c.name;
-        const locId = getBranchLocationId(name);
-        if (!locId || locId === "25") return;
-        const isGMGRoad = locId === "23";
-        const lyDapprPeriodForStore = getDapprSquadDataForStore(locId, lySquadPeriodList);
-        const lyUnmappedDapprPeriodList = isGMGRoad
-          ? lySquadPeriodList.filter(item => {
-              const raw = String(item.bookingBy || "").trim().toLowerCase();
-              const alphaOnly = raw.replace(/[^a-z0-9]/g, "");
-              const dotted = alphaOnly.startsWith("sg") ? "sg." + alphaOnly.slice(2) : raw;
-              return !DAPPR_SQUAD_STORE_MAPPING[raw] && !DAPPR_SQUAD_STORE_MAPPING[dotted];
-            })
-          : [];
-        const lyMergedList = [...lyDapprPeriodForStore, ...lyUnmappedDapprPeriodList];
-        lyDapprSquadBills += lyMergedList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
-        lyDapprSquadValue += lyMergedList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
-        lyDapprSquadQty += lyMergedList.reduce((sum, item) => sum + (item.totalQuantity || item.total_Number_Of_Bill || 0), 0);
-      });
+      if (lySquadPeriodList && lySquadPeriodList.length > 0) {
+        if (isAllStoresSelected) {
+          lyDapprSquadBills = lySquadPeriodList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
+          lyDapprSquadValue = lySquadPeriodList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+          lyDapprSquadQty = lySquadPeriodList.reduce((sum, item) => sum + (item.totalQuantity || item.total_Number_Of_Bill || 0), 0);
+        } else {
+          filteredStoresForKPIs.forEach(c => {
+            const name = c.name;
+            const locId = getBranchLocationId(name);
+            if (!locId || locId === "25") return;
+            const isGMGRoad = locId === "23";
+            const lyDapprPeriodForStore = getDapprSquadDataForStore(locId, lySquadPeriodList);
+            const lyUnmappedDapprPeriodList = isGMGRoad
+              ? lySquadPeriodList.filter(item => {
+                  const raw = String(item.bookingBy || "").trim().toLowerCase();
+                  const alphaOnly = raw.replace(/[^a-z0-9]/g, "");
+                  const dotted = alphaOnly.startsWith("sg") ? "sg." + alphaOnly.slice(2) : raw;
+                  return !DAPPR_SQUAD_STORE_MAPPING[raw] && !DAPPR_SQUAD_STORE_MAPPING[dotted];
+                })
+              : [];
+            const lyMergedList = [...lyDapprPeriodForStore, ...lyUnmappedDapprPeriodList];
+            lyDapprSquadBills += lyMergedList.reduce((sum, item) => sum + (item.total_Number_Of_Bill || 0), 0);
+            lyDapprSquadValue += lyMergedList.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+            lyDapprSquadQty += lyMergedList.reduce((sum, item) => sum + (item.totalQuantity || item.total_Number_Of_Bill || 0), 0);
+          });
+        }
+      }
     }
 
     if (includeCustomization) {
@@ -3735,7 +3774,9 @@ const StoreInsights = () => {
       };
     };
 
-    const activeReviewField = timeframe === "WTD" ? "thisWeek" : (timeframe === "FTD" ? "today" : (timeframe === "YTD" ? "total" : "thisMonth"));
+    const activeReviewField = (timeframe === "FTD" || timeframe === "TODAY") 
+      ? "today" 
+      : (timeframe === "WTD" ? "thisWeek" : (timeframe === "YTD" ? "total" : (timeframe === "CUSTOM" ? "periodCount" : "thisMonth")));
 
     const isAllSelected = !isStoreAdmin && !isClusterAdmin 
       && (selectedStores.includes("All") || selectedStores.length === 0) 
@@ -3765,7 +3806,8 @@ const StoreInsights = () => {
       if (!googleReviewData || Object.keys(googleReviewData).length === 0) return 0;
       return Object.entries(googleReviewData).reduce((sum, [branchKey, d]) => {
         if (!d || !isBranchMatchingFilter(branchKey)) return sum;
-        return sum + (d[activeReviewField] ?? d.thisMonth ?? 0);
+        const val = d.periodCount !== undefined ? d.periodCount : (d[activeReviewField] !== undefined ? d[activeReviewField] : (d.thisMonth || 0));
+        return sum + (Number(val) || 0);
       }, 0);
     })();
 
@@ -3859,7 +3901,16 @@ const StoreInsights = () => {
     const conversionChange = getChangeStats(conversionRate, lyConversionRate);
     const shoeChange = getChangeStats(cardShoeQty, lyCardShoeQty);
     const shirtChange = getChangeStats(cardShirtQty, lyCardShirtQty);
+    const shoeRate = activeBills > 0 ? parseFloat(((cardShoeQty / activeBills) * 100).toFixed(1)) : 0;
+    const lyShoeRate = lyActiveBills > 0 ? parseFloat(((lyCardShoeQty / lyActiveBills) * 100).toFixed(1)) : 0;
+    const shoeRateChange = getChangeStats(shoeRate, lyShoeRate);
+
+    const shirtRate = activeBills > 0 ? parseFloat(((cardShirtQty / activeBills) * 100).toFixed(1)) : 0;
+    const lyShirtRate = lyActiveBills > 0 ? parseFloat(((lyCardShirtQty / lyActiveBills) * 100).toFixed(1)) : 0;
+    const shirtRateChange = getChangeStats(shirtRate, lyShirtRate);
+
     const dapprChange = getChangeStats(dapprSquadBills, lyDapprSquadBills);
+    const dapprValChange = getChangeStats(dapprSquadValue, lyDapprSquadValue);
     const reviewsChange = getChangeStats(googleReviews, lyGoogleReviews);
     const googleReviewRate = activeBills > 0 ? parseFloat((((googleReviews || 0) / activeBills) * 100).toFixed(1)) : 0;
     const lyGoogleReviewRate = lyActiveBills > 0 ? parseFloat((((lyGoogleReviews || 0) / lyActiveBills) * 100).toFixed(1)) : 0;
@@ -3877,10 +3928,19 @@ const StoreInsights = () => {
       convertedWalkins: convertedWalkinsCount * roleMultiplier,
       shoeSale: cardShoeQty,
       shoeValue: cardShoeValue,
+      shoeRate,
+      lyShoeRate,
+      shoeRateChange,
       shirtSales: cardShirtQty,
       shirtValue: cardShirtValue,
+      shirtRate,
+      lyShirtRate,
+      shirtRateChange,
       dapprSquadBills: dapprSquadBills * roleMultiplier,
       dapprSquadValue: dapprSquadValue * roleMultiplier,
+      lyDapprSquadBills: lyDapprSquadBills * roleMultiplier,
+      lyDapprSquadValue: lyDapprSquadValue * roleMultiplier,
+      dapprValChange,
       googleReviews,
       googleRating,
       googleReviewRate,
@@ -4125,7 +4185,8 @@ const StoreInsights = () => {
 
         return {
           name: staffName,
-          targetAchieved: value, // will show under "Value" column, and sort by value
+          targetAchieved: value,
+          value,
           contribution,
           abs,
           abv,
@@ -4277,11 +4338,19 @@ const StoreInsights = () => {
     }
     
     result.sort((a, b) => {
-      if (rankingSort === "Best to Least") {
-        return b.targetAchieved - a.targetAchieved;
-      } else {
-        return a.targetAchieved - b.targetAchieved;
+      const contribA = Number(a.contribution) || 0;
+      const contribB = Number(b.contribution) || 0;
+      if (contribA !== contribB) {
+        return rankingSort === "Best to Least" ? contribB - contribA : contribA - contribB;
       }
+      const valA = Number(a.value ?? a.targetAchieved) || 0;
+      const valB = Number(b.value ?? b.targetAchieved) || 0;
+      if (valA !== valB) {
+        return rankingSort === "Best to Least" ? valB - valA : valA - valB;
+      }
+      return rankingSort === "Best to Least"
+        ? (Number(b.targetAchieved) || 0) - (Number(a.targetAchieved) || 0)
+        : (Number(a.targetAchieved) || 0) - (Number(b.targetAchieved) || 0);
     });
     
     return result;
@@ -4551,7 +4620,7 @@ const StoreInsights = () => {
     );
   };
 
-  const renderKpiCard = ({ title, mainVal, tyVal, lyVal, changeObj, unit, trend, trendColor, label1 = "This Year :", label2 = "Last Year :", index = 0 }) => {
+  const renderKpiCard = ({ title, mainVal, tyVal, lyVal, changeObj, unit, trend, trendColor, label1 = "This Year :", label2 = "Last Year :", index = 0, subBadge = null }) => {
     const isUp = (changeObj && changeObj.diff > 0) || trend === "up";
     const isDown = (changeObj && changeObj.diff < 0) || trend === "down";
     const finalTrendColor = trendColor || (changeObj && changeObj.trendColor) || (isUp ? "#00A36C" : (isDown ? "#e11d48" : "#6b7280"));
@@ -4564,8 +4633,13 @@ const StoreInsights = () => {
         style={{ animationDelay: `${index * 45}ms` }}
         className="bg-white rounded-[20px] shadow-sm border border-gray-100 p-5 flex flex-col justify-between h-[200px] w-full font-sans transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:border-gray-200/80 group cursor-pointer animate-slideUpFade"
       >
-        <div>
+        <div className="flex items-center justify-between">
           <span className="text-[13px] font-bold text-gray-700 group-hover:text-gray-900 transition-colors block">{title}</span>
+          {subBadge && (
+            <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-100/80 shadow-xs">
+              {subBadge}
+            </span>
+          )}
         </div>
         <div className="flex items-center justify-between mt-1">
           <span className={`text-[28px] xs:text-[30px] sm:text-[32px] font-extrabold ${mainTextColor} leading-none transition-transform duration-300 group-hover:scale-[1.03] origin-left`}>{mainVal}</span>
@@ -4574,11 +4648,11 @@ const StoreInsights = () => {
         <div className="flex flex-col gap-1.5 mt-3">
           <div className="flex justify-between items-center text-[12px]">
             <span className="text-gray-400 font-semibold">{label1}</span>
-            <span className="text-gray-800 font-bold">{tyVal}</span>
+            <span className="text-gray-800 font-bold truncate max-w-[170px] text-right" title={String(tyVal)}>{tyVal}</span>
           </div>
           <div className="flex justify-between items-center text-[12px]">
             <span className="text-gray-400 font-semibold">{label2}</span>
-            <span className="text-gray-800 font-bold">{lyVal}</span>
+            <span className="text-gray-800 font-bold truncate max-w-[170px] text-right" title={String(lyVal)}>{lyVal}</span>
           </div>
         </div>
         {renderKpiComparisonBadge(changeObj, unit)}
@@ -5541,41 +5615,48 @@ const StoreInsights = () => {
             index: 7
           })}
 
-          {renderKpiCard({
-            title: "Sales Data",
-            mainVal: stats.shoeChange?.display || "+0%",
-            tyVal: formatIndianNumber(stats.shoeSale),
-            lyVal: formatIndianNumber(stats.shoeChange?.prev || 0),
-            changeObj: stats.shoeChange,
-            unit: "Items",
-            trend: stats.shoeChange?.trend,
-            trendColor: stats.shoeChange?.trendColor,
-            index: 8
-          })}
+          {includeShoe && (
+            <>
+              {renderKpiCard({
+                title: "Shoe Sales",
+                mainVal: `${stats.shoeRate ?? 0}%`,
+                tyVal: `${stats.shoeRate ?? 0}% (${formatIndianNumber(stats.shoeSale)} Items)`,
+                lyVal: `${stats.lyShoeRate ?? 0}% (${formatIndianNumber(stats.lyCardShoeQty || 0)} Items)`,
+                changeObj: stats.shoeRateChange,
+                unit: "pts",
+                trend: stats.shoeRateChange?.trend,
+                trendColor: stats.shoeRateChange?.trendColor,
+                index: 8
+              })}
 
-          {renderKpiCard({
-            title: "Shirt Sale",
-            mainVal: stats.shirtChange?.display || "+0%",
-            tyVal: formatIndianNumber(stats.shirtSales),
-            lyVal: formatIndianNumber(stats.shirtChange?.prev || 0),
-            changeObj: stats.shirtChange,
-            unit: "Shirts",
-            trend: stats.shirtChange?.trend,
-            trendColor: stats.shirtChange?.trendColor,
-            index: 9
-          })}
+              {renderKpiCard({
+                title: "Shirt Sale",
+                mainVal: `${stats.shirtRate ?? 0}%`,
+                tyVal: `${stats.shirtRate ?? 0}% (${formatIndianNumber(stats.shirtSales)} Shirts)`,
+                lyVal: `${stats.lyShirtRate ?? 0}% (${formatIndianNumber(stats.lyCardShirtQty || 0)} Shirts)`,
+                changeObj: stats.shirtRateChange,
+                unit: "pts",
+                trend: stats.shirtRateChange?.trend,
+                trendColor: stats.shirtRateChange?.trendColor,
+                index: 9
+              })}
+            </>
+          )}
 
-          {renderKpiCard({
-            title: "Dappr Squad Bills",
-            mainVal: stats.dapprChange?.display || "+0%",
-            tyVal: formatIndianNumber(stats.dapprSquadBills),
-            lyVal: formatIndianNumber(stats.dapprChange?.prev || 0),
-            changeObj: stats.dapprChange,
-            unit: "Bills",
-            trend: stats.dapprChange?.trend,
-            trendColor: stats.dapprChange?.trendColor,
-            index: 10
-          })}
+          {includeDappr && (
+            renderKpiCard({
+              title: "Dappr Squad",
+              subBadge: `${formatIndianNumber(stats.dapprSquadBills)} Bills`,
+              mainVal: `₹${formatIndianNumber(stats.dapprSquadValue, 0)}`,
+              tyVal: `₹${formatIndianNumber(stats.dapprSquadValue, 0)} (${formatIndianNumber(stats.dapprSquadBills)} Bills)`,
+              lyVal: `₹${formatIndianNumber(stats.lyDapprSquadValue || 0, 0)} (${formatIndianNumber(stats.lyDapprSquadBills || 0)} Bills)`,
+              changeObj: stats.dapprValChange || stats.dapprChange,
+              unit: "currency",
+              trend: (stats.dapprValChange || stats.dapprChange)?.trend,
+              trendColor: (stats.dapprValChange || stats.dapprChange)?.trendColor,
+              index: 10
+            })
+          )}
 
           {renderKpiCard({
             title: "Google Reviews",

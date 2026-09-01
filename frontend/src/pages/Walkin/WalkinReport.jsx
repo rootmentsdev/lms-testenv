@@ -295,8 +295,20 @@ const getCombinedStateAt = (w, endDateStr, startDateStr, statusFilterOrList) => 
   return statesBeforeCutoff[statesBeforeCutoff.length - 1];
 };
 
+const formatDateForFileName = (dateStr) => {
+  if (!dateStr) return '';
+  const parts = String(dateStr).split('-');
+  if (parts.length === 3) {
+    const year = parts[0];
+    const month = parts[1];
+    const day = String(parseInt(parts[2], 10));
+    return `${day}-${month}-${year}`;
+  }
+  return dateStr;
+};
+
 /* ── Export to CSV ───────────────────────────────────────────────────────── */
-const exportCSV = (data, getState) => {
+const exportCSV = (data, getState, selectedStores = [], branches = [], formData = {}) => {
   const headers = [
     '#', 
     'DATE', 
@@ -400,12 +412,37 @@ const exportCSV = (data, getState) => {
     return `"${s.replace(/"/g, '""')}"`;
   }).join(',')).join('\n');
 
+  let storeNameStr = 'ALL STORES';
+  if (selectedStores && selectedStores.length === 1 && selectedStores[0] !== 'All') {
+    const selectedId = selectedStores[0];
+    const bObj = branches.find(b => String(b._id) === String(selectedId) || b.workingBranch === selectedId || norm(b.workingBranch) === norm(selectedId));
+    if (bObj) {
+      storeNameStr = formatStoreDisplayName(bObj.workingBranch);
+    } else {
+      storeNameStr = String(selectedId);
+    }
+  } else if (selectedStores && selectedStores.length > 1) {
+    storeNameStr = `${selectedStores.length} STORES`;
+  }
+
+  const sanitizedStoreName = String(storeNameStr || 'ALL STORES').toUpperCase().replace(/[/\\?%*:|"<>]/g, '').trim();
+
+  const startFmt = formatDateForFileName(formData.startDate);
+  const endFmt = formatDateForFileName(formData.endDate);
+  
+  let dateRangeStr = startFmt;
+  if (startFmt && endFmt && startFmt !== endFmt) {
+    dateRangeStr = `${startFmt} TO ${endFmt}`;
+  }
+
+  const fileName = `${sanitizedStoreName} - WALKIN REPORT - ${dateRangeStr}`.trim() + '.csv';
+
   // Prefixing with UTF-8 BOM (\uFEFF) forces Excel to read the CSV as UTF-8 encoding
   const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); 
   a.href = url; 
-  a.download = 'walkin-report.csv'; 
+  a.download = fileName; 
   a.click();
   URL.revokeObjectURL(url);
 };
@@ -1292,7 +1329,7 @@ const WalkinReport = () => {
               </div>
               {/* Export button – single button only */}
               <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
-                <button onClick={()=>exportCSV(displayed, getDisplayedState)} style={{ display:'flex', alignItems:'center', gap:'6px', border:'1px solid #e5e7eb', borderRadius:'8px', padding:'7px 14px', fontSize:'13px', fontWeight:500, color:'#374151', background:'#f9fafb', cursor:'pointer' }}>
+                <button onClick={()=>exportCSV(displayed, getDisplayedState, selectedStores, branches, formData)} style={{ display:'flex', alignItems:'center', gap:'6px', border:'1px solid #e5e7eb', borderRadius:'8px', padding:'7px 14px', fontSize:'13px', fontWeight:500, color:'#374151', background:'#f9fafb', cursor:'pointer' }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                   Export CSV
                 </button>
