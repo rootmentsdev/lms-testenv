@@ -434,7 +434,7 @@ function normalizeForMatch(str) {
   return String(str)
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "")
-    .replace(/^sg/, "g")
+    .replace(/^(suitorguy|grooms|zorucci|sg|g)/, "g")
     .replace(/^dapper/, "dappr");
 }
 const STAFF_ALIAS_MAPPING = {
@@ -2074,8 +2074,10 @@ const DSRReport = () => {
     const targetStore = (isStoreAdmin && branches.length > 0) ? displayBranchName(branches[0].workingBranch) : selectedStore;
     try {
       const token = localStorage.getItem("token");
-      const targetMonth = activeTab === "Custom" ? getMonthNameFromDateStr(appliedEndDate || customEndDate || customStartDate) : CURRENT_MONTH_LONG;
-      const targetYear = activeTab === "Custom" ? getYearFromDateStr(appliedEndDate || customEndDate || customStartDate) : CURRENT_YEAR;
+      const startMonth = activeTab === "Custom" ? getMonthNameFromDateStr(appliedStartDate || customStartDate) : CURRENT_MONTH_LONG;
+      const endMonth = activeTab === "Custom" ? getMonthNameFromDateStr(appliedEndDate || customEndDate || appliedStartDate || customStartDate) : CURRENT_MONTH_LONG;
+      const targetMonth = (activeTab === "Custom" && startMonth !== endMonth) ? "All" : endMonth;
+      const targetYear = activeTab === "Custom" ? getYearFromDateStr(appliedEndDate || customEndDate || appliedStartDate || customStartDate) : CURRENT_YEAR;
 
       const isAllStores = !targetStore || targetStore === "All";
 
@@ -2083,8 +2085,7 @@ const DSRReport = () => {
       if (isAllStores) {
         url = `${baseUrl.baseUrl}api/dappr-attributions?storeName=All&month=${targetMonth}&year=${targetYear}`;
       } else {
-        const currentWeek = getCurrentWeekId(targetStore) || 1;
-        url = `${baseUrl.baseUrl}api/dappr-attributions?storeName=${encodeURIComponent(targetStore)}&month=${targetMonth}&year=${targetYear}&week=${currentWeek}`;
+        url = `${baseUrl.baseUrl}api/dappr-attributions?storeName=${encodeURIComponent(targetStore)}&month=${targetMonth}&year=${targetYear}`;
       }
 
       const res = await fetch(url, { headers: { "Authorization": `Bearer ${token}` } });
@@ -2094,9 +2095,23 @@ const DSRReport = () => {
       const dapprByStore = {};     // { [normalizedStoreName]: { val, bills, qty, valFtd, billsFtd, qtyFtd } }
 
       if (json.success && json.data) {
-        const docs = Array.isArray(json.data) ? json.data : (json.data ? [json.data] : []);
+        const rawDocs = Array.isArray(json.data) ? json.data : (json.data ? [json.data] : []);
         const todayStr = getLocalDateString(new Date());
         const ftdTargetDate = (activeTab === "Custom" && (appliedEndDate || customEndDate)) ? (appliedEndDate || customEndDate) : todayStr;
+
+        // Deduplicate documents by (store, month), picking the latest updated document per store and month
+        const latestDocByStoreAndMonth = {};
+        rawDocs.forEach(doc => {
+          if (!doc || !doc.storeName || !doc.month) return;
+          const key = `${normalizeForMatch(doc.storeName)}_${doc.month}`;
+          const existing = latestDocByStoreAndMonth[key];
+          const docTime = new Date(doc.updatedAt || doc.createdAt || 0).getTime();
+          const existingTime = existing ? new Date(existing.updatedAt || existing.createdAt || 0).getTime() : -1;
+          if (!existing || docTime > existingTime) {
+            latestDocByStoreAndMonth[key] = doc;
+          }
+        });
+        const docs = Object.values(latestDocByStoreAndMonth);
 
         docs.forEach(doc => {
           if (!doc || !doc.storeName) return;
@@ -2150,27 +2165,40 @@ const DSRReport = () => {
     const targetStore = (isStoreAdmin && branches.length > 0) ? displayBranchName(branches[0].workingBranch) : selectedStore;
     try {
       const token = localStorage.getItem("token");
-      const targetMonth = activeTab === "Custom" ? getMonthNameFromDateStr(appliedEndDate || customEndDate || customStartDate) : CURRENT_MONTH_LONG;
+      const startMonth = activeTab === "Custom" ? getMonthNameFromDateStr(appliedStartDate || customStartDate) : CURRENT_MONTH_LONG;
+      const endMonth = activeTab === "Custom" ? getMonthNameFromDateStr(appliedEndDate || customEndDate || customStartDate) : CURRENT_MONTH_LONG;
+      const targetMonth = (activeTab === "Custom" && startMonth !== endMonth) ? "All" : endMonth;
       const targetYear = activeTab === "Custom" ? getYearFromDateStr(appliedEndDate || customEndDate || customStartDate) : CURRENT_YEAR;
       const storeParam = (!targetStore || targetStore === "All") ? "All" : targetStore;
 
       const queryUrl = `${baseUrl.baseUrl}api/customization-attributions?storeName=${encodeURIComponent(storeParam)}&month=${targetMonth}&year=${targetYear}`;
-      console.log("[Customization] Fetching:", queryUrl);
       const res = await fetch(queryUrl, {
         headers: {
           "Authorization": `Bearer ${token}`
         }
       });
       const json = await res.json();
-      console.log("[Customization] Response:", JSON.stringify(json).substring(0, 500));
       const mappedStaff = {};
       const storeTotals = {};
 
       if (json.success && json.data) {
-        const docs = Array.isArray(json.data) ? json.data : [json.data];
-        console.log("[Customization] Docs count:", docs.length, "| Store keys:", docs.map(d => d?.storeName));
+        const rawDocs = Array.isArray(json.data) ? json.data : [json.data];
         const todayStr = getLocalDateString(new Date());
         const ftdTargetDate = (activeTab === "Custom" && (appliedEndDate || customEndDate)) ? (appliedEndDate || customEndDate) : todayStr;
+
+        // Deduplicate documents by (store, month), picking the latest updated document per store and month
+        const latestDocByStoreAndMonth = {};
+        rawDocs.forEach(doc => {
+          if (!doc || !doc.storeName || !doc.month) return;
+          const key = `${normalizeForMatch(doc.storeName)}_${doc.month}`;
+          const existing = latestDocByStoreAndMonth[key];
+          const docTime = new Date(doc.updatedAt || doc.createdAt || 0).getTime();
+          const existingTime = existing ? new Date(existing.updatedAt || existing.createdAt || 0).getTime() : -1;
+          if (!existing || docTime > existingTime) {
+            latestDocByStoreAndMonth[key] = doc;
+          }
+        });
+        const docs = Object.values(latestDocByStoreAndMonth);
 
         docs.forEach(doc => {
           if (!doc || !doc.storeName) return;
@@ -2448,7 +2476,7 @@ const DSRReport = () => {
   useEffect(() => {
     if (activeTab === "Custom" && !customApplied) return;
     fetchDapprAttribution();
-  }, [activeTab, appliedStartDate, selectedStore, storeWeekRanges, dapprModalOpen, customApplied]);
+  }, [activeTab, appliedStartDate, appliedEndDate, selectedStore, storeWeekRanges, dapprModalOpen, customApplied]);
 
   // Fetch walkins dynamically based on timeframe range
   useEffect(() => {
@@ -4514,21 +4542,38 @@ const DSRReport = () => {
                   let freshAttribution = { ...dapprAttribution };
                   try {
                     const token = localStorage.getItem("token");
-                    const targetMonth = activeTab === "Custom" ? getMonthNameFromDateStr(customStartDate) : CURRENT_MONTH_LONG;
-                    const targetYear = activeTab === "Custom" ? getYearFromDateStr(customStartDate) : CURRENT_YEAR;
-                    const currentWeek = getCurrentWeekId(targetStore) || 1;
-                    const res = await fetch(`${baseUrl.baseUrl}api/dappr-attributions?storeName=${encodeURIComponent(targetStore)}&month=${targetMonth}&year=${targetYear}&week=${currentWeek}`, {
+                    const startMonth = activeTab === "Custom" ? getMonthNameFromDateStr(appliedStartDate || customStartDate) : CURRENT_MONTH_LONG;
+                    const endMonth = activeTab === "Custom" ? getMonthNameFromDateStr(appliedEndDate || customEndDate || appliedStartDate || customStartDate) : CURRENT_MONTH_LONG;
+                    const targetMonth = (activeTab === "Custom" && startMonth !== endMonth) ? "All" : endMonth;
+                    const targetYear = activeTab === "Custom" ? getYearFromDateStr(appliedStartDate || customStartDate) : CURRENT_YEAR;
+                    const res = await fetch(`${baseUrl.baseUrl}api/dappr-attributions?storeName=${encodeURIComponent(targetStore)}&month=${targetMonth}&year=${targetYear}`, {
                       headers: { "Authorization": `Bearer ${token}` }
                     });
                     const json = await res.json();
                     if (json.success && json.data) {
                       freshAttribution = {};
-                      (json.data.attributions || []).forEach(attr => {
-                        freshAttribution[attr.staffName] = {
-                          billWtd: attr.billWtd,
-                          valWtd: attr.valWtd,
-                          qtyWtd: attr.qtyWtd
-                        };
+                      const rawDocs = Array.isArray(json.data) ? json.data : (json.data ? [json.data] : []);
+                      const latestDocByStoreAndMonth = {};
+                      rawDocs.forEach(doc => {
+                        if (!doc || !doc.storeName || !doc.month) return;
+                        const key = `${normalizeForMatch(doc.storeName)}_${doc.month}`;
+                        const existing = latestDocByStoreAndMonth[key];
+                        const docTime = new Date(doc.updatedAt || doc.createdAt || 0).getTime();
+                        const existingTime = existing ? new Date(existing.updatedAt || existing.createdAt || 0).getTime() : -1;
+                        if (!existing || docTime > existingTime) {
+                          latestDocByStoreAndMonth[key] = doc;
+                        }
+                      });
+                      Object.values(latestDocByStoreAndMonth).forEach(doc => {
+                        (doc.attributions || []).forEach(attr => {
+                          if (!attr?.staffName) return;
+                          if (!freshAttribution[attr.staffName]) {
+                            freshAttribution[attr.staffName] = { billWtd: 0, valWtd: 0, qtyWtd: 0 };
+                          }
+                          freshAttribution[attr.staffName].billWtd += Number(attr.billWtd) || 0;
+                          freshAttribution[attr.staffName].valWtd += Number(attr.valWtd) || 0;
+                          freshAttribution[attr.staffName].qtyWtd += Number(attr.qtyWtd) || 0;
+                        });
                       });
                       setDapprAttribution(freshAttribution);
                     }
@@ -4574,27 +4619,39 @@ const DSRReport = () => {
                   try {
                     await fetchCustomizationAttribution();
                     const token = localStorage.getItem("token");
-                    const targetMonth = activeTab === "Custom" ? getMonthNameFromDateStr(customStartDate) : CURRENT_MONTH_LONG;
-                    const targetYear = activeTab === "Custom" ? getYearFromDateStr(customStartDate) : CURRENT_YEAR;
-                    const currentWeek = getCurrentWeekId(targetStore) || 1;
-                    const res = await fetch(`${baseUrl.baseUrl}api/customization-attributions?storeName=${encodeURIComponent(targetStore)}&month=${targetMonth}&year=${targetYear}&week=${currentWeek}`, {
+                    const startMonth = activeTab === "Custom" ? getMonthNameFromDateStr(appliedStartDate || customStartDate) : CURRENT_MONTH_LONG;
+                    const endMonth = activeTab === "Custom" ? getMonthNameFromDateStr(appliedEndDate || customEndDate || appliedStartDate || customStartDate) : CURRENT_MONTH_LONG;
+                    const targetMonth = (activeTab === "Custom" && startMonth !== endMonth) ? "All" : endMonth;
+                    const targetYear = activeTab === "Custom" ? getYearFromDateStr(appliedStartDate || customStartDate) : CURRENT_YEAR;
+                    const res = await fetch(`${baseUrl.baseUrl}api/customization-attributions?storeName=${encodeURIComponent(targetStore)}&month=${targetMonth}&year=${targetYear}`, {
                       headers: { "Authorization": `Bearer ${token}` }
                     });
                     const json = await res.json();
                     if (json.success && json.data) {
                       freshAttribution = {};
-                      const docs = Array.isArray(json.data) ? json.data : [json.data];
-                      const doc = docs[0];
-                      if (doc) {
+                      const rawDocs = Array.isArray(json.data) ? json.data : (json.data ? [json.data] : []);
+                      const latestDocByStoreAndMonth = {};
+                      rawDocs.forEach(doc => {
+                        if (!doc || !doc.storeName || !doc.month) return;
+                        const key = `${normalizeForMatch(doc.storeName)}_${doc.month}`;
+                        const existing = latestDocByStoreAndMonth[key];
+                        const docTime = new Date(doc.updatedAt || doc.createdAt || 0).getTime();
+                        const existingTime = existing ? new Date(existing.updatedAt || existing.createdAt || 0).getTime() : -1;
+                        if (!existing || docTime > existingTime) {
+                          latestDocByStoreAndMonth[key] = doc;
+                        }
+                      });
+                      Object.values(latestDocByStoreAndMonth).forEach(doc => {
                         (doc.attributions || []).forEach(attr => {
                           if (!attr?.staffName) return;
-                          freshAttribution[attr.staffName] = {
-                            billWtd: attr.billWtd,
-                            valWtd: attr.valWtd,
-                            qtyWtd: attr.qtyWtd
-                          };
+                          if (!freshAttribution[attr.staffName]) {
+                            freshAttribution[attr.staffName] = { billWtd: 0, valWtd: 0, qtyWtd: 0 };
+                          }
+                          freshAttribution[attr.staffName].billWtd += Number(attr.billWtd) || 0;
+                          freshAttribution[attr.staffName].valWtd += Number(attr.valWtd) || 0;
+                          freshAttribution[attr.staffName].qtyWtd += Number(attr.qtyWtd) || 0;
                         });
-                      }
+                      });
                       setCustomizationAttribution(freshAttribution);
                     }
                   } catch (err) {
@@ -5835,7 +5892,7 @@ const DSRReport = () => {
                             storeName: targetStore,
                             month: targetMonth,
                             year: Number(targetYear),
-                            week: Number(currentWeek),
+                            week: 1,
                             attributions: attributionsList
                           })
                         });
@@ -5901,22 +5958,22 @@ const DSRReport = () => {
                   <button onClick={() => setCustomizationModalOpen(false)} className="text-gray-400 hover:text-gray-700 text-xl font-bold">✕</button>
                 </div>
 
-                {/* Customization Store Total Card */}
+                {/* Customization Store Total */}
                 <div className="mx-6 mt-4 mb-2 bg-emerald-50 border border-emerald-100 rounded-2xl px-4 py-3 flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Customization Total (this store)</p>
-                    <p className="text-[18px] font-extrabold text-emerald-800 mt-0.5">
+                    <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Customization Total (this store)</p>
+                    <p className="text-[18px] font-extrabold text-emerald-700 mt-0.5">
                       ₹{customizationTotalValue.toLocaleString()}
                     </p>
                   </div>
                   <div className="flex items-center gap-5">
                     <div className="text-right">
-                      <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Bills</p>
-                      <p className="text-[18px] font-extrabold text-emerald-800">{customizationTotalBills}</p>
+                      <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Bills</p>
+                      <p className="text-[18px] font-extrabold text-emerald-700">{customizationTotalBills}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Qty</p>
-                      <p className="text-[18px] font-extrabold text-emerald-800">{customizationTotalQty}</p>
+                      <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Qty</p>
+                      <p className="text-[18px] font-extrabold text-emerald-700">{customizationTotalQty}</p>
                     </div>
                   </div>
                 </div>
@@ -6042,7 +6099,6 @@ const DSRReport = () => {
                         const targetStore = (isStoreAdmin && branches.length > 0) ? displayBranchName(branches[0].workingBranch) : selectedStore;
                         const targetMonth = activeTab === "Custom" ? getMonthNameFromDateStr(customStartDate) : CURRENT_MONTH_LONG;
                         const targetYear = activeTab === "Custom" ? getYearFromDateStr(customStartDate) : CURRENT_YEAR;
-                        const currentWeek = getCurrentWeekId(targetStore) || 1;
 
                         await fetch(`${baseUrl.baseUrl}api/customization-attributions`, {
                           method: "POST",
@@ -6054,7 +6110,7 @@ const DSRReport = () => {
                             storeName: targetStore,
                             month: targetMonth,
                             year: Number(targetYear),
-                            week: Number(currentWeek),
+                            week: 1,
                             totalValue: customizationTotalValue,
                             totalBills: customizationTotalBills,
                             totalQuantity: customizationTotalQty,
