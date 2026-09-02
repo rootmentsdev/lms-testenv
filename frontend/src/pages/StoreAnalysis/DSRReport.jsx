@@ -1512,12 +1512,31 @@ const DSRReport = () => {
 
   const getStaffTarget = (storeName, staffName, activeTabVal) => {
     const storeEmpTargets = getStoreEmployeeTargets(storeName);
-    const empT = storeEmpTargets.find(
-      e => e && (e.staffName === staffName || normalizeForMatch(e.staffName) === normalizeForMatch(staffName))
+    const matchingEmpTs = storeEmpTargets.filter(
+      e => e && (
+        e.staffName === staffName ||
+        normalizeForMatch(e.staffName) === normalizeForMatch(staffName) ||
+        getCanonicalStaffName(e.staffName) === getCanonicalStaffName(staffName) ||
+        isStaffNameMatch(e.staffName, staffName)
+      )
     );
-    if (!empT || !empT.weeklyTargets) return null; // No explicit target
 
-    const empTargetObj = empT.weeklyTargets;
+    if (matchingEmpTs.length === 0) return 0; // No explicit target
+
+    // Merge weeklyTargets across matching entries if variations exist
+    const empTargetObj = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    matchingEmpTs.forEach(e => {
+      if (e && e.weeklyTargets) {
+        [1, 2, 3, 4].forEach(wk => {
+          const val = Number(e.weeklyTargets[wk] || e.weeklyTargets[String(wk)] || 0);
+          if (val > 0) empTargetObj[wk] = Math.max(empTargetObj[wk], val);
+        });
+      }
+    });
+
+    const hasAnyTarget = [1, 2, 3, 4].some(wk => (empTargetObj[wk] || 0) > 0);
+    if (!hasAnyTarget) return 0;
+
     const today = new Date();
     const currentYear = today.getFullYear();
     const currentMonth = today.getMonth();
@@ -1562,8 +1581,11 @@ const DSRReport = () => {
     }
 
     if (activeTabVal === "Custom") {
-      return getCustomRangeTarget(storeName, customStartDate, customEndDate, empTargetObj);
+      const startDateStr = customApplied ? (appliedStartDate || customStartDate) : (customStartDate || appliedStartDate);
+      const endDateStr = customApplied ? (appliedEndDate || customEndDate || appliedStartDate || customStartDate) : (customEndDate || customStartDate || appliedEndDate || appliedStartDate);
+      return getCustomRangeTarget(storeName, startDateStr, endDateStr, empTargetObj);
     }
+
     return 0;
   };
 
@@ -1598,7 +1620,7 @@ const DSRReport = () => {
         }
 
         const storeEmpTargets = [...existingEmpList];
-        const staffIndex = storeEmpTargets.findIndex(t => getCanonicalStaffName(t.staffName) === getCanonicalStaffName(modalStaff) || t.staffName === modalStaff);
+        const staffIndex = storeEmpTargets.findIndex(t => t.staffName === modalStaff || getCanonicalStaffName(t.staffName) === getCanonicalStaffName(modalStaff) || isStaffNameMatch(t.staffName, modalStaff));
         
         if (staffIndex >= 0) {
           const empT = { ...storeEmpTargets[staffIndex] };
