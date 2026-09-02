@@ -624,21 +624,21 @@ const STAFF_ALIAS_MAPPING = {
   "amal": "AMAL K MANOJ",
 
   // Abhijith
-  "abhijith kumar p a": "ABHIJITH KUMAR",
-  "abhijithkumarpa": "ABHIJITH KUMAR",
-  "abhijith kumar": "ABHIJITH KUMAR",
-  "abhijithkumar": "ABHIJITH KUMAR",
-  "abhijith": "ABHIJITH KUMAR",
+  "abhijith kumar p a": "ABHIJITH KUMAR P A",
+  "abhijithkumarpa": "ABHIJITH KUMAR P A",
+  "abhijith kumar": "ABHIJITH KUMAR P A",
+  "abhijithkumar": "ABHIJITH KUMAR P A",
+  "abhijith": "ABHIJITH KUMAR P A",
 
   // Aswin
-  "aswin raj m. r": "ASWIN RAJ M.R",
-  "aswin raj m.r": "ASWIN RAJ M.R",
-  "aswin raj m r": "ASWIN RAJ M.R",
-  "aswin raj mr": "ASWIN RAJ M.R",
-  "aswinrajmr": "ASWIN RAJ M.R",
-  "aswin raj": "ASWIN RAJ M.R",
-  "aswinraj": "ASWIN RAJ M.R",
-  "aswin": "ASWIN RAJ M.R",
+  "aswin raj m. r": "ASWIN RAJ M. R",
+  "aswin raj m.r": "ASWIN RAJ M. R",
+  "aswin raj m r": "ASWIN RAJ M. R",
+  "aswin raj mr": "ASWIN RAJ M. R",
+  "aswinrajmr": "ASWIN RAJ M. R",
+  "aswin raj": "ASWIN RAJ M. R",
+  "aswinraj": "ASWIN RAJ M. R",
+  "aswin": "ASWIN RAJ M. R",
 
   // Reshma
   "reshma m": "RESHMA M",
@@ -814,6 +814,44 @@ function extractWalkinEmpCodes(w, empNameToCodeMap) {
   }
 
   return Array.from(new Set(codes.filter(Boolean)));
+}
+
+function deduplicateStaffNames(rawNamesList, systemEmpNameToCodeMap = null, systemEmpCodeToNameMap = null) {
+  if (!Array.isArray(rawNamesList)) return [];
+
+  const cleanList = rawNamesList
+    .filter(name => typeof name === "string" && name.trim() !== "" && name.trim().toLowerCase() !== "none" && name.trim().toLowerCase() !== "unassigned")
+    .map(name => name.trim());
+
+  cleanList.sort((a, b) => (b || "").length - (a || "").length);
+
+  const uniqueList = [];
+
+  cleanList.forEach(rawName => {
+    const canon = getCanonicalStaffName(rawName);
+    const normKey = normalizeForMatch(canon);
+    const empCode = (systemEmpNameToCodeMap && typeof systemEmpNameToCodeMap.get === "function")
+      ? (systemEmpNameToCodeMap.get(canon.toLowerCase()) || systemEmpNameToCodeMap.get(normKey))
+      : null;
+    const officialName = (empCode && systemEmpCodeToNameMap && typeof systemEmpCodeToNameMap.get === "function" && systemEmpCodeToNameMap.get(empCode))
+      ? systemEmpCodeToNameMap.get(empCode)
+      : canon;
+
+    const existing = uniqueList.find(existingName => {
+      if (existingName === officialName || existingName === rawName) return true;
+      if (empCode && systemEmpNameToCodeMap && typeof systemEmpNameToCodeMap.get === "function") {
+        const existingCode = systemEmpNameToCodeMap.get(getCanonicalStaffName(existingName).toLowerCase()) || systemEmpNameToCodeMap.get(normalizeForMatch(existingName));
+        if (existingCode && existingCode === empCode) return true;
+      }
+      return isStaffNameMatch(existingName, rawName) || isStaffNameMatch(existingName, officialName);
+    });
+
+    if (!existing) {
+      uniqueList.push(officialName);
+    }
+  });
+
+  return uniqueList;
 }
 
 function isStoreAliasName(rawName) {
@@ -5714,10 +5752,11 @@ const DSRReport = () => {
           const dapprTotalValue = dapprPeriod.reduce((s, x) => s + (x.totalValue || 0), 0);
           const dapprTotalBills = dapprPeriod.reduce((s, x) => s + (x.total_Number_Of_Bill || 0), 0);
           const dapprTotalQty = dapprPeriod.reduce((s, x) => s + (x.totalQuantity || 0), 0);
-          const staffList = branch ? Array.from(new Set([
+          const rawStaff = branch ? [
             ...(performanceData.period[locId] || []).map(x => x.bookingBy),
             ...(performanceData.ftd[locId]    || []).map(x => x.bookingBy),
-          ])).filter(Boolean) : [];
+          ] : [];
+          const staffList = deduplicateStaffNames(rawStaff, systemEmpNameToCodeMap, systemEmpCodeToNameMap);
 
           const allocatedBills = Object.values(dapprInputs).reduce((s, v) => s + (Number(v.valWtd) || 0), 0);
           const allocatedValue = Object.values(dapprInputs).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
@@ -5920,10 +5959,11 @@ const DSRReport = () => {
         {customizationModalOpen && (() => {
           const branch = branches[0];
           const locId = branch ? getBranchLocationId(branch.workingBranch) : "1";
-          const staffList = Array.from(new Set([
+          const rawStaff = [
             ...(performanceData.period[locId] || []).map(x => x.bookingBy),
             ...(performanceData.ftd[locId]    || []).map(x => x.bookingBy),
-          ])).filter(Boolean);
+          ];
+          const staffList = deduplicateStaffNames(rawStaff, systemEmpNameToCodeMap, systemEmpCodeToNameMap);
 
           const targetStoreName = (isStoreAdmin && branches.length > 0) ? displayBranchName(branches[0].workingBranch) : selectedStore;
           const storeCustObj = getStoreCustomizationTotal(targetStoreName, storeCustomizationTotals);
@@ -6280,7 +6320,11 @@ const DSRReport = () => {
                           .map(x => x.bookingBy);
                         const salesByStaff = (salesData.period[locCode] || salesData.period[storeKeyVal] || { byStaff: {} }).byStaff || {};
                         const salesNames = Object.keys(salesByStaff);
-                        const uniqueNames = Array.from(new Set([...sysEmpNames, ...rentalNames, ...squadNames, ...salesNames])).filter(Boolean);
+                        const uniqueNames = deduplicateStaffNames(
+                          [...sysEmpNames, ...rentalNames, ...squadNames, ...salesNames],
+                          systemEmpNameToCodeMap,
+                          systemEmpCodeToNameMap
+                        );
                         
                         return uniqueNames.map(name => (
                           <option key={name} value={name}>{name}</option>
