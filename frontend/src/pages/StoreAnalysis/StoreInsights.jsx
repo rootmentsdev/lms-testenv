@@ -3605,7 +3605,7 @@ const StoreInsights = () => {
 
     if (includeDappr) {
       const squadPeriodList = performanceData["25"] || [];
-      const isAllStoresSelected = selectedStores.includes("All") || selectedStores.length === 0 || (typeof storeOptionsForFilter !== "undefined" && selectedStores.length === storeOptionsForFilter.length);
+      const isAllStoresSelected = !isStoreAdmin && !isClusterAdmin && (selectedClusters.includes("All") || selectedClusters.length === 0) && (selectedStores.includes("All") || selectedStores.length === 0 || (typeof storeOptionsForFilter !== "undefined" && selectedStores.length === storeOptionsForFilter.length));
 
       if (squadPeriodList && squadPeriodList.length > 0) {
         if (isAllStoresSelected) {
