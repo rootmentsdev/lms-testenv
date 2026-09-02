@@ -1824,8 +1824,12 @@ const StoreInsights = () => {
       if (!activeStore && (selectedStores.includes("All") || selectedStores.length === 0) && !isStoreAdmin && branches.length === 0) return;
       try {
         const token = localStorage.getItem("token");
-        const targetMonth = timeframe === "CUSTOM" ? (customStartDate ? new Date(customStartDate).toLocaleString("en-US", { month: "long" }) : CURRENT_MONTH_LONG) : CURRENT_MONTH_LONG;
-        const targetYear = timeframe === "CUSTOM" ? (customStartDate ? new Date(customStartDate).getFullYear() : CURRENT_YEAR) : CURRENT_YEAR;
+        const startMonth = timeframe === "CUSTOM" ? getMonthNameFromDateStr(customStartDate) : CURRENT_MONTH_LONG;
+        const endMonth = timeframe === "CUSTOM" ? getMonthNameFromDateStr(customEndDate || customStartDate) : CURRENT_MONTH_LONG;
+        const targetMonth = (timeframe === "CUSTOM" && startMonth !== endMonth) ? "All" : endMonth;
+        const startYear = timeframe === "CUSTOM" ? getYearFromDateStr(customStartDate) : CURRENT_YEAR;
+        const endYear = timeframe === "CUSTOM" ? getYearFromDateStr(customEndDate || customStartDate) : CURRENT_YEAR;
+        const targetYear = (timeframe === "CUSTOM" && startYear !== endYear) ? "All" : endYear;
 
         // Determine if we need all-store fetch (admin/cluster viewing all)
         const isAllStoresView = !isStoreAdmin && (selectedStores.includes("All") || selectedStores.length === 0);

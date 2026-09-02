@@ -823,27 +823,27 @@ function deduplicateStaffNames(rawNamesList, systemEmpNameToCodeMap = null, syst
     .filter(name => typeof name === "string" && name.trim() !== "" && name.trim().toLowerCase() !== "none" && name.trim().toLowerCase() !== "unassigned")
     .map(name => name.trim());
 
-  cleanList.sort((a, b) => (b || "").length - (a || "").length);
-
   const uniqueList = [];
 
   cleanList.forEach(rawName => {
     const canon = getCanonicalStaffName(rawName);
     const normKey = normalizeForMatch(canon);
-    const empCode = (systemEmpNameToCodeMap && typeof systemEmpNameToCodeMap.get === "function")
-      ? (systemEmpNameToCodeMap.get(canon.toLowerCase()) || systemEmpNameToCodeMap.get(normKey))
-      : null;
-    const officialName = (empCode && systemEmpCodeToNameMap && typeof systemEmpCodeToNameMap.get === "function" && systemEmpCodeToNameMap.get(empCode))
-      ? systemEmpCodeToNameMap.get(empCode)
-      : canon;
+    let officialName = canon;
+
+    if (systemEmpNameToCodeMap && typeof systemEmpNameToCodeMap.get === "function") {
+      const empCode = systemEmpNameToCodeMap.get(canon.toLowerCase()) || systemEmpNameToCodeMap.get(normKey);
+      if (empCode && systemEmpCodeToNameMap && typeof systemEmpCodeToNameMap.get === "function") {
+        const sysName = systemEmpCodeToNameMap.get(empCode);
+        if (sysName && isStaffNameMatch(sysName, canon)) {
+          officialName = sysName;
+        }
+      }
+    }
 
     const existing = uniqueList.find(existingName => {
-      if (existingName === officialName || existingName === rawName) return true;
-      if (empCode && systemEmpNameToCodeMap && typeof systemEmpNameToCodeMap.get === "function") {
-        const existingCode = systemEmpNameToCodeMap.get(getCanonicalStaffName(existingName).toLowerCase()) || systemEmpNameToCodeMap.get(normalizeForMatch(existingName));
-        if (existingCode && existingCode === empCode) return true;
-      }
-      return isStaffNameMatch(existingName, rawName) || isStaffNameMatch(existingName, officialName);
+      if (existingName === officialName || existingName === rawName || existingName === canon) return true;
+      if (normalizeForMatch(existingName) === normalizeForMatch(canon)) return true;
+      return isStaffNameMatch(existingName, rawName) || isStaffNameMatch(existingName, officialName) || isStaffNameMatch(existingName, canon);
     });
 
     if (!existing) {
@@ -2137,7 +2137,9 @@ const DSRReport = () => {
       const startMonth = activeTab === "Custom" ? getMonthNameFromDateStr(appliedStartDate || customStartDate) : CURRENT_MONTH_LONG;
       const endMonth = activeTab === "Custom" ? getMonthNameFromDateStr(appliedEndDate || customEndDate || appliedStartDate || customStartDate) : CURRENT_MONTH_LONG;
       const targetMonth = (activeTab === "Custom" && startMonth !== endMonth) ? "All" : endMonth;
-      const targetYear = activeTab === "Custom" ? getYearFromDateStr(appliedEndDate || customEndDate || appliedStartDate || customStartDate) : CURRENT_YEAR;
+      const startYear = activeTab === "Custom" ? getYearFromDateStr(appliedStartDate || customStartDate) : CURRENT_YEAR;
+      const endYear = activeTab === "Custom" ? getYearFromDateStr(appliedEndDate || customEndDate || appliedStartDate || customStartDate) : CURRENT_YEAR;
+      const targetYear = (activeTab === "Custom" && startYear !== endYear) ? "All" : endYear;
 
       const isAllStores = !targetStore || targetStore === "All";
 
@@ -2228,7 +2230,9 @@ const DSRReport = () => {
       const startMonth = activeTab === "Custom" ? getMonthNameFromDateStr(appliedStartDate || customStartDate) : CURRENT_MONTH_LONG;
       const endMonth = activeTab === "Custom" ? getMonthNameFromDateStr(appliedEndDate || customEndDate || customStartDate) : CURRENT_MONTH_LONG;
       const targetMonth = (activeTab === "Custom" && startMonth !== endMonth) ? "All" : endMonth;
-      const targetYear = activeTab === "Custom" ? getYearFromDateStr(appliedEndDate || customEndDate || customStartDate) : CURRENT_YEAR;
+      const startYear = activeTab === "Custom" ? getYearFromDateStr(appliedStartDate || customStartDate) : CURRENT_YEAR;
+      const endYear = activeTab === "Custom" ? getYearFromDateStr(appliedEndDate || customEndDate || customStartDate) : CURRENT_YEAR;
+      const targetYear = (activeTab === "Custom" && startYear !== endYear) ? "All" : endYear;
       const storeParam = (!targetStore || targetStore === "All") ? "All" : targetStore;
 
       const queryUrl = `${baseUrl.baseUrl}api/customization-attributions?storeName=${encodeURIComponent(storeParam)}&month=${targetMonth}&year=${targetYear}`;
@@ -4017,13 +4021,26 @@ const DSRReport = () => {
       const salesFtdStaffNames = Object.keys(salesFtdItem.byStaff || {}).map(canonicalizeName).filter(Boolean);
       const salesPeriodStaffNames = Object.keys(salesPeriodItem.byStaff || {}).map(canonicalizeName).filter(Boolean);
 
+      const sysEmpNames = systemEmployees
+        .filter(e => {
+          if (!e) return false;
+          const b = e.workingBranch || e.branch || e.store;
+          if (!b) return false;
+          const normB = normalizeForMatch(b);
+          return normB === storeKeyVal || getBranchLocCode(b, branches) === locCode || displayBranchName(b) === displayBranchName(item.workingBranch);
+        })
+        .map(e => String(e.name || e.username || e.staffName || "").trim())
+        .filter(Boolean);
+
       // De-duplicate case-insensitively, preferring casing with uppercase letters
       const rawAllStaff = [
+        ...sysEmpNames,
         ...rentalStaffNames,
         ...squadStaffNames,
         ...salesFtdStaffNames,
         ...salesPeriodStaffNames,
-        ...Object.keys(dapprAttribution)
+        ...Object.keys(dapprAttribution),
+        ...Object.keys(customizationAttribution)
       ].filter(name => typeof name === "string" && name.trim() !== "").map(getCanonicalStaffName);
       
       const allStaffNames = [];
@@ -4591,11 +4608,13 @@ const DSRReport = () => {
                   // Pre-fill inputs from saved attribution (always fetch fresh from DB)
                   const branch = branches[0];
                   if (!branch) return;
-                  const locId = getBranchLocationId(branch.workingBranch);
-                  const staffNames = Array.from(new Set([
-                    ...(performanceData.period[locId] || []).map(x => x.bookingBy),
-                    ...(performanceData.ftd[locId]    || []).map(x => x.bookingBy),
-                  ])).filter(Boolean);
+                  const rawStaffList = [
+                    ...categoryRows.map(r => r.name),
+                    ...Object.keys(dapprAttribution || {}),
+                    ...Object.keys(dapprInputs || {})
+                  ].filter(n => n && n !== "Store Total" && n !== "Unassigned");
+
+                  const staffNames = deduplicateStaffNames(rawStaffList, systemEmpNameToCodeMap, systemEmpCodeToNameMap);
 
                   // Fetch latest from DB first
                   const targetStore = (isStoreAdmin && branches.length > 0) ? displayBranchName(branches[0].workingBranch) : selectedStore;
@@ -4605,7 +4624,9 @@ const DSRReport = () => {
                     const startMonth = activeTab === "Custom" ? getMonthNameFromDateStr(appliedStartDate || customStartDate) : CURRENT_MONTH_LONG;
                     const endMonth = activeTab === "Custom" ? getMonthNameFromDateStr(appliedEndDate || customEndDate || appliedStartDate || customStartDate) : CURRENT_MONTH_LONG;
                     const targetMonth = (activeTab === "Custom" && startMonth !== endMonth) ? "All" : endMonth;
-                    const targetYear = activeTab === "Custom" ? getYearFromDateStr(appliedStartDate || customStartDate) : CURRENT_YEAR;
+                    const startYear = activeTab === "Custom" ? getYearFromDateStr(appliedStartDate || customStartDate) : CURRENT_YEAR;
+                    const endYear = activeTab === "Custom" ? getYearFromDateStr(appliedEndDate || customEndDate || appliedStartDate || customStartDate) : CURRENT_YEAR;
+                    const targetYear = (activeTab === "Custom" && startYear !== endYear) ? "All" : endYear;
                     const res = await fetch(`${baseUrl.baseUrl}api/dappr-attributions?storeName=${encodeURIComponent(targetStore)}&month=${targetMonth}&year=${targetYear}`, {
                       headers: { "Authorization": `Bearer ${token}` }
                     });
@@ -4643,9 +4664,14 @@ const DSRReport = () => {
 
                   const inputs = {};
                   staffNames.forEach(name => {
-                    const matchedKey = Object.keys(freshAttribution).find(
-                      k => k.trim().toLowerCase() === name.trim().toLowerCase()
-                    );
+                    const matchedKey = Object.keys(freshAttribution).find(k => {
+                      if (!k) return false;
+                      if (k.trim().toLowerCase() === name.trim().toLowerCase()) return true;
+                      if (normalizeForMatch(k) === normalizeForMatch(name)) return true;
+                      if (normalizeForMatch(getCanonicalStaffName(k)) === normalizeForMatch(getCanonicalStaffName(name))) return true;
+                      if (isStaffNameMatch(k, name)) return true;
+                      return false;
+                    });
                     const saved = matchedKey ? freshAttribution[matchedKey] : {};
                     inputs[name] = {
                       billWtd: saved.billWtd ?? "",
@@ -4668,11 +4694,13 @@ const DSRReport = () => {
                 onClick={async () => {
                   const branch = branches[0];
                   if (!branch) return;
-                  const locId = getBranchLocationId(branch.workingBranch);
-                  const staffNames = Array.from(new Set([
-                    ...(performanceData.period[locId] || []).map(x => x.bookingBy),
-                    ...(performanceData.ftd[locId]    || []).map(x => x.bookingBy),
-                  ])).filter(Boolean);
+                  const rawStaffList = [
+                    ...categoryRows.map(r => r.name),
+                    ...Object.keys(customizationAttribution || {}),
+                    ...Object.keys(customizationInputs || {})
+                  ].filter(n => n && n !== "Store Total" && n !== "Unassigned");
+
+                  const staffNames = deduplicateStaffNames(rawStaffList, systemEmpNameToCodeMap, systemEmpCodeToNameMap);
 
                   const targetStore = (isStoreAdmin && branches.length > 0) ? displayBranchName(branches[0].workingBranch) : selectedStore;
                   let freshAttribution = { ...customizationAttribution };
@@ -4682,7 +4710,9 @@ const DSRReport = () => {
                     const startMonth = activeTab === "Custom" ? getMonthNameFromDateStr(appliedStartDate || customStartDate) : CURRENT_MONTH_LONG;
                     const endMonth = activeTab === "Custom" ? getMonthNameFromDateStr(appliedEndDate || customEndDate || appliedStartDate || customStartDate) : CURRENT_MONTH_LONG;
                     const targetMonth = (activeTab === "Custom" && startMonth !== endMonth) ? "All" : endMonth;
-                    const targetYear = activeTab === "Custom" ? getYearFromDateStr(appliedStartDate || customStartDate) : CURRENT_YEAR;
+                    const startYear = activeTab === "Custom" ? getYearFromDateStr(appliedStartDate || customStartDate) : CURRENT_YEAR;
+                    const endYear = activeTab === "Custom" ? getYearFromDateStr(appliedEndDate || customEndDate || appliedStartDate || customStartDate) : CURRENT_YEAR;
+                    const targetYear = (activeTab === "Custom" && startYear !== endYear) ? "All" : endYear;
                     const res = await fetch(`${baseUrl.baseUrl}api/customization-attributions?storeName=${encodeURIComponent(targetStore)}&month=${targetMonth}&year=${targetYear}`, {
                       headers: { "Authorization": `Bearer ${token}` }
                     });
@@ -4720,9 +4750,14 @@ const DSRReport = () => {
 
                   const inputs = {};
                   staffNames.forEach(name => {
-                    const matchedKey = Object.keys(freshAttribution).find(
-                      k => k.trim().toLowerCase() === name.trim().toLowerCase()
-                    );
+                    const matchedKey = Object.keys(freshAttribution).find(k => {
+                      if (!k) return false;
+                      if (k.trim().toLowerCase() === name.trim().toLowerCase()) return true;
+                      if (normalizeForMatch(k) === normalizeForMatch(name)) return true;
+                      if (normalizeForMatch(getCanonicalStaffName(k)) === normalizeForMatch(getCanonicalStaffName(name))) return true;
+                      if (isStaffNameMatch(k, name)) return true;
+                      return false;
+                    });
                     const saved = matchedKey ? freshAttribution[matchedKey] : {};
                     inputs[name] = {
                       billWtd: saved.billWtd ?? "",
@@ -5756,7 +5791,7 @@ const DSRReport = () => {
                     <td className="px-6 py-3.5 text-right font-extrabold text-gray-900">{formatIndianNumber(totalCustomValFtd)}</td>
                     <td className="px-6 py-3.5 text-right font-extrabold text-[#10b981]">{formatIndianNumber(totalCustomValWtd)}</td>
                     <td className="px-6 py-3.5 text-right font-extrabold text-gray-900">{totalCustomBillFtd}</td>
-                    <td className="px-6 py-3.5 text-right font-extrabold text-gray-900">{totalCustomBillWtd}</td>
+                      <td className="px-6 py-3.5 text-right font-extrabold text-gray-900">{totalCustomBillWtd}</td>
                     <td className="px-6 py-3.5 text-right font-extrabold text-gray-900">{totalCustomQtyFtd}</td>
                     <td className="px-6 py-3.5 text-right font-extrabold text-gray-900">{totalCustomQtyWtd}</td>
                   </tr>
@@ -5767,23 +5802,41 @@ const DSRReport = () => {
         )}
 
         {/* Dappr Squad Attribution Modal — store_admin only */}
-        {dapprModalOpen && isStoreAdmin && (() => {
+        {dapprModalOpen && (() => {
           const branch = branches[0];
           const locId = branch ? getBranchLocationId(branch.workingBranch) : null;
           const dapprPeriod = locId ? getDapprSquadDataForStore(locId, performanceData.period["25"] || []) : [];
           const dapprTotalValue = dapprPeriod.reduce((s, x) => s + (x.totalValue || 0), 0);
           const dapprTotalBills = dapprPeriod.reduce((s, x) => s + (x.total_Number_Of_Bill || 0), 0);
           const dapprTotalQty = dapprPeriod.reduce((s, x) => s + (x.totalQuantity || 0), 0);
-          const rawStaff = branch ? [
-            ...(performanceData.period[locId] || []).map(x => x.bookingBy),
-            ...(performanceData.ftd[locId]    || []).map(x => x.bookingBy),
-          ] : [];
+
+          const rawStaff = [
+            ...categoryRows.map(r => r.name),
+            ...Object.keys(dapprAttribution || {}),
+            ...Object.keys(dapprInputs || {})
+          ].filter(n => n && n !== "Store Total" && n !== "Unassigned");
           const staffList = deduplicateStaffNames(rawStaff, systemEmpNameToCodeMap, systemEmpCodeToNameMap);
 
           const allocatedBills = Object.values(dapprInputs).reduce((s, v) => s + (Number(v.valWtd) || 0), 0);
           const allocatedValue = Object.values(dapprInputs).reduce((s, v) => s + (Number(v.billWtd) || 0), 0);
           const allocatedQty = Object.values(dapprInputs).reduce((s, v) => s + (Number(v.qtyWtd) || 0), 0);
           const isOverLimit = allocatedValue > dapprTotalValue;
+
+          const getInputValue = (inputsObj, staffName, field) => {
+            if (!inputsObj || !staffName) return "";
+            if (inputsObj[staffName] && inputsObj[staffName][field] !== undefined) {
+              return inputsObj[staffName][field];
+            }
+            const matchedKey = Object.keys(inputsObj).find(k => {
+              if (!k) return false;
+              if (k.trim().toLowerCase() === staffName.trim().toLowerCase()) return true;
+              if (normalizeForMatch(k) === normalizeForMatch(staffName)) return true;
+              if (normalizeForMatch(getCanonicalStaffName(k)) === normalizeForMatch(getCanonicalStaffName(staffName))) return true;
+              if (isStaffNameMatch(k, staffName)) return true;
+              return false;
+            });
+            return matchedKey ? (inputsObj[matchedKey][field] ?? "") : "";
+          };
 
           return (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -5858,11 +5911,24 @@ const DSRReport = () => {
                             min="0"
                             placeholder="0"
                             onWheel={(e) => e.target.blur()}
-                            value={dapprInputs[name]?.billWtd ?? ""}
-                            onChange={e => setDapprInputs(prev => ({
-                              ...prev,
-                              [name]: { ...prev[name], billWtd: e.target.value }
-                            }))}
+                            value={getInputValue(dapprInputs, name, "billWtd")}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setDapprInputs(prev => {
+                                const matchedKey = Object.keys(prev).find(k => {
+                                  if (!k) return false;
+                                  if (k.trim().toLowerCase() === name.trim().toLowerCase()) return true;
+                                  if (normalizeForMatch(k) === normalizeForMatch(name)) return true;
+                                  if (normalizeForMatch(getCanonicalStaffName(k)) === normalizeForMatch(getCanonicalStaffName(name))) return true;
+                                  if (isStaffNameMatch(k, name)) return true;
+                                  return false;
+                                }) || name;
+                                return {
+                                  ...prev,
+                                  [matchedKey]: { ...(prev[matchedKey] || {}), billWtd: val }
+                                };
+                              });
+                            }}
                             className={`w-24 text-center text-xs font-semibold border rounded-lg px-2 py-1.5 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
                               isOverLimit ? "border-red-300 focus:border-red-500 bg-red-50/50" : "border-gray-200 focus:border-indigo-400"
                             }`}
@@ -5875,11 +5941,24 @@ const DSRReport = () => {
                             min="0"
                             placeholder="0"
                             onWheel={(e) => e.target.blur()}
-                            value={dapprInputs[name]?.valWtd ?? ""}
-                            onChange={e => setDapprInputs(prev => ({
-                              ...prev,
-                              [name]: { ...prev[name], valWtd: e.target.value }
-                            }))}
+                            value={getInputValue(dapprInputs, name, "valWtd")}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setDapprInputs(prev => {
+                                const matchedKey = Object.keys(prev).find(k => {
+                                  if (!k) return false;
+                                  if (k.trim().toLowerCase() === name.trim().toLowerCase()) return true;
+                                  if (normalizeForMatch(k) === normalizeForMatch(name)) return true;
+                                  if (normalizeForMatch(getCanonicalStaffName(k)) === normalizeForMatch(getCanonicalStaffName(name))) return true;
+                                  if (isStaffNameMatch(k, name)) return true;
+                                  return false;
+                                }) || name;
+                                return {
+                                  ...prev,
+                                  [matchedKey]: { ...(prev[matchedKey] || {}), valWtd: val }
+                                };
+                              });
+                            }}
                             className="w-20 text-center text-xs font-semibold border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-indigo-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
@@ -5890,11 +5969,24 @@ const DSRReport = () => {
                             min="0"
                             placeholder="0"
                             onWheel={(e) => e.target.blur()}
-                            value={dapprInputs[name]?.qtyWtd ?? ""}
-                            onChange={e => setDapprInputs(prev => ({
-                              ...prev,
-                              [name]: { ...prev[name], qtyWtd: e.target.value }
-                            }))}
+                            value={getInputValue(dapprInputs, name, "qtyWtd")}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setDapprInputs(prev => {
+                                const matchedKey = Object.keys(prev).find(k => {
+                                  if (!k) return false;
+                                  if (k.trim().toLowerCase() === name.trim().toLowerCase()) return true;
+                                  if (normalizeForMatch(k) === normalizeForMatch(name)) return true;
+                                  if (normalizeForMatch(getCanonicalStaffName(k)) === normalizeForMatch(getCanonicalStaffName(name))) return true;
+                                  if (isStaffNameMatch(k, name)) return true;
+                                  return false;
+                                }) || name;
+                                return {
+                                  ...prev,
+                                  [matchedKey]: { ...(prev[matchedKey] || {}), qtyWtd: val }
+                                };
+                              });
+                            }}
                             className="w-20 text-center text-xs font-semibold border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-indigo-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
@@ -5981,10 +6073,12 @@ const DSRReport = () => {
         {customizationModalOpen && (() => {
           const branch = branches[0];
           const locId = branch ? getBranchLocationId(branch.workingBranch) : "1";
+
           const rawStaff = [
-            ...(performanceData.period[locId] || []).map(x => x.bookingBy),
-            ...(performanceData.ftd[locId]    || []).map(x => x.bookingBy),
-          ];
+            ...categoryRows.map(r => r.name),
+            ...Object.keys(customizationAttribution || {}),
+            ...Object.keys(customizationInputs || {})
+          ].filter(n => n && n !== "Store Total" && n !== "Unassigned");
           const staffList = deduplicateStaffNames(rawStaff, systemEmpNameToCodeMap, systemEmpCodeToNameMap);
 
           const targetStoreName = (isStoreAdmin && branches.length > 0) ? displayBranchName(branches[0].workingBranch) : selectedStore;
@@ -6004,6 +6098,22 @@ const DSRReport = () => {
           });
 
           const isOverLimit = customizationTotalValue > 0 && allocatedValue > customizationTotalValue;
+
+          const getInputValue = (inputsObj, staffName, field) => {
+            if (!inputsObj || !staffName) return "";
+            if (inputsObj[staffName] && inputsObj[staffName][field] !== undefined) {
+              return inputsObj[staffName][field];
+            }
+            const matchedKey = Object.keys(inputsObj).find(k => {
+              if (!k) return false;
+              if (k.trim().toLowerCase() === staffName.trim().toLowerCase()) return true;
+              if (normalizeForMatch(k) === normalizeForMatch(staffName)) return true;
+              if (normalizeForMatch(getCanonicalStaffName(k)) === normalizeForMatch(getCanonicalStaffName(staffName))) return true;
+              if (isStaffNameMatch(k, staffName)) return true;
+              return false;
+            });
+            return matchedKey ? (inputsObj[matchedKey][field] ?? "") : "";
+          };
 
           return (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -6078,11 +6188,24 @@ const DSRReport = () => {
                             min="0"
                             placeholder="0"
                             onWheel={(e) => e.target.blur()}
-                            value={customizationInputs[name]?.billWtd ?? ""}
-                            onChange={e => setCustomizationInputs(prev => ({
-                              ...prev,
-                              [name]: { ...prev[name], billWtd: e.target.value }
-                            }))}
+                            value={getInputValue(customizationInputs, name, "billWtd")}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setCustomizationInputs(prev => {
+                                const matchedKey = Object.keys(prev).find(k => {
+                                  if (!k) return false;
+                                  if (k.trim().toLowerCase() === name.trim().toLowerCase()) return true;
+                                  if (normalizeForMatch(k) === normalizeForMatch(name)) return true;
+                                  if (normalizeForMatch(getCanonicalStaffName(k)) === normalizeForMatch(getCanonicalStaffName(name))) return true;
+                                  if (isStaffNameMatch(k, name)) return true;
+                                  return false;
+                                }) || name;
+                                return {
+                                  ...prev,
+                                  [matchedKey]: { ...(prev[matchedKey] || {}), billWtd: val }
+                                };
+                              });
+                            }}
                             className={`w-24 text-center text-xs font-semibold border rounded-lg px-2 py-1.5 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
                               isOverLimit ? "border-red-300 focus:border-red-500 bg-red-50/50" : "border-gray-200 focus:border-emerald-400"
                             }`}
@@ -6095,11 +6218,24 @@ const DSRReport = () => {
                             min="0"
                             placeholder="0"
                             onWheel={(e) => e.target.blur()}
-                            value={customizationInputs[name]?.valWtd ?? ""}
-                            onChange={e => setCustomizationInputs(prev => ({
-                              ...prev,
-                              [name]: { ...prev[name], valWtd: e.target.value }
-                            }))}
+                            value={getInputValue(customizationInputs, name, "valWtd")}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setCustomizationInputs(prev => {
+                                const matchedKey = Object.keys(prev).find(k => {
+                                  if (!k) return false;
+                                  if (k.trim().toLowerCase() === name.trim().toLowerCase()) return true;
+                                  if (normalizeForMatch(k) === normalizeForMatch(name)) return true;
+                                  if (normalizeForMatch(getCanonicalStaffName(k)) === normalizeForMatch(getCanonicalStaffName(name))) return true;
+                                  if (isStaffNameMatch(k, name)) return true;
+                                  return false;
+                                }) || name;
+                                return {
+                                  ...prev,
+                                  [matchedKey]: { ...(prev[matchedKey] || {}), valWtd: val }
+                                };
+                              });
+                            }}
                             className="w-20 text-center text-xs font-semibold border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-emerald-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
@@ -6110,11 +6246,24 @@ const DSRReport = () => {
                             min="0"
                             placeholder="0"
                             onWheel={(e) => e.target.blur()}
-                            value={customizationInputs[name]?.qtyWtd ?? ""}
-                            onChange={e => setCustomizationInputs(prev => ({
-                              ...prev,
-                              [name]: { ...prev[name], qtyWtd: e.target.value }
-                            }))}
+                            value={getInputValue(customizationInputs, name, "qtyWtd")}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setCustomizationInputs(prev => {
+                                const matchedKey = Object.keys(prev).find(k => {
+                                  if (!k) return false;
+                                  if (k.trim().toLowerCase() === name.trim().toLowerCase()) return true;
+                                  if (normalizeForMatch(k) === normalizeForMatch(name)) return true;
+                                  if (normalizeForMatch(getCanonicalStaffName(k)) === normalizeForMatch(getCanonicalStaffName(name))) return true;
+                                  if (isStaffNameMatch(k, name)) return true;
+                                  return false;
+                                }) || name;
+                                return {
+                                  ...prev,
+                                  [matchedKey]: { ...(prev[matchedKey] || {}), qtyWtd: val }
+                                };
+                              });
+                            }}
                             className="w-20 text-center text-xs font-semibold border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-emerald-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
