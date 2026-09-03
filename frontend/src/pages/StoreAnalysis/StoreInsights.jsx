@@ -1285,6 +1285,21 @@ const StoreInsights = () => {
     "mashiq": "M ASHIQ S",
     "ashiq": "M ASHIQ S",
 
+    // Aslam A S (Chavakkad)
+    "mohamed aslam a s": "Mohamed Aslam A S",
+    "mohamedaslamas": "Mohamed Aslam A S",
+    "mohamed aslam as": "Mohamed Aslam A S",
+    "aslam as": "Mohamed Aslam A S",
+    "aslamas": "Mohamed Aslam A S",
+
+    // Aslam V B (Chavakkad)
+    "muhammed aslam vb": "MUHAMMED ASLAM VB",
+    "muhammedaslamvb": "MUHAMMED ASLAM VB",
+    "muhammad aslam vb": "MUHAMMED ASLAM VB",
+    "muhammadaslamvb": "MUHAMMED ASLAM VB",
+    "aslam vb": "MUHAMMED ASLAM VB",
+    "aslamvb": "MUHAMMED ASLAM VB",
+
     // Akash VK
     "akash vk": "AKASH VK",
     "akash v k": "AKASH VK",
