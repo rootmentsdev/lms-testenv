@@ -203,7 +203,7 @@ const EmployeeDetaileData = () => {
         _id: dbUser._id || "",
         username: dbUser.username || "",
         email: dbUser.email || "",
-        phoneNumber: dbUser.phoneNumber || "",
+        phoneNumber: dbUser.phoneNumber || dbUser.mobile || dbUser.phone || "",
         locCode: dbUser.locCode || "",
         empID: dbUser.empID || "",
         designation: dbUser.designation || "",

@@ -374,131 +374,65 @@ export const GetAllUserDetailes = async (req, res) => {
         
         console.log('Searching for user with empID:', empID);
         
-        let userData = await User.findOne({ empID })
-            .populate({
-                path: 'training.trainingId',
-                select: '-questions' // Exclude questions field to reduce payload
-            })
-            .populate({
-                path: 'assignedAssessments.assessmentId',
-                select: '-questions' // Exclude questions field to reduce payload
-            });
-            
-        // If user not found in database, try to fetch from external API and create user
+        let userData = null;
+        if (mongoose.Types.ObjectId.isValid(empID)) {
+            userData = await User.findById(empID)
+                .populate({ path: 'training.trainingId', select: '-questions' })
+                .populate({ path: 'assignedAssessments.assessmentId', select: '-questions' });
+        }
         if (!userData) {
-            console.log('User not found in database, trying external API for empID:', empID);
-            
+            userData = await User.findOne({ empID })
+                .populate({ path: 'training.trainingId', select: '-questions' })
+                .populate({ path: 'assignedAssessments.assessmentId', select: '-questions' });
+        }
+
+        // If user not found in database, try GreytHR API
+        if (!userData) {
+            console.log('User not found in database, trying GreytHR API for empID:', empID);
             try {
-                // Fetch directly from external API (avoid self-referencing)
-                const axios = (await import('axios')).default;
-                const ROOTMENTS_API_TOKEN = 'RootX-production-9d17d9485eb772e79df8564004d4a4d4';
-                const response = await axios.post('https://rootments.in/api/employee_range', {
-                    startEmpId: empID,
-                    endEmpId: empID
-                }, { 
-                    timeout: 15000,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'Authorization': `Bearer ${ROOTMENTS_API_TOKEN}`,
-                    }
-                });
-                
-                const externalEmployee = response.data?.data?.[0];
-                if (!externalEmployee) {
-                    console.log('Employee not found in external API:', empID);
-                    return res.status(404).json({
-                        message: "Employee not found"
+                const greythrService = (await import('../services/greythrService.js')).default;
+                const empRes = await greythrService.request('/employee/v2/employees?page=0&size=2000');
+                const list = empRes?.data || (Array.isArray(empRes) ? empRes : []);
+                const gEmp = list.find(e => 
+                    String(e.employeeNo || '').toLowerCase() === String(empID).toLowerCase() ||
+                    String(e.employeeId) === String(empID) ||
+                    String(e._id || '').toLowerCase() === String(empID).toLowerCase()
+                );
+
+                if (gEmp) {
+                    const catRes = await greythrService.request('/employee/v2/employees/categories?descRequired=true&page=0&size=2000');
+                    const catList = catRes?.data || [];
+                    const catObj = {};
+                    const catItem = catList.find(c => c.employeeId === gEmp.employeeId);
+                    (catItem?.categoryList || []).forEach(c => {
+                        if (c.categoryDesc && c.valueDesc) catObj[c.categoryDesc] = c.valueDesc;
+                    });
+
+                    const designation = catObj['Designation'] || gEmp.designation || 'Employee';
+                    const workingBranch = catObj['Store Name'] || catObj['Department'] || catObj['Location'] || 'Main Store';
+
+                    return res.status(200).json({
+                        message: "Data found",
+                        data: {
+                            _id: gEmp.employeeId || empID,
+                            empID: gEmp.employeeNo || empID,
+                            username: gEmp.name || 'Employee',
+                            email: gEmp.email || gEmp.personalEmail || '',
+                            phoneNumber: gEmp.mobile || gEmp.phone || gEmp.phoneNumber || '',
+                            designation,
+                            workingBranch,
+                            training: [],
+                            assignedAssessments: []
+                        }
                     });
                 }
-                
-                // Create new user from external data
-                console.log('Creating new user from external data:', externalEmployee.name);
-                
-                // Handle locCode properly - provide fallback for empty values
-                let locCode = externalEmployee.store_code || '';
-                if (!locCode || locCode.trim() === '') {
-                    // If no store_code, try to map from store_name
-                    const storeNameToLocCode = {
-                        'SUITOR GUY TRIVANDRUM': '5',
-                        'SUITOR GUY PALAKKAD': '19',
-                        'SUITOR GUY EDAPPALLY': '3',
-                        'SUITOR GUY KOTTAYAM': '9',
-                        'SUITOR GUY PERUMBAVOOR': '10',
-                        'SUITOR GUY THRISSUR': '11',
-                        'SUITOR GUY CHAVAKKAD': '12',
-                        'SUITOR GUY EDAPPAL': '15',
-                        'SUITOR GUY VATAKARA': '14',
-                        'SUITOR GUY PERINTHALMANNA': '16',
-                        'SUITOR GUY MANJERY': '18',
-                        'SUITOR GUY KOTTAKKAL': '17',
-                        'SUITOR GUY KOZHIKODE': '13',
-                        'SUITOR GUY CALICUT': '13',
-                        'SUITOR GUY KANNUR': '21',
-                        'SUITOR GUY KALPETTA': '20',
-                        'ZORUCCI EDAPPAL': '6',
-                        'ZORUCCI KOTTAKKAL': '8',
-                        'ZORUCCI PERINTHALMANNA': '7',
-                        'ZORUCCI EDAPPALLY': '1',
-                        'SUITOR GUY TRIVANDRUM': '5',
-                        'SUITOR GUY PALAKKAD': '19',
-                        'SUITOR GUY EDAPPALLY': '3',
-                        'SUITOR GUY KOTTAYAM': '9',
-                        'SUITOR GUY PERUMBAVOOR': '10',
-                        'SUITOR GUY THRISSUR': '11',
-                        'SUITOR GUY CHAVAKKAD': '12',
-                        'SUITOR GUY EDAPPAL': '15',
-                        'SUITOR GUY VATAKARA': '14',
-                        'SUITOR GUY PERINTHALMANNA': '16',
-                        'SUITOR GUY MANJERI': '18',
-                        'SUITOR GUY KOTTAKKAL': '17',
-                        'SUITOR GUY CALICUT': '13',
-                        'SUITOR GUY KALPETTA': '20',
-                        'SUITOR GUY KANNUR': '21'
-                    };
-                    
-                    const storeName = externalEmployee.store_name?.toUpperCase() || '';
-                    locCode = storeNameToLocCode[storeName] || '1'; // Default to '1' if no mapping found
-                    console.log(`Mapped store "${externalEmployee.store_name}" to locCode: ${locCode}`);
-                }
-                
-                userData = new User({
-                    username: externalEmployee.name || '',
-                    email: externalEmployee.email || `${empID}@company.com`,
-                    empID: empID,
-                    designation: externalEmployee.role_name || '',
-                    workingBranch: externalEmployee.store_name || 'No Store',
-                    locCode: locCode,
-                    phoneNumber: externalEmployee.phone || '',
-                    source: 'external-sync',
-                    training: [],
-                    assignedAssessments: []
-                });
-                
-                await userData.save();
-                console.log('New user created successfully:', empID);
-                
-                // Auto-assign mandatory trainings to the new user
-                await assignMandatoryTrainingsToUser(userData);
-                
-                // Refresh user data with populated fields
-                userData = await User.findOne({ empID })
-                    .populate({
-                        path: 'training.trainingId',
-                        select: '-questions'
-                    })
-                    .populate({
-                        path: 'assignedAssessments.assessmentId',
-                        select: '-questions'
-                    });
-                    
-            } catch (externalError) {
-                console.error('Error fetching from external API:', externalError);
-                return res.status(404).json({
-                    message: "Employee not found in database or external system"
-                });
+            } catch (gErr) {
+                console.warn('GreytHR lookup failed in GetAllUserDetailes:', gErr.message);
             }
-        } else {
+
+            return res.status(404).json({
+                message: "Employee not found in GreytHR or system database"
+            });
             // User exists in database, but check if they have mandatory trainings assigned
             const existingProgress = await TrainingProgress.find({ userId: userData._id });
             if (existingProgress.length === 0) {
@@ -620,11 +554,43 @@ export const GetAllUserDetailes = async (req, res) => {
         );
 
         // Create response data with combined trainings and enriched assessments
-        const responseData = {
+        let responseData = {
             ...userData.toObject(),
             training: allTrainingsFormatted,
             assignedAssessments: populatedAssessments
         };
+
+        // Enrich profile info (workingBranch, designation, username, email) live from GreytHR
+        try {
+            const greythrService = (await import('../services/greythrService.js')).default;
+            const empRes = await greythrService.request('/employee/v2/employees?page=0&size=2000');
+            const catRes = await greythrService.request('/employee/v2/employees/categories?descRequired=true&page=0&size=2000');
+            const empList = empRes?.data || [];
+            const catList = catRes?.data || [];
+
+            const searchId = userData.empID || empID;
+            const gEmp = empList.find(e => 
+                String(e.employeeNo || '').toLowerCase() === String(searchId).toLowerCase() ||
+                String(e.employeeId) === String(searchId) ||
+                (e.email && userData.email && String(e.email).toLowerCase() === String(userData.email).toLowerCase())
+            );
+
+            if (gEmp) {
+                const catItem = catList.find(c => c.employeeId === gEmp.employeeId);
+                const catObj = {};
+                (catItem?.categoryList || []).forEach(c => {
+                    if (c.categoryDesc && c.valueDesc) catObj[c.categoryDesc] = c.valueDesc;
+                });
+
+                responseData.username = gEmp.name || responseData.username;
+                responseData.email = gEmp.email || gEmp.personalEmail || responseData.email;
+                responseData.phoneNumber = gEmp.mobile || gEmp.phone || gEmp.phoneNumber || responseData.phoneNumber;
+                responseData.designation = catObj['Designation'] || gEmp.designation || responseData.designation;
+                responseData.workingBranch = catObj['Store Name'] || catObj['Department'] || catObj['Location'] || responseData.workingBranch;
+            }
+        } catch (gErr) {
+            console.warn('⚠️ Could not enrich employee details from GreytHR:', gErr.message);
+        }
 
         console.log('Successfully retrieved user details for empID:', empID);
         res.status(200).json({
