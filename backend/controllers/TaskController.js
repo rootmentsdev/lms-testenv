@@ -23,7 +23,7 @@ const resolveAssigneeId = async (assignedTo) => {
   }
 
   // 2. If it is a group selection key, return it
-  if (['all_employees', 'all_store_admins', 'all_cluster_admins', 'all_hr_admins'].includes(assignedTo)) {
+  if (['all_employees', 'all_store_admins', 'all_cluster_admins', 'all_process_control_managers', 'all_hr_admins'].includes(assignedTo)) {
     return assignedTo;
   }
 
@@ -31,6 +31,7 @@ const resolveAssigneeId = async (assignedTo) => {
   if (assignedTo.toLowerCase() === 'all employees') return 'all_employees';
   if (assignedTo.toLowerCase() === 'all store admins') return 'all_store_admins';
   if (assignedTo.toLowerCase() === 'all cluster admins') return 'all_cluster_admins';
+  if (assignedTo.toLowerCase() === 'all process control managers') return 'all_process_control_managers';
   if (assignedTo.toLowerCase() === 'all hr admins') return 'all_hr_admins';
 
   // 3. Parse formatted label, e.g. "Rivas - Admin - All Stores"
@@ -77,6 +78,7 @@ const resolveAssigneeId = async (assignedTo) => {
 const ASSIGNED_TO_LABELS = {
   store_admin: 'Store Admin',
   cluster_admin: 'Cluster Admin',
+  process_control_manager: 'Process Control Manager',
   all_stores: 'All Stores',
   telecaller: 'Telecaller',
 };
@@ -84,6 +86,8 @@ const ASSIGNED_TO_LABELS = {
 const ROLE_LABELS = {
   super_admin: 'Super Admin',
   admin: 'Admin',
+  hr_admin: 'HR Admin',
+  process_control_manager: 'Process Control Manager',
   cluster_admin: 'Cluster Admin',
   store_admin: 'Store Admin',
   telecaller: 'Telecaller',
@@ -232,10 +236,10 @@ export const mapTaskForClient = (doc, overrideBranch, requesterInfo) => {
   if (task.taskTitles && task.taskTitles.length > 0) {
     let matchingTitleDoc = null;
     if (requesterRole === 'employee' || requesterRole === 'user') {
-      matchingTitleDoc = [...task.taskTitles].reverse().find(t => ['store_admin', 'cluster_admin', 'super_admin', 'admin', 'hr_admin'].includes(t.role));
+      matchingTitleDoc = [...task.taskTitles].reverse().find(t => ['store_admin', 'cluster_admin', 'process_control_manager', 'super_admin', 'admin', 'hr_admin'].includes(t.role));
     } else if (requesterRole === 'store_admin') {
-      matchingTitleDoc = [...task.taskTitles].reverse().find(t => ['cluster_admin', 'super_admin', 'admin', 'hr_admin'].includes(t.role));
-    } else if (requesterRole === 'cluster_admin') {
+      matchingTitleDoc = [...task.taskTitles].reverse().find(t => ['cluster_admin', 'process_control_manager', 'super_admin', 'admin', 'hr_admin'].includes(t.role));
+    } else if (requesterRole === 'cluster_admin' || requesterRole === 'process_control_manager') {
       matchingTitleDoc = [...task.taskTitles].reverse().find(t => ['super_admin', 'admin', 'hr_admin'].includes(t.role));
     }
 
@@ -426,6 +430,15 @@ export const createTask = async (req, res) => {
         targets.push({
           id: ad._id.toString(),
           label: `${ad.name} - Cluster Admin - Cluster`
+        });
+      });
+    }
+    else if (resolvedAssignedTo === 'all_process_control_managers') {
+      const adminsList = await Admin.find({ role: 'process_control_manager', isActive: true });
+      adminsList.forEach(ad => {
+        targets.push({
+          id: ad._id.toString(),
+          label: `${ad.name} - Process Control Manager - All Store`
         });
       });
     }
@@ -764,8 +777,8 @@ export const getTasks = async (req, res) => {
 };
 
 function assignedToMatchesRole(assignedTo, role) {
-  if (role === 'cluster_admin') {
-    return assignedTo === 'cluster_admin' || assignedTo === 'all_stores' || assignedTo === 'store_admin';
+  if (role === 'cluster_admin' || role === 'process_control_manager') {
+    return assignedTo === 'cluster_admin' || assignedTo === 'process_control_manager' || assignedTo === 'all_stores' || assignedTo === 'store_admin';
   }
   if (role === 'store_admin') {
     return assignedTo === 'store_admin';
@@ -791,7 +804,7 @@ export const getTaskById = async (req, res) => {
       if (assigneeId) {
         const assigneeAdmin = await Admin.findById(assigneeId, { role: 1, branches: 1 }).populate('branches', 'workingBranch').lean();
         if (assigneeAdmin) {
-          assigneeBranch = ['super_admin', 'admin', 'hr_admin'].includes(assigneeAdmin.role)
+          assigneeBranch = ['super_admin', 'admin', 'hr_admin', 'process_control_manager'].includes(assigneeAdmin.role)
             ? 'Office'
             : (assigneeAdmin.branches?.[0]?.workingBranch || null);
         } else {
@@ -840,7 +853,8 @@ export const getTaskAssignees = async (req, res) => {
       const design = String(designationOrRole || '').toLowerCase();
       const workingBranch = String(item.workingBranch || '').toLowerCase();
       
-      const hasAllStoreRole = ['super_admin', 'admin', 'hr_admin'].includes(design) || 
+      const hasAllStoreRole = ['super_admin', 'admin', 'hr_admin', 'process_control_manager'].includes(design) || 
+                              design.includes('process control') ||
                               design.includes('hr admin') || 
                               design.includes('super admin') || 
                               (design.includes('admin') && !design.includes('store') && !design.includes('cluster'));
@@ -885,10 +899,18 @@ export const getTaskAssignees = async (req, res) => {
       genericOptions.push(
         { value: 'all_employees', label: 'All Employees', type: 'group' },
         { value: 'all_hr_admins', label: 'All HR Admins', type: 'group' },
+        { value: 'all_process_control_managers', label: 'All Process Control Managers', type: 'group' },
         { value: 'all_cluster_admins', label: 'All Cluster Admins', type: 'group' },
         { value: 'all_store_admins', label: 'All Store Admins', type: 'group' }
       );
     } else if (role === 'hr_admin') {
+      genericOptions.push(
+        { value: 'all_employees', label: 'All Employees', type: 'group' },
+        { value: 'all_process_control_managers', label: 'All Process Control Managers', type: 'group' },
+        { value: 'all_cluster_admins', label: 'All Cluster Admins', type: 'group' },
+        { value: 'all_store_admins', label: 'All Store Admins', type: 'group' }
+      );
+    } else if (role === 'process_control_manager') {
       genericOptions.push(
         { value: 'all_employees', label: 'All Employees', type: 'group' },
         { value: 'all_cluster_admins', label: 'All Cluster Admins', type: 'group' },
@@ -923,9 +945,11 @@ export const getTaskAssignees = async (req, res) => {
     // 5. Fetch Accessible Admins based on role hierarchy
     let adminQuery = { isActive: true };
     if (role === 'super_admin' || role === 'admin') {
-      adminQuery.role = { $in: ['super_admin', 'admin', 'hr_admin', 'cluster_admin', 'store_admin'] };
+      adminQuery.role = { $in: ['super_admin', 'admin', 'hr_admin', 'process_control_manager', 'cluster_admin', 'store_admin'] };
     } else if (role === 'hr_admin') {
-      adminQuery.role = { $in: ['hr_admin', 'cluster_admin', 'store_admin'] };
+      adminQuery.role = { $in: ['hr_admin', 'process_control_manager', 'cluster_admin', 'store_admin'] };
+    } else if (role === 'process_control_manager') {
+      adminQuery.role = { $in: ['process_control_manager', 'cluster_admin', 'store_admin'] };
     } else if (role === 'cluster_admin') {
       adminQuery.role = { $in: ['cluster_admin', 'store_admin'] };
       adminQuery.branches = { $in: accessibleStoreIds };
@@ -950,7 +974,7 @@ export const getTaskAssignees = async (req, res) => {
       let storeName = ad.branches && ad.branches.length > 0 ? ad.branches[0].workingBranch : 'Store';
 
       const isAllStore = isAllStoreEmployee(ad, ad.role);
-      if (isAllStore || ['super_admin', 'admin', 'hr_admin'].includes(ad.role)) {
+      if (isAllStore || ['super_admin', 'admin', 'hr_admin', 'process_control_manager'].includes(ad.role)) {
         storeName = 'All Store';
       }
 

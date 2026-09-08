@@ -642,17 +642,17 @@ export const CreatingAdminUsers = async (req, res) => {
         }
 
         // Check if role is valid
-        const validRoles = ['super_admin', 'admin', 'hr_admin', 'cluster_admin', 'store_admin', 'warehouse_admin', 'telecaller', 'employee'];
+        const validRoles = ['super_admin', 'admin', 'hr_admin', 'process_control_manager', 'cluster_admin', 'store_admin', 'warehouse_admin', 'telecaller', 'employee'];
         if (!validRoles.includes(role)) {
             return res.status(400).json({
-                message: "Invalid role provided. Valid roles are: super_admin, admin, hr_admin, cluster_admin, store_admin, warehouse_admin, telecaller, employee.",
+                message: "Invalid role provided. Valid roles are: super_admin, admin, hr_admin, process_control_manager, cluster_admin, store_admin, warehouse_admin, telecaller, employee.",
             });
         }
 
-        // Cluster admin check: can only assign store_admin or employee
-        if (req.admin?.role === 'cluster_admin' && role !== 'store_admin' && role !== 'employee') {
+        // Cluster admin / Process control manager check: can only assign store_admin or employee
+        if ((req.admin?.role === 'cluster_admin' || req.admin?.role === 'process_control_manager') && role !== 'store_admin' && role !== 'employee') {
             return res.status(403).json({
-                message: "Cluster admins are only allowed to assign store_admin or employee roles.",
+                message: "Cluster admins and Process Control Managers are only allowed to assign store_admin or employee roles.",
             });
         }
 
@@ -774,7 +774,7 @@ export const CreatingAdminUsers = async (req, res) => {
         // Determine branches/clusters for the admin
         let finalBranches = [];
         let finalClusters = [];
-        if (role === 'super_admin' || role === 'admin' || role === 'hr_admin') {
+        if (role === 'super_admin' || role === 'admin' || role === 'hr_admin' || role === 'process_control_manager') {
             const allBranches = await Branch.find();
             finalBranches = allBranches.map((branch) => branch._id);
         } else if (role === 'warehouse_admin') {
@@ -1045,7 +1045,7 @@ export const getAccessibleEmployees = async (req, res) => {
 
         // Determine allowed admin roles to return as employees based on logged-in admin's role
         let allowedAdminRoles = ['store_admin', 'cluster_admin', 'telecaller'];
-        let excludedAdminRoles = ['super_admin', 'admin', 'hr_admin'];
+        let excludedAdminRoles = ['super_admin', 'admin', 'hr_admin', 'process_control_manager'];
         
         const excludeOffice = req.query.excludeOffice === 'true';
 
@@ -1070,14 +1070,14 @@ export const getAccessibleEmployees = async (req, res) => {
 
         if (req.admin.role === 'store_admin' || req.admin.role === 'telecaller') {
             allowedAdminRoles = ['store_admin', 'telecaller'];
-            excludedAdminRoles = ['super_admin', 'admin', 'hr_admin', 'cluster_admin'];
+            excludedAdminRoles = ['super_admin', 'admin', 'hr_admin', 'process_control_manager', 'cluster_admin'];
         }
 
         // Fetch store/cluster admins for the selected/accessible stores to include them as employees
         let storeAdminQuery = { isActive: { $ne: false } };
         if (resolvedStore) {
             storeAdminQuery.branches = resolvedStore._id;
-        } else if (['super_admin', 'admin', 'hr_admin'].includes(req.admin.role)) {
+        } else if (['super_admin', 'admin', 'hr_admin', 'process_control_manager'].includes(req.admin.role)) {
             // High-level roles access all system admins/employees when no store parameter is specified
         } else {
             const accessibleStoreIds = await getAccessibleStoreIds(req.admin.userId);
@@ -1267,11 +1267,11 @@ export const updateAdminUser = async (req, res) => {
         const { id } = req.params;
         const { name, email, phoneNumber, role, Branch: branches, password } = req.body;
 
-        // Cluster admin check: can only assign store_admin or employee
-        if (req.admin?.role === 'cluster_admin' && role !== 'store_admin' && role !== 'employee') {
+        // Cluster admin / Process control manager check: can only assign store_admin or employee
+        if ((req.admin?.role === 'cluster_admin' || req.admin?.role === 'process_control_manager') && role !== 'store_admin' && role !== 'employee') {
             return res.status(403).json({
                 success: false,
-                message: "Cluster admins are only allowed to assign store_admin or employee roles.",
+                message: "Cluster admins and Process Control Managers are only allowed to assign store_admin or employee roles.",
             });
         }
 
@@ -1333,7 +1333,7 @@ export const updateAdminUser = async (req, res) => {
             const empId = isEmployee.empID;
 
             let finalBranches = [];
-            if (role === 'super_admin' || role === 'admin' || role === 'hr_admin') {
+            if (role === 'super_admin' || role === 'admin' || role === 'hr_admin' || role === 'process_control_manager') {
                 const allBranches = await Branch.find();
                 finalBranches = allBranches.map((branch) => branch._id);
             } else {
@@ -1374,7 +1374,7 @@ export const updateAdminUser = async (req, res) => {
             });
             const savedAdmin = await newAdmin.save();
 
-            const userDesignation = role === 'super_admin' ? 'Super Admin' : (role === 'admin' ? 'Admin' : (role === 'hr_admin' ? 'HR Admin' : (role === 'cluster_admin' ? 'Cluster Admin' : (role === 'warehouse_admin' ? 'Warehouse Admin' : (role === 'telecaller' ? 'Telecaller' : 'Store Admin')))));
+            const userDesignation = role === 'super_admin' ? 'Super Admin' : (role === 'admin' ? 'Admin' : (role === 'hr_admin' ? 'HR Admin' : (role === 'process_control_manager' ? 'Process Control Manager' : (role === 'cluster_admin' ? 'Cluster Admin' : (role === 'warehouse_admin' ? 'Warehouse Admin' : (role === 'telecaller' ? 'Telecaller' : 'Store Admin'))))));
             let workingBranchStr = "";
             let finalLocCodes = [];
             if (finalBranches.length > 0) {
@@ -1405,7 +1405,7 @@ export const updateAdminUser = async (req, res) => {
             updateFields.password = await bcrypt.hash(password.trim(), 10);
         }
 
-        if (role === 'super_admin' || role === 'admin' || role === 'hr_admin') {
+        if (role === 'super_admin' || role === 'admin' || role === 'hr_admin' || role === 'process_control_manager') {
             const allBranches = await Branch.find();
             updateFields.branches = allBranches.map((branch) => branch._id);
             updateFields.assignedClusters = [];
@@ -1457,7 +1457,7 @@ export const updateAdminUser = async (req, res) => {
                 if (password && password.trim() !== "") {
                     userRecord.password = await bcrypt.hash(password.trim(), 10);
                 }
-                const userDesignation = role === 'super_admin' ? 'Super Admin' : (role === 'admin' ? 'Admin' : (role === 'hr_admin' ? 'HR Admin' : (role === 'cluster_admin' ? 'Cluster Admin' : (role === 'warehouse_admin' ? 'Warehouse Admin' : (role === 'telecaller' ? 'Telecaller' : 'Store Admin')))));
+                const userDesignation = role === 'super_admin' ? 'Super Admin' : (role === 'admin' ? 'Admin' : (role === 'hr_admin' ? 'HR Admin' : (role === 'process_control_manager' ? 'Process Control Manager' : (role === 'cluster_admin' ? 'Cluster Admin' : (role === 'warehouse_admin' ? 'Warehouse Admin' : (role === 'telecaller' ? 'Telecaller' : 'Store Admin'))))));
                 userRecord.designation = userDesignation;
 
                 let workingBranchStr = "";
@@ -1495,7 +1495,7 @@ export const deleteAdminUser = async (req, res) => {
     try {
         const { id } = req.params;
 
-        if (req.admin?.role === 'cluster_admin') {
+        if (req.admin?.role === 'cluster_admin' || req.admin?.role === 'process_control_manager') {
             let targetUser = null;
             if (mongoose.isValidObjectId(id)) {
                 targetUser = await User.findById(id) || await Admin.findById(id);
@@ -1508,7 +1508,7 @@ export const deleteAdminUser = async (req, res) => {
                 if (targetRole !== 'store_admin' && targetRole !== 'employee') {
                     return res.status(403).json({
                         success: false,
-                        message: "Cluster admins are only allowed to delete store_admin or employee users.",
+                        message: "Cluster admins and Process Control Managers are only allowed to delete store_admin or employee users.",
                     });
                 }
             }

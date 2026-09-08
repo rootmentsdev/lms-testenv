@@ -239,7 +239,7 @@ function getEmpSortKey(empID) {
 
 async function buildProcessedEmployees(admin) {
   const allowedLocCodes = admin.branches.map((branch) => branch.locCode);
-  const isGlobalAdmin = ['super_admin', 'admin', 'hr_admin'].includes(admin.role) || allowedLocCodes.length === 0;
+  const isGlobalAdmin = ['super_admin', 'admin', 'hr_admin', 'process_control_manager'].includes(admin.role) || allowedLocCodes.length === 0;
   const cacheKey = getProcessedCacheKey(admin._id.toString(), allowedLocCodes, isGlobalAdmin);
 
   const cached = getProcessedEmployees(cacheKey);
@@ -641,7 +641,7 @@ export const getAllAppRegisteredEmployees = async (req, res) => {
     const role   = req.query.role  || 'All';
 
     const allowedLocCodes = admin.branches.map((b) => b.locCode);
-    const isGlobalAdmin   = ['super_admin', 'admin', 'hr_admin'].includes(admin.role) || allowedLocCodes.length === 0;
+    const isGlobalAdmin   = ['super_admin', 'admin', 'hr_admin', 'process_control_manager'].includes(admin.role) || allowedLocCodes.length === 0;
 
     const cacheKey = getProcessedCacheKey(admin._id.toString(), allowedLocCodes, isGlobalAdmin);
     let employees = getProcessedAppUsers(cacheKey);

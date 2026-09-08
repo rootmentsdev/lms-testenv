@@ -889,7 +889,7 @@ const WalkinReport = () => {
         const json = await res.json();
         let list = Array.isArray(json?.stores) ? json.stores : (Array.isArray(json?.data) ? json.data : []);
         
-        if (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'telecaller') {
+        if (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'process_control_manager' || user?.role === 'telecaller') {
           const existingNames = new Set(list.map(b => b.workingBranch).filter(Boolean));
           const missing = HARDCODED_STORES.filter(s => !existingNames.has(s));
           list = [...list, ...missing.map(name => ({ workingBranch: name }))];

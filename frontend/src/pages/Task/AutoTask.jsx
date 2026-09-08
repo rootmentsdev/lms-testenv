@@ -27,6 +27,7 @@ const ROLES = [
   { value: 'super_admin', label: 'Super Admin' },
   { value: 'admin', label: 'Admin' },
   { value: 'hr_admin', label: 'HR Admin' },
+  { value: 'process_control_manager', label: 'Process Control Manager' },
   { value: 'cluster_admin', label: 'Cluster Admin' },
   { value: 'store_admin', label: 'Store Admin' },
   { value: 'employee', label: 'Staff' }
@@ -483,7 +484,7 @@ const AutoTask = () => {
   useEffect(() => {
     if (user?.role === 'store_admin') {
       setAssignTo('individual');
-    } else if (user?.role === 'cluster_admin') {
+    } else if (user?.role === 'cluster_admin' || user?.role === 'process_control_manager') {
       setAssignTo('store');
     }
   }, [user?.role]);
@@ -536,6 +537,8 @@ const AutoTask = () => {
             admin: 5,
             hr_admin: 4,
             'hr admin': 4,
+            process_control_manager: 3,
+            'process control manager': 3,
             cluster_admin: 3,
             'cluster admin': 3,
             store_admin: 2,
@@ -556,7 +559,7 @@ const AutoTask = () => {
                 const designation = parts[1].trim().toLowerCase();
                 if (designation === 'super admin' || designation === 'admin') return 5;
                 if (designation === 'hr admin') return 4;
-                if (designation === 'cluster admin') return 3;
+                if (designation === 'cluster admin' || designation === 'process control manager' || designation === 'process_control_manager') return 3;
                 if (designation === 'store admin' || designation === 'store_admin') return 2;
               }
             }
@@ -566,7 +569,7 @@ const AutoTask = () => {
           const filteredAndFormatted = (json.data || [])
             .filter(opt => opt.type !== 'group')
             .filter(opt => {
-              if (['cluster_admin', 'store_admin', 'hr_admin'].includes(userRole)) {
+              if (['cluster_admin', 'process_control_manager', 'store_admin', 'hr_admin'].includes(userRole)) {
                 const optRank = getOptionRank(opt);
                 if (optRank > userRank) return false;
               }
@@ -1004,7 +1007,7 @@ const AutoTask = () => {
                 <label className="auto-task-label">Assign to<span className="auto-task-req">*</span></label>
                 <div className="assign-radio-group">
                   
-                  {user?.role !== 'store_admin' && user?.role !== 'cluster_admin' && (
+                  {user?.role !== 'store_admin' && user?.role !== 'cluster_admin' && user?.role !== 'process_control_manager' && (
                     <label className="assign-radio-label">
                       <input 
                         type="radio" 

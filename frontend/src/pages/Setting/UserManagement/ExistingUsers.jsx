@@ -138,6 +138,8 @@ const ExistingUsers = () => {
                 return "Admin";
             case "hr_admin":
                 return "HR Admin";
+            case "process_control_manager":
+                return "Process Control Manager";
             case "cluster_admin":
                 return "Cluster Admin";
             case "store_admin":
@@ -155,7 +157,7 @@ const ExistingUsers = () => {
 
     // Filter and search
     const filteredAdmins = admins.filter((admin) => {
-        if (user?.role === 'cluster_admin') {
+        if (user?.role === 'cluster_admin' || user?.role === 'process_control_manager') {
             if (admin?.role !== 'store_admin' && admin?.role !== 'employee') return false;
         }
 
@@ -478,7 +480,7 @@ const ExistingUsers = () => {
                             </div>
 
                             {/* Filter selection dropdown */}
-                            {user?.role !== 'cluster_admin' && (
+                            {user?.role !== 'cluster_admin' && user?.role !== 'process_control_manager' && (
                                 <div className="relative w-full sm:w-auto">
                                     <select
                                         value={roleFilter}
@@ -492,6 +494,7 @@ const ExistingUsers = () => {
                                         <option value="super_admin">Super Admin</option>
                                         <option value="admin">Admin</option>
                                         <option value="hr_admin">HR Admin</option>
+                                        <option value="process_control_manager">Process Control Manager</option>
                                         <option value="cluster_admin">Cluster Admin</option>
                                         <option value="store_admin">Store Admin</option>
                                         <option value="warehouse_admin">Warehouse Admin</option>
@@ -549,7 +552,7 @@ const ExistingUsers = () => {
 
                                                 {/* Stores list */}
                                                 <td className="py-4 px-4 max-w-xs truncate">
-                                                    {admin.role === "super_admin" || admin.role === "admin" || admin.role === "hr_admin" ? (
+                                                    {admin.role === "super_admin" || admin.role === "admin" || admin.role === "hr_admin" || admin.role === "process_control_manager" ? (
                                                         <span className="text-gray-500 italic uppercase">All Stores</span>
                                                     ) : admin.branches && admin.branches.length > 0 ? (
                                                         <span className="uppercase">{admin.branches.map((b) => b.workingBranch).join(", ")}</span>
@@ -785,7 +788,7 @@ const ExistingUsers = () => {
                                 Assigned Stores
                             </span>
                             <div className="flex flex-wrap gap-2">
-                                {selectedUser.role === "super_admin" || selectedUser.role === "admin" || selectedUser.role === "hr_admin" ? (
+                                {selectedUser.role === "super_admin" || selectedUser.role === "admin" || selectedUser.role === "hr_admin" || selectedUser.role === "process_control_manager" ? (
                                     <span className="text-sm font-semibold text-gray-600 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100 uppercase">
                                         All Stores
                                     </span>
@@ -881,7 +884,7 @@ const ExistingUsers = () => {
                                         const nextRole = e.target.value;
                                         setEditRole(nextRole);
                                         // Clear stores when switching to full-access roles
-                                        if (nextRole === "super_admin" || nextRole === "admin" || nextRole === "hr_admin") {
+                                        if (nextRole === "super_admin" || nextRole === "admin" || nextRole === "hr_admin" || nextRole === "process_control_manager") {
                                             setEditSelectedBranches([]);
                                         } else if (nextRole === "warehouse_admin") {
                                             const warehouseBranchOpt = branches.find(b => 
@@ -896,7 +899,7 @@ const ExistingUsers = () => {
                                     }}
                                     className="w-full h-[45px] pl-4 pr-10 border border-gray-200 rounded-xl text-sm font-semibold focus:outline-none focus:border-black transition-all bg-white text-gray-900 appearance-none cursor-pointer"
                                 >
-                                    {user?.role === 'cluster_admin' ? (
+                                    {user?.role === 'cluster_admin' || user?.role === 'process_control_manager' ? (
                                         <>
                                             <option value="store_admin">Store Admin</option>
                                             <option value="employee">Employee</option>
@@ -906,6 +909,7 @@ const ExistingUsers = () => {
                                             <option value="super_admin">Super Admin</option>
                                             <option value="admin">Admin</option>
                                             <option value="hr_admin">HR Admin</option>
+                                            <option value="process_control_manager">Process Control Manager</option>
                                             <option value="cluster_admin">Cluster Admin</option>
                                             <option value="store_admin">Store Admin</option>
                                             <option value="warehouse_admin">Warehouse Admin</option>
@@ -929,7 +933,7 @@ const ExistingUsers = () => {
                                 <label className="block text-[13px] font-medium text-gray-700">
                                     Stores<span className="text-red-500">*</span>
                                 </label>
-                            {editRole !== "super_admin" && editRole !== "admin" && editRole !== "hr_admin" && editRole !== "warehouse_admin" && (
+                            {editRole !== "super_admin" && editRole !== "admin" && editRole !== "hr_admin" && editRole !== "process_control_manager" && editRole !== "warehouse_admin" && (
                                     <div className="flex gap-3 text-xs font-semibold">
                                         {editRole !== "employee" && (
                                             <>
@@ -958,7 +962,7 @@ const ExistingUsers = () => {
                                 )}
                             </div>
 
-                            {editRole === "super_admin" || editRole === "admin" || editRole === "hr_admin" ? (
+                            {editRole === "super_admin" || editRole === "admin" || editRole === "hr_admin" || editRole === "process_control_manager" ? (
                                 <div className="flex items-center gap-2 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl">
                                     <span className="text-sm font-semibold text-gray-700">All Stores Assigned</span>
                                     <span className="ml-auto text-xs text-gray-400 italic">(auto-assigned for this role)</span>
@@ -986,7 +990,7 @@ const ExistingUsers = () => {
                             )}
 
                             {/* Count badge */}
-                            {editRole !== "super_admin" && editRole !== "admin" && editRole !== "hr_admin" && editRole !== "employee" && editSelectedBranches.length > 0 && (
+                            {editRole !== "super_admin" && editRole !== "admin" && editRole !== "hr_admin" && editRole !== "process_control_manager" && editRole !== "employee" && editSelectedBranches.length > 0 && (
                                 <p className="text-xs text-gray-400 mt-2">
                                     {editSelectedBranches.length} store{editSelectedBranches.length > 1 ? "s" : ""} selected
                                 </p>

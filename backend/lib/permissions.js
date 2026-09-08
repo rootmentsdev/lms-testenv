@@ -9,7 +9,7 @@ import User from '../model/User.js';
  * Validates if the user is a super admin or hr admin (full access)
  */
 export const isFullAccessAdmin = (adminRole) => {
-    return ['super_admin', 'admin', 'hr_admin'].includes(adminRole);
+    return ['super_admin', 'admin', 'hr_admin', 'process_control_manager'].includes(adminRole);
 };
 
 /**

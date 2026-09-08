@@ -1045,6 +1045,22 @@ export const PermissionController = async (req, res) => {
             { new: true }
         );
 
+        // Also update permissions for process_control_manager (mirrors cluster_admin)
+        await Permission.findOneAndUpdate(
+            { role: "process_control_manager" },
+            {
+                $set: {
+                    "permissions.canCreateTraining": clusterManager.training[0],
+                    "permissions.canCreateAssessment": clusterManager.assessment[0],
+                    "permissions.canReassignTraining": clusterManager.training[1],
+                    "permissions.canReassignAssessment": clusterManager.assessment[1],
+                    "permissions.canDeleteTraining": clusterManager.training[2],
+                    "permissions.canDeleteAssessment": clusterManager.assessment[2],
+                },
+            },
+            { new: true, upsert: true }
+        );
+
         // Update store manager permissions
         const StoreUpdate = await Permission.findOneAndUpdate(
             { role: "store_admin" },
@@ -1383,7 +1399,7 @@ export const GetMobileDashboard = async (req, res) => {
         let assessmentsCompleted = 0;
         let assessmentsTotal = 0;
 
-        if (['super_admin', 'admin', 'hr_admin'].includes(role)) {
+        if (['super_admin', 'admin', 'hr_admin', 'process_control_manager'].includes(role)) {
             const allUsers = await User.find({}).select('assignedAssessments').lean();
             for (const u of allUsers) {
                 if (u.assignedAssessments) {

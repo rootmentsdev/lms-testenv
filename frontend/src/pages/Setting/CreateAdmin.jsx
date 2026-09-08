@@ -38,8 +38,9 @@ const CreateUser = () => {
     const userRole =
       selectedOption === "user" ? "super_admin" :
         selectedOption === "admin" ? "admin" :
-          selectedOption === "designation" ? "cluster_admin" :
-            selectedOption === "telecaller" ? "telecaller" : "store_admin";
+          selectedOption === "process_control_manager" ? "process_control_manager" :
+            selectedOption === "designation" ? "cluster_admin" :
+              selectedOption === "telecaller" ? "telecaller" : "store_admin";
     const updatedForm = {
       ...form,
       userRole,
@@ -210,6 +211,15 @@ const CreateUser = () => {
                   onChange={() => setSelectedOption("admin")}
                 />{" "}
                 Admin
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  value="process_control_manager"
+                  checked={selectedOption === "process_control_manager"}
+                  onChange={() => setSelectedOption("process_control_manager")}
+                />{" "}
+                Process Control Manager
               </label>
               <label>
                 <input

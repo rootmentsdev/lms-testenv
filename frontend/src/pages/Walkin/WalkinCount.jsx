@@ -495,7 +495,7 @@ const WalkinCount = () => {
                 const branchJson = await branchRes.json();
                 let branchList = Array.isArray(branchJson?.stores) ? branchJson.stores : (Array.isArray(branchJson?.data) ? branchJson.data : []);
 
-                if (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'telecaller') {
+                if (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'process_control_manager' || user?.role === 'telecaller') {
                     const existingNames = new Set(branchList.map(b => b.workingBranch).filter(Boolean));
                     const missing = HARDCODED_STORES.filter(s => !existingNames.has(s));
                     branchList = [...branchList, ...missing.map(name => ({ workingBranch: name }))];
@@ -1244,7 +1244,7 @@ const WalkinCount = () => {
                             )}
 
                             {/* Store Multi-Select Filter */}
-                            {(user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'cluster_admin' || user?.role === 'store_admin' || user?.role === 'telecaller') && (
+                            {(user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin' || user?.role === 'process_control_manager' || user?.role === 'cluster_admin' || user?.role === 'store_admin' || user?.role === 'telecaller') && (
                                 <div ref={storeDropdownRef} style={{ position: 'relative' }}>
                                     <button
                                         type="button"

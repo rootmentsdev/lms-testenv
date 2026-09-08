@@ -139,7 +139,7 @@ const resolveStore = async (assigneeId) => {
   try {
     const admin = await Admin.findById(assigneeId).populate('branches');
     if (admin) {
-      if (['super_admin', 'admin', 'hr_admin'].includes(admin.role)) {
+      if (['super_admin', 'admin', 'hr_admin', 'process_control_manager'].includes(admin.role)) {
         return { storeName: 'Office', storeCode: '' };
       }
       const branch = admin.branches?.[0];
@@ -299,6 +299,7 @@ export const generateAutoTasks = async (targetDate = null, specificTemplateId = 
       const creatorName = creator.name;
       const roleLabels  = {
         super_admin: 'Super Admin', admin: 'Admin', hr_admin: 'HR Admin',
+        process_control_manager: 'Process Control Manager',
         cluster_admin: 'Cluster Admin', store_admin: 'Store Admin',
         telecaller: 'Telecaller',
       };

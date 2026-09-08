@@ -270,7 +270,7 @@ router.get('/branch-audit/:id', MiddilWare, getBranchAuditById);
  *                 description: Account password
  *               userRole:
  *                 type: string
- *                 enum: [super_admin, admin, hr_admin, cluster_admin, store_admin, warehouse_admin, telecaller, employee]
+ *                 enum: [super_admin, admin, hr_admin, process_control_manager, cluster_admin, store_admin, warehouse_admin, telecaller, employee]
  *                 description: Role assigned to the user
  *               Branch:
  *                 type: array
@@ -352,7 +352,7 @@ router.get('/admin/list', MiddilWare, getAdminUsers);
  *                 type: string
  *               role:
  *                 type: string
- *                 enum: [super_admin, hr_admin, cluster_admin, store_admin, employee]
+ *                 enum: [super_admin, admin, hr_admin, process_control_manager, cluster_admin, store_admin, employee]
  *               Branch:
  *                 type: array
  *                 items:
