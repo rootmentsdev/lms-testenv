@@ -9,7 +9,7 @@ import User from '../model/User.js';
  * Validates if the user is a super admin or hr admin (full access)
  */
 export const isFullAccessAdmin = (adminRole) => {
-    return ['super_admin', 'admin', 'hr_admin', 'process_control_manager'].includes(adminRole);
+    return ['super_admin', 'admin', 'hr_admin', 'process_control_manager', 'office_admin'].includes(adminRole);
 };
 
 /**
@@ -474,7 +474,8 @@ export const buildTaskFilter = async (adminId, baseQuery = {}) => {
                   }
                 }
               ]
-            }
+            },
+            { 'workMap.assignedBy': { $in: [admin.name, admin.username].filter(Boolean) } }
         ]
     };
 

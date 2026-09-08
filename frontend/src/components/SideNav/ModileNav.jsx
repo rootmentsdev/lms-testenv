@@ -57,7 +57,7 @@ const ModileNav = () => {
           <>
             <MobileNavItem to="/" icon="dashboard" label="Dashboard" active={is('/') || is('/store-insights')} />
             <MobileNavItem to="/walkin/list" icon="walkin" label="WalkIn" active={isWalkin} />
-            {user?.role === 'telecaller' && (
+            {(user?.role === 'telecaller' || user?.role === 'office_admin') && (
               <MobileNavItem to="/task" icon="task" label="Tasks" active={is('/task')} />
             )}
             {user?.role !== 'telecaller' && (

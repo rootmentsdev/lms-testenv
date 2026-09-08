@@ -28,6 +28,7 @@ const ROLES = [
   { value: 'admin', label: 'Admin' },
   { value: 'hr_admin', label: 'HR Admin' },
   { value: 'process_control_manager', label: 'Process Control Manager' },
+  { value: 'office_admin', label: 'Office Admin' },
   { value: 'cluster_admin', label: 'Cluster Admin' },
   { value: 'store_admin', label: 'Store Admin' },
   { value: 'employee', label: 'Staff' }
@@ -484,7 +485,7 @@ const AutoTask = () => {
   useEffect(() => {
     if (user?.role === 'store_admin') {
       setAssignTo('individual');
-    } else if (user?.role === 'cluster_admin' || user?.role === 'process_control_manager') {
+    } else if (user?.role === 'cluster_admin' || user?.role === 'process_control_manager' || user?.role === 'office_admin') {
       setAssignTo('store');
     }
   }, [user?.role]);
@@ -539,6 +540,8 @@ const AutoTask = () => {
             'hr admin': 4,
             process_control_manager: 3,
             'process control manager': 3,
+            office_admin: 3,
+            'office admin': 3,
             cluster_admin: 3,
             'cluster admin': 3,
             store_admin: 2,
@@ -559,7 +562,7 @@ const AutoTask = () => {
                 const designation = parts[1].trim().toLowerCase();
                 if (designation === 'super admin' || designation === 'admin') return 5;
                 if (designation === 'hr admin') return 4;
-                if (designation === 'cluster admin' || designation === 'process control manager' || designation === 'process_control_manager') return 3;
+                if (designation === 'cluster admin' || designation === 'process control manager' || designation === 'process_control_manager' || designation === 'office admin' || designation === 'office_admin') return 3;
                 if (designation === 'store admin' || designation === 'store_admin') return 2;
               }
             }
@@ -569,7 +572,7 @@ const AutoTask = () => {
           const filteredAndFormatted = (json.data || [])
             .filter(opt => opt.type !== 'group')
             .filter(opt => {
-              if (['cluster_admin', 'process_control_manager', 'store_admin', 'hr_admin'].includes(userRole)) {
+              if (['cluster_admin', 'process_control_manager', 'office_admin', 'store_admin', 'hr_admin'].includes(userRole)) {
                 const optRank = getOptionRank(opt);
                 if (optRank > userRank) return false;
               }
@@ -1007,7 +1010,7 @@ const AutoTask = () => {
                 <label className="auto-task-label">Assign to<span className="auto-task-req">*</span></label>
                 <div className="assign-radio-group">
                   
-                  {user?.role !== 'store_admin' && user?.role !== 'cluster_admin' && user?.role !== 'process_control_manager' && (
+                  {user?.role !== 'store_admin' && user?.role !== 'cluster_admin' && user?.role !== 'process_control_manager' && user?.role !== 'office_admin' && (
                     <label className="assign-radio-label">
                       <input 
                         type="radio" 

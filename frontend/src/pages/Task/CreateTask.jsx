@@ -13,6 +13,7 @@ const SYSTEM_ROLES = [
   { value: 'admin', label: 'Admin' },
   { value: 'hr_admin', label: 'HR Admin' },
   { value: 'process_control_manager', label: 'Process Control Manager' },
+  { value: 'office_admin', label: 'Office Admin' },
   { value: 'cluster_admin', label: 'Cluster Admin' },
   { value: 'store_admin', label: 'Store Admin' },
   { value: 'warehouse_admin', label: 'Warehouse Admin' },
@@ -272,6 +273,8 @@ const CreateTask = () => {
             'hr admin': 4,
             process_control_manager: 3,
             'process control manager': 3,
+            office_admin: 3,
+            'office admin': 3,
             cluster_admin: 3,
             'cluster admin': 3,
             store_admin: 2,
@@ -292,7 +295,7 @@ const CreateTask = () => {
                 const designation = parts[1].trim().toLowerCase();
                 if (designation === 'super admin' || designation === 'admin') return 5;
                 if (designation === 'hr admin') return 4;
-                if (designation === 'cluster admin' || designation === 'process control manager' || designation === 'process_control_manager') return 3;
+                if (designation === 'cluster admin' || designation === 'process control manager' || designation === 'process_control_manager' || designation === 'office admin' || designation === 'office_admin') return 3;
                 if (designation === 'store admin' || designation === 'store_admin') return 2;
               }
             }
@@ -304,12 +307,13 @@ const CreateTask = () => {
               if (opt.type === 'group') {
                 if (opt.value === 'all_hr_admins' && userRank < 4) return false;
                 if (opt.value === 'all_process_control_managers' && userRank < 3) return false;
+                if (opt.value === 'all_office_admins' && userRank < 3) return false;
                 if (opt.value === 'all_cluster_admins' && userRank < 3) return false;
                 if (opt.value === 'all_store_admins' && userRank < 2) return false;
                 return true;
               }
               
-              if (['cluster_admin', 'process_control_manager', 'store_admin', 'hr_admin'].includes(userRole)) {
+              if (['cluster_admin', 'process_control_manager', 'office_admin', 'store_admin', 'hr_admin'].includes(userRole)) {
                 const optRank = getOptionRank(opt);
                 if (optRank > userRank) return false;
               }
@@ -565,6 +569,12 @@ const CreateTask = () => {
               nextSelected.push(opt);
             }
           });
+        } else if (option.value === 'all_office_admins') {
+          assigneeOptions.forEach(opt => {
+            if (opt.type === 'admin' && opt.role === 'office_admin' && !nextSelected.some(s => s.value === opt.value)) {
+              nextSelected.push(opt);
+            }
+          });
         } else if (option.value === 'all_cluster_admins') {
           assigneeOptions.forEach(opt => {
             if (opt.type === 'admin' && opt.role === 'cluster_admin' && !nextSelected.some(s => s.value === opt.value)) {
@@ -587,6 +597,8 @@ const CreateTask = () => {
           return set('assignedTo', nextSelected.filter(s => !(s.type === 'admin' && s.role === 'hr_admin') && s.value !== 'all_hr_admins'));
         } else if (option.value === 'all_process_control_managers') {
           return set('assignedTo', nextSelected.filter(s => !(s.type === 'admin' && s.role === 'process_control_manager') && s.value !== 'all_process_control_managers'));
+        } else if (option.value === 'all_office_admins') {
+          return set('assignedTo', nextSelected.filter(s => !(s.type === 'admin' && s.role === 'office_admin') && s.value !== 'all_office_admins'));
         } else if (option.value === 'all_cluster_admins') {
           return set('assignedTo', nextSelected.filter(s => !(s.type === 'admin' && s.role === 'cluster_admin') && s.value !== 'all_cluster_admins'));
         } else if (option.value === 'all_store_admins') {
@@ -602,6 +614,9 @@ const CreateTask = () => {
             if (idx !== -1) nextSelected.splice(idx, 1);
           } else if (option.role === 'process_control_manager') {
             const idx = nextSelected.findIndex(s => s.value === 'all_process_control_managers');
+            if (idx !== -1) nextSelected.splice(idx, 1);
+          } else if (option.role === 'office_admin') {
+            const idx = nextSelected.findIndex(s => s.value === 'all_office_admins');
             if (idx !== -1) nextSelected.splice(idx, 1);
           } else if (option.role === 'cluster_admin') {
             const idx = nextSelected.findIndex(s => s.value === 'all_cluster_admins');
@@ -619,18 +634,21 @@ const CreateTask = () => {
     const employees = assigneeOptions.filter(opt => opt.type === 'employee');
     const hrAdmins = assigneeOptions.filter(opt => opt.type === 'admin' && opt.role === 'hr_admin');
     const processControlManagers = assigneeOptions.filter(opt => opt.type === 'admin' && opt.role === 'process_control_manager');
+    const officeAdmins = assigneeOptions.filter(opt => opt.type === 'admin' && opt.role === 'office_admin');
     const clusterAdmins = assigneeOptions.filter(opt => opt.type === 'admin' && opt.role === 'cluster_admin');
     const storeAdmins = assigneeOptions.filter(opt => opt.type === 'admin' && opt.role === 'store_admin');
 
     const hasAllEmployees = employees.length > 0 && employees.every(emp => nextSelected.some(s => s.value === emp.value));
     const hasAllHrAdmins = hrAdmins.length > 0 && hrAdmins.every(admin => nextSelected.some(s => s.value === admin.value));
     const hasAllProcessControlManagers = processControlManagers.length > 0 && processControlManagers.every(admin => nextSelected.some(s => s.value === admin.value));
+    const hasAllOfficeAdmins = officeAdmins.length > 0 && officeAdmins.every(admin => nextSelected.some(s => s.value === admin.value));
     const hasAllClusterAdmins = clusterAdmins.length > 0 && clusterAdmins.every(admin => nextSelected.some(s => s.value === admin.value));
     const hasAllStoreAdmins = storeAdmins.length > 0 && storeAdmins.every(admin => nextSelected.some(s => s.value === admin.value));
 
     const groupAllEmployeesOpt = assigneeOptions.find(opt => opt.value === 'all_employees');
     const groupAllHrAdminsOpt = assigneeOptions.find(opt => opt.value === 'all_hr_admins');
     const groupAllProcessControlManagersOpt = assigneeOptions.find(opt => opt.value === 'all_process_control_managers');
+    const groupAllOfficeAdminsOpt = assigneeOptions.find(opt => opt.value === 'all_office_admins');
     const groupAllClusterAdminsOpt = assigneeOptions.find(opt => opt.value === 'all_cluster_admins');
     const groupAllStoreAdminsOpt = assigneeOptions.find(opt => opt.value === 'all_store_admins');
 
@@ -642,6 +660,9 @@ const CreateTask = () => {
     }
     if (hasAllProcessControlManagers && groupAllProcessControlManagersOpt && !nextSelected.some(s => s.value === 'all_process_control_managers')) {
       nextSelected.push(groupAllProcessControlManagersOpt);
+    }
+    if (hasAllOfficeAdmins && groupAllOfficeAdminsOpt && !nextSelected.some(s => s.value === 'all_office_admins')) {
+      nextSelected.push(groupAllOfficeAdminsOpt);
     }
     if (hasAllClusterAdmins && groupAllClusterAdminsOpt && !nextSelected.some(s => s.value === 'all_cluster_admins')) {
       nextSelected.push(groupAllClusterAdminsOpt);

@@ -556,7 +556,7 @@ export const saveWalkin = async (req, res) => {
 
         if (req.admin && !req.admin.isSystem) {
             const adminId = req.admin.userId;
-            const isAdminManager = ['super_admin', 'admin', 'hr_admin', 'process_control_manager'].includes(req.admin.role);
+            const isAdminManager = ['super_admin', 'admin', 'hr_admin', 'process_control_manager', 'office_admin'].includes(req.admin.role);
             if (!isAdminManager) {
                 if (finalStoreId && mongoose.Types.ObjectId.isValid(finalStoreId)) {
                     await validateStoreAccess(adminId, finalStoreId);

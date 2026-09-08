@@ -5338,7 +5338,7 @@ const StoreInsights = () => {
                     {/* Role Badge / Dropdown */}
                     {isSuperAdmin ? (
                       <div className="bg-white border border-gray-200/90 rounded-[14px] px-4 py-2 text-[13px] font-bold text-gray-800 shadow-sm flex items-center gap-2 select-none">
-                        <span>Role : {user?.role === "admin" ? "Admin" : user?.role === "process_control_manager" ? "Process Control Manager" : "Super Admin"}</span>
+                        <span>Role : {user?.role === "admin" ? "Admin" : user?.role === "process_control_manager" ? "Process Control Manager" : user?.role === "office_admin" ? "Office Admin" : "Super Admin"}</span>
                       </div>
                     ) : (
                       <div ref={roleDropdownRef} className="relative">

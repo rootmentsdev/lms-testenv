@@ -79,6 +79,7 @@ const ASSIGNED_TO_LABELS = {
   store_admin: 'Store Admin',
   cluster_admin: 'Cluster Admin',
   process_control_manager: 'Process Control Manager',
+  office_admin: 'Office Admin',
   all_stores: 'All Stores',
   telecaller: 'Telecaller',
 };
@@ -90,6 +91,7 @@ const ROLE_LABELS = {
   process_control_manager: 'Process Control Manager',
   cluster_admin: 'Cluster Admin',
   store_admin: 'Store Admin',
+  office_admin: 'Office Admin',
   telecaller: 'Telecaller',
 };
 
@@ -853,8 +855,9 @@ export const getTaskAssignees = async (req, res) => {
       const design = String(designationOrRole || '').toLowerCase();
       const workingBranch = String(item.workingBranch || '').toLowerCase();
       
-      const hasAllStoreRole = ['super_admin', 'admin', 'hr_admin', 'process_control_manager'].includes(design) || 
+      const hasAllStoreRole = ['super_admin', 'admin', 'hr_admin', 'process_control_manager', 'office_admin'].includes(design) || 
                               design.includes('process control') ||
+                              design.includes('office admin') ||
                               design.includes('hr admin') || 
                               design.includes('super admin') || 
                               (design.includes('admin') && !design.includes('store') && !design.includes('cluster'));
@@ -900,6 +903,7 @@ export const getTaskAssignees = async (req, res) => {
         { value: 'all_employees', label: 'All Employees', type: 'group' },
         { value: 'all_hr_admins', label: 'All HR Admins', type: 'group' },
         { value: 'all_process_control_managers', label: 'All Process Control Managers', type: 'group' },
+        { value: 'all_office_admins', label: 'All Office Admins', type: 'group' },
         { value: 'all_cluster_admins', label: 'All Cluster Admins', type: 'group' },
         { value: 'all_store_admins', label: 'All Store Admins', type: 'group' }
       );
@@ -907,13 +911,21 @@ export const getTaskAssignees = async (req, res) => {
       genericOptions.push(
         { value: 'all_employees', label: 'All Employees', type: 'group' },
         { value: 'all_process_control_managers', label: 'All Process Control Managers', type: 'group' },
+        { value: 'all_office_admins', label: 'All Office Admins', type: 'group' },
         { value: 'all_cluster_admins', label: 'All Cluster Admins', type: 'group' },
         { value: 'all_store_admins', label: 'All Store Admins', type: 'group' }
       );
     } else if (role === 'process_control_manager') {
       genericOptions.push(
         { value: 'all_employees', label: 'All Employees', type: 'group' },
+        { value: 'all_office_admins', label: 'All Office Admins', type: 'group' },
         { value: 'all_cluster_admins', label: 'All Cluster Admins', type: 'group' },
+        { value: 'all_store_admins', label: 'All Store Admins', type: 'group' }
+      );
+    } else if (role === 'office_admin') {
+      genericOptions.push(
+        { value: 'all_employees', label: 'All Employees', type: 'group' },
+        { value: 'all_office_admins', label: 'All Office Admins', type: 'group' },
         { value: 'all_store_admins', label: 'All Store Admins', type: 'group' }
       );
     } else if (role === 'cluster_admin') {
@@ -945,11 +957,13 @@ export const getTaskAssignees = async (req, res) => {
     // 5. Fetch Accessible Admins based on role hierarchy
     let adminQuery = { isActive: true };
     if (role === 'super_admin' || role === 'admin') {
-      adminQuery.role = { $in: ['super_admin', 'admin', 'hr_admin', 'process_control_manager', 'cluster_admin', 'store_admin'] };
+      adminQuery.role = { $in: ['super_admin', 'admin', 'hr_admin', 'process_control_manager', 'cluster_admin', 'store_admin', 'office_admin'] };
     } else if (role === 'hr_admin') {
-      adminQuery.role = { $in: ['hr_admin', 'process_control_manager', 'cluster_admin', 'store_admin'] };
+      adminQuery.role = { $in: ['hr_admin', 'process_control_manager', 'cluster_admin', 'store_admin', 'office_admin'] };
     } else if (role === 'process_control_manager') {
-      adminQuery.role = { $in: ['process_control_manager', 'cluster_admin', 'store_admin'] };
+      adminQuery.role = { $in: ['process_control_manager', 'cluster_admin', 'store_admin', 'office_admin'] };
+    } else if (role === 'office_admin') {
+      adminQuery.role = { $in: ['office_admin', 'store_admin'] };
     } else if (role === 'cluster_admin') {
       adminQuery.role = { $in: ['cluster_admin', 'store_admin'] };
       adminQuery.branches = { $in: accessibleStoreIds };
@@ -974,7 +988,7 @@ export const getTaskAssignees = async (req, res) => {
       let storeName = ad.branches && ad.branches.length > 0 ? ad.branches[0].workingBranch : 'Store';
 
       const isAllStore = isAllStoreEmployee(ad, ad.role);
-      if (isAllStore || ['super_admin', 'admin', 'hr_admin', 'process_control_manager'].includes(ad.role)) {
+      if (isAllStore || ['super_admin', 'admin', 'hr_admin', 'process_control_manager', 'office_admin'].includes(ad.role)) {
         storeName = 'All Store';
       }
 
