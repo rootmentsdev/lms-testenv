@@ -1161,7 +1161,7 @@ const WalkinCount = () => {
                         
                         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
                             {/* Cluster Multi-Select Filter */}
-                            {(user?.role === 'super_admin' || user?.role === 'admin') && (
+                            {(user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'process_control_manager') && (
                                 <div ref={clusterDropdownRef} style={{ position: 'relative' }}>
                                     <button
                                         type="button"
