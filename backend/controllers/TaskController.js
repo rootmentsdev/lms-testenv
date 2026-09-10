@@ -120,7 +120,7 @@ const computeStatus = (task) => {
   if (task.status === 'COMPLETED') return 'COMPLETED';
   if (task.status === 'IN PROGRESS') return 'IN PROGRESS';
   if (task.status === 'ON HOLD') return 'ON HOLD';
-  if (task.status === 'UNDER REVIEW') return 'UNDER REVIEW';
+  if (task.status === 'UNDER REVIEW' || task.status === 'PENDING REVIEW') return task.status;
 
   const end = parseDateParts(task.endDate);
   if (end) {
@@ -673,7 +673,7 @@ export const getTasks = async (req, res) => {
     }
     if (status && status !== 'All') {
       if (status === 'OVERDUE') {
-        baseQuery.status = { $nin: ['COMPLETED', 'IN PROGRESS', 'ON HOLD', 'UNDER REVIEW'] };
+        baseQuery.status = { $nin: ['COMPLETED', 'IN PROGRESS', 'ON HOLD', 'UNDER REVIEW', 'PENDING REVIEW'] };
       } else {
         baseQuery.status = status;
       }
@@ -1473,13 +1473,19 @@ export const updateTaskStatus = async (req, res) => {
     }
     await task.save();
 
-    // Trigger status-change notifications to relevant party (creator, assignee, or both)
+    // Trigger status-change notifications to relevant party (creator, assignee, or active approver)
     const statusRecipientsSet = new Set();
     if (task.assignedTo && task.assignedTo.toString() !== userId.toString()) {
       statusRecipientsSet.add(task.assignedTo.toString());
     }
     if (task.createdBy && task.createdBy.toString() !== userId.toString()) {
       statusRecipientsSet.add(task.createdBy.toString());
+    }
+    if (normalizedStatus === 'PENDING REVIEW' && task.approvalChain && task.approvalChain.length > 0) {
+      const activeApprover = task.approvalChain[task.approvalChainIndex || 0];
+      if (activeApprover && activeApprover.toString() !== userId.toString()) {
+        statusRecipientsSet.add(activeApprover.toString());
+      }
     }
     const statusNotifyUserIds = Array.from(statusRecipientsSet);
 
