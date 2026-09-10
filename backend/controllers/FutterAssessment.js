@@ -1383,7 +1383,7 @@ export const GetMobileDashboard = async (req, res) => {
         const totalTasks = await Task.countDocuments(taskFilter);
         const tasksPending = await Task.countDocuments({
             ...taskFilter,
-            status: { $in: ['PENDING', 'IN PROGRESS', 'ON HOLD', 'UNDER REVIEW'] }
+            status: { $in: ['PENDING', 'IN PROGRESS', 'ON HOLD', 'UNDER REVIEW', 'PENDING REVIEW'] }
         });
         const taskSubtext = tasksPending > 0 ? `${tasksPending} task(s) pending` : "No tasks assigned today";
 

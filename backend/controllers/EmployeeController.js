@@ -630,7 +630,7 @@ const computeStatus = (task) => {
   if (task.status === 'COMPLETED') return 'COMPLETED';
   if (task.status === 'IN PROGRESS') return 'IN PROGRESS';
   if (task.status === 'ON HOLD') return 'ON HOLD';
-  if (task.status === 'UNDER REVIEW') return 'UNDER REVIEW';
+  if (task.status === 'UNDER REVIEW' || task.status === 'PENDING REVIEW') return task.status;
 
   const end = parseDateParts(task.endDate);
   if (end) {
