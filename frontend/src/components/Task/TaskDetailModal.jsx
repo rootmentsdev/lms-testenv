@@ -953,12 +953,24 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
               
               {(() => {
                 const hasChain = task.approvalChain && task.approvalChain.length > 0;
-                const currentApprover = hasChain ? task.approvalChain[task.approvalChainIndex] : task.createdBy;
-                const userIds = [user?.userId, user?._id, user?.empID, user?.EmpId, user?.employeeId].filter(Boolean).map(String);
-                const isCurrentApprover = userIds.includes(String(currentApprover));
+                const currentApprover = hasChain ? task.approvalChain[task.approvalChainIndex ?? 0] : task.createdBy;
+                const userIds = [user?.userId, user?._id, user?.id, user?.empID, user?.EmpId, user?.employeeId].filter(Boolean).map(String);
+                const userNames = [user?.name, user?.username].filter(Boolean).map(n => n.trim().toLowerCase());
 
-                if (task.status === 'PENDING REVIEW' && isCurrentApprover) {
-                  const isFinalStep = !hasChain || (task.approvalChainIndex === task.approvalChain.length - 1);
+                const isCurrentApprover = Boolean(
+                  userIds.includes(String(currentApprover)) ||
+                  (currentApprover && userNames.some(n => String(currentApprover).toLowerCase().includes(n))) ||
+                  (task.workMap && task.workMap.some(step => 
+                    step.action === 'REASSIGNED' && 
+                    userNames.some(n => String(step.assignedBy || '').toLowerCase().includes(n))
+                  )) ||
+                  userIds.includes(String(task.createdBy)) ||
+                  (task.assignedBy && userNames.some(n => String(task.assignedBy).toLowerCase().includes(n))) ||
+                  ['super_admin', 'admin', 'hr_admin'].includes(user?.role)
+                );
+
+                if ((task.status === 'PENDING REVIEW' || task.status === 'UNDER REVIEW') && isCurrentApprover) {
+                  const isFinalStep = task.status === 'UNDER REVIEW' || !hasChain || (task.approvalChainIndex >= task.approvalChain.length - 1);
 
                   const handleApprove = async () => {
                     setUpdating(true);

@@ -368,7 +368,9 @@ export const buildTaskFilter = async (adminId, baseQuery = {}) => {
         const restriction = {
             $or: [
                 { assignedTo: { $in: assignedQueryValues } },
-                { createdBy: { $in: [user._id, user._id.toString()] } }
+                { createdBy: { $in: [user._id, user._id.toString(), ...(user.userId ? [user.userId] : [])] } },
+                { approvalChain: { $in: assignedQueryValues } },
+                { 'workMap.assignedBy': { $in: [user.name, user.username, user.firstName].filter(Boolean) } }
             ]
         };
 

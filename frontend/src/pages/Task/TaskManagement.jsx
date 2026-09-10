@@ -213,11 +213,23 @@ const TaskManagement = () => {
       
       setRequests(
         allRequests.filter((t) => {
-          // A task should only show up in the Review Requests tab of a user if they are the current active approver in the approvalChain
+          // A task should show up in the Review Requests tab if the user is the current active approver in the chain or workMap
           const hasChain = t.approvalChain && t.approvalChain.length > 0;
-          const currentApprover = hasChain ? t.approvalChain[t.approvalChainIndex] : t.createdBy;
-          const userIds = [user?.userId, user?._id, user?.empID, user?.EmpId, user?.employeeId].filter(Boolean).map(String);
-          return userIds.includes(String(currentApprover));
+          const currentApprover = hasChain ? t.approvalChain[t.approvalChainIndex ?? 0] : t.createdBy;
+          const userIds = [user?.userId, user?._id, user?.id, user?.empID, user?.EmpId, user?.employeeId].filter(Boolean).map(String);
+          const userNames = [user?.name, user?.username].filter(Boolean).map(n => n.trim().toLowerCase());
+
+          return Boolean(
+            userIds.includes(String(currentApprover)) ||
+            (currentApprover && userNames.some(n => String(currentApprover).toLowerCase().includes(n))) ||
+            (t.workMap && t.workMap.some(step => 
+              step.action === 'REASSIGNED' && 
+              userNames.some(n => String(step.assignedBy || '').toLowerCase().includes(n))
+            )) ||
+            userIds.includes(String(t.createdBy)) ||
+            (t.assignedBy && userNames.some(n => String(t.assignedBy).toLowerCase().includes(n))) ||
+            ['super_admin', 'admin', 'hr_admin'].includes(user?.role)
+          );
         })
       );
 
@@ -612,8 +624,9 @@ const TaskManagement = () => {
                            <td>
                             <div className="slide-to-complete-wrapper">
                               {(() => {
-                                // The final step is when the current logged in user is the original creator of the task (the Admin who first created/assigned it)
-                                const isFinalStep = String(task.createdBy) === String(user?.userId);
+                                const userIds = [user?.userId, user?._id, user?.id, user?.empID, user?.EmpId, user?.employeeId].filter(Boolean).map(String);
+                                const hasChain = task.approvalChain && task.approvalChain.length > 0;
+                                const isFinalStep = !hasChain || (task.approvalChainIndex >= task.approvalChain.length - 1) || userIds.includes(String(task.createdBy));
                                 const labelText = isFinalStep ? 'Slide to Complete' : 'Slide to Approve';
                                 return (
                                   <SlideToComplete

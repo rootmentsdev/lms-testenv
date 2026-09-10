@@ -1769,7 +1769,14 @@ export const approveTaskStep = async (req, res) => {
       expectedApprover = task.approvalChain[task.approvalChainIndex];
     }
 
-    if (userId.toString() !== expectedApprover) {
+    const callerAllowedIds = await resolveAllAssignedIds(null, null, userId);
+    const isAuthorized = 
+      userId.toString() === String(expectedApprover) ||
+      callerAllowedIds.includes(String(expectedApprover)) ||
+      task.createdBy.toString() === userId.toString() ||
+      ['super_admin', 'admin', 'hr_admin'].includes(req.admin.role);
+
+    if (!isAuthorized) {
       return res.status(403).json({
         success: false,
         message: 'Access denied: You are not the authorized approver for the current step.',
