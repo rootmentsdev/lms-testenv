@@ -1825,6 +1825,21 @@ export const approveTaskStep = async (req, res) => {
     }
 
     // action === 'APPROVE'
+    const { fileAttachment } = req.body;
+    if (fileAttachment && fileAttachment.base64) {
+      if (!task.attachments) {
+        task.attachments = [];
+      }
+      task.attachments.push({
+        name: fileAttachment.name,
+        file: fileAttachment.base64,
+        uploadedBy: userId.toString(),
+        uploadedByName: executorName,
+        uploadedAt: new Date(),
+        step: 'UNDER REVIEW'
+      });
+    }
+
     if (hasChain && task.approvalChainIndex < task.approvalChain.length - 1) {
       // Advance to next step in the chain
       task.approvalChainIndex += 1;
@@ -1835,7 +1850,9 @@ export const approveTaskStep = async (req, res) => {
         assignedBy: executorName,
         assignedAt: new Date(),
         action: 'PENDING REVIEW',
-        details: `Approved by ${executorName}. Sent to next approval stage.`
+        details: fileAttachment?.name 
+          ? `Approved with proof (${fileAttachment.name}) by ${executorName}. Forwarded to next approval stage.`
+          : `Approved by ${executorName}. Sent to next approval stage.`
       });
       await task.save();
 

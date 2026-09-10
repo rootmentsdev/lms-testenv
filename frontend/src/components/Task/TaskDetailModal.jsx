@@ -115,6 +115,7 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
 
   const [selectedFile, setSelectedFile] = useState(null);
   const [reassignFile, setReassignFile] = useState(null);
+  const [approvalFile, setApprovalFile] = useState(null);
   const [assigneesList, setAssigneesList] = useState([]);
   const [selectedAssignee, setSelectedAssignee] = useState('');
   const [loadingAssignees, setLoadingAssignees] = useState(false);
@@ -845,7 +846,7 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
 
         {(() => {
           const proofAttachments = (task.attachments || []).filter(
-            (att) => att.step === 'REASSIGNED' || att.step === 'UNDER REVIEW'
+            (att) => att.step === 'REASSIGNED' || att.step === 'UNDER REVIEW' || att.step === 'PENDING REVIEW'
           );
           if (proofAttachments.length === 0 && !task.reviewAttachment) return null;
 
@@ -865,8 +866,11 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
           
           proofAttachments.forEach(att => {
             if (!seen.has(att.url) && !seen.has(att.name)) {
+              const displayName = att.uploadedByName 
+                ? `${att.name || 'Proof'} (by ${att.uploadedByName})`
+                : (att.name || 'View Proof');
               uniqueProofs.push({
-                name: att.name || 'View Proof',
+                name: displayName,
                 url: att.url
               });
               seen.add(att.url);
@@ -976,19 +980,25 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
                     setUpdating(true);
                     try {
                       const token = localStorage.getItem('token');
+                      const body = { action: 'APPROVE' };
+                      if (approvalFile) {
+                        const base64 = await getBase64(approvalFile);
+                        body.fileAttachment = { name: approvalFile.name, base64 };
+                      }
                       const res = await fetch(`${baseUrl.baseUrl}api/task/${task.id}/approve`, {
                         method: 'PUT',
                         headers: {
                           'Content-Type': 'application/json',
                           ...(token && { Authorization: `Bearer ${token}` }),
                         },
-                        body: JSON.stringify({ action: 'APPROVE' }),
+                        body: JSON.stringify(body),
                       });
                       const json = await res.json();
                       if (!res.ok) {
                         throw new Error(json.message || 'Failed to approve task step');
                       }
-                      toast.success(isFinalStep ? 'Task fully approved and completed!' : 'Task step approved!');
+                      toast.success(isFinalStep ? 'Task fully approved and completed!' : 'Task step approved & forwarded!');
+                      setApprovalFile(null);
                       if (onRefresh) onRefresh();
                       onClose();
                     } catch (err) {
@@ -1025,9 +1035,41 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
                   };
 
                   return (
-                    <div className="task-detail-actions-row">
-                      <div className="task-detail-action-group">
-                        <div className="task-detail-field__label">Review Submission</div>
+                    <div className="task-detail-actions-row" style={{ flexDirection: 'column', gap: '10px' }}>
+                      <div className="task-detail-action-group" style={{ width: '100%' }}>
+                        <div className="task-detail-field__label">
+                          {isFinalStep ? 'Review Submission & Final Approval' : 'Review Submission & Step Approval'}
+                        </div>
+                        
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', margin: '8px 0 12px 0' }}>
+                          <input
+                            type="file"
+                            id="approval-attachment-file"
+                            onChange={(e) => {
+                              if (e.target.files && e.target.files[0]) {
+                                setApprovalFile(e.target.files[0]);
+                              }
+                            }}
+                            style={{ display: 'none' }}
+                          />
+                          <label htmlFor="approval-attachment-file" className="task-detail-file-label" style={{ flex: 1, margin: 0, maxWidth: 'none', height: '38px', borderRadius: '8px', border: '1px dashed #d1d5db', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', cursor: 'pointer', background: '#fff' }}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', color: approvalFile ? '#10b981' : '#6b7280' }}>
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                            </svg>
+                            {approvalFile ? approvalFile.name : 'Attach review proof file (optional)…'}
+                          </label>
+                          {approvalFile && (
+                            <button
+                              type="button"
+                              onClick={() => setApprovalFile(null)}
+                              className="task-detail-action-btn"
+                              style={{ background: '#ef4444', color: '#fff', padding: '0 12px', height: '38px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
+
                         <div className="task-detail-status-buttons">
                           <button
                             type="button"
@@ -1036,7 +1078,7 @@ const TaskDetailModal = ({ task, onClose, onRefresh }) => {
                             onClick={handleApprove}
                             disabled={updating}
                           >
-                            {isFinalStep ? 'Approve & Complete' : 'Approve Step'}
+                            {isFinalStep ? 'Approve & Complete' : 'Approve Step & Forward'}
                           </button>
                           <button
                             type="button"
