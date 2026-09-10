@@ -89,12 +89,27 @@ const DetailField = ({ label, primary, secondary, icon, children }) => (
 
 const TaskDetailModal = ({ task, onClose, onRefresh }) => {
   const user = useSelector((state) => state.auth.user);
-  const isAssignedToMe = task && task.assignedTo === user?.userId;
+  const userIds = [user?.userId, user?._id, user?.id, user?.empID, user?.EmpId, user?.employeeId].filter(Boolean).map(String);
+  const userNames = [user?.name, user?.username].filter(Boolean).map(n => n.trim().toLowerCase());
+
+  const isAssignedToMe = Boolean(
+    task && (
+      userIds.includes(String(task.assignedTo)) ||
+      (task.assignedTo && userNames.some(n => String(task.assignedTo).toLowerCase().includes(n))) ||
+      (task.assignee && userNames.some(n => String(task.assignee).toLowerCase().includes(n))) ||
+      (task.assignedToLabel && userNames.some(n => String(task.assignedToLabel).toLowerCase().includes(n)))
+    )
+  );
   const isAdmin = user?.role && user?.role !== 'employee' && user?.role !== 'user';
   const canReassign = isAssignedToMe || isAdmin;
   const isMyStore = user?.locCode && task?.storeCode === `Z-${user.locCode}`;
   const canUpdateStatus = isAssignedToMe || isMyStore || isAdmin;
-  const isTaskCreator = task?.createdBy === user?.userId;
+  const isTaskCreator = Boolean(
+    task && (
+      userIds.includes(String(task.createdBy)) ||
+      (task.assignedByName && userNames.some(n => String(task.assignedByName).toLowerCase().includes(n)))
+    )
+  );
   const shouldShowWorkMap = isAdmin || isTaskCreator;
   const canEditDetails = (isAdmin || isTaskCreator) && user?.role !== 'cluster_admin' && user?.role !== 'store_admin';
 
