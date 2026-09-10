@@ -1191,7 +1191,7 @@ const WalkinReport = () => {
                 <label style={lbl}>End Date <span style={{color:'#ef4444'}}>*</span></label>
                 <input type="date" name="endDate" required value={formData.endDate} onChange={e=>setFormData(p=>({...p,endDate:e.target.value}))} style={inp} />
               </div>
-              {(user?.role === 'super_admin' || user?.role === 'admin') && (
+              {(user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'process_control_manager') && (
                 <div>
                   <CustomSelect
                     id="cluster-select"

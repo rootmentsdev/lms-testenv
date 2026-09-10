@@ -1332,7 +1332,7 @@ export const GetMobileDashboard = async (req, res) => {
 
         let baseFilter = {};
 
-        if (['super_admin', 'admin', 'hr_admin'].includes(role)) {
+        if (['super_admin', 'admin', 'hr_admin', 'process_control_manager'].includes(role)) {
             // Full Admin overall - all walkins
             baseFilter = {};
         } else if (role === 'cluster_admin') {
@@ -1429,7 +1429,7 @@ export const GetMobileDashboard = async (req, res) => {
         let trainingTotal = 0;
         let trainingCompleted = 0;
 
-        if (['super_admin', 'admin', 'hr_admin'].includes(role)) {
+        if (['super_admin', 'admin', 'hr_admin', 'process_control_manager'].includes(role)) {
             const allProgress = await TrainingProgress.find({}).lean();
             trainingTotal = allProgress.length;
             trainingCompleted = allProgress.filter(tp => tp.pass || tp.status === 'Completed').length;

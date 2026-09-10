@@ -1018,7 +1018,7 @@ const sortStoresGThenZ = (a, b) => {
 
 const DSRReport = () => {
   const user = useSelector((state) => state.auth.user);
-  const isAdminOrSuperAdmin = user?.role === "super_admin" || user?.role === "admin" || user?.role === "it_admin";
+  const isAdminOrSuperAdmin = user?.role === "super_admin" || user?.role === "admin" || user?.role === "it_admin" || user?.role === "process_control_manager";
   const isStoreAdmin = user?.role === "store_admin";
   const isClusterAdmin = user?.role === "cluster_admin";
   const [branches, setBranches] = useState([]);
