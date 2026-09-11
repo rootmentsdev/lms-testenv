@@ -750,7 +750,41 @@ export const getAllAppRegisteredEmployees = async (req, res) => {
     }
 
     // ── 6. Apply search / store / role filters ──
+    const normStoreForFilter = (name) => {
+      if (!name) return '';
+      const trimmed = String(name).trim().toLowerCase();
+      if (['all stores', 'all store', 'office', 'production', 'warehouse', 'dappr squad', 'dapper squad'].includes(trimmed)) {
+        return trimmed;
+      }
+      const isZ = trimmed.includes('zorucci') || trimmed.includes('orucci') || /^z[\.\-\s]/i.test(trimmed) || /^z$/i.test(trimmed);
+      let loc = trimmed
+        .replace(/^(?:(?:zorucci|orucci|suitor\s+guy|grooms|sg|g|z)[\.\-\s]*)+/i, '')
+        .replace(/\d+$/g, '')
+        .trim()
+        .replace(/\b(?:zorucci|orucci|suitor\s+guy|grooms)\b/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\bedap{1,3}a?l{1,3}[yi]\b/i, 'edappally')
+        .replace(/\bedap{1,3}a?l\b/i, 'edappal')
+        .replace(/\bkottaka?l\b/i, 'kottakkal')
+        .replace(/\bperinthalman+a\b/i, 'perinthalmanna')
+        .replace(/\bkalpeta\b/i, 'kalpetta')
+        .replace(/\bmanjer[yi]\b/i, 'manjeri')
+        .replace(/\b(?:kozhikode|calicut)\b/i, 'calicut')
+        .replace(/\bchavakka?d\b/i, 'chavakkad')
+        .replace(/\bperumbavo*u*r\b/i, 'perumbavoor')
+        .replace(/\bthrissur\b/i, 'thrissur')
+        .replace(/\b(?:trivandrum|thiruvananthapuram)\b/i, 'trivandrum')
+        .replace(/\bpalakkad\b/i, 'palakkad')
+        .replace(/\b(?:vatakara|vadakara)\b/i, 'vatakara')
+        .replace(/\bkannur\b/i, 'kannur')
+        .replace(/\bkottayam\b/i, 'kottayam')
+        .replace(/\bmg\s*road\b/i, 'mg road');
+      return `${isZ ? 'z' : 'sg'} ${loc}`.trim();
+    };
+
     const cleanSearch = search.replace(/\s+/g, '');
+    const normFilterStore = normStoreForFilter(store);
     const filtered = employees.filter((e) => {
       const matchSearch = !search || [e.username, e.empID, e.workingBranch, e.designation, e.email]
         .some((v) => {
@@ -763,7 +797,9 @@ export const getAllAppRegisteredEmployees = async (req, res) => {
       const matchStore = store === 'All' || 
                          (!isAllStores && (
                            e.workingBranch === store || 
-                           String(e.workingBranch || '').split(', ').includes(store)
+                           String(e.workingBranch || '').split(', ').includes(store) ||
+                           normStoreForFilter(e.workingBranch) === normFilterStore ||
+                           String(e.workingBranch || '').split(', ').some(s => normStoreForFilter(s) === normFilterStore)
                          ));
       const matchRole  = role  === 'All' || e.designation   === role;
       return matchSearch && matchStore && matchRole;
