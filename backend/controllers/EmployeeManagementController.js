@@ -5,6 +5,7 @@ import { Training } from '../model/Traning.js';
 import Admin from '../model/Admin.js';
 import Branch from '../model/Branch.js';
 import Task from '../model/Task.js';
+import { getAccessibleStoreIds } from '../lib/permissions.js';
 import {
   getExternalEmployeesNonBlocking,
   getProcessedCacheKey,
@@ -238,8 +239,13 @@ function getEmpSortKey(empID) {
 }
 
 async function buildProcessedEmployees(admin) {
-  const allowedLocCodes = admin.branches.map((branch) => branch.locCode);
-  const isGlobalAdmin = ['super_admin', 'admin', 'hr_admin', 'process_control_manager'].includes(admin.role) || allowedLocCodes.length === 0;
+  const isGlobalAdmin = ['super_admin', 'admin', 'hr_admin', 'process_control_manager'].includes(admin.role);
+  let allowedLocCodes = [];
+  if (!isGlobalAdmin) {
+    const accessibleStoreIds = await getAccessibleStoreIds(admin._id);
+    const accessibleBranches = await Branch.find({ _id: { $in: accessibleStoreIds } });
+    allowedLocCodes = accessibleBranches.map((branch) => branch.locCode).filter(Boolean);
+  }
   const cacheKey = getProcessedCacheKey(admin._id.toString(), allowedLocCodes, isGlobalAdmin);
 
   const cached = getProcessedEmployees(cacheKey);
@@ -640,8 +646,13 @@ export const getAllAppRegisteredEmployees = async (req, res) => {
     const store  = req.query.store || 'All';
     const role   = req.query.role  || 'All';
 
-    const allowedLocCodes = admin.branches.map((b) => b.locCode);
-    const isGlobalAdmin   = ['super_admin', 'admin', 'hr_admin', 'process_control_manager'].includes(admin.role) || allowedLocCodes.length === 0;
+    const isGlobalAdmin = ['super_admin', 'admin', 'hr_admin', 'process_control_manager'].includes(admin.role);
+    let allowedLocCodes = [];
+    if (!isGlobalAdmin) {
+      const accessibleStoreIds = await getAccessibleStoreIds(admin._id);
+      const accessibleBranches = await Branch.find({ _id: { $in: accessibleStoreIds } });
+      allowedLocCodes = accessibleBranches.map((b) => b.locCode).filter(Boolean);
+    }
 
     const cacheKey = getProcessedCacheKey(admin._id.toString(), allowedLocCodes, isGlobalAdmin);
     let employees = getProcessedAppUsers(cacheKey);

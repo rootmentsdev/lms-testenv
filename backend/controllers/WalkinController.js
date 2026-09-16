@@ -6,7 +6,7 @@ import CronLog from '../model/CronLog.js';
 import WalkinCount from '../model/WalkinCount.js';
 import WalkinCameraCheck from '../model/WalkinCameraCheck.js';
 import mongoose from 'mongoose';
-import { validateStoreAccess, validateEmployeeAccess, buildWalkinFilter, buildStoreWideWalkinFilter } from '../lib/permissions.js';
+import { validateStoreAccess, validateEmployeeAccess, buildWalkinFilter, buildStoreWideWalkinFilter, getAccessibleStoreIds } from '../lib/permissions.js';
 import { getISTDayRange, getISTRangeBetween, isInISTRange } from '../utils/dateRange.js';
 
 
@@ -1075,7 +1075,7 @@ export const getWalkins = async (req, res) => {
             }
         }
 
-        if (store && store !== 'All') {
+        if (store && store !== 'All' && !/all\s*cluster/i.test(store) && !/^store:\s*all\s*cluster$/i.test(store)) {
             const resolvedStoreObj = await resolveStoreConditions(store);
             if (resolvedStoreObj?.query) {
                 if (!baseQuery.$and) baseQuery.$and = [];
@@ -2148,15 +2148,51 @@ export const getFlutterWalkinCount = async (req, res) => {
             date = `${y}-${m}-${d}`;
         }
 
-        // 1. Resolve store branch and storeId
-        let resolvedStoreName = store;
-        let resolvedStoreId = null;
         let queryConditions = [];
+        const isAllStoreParam = !store || store.toLowerCase() === 'all' || /all\s*cluster/i.test(store) || /^store:\s*all\s*cluster$/i.test(store);
 
-        if (store.toLowerCase() !== 'all') {
+        if (!isAllStoreParam) {
             const resolvedStoreObj = await resolveStoreConditions(store);
             if (resolvedStoreObj?.query) {
                 queryConditions.push(resolvedStoreObj.query);
+            }
+        } else if (req.admin?.userId) {
+            if (req.admin.role === 'cluster_admin') {
+                const accessibleStoreIds = await getAccessibleStoreIds(req.admin.userId);
+                const branches = await Branch.find({ _id: { $in: accessibleStoreIds } });
+                const storeNameSet = new Set();
+                branches.forEach(b => {
+                    if (b.locCode) storeNameSet.add(String(b.locCode));
+                    if (b.workingBranch) {
+                        storeNameSet.add(b.workingBranch);
+                        storeNameSet.add(b.workingBranch.replace(/^G\./i, 'G-'));
+                        storeNameSet.add(b.workingBranch.replace(/^G\-/i, 'G.'));
+                        storeNameSet.add(b.workingBranch.replace(/^Z\./i, 'Z-'));
+                        storeNameSet.add(b.workingBranch.replace(/^Z\-/i, 'Z.'));
+                    }
+                    if (b.location) {
+                        storeNameSet.add(b.location);
+                        storeNameSet.add(b.location.replace(/^G\./i, 'G-'));
+                        storeNameSet.add(b.location.replace(/^G\-/i, 'G.'));
+                    }
+                });
+                const matchedStoreNames = Array.from(storeNameSet).filter(Boolean);
+                queryConditions.push({
+                    $or: [
+                        { storeId: { $in: accessibleStoreIds } },
+                        { store: { $in: matchedStoreNames } }
+                    ]
+                });
+            } else if (req.admin.role === 'store_admin' || req.admin.role === 'employee') {
+                const accessibleStoreIds = await getAccessibleStoreIds(req.admin.userId);
+                const branches = await Branch.find({ _id: { $in: accessibleStoreIds } });
+                const storeNames = branches.map(b => b.workingBranch).filter(Boolean);
+                queryConditions.push({
+                    $or: [
+                        { storeId: { $in: accessibleStoreIds } },
+                        { store: { $in: storeNames } }
+                    ]
+                });
             }
         }
 

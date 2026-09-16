@@ -56,12 +56,16 @@ export const getAccessibleStoreIds = async (adminId) => {
 
         if (admin.role === 'cluster_admin') {
             // Can access all stores in their assigned clusters, plus any individually assigned stores
-            const clusterIds = admin.assignedClusters.map(c => c._id);
-            const clusterBranches = await Branch.find({ clusterId: { $in: clusterIds }, isActive: true }).select('_id');
+            const clusterIds = (admin.assignedClusters || []).map(c => c?._id || c).filter(Boolean);
+            const clusterBranches = clusterIds.length > 0
+                ? await Branch.find({ clusterId: { $in: clusterIds }, isActive: { $ne: false } }).select('_id')
+                : [];
+
+            const directBranchIds = (admin.branches || []).map(b => (b?._id || b).toString()).filter(Boolean);
 
             const branchIds = new Set([
                 ...clusterBranches.map(b => b._id.toString()),
-                ...admin.branches.map(b => (b._id || b).toString())
+                ...directBranchIds
             ]);
             return Array.from(branchIds);
         }
@@ -223,12 +227,27 @@ export const buildWalkinFilter = async (adminId, baseQuery = {}) => {
     const accessibleStoreIds = await getAccessibleStoreIds(adminId);
 
     const branches = await Branch.find({ _id: { $in: accessibleStoreIds } });
-    const locCodes = branches.map(b => b.locCode);
-    const workingBranches = branches.map(b => b.workingBranch);
+    const storeNameSet = new Set();
+    branches.forEach(b => {
+        if (b.locCode) storeNameSet.add(String(b.locCode));
+        if (b.workingBranch) {
+            storeNameSet.add(b.workingBranch);
+            storeNameSet.add(b.workingBranch.replace(/^G\./i, 'G-'));
+            storeNameSet.add(b.workingBranch.replace(/^G\-/i, 'G.'));
+            storeNameSet.add(b.workingBranch.replace(/^Z\./i, 'Z-'));
+            storeNameSet.add(b.workingBranch.replace(/^Z\-/i, 'Z.'));
+        }
+        if (b.location) {
+            storeNameSet.add(b.location);
+            storeNameSet.add(b.location.replace(/^G\./i, 'G-'));
+            storeNameSet.add(b.location.replace(/^G\-/i, 'G.'));
+        }
+    });
+    const matchedStoreNames = Array.from(storeNameSet).filter(Boolean);
 
     const storeRestriction = [
         { storeId: { $in: accessibleStoreIds } },
-        { store: { $in: [...locCodes, ...workingBranches] } }
+        { store: { $in: matchedStoreNames } }
     ];
 
     // If baseQuery already has a $or (e.g., from a search filter), combine both using $and
@@ -256,12 +275,27 @@ export const buildStoreWideWalkinFilter = async (adminId, baseQuery = {}) => {
     }
 
     const branches = await Branch.find({ _id: { $in: accessibleStoreIds } });
-    const locCodes = branches.map(b => b.locCode);
-    const workingBranches = branches.map(b => b.workingBranch).concat(locCodes);
+    const storeNameSet = new Set();
+    branches.forEach(b => {
+        if (b.locCode) storeNameSet.add(String(b.locCode));
+        if (b.workingBranch) {
+            storeNameSet.add(b.workingBranch);
+            storeNameSet.add(b.workingBranch.replace(/^G\./i, 'G-'));
+            storeNameSet.add(b.workingBranch.replace(/^G\-/i, 'G.'));
+            storeNameSet.add(b.workingBranch.replace(/^Z\./i, 'Z-'));
+            storeNameSet.add(b.workingBranch.replace(/^Z\-/i, 'Z.'));
+        }
+        if (b.location) {
+            storeNameSet.add(b.location);
+            storeNameSet.add(b.location.replace(/^G\./i, 'G-'));
+            storeNameSet.add(b.location.replace(/^G\-/i, 'G.'));
+        }
+    });
+    const matchedStoreNames = Array.from(storeNameSet).filter(Boolean);
 
     const storeRestriction = [
         { storeId: { $in: accessibleStoreIds } },
-        { store: { $in: workingBranches } }
+        { store: { $in: matchedStoreNames } }
     ];
 
     if (baseQuery.$or) {
