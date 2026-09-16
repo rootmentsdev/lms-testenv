@@ -10,8 +10,7 @@ import Admin from '../model/Admin.js';
 import Notification from '../model/Notification.js';
 import Otp from '../model/Otp.js';
 import { sendCompletionEmail, sendOtpEmail } from '../utils/sendEmail.js';
-import { sendNotification } from '../utils/notificationHelper.js';
-import { getAccessibleStoreIds, isFullAccessAdmin } from '../lib/permissions.js';
+import { getAccessibleStoreIds, isFullAccessAdmin, isBranchMatchingDeptOrWorkingBranch } from '../lib/permissions.js';
 dotenv.config()
 
 // Adjust the path to your TrainingProgress model
@@ -673,13 +672,14 @@ export const GetAllUser = async (req, res) => {
         const accessibleStoreIds = await getAccessibleStoreIds(adminId);
         const branches = await Branch.find({ _id: { $in: accessibleStoreIds } });
         const locCodes = branches.map(b => String(b.locCode));
-        const workingBranches = branches.map(b => b.workingBranch);
-        query = {
-          $or: [
-            { locCode: { $in: locCodes } },
-            { workingBranch: { $in: workingBranches } }
-          ]
-        };
+        const allUsers = await User.find({});
+        const matchedUserIds = allUsers.filter(u => {
+          const loc = Array.isArray(u.locCode) ? u.locCode : [u.locCode];
+          if (loc.some(l => locCodes.includes(String(l))) && u.locCode !== '700') return true;
+          return branches.some(b => isBranchMatchingDeptOrWorkingBranch(b, u.workingBranch));
+        }).map(u => u._id);
+
+        query = { _id: { $in: matchedUserIds } };
       }
     }
 

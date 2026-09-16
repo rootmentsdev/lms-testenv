@@ -104,6 +104,50 @@ export const validateStoreAccess = async (adminId, storeId) => {
 };
 
 /**
+ * Checks if a Branch document matches a department or workingBranch string
+ */
+export const isBranchMatchingDeptOrWorkingBranch = (branch, targetStr) => {
+    if (!branch || !targetStr) return false;
+    const wb = (branch.workingBranch || branch.branchName || "").toLowerCase().trim();
+    const t = String(targetStr).toLowerCase().trim();
+
+    if (wb === t) return true;
+
+    const isZBranch = /^z[.\-\s]/i.test(wb) || /zorucci/i.test(wb);
+    const isGBranch = /^g[.\-\s]/i.test(wb) || /suitor/i.test(wb);
+
+    const isZTarget = /^z[.\-\s]/i.test(t) || /zorucci/i.test(t);
+    const isGTarget = /^g[.\-\s]/i.test(t) || /suitor/i.test(t) || /guy/i.test(t);
+
+    if (isZBranch && isGTarget) return false;
+    if (isGBranch && isZTarget) return false;
+
+    if (/edap+al+y/i.test(wb)) return /edap+al+y/i.test(t);
+    if (/edappal|edapal/i.test(wb)) return /edap+al(?!y|ly)/i.test(t);
+    if (/perinthalman+a/i.test(wb)) return /perinthalman+a/i.test(t);
+    if (/kotta?k+a?l/i.test(wb)) return /kotta?k+a?l/i.test(t);
+    if (/kottayam/i.test(wb)) return /kottayam/i.test(t);
+    if (/perumbavo*u*r/i.test(wb)) return /perumbavo*u*r/i.test(t);
+    if (/thrissur/i.test(wb)) return /thrissur/i.test(t);
+    if (/chavakka?d/i.test(wb)) return /chavakka?d/i.test(t);
+    if (/calicut|kozhikode/i.test(wb)) return /calicut|kozhikode/i.test(t);
+    if (/va[dt]akara/i.test(wb)) return /va[dt]akara/i.test(t);
+    if (/manjer[yi]/i.test(wb)) return /manjer[yi]/i.test(t);
+    if (/palakka?d/i.test(wb)) return /palakka?d/i.test(t);
+    if (/kalpet+a/i.test(wb)) return /kalpet+a/i.test(t);
+    if (/kannur/i.test(wb)) return /kannur/i.test(t);
+    if (/mg\s*road/i.test(wb)) return /mg\s*road/i.test(t);
+    if (/trivandrum|thiruvananthapuram/i.test(wb)) return /trivandrum|thiruvananthapuram/i.test(t);
+    if (/kollam/i.test(wb)) return /kollam/i.test(t);
+    if (/office/i.test(wb)) return /office/i.test(t);
+    if (/production/i.test(wb)) return /production/i.test(t);
+    if (/warehouse/i.test(wb)) return /warehouse/i.test(t);
+    if (/dappr/i.test(wb)) return /dappr/i.test(t);
+
+    return false;
+};
+
+/**
  * Gets an array of accessible employee ObjectIds based on admin role
  */
 export const getAccessibleEmployeeIds = async (adminId, storeId = null) => {
@@ -140,29 +184,36 @@ export const getAccessibleEmployeeIds = async (adminId, storeId = null) => {
         accessibleStoreIds = [storeId.toString()];
     }
 
-    // Get employees that belong to accessible stores
-    const accessibleEmployees = await Employee.find({
-        storeId: { $in: accessibleStoreIds },
-        status: 'Active'
-    }).select('_id');
-
-    // Also get users that belong to accessible stores from User collection (fallback/merge)
     const branches = await Branch.find({ _id: { $in: accessibleStoreIds } });
     const locCodes = branches.map(b => b.locCode);
-    const users = await User.find({ locCode: { $in: locCodes } }).select('_id');
 
-    // Also get admins (store/cluster admins) associated with accessible stores, and always include the admin themselves
-    const admins = await Admin.find({
-        $or: [
-            { branches: { $in: accessibleStoreIds } },
-            { _id: adminId }
-        ]
-    }).select('_id');
+    // 1. Get employees from Employee (employeedata) matching storeId OR department
+    const allActiveEmployees = await Employee.find({ status: { $ne: 'Inactive' } });
+    const accessibleEmployees = allActiveEmployees.filter(e => {
+        if (e.storeId && accessibleStoreIds.includes(e.storeId.toString())) return true;
+        return branches.some(b => isBranchMatchingDeptOrWorkingBranch(b, e.department));
+    });
+
+    // 2. Also get users that belong to accessible stores from User collection (fallback/merge)
+    const allUsers = await User.find({});
+    const accessibleUsers = allUsers.filter(u => {
+        const loc = Array.isArray(u.locCode) ? u.locCode : [u.locCode];
+        if (loc.some(l => locCodes.includes(l)) && u.locCode !== '700') return true;
+        return branches.some(b => isBranchMatchingDeptOrWorkingBranch(b, u.workingBranch));
+    });
+
+    // 3. Also get admins associated with accessible stores
+    const allAdmins = await Admin.find({ isActive: { $ne: false } });
+    const accessibleAdmins = allAdmins.filter(a => {
+        if (a._id.toString() === adminId.toString()) return true;
+        if (a.branches && a.branches.some(br => accessibleStoreIds.includes(br.toString()))) return true;
+        return branches.some(b => isBranchMatchingDeptOrWorkingBranch(b, a.workingBranch));
+    });
 
     const allIds = new Set([
         ...accessibleEmployees.map(e => e._id.toString()),
-        ...users.map(u => u._id.toString()),
-        ...admins.map(a => a._id.toString()),
+        ...accessibleUsers.map(u => u._id.toString()),
+        ...accessibleAdmins.map(a => a._id.toString()),
         adminId.toString()
     ]);
 

@@ -151,7 +151,7 @@ export const formatStoreDisplayName = (rawName) => {
   loc = loc
     .replace(/\bedap{1,3}a?l{1,3}[yi]\b/i, 'Edappally')
     .replace(/\bedap{1,3}a?l\b/i, 'Edappal')
-    .replace(/\bkottaka?l\b/i, 'Kottakkal')
+    .replace(/\bkotta?k+a?l\b/i, 'Kottakkal')
     .replace(/\bperinthalman+a\b/i, 'Perinthalmanna')
     .replace(/\bkalpeta\b/i, 'Kalpetta')
     .replace(/\bmanjer[yi]\b/i, 'Manjeri')
