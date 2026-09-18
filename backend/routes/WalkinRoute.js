@@ -1,5 +1,5 @@
 import express from 'express';
-import { checkCustomerExists, saveWalkin, getWalkins, getAllWalkinsPublic, getCronLogs, getWalkinCountPageData, saveWalkinCountPageData, saveCameraCheckEntry, getCameraCheckEntries, deleteCameraCheckEntry, getFlutterWalkinCount } from '../controllers/WalkinController.js';
+import { checkCustomerExists, saveWalkin, getWalkins, getAllWalkinsPublic, getCronLogs, getWalkinCountPageData, saveWalkinCountPageData, saveCameraCheckEntry, getCameraCheckEntries, deleteCameraCheckEntry, getFlutterWalkinCount, getFlutterStoreWalkinCounts } from '../controllers/WalkinController.js';
 import { MiddilWare } from '../lib/middilWare.js';
 
 const router = express.Router();
@@ -813,5 +813,108 @@ router.delete('/camera-check/:id', MiddilWare, deleteCameraCheckEntry);
  */
 router.get('/flutter/walkin-count', MiddilWare, getFlutterWalkinCount);
 router.get('/flutter-count', MiddilWare, getFlutterWalkinCount);
+
+/**
+ * @swagger
+ * /api/walkin/flutter/store-walkin-counts:
+ *   get:
+ *     tags: [Walkin]
+ *     summary: Get store-wise walkin breakdown for Flutter app dashboard (Super Admin, Admin, Cluster Admin)
+ *     description: >
+ *       **Where to use:** Used by Mobile Flutter App (Walk-Ins tab and Dashboard "Stores in cluster / Stores list").
+ *       
+ *       **What it does:** Returns the total walk-in count for each accessible store for a specific date or date range.
+ *       For Super Admins & Admins, returns all active stores with their individual walkin count.
+ *       For Cluster Admins, returns all stores in their assigned clusters with individual walkin counts.
+ *       For Store Admins, returns their store with its walkin count.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: date
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Date formatted as YYYY-MM-DD (defaults to today's date in IST)
+ *         example: "2026-09-18"
+ *       - in: query
+ *         name: startDate
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Start date for date range (YYYY-MM-DD)
+ *         example: "2026-09-01"
+ *       - in: query
+ *         name: endDate
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: End date for date range (YYYY-MM-DD)
+ *         example: "2026-09-18"
+ *       - in: query
+ *         name: store
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: "Optional store filter (e.g. 'G-Edappally', 'All Stores')"
+ *       - in: query
+ *         name: search
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Optional search filter for store name or location code
+ *     responses:
+ *       200:
+ *         description: Store walkin breakdown retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 date:
+ *                   type: string
+ *                   example: "2026-09-18"
+ *                 totalWalkins:
+ *                   type: integer
+ *                   example: 142
+ *                 storesCount:
+ *                   type: integer
+ *                   example: 8
+ *                 stores:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       storeId:
+ *                         type: string
+ *                         example: "6a158244cb0a54bf2ec3b7c4"
+ *                       storeName:
+ *                         type: string
+ *                         example: "G-Edappally"
+ *                       workingBranch:
+ *                         type: string
+ *                         example: "G-Edappally"
+ *                       locCode:
+ *                         type: string
+ *                         example: "701"
+ *                       walkinCount:
+ *                         type: integer
+ *                         example: 24
+ *                       clusterId:
+ *                         type: string
+ *                       clusterName:
+ *                         type: string
+ *                         example: "Cochin Cluster"
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/flutter/store-walkin-counts', MiddilWare, getFlutterStoreWalkinCounts);
+router.get('/flutter/store-counts', MiddilWare, getFlutterStoreWalkinCounts);
+router.get('/store-counts', MiddilWare, getFlutterStoreWalkinCounts);
 
 export default router;

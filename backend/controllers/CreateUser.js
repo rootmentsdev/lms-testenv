@@ -300,7 +300,9 @@ export const flutterLogin = async (req, res) => {
     const adminQuery = {
       $or: [
         { EmpId: empIdRegex },
-        { email: { $regex: `^${escapedRaw}$`, $options: 'i' } }
+        { email: { $regex: `^${escapedRaw}$`, $options: 'i' } },
+        { username: { $regex: `^${escapedRaw}$`, $options: 'i' } },
+        { name: { $regex: `^${escapedRaw}$`, $options: 'i' } }
       ]
     };
 
@@ -385,6 +387,9 @@ export const flutterLogin = async (req, res) => {
 
       const userDesignation = roleDisplayNames[adminUser.role] || adminUser.role;
       let workingBranch = 'All Stores';
+      let branchesPayload = adminUser.branches || [];
+      let clustersPayload = adminUser.assignedClusters || [];
+
       if (adminUser.role === 'cluster_admin') {
         const clusterNames = (adminUser.assignedClusters || []).map(c => c.clusterName).filter(Boolean);
         const branchNames = (adminUser.branches || []).map(b => b.workingBranch).filter(Boolean);
@@ -394,6 +399,15 @@ export const flutterLogin = async (req, res) => {
           workingBranch = branchNames.join(', ');
         } else {
           workingBranch = 'Cluster Stores';
+        }
+      } else if (['super_admin', 'admin', 'hr_admin', 'process_control_manager', 'office_admin'].includes(adminUser.role)) {
+        workingBranch = 'All Stores';
+        if (!branchesPayload || branchesPayload.length === 0) {
+          branchesPayload = await Branch.find({ isActive: true }).lean();
+        }
+        if (!clustersPayload || clustersPayload.length === 0) {
+          const ClusterModel = (await import('../model/Cluster.js')).default;
+          clustersPayload = await ClusterModel.find({}).lean();
         }
       } else if (adminUser.branches && adminUser.branches.length > 0) {
         workingBranch = adminUser.branches.map(b => b.workingBranch).filter(Boolean).join(', ') || adminUser.branches[0].workingBranch;
@@ -408,8 +422,8 @@ export const flutterLogin = async (req, res) => {
         role: adminUser.role,
         designation: userDesignation,
         workingBranch: workingBranch,
-        branches: adminUser.branches || [],
-        assignedClusters: adminUser.assignedClusters || [],
+        branches: branchesPayload,
+        assignedClusters: clustersPayload,
         source: 'admin',
       };
 

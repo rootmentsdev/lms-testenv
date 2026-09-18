@@ -198,8 +198,8 @@ router.post('/login', loginUser);
  * /api/auth/flutter-login:
  *   post:
  *     tags: [User Management]
- *     summary: User and Cluster Admin login for mobile app (Flutter)
- *     description: Authenticates a user or admin (including Cluster Admin, Store Admin, and Employees) on the Flutter mobile app. Validates credentials locally, or falls back to external HR verification API. Returns JWT token, session ID, and user/admin profile with assigned clusters and branches.
+ *     summary: Super Admin, Admin, Cluster Admin, Store Admin, and User login for mobile app (Flutter)
+ *     description: Authenticates any administrator or user (including Super Admin, Admin, HR Admin, Process Control Manager, Cluster Admin, Store Admin, and Employees) on the Flutter mobile app. Validates credentials locally, or falls back to external HR verification API. Returns JWT token, session ID, and user/admin profile with assigned clusters and branches.
  *     requestBody:
  *       required: true
  *       content:

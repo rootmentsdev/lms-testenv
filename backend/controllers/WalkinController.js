@@ -983,7 +983,33 @@ export const saveWalkin = async (req, res) => {
  */
 export const getWalkins = async (req, res) => {
     try {
-        const { startDate, endDate, updatedStartDate, updatedEndDate, createdAtStartDate, createdAtEndDate, activityStartDate, activityEndDate, storeId, employeeId, page, limit, search = '', status = '', store = '', dashboard = '', countOnly = '', chartOnly = '', sortBy, functionType = '', eventType = '' } = req.query;
+        const { 
+            startDate, 
+            endDate, 
+            date, 
+            updatedStartDate, 
+            updatedEndDate, 
+            createdAtStartDate, 
+            createdAtEndDate, 
+            activityStartDate, 
+            activityEndDate, 
+            storeId, 
+            employeeId, 
+            staff, 
+            employee, 
+            employeeName, 
+            page, 
+            limit, 
+            search = '', 
+            status = '', 
+            store = '', 
+            dashboard = '', 
+            countOnly = '', 
+            chartOnly = '', 
+            sortBy, 
+            functionType = '', 
+            eventType = '' 
+        } = req.query;
         const adminId = req.admin.userId;
 
         const pageNum = parseInt(page, 10) || 1;
@@ -1002,10 +1028,46 @@ export const getWalkins = async (req, res) => {
             baseQuery.employeeId = employeeId;
         }
 
+        const staffFilter = staff || employeeName || employee;
+        if (staffFilter && staffFilter !== 'All' && staffFilter !== 'All Staffs' && staffFilter !== 'All Staff' && staffFilter !== 'all') {
+            const escapedStaff = staffFilter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const staffCondition = {
+                $or: [
+                    { staff: { $regex: `^${escapedStaff}$`, $options: 'i' } },
+                    { employeeId: staffFilter }
+                ]
+            };
+            if (!baseQuery.$and) baseQuery.$and = [];
+            baseQuery.$and.push(staffCondition);
+        }
+
         // Date Range Filter (IST-aware: treats startDate/endDate as IST calendar dates)
         if (startDate && endDate) {
             const { startUTC, nextDayStartUTC } = getISTRangeBetween(startDate, endDate);
-            baseQuery.createdAt = { $gte: startUTC, $lt: nextDayStartUTC };
+            const dateRangeQuery = {
+                $or: [
+                    { date: { $gte: startDate, $lte: endDate + ' 23:59:59' } },
+                    { createdAt: { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { updatedAt: { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { bookingDate: { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { rentoutDate: { $gte: startUTC, $lt: nextDayStartUTC } }
+                ]
+            };
+            if (!baseQuery.$and) baseQuery.$and = [];
+            baseQuery.$and.push(dateRangeQuery);
+        } else if (date) {
+            const { startUTC, nextDayStartUTC } = getISTDayRange(date);
+            const singleDateQuery = {
+                $or: [
+                    { date: { $gte: date, $lte: date + ' 23:59:59' } },
+                    { createdAt: { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { updatedAt: { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { bookingDate: { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { rentoutDate: { $gte: startUTC, $lt: nextDayStartUTC } }
+                ]
+            };
+            if (!baseQuery.$and) baseQuery.$and = [];
+            baseQuery.$and.push(singleDateQuery);
         }
 
         // Updated At Range Filter
@@ -2328,6 +2390,262 @@ export const getFlutterWalkinCount = async (req, res) => {
         });
     } catch (error) {
         console.error('Error in getFlutterWalkinCount:', error);
+        return res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
+    }
+};
+
+/**
+ * GET /api/walkin/flutter/store-walkin-counts
+ * GET /api/walkin/flutter/store-counts
+ * GET /api/walkin/store-counts
+ * Returns the walk-in count breakdown for each accessible store (Super Admin, Admin, Cluster Admin, Store Admin)
+ * for a given date or date range.
+ */
+export const getFlutterStoreWalkinCounts = async (req, res) => {
+    try {
+        let { date, store, storeId, startDate, endDate, search } = req.query;
+
+        // Default date to today's date in IST if no date filters provided
+        const hasRange = (startDate !== undefined && startDate !== '') || (endDate !== undefined && endDate !== '');
+        if (!date && !hasRange) {
+            const now = new Date();
+            const istDate = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+            const y = istDate.getUTCFullYear();
+            const m = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+            const d = String(istDate.getUTCDate()).padStart(2, '0');
+            date = `${y}-${m}-${d}`;
+        }
+
+        // 1. Resolve accessible stores based on admin role
+        let targetBranches = [];
+        if (req.admin?.userId) {
+            const accessibleStoreIds = await getAccessibleStoreIds(req.admin.userId);
+            targetBranches = await Branch.find({
+                _id: { $in: accessibleStoreIds },
+                isActive: { $ne: false }
+            }).sort({ workingBranch: 1 }).lean();
+        } else {
+            targetBranches = await Branch.find({ isActive: { $ne: false } }).sort({ workingBranch: 1 }).lean();
+        }
+
+        // 2. Filter target branches if a specific store is requested
+        const effectiveStore = storeId || store;
+        const isAllStoreParam = !effectiveStore || 
+            effectiveStore.toLowerCase() === 'all' || 
+            effectiveStore.toLowerCase() === 'all stores' || 
+            effectiveStore.toLowerCase() === 'all store' || 
+            /all\s*(stores?|clusters?)/i.test(effectiveStore) || 
+            /^store:\s*all(\s*(stores?|clusters?))?$/i.test(effectiveStore);
+
+        if (effectiveStore && !isAllStoreParam) {
+            const resolvedObj = await resolveStoreConditions(effectiveStore);
+            if (resolvedObj?.matchedIdsArray?.length > 0) {
+                const idStrings = resolvedObj.matchedIdsArray.map(id => id.toString());
+                targetBranches = targetBranches.filter(b => idStrings.includes(b._id.toString()));
+            } else if (resolvedObj?.matchedNamesArray?.length > 0) {
+                const lowerNames = resolvedObj.matchedNamesArray.map(n => n.toLowerCase());
+                targetBranches = targetBranches.filter(b => lowerNames.includes((b.workingBranch || '').toLowerCase()));
+            }
+        }
+
+        // 3. Filter by search query if provided
+        if (search && search.trim()) {
+            const q = search.trim().toLowerCase();
+            targetBranches = targetBranches.filter(b => 
+                (b.workingBranch && b.workingBranch.toLowerCase().includes(q)) ||
+                (b.branchName && b.branchName.toLowerCase().includes(q)) ||
+                (b.location && b.location.toLowerCase().includes(q)) ||
+                (b.locCode && String(b.locCode).toLowerCase().includes(q))
+            );
+        }
+
+        if (targetBranches.length === 0) {
+            return res.status(200).json({
+                success: true,
+                date: hasRange ? `${startDate} to ${endDate}` : date,
+                totalWalkins: 0,
+                storesCount: 0,
+                stores: []
+            });
+        }
+
+        // 4. Build Date Query
+        let startUTC = null;
+        let nextDayStartUTC = null;
+        let dateQuery = {};
+
+        if (hasRange) {
+            const range = getISTRangeBetween(startDate, endDate);
+            startUTC = range.startUTC;
+            nextDayStartUTC = range.nextDayStartUTC;
+
+            dateQuery = {
+                $or: [
+                    { date: { $gte: startDate, $lte: endDate + ' 23:59:59' } },
+                    { createdAt:            { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { updatedAt:            { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { bookingDate:          { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { rentoutDate:          { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { returnDate:           { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { cancelDate:           { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { billedDate:           { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { billReturnedDate:     { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { lastStatusChangeDate: { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { statusHistory:        { $elemMatch: { date: { $gte: startUTC, $lt: nextDayStartUTC } } } }
+                ]
+            };
+        } else {
+            const range = getISTDayRange(date);
+            startUTC = range.startUTC;
+            nextDayStartUTC = range.nextDayStartUTC;
+
+            dateQuery = {
+                $or: [
+                    { date: { $gte: date, $lte: date + ' 23:59:59' } },
+                    { createdAt:            { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { updatedAt:            { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { bookingDate:          { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { rentoutDate:          { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { returnDate:           { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { cancelDate:           { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { billedDate:           { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { billReturnedDate:     { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { lastStatusChangeDate: { $gte: startUTC, $lt: nextDayStartUTC } },
+                    { statusHistory:        { $elemMatch: { date: { $gte: startUTC, $lt: nextDayStartUTC } } } }
+                ]
+            };
+        }
+
+        // 5. Gather all branch aliases and names
+        const branchMatchMap = new Map();
+        const allStoreIds = [];
+        const allStoreNames = new Set();
+
+        targetBranches.forEach(b => {
+            const idStr = b._id.toString();
+            allStoreIds.push(b._id);
+            try { allStoreIds.push(new mongoose.Types.ObjectId(idStr)); } catch {}
+
+            const names = new Set();
+            if (b.workingBranch) {
+                names.add(b.workingBranch);
+                names.add(b.workingBranch.toLowerCase());
+                names.add(b.workingBranch.replace(/^G\./i, 'G-'));
+                names.add(b.workingBranch.replace(/^G\-/i, 'G.'));
+                names.add(b.workingBranch.replace(/^Z\./i, 'Z-'));
+                names.add(b.workingBranch.replace(/^Z\-/i, 'Z.'));
+            }
+            if (b.branchName) {
+                names.add(b.branchName);
+                names.add(b.branchName.toLowerCase());
+            }
+            if (b.location) {
+                names.add(b.location);
+                names.add(b.location.toLowerCase());
+            }
+            if (b.locCode) {
+                names.add(String(b.locCode));
+            }
+
+            names.forEach(n => allStoreNames.add(n));
+            branchMatchMap.set(idStr, {
+                branch: b,
+                idStr,
+                names,
+                locCode: String(b.locCode || ''),
+                walkinSet: new Set(),
+                seenKeys: new Set()
+            });
+        });
+
+        // Query all walkins that match date and any of target stores
+        const walkinQuery = {
+            $and: [
+                dateQuery,
+                {
+                    $or: [
+                        { storeId: { $in: allStoreIds } },
+                        { store: { $in: Array.from(allStoreNames) } }
+                    ]
+                }
+            ]
+        };
+
+        const rawWalkins = await Walkin.find(walkinQuery).lean();
+
+        // 6. Aggregate walk-ins per branch
+        const isDateInRange = (dateVal) => isInISTRange(dateVal, startUTC, nextDayStartUTC);
+        const globalUniqueWalkins = new Set();
+
+        rawWalkins.forEach(w => {
+            let inRange = isDateInRange(w.createdAt);
+            if (!inRange && w.date) {
+                if (hasRange) {
+                    inRange = (w.date >= startDate && w.date <= (endDate + ' 23:59:59'));
+                } else {
+                    inRange = (w.date === date || w.date.startsWith(date));
+                }
+            }
+            if (!inRange) {
+                inRange = isDateInRange(w.updatedAt) || isDateInRange(w.bookingDate) || isDateInRange(w.rentoutDate);
+            }
+
+            if (!inRange) return;
+
+            const walkinKey = w.invoiceNo
+                ? `inv_${w.invoiceNo}`
+                : `key_${(w.customerName || '').toLowerCase().trim()}_${(w.contact || '').toLowerCase().trim()}_${(w.date || '').toLowerCase().trim()}_${(w.store || '').toLowerCase().trim()}_${(w.status || '').toLowerCase().trim()}`;
+
+            const wStoreIdStr = w.storeId ? w.storeId.toString() : '';
+            const wStoreNorm = (w.store || '').trim().toLowerCase();
+
+            // Match walkin to the appropriate branch
+            for (const [branchId, branchData] of branchMatchMap.entries()) {
+                let matches = false;
+                if (wStoreIdStr && wStoreIdStr === branchId) {
+                    matches = true;
+                } else if (wStoreNorm && (branchData.names.has(wStoreNorm) || branchData.names.has(w.store))) {
+                    matches = true;
+                } else if (w.store && (w.store === branchData.locCode || locationKey(w.store) === locationKey(branchData.branch.workingBranch || ''))) {
+                    matches = true;
+                }
+
+                if (matches) {
+                    if (!branchData.seenKeys.has(walkinKey)) {
+                        branchData.seenKeys.add(walkinKey);
+                        branchData.walkinSet.add(w._id.toString());
+                        globalUniqueWalkins.add(w._id.toString());
+                    }
+                    break;
+                }
+            }
+        });
+
+        // 7. Format final response
+        const stores = targetBranches.map(b => {
+            const data = branchMatchMap.get(b._id.toString());
+            return {
+                storeId: b._id,
+                storeName: b.workingBranch || b.branchName || b.location,
+                workingBranch: b.workingBranch || '',
+                branchName: b.branchName || '',
+                location: b.location || '',
+                locCode: b.locCode || '',
+                walkinCount: data ? data.walkinSet.size : 0,
+                clusterId: b.clusterId || null,
+                clusterName: b.cluster || ''
+            };
+        });
+
+        return res.status(200).json({
+            success: true,
+            date: hasRange ? `${startDate} to ${endDate}` : date,
+            totalWalkins: globalUniqueWalkins.size,
+            storesCount: stores.length,
+            stores
+        });
+    } catch (error) {
+        console.error('Error in getFlutterStoreWalkinCounts:', error);
         return res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
     }
 };

@@ -974,8 +974,15 @@ export const getAccessibleEmployees = async (req, res) => {
         // Support any of storeId, store, or locCode query parameters from clients (like Flutter & Dashboard)
         const storeParam = req.query.storeId || req.query.store || req.query.locCode;
         let resolvedStore = null;
+
+        const isAllStores = !storeParam || 
+            storeParam.toLowerCase() === 'all' || 
+            storeParam.toLowerCase() === 'all stores' || 
+            storeParam.toLowerCase() === 'all store' || 
+            /all\s*(stores?|clusters?)/i.test(storeParam) || 
+            /^store:\s*all(\s*(stores?|clusters?))?$/i.test(storeParam);
         
-        if (storeParam && storeParam !== "All") {
+        if (storeParam && !isAllStores) {
             if (mongoose.Types.ObjectId.isValid(storeParam)) {
                 resolvedStore = await Branch.findById(storeParam);
             }
