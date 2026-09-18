@@ -5,6 +5,7 @@ import ModileNav from "../../components/SideNav/ModileNav";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { FiSearch, FiDownload, FiArrowLeft, FiCalendar, FiEdit3, FiLock, FiUnlock } from "react-icons/fi";
 import baseUrl, { formatStoreDisplayName } from "../../api/api";
+import { CLUSTERS, getClusterForStore } from "./StoreInsights";
 
 const BRAND_TOKENS = new Set(["zorucci", "grooms", "suitor", "guy", "sg"]);
 
@@ -1083,7 +1084,7 @@ const DSRReport = () => {
   const [branches, setBranches] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const targetInputRef = useRef(null);
-  const [clusters, setClusters] = useState([]);
+  const [clusters] = useState(CLUSTERS);
   const [selectedClusters, setSelectedClusters] = useState(["All"]);
   const [isClusterDropdownOpen, setIsClusterDropdownOpen] = useState(false);
   const [selectedStores, setSelectedStores] = useState(["All"]);
@@ -2477,25 +2478,7 @@ const DSRReport = () => {
     fetchBranches();
   }, [isStoreAdmin, isClusterAdmin]);
 
-  useEffect(() => {
-    const fetchClusters = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        const res = await fetch(`${baseUrl.baseUrl}api/admin/admin/list`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const json = await res.json();
-          const list = Array.isArray(json) ? json : json.data || [];
-          const clusterAdmins = list.filter(u => u.role === "cluster_admin");
-          setClusters(clusterAdmins);
-        }
-      } catch (err) {
-        console.error("Error fetching clusters for DSR Report:", err);
-      }
-    };
-    fetchClusters();
-  }, []);
+
 
   const [systemEmployees, setSystemEmployees] = useState([]);
 
@@ -3832,8 +3815,7 @@ const DSRReport = () => {
     const map = {};
     branches.forEach((b) => {
       const storeName = displayBranchName(b.workingBranch);
-      const clusterName = b.clusterId?.clusterName || "Unassigned";
-      map[storeName] = clusterName;
+      map[storeName] = getClusterForStore(b.workingBranch || b.name);
     });
     return map;
   }, [branches]);
@@ -3841,30 +3823,16 @@ const DSRReport = () => {
   const storeOptions = useMemo(() => {
     let list = branches;
     if (selectedClusters.length > 0 && !selectedClusters.includes("All")) {
-      const assignedIds = new Set();
-      selectedClusters.forEach(clusterId => {
-        const selectedClusterAdmin = clusters.find(c => String(c._id) === String(clusterId));
-        if (selectedClusterAdmin && Array.isArray(selectedClusterAdmin.branches)) {
-          selectedClusterAdmin.branches.forEach(b => assignedIds.add(String(b._id || b)));
-        }
-      });
-      list = branches.filter(b => assignedIds.has(String(b._id)));
+      list = branches.filter(b => selectedClusters.includes(getClusterForStore(b.workingBranch || b.name)));
     }
     return list.map(b => displayBranchName(b.workingBranch)).filter(Boolean).sort(sortStoresGThenZ);
-  }, [branches, selectedClusters, clusters]);
+  }, [branches, selectedClusters]);
 
   const isStoreSelected = (storeName) => {
     if (!storeName) return false;
     if (selectedClusters.length > 0 && !selectedClusters.includes("All")) {
-      const assignedIds = new Set();
-      selectedClusters.forEach(clusterId => {
-        const selectedClusterAdmin = clusters.find(c => String(c._id) === String(clusterId));
-        if (selectedClusterAdmin && Array.isArray(selectedClusterAdmin.branches)) {
-          selectedClusterAdmin.branches.forEach(b => assignedIds.add(String(b._id || b)));
-        }
-      });
-      const branch = branches.find(b => displayBranchName(b.workingBranch) === storeName || b.workingBranch === storeName);
-      if (branch && !assignedIds.has(String(branch._id))) return false;
+      const storeCluster = getClusterForStore(storeName);
+      if (!selectedClusters.includes(storeCluster)) return false;
     }
     if (selectedStores.includes("All") || selectedStores.length === 0) return true;
     return selectedStores.includes(storeName);
@@ -3876,7 +3844,7 @@ const DSRReport = () => {
       const matchesStore = item.isStaff || (selectedClusters.includes("All") && selectedStores.includes("All")) || isStoreSelected(item.name);
       return matchesSearch && matchesStore;
     });
-  }, [dsrData, searchQuery, selectedStores, selectedClusters, clusters, branches]);
+  }, [dsrData, searchQuery, selectedStores, selectedClusters]);
 
   const filteredFunnelRows = useMemo(() => {
     return funnelRows.filter((item) => {
@@ -3884,7 +3852,7 @@ const DSRReport = () => {
       const matchesStore = (selectedClusters.includes("All") && selectedStores.includes("All")) || isStoreSelected(item.storeName || item.name);
       return matchesSearch && matchesStore;
     });
-  }, [funnelRows, searchQuery, selectedStores, selectedClusters, clusters, branches]);
+  }, [funnelRows, searchQuery, selectedStores, selectedClusters]);
 
   // Dynamic calculations for Revenue Vs Target metrics cards
   const overallTarget = useMemo(() => {
@@ -4363,7 +4331,7 @@ const DSRReport = () => {
       const matchesStore = isStoreAdmin || (selectedClusters.includes("All") && selectedStores.includes("All")) || isStoreSelected(item.name);
       return matchesSearch && matchesStore;
     });
-  }, [categoryRows, searchQuery, selectedStores, selectedClusters, clusters, branches, isStoreAdmin]);
+  }, [categoryRows, searchQuery, selectedStores, selectedClusters, isStoreAdmin]);
 
   // Dynamic calculations for category totals row
   const totalRentalValFtd = useMemo(() => filteredCategoryRows.reduce((acc, row) => acc + row.rentalValFtd, 0), [filteredCategoryRows]);

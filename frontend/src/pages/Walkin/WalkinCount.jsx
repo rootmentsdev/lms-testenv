@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux';
 import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
 import baseUrl, { formatStoreDisplayName } from "../../api/api";
+import { CLUSTERS, getClusterForStore } from "../StoreAnalysis/StoreInsights";
 import { FaSave, FaCheckCircle, FaUndo, FaTrashAlt, FaPlusCircle, FaVideo, FaEdit, FaClock, FaDownload } from 'react-icons/fa';
 
 const BRAND_TOKENS = new Set(["zorucci", "grooms", "suitor", "guy", "sg"]);
@@ -292,7 +293,7 @@ const WalkinCount = () => {
     const [branches, setBranches] = useState([]);
     
     // Cluster & Multi-Select Store Filter States
-    const [clusters, setClusters] = useState([]);
+    const [clusters] = useState(CLUSTERS);
     const [selectedClusters, setSelectedClusters] = useState(["All"]);
     const [isClusterDropdownOpen, setIsClusterDropdownOpen] = useState(false);
     const clusterDropdownRef = useRef(null);
@@ -301,42 +302,13 @@ const WalkinCount = () => {
     const [isStoreDropdownOpen, setIsStoreDropdownOpen] = useState(false);
     const storeDropdownRef = useRef(null);
 
-    // Fetch Clusters on mount
-    useEffect(() => {
-        const fetchClusters = async () => {
-            try {
-                const res = await fetch(`${baseUrl.baseUrl}api/admin/admin/list`, {
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
-                });
-                if (res.ok) {
-                    const json = await res.json();
-                    const list = Array.isArray(json?.data) ? json.data.filter(i => i.role === 'cluster_admin') : [];
-                    setClusters(list);
-                }
-            } catch (err) {
-                console.error("Error fetching clusters:", err);
-            }
-        };
-        if (token) fetchClusters();
-    }, [token]);
-
     // Filter available stores based on selected clusters
     const availableBranches = useMemo(() => {
         if (selectedClusters.includes("All") || selectedClusters.length === 0) {
             return branches;
         }
-        const assignedKeys = new Set();
-        selectedClusters.forEach((clusterId) => {
-            const cAdmin = clusters.find((c) => String(c._id) === String(clusterId));
-            if (cAdmin && Array.isArray(cAdmin.branches)) {
-                cAdmin.branches.forEach((b) => {
-                    const key = locationKey(b.workingBranch || b.branchName || b);
-                    if (key) assignedKeys.add(key);
-                });
-            }
-        });
-        return branches.filter((b) => assignedKeys.has(locationKey(b.workingBranch)));
-    }, [branches, selectedClusters, clusters]);
+        return branches.filter((b) => selectedClusters.includes(getClusterForStore(b.workingBranch)));
+    }, [branches, selectedClusters]);
 
     // Sync selectedStores & selectedClusters into storeFilter string for backend API compatibility
     useEffect(() => {

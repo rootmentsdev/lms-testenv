@@ -5,6 +5,7 @@ import ModileNav from "../../components/SideNav/ModileNav";
 import { FiSearch, FiDownload } from "react-icons/fi";
 import baseUrl, { formatStoreDisplayName } from "../../api/api";
 import { getHardcodedWalkin } from "../../utils/hardcodedWalkins";
+import { CLUSTERS, getClusterForStore } from "./StoreInsights";
 
 const CACHE_TTL_MS = 2 * 60 * 1000;
 
@@ -495,7 +496,7 @@ const GrowthComparison = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const STORES_PER_PAGE = 9999;
-  const [clusters, setClusters] = useState([]);
+  const [clusters] = useState(CLUSTERS);
   const [selectedClusters, setSelectedClusters] = useState(["All"]);
   const [isClusterDropdownOpen, setIsClusterDropdownOpen] = useState(false);
   const [selectedStores, setSelectedStores] = useState(["All"]);
@@ -542,32 +543,6 @@ const GrowthComparison = () => {
   const [storeWeekRanges, setStoreWeekRanges] = useState(() => {
     try { return JSON.parse(localStorage.getItem("storeWeekRanges") || "{}"); } catch { return {}; }
   });
-
-  // Fetch active clusters dynamically
-  useEffect(() => {
-    const fetchClusters = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        const res = await fetch(`${baseUrl.baseUrl}api/admin/admin/list`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (res.ok) {
-          const json = await res.json();
-          const list = Array.isArray(json?.data) 
-            ? json.data.filter(item => item.role === "cluster_admin") 
-            : [];
-          setClusters(list);
-        }
-      } catch (err) {
-        console.error("Error fetching cluster admins for GrowthComparison:", err);
-      }
-    };
-    fetchClusters();
-  }, []);
 
   // Fetch store target week ranges on mount
   useEffect(() => {
@@ -850,39 +825,21 @@ const GrowthComparison = () => {
   const storeOptions = useMemo(() => {
     let list = branches;
     if (selectedClusters.length > 0 && !selectedClusters.includes("All")) {
-      const assignedBranchIds = new Set();
-      selectedClusters.forEach(clusterId => {
-        const selectedClusterAdmin = clusters.find(c => String(c._id) === String(clusterId));
-        if (selectedClusterAdmin && Array.isArray(selectedClusterAdmin.branches)) {
-          selectedClusterAdmin.branches.forEach(b => {
-            assignedBranchIds.add(String(b._id || b));
-            if (b.workingBranch) assignedBranchIds.add(norm(b.workingBranch));
-          });
-        }
+      list = branches.filter(b => {
+        const cluster = getClusterForStore(b.workingBranch || b.name);
+        return selectedClusters.includes(cluster);
       });
-      list = branches.filter(b => 
-        assignedBranchIds.has(String(b._id)) || assignedBranchIds.has(norm(b.workingBranch))
-      );
     }
     return list.map(b => displayBranchName(b.workingBranch)).filter(Boolean).sort(sortStoresGThenZ);
-  }, [branches, selectedClusters, clusters]);
+  }, [branches, selectedClusters]);
 
   const filteredRows = useMemo(() => {
     let targetBranches = branches;
     if (selectedClusters.length > 0 && !selectedClusters.includes("All")) {
-      const assignedBranchIds = new Set();
-      selectedClusters.forEach(clusterId => {
-        const selectedClusterAdmin = clusters.find(c => String(c._id) === String(clusterId));
-        if (selectedClusterAdmin && Array.isArray(selectedClusterAdmin.branches)) {
-          selectedClusterAdmin.branches.forEach(b => {
-            assignedBranchIds.add(String(b._id || b));
-            if (b.workingBranch) assignedBranchIds.add(norm(b.workingBranch));
-          });
-        }
+      targetBranches = branches.filter(b => {
+        const cluster = getClusterForStore(b.workingBranch || b.name);
+        return selectedClusters.includes(cluster);
       });
-      targetBranches = branches.filter(b => 
-        assignedBranchIds.has(String(b._id)) || assignedBranchIds.has(norm(b.workingBranch))
-      );
     }
 
     if (selectedStores.length > 0 && !selectedStores.includes("All")) {

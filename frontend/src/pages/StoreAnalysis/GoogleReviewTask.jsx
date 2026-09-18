@@ -3,6 +3,7 @@ import { useSelector } from "react-redux";
 import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
 import baseUrl, { formatStoreDisplayName } from "../../api/api";
+import { CLUSTERS, getClusterForStore } from "./StoreInsights";
 import { FiPlus, FiChevronDown, FiX, FiArrowLeft } from "react-icons/fi";
 
 function norm(str) {
@@ -57,7 +58,7 @@ const GoogleReviewTask = () => {
   const [loading, setLoading] = useState(true);
 
   // Cluster Filter states
-  const [clusters, setClusters] = useState([]);
+  const [clusters] = useState(CLUSTERS);
   const [selectedClusters, setSelectedClusters] = useState(["All"]);
   const [isClusterDropdownOpen, setIsClusterDropdownOpen] = useState(false);
   const clusterDropdownRef = useRef(null);
@@ -122,31 +123,7 @@ const GoogleReviewTask = () => {
     fetchDashboard();
   }, []);
 
-  // Fetch active clusters dynamically
-  useEffect(() => {
-    const fetchClusters = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        const res = await fetch(`${baseUrl.baseUrl}api/admin/admin/list`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (res.ok) {
-          const json = await res.json();
-          const list = Array.isArray(json?.data)
-            ? json.data.filter((item) => item.role === "cluster_admin")
-            : [];
-          setClusters(list);
-        }
-      } catch (err) {
-        console.error("Error fetching clusters:", err);
-      }
-    };
-    fetchClusters();
-  }, []);
+
 
   // Fetch branches
   useEffect(() => {
@@ -222,20 +199,10 @@ const GoogleReviewTask = () => {
     if (selectedClusters.includes("All") || selectedClusters.length === 0) {
       return branches;
     }
-    const assignedBranchIds = new Set();
-    selectedClusters.forEach((clusterId) => {
-      const clusterAdmin = clusters.find((c) => String(c._id) === String(clusterId));
-      if (clusterAdmin && Array.isArray(clusterAdmin.branches)) {
-        clusterAdmin.branches.forEach((b) => {
-          assignedBranchIds.add(String(b._id || b));
-          if (b.workingBranch) assignedBranchIds.add(norm(b.workingBranch));
-        });
-      }
-    });
     return branches.filter(
-      (b) => assignedBranchIds.has(String(b._id)) || assignedBranchIds.has(norm(b.workingBranch))
+      (b) => selectedClusters.includes(getClusterForStore(b.workingBranch || b.name))
     );
-  }, [branches, selectedClusters, clusters, isRestrictedRole, user]);
+  }, [branches, selectedClusters, isRestrictedRole, user]);
 
   // Merge dynamic branches with reviews counts state
   const tableRows = useMemo(() => {
@@ -263,18 +230,8 @@ const GoogleReviewTask = () => {
 
     // 1. Cluster Filter (only for central admins)
     if (!isRestrictedRole && !selectedClusters.includes("All") && selectedClusters.length > 0) {
-      const assignedBranchIds = new Set();
-      selectedClusters.forEach((clusterId) => {
-        const clusterAdmin = clusters.find((c) => String(c._id) === String(clusterId));
-        if (clusterAdmin && Array.isArray(clusterAdmin.branches)) {
-          clusterAdmin.branches.forEach((b) => {
-            assignedBranchIds.add(String(b._id || b));
-            if (b.workingBranch) assignedBranchIds.add(norm(b.workingBranch));
-          });
-        }
-      });
       list = list.filter(
-        (r) => assignedBranchIds.has(String(r.id)) || assignedBranchIds.has(norm(r.workingBranch))
+        (r) => selectedClusters.includes(getClusterForStore(r.workingBranch))
       );
     }
 
@@ -290,10 +247,12 @@ const GoogleReviewTask = () => {
       list.sort((a, b) => b.thisWeek - a.thisWeek);
     } else if (dateFilter === "This Month") {
       list.sort((a, b) => b.thisMonth - a.thisMonth);
+    } else if (dateFilter === "Total") {
+      list.sort((a, b) => b.total - a.total);
     }
 
     return list;
-  }, [tableRows, selectedClusters, selectedStores, clusters, dateFilter, isRestrictedRole]);
+  }, [tableRows, selectedClusters, selectedStores, dateFilter, isRestrictedRole]);
 
   // Stores with ratings metric for active period
   const storesWithRatingsPeriod = useMemo(() => {

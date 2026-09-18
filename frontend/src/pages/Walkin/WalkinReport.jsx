@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
 import baseUrl, { formatStoreDisplayName } from "../../api/api";
+import { CLUSTERS, getClusterForStore } from "../StoreAnalysis/StoreInsights";
 import { FaChevronLeft, FaChevronRight, FaDownload } from 'react-icons/fa';
 import * as XLSX from 'xlsx';
 
@@ -827,7 +828,7 @@ const WalkinReport = () => {
   const [formData, setFormData] = useState({ startDate: today, endDate: today });
   
   // Selected values states
-  const [clusters, setClusters] = useState([]);
+  const [clusters] = useState(CLUSTERS);
   const [selectedClusters, setSelectedClusters] = useState([]);
   const [selectedStores, setSelectedStores] = useState([]);
   const [selectedEmployees, setSelectedEmployees] = useState([]);
@@ -862,24 +863,7 @@ const WalkinReport = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  /* Fetch active clusters */
-  useEffect(() => {
-    const fetchClusters = async () => {
-      try {
-        const res = await fetch(`${baseUrl.baseUrl}api/admin/admin/list`, {
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const json = await res.json();
-          const list = Array.isArray(json?.data) ? json.data.filter(i => i.role === 'cluster_admin') : [];
-          setClusters(list);
-        }
-      } catch (e) {
-        console.error('Error fetching clusters:', e);
-      }
-    };
-    if (token) fetchClusters();
-  }, [token]);
+
 
   /* load branches only (employees loaded lazily) */
   useEffect(() => {
@@ -918,18 +902,8 @@ const WalkinReport = () => {
   // Scoped store options based on cluster selection
   const availableBranches = React.useMemo(() => {
     if (!selectedClusters || selectedClusters.length === 0) return branches;
-    const assignedKeys = new Set();
-    selectedClusters.forEach(clusterId => {
-      const cAdmin = clusters.find(c => String(c._id) === String(clusterId));
-      if (cAdmin && Array.isArray(cAdmin.branches)) {
-        cAdmin.branches.forEach(b => {
-          const key = locationKey(b.workingBranch || b.branchName || b);
-          if (key) assignedKeys.add(key);
-        });
-      }
-    });
-    return branches.filter(b => assignedKeys.has(locationKey(b.workingBranch)));
-  }, [branches, selectedClusters, clusters]);
+    return branches.filter(b => selectedClusters.includes(getClusterForStore(b.workingBranch)));
+  }, [branches, selectedClusters]);
 
   // Load all employees once to filter client-side (excluding office staff for walkin reports)
   const loadAllEmployees = async () => {
@@ -1013,17 +987,7 @@ const WalkinReport = () => {
         
         // Filter by cluster(s)
         if (Array.isArray(selectedClusters) && selectedClusters.length > 0) {
-          const assignedKeys = new Set();
-          selectedClusters.forEach(clusterId => {
-            const cAdmin = clusters.find(c => String(c._id) === String(clusterId));
-            if (cAdmin && Array.isArray(cAdmin.branches)) {
-              cAdmin.branches.forEach(b => {
-                const key = locationKey(b.workingBranch || b.branchName || b);
-                if (key) assignedKeys.add(key);
-              });
-            }
-          });
-          data = data.filter(w => assignedKeys.has(locationKey(w.store)));
+          data = data.filter(w => selectedClusters.includes(getClusterForStore(w.store)));
         }
 
         // Filter by store(s)
@@ -1197,7 +1161,7 @@ const WalkinReport = () => {
                   <CustomSelect
                     id="cluster-select"
                     label={<span>Cluster <span style={{color:'#9ca3af', fontWeight:400}}>(Optional)</span></span>}
-                    options={clusters.map(c => ({ value: c._id, label: c.name || c.username }))}
+                    options={clusters.map(c => ({ value: c._id, label: c.name }))}
                     value={selectedClusters}
                     onChange={(val) => {
                       setSelectedClusters(val);

@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import SideNav from "../../components/SideNav/SideNav";
 import ModileNav from "../../components/SideNav/ModileNav";
 import baseUrl, { formatStoreDisplayName } from "../../api/api";
+import { CLUSTERS, getClusterForStore } from "../StoreAnalysis/StoreInsights";
 import { FaChevronLeft, FaChevronRight, FaPen, FaDownload, FaEye } from 'react-icons/fa';
 import * as XLSX from 'xlsx';
 
@@ -600,7 +601,7 @@ const sortStoresGThenZ = (a, b) => {
     const eventTypeDropdownRef = React.useRef(null);
 
     // Cluster & Multi-Select Store Filter States
-    const [clusters, setClusters] = useState([]);
+    const [clusters] = useState(CLUSTERS);
     const [selectedClusters, setSelectedClusters] = useState(['All']);
     const [isClusterDropdownOpen, setIsClusterDropdownOpen] = useState(false);
     const clusterDropdownRef = React.useRef(null);
@@ -629,42 +630,13 @@ const sortStoresGThenZ = (a, b) => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Fetch active clusters
-    useEffect(() => {
-        const fetchClusters = async () => {
-            try {
-                const res = await fetch(`${baseUrl.baseUrl}api/admin/admin/list`, {
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
-                });
-                if (res.ok) {
-                    const json = await res.json();
-                    const list = Array.isArray(json?.data) ? json.data.filter(i => i.role === 'cluster_admin') : [];
-                    setClusters(list);
-                }
-            } catch (e) {
-                console.error('Error fetching clusters:', e);
-            }
-        };
-        if (token) fetchClusters();
-    }, [token]);
-
     // Available stores scoped to selected cluster(s)
     const availableBranches = React.useMemo(() => {
         if (selectedClusters.includes('All') || selectedClusters.length === 0) {
             return branches;
         }
-        const assignedKeys = new Set();
-        selectedClusters.forEach(clusterId => {
-            const cAdmin = clusters.find(c => String(c._id) === String(clusterId));
-            if (cAdmin && Array.isArray(cAdmin.branches)) {
-                cAdmin.branches.forEach(b => {
-                    const key = locationKey(b.workingBranch || b.branchName || b);
-                    if (key) assignedKeys.add(key);
-                });
-            }
-        });
-        return branches.filter(b => assignedKeys.has(locationKey(b.workingBranch)));
-    }, [branches, selectedClusters, clusters]);
+        return branches.filter(b => selectedClusters.includes(getClusterForStore(b.workingBranch)));
+    }, [branches, selectedClusters]);
 
     // Toggle state between Walkin List View and dynamic Add Walkin Form Page View matching screenshot
     const [showAddView, setShowAddView] = useState(false);
