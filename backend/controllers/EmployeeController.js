@@ -578,27 +578,115 @@ export const deleteEmployee = async (req, res) => {
     try {
         const { id } = req.params;
 
-        // Try to find and delete by employeeId first, then by MongoDB _id
-        let employee;
-        if (mongoose.isValidObjectId(id)) {
-            employee = await Employee.findByIdAndDelete(id);
-        }
-        
-        if (!employee) {
-            employee = await Employee.findOneAndDelete({ employeeId: id });
+        // 1. Find all matching records across Employee, User, and Admin
+        let targetEmployee = null;
+        let targetUser = null;
+        let targetAdmin = null;
+
+        const isMongoId = mongoose.isValidObjectId(id);
+
+        if (isMongoId) {
+            [targetEmployee, targetUser, targetAdmin] = await Promise.all([
+                Employee.findById(id),
+                User.findById(id),
+                Admin.findById(id)
+            ]);
         }
 
-        if (!employee) {
+        const idStr = String(id).trim();
+        const idRegex = new RegExp(`^${idStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+
+        if (!targetEmployee) {
+            targetEmployee = await Employee.findOne({
+                $or: [{ employeeId: idRegex }, { email: idRegex }, { empID: idRegex }]
+            });
+        }
+        if (!targetUser) {
+            targetUser = await User.findOne({
+                $or: [{ empID: idRegex }, { email: idRegex }, { username: idRegex }]
+            });
+        }
+        if (!targetAdmin) {
+            targetAdmin = await Admin.findOne({
+                $or: [{ EmpId: idRegex }, { email: idRegex }, { name: idRegex }]
+            });
+        }
+
+        if (!targetEmployee && !targetUser && !targetAdmin) {
             return res.status(404).json({
                 success: false,
                 message: 'Employee not found'
             });
         }
 
+        // 2. Collect all identifier strings & ObjectIds
+        const idsToDelete = [
+            ...(targetEmployee ? [targetEmployee._id] : []),
+            ...(targetUser ? [targetUser._id] : []),
+            ...(targetAdmin ? [targetAdmin._id] : []),
+            ...(isMongoId ? [id] : [])
+        ];
+
+        const empCodes = new Set();
+        if (targetEmployee?.employeeId) empCodes.add(targetEmployee.employeeId.trim());
+        if (targetEmployee?.empID) empCodes.add(targetEmployee.empID.trim());
+        if (targetUser?.empID) empCodes.add(targetUser.empID.trim());
+        if (targetAdmin?.EmpId) empCodes.add(targetAdmin.EmpId.trim());
+        if (!isMongoId && idStr) empCodes.add(idStr);
+
+        const emails = new Set();
+        if (targetEmployee?.email) emails.add(targetEmployee.email.trim().toLowerCase());
+        if (targetUser?.email) emails.add(targetUser.email.trim().toLowerCase());
+        if (targetAdmin?.email) emails.add(targetAdmin.email.trim().toLowerCase());
+
+        const empCodeList = Array.from(empCodes).filter(Boolean);
+        const emailList = Array.from(emails).filter(Boolean);
+
+        const empCodeRegexes = empCodeList.map(c => new RegExp(`^${c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'));
+        const emailRegexes = emailList.map(e => new RegExp(`^${e.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'));
+
+        const employeeDeleteQuery = {
+            $or: [
+                { _id: { $in: idsToDelete } },
+                ...(empCodeRegexes.length > 0 ? [{ employeeId: { $in: empCodeRegexes } }, { empID: { $in: empCodeRegexes } }] : []),
+                ...(emailRegexes.length > 0 ? [{ email: { $in: emailRegexes } }] : [])
+            ]
+        };
+
+        const userDeleteQuery = {
+            $or: [
+                { _id: { $in: idsToDelete } },
+                ...(empCodeRegexes.length > 0 ? [{ empID: { $in: empCodeRegexes } }] : []),
+                ...(emailRegexes.length > 0 ? [{ email: { $in: emailRegexes } }] : [])
+            ]
+        };
+
+        const adminDeleteQuery = {
+            $or: [
+                { _id: { $in: idsToDelete } },
+                ...(empCodeRegexes.length > 0 ? [{ EmpId: { $in: empCodeRegexes } }] : []),
+                ...(emailRegexes.length > 0 ? [{ email: { $in: emailRegexes } }] : [])
+            ]
+        };
+
+        // 3. Concurrently delete across all collections and cleanup sessions
+        const UserLoginSession = (await import('../model/UserLoginSession.js')).default;
+        await Promise.all([
+            Employee.deleteMany(employeeDeleteQuery),
+            User.deleteMany(userDeleteQuery),
+            Admin.deleteMany(adminDeleteQuery),
+            UserLoginSession.deleteMany({
+                $or: [
+                    { userId: { $in: idsToDelete } },
+                    ...(emailRegexes.length > 0 ? [{ email: { $in: emailRegexes } }] : [])
+                ]
+            })
+        ]);
+
         res.status(200).json({
             success: true,
             message: 'Employee deleted successfully',
-            data: employee
+            data: targetEmployee || targetUser || targetAdmin
         });
 
     } catch (error) {
