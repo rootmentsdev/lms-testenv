@@ -645,7 +645,7 @@ const TaskManagement = () => {
                               <span className={`task-mgmt-status ${STATUS_CLASS[task.status] || ''}`}>
                                 {task.status === 'IN PROGRESS' ? 'TO DO' : task.status}
                               </span>
-                              {(task.isReassigned || task.status === 'REASSIGNED') && task.status !== 'REASSIGNED' && (
+                              {(task.isReassigned || task.status === 'REASSIGNED') && task.status !== 'REASSIGNED' && task.status !== 'COMPLETED' && (
                                 <span style={{ fontSize: '10px', fontWeight: '600', background: '#e0f2fe', color: '#0369a1', padding: '2px 6px', borderRadius: '4px', letterSpacing: '0.02em', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                                   <span>🔄</span> Reassigned
                                 </span>
