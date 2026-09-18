@@ -701,31 +701,65 @@ export const deleteEmployee = async (req, res) => {
 
 const parseDateParts = (dateStr) => {
   if (!dateStr) return null;
-  if (dateStr.includes('/')) {
-    const [dd, mm, yyyy] = dateStr.split('/');
-    return new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+  if (dateStr instanceof Date) return isNaN(dateStr.getTime()) ? null : new Date(dateStr.getTime());
+  if (typeof dateStr !== 'string') {
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? null : d;
   }
-  if (dateStr.includes('-')) {
-    const parts = dateStr.split('-');
-    if (parts[0].length === 4) return new Date(dateStr);
-    const [dd, mm, yyyy] = parts;
-    return new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+  const cleanStr = dateStr.trim();
+  if (!cleanStr || cleanStr === '—' || cleanStr === '-') return null;
+
+  const dateOnly = cleanStr.includes('T') ? cleanStr.split('T')[0] : cleanStr.split(' ')[0];
+
+  if (dateOnly.includes('/')) {
+    const parts = dateOnly.split('/');
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      }
+      return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+    }
   }
-  return new Date(dateStr);
+  if (dateOnly.includes('-')) {
+    const parts = dateOnly.split('-');
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      }
+      return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+    }
+  }
+  const fallback = new Date(cleanStr);
+  return isNaN(fallback.getTime()) ? null : fallback;
+};
+
+const parseTimeParts = (timeStr) => {
+  if (!timeStr || typeof timeStr !== 'string') return null;
+  const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/i);
+  if (!match) return null;
+  let hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  const meridian = match[3]?.toLowerCase();
+  if (meridian === 'pm' && hours < 12) hours += 12;
+  if (meridian === 'am' && hours === 12) hours = 0;
+  return { hours, minutes };
 };
 
 const computeStatus = (task) => {
   if (task.status === 'COMPLETED') return 'COMPLETED';
-  if (task.status === 'IN PROGRESS') return 'IN PROGRESS';
   if (task.status === 'ON HOLD') return 'ON HOLD';
   if (task.status === 'UNDER REVIEW' || task.status === 'PENDING REVIEW') return task.status;
 
   const end = parseDateParts(task.endDate);
   if (end) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    end.setHours(23, 59, 59, 999);
-    if (end < today) return 'OVERDUE';
+    const time = parseTimeParts(task.endTime);
+    if (time) {
+      end.setHours(time.hours, time.minutes, 59, 999);
+    } else {
+      end.setHours(23, 59, 59, 999);
+    }
+    const now = new Date();
+    if (end < now) return 'OVERDUE';
   }
   return task.status || 'PENDING';
 };

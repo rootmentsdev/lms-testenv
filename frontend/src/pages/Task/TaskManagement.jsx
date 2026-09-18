@@ -214,7 +214,10 @@ const TaskManagement = () => {
 
     if (userIds.includes(createdBy)) return true;
     if (userNames.some(name => name.length >= 2 && assignedBy.includes(name))) return true;
-    if (t.workMap && t.workMap.some(step => userNames.some(name => name.length >= 2 && String(step.assignedBy || '').toLowerCase().includes(name)))) return true;
+    if (t.workMap && t.workMap.some(step => 
+      userIds.includes(String(step.assignedBy || '')) ||
+      userNames.some(name => name.length >= 2 && String(step.assignedBy || '').toLowerCase().includes(name))
+    )) return true;
     return false;
   }, [userIds, userNames]);
 
@@ -638,9 +641,16 @@ const TaskManagement = () => {
                       {['assigned_to_me', 'assigned_by_me', 'all'].includes(activeTab) ? (
                         <>
                           <td>
-                            <span className={`task-mgmt-status ${STATUS_CLASS[task.status] || ''}`}>
-                              {task.status === 'IN PROGRESS' ? 'TO DO' : task.status}
-                            </span>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                              <span className={`task-mgmt-status ${STATUS_CLASS[task.status] || ''}`}>
+                                {task.status === 'IN PROGRESS' ? 'TO DO' : task.status}
+                              </span>
+                              {(task.isReassigned || task.status === 'REASSIGNED') && task.status !== 'REASSIGNED' && (
+                                <span style={{ fontSize: '10px', fontWeight: '600', background: '#e0f2fe', color: '#0369a1', padding: '2px 6px', borderRadius: '4px', letterSpacing: '0.02em', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                  <span>🔄</span> Reassigned
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td>
                             <button

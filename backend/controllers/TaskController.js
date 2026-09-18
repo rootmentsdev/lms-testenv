@@ -103,31 +103,65 @@ const normalizePriority = (p) => {
 
 const parseDateParts = (dateStr) => {
   if (!dateStr) return null;
-  if (dateStr.includes('/')) {
-    const [dd, mm, yyyy] = dateStr.split('/');
-    return new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+  if (dateStr instanceof Date) return isNaN(dateStr.getTime()) ? null : new Date(dateStr.getTime());
+  if (typeof dateStr !== 'string') {
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? null : d;
   }
-  if (dateStr.includes('-')) {
-    const parts = dateStr.split('-');
-    if (parts[0].length === 4) return new Date(dateStr);
-    const [dd, mm, yyyy] = parts;
-    return new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+  const cleanStr = dateStr.trim();
+  if (!cleanStr || cleanStr === '—' || cleanStr === '-') return null;
+
+  const dateOnly = cleanStr.includes('T') ? cleanStr.split('T')[0] : cleanStr.split(' ')[0];
+
+  if (dateOnly.includes('/')) {
+    const parts = dateOnly.split('/');
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      }
+      return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+    }
   }
-  return new Date(dateStr);
+  if (dateOnly.includes('-')) {
+    const parts = dateOnly.split('-');
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      }
+      return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+    }
+  }
+  const fallback = new Date(cleanStr);
+  return isNaN(fallback.getTime()) ? null : fallback;
+};
+
+const parseTimeParts = (timeStr) => {
+  if (!timeStr || typeof timeStr !== 'string') return null;
+  const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/i);
+  if (!match) return null;
+  let hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  const meridian = match[3]?.toLowerCase();
+  if (meridian === 'pm' && hours < 12) hours += 12;
+  if (meridian === 'am' && hours === 12) hours = 0;
+  return { hours, minutes };
 };
 
 const computeStatus = (task) => {
   if (task.status === 'COMPLETED') return 'COMPLETED';
-  if (task.status === 'IN PROGRESS') return 'IN PROGRESS';
   if (task.status === 'ON HOLD') return 'ON HOLD';
   if (task.status === 'UNDER REVIEW' || task.status === 'PENDING REVIEW') return task.status;
 
   const end = parseDateParts(task.endDate);
   if (end) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    end.setHours(23, 59, 59, 999);
-    if (end < today) return 'OVERDUE';
+    const time = parseTimeParts(task.endTime);
+    if (time) {
+      end.setHours(time.hours, time.minutes, 59, 999);
+    } else {
+      end.setHours(23, 59, 59, 999);
+    }
+    const now = new Date();
+    if (end < now) return 'OVERDUE';
   }
   return task.status || 'PENDING';
 };
@@ -257,6 +291,13 @@ export const mapTaskForClient = (doc, overrideBranch, requesterInfo) => {
 
   const rawAssigneeSub = overrideBranch ?? task.storeName ?? task.storeCode ?? '—';
 
+  const isReassigned = Boolean(
+    task.status === 'REASSIGNED' ||
+    task.reassignedCategory ||
+    (task.workMap && task.workMap.some(w => w.action === 'REASSIGNED')) ||
+    (task.attachments && task.attachments.some(a => a.step === 'REASSIGNED'))
+  );
+
   return {
     id: taskId,
     _id: task._id?.toString(),
@@ -270,6 +311,7 @@ export const mapTaskForClient = (doc, overrideBranch, requesterInfo) => {
     reassignedTitle: task.title || '',
     reassignedCategory: task.category || '',
     reassignedSubCategory: task.subCategory || '',
+    isReassigned,
     assignedTo: task.assignedTo,
     createdBy: task.createdBy?.toString() || '',
     assignee: task.assignedToLabel || ASSIGNED_TO_LABELS[task.assignedTo] || task.assignedTo,
@@ -673,7 +715,9 @@ export const getTasks = async (req, res) => {
     }
     if (status && status !== 'All') {
       if (status === 'OVERDUE') {
-        baseQuery.status = { $nin: ['COMPLETED', 'IN PROGRESS', 'ON HOLD', 'UNDER REVIEW', 'PENDING REVIEW'] };
+        baseQuery.status = { $nin: ['COMPLETED', 'ON HOLD', 'UNDER REVIEW', 'PENDING REVIEW'] };
+      } else if (status === 'IN PROGRESS') {
+        baseQuery.status = { $in: ['IN PROGRESS', 'PENDING', 'REASSIGNED'] };
       } else {
         baseQuery.status = status;
       }
@@ -1298,7 +1342,7 @@ export const updateTaskStatus = async (req, res) => {
     }
 
     if (normalizedStatus === 'REASSIGNED') {
-      const { assignedTo, assignedToLabel, reassignedCategory, reassignedSubCategory } = req.body;
+      const { assignedTo, assignedToLabel, reassignedCategory, reassignedSubCategory, endDate, endTime } = req.body;
       if (!assignedTo) {
         return res.status(400).json({
           success: false,
@@ -1320,6 +1364,12 @@ export const updateTaskStatus = async (req, res) => {
       if (reassignedSubCategory) {
         task.subCategory = reassignedSubCategory;
         task.reassignedSubCategory = reassignedSubCategory;
+      }
+      if (endDate) {
+        task.endDate = endDate;
+      }
+      if (endTime) {
+        task.endTime = endTime;
       }
 
       task.workMap.push({
@@ -1547,7 +1597,7 @@ export const updateTaskStatus = async (req, res) => {
 export const reassignTask = async (req, res) => {
   try {
     const { id } = req.params;
-    const { assignedTo, assignedToLabel, category, subCategory, fileAttachment } = req.body;
+    const { assignedTo, assignedToLabel, category, subCategory, fileAttachment, endDate, endTime } = req.body;
     if (!assignedTo) {
       return res.status(400).json({ success: false, message: 'assignedTo is required' });
     }
@@ -1632,6 +1682,12 @@ export const reassignTask = async (req, res) => {
     if (subCategory) {
       task.subCategory = subCategory;
       task.reassignedSubCategory = subCategory;
+    }
+    if (endDate) {
+      task.endDate = endDate;
+    }
+    if (endTime) {
+      task.endTime = endTime;
     }
 
     if (!task.taskTitles) {
