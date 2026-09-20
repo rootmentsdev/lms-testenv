@@ -1346,9 +1346,21 @@ export const updateAdminUser = async (req, res) => {
             const empId = isEmployee.empID;
 
             let finalBranches = [];
-            if (role === 'super_admin' || role === 'admin' || role === 'hr_admin' || role === 'process_control_manager') {
+            if (role === 'super_admin' || role === 'admin' || role === 'hr_admin' || role === 'process_control_manager' || role === 'office_admin') {
                 const allBranches = await Branch.find();
                 finalBranches = allBranches.map((branch) => branch._id);
+            } else if (role === 'warehouse_admin') {
+                const warehouseBranch = await Branch.findOne({
+                    $or: [
+                        { workingBranch: { $regex: /^warehouse$/i } },
+                        { locCode: '103' }
+                    ]
+                });
+                if (warehouseBranch) {
+                    finalBranches = [warehouseBranch._id];
+                } else {
+                    finalBranches = branches || [];
+                }
             } else {
                 finalBranches = branches || [];
             }
