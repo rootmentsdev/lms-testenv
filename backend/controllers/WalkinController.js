@@ -66,7 +66,7 @@ const resolveStoreConditions = async (storeParam) => {
         if (key) {
             allBranches.forEach(b => {
                 const bKey = locationKey(b.workingBranch || b.location || "");
-                if (bKey === key || norm(b.workingBranch).includes(key)) {
+                if (bKey === key) {
                     if (b._id) matchedBranchIds.add(b._id.toString());
                     if (b.workingBranch) matchedStoreNames.add(b.workingBranch);
                 }
@@ -75,7 +75,7 @@ const resolveStoreConditions = async (storeParam) => {
             allWalkinStores.forEach(ws => {
                 if (typeof ws === 'string') {
                     const wsKey = locationKey(ws);
-                    if (wsKey === key || norm(ws).includes(key)) {
+                    if (wsKey === key) {
                         matchedStoreNames.add(ws);
                     }
                 }
@@ -1531,7 +1531,6 @@ export const getWalkinCountPageData = async (req, res) => {
 
             dateQuery = {
                 $or: [
-                    { date: { $gte: startDate, $lte: endDate + ' 23:59:59' } },
                     { createdAt:            { $gte: startUTC, $lt: nextDayStartUTC } },
                     { updatedAt:            { $gte: startUTC, $lt: nextDayStartUTC } },
                     { bookingDate:          { $gte: startUTC, $lt: nextDayStartUTC } },
@@ -1553,7 +1552,6 @@ export const getWalkinCountPageData = async (req, res) => {
 
             dateQuery = {
                 $or: [
-                    { date: { $gte: date, $lte: date + ' 23:59:59' } },
                     { createdAt:            { $gte: startUTC, $lt: nextDayStartUTC } },
                     { updatedAt:            { $gte: startUTC, $lt: nextDayStartUTC } },
                     { bookingDate:          { $gte: startUTC, $lt: nextDayStartUTC } },
@@ -1623,6 +1621,21 @@ export const getWalkinCountPageData = async (req, res) => {
             const isDateInRange = (dateVal) => {
                 return isInISTRange(dateVal, startUTC, nextDayStartUTC);
             };
+
+            // Mirror Walkin Report's client-side hasActivityInRange filter
+            const hasAnyActivity = isDateInRange(w.createdAt) || 
+                                   isDateInRange(w.date) || 
+                                   (Array.isArray(w.statusHistory) && w.statusHistory.some(h => isDateInRange(h.date))) ||
+                                   isDateInRange(w.bookingDate) ||
+                                   isDateInRange(w.rentoutDate) ||
+                                   isDateInRange(w.returnDate) ||
+                                   isDateInRange(w.billedDate) ||
+                                   isDateInRange(w.billReturnedDate) ||
+                                   isDateInRange(w.cancelDate || w.cancellationDate);
+
+            if (!hasAnyActivity) {
+                return; // Skip records that only matched via updatedAt/lastStatusChangeDate
+            }
 
             const createdInRange = isDateInRange(w.createdAt);
             const hasBookingInRange = isDateInRange(w.bookingDate);
