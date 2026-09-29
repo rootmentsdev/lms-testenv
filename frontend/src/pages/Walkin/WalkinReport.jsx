@@ -193,16 +193,23 @@ const getISTDayRange = (dateStr) => {
 const getCombinedStatus = (rental, shoe) => {
   const r = (rental || 'New Walkin').trim();
   const s = (shoe || '').trim();
-  if (!s || s === '-' || s === 'None') return r;
-  if (r === 'New Walkin' || r === '-') return s;
-  if (r.toLowerCase() === s.toLowerCase()) return r;
-  return `${r}, ${s}`;
+  let combined = r;
+  if (s && s !== '-' && s !== 'None') {
+      combined = (r === 'New Walkin' || r === '-') ? s : `${r}, ${s}`;
+  }
+  const unique = [...new Set(combined.split(',').map(x => x.trim()).filter(Boolean))];
+  return unique.join(', ');
+};
+
+const dedupStatus = (st) => {
+  if (!st) return 'New Walkin';
+  return [...new Set(String(st).split(',').map(x => x.trim()).filter(Boolean))].join(', ');
 };
 
 const getCombinedStateAt = (w, endDateStr, startDateStr, statusFilterOrList) => {
   if (!endDateStr) {
     return {
-      status: w.status,
+      status: dedupStatus(w.status),
       rentalStatus: w.rentalStatus || 'New Walkin',
       shoeStatus: w.shoeStatus || '-',
       date: w.updatedAt || w.date
@@ -230,7 +237,7 @@ const getCombinedStateAt = (w, endDateStr, startDateStr, statusFilterOrList) => 
   if (w.cancelDate || w.cancellationDate) milestones.push({ status: 'Cancelled', date: w.cancelDate || w.cancellationDate });
   if (w.billedDate) milestones.push({ status: 'Billed', date: w.billedDate });
   if (w.billReturnedDate) milestones.push({ status: 'Bill Returned', date: w.billReturnedDate });
-  if (w.lastStatusChangeDate && w.status) milestones.push({ status: w.status, date: w.lastStatusChangeDate });
+  if (w.lastStatusChangeDate && w.status) milestones.push({ status: dedupStatus(w.status), date: w.lastStatusChangeDate });
 
   const rawEvents = [
     ...(w.statusHistory || []).map(h => ({ status: h.status, category: h.category, date: h.date })),
