@@ -319,7 +319,37 @@ const STAFF_ALIAS_MAPPING = {
 
   // Reshma
   "reshma m": "RESHMA M",
-  "reshmam": "RESHMA M"
+  "reshmam": "RESHMA M",
+
+  // Sumesh
+  "sumesh mohan": "SUMESH MOHAN",
+  "sumeshmohan": "SUMESH MOHAN",
+  "sumesh": "SUMESH MOHAN",
+
+  // Rasal / Resal
+  "resal": "RASAL",
+  "rasal": "RASAL",
+
+  // Aslam AS
+  "mohamed aslam a s": "ASLAM AS",
+  "mohamed aslam as": "ASLAM AS",
+  "mohammed aslam a s": "ASLAM AS",
+  "mohammed aslam as": "ASLAM AS",
+  "mohammad aslam a s": "ASLAM AS",
+  "mohammad aslam as": "ASLAM AS",
+  "m aslam as": "ASLAM AS",
+  "maslamas": "ASLAM AS",
+  "aslam a s": "ASLAM AS",
+  "aslam as": "ASLAM AS",
+  "aslamas": "ASLAM AS",
+
+  // Islah / Islam Rasheed
+  "islam rasheed p r": "ISLAH RASHEED P R",
+  "islam rasheed pr": "ISLAH RASHEED P R",
+  "islam rasheed": "ISLAH RASHEED P R",
+  "islah rasheed p r": "ISLAH RASHEED P R",
+  "islah rasheed pr": "ISLAH RASHEED P R",
+  "islah rasheed": "ISLAH RASHEED P R"
 };
 
 
@@ -909,7 +939,14 @@ const HomeBar = () => {
             if (!targetsMap[store]) targetsMap[store] = {};
             if (!rangesMap[store]) rangesMap[store] = {};
             if (!empTargetsMap[store]) empTargetsMap[store] = {};
-            targetsMap[store][month] = t.weeklyTargets || {};
+
+            const existingTgt = targetsMap[store][month] || {};
+            targetsMap[store][month] = {
+              1: Number(t.weeklyTargets?.[1]) > 0 ? t.weeklyTargets[1] : (existingTgt[1] || 0),
+              2: Number(t.weeklyTargets?.[2]) > 0 ? t.weeklyTargets[2] : (existingTgt[2] || 0),
+              3: Number(t.weeklyTargets?.[3]) > 0 ? t.weeklyTargets[3] : (existingTgt[3] || 0),
+              4: Number(t.weeklyTargets?.[4]) > 0 ? t.weeklyTargets[4] : (existingTgt[4] || 0),
+            };
             rangesMap[store][month] = t.weekRanges || {};
             empTargetsMap[store][month] = t.employeeTargets || [];
           });

@@ -717,7 +717,37 @@ const STAFF_ALIAS_MAPPING = {
 
   // Reshma
   "reshma m": "RESHMA M",
-  "reshmam": "RESHMA M"
+  "reshmam": "RESHMA M",
+
+  // Sumesh
+  "sumesh mohan": "SUMESH MOHAN",
+  "sumeshmohan": "SUMESH MOHAN",
+  "sumesh": "SUMESH MOHAN",
+
+  // Rasal / Resal
+  "resal": "RASAL",
+  "rasal": "RASAL",
+
+  // Aslam AS
+  "mohamed aslam a s": "ASLAM AS",
+  "mohamed aslam as": "ASLAM AS",
+  "mohammed aslam a s": "ASLAM AS",
+  "mohammed aslam as": "ASLAM AS",
+  "mohammad aslam a s": "ASLAM AS",
+  "mohammad aslam as": "ASLAM AS",
+  "m aslam as": "ASLAM AS",
+  "maslamas": "ASLAM AS",
+  "aslam a s": "ASLAM AS",
+  "aslam as": "ASLAM AS",
+  "aslamas": "ASLAM AS",
+
+  // Islah / Islam Rasheed
+  "islam rasheed p r": "ISLAH RASHEED P R",
+  "islam rasheed pr": "ISLAH RASHEED P R",
+  "islam rasheed": "ISLAH RASHEED P R",
+  "islah rasheed p r": "ISLAH RASHEED P R",
+  "islah rasheed pr": "ISLAH RASHEED P R",
+  "islah rasheed": "ISLAH RASHEED P R"
 };
 
 
@@ -753,7 +783,7 @@ function levenshteinDistance(a, b) {
   return matrix[a.length][b.length];
 }
 
-function isStaffNameMatch(strA, strB) {
+function isStaffNameMatch(strA, strB, empNameToCodeMap = null) {
   if (!strA || !strB) return false;
 
   const rawA = String(strA).trim();
@@ -768,6 +798,15 @@ function isStaffNameMatch(strA, strB) {
   const normB = normalizeForMatch(canonB);
   if (!normA || !normB) return false;
   if (normA === normB) return true;
+
+  // Check if system employee codes differ
+  if (empNameToCodeMap) {
+    const codeA = empNameToCodeMap.get(canonA.toLowerCase()) || empNameToCodeMap.get(normA);
+    const codeB = empNameToCodeMap.get(canonB.toLowerCase()) || empNameToCodeMap.get(normB);
+    if (codeA && codeB && /^EMP\d+$/.test(codeA) && /^EMP\d+$/.test(codeB) && codeA !== codeB) {
+      return false;
+    }
+  }
 
   if (typeof isStoreAliasName === "function" && (isStoreAliasName(strA) !== isStoreAliasName(strB))) return false;
 
@@ -813,11 +852,16 @@ function isStaffNameMatch(strA, strB) {
     return false; // Conflicting initials e.g. A S vs V B -> DIFFERENT STAFF!
   }
 
-  // 2. Levenshtein distance for spelling typos (e.g., THAHSEEN P vs THAHASEEN)
+  // 2. Refined Levenshtein distance for spelling typos (e.g., THAHSEEN P vs THAHASEEN)
   if (Math.abs(strAlphaA.length - strAlphaB.length) <= 3) {
     const dist = levenshteinDistance(strAlphaA, strAlphaB);
-    if (dist <= 2 && Math.min(strAlphaA.length, strAlphaB.length) >= 5) {
-      return true;
+    if (dist <= 2 && Math.min(strAlphaA.length, strAlphaB.length) >= 6) {
+      if (strAlphaA[0] === strAlphaB[0]) {
+        const isInsertionDeletion = strAlphaA.includes(strAlphaB.slice(0, 4)) || strAlphaB.includes(strAlphaA.slice(0, 4));
+        if (isInsertionDeletion) {
+          return true;
+        }
+      }
     }
   }
 
@@ -890,6 +934,19 @@ function extractWalkinEmpCodes(w, empNameToCodeMap) {
 
   return Array.from(new Set(codes.filter(Boolean)));
 }
+
+function isCodeMatch(code, empCodes) {
+  if (!code || !empCodes || !Array.isArray(empCodes) || empCodes.length === 0) return false;
+  if (empCodes.includes(code)) return true;
+  const digitsA = String(code).replace(/[^0-9]/g, "");
+  if (!digitsA || digitsA.length < 3) return false;
+  return empCodes.some(c => {
+    const digitsB = String(c).replace(/[^0-9]/g, "");
+    if (!digitsB || digitsB.length < 3) return false;
+    return digitsA === digitsB || digitsA.endsWith(digitsB) || digitsB.endsWith(digitsA);
+  });
+}
+
 
 function deduplicateStaffNames(rawNamesList, systemEmpNameToCodeMap = null, systemEmpCodeToNameMap = null) {
   if (!Array.isArray(rawNamesList)) return [];
@@ -2140,15 +2197,51 @@ const DSRReport = () => {
 
           // Populate across all store name aliases
           allStoreAliases.forEach(aliasKey => {
-            // Only set or override if doc has non-zero targets or targetsMap[aliasKey] doesn't exist yet
-            const existing = targetsMap[aliasKey];
-            const hasTargets = [1, 2, 3, 4].some(w => Number(targetEntry[w] || 0) > 0);
-            if (!existing || hasTargets) {
-              targetsMap[aliasKey] = targetEntry;
-              rangesMap[aliasKey] = rangeEntry;
-            }
-            if (!empTargetsMap[aliasKey] || (doc.employeeTargets && doc.employeeTargets.length > 0)) {
-              empTargetsMap[aliasKey] = doc.employeeTargets || [];
+            const existingTgt = targetsMap[aliasKey] || {};
+            targetsMap[aliasKey] = {
+              1: Number(targetEntry[1]) > 0 ? targetEntry[1] : (existingTgt[1] || 0),
+              2: Number(targetEntry[2]) > 0 ? targetEntry[2] : (existingTgt[2] || 0),
+              3: Number(targetEntry[3]) > 0 ? targetEntry[3] : (existingTgt[3] || 0),
+              4: Number(targetEntry[4]) > 0 ? targetEntry[4] : (existingTgt[4] || 0),
+            };
+
+            const existingRng = rangesMap[aliasKey] || {};
+            rangesMap[aliasKey] = {
+              1: (rangeEntry[1] && rangeEntry[1] !== "Select Days") ? rangeEntry[1] : (existingRng[1] || autoWeeks[1]),
+              2: (rangeEntry[2] && rangeEntry[2] !== "Select Days") ? rangeEntry[2] : (existingRng[2] || autoWeeks[2]),
+              3: (rangeEntry[3] && rangeEntry[3] !== "Select Days") ? rangeEntry[3] : (existingRng[3] || autoWeeks[3]),
+              4: (rangeEntry[4] && rangeEntry[4] !== "Select Days") ? rangeEntry[4] : (existingRng[4] || autoWeeks[4]),
+              [targetMonth]: {
+                1: (rangeEntry[1] && rangeEntry[1] !== "Select Days") ? rangeEntry[1] : (existingRng[1] || autoWeeks[1]),
+                2: (rangeEntry[2] && rangeEntry[2] !== "Select Days") ? rangeEntry[2] : (existingRng[2] || autoWeeks[2]),
+                3: (rangeEntry[3] && rangeEntry[3] !== "Select Days") ? rangeEntry[3] : (existingRng[3] || autoWeeks[3]),
+                4: (rangeEntry[4] && rangeEntry[4] !== "Select Days") ? rangeEntry[4] : (existingRng[4] || autoWeeks[4]),
+              }
+            };
+
+            // Merge employee targets per staff name
+            if (doc.employeeTargets && doc.employeeTargets.length > 0) {
+              const existingStaff = empTargetsMap[aliasKey] ? [...empTargetsMap[aliasKey]] : [];
+              doc.employeeTargets.forEach(emp => {
+                const sName = emp.staffName;
+                const idx = existingStaff.findIndex(e => e.staffName === sName || normalizeForMatch(e.staffName) === normalizeForMatch(sName));
+                if (idx >= 0) {
+                  const prevEmp = existingStaff[idx];
+                  existingStaff[idx] = {
+                    ...prevEmp,
+                    staffName: sName,
+                    weeklyTargets: {
+                      1: Number(emp.weeklyTargets?.[1]) > 0 ? emp.weeklyTargets[1] : (prevEmp.weeklyTargets?.[1] || 0),
+                      2: Number(emp.weeklyTargets?.[2]) > 0 ? emp.weeklyTargets[2] : (prevEmp.weeklyTargets?.[2] || 0),
+                      3: Number(emp.weeklyTargets?.[3]) > 0 ? emp.weeklyTargets[3] : (prevEmp.weeklyTargets?.[3] || 0),
+                      4: Number(emp.weeklyTargets?.[4]) > 0 ? emp.weeklyTargets[4] : (prevEmp.weeklyTargets?.[4] || 0),
+                    }
+                  };
+                } else {
+                  existingStaff.push(emp);
+                }
+              });
+              empTargetsMap[aliasKey] = existingStaff;
             }
           });
         });
@@ -3167,8 +3260,13 @@ const DSRReport = () => {
         let rentalVal = mergedPeriodList.filter(x => {
           if (!x) return false;
           const xCode = normalizeEmpCode(x.empCode) || systemEmpNameToCodeMap.get(getCanonicalStaffName(x.bookingBy).toLowerCase()) || systemEmpNameToCodeMap.get(normalizeForMatch(x.bookingBy));
-          if (xCode && entry.empCodes.includes(xCode)) return true;
-          return entry.rawNames.some(rn => isStaffNameMatch(rn, x.bookingBy)) || isStaffNameMatch(fullName, x.bookingBy);
+          const xHasCode = xCode && /^EMP\d+$/.test(xCode);
+          const entryHasCode = entry.empCodes && entry.empCodes.some(c => /^EMP\d+$/.test(c));
+
+          if (xHasCode) {
+            if (isCodeMatch(xCode, entry.empCodes)) return true;
+          }
+          return entry.rawNames.some(rn => isStaffNameMatch(rn, x.bookingBy, systemEmpNameToCodeMap)) || isStaffNameMatch(fullName, x.bookingBy, systemEmpNameToCodeMap);
         }).reduce((sum, x) => sum + (x.totalValue || 0), 0);
 
         if (funnelView === "Consolidated") {
@@ -3247,6 +3345,16 @@ const DSRReport = () => {
         // Add shoe/shirt sales (same lookup as funnelRows)
         const salesPeriodItem = salesData.period[locCode] || salesData.period[storeKeyVal] || { value: 0 };
         achieved += salesPeriodItem.value || 0;
+
+        if (dapprAttribution && Object.keys(dapprAttribution).length > 0) {
+          Object.keys(dapprAttribution).forEach(k => {
+            const dAttr = dapprAttribution[k] || {};
+            const isStaffInStore = mergedPeriodList.some(x => isStaffNameMatch(x.bookingBy, k));
+            if (isStaffInStore) {
+              achieved += Number(dAttr.billWtd) || 0;
+            }
+          });
+        }
       }
 
       const balance = target - achieved;
@@ -3349,9 +3457,9 @@ const DSRReport = () => {
 
         let entry = null;
 
-        if (normCode) {
+        if (normCode && /^EMP\d+$/.test(normCode)) {
           for (const e of staffMap.values()) {
-            if (e.empCodes.includes(normCode)) {
+            if (e.empCodes.includes(normCode) || isCodeMatch(normCode, e.empCodes)) {
               entry = e;
               break;
             }
@@ -3361,9 +3469,8 @@ const DSRReport = () => {
         if (!entry && (rentalName || canonName)) {
           for (const e of staffMap.values()) {
             if (
-              isStaffNameMatch(e.displayName, rentalName) ||
-              isStaffNameMatch(e.displayName, canonName) ||
-              e.rentalNames.some(rn => isStaffNameMatch(rn, rentalName) || isStaffNameMatch(rn, canonName))
+              isStaffNameMatch(e.displayName, rentalName, systemEmpNameToCodeMap) ||
+              isStaffNameMatch(e.displayName, canonName, systemEmpNameToCodeMap)
             ) {
               entry = e;
               break;
@@ -3382,12 +3489,18 @@ const DSRReport = () => {
           staffMap.set(key, entry);
         } else {
           if (normCode && !entry.empCodes.includes(normCode)) {
-            entry.empCodes.push(normCode);
+            const isEmpCodeValid = /^EMP\d+$/.test(normCode);
+            if (isEmpCodeValid) {
+              const isUsedByOther = Array.from(staffMap.values()).some(e => e !== entry && (e.empCodes.includes(normCode) || isCodeMatch(normCode, e.empCodes)));
+              if (!isUsedByOther) {
+                entry.empCodes.push(normCode);
+              }
+            }
           }
-          if (rentalName && !entry.rentalNames.includes(rentalName)) {
+          if (rentalName && !entry.rentalNames.includes(rentalName) && (isStaffNameMatch(entry.displayName, rentalName, systemEmpNameToCodeMap) || entry.displayName === "Unassigned")) {
             entry.rentalNames.push(rentalName);
           }
-          if (rentalName && rentalName.length > entry.displayName.length) {
+          if (rentalName && rentalName.length > entry.displayName.length && isStaffNameMatch(entry.displayName, rentalName, systemEmpNameToCodeMap)) {
             entry.displayName = rentalName;
           }
         }
@@ -3458,9 +3571,9 @@ const DSRReport = () => {
         if (!entry && wStaff) {
           for (const e of staffMap.values()) {
             if (
-              isStaffNameMatch(e.displayName, wStaff) ||
-              e.rentalNames.some(rn => isStaffNameMatch(rn, wStaff)) ||
-              e.siteNames.some(sn => isStaffNameMatch(sn, wStaff))
+              isStaffNameMatch(e.displayName, wStaff, systemEmpNameToCodeMap) ||
+              e.rentalNames.some(rn => isStaffNameMatch(rn, wStaff, systemEmpNameToCodeMap)) ||
+              e.siteNames.some(sn => isStaffNameMatch(sn, wStaff, systemEmpNameToCodeMap))
             ) {
               entry = e;
               break;
@@ -3480,7 +3593,10 @@ const DSRReport = () => {
           staffMap.set(key, entry);
         } else {
           wCodes.forEach(c => {
-            if (!entry.empCodes.includes(c)) entry.empCodes.push(c);
+            const isUsedByOther = Array.from(staffMap.values()).some(e => e !== entry && e.empCodes.includes(c));
+            if (!isUsedByOther && entry.empCodes.length === 0 && !entry.empCodes.includes(c)) {
+              entry.empCodes.push(c);
+            }
           });
           if (wStaff && !entry.siteNames.includes(wStaff)) {
             entry.siteNames.push(wStaff);
@@ -3508,16 +3624,30 @@ const DSRReport = () => {
       return Array.from(staffMap.values()).map(entry => {
         const staffFtdList = locFtdList.filter(x => {
           if (!x) return false;
-          const xCode = normalizeEmpCode(x.empCode);
-          if (xCode && entry.empCodes.includes(xCode)) return true;
-          return entry.rentalNames.some(rn => isStaffNameMatch(rn, x.bookingBy)) || isStaffNameMatch(entry.displayName, x.bookingBy);
+          const xCode = normalizeEmpCode(x.empCode) || systemEmpNameToCodeMap.get(getCanonicalStaffName(x.bookingBy).toLowerCase()) || systemEmpNameToCodeMap.get(normalizeForMatch(x.bookingBy));
+          const xHasCode = xCode && /^EMP\d+$/.test(xCode);
+          const entryHasCode = entry.empCodes && entry.empCodes.some(c => /^EMP\d+$/.test(c));
+
+          if (xHasCode) {
+            if (isCodeMatch(xCode, entry.empCodes)) return true;
+          }
+          const xName = x.bookingBy ? String(x.bookingBy).trim() : "";
+          if (!xName) return false;
+          return isStaffNameMatch(entry.displayName, xName, systemEmpNameToCodeMap) || entry.rentalNames.some(rn => isStaffNameMatch(rn, xName, systemEmpNameToCodeMap));
         });
 
         const staffPeriodList = locPeriodList.filter(x => {
           if (!x) return false;
-          const xCode = normalizeEmpCode(x.empCode);
-          if (xCode && entry.empCodes.includes(xCode)) return true;
-          return entry.rentalNames.some(rn => isStaffNameMatch(rn, x.bookingBy)) || isStaffNameMatch(entry.displayName, x.bookingBy);
+          const xCode = normalizeEmpCode(x.empCode) || systemEmpNameToCodeMap.get(getCanonicalStaffName(x.bookingBy).toLowerCase()) || systemEmpNameToCodeMap.get(normalizeForMatch(x.bookingBy));
+          const xHasCode = xCode && /^EMP\d+$/.test(xCode);
+          const entryHasCode = entry.empCodes && entry.empCodes.some(c => /^EMP\d+$/.test(c));
+
+          if (xHasCode) {
+            if (isCodeMatch(xCode, entry.empCodes)) return true;
+          }
+          const xName = x.bookingBy ? String(x.bookingBy).trim() : "";
+          if (!xName) return false;
+          return isStaffNameMatch(entry.displayName, xName, systemEmpNameToCodeMap) || entry.rentalNames.some(rn => isStaffNameMatch(rn, xName, systemEmpNameToCodeMap));
         });
 
         const staffWalkinsList = storeWalkins.filter(w => {
@@ -3717,7 +3847,17 @@ const DSRReport = () => {
             qtyFtd += salesFtdItem.qty || 0;
             qtyWtd += salesPeriodItem.qty || 0;
 
-
+            if (dapprAttribution && Object.keys(dapprAttribution).length > 0) {
+              Object.keys(dapprAttribution).forEach(k => {
+                const dAttr = dapprAttribution[k] || {};
+                const isStaffInStore = mergedPeriodList.some(x => isStaffNameMatch(x.bookingBy, k));
+                if (isStaffInStore) {
+                  valWtd += Number(dAttr.billWtd) || 0;
+                  billWtd += Number(dAttr.valWtd) || 0;
+                  qtyWtd += Number(dAttr.qtyWtd) || 0;
+                }
+              });
+            }
           }
 
           const createdValFtd = mergedFtdList.reduce((sum, item) => sum + (item.created_Number_Of_Bill || 0), 0);
@@ -6551,7 +6691,19 @@ const DSRReport = () => {
                         <button
                           key={w.id}
                           type="button"
-                          onClick={() => setActiveWeeks([w.id])}
+                          onClick={() => {
+                            setActiveWeeks([w.id]);
+                            const primaryWeek = w.id;
+                            let val;
+                            if (targetAssignMode === "Staff" && modalStaff) {
+                              const empObj = (employeeTargets[modalStore] || []).find(e => e.staffName === modalStaff || normalizeForMatch(e.staffName) === normalizeForMatch(modalStaff));
+                              val = empObj?.weeklyTargets?.[primaryWeek];
+                            } else {
+                              const storeTgtObj = getStoreWeeklyTargets(modalStore);
+                              val = storeTgtObj?.[primaryWeek];
+                            }
+                            setModalTarget(val !== undefined && val !== null ? val.toString() : "");
+                          }}
                           className={`relative flex flex-col items-center justify-center py-2.5 px-2 rounded-xl border transition-all duration-150 cursor-pointer ${
                             isActive
                               ? "bg-gray-900 border-gray-900 text-white shadow-sm"
@@ -6571,7 +6723,8 @@ const DSRReport = () => {
                   <div className="rounded-2xl overflow-hidden border border-gray-100">
                     {(() => {
                       const primaryWeek = activeWeeks[0];
-                      const stTgt = weeklyTargets[modalStore]?.[primaryWeek] || 0;
+                      const storeTgtObj = getStoreWeeklyTargets(modalStore);
+                      const stTgt = storeTgtObj?.[primaryWeek] || 0;
                       const allEmpTgt = (employeeTargets[modalStore] || []).reduce(
                         (sum, emp) => sum + (emp.weeklyTargets?.[primaryWeek] || 0), 0
                       );
@@ -6631,12 +6784,13 @@ const DSRReport = () => {
                     const primaryWeek = activeWeeks[0];
                     let customVal;
                     if (targetAssignMode === "Staff" && modalStaff) {
-                      const empObj = (employeeTargets[modalStore] || []).find(e => e.staffName === modalStaff);
+                      const empObj = (employeeTargets[modalStore] || []).find(e => e.staffName === modalStaff || normalizeForMatch(e.staffName) === normalizeForMatch(modalStaff));
                       customVal = empObj?.weeklyTargets?.[primaryWeek];
                     } else {
-                      customVal = weeklyTargets[modalStore]?.[primaryWeek];
+                      const storeTgtObj = getStoreWeeklyTargets(modalStore);
+                      customVal = storeTgtObj?.[primaryWeek];
                     }
-                    setModalTarget(customVal !== undefined ? customVal.toString() : "");
+                    setModalTarget(customVal !== undefined && customVal !== null ? customVal.toString() : "");
                     setTimeout(() => targetInputRef.current?.focus(), 50);
                   }}
                   className="flex items-center gap-1.5 text-[11px] font-bold text-gray-500 hover:text-gray-800 transition-colors px-1"
