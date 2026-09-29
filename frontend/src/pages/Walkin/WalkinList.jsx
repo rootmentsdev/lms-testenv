@@ -4252,7 +4252,7 @@ const sortStoresGThenZ = (a, b) => {
                                                                                  opacity: statusChangedToday[w._id] ? 0.6 : 1
                                                                              }}
                                                                          >
-                                                                             {w.status || 'New Walkin'}
+                                                                             {w.status ? Array.from(new Set(w.status.split(',').map(s => s.trim()))).join(', ') : 'New Walkin'}
                                                                          </span>
                                                                      </div>
                                                                      <select
@@ -4272,7 +4272,7 @@ const sortStoresGThenZ = (a, b) => {
                                                                          title={user?.role === 'telecaller' ? 'You do not have permission to change status.' : (statusChangedToday[w._id] ? 'Status already changed today. Try again tomorrow.' : 'Change status')}
                                                                      >
                                                                          {!['New Walkin', 'Loss', 'Revisit'].includes(w.status) && w.status && (
-                                                                             <option value={w.status}>{w.status}</option>
+                                                                             <option value={w.status}>{Array.from(new Set(w.status.split(',').map(s => s.trim()))).join(', ')}</option>
                                                                          )}
                                                                          <option value="New Walkin">New Walkin</option>
                                                                          <option value="Loss">Loss</option>

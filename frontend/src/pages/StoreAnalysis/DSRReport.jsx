@@ -3041,8 +3041,10 @@ const DSRReport = () => {
 
   // Format values to match Indian standard layout (e.g. 22,20,000)
   const formatIndianNumber = (num) => {
-    const isNegative = num < 0;
-    const absNum = Math.abs(num);
+    if (num === null || num === undefined || isNaN(num)) return "0";
+    const roundedNum = Math.round(num);
+    const isNegative = roundedNum < 0;
+    const absNum = Math.abs(roundedNum);
     const str = absNum.toString();
     let lastThree = str.substring(str.length - 3);
     const otherNumbers = str.substring(0, str.length - 3);

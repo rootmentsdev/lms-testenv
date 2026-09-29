@@ -240,10 +240,12 @@ const updateStatusAndDates = (walkinRecord, statusInput, source = 'manual') => {
         const getCombinedStatus = (rental, shoe) => {
             const r = (rental || 'New Walkin').trim();
             const s = (shoe || '').trim();
-            if (!s || s === '-' || s === 'None') return r;
-            if (r === 'New Walkin' || r === '-') return s;
-            if (r.toLowerCase() === s.toLowerCase()) return r;
-            return `${r}, ${s}`;
+            let combined = r;
+            if (s && s !== '-' && s !== 'None') {
+                combined = (r === 'New Walkin' || r === '-') ? s : `${r}, ${s}`;
+            }
+            const unique = [...new Set(combined.split(',').map(x => x.trim()).filter(Boolean))];
+            return unique.join(', ');
         };
         walkinRecord.status = getCombinedStatus(walkinRecord.rentalStatus, walkinRecord.shoeStatus);
         return true;

@@ -38,7 +38,6 @@ const CATEGORIES = [
     { key: 'new_loss', label: 'NEW LOSS', tooltip: "New walk-ins that became Loss on the selected date." },
     { key: 'new_walkin_booking', label: 'NEW WALKIN BOOKING', tooltip: "New walk-ins booked or shoe billed on the selected date." },
     { key: 'new_walkin_rentout', label: 'NEW WALKIN RENTOUT', tooltip: "New walk-ins rented out on the selected date." },
-    { key: 'new_cancelled', label: 'NEW CANCELLED', tooltip: "New walk-ins cancelled on the selected date." },
     { key: 'new_others', label: 'NEW OTHERS', tooltip: "New walk-ins not fitting the above categories." },
     { key: 'revisit_loss', label: 'REVISIT LOSS', tooltip: "Revisit walk-ins that became Loss on the selected date." },
     { key: 'revisit_rentout', label: 'REVISIT RENTOUT', tooltip: "Revisit walk-ins rented out on the selected date." },
