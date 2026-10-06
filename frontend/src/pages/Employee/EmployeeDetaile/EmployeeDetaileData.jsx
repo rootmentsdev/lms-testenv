@@ -436,7 +436,7 @@ const EmployeeDetaileData = () => {
       <SideNav />
 
       {/* Header spacing layout offset for SideNav width */}
-      <div className="md:ml-[110px] min-h-screen bg-[#f4f5f7]">
+      <div className="flex-1 min-w-0 md:ml-[110px] min-h-screen bg-[#f4f5f7]">
         <div className="px-8 py-6 max-w-[1600px] mx-auto">
           {loading ? (
             <div className="flex items-center justify-center h-[500px]">

@@ -114,8 +114,8 @@ const Header = () => {
                             className="w-11 h-11 object-contain select-none relative z-10 brand-logo-choreographed transition-transform duration-300 group-hover:scale-110" 
                         />
                     </div>
-                    <div className="flex flex-col ml-1 brand-text-perspective">
-                        <h1 className="text-xl font-bold tracking-wide brand-title-container flex items-center">
+                    <div className="flex flex-col ml-1 sm:ml-1.5 brand-text-perspective min-w-0">
+                        <h1 className="text-[18px] sm:text-xl font-bold tracking-wide brand-title-container flex items-center whitespace-nowrap">
                             {"BRYNEX ONE".split('').map((char, index) => (
                                 <span
                                     key={index}
@@ -128,7 +128,7 @@ const Header = () => {
                                 </span>
                             ))}
                         </h1>
-                        <span className="text-[9px] font-medium tracking-widest uppercase text-gray-400 group-hover:text-gray-600 transition-all duration-300" style={{ letterSpacing: '0.18em' }}>
+                        <span className="text-[7px] sm:text-[9px] font-medium tracking-[0.08em] sm:tracking-[0.18em] uppercase text-gray-400 group-hover:text-gray-600 transition-all duration-300 whitespace-nowrap overflow-hidden text-ellipsis">
                             BRYNEX APPAREL PVT.LTD
                         </span>
                     </div>

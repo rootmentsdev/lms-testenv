@@ -320,7 +320,7 @@ const GoogleReviewTask = () => {
         <ModileNav />
       </div>
 
-      <div className="flex-1 md:ml-[110px] min-h-screen p-4 sm:p-6 lg:p-8 mb-[70px] md:mb-0">
+      <div className="flex-1 min-w-0 md:ml-[110px] min-h-screen p-4 sm:p-6 lg:p-8 mb-[70px] md:mb-0">
         
         {/* White Dashboard container */}
         <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm p-6 sm:p-8 max-w-[1400px] mx-auto mt-2">

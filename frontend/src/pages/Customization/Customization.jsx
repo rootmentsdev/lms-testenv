@@ -369,7 +369,7 @@ const Customization = () => {
       <ModileNav />
 
       {/* Main Content Area — FULL WIDTH */}
-      <div className="flex-1 md:ml-[110px] p-4 md:p-8 pt-20 md:pt-8 w-full max-w-[1700px] mx-auto transition-all">
+      <div className="flex-1 min-w-0 md:ml-[110px] p-4 md:p-8 pt-20 md:pt-8 w-full max-w-[1700px] mx-auto transition-all">
 
         {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">

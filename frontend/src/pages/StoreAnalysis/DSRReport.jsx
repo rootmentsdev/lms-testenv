@@ -4679,12 +4679,12 @@ const DSRReport = () => {
             <p className="text-gray-500 text-[13px] mt-0.5">Real time performance overview across all stores</p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             {/* MTD / WTD / Custom switcher */}
             <div className="flex bg-[#e5e7eb] p-1 rounded-xl shadow-sm">
               <button 
                 onClick={() => setActiveTab("MTD")}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-md sm:rounded-lg text-[11px] sm:text-xs font-bold transition-all ${
                   activeTab === "MTD" 
                     ? "bg-[#18181b] text-white shadow-sm" 
                     : "text-gray-600 hover:text-gray-900"
@@ -4694,7 +4694,7 @@ const DSRReport = () => {
               </button>
               <button 
                 onClick={() => setActiveTab("WTD")}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-md sm:rounded-lg text-[11px] sm:text-xs font-bold transition-all ${
                   activeTab === "WTD" 
                     ? "bg-[#18181b] text-white shadow-sm" 
                     : "text-gray-600 hover:text-gray-900"
@@ -4707,7 +4707,7 @@ const DSRReport = () => {
                   setActiveTab("Custom");
                   setCustomApplied(false);
                 }}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-md sm:rounded-lg text-[11px] sm:text-xs font-bold transition-all ${
                   activeTab === "Custom" 
                     ? "bg-[#18181b] text-white shadow-sm" 
                     : "text-gray-600 hover:text-gray-900"
@@ -4718,7 +4718,7 @@ const DSRReport = () => {
             </div>
 
             {activeTab === "Custom" && (
-              <div className="flex items-center gap-2 bg-[#f9fafb] border border-gray-200 rounded-xl px-3 py-1.5 shadow-sm">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 bg-[#f9fafb] border border-gray-200 rounded-lg sm:rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 shadow-sm">
                 <div className="flex items-center gap-1.5">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">From:</span>
                   <input 
@@ -4749,7 +4749,7 @@ const DSRReport = () => {
                       setCustomApplied(true);
                     }
                   }}
-                  className={`ml-1 bg-black hover:bg-gray-800 text-white font-bold text-xs px-3.5 py-1.5 rounded-lg transition-all shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95 ${isFetchingAny ? "opacity-75 cursor-not-allowed" : ""}`}
+                  className={`ml-1 bg-black hover:bg-gray-800 text-white font-bold text-[10px] sm:text-xs px-2 sm:px-3.5 py-1 sm:py-1.5 rounded-md sm:rounded-lg transition-all shadow-sm flex items-center gap-1 sm:gap-1.5 cursor-pointer active:scale-95 whitespace-nowrap ${isFetchingAny ? "opacity-75 cursor-not-allowed" : ""}`}
                 >
                   {isFetchingAny ? (
                     <svg className="animate-spin w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24">
@@ -4770,7 +4770,7 @@ const DSRReport = () => {
             {!isStoreAdmin && (
               <button 
                 onClick={() => setConfigWeeksModalOpen(true)}
-                className="flex items-center gap-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 sm:gap-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition-colors cursor-pointer whitespace-nowrap"
               >
                 Configure Weeks
               </button>
@@ -4993,7 +4993,7 @@ const DSRReport = () => {
                 <button
                   type="button"
                   onClick={() => setIsClusterDropdownOpen(!isClusterDropdownOpen)}
-                  className="flex items-center justify-between gap-2 bg-white border border-gray-200/80 rounded-xl px-4 py-2.5 text-xs font-semibold text-gray-500 shadow-sm hover:bg-gray-50 focus:outline-none cursor-pointer min-w-[150px]"
+                  className="flex items-center justify-between gap-1.5 sm:gap-2 bg-white border border-gray-200/80 rounded-lg sm:rounded-xl px-2.5 sm:px-4 py-1.5 sm:py-2.5 text-[11px] sm:text-xs font-semibold text-gray-500 shadow-sm hover:bg-gray-50 focus:outline-none cursor-pointer min-w-0 sm:min-w-[150px] whitespace-nowrap"
                 >
                   <span>
                     {selectedClusters.includes("All") || selectedClusters.length === 0
@@ -5077,7 +5077,7 @@ const DSRReport = () => {
                 <button
                   type="button"
                   onClick={() => setIsStoreDropdownOpen(!isStoreDropdownOpen)}
-                  className="flex items-center justify-between gap-2 bg-white border border-gray-200/80 rounded-xl px-4 py-2.5 text-xs font-semibold text-gray-500 shadow-sm hover:bg-gray-50 focus:outline-none cursor-pointer min-w-[150px]"
+                  className="flex items-center justify-between gap-1.5 sm:gap-2 bg-white border border-gray-200/80 rounded-lg sm:rounded-xl px-2.5 sm:px-4 py-1.5 sm:py-2.5 text-[11px] sm:text-xs font-semibold text-gray-500 shadow-sm hover:bg-gray-50 focus:outline-none cursor-pointer min-w-0 sm:min-w-[150px] whitespace-nowrap"
                 >
                   <span>
                     {selectedStores.includes("All") || selectedStores.length === 0

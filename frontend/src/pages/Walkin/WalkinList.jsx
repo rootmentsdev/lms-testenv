@@ -3404,14 +3404,14 @@ const sortStoresGThenZ = (a, b) => {
     );
 
     return (
-        <div className="mb-[70px] text-[14px] min-h-screen" style={{ fontFamily: "DM Sans, sans-serif", background: '#f9fafb' }}>
+        <div className="mb-[70px] text-[14px] min-h-screen w-full max-w-[100vw] overflow-x-hidden" style={{ boxSizing: "border-box", fontFamily: "DM Sans, sans-serif", background: "#f9fafb" }}>
             <SideNav />
             <div className="md:hidden sm:block">
                 <ModileNav />
             </div>
 
             {/* Layout Grid Container matching standard dashboard spacing perfectly */}
-            <div className="md:ml-[120px] transition-all duration-300" style={{ paddingTop: '24px', paddingLeft: '24px', paddingRight: '24px', paddingBottom: '40px' }}>
+            <div className="md:ml-[120px] transition-all duration-300 w-full max-w-[100vw] overflow-x-hidden" style={{ boxSizing: "border-box", paddingTop: "24px", paddingLeft: "12px", paddingRight: "12px", paddingBottom: "40px" }}>
                 {showAddView ? (
                     /* ADD WALKIN FORM VIEW MATCHING SCREENSHOT EXACTLY */
                     <div className="mt-6 mb-6 max-w-6xl mx-auto px-4" style={{ fontFamily: "DM Sans, sans-serif" }}>
@@ -3648,19 +3648,19 @@ const sortStoresGThenZ = (a, b) => {
                     /* ── WALK-IN LIST VIEW ── */
                     <>
                         {/* Header */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '24px', marginBottom: '16px' }}>
-                            <h1 style={{ fontSize: '22px', fontWeight: 700, lineHeight: 1.2, color: '#111827', margin: 0 }}>Walk In List</h1>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mt-4 sm:mt-6 mb-4">
+                            <h1 className="text-[20px] sm:text-[22px] font-bold leading-tight text-gray-900 m-0">Walk In List</h1>
+                            <div className="flex flex-wrap items-center gap-2">
                                 <button
                                     onClick={() => exportCSV(walkins, { selectedStores, selectedStatuses, filterStartDate, filterEndDate })}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '7px 14px', fontSize: '13px', fontWeight: 500, color: '#374151', background: '#fff', cursor: 'pointer' }}
+                                    className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-[13px] font-medium text-gray-700 bg-white cursor-pointer hover:bg-gray-50 whitespace-nowrap"
                                 >
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                                     Export CSV
                                 </button>
                                 <button
                                     onClick={() => exportExcel(walkins, { selectedStores, selectedStatuses, filterStartDate, filterEndDate })}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid #86efac', borderRadius: '8px', padding: '7px 14px', fontSize: '13px', fontWeight: 500, color: '#15803d', background: '#dcfce7', cursor: 'pointer' }}
+                                    className="flex items-center gap-1.5 border border-green-300 rounded-lg px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-[13px] font-medium text-green-700 bg-green-50 cursor-pointer hover:bg-green-100 whitespace-nowrap"
                                 >
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                                     Export Excel
@@ -3672,7 +3672,7 @@ const sortStoresGThenZ = (a, b) => {
                                             setSelectedFile(null);
                                             setShowAddView(true);
                                         }}
-                                        style={{ background: '#111827', color: '#fff', border: 'none', borderRadius: '10px', padding: '9px 18px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                        className="bg-gray-900 hover:bg-black text-white border-none rounded-lg px-3 sm:px-4 py-1.5 text-[11px] sm:text-[13px] font-semibold cursor-pointer flex items-center gap-1.5 whitespace-nowrap transition-colors"
                                     >
                                         + New Walk In
                                     </button>
@@ -3681,32 +3681,20 @@ const sortStoresGThenZ = (a, b) => {
                         </div>
 
                         {/* Filters */}
-                        <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-4">
                             <input
                                 type="text"
                                 placeholder="Search customer, contact, store..."
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
-                                style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '7px 12px', fontSize: '13px', color: '#374151', outline: 'none', width: '260px', background: '#fff' }}
+                                className="border border-gray-200 rounded-lg px-3 py-1.5 sm:py-2 text-[12px] sm:text-[13px] text-gray-700 outline-none w-full sm:w-[260px] bg-white focus:ring-1 focus:ring-indigo-500"
                             />
                             {/* Status Multi-Select Filter */}
                             <div ref={statusDropdownRef} style={{ position: 'relative' }}>
                                 <button
                                     type="button"
                                     onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
-                                    style={{
-                                        border: '1px solid #e5e7eb',
-                                        borderRadius: '8px',
-                                        padding: '7px 12px',
-                                        fontSize: '13px',
-                                        color: '#374151',
-                                        background: '#fff',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '6px',
-                                        fontWeight: 600
-                                    }}
+                                    className="border border-gray-200 rounded-lg px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-[13px] text-gray-700 bg-white cursor-pointer flex items-center gap-1.5 font-semibold whitespace-nowrap"
                                 >
                                     <span>
                                         {selectedStatuses.includes("All") || selectedStatuses.length === 0
@@ -3773,19 +3761,7 @@ const sortStoresGThenZ = (a, b) => {
                                 <button
                                     type="button"
                                     onClick={() => setIsEventTypeDropdownOpen(!isEventTypeDropdownOpen)}
-                                    style={{
-                                        border: '1px solid #e5e7eb',
-                                        borderRadius: '8px',
-                                        padding: '7px 12px',
-                                        fontSize: '13px',
-                                        color: '#374151',
-                                        background: '#fff',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '6px',
-                                        fontWeight: 600
-                                    }}
+                                    className="border border-gray-200 rounded-lg px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-[13px] text-gray-700 bg-white cursor-pointer flex items-center gap-1.5 font-semibold whitespace-nowrap"
                                 >
                                     <span>
                                         {selectedEventTypes.includes("All") || selectedEventTypes.length === 0
@@ -3847,19 +3823,19 @@ const sortStoresGThenZ = (a, b) => {
                                     </div>
                                 )}
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                                 <input
                                     type="date"
                                     value={filterStartDate}
                                     onChange={e => setFilterStartDate(e.target.value)}
-                                    style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '7px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer' }}
+                                    className="border border-gray-200 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-[13px] text-gray-700 outline-none bg-white cursor-pointer"
                                 />
-                                <span style={{ fontSize: '13px', color: '#6b7280' }}>to</span>
+                                <span className="text-[11px] sm:text-[13px] text-gray-500">to</span>
                                 <input
                                     type="date"
                                     value={filterEndDate}
                                     onChange={e => setFilterEndDate(e.target.value)}
-                                    style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '7px 12px', fontSize: '13px', color: '#374151', outline: 'none', background: '#fff', cursor: 'pointer' }}
+                                    className="border border-gray-200 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-[13px] text-gray-700 outline-none bg-white cursor-pointer"
                                 />
                                 {(filterStartDate || filterEndDate) && (
                                     <button
@@ -3867,22 +3843,9 @@ const sortStoresGThenZ = (a, b) => {
                                             setFilterStartDate('');
                                             setFilterEndDate('');
                                         }}
-                                        style={{
-                                            background: '#f3f4f6',
-                                            border: '1px solid #e5e7eb',
-                                            borderRadius: '8px',
-                                            padding: '7px 12px',
-                                            fontSize: '13px',
-                                            color: '#374151',
-                                            cursor: 'pointer',
-                                            outline: 'none',
-                                            fontWeight: 500,
-                                            transition: 'all 0.2s'
-                                        }}
-                                        onMouseEnter={e => e.target.style.background = '#e5e7eb'}
-                                        onMouseLeave={e => e.target.style.background = '#f3f4f6'}
+                                        className="bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-[13px] text-gray-700 font-medium transition-colors cursor-pointer outline-none whitespace-nowrap"
                                     >
-                                        Clear Range
+                                        Clear
                                     </button>
                                 )}
                             </div>
@@ -3893,19 +3856,7 @@ const sortStoresGThenZ = (a, b) => {
                                     <button
                                         type="button"
                                         onClick={() => setIsClusterDropdownOpen(!isClusterDropdownOpen)}
-                                        style={{
-                                            border: '1px solid #e5e7eb',
-                                            borderRadius: '8px',
-                                            padding: '7px 12px',
-                                            fontSize: '13px',
-                                            color: '#374151',
-                                            background: '#fff',
-                                            cursor: 'pointer',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '6px',
-                                            fontWeight: 600
-                                        }}
+                                        className="border border-gray-200 rounded-lg px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-[13px] text-gray-700 bg-white cursor-pointer flex items-center gap-1.5 font-semibold whitespace-nowrap"
                                     >
                                         <span>
                                             {selectedClusters.includes("All") || selectedClusters.length === 0
@@ -3977,19 +3928,7 @@ const sortStoresGThenZ = (a, b) => {
                                         type="button"
                                         disabled={user?.role === 'store_admin'}
                                         onClick={() => setIsStoreDropdownOpen(!isStoreDropdownOpen)}
-                                        style={{
-                                            border: '1px solid #e5e7eb',
-                                            borderRadius: '8px',
-                                            padding: '7px 12px',
-                                            fontSize: '13px',
-                                            color: '#374151',
-                                            background: '#fff',
-                                            cursor: user?.role === 'store_admin' ? 'not-allowed' : 'pointer',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '6px',
-                                            fontWeight: 600
-                                        }}
+                                        className={`border border-gray-200 rounded-lg px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-[13px] text-gray-700 bg-white flex items-center gap-1.5 font-semibold whitespace-nowrap ${user?.role === 'store_admin' ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
                                     >
                                         <span>
                                             {selectedStores.includes("All") || selectedStores.length === 0

@@ -1043,7 +1043,7 @@ const GrowthComparison = () => {
               </div>
             )}
             {activeTab === "CUSTOM" && (
-              <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-gray-200 shadow-sm text-xs font-medium text-gray-600">
+              <div className="flex flex-wrap items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-gray-200 shadow-sm text-xs font-medium text-gray-600">
                 <span className="font-bold text-gray-800">TY Range:</span>
                 <input
                   type="date"

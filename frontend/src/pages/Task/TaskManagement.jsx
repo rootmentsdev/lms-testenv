@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useSelector } from 'react-redux';
 import SideNav from '../../components/SideNav/SideNav';
+import ModileNav from '../../components/SideNav/ModileNav';
 import TaskDetailModal from '../../components/Task/TaskDetailModal';
 import baseUrl from '../../api/api';
 import { fetchTasks } from '../../features/task/taskFetch';
@@ -421,6 +422,7 @@ const TaskManagement = () => {
 
   return (
     <div className="task-mgmt-page">
+      <div className="md:hidden sm:block"><ModileNav /></div>
       <SideNav />
 
       <div className="task-mgmt-content">

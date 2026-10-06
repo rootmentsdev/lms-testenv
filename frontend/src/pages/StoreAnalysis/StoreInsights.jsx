@@ -422,7 +422,7 @@ const SegmentedControl = ({ options, value, onChange }) => {
             key={String(key)}
             type="button"
             onClick={() => onChange(key)}
-            className={`relative z-10 px-2.5 sm:px-3 py-1 rounded-full text-[10.5px] sm:text-[11px] font-black tracking-wide transition-all duration-250 ease-out cursor-pointer select-none ${
+            className={`relative z-10 px-2 sm:px-3 py-1 rounded-full text-[9.5px] sm:text-[11px] font-black tracking-wide transition-all duration-250 ease-out cursor-pointer select-none ${
               isActive
                 ? "bg-white text-gray-950 shadow-md shadow-black/10 scale-[1.02] border border-black/5 dark:bg-gray-100 dark:text-gray-950"
                 : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
@@ -5291,7 +5291,7 @@ const StoreInsights = () => {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 md:ml-[110px] min-h-screen p-4 sm:p-6 lg:p-8 mb-[70px] md:mb-0">
+      <div className="flex-1 min-w-0 md:ml-[110px] min-h-screen p-4 sm:p-6 lg:p-8 mb-[70px] md:mb-0">
         {/* Top Welcome Banner */}
         <div className="mb-6">
           <WelcomeBanner />
@@ -5329,7 +5329,7 @@ const StoreInsights = () => {
         {/* Top Header Controls row */}
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-[26px] font-bold text-gray-900 leading-tight">Store Performance Overview</h1>
+            <h1 className="text-[22px] md:text-[26px] font-bold text-gray-900 leading-tight">Store Performance Overview</h1>
             <p className="text-gray-500 text-[13px] mt-0.5 font-medium font-sans">Key performance metrics and trends across stores.</p>
           </div>
 
@@ -5587,7 +5587,7 @@ const StoreInsights = () => {
         <div className="bg-white rounded-[20px] shadow-sm border border-gray-100 p-4 sm:p-6 mb-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
             <div>
-              <h2 className="text-[16px] sm:text-[17px] font-bold text-gray-900 leading-snug">
+              <h2 className="text-[15px] sm:text-[17px] font-bold text-gray-900 leading-snug">
                 {graphType === "LY_VS_TY" 
                   ? (isStoreAdmin ? "Employee Last Year Vs This Year" : "Store Last Year Vs This Year")
                   : (isStoreAdmin ? "Employee Performance Overview" : "Store Target Vs Achieved Target")

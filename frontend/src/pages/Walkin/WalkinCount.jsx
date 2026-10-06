@@ -911,14 +911,14 @@ const WalkinCount = () => {
     };
 
     return (
-        <div className="mb-[70px] text-[14px] min-h-screen" style={{ fontFamily: "DM Sans, sans-serif", background: '#f9fafb' }}>
+        <div className="mb-[70px] text-[14px] min-h-screen w-full max-w-[100vw] overflow-x-hidden" style={{ boxSizing: "border-box", fontFamily: "DM Sans, sans-serif", background: "#f9fafb" }}>
             <SideNav />
             <div className="md:hidden sm:block">
                 <ModileNav />
             </div>
 
             {/* Main Content Area */}
-            <div className="md:ml-[120px] transition-all duration-300" style={{ paddingTop: '24px', paddingLeft: '24px', paddingRight: '24px', paddingBottom: '40px' }}>
+            <div className="md:ml-[120px] transition-all duration-300 w-full max-w-[100vw] overflow-x-hidden" style={{ boxSizing: "border-box", paddingTop: "24px", paddingLeft: "12px", paddingRight: "12px", paddingBottom: "40px" }}>
 
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -1297,9 +1297,9 @@ const WalkinCount = () => {
                                 </div>
                             )}
                             
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
                                 <span style={{ fontSize: '12px', fontWeight: 600, color: '#4b5563' }}>Date Range:</span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '3px 8px', background: '#fff' }}>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '3px 8px', background: '#fff' }}>
                                     <input
                                         type="date"
                                         value={logStartDate}

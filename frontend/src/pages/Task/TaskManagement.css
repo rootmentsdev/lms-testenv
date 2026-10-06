@@ -488,3 +488,48 @@
   color: #0369a1;
 }
 
+
+/* Mobile Responsiveness for Task Management */
+@media (max-width: 768px) {
+  .task-mgmt-page {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+  .task-mgmt-content {
+    margin-left: 0;
+    padding: 16px 12px 30px;
+    width: 100%;
+    max-width: 100vw;
+    box-sizing: border-box;
+    overflow-x: hidden;
+  }
+  .task-mgmt-header {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .task-mgmt-toolbar {
+    flex-wrap: wrap;
+  }
+  .task-mgmt-search {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+  .task-mgmt-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Firefox */
+  }
+  .task-mgmt-tabs::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.task-mgmt-new-btn {
+  white-space: nowrap;
+}
+
+.task-mgmt-tab-btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}

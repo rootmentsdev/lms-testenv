@@ -55,7 +55,7 @@ const AssessmentDetailsData = () => {
     <div className="min-h-screen bg-[#f9fafb]" style={{ fontFamily: "DM Sans, sans-serif" }}>
       <SideNav />
 
-      <div className="ml-0 md:ml-[110px] px-6 pt-6 pb-10">
+      <div className="flex-1 min-w-0 ml-0 md:ml-[110px] px-6 pt-6 pb-10">
         <div className="max-w-[1100px] mx-auto">
           <div className="flex items-start justify-between gap-4 mb-5">
             <div>

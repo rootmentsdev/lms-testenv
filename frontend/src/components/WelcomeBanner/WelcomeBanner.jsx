@@ -154,8 +154,8 @@ const WelcomeBanner = () => {
           <div className="hidden sm:block w-px h-3.5 bg-slate-300/80" />
 
           {/* Meta Chips */}
-          <div className="flex items-center gap-3 text-xs text-slate-500">
-            <div className="flex items-center gap-1.5 font-medium text-slate-600">
+          <div className="flex items-center gap-2 sm:gap-3 text-[11px] sm:text-xs text-slate-500">
+            <div className="flex items-center gap-1 sm:gap-1.5 font-medium text-slate-600">
               <HiOutlineLocationMarker className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
               <span>{getStoreDisplayName()}</span>
             </div>
@@ -176,7 +176,7 @@ const WelcomeBanner = () => {
             style={{
               boxShadow: "0 2px 8px -1px rgba(15, 23, 42, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.15)"
             }}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900/95 hover:bg-slate-900 text-white font-semibold text-xs backdrop-blur-md transition-all active:scale-95"
+            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-slate-900/95 hover:bg-slate-900 text-white font-semibold text-xs backdrop-blur-md transition-all active:scale-95"
           >
             <HiOutlineDocumentReport className="w-3.5 h-3.5 text-slate-200" />
             <span>Walk-in Reports</span>
@@ -190,7 +190,7 @@ const WelcomeBanner = () => {
               WebkitBackdropFilter: "blur(12px)",
               boxShadow: "0 1px 4px rgba(0, 0, 0, 0.03), inset 0 1px 1px rgba(255, 255, 255, 0.9)"
             }}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl hover:bg-white text-slate-700 hover:text-slate-900 font-semibold text-xs border border-white/90 transition-all active:scale-95"
+            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl hover:bg-white text-slate-700 hover:text-slate-900 font-semibold text-xs border border-white/90 transition-all active:scale-95"
           >
             <HiOutlineClipboardList className="w-3.5 h-3.5 text-emerald-600" />
             <span>Tasks</span>
@@ -204,7 +204,7 @@ const WelcomeBanner = () => {
               WebkitBackdropFilter: "blur(12px)",
               boxShadow: "0 1px 4px rgba(0, 0, 0, 0.03), inset 0 1px 1px rgba(255, 255, 255, 0.9)"
             }}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl hover:bg-white text-slate-700 hover:text-slate-900 font-semibold text-xs border border-white/90 transition-all active:scale-95"
+            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl hover:bg-white text-slate-700 hover:text-slate-900 font-semibold text-xs border border-white/90 transition-all active:scale-95"
           >
             <HiOutlineChartBar className="w-3.5 h-3.5 text-blue-600" />
             <span>DSR Report</span>

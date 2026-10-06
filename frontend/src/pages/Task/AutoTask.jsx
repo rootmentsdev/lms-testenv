@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import Select, { components } from 'react-select';
 import SideNav from '../../components/SideNav/SideNav';
+import ModileNav from '../../components/SideNav/ModileNav';
 import { createAutoTask } from '../../features/task/taskFetch';
 import baseUrl from '../../api/api';
 import './AutoTask.css';
@@ -695,6 +696,7 @@ const AutoTask = () => {
   return (
     <div className="auto-task-page">
       <SideNav />
+      <div className="md:hidden sm:block"><ModileNav /></div>
 
       <div className="auto-task-wrapper">
         <div className="auto-task-card">
