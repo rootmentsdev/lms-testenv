@@ -217,10 +217,10 @@ const Login = () => {
 
   // ── Shared styles ──────────────────────────────────────────────────────────
   const inputCls =
-    'w-full bg-[#2a2a2a] border border-[#3a3a3a] text-white placeholder-gray-500 rounded-xl px-4 py-3 text-sm ' +
+    'w-full bg-[#2a2a2a] border border-[#3a3a3a] text-white placeholder-gray-500 rounded-xl px-4 py-3 text-base sm:text-sm ' +
     'focus:outline-none focus:border-gray-400 focus:bg-[#313131] transition-all duration-200';
   const selectCls =
-    'w-full bg-[#2a2a2a] border border-[#3a3a3a] text-white rounded-xl px-4 py-3 text-sm ' +
+    'w-full bg-[#2a2a2a] border border-[#3a3a3a] text-white rounded-xl px-4 py-3 text-base sm:text-sm ' +
     'focus:outline-none focus:border-gray-400 transition-all duration-200 appearance-none';
 
   return (

@@ -102,19 +102,19 @@ const Header = () => {
     return (
         <>
             <header
-                className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between bg-white border-b border-gray-200"
-                style={{ height: '60px', padding: '0 24px' }}
+                className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between bg-white border-b border-gray-200 px-3 sm:px-6"
+                style={{ height: '60px' }}
             >
                 {/* ── Left: Logo + brand name ── */}
-                <Link to="/" className="flex items-center gap-3 no-underline select-none group">
+                <Link to="/" className="flex items-center gap-2 sm:gap-3 no-underline select-none group shrink-0">
                     <div className="brand-logo-ambient relative flex items-center justify-center p-0.5 rounded-full" style={{ perspective: '1000px' }}>
                         <img 
                             src="/logo.png" 
                             alt="Brynex LMS" 
-                            className="w-11 h-11 object-contain select-none relative z-10 brand-logo-choreographed transition-transform duration-300 group-hover:scale-110" 
+                            className="w-9 h-9 sm:w-11 sm:h-11 object-contain select-none relative z-10 brand-logo-choreographed transition-transform duration-300 group-hover:scale-110" 
                         />
                     </div>
-                    <div className="flex flex-col ml-1 sm:ml-1.5 brand-text-perspective min-w-0">
+                    <div className="flex flex-col ml-1 sm:ml-1.5 brand-text-perspective">
                         <h1 className="text-[18px] sm:text-xl font-bold tracking-wide brand-title-container flex items-center whitespace-nowrap">
                             {"BRYNEX ONE".split('').map((char, index) => (
                                 <span

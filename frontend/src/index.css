@@ -440,3 +440,14 @@ html.dark .brand-title-container {
   }
 }
 
+
+/* Fix for date inputs appearing black/empty on mobile */
+input[type="date"] {
+  background-color: #ffffff;
+  color-scheme: light;
+}
+
+html.dark input[type="date"] {
+  background-color: #162235 !important;
+  color-scheme: dark;
+}

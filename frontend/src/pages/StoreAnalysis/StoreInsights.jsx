@@ -5959,7 +5959,7 @@ const StoreInsights = () => {
             </div>
             
             {!isStoreAdmin && (
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full sm:w-auto">
                 {!isClusterAdmin && (
                   <>
                     {/* Role Badge / Dropdown */}
@@ -5981,7 +5981,7 @@ const StoreInsights = () => {
                         </button>
 
                         {isRoleDropdownOpen && (
-                          <div className="absolute right-0 mt-1.5 w-48 bg-white rounded-2xl shadow-2xl border border-gray-100/90 z-50 p-1.5 text-xs font-sans animate-popoverOpen origin-top-right">
+                          <div className="absolute left-0 sm:left-auto sm:right-0 mt-1.5 w-48 bg-white rounded-2xl shadow-2xl border border-gray-100/90 z-50 p-1.5 text-xs font-sans animate-popoverOpen origin-top-left sm:origin-top-right">
                             {["Cluster", "Store Admin", "Super Admin"].map((r) => {
                               const isSelected = roleFilter === r;
                               return (
@@ -6031,7 +6031,7 @@ const StoreInsights = () => {
                       </button>
 
                       {isClusterDropdownOpen && (
-                        <div className="absolute right-0 mt-1.5 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100/90 z-50 p-2 text-xs font-sans animate-popoverOpen origin-top-right">
+                        <div className="absolute left-0 sm:left-auto sm:right-0 mt-1.5 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100/90 z-50 p-2 text-xs font-sans animate-popoverOpen origin-top-left sm:origin-top-right">
                           <div className="flex items-center justify-between px-2 py-1.5 border-b border-gray-100 mb-1">
                             <span className="font-bold text-gray-500 text-[11px]">Select Cluster(s)</span>
                             <div className="flex gap-2 text-[10px]">
@@ -6116,7 +6116,7 @@ const StoreInsights = () => {
                     </button>
 
                     {isStoreDropdownOpen && (
-                      <div className="absolute right-0 mt-1.5 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100/90 z-50 p-2 text-xs font-sans animate-popoverOpen origin-top-right">
+                      <div className="absolute left-0 sm:left-auto sm:right-0 mt-1.5 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100/90 z-50 p-2 text-xs font-sans animate-popoverOpen origin-top-left sm:origin-top-right">
                         <div className="flex items-center justify-between px-2 py-1.5 border-b border-gray-100 mb-1">
                           <span className="font-bold text-gray-500 text-[11px]">Select Store(s)</span>
                           <div className="flex gap-2 text-[10px]">
