@@ -596,7 +596,17 @@ const AutoTask = () => {
               }
               return opt;
             });
-          setAssigneeOptions(filteredAndFormatted);
+
+          const uniqueAssignees = [];
+          const seenLabels = new Set();
+          for (const opt of filteredAndFormatted) {
+            if (!seenLabels.has(opt.label)) {
+              seenLabels.add(opt.label);
+              uniqueAssignees.push(opt);
+            }
+          }
+
+          setAssigneeOptions(uniqueAssignees);
         }
       } catch (err) {
         console.error('Error fetching assignees:', err);
