@@ -3411,7 +3411,7 @@ const sortStoresGThenZ = (a, b) => {
             </div>
 
             {/* Layout Grid Container matching standard dashboard spacing perfectly */}
-            <div className="md:ml-[120px] transition-all duration-300 w-full max-w-[100vw] overflow-x-hidden" style={{ boxSizing: "border-box", paddingTop: "24px", paddingLeft: "12px", paddingRight: "12px", paddingBottom: "40px" }}>
+            <div className="md:ml-[120px] transition-all duration-300 overflow-x-hidden" style={{ boxSizing: "border-box", paddingTop: "24px", paddingLeft: "12px", paddingRight: "12px", paddingBottom: "40px" }}>
                 {showAddView ? (
                     /* ADD WALKIN FORM VIEW MATCHING SCREENSHOT EXACTLY */
                     <div className="mt-6 mb-6 max-w-6xl mx-auto px-4" style={{ fontFamily: "DM Sans, sans-serif" }}>
